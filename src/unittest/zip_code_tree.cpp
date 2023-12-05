@@ -53,10 +53,10 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             REQUIRE(zip_tree.get_tree_size() == 3);
-            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
-            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-            REQUIRE(zip_tree.get_item_at_index(1).value == 0);
-            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
+            REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
+            REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::CHAIN_END);
 
             // We see all the seeds in order
             std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
@@ -100,24 +100,24 @@ namespace unittest {
 
 
             //Chain start
-            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+            REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
             //Seed (either one because they're the same position)
-            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(1).value == 0 ||
-                     zip_tree.get_item_at_index(1).value == 1));
+            REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+            REQUIRE((zip_tree.get_item_at_index(1).get_value() == 0 ||
+                     zip_tree.get_item_at_index(1).get_value() == 1));
 
             //Distance between the seeds
-            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).value == 0);
+            REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 0);
 
             //THe other seed
-            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(3).value == 0 ||
-                     zip_tree.get_item_at_index(3).value == 1));
+            REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+            REQUIRE((zip_tree.get_item_at_index(3).get_value() == 0 ||
+                     zip_tree.get_item_at_index(3).get_value() == 1));
 
             //Chain end
-            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::CHAIN_END);
+            REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_END);
 
             // We see all the seeds in order
             std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
@@ -170,32 +170,32 @@ namespace unittest {
 
 
             //Chain start
-            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+            REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
             //Seed (either one because they're the same position)
-            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(1).value == 0 ||
-                     zip_tree.get_item_at_index(1).value == 1));
+            REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+            REQUIRE((zip_tree.get_item_at_index(1).get_value() == 0 ||
+                     zip_tree.get_item_at_index(1).get_value() == 1));
 
             //Distance between the seeds
-            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).value == 0);
+            REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 0);
 
             //THe other seed
-            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(3).value == 0 ||
-                     zip_tree.get_item_at_index(3).value == 1));
+            REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+            REQUIRE((zip_tree.get_item_at_index(3).get_value() == 0 ||
+                     zip_tree.get_item_at_index(3).get_value() == 1));
 
             //Distance between the seeds
-            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(4).value == 2);
+            REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(4).get_value() == 2);
 
             //The other seed
-            REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
-            REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+            REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(5).get_value() == 2);
 
             //Chain end
-            REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+            REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
 
             // We see all the seeds in order
             std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
@@ -279,67 +279,67 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 7);
 
             //The order should either be 0-1-2, or 2-1-0
-            bool is_rev = zip_tree.get_item_at_index(1).value == 2;
+            bool is_rev = zip_tree.get_item_at_index(1).get_value() == 2;
             if (is_rev) {
 
                 //Chain start
-                REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
                 //first seed 
-                REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
-                REQUIRE(zip_tree.get_item_at_index(1).is_reversed == true);
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 2);
+                REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed() == true);
 
                 //Distance between the seeds
-                REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(2).value == 4);
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 4);
 
                 //The next seed
-                REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(3).value == 1);
-                REQUIRE(zip_tree.get_item_at_index(3).is_reversed == true);
+                REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
+                REQUIRE(zip_tree.get_item_at_index(3).get_is_reversed() == true);
 
                 //Distance between the seeds
-                REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(4).value == 1);
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 1);
 
                 //The last seed
-                REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(5).value == 0);
-                REQUIRE(zip_tree.get_item_at_index(5).is_reversed == true);
+                REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(5).get_value() == 0);
+                REQUIRE(zip_tree.get_item_at_index(5).get_is_reversed() == true);
 
                 //Chain end
-                REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+                REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
             } else {
 
                 //Chain start
-                REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
                 //first seed 
-                REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(1).value == 0);
-                REQUIRE(zip_tree.get_item_at_index(1).is_reversed == false);
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
+                REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed() == false);
 
                 //Distance between the seeds
-                REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(2).value == 1);
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 1);
 
                 //The next seed
-                REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(3).value == 1);
-                REQUIRE(zip_tree.get_item_at_index(3).is_reversed == false);
+                REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
+                REQUIRE(zip_tree.get_item_at_index(3).get_is_reversed() == false);
 
                 //Distance between the seeds
-                REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(4).value == 4);
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_tree.get_item_at_index(4).get_value() == 4);
 
                 //The last seed
-                REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
-                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
-                REQUIRE(zip_tree.get_item_at_index(5).is_reversed == false);
+                REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(5).get_value() == 2);
+                REQUIRE(zip_tree.get_item_at_index(5).get_is_reversed() == false);
 
                 //Chain end
-                REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+                REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
             }
             
             SECTION( "Count dags" ) {
@@ -449,13 +449,13 @@ namespace unittest {
                 REQUIRE(zip_tree.get_tree_size() == 3);
 
                 //Chain start
-                REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
                 //first seed 
-                REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
 
                 //Chain end
-                REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::CHAIN_END);
 
             }
                 
@@ -516,20 +516,20 @@ namespace unittest {
                 REQUIRE(zip_tree.get_tree_size() == 5);
 
                 //Chain start
-                REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
                 //first seed 
-                REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
 
                 //Distance between the seeds
-                REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(2).value == 5);
+                REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_tree.get_item_at_index(2).get_value() == 5);
 
                 //The next seed
-                REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
+                REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
 
                 //Chain end
-                REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::CHAIN_END);
+                REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_END);
             }
 
             SECTION( "Count dags" ) {
@@ -645,40 +645,40 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 7);
 
             //Chain start
-            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+            REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
             //first seed 
-            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-            if (zip_tree.get_item_at_index(1).is_reversed) {
-                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
+            REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 2);
             } else {
-                REQUIRE(zip_tree.get_item_at_index(1).value == 0);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
             }
 
             //distance between them
-            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(2).value == 3 ||
-                    zip_tree.get_item_at_index(2).value == 6));
+            REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(2).get_value() == 3 ||
+                    zip_tree.get_item_at_index(2).get_value() == 6));
 
             //the next seed
-            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-            REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+            REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
 
             //distance between them
-            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(4).value == 3 ||
-                    zip_tree.get_item_at_index(4).value == 6));
+            REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(4).get_value() == 3 ||
+                    zip_tree.get_item_at_index(4).get_value() == 6));
 
             //the last seed
-            REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
-            if (zip_tree.get_item_at_index(5).is_reversed) {
-                REQUIRE(zip_tree.get_item_at_index(5).value == 0);
+            REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(5).get_is_reversed()) {
+                REQUIRE(zip_tree.get_item_at_index(5).get_value() == 0);
             } else {
-                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(5).get_value() == 2);
             }
 
             //Chain end
-            REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+            REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
             
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
@@ -778,43 +778,43 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 7);
 
             //Chain start
-            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+            REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
             //first seed 
             //This is either the first seed on 1 going backwards, or the third seed on 6 going backwards
-            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-            if (zip_tree.get_item_at_index(1).value == 0) {
-                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+            REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(1).get_value() == 0) {
+                REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed());
             } else {
-                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
-                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+                REQUIRE(zip_tree.get_item_at_index(1).get_value() == 2);
+                REQUIRE(zip_tree.get_item_at_index(1).get_is_reversed());
             }
 
             //distance between them
-            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(2).value == 2 ||
-                    zip_tree.get_item_at_index(2).value == 6));
+            REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(2).get_value() == 2 ||
+                    zip_tree.get_item_at_index(2).get_value() == 6));
 
             //the next seed
-            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
-            REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+            REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
 
             //distance between them
-            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(4).value == 2 ||
-                    zip_tree.get_item_at_index(4).value == 6));
+            REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(4).get_value() == 2 ||
+                    zip_tree.get_item_at_index(4).get_value() == 6));
 
             //the last seed
-            REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
-            if (zip_tree.get_item_at_index(5).value == 0) {
-                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+            REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(5).get_value() == 0) {
+                REQUIRE(!zip_tree.get_item_at_index(5).get_is_reversed());
             } else {
-                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
-                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+                REQUIRE(zip_tree.get_item_at_index(5).get_value() == 2);
+                REQUIRE(!zip_tree.get_item_at_index(5).get_is_reversed());
             }
 
             //Chain end
-            REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+            REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
@@ -1277,21 +1277,21 @@ namespace unittest {
                 //Check some random elements
 
                 //First seed
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).value == 0);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 //Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(5).type == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(5).get_type() == ZipCodeTree::CHAIN_START);
                 //Second seed (4)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(6).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(6).value == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 1);
 
                 //Third seed (4 in the other direction
-                REQUIRE(zip_forest.trees[0].get_item_at_index(11).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(6).value == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(11).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 1);
 
                 //Fourth seed (3-1
-                REQUIRE(zip_forest.trees[0].get_item_at_index(17).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(17).value == 2);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_value() == 2);
 
             }
 
@@ -1376,19 +1376,19 @@ namespace unittest {
                 //Check some random elements
 
                 //First seed
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(1).value == 0);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 //Start of cyclic snarl
-                REQUIRE(zip_forest.trees[0].get_item_at_index(17).type == ZipCodeTree::SNARL_START);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(25).type == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(25).value == 5);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::SNARL_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_value() == 5);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(30).type == ZipCodeTree::SNARL_END);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::SNARL_END);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(34).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(34).value == 4);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(35).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(35).value == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 4);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(35).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(35).get_value() == 1);
 
             }
 

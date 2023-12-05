@@ -25,7 +25,7 @@ The tree can be traversed to find distances between seeds
 This provides an iterator that, given a seed and a distance limit, iterates through seeds that are
 reachable within the distance limit
 
-The ZipCodeTree is constructed by the ZipCodeForest, which represents a collection of trees
+The ZipCodeTree is built by the ZipCodeForest, which represents a collection of trees
 
 */
 class ZipCodeTree {
@@ -113,19 +113,46 @@ class ZipCodeTree {
      */
 
     public:
-    enum tree_item_type_t {SEED, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
+
+    ///The type of an item in the zip code tree
+    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
+
+    /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
 
+        private:
         //Is this a seed, boundary, or an edge
-        tree_item_type_t type;
+        tree_item_type_t type : 4;
 
         //For a seed, the index into seeds
         //For an edge, the distance value
         //Empty for a bound
-        size_t value;
+        size_t value : 59;
 
         //For seeds, is the position of the seed traversed backwards in the tree?
         bool is_reversed;
+
+        public:
+
+        //Empty constructor
+        tree_item_t (){};
+
+        //Constructor so that value gets set properly
+        tree_item_t ( tree_item_type_t type, size_t raw_value, bool is_reversed) 
+            : type(type), is_reversed(is_reversed) {
+            if (raw_value == std::numeric_limits<size_t>::max()) {
+                value = ((size_t)1 << 59) - 1;
+            } else {
+                value = raw_value;
+            }
+        }
+        tree_item_type_t get_type() const { return type; }
+        size_t get_value() const { 
+            return value == ((size_t)1 << 59) - 1
+                   ? std::numeric_limits<size_t>::max()
+                   : value;
+        }
+        bool get_is_reversed() const { return is_reversed; }
     };
 
 protected:
@@ -1062,9 +1089,9 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
             } else if (current_interval.code_type == ZipCode::NODE) {
                 //For a root node, just add the chain and all the seeds
 
-                trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_zip_tree].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
-                                                                             false});
+                                                                             false);
 
                 //Remember the start of the chain
                 forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
@@ -1083,9 +1110,9 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                 
             } else {
                 // Open the root chain/node
-                trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_zip_tree].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
-                                                                             false});
+                                                                             false);
 
                 //Remember the start of the chain
                 forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
