@@ -521,9 +521,11 @@ class ZipCodeForest {
         // be a subtree, and then it is copied into a new zip_tree_t in the forest.
         // So only one tree is actively being added to at a time.
         // This keeps track of which is the active tree, as an index into trees
-        size_t active_zip_tree;
+        // Note that this can't be an actual pointer to the forest because the address may move if 
+        // the vectors get shifted around in memory.
+        size_t active_zip_tree_i;
 
-        // Keep track of all open chains as an index into the current active_zip_tree of the start 
+        // Keep track of all open chains as an index into the current active_zip_tree_i of the start 
         // of the chain, and a boolean that is true if the start of the chain is farther than the 
         // distance_limit from anything else in the snarl tree.
         // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it 
@@ -553,7 +555,7 @@ class ZipCodeForest {
         forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
                                size_t gap_distance_limit, size_t distance_limit) :
             seeds(&seeds), distance_index(&distance_index), gap_distance_limit(gap_distance_limit),
-            distance_limit(distance_limit), active_zip_tree(std::numeric_limits<size_t>::max()) {
+            distance_limit(distance_limit), active_zip_tree_i(std::numeric_limits<size_t>::max()) {
 
             //This represents the current sort order of the seeds
             seed_sort_order.assign(seeds.size(), 0);
@@ -637,11 +639,18 @@ class ZipCodeForest {
         size_t sort_value;
         ZipCode::code_type_t code_type;
 
-        // For chains, this is used to indicate the order of the child of a chain,
-        // since multiple things in the chain can have the same prefix sum value
-        // The value is 0 for the earlier snarl in the chain, 1 for a node, and 2 for 
-        // the later snarl in the chain
-        // The actual sorting value of the chain is the prefix sum * 3 + chain_order
+        // For chains, this is used to indicate the order of the child of a chain
+        // Since the offset stored represents the space between nucleotides, two positions on different nodes
+        // could have the same offset. Similarly, a snarl could have the same prefix sum as a node.
+        // For example, in this graph:
+        //                2
+        //               [AA]
+        //           1  /   \  3
+        //          [AA] --- [AA]
+        // The positions n1-0 and 3+0, and the snarl 1-3 all have the same offset of 2
+        // To solve this, the prefix sum of a chain will always be multiplied by 3, and 1 will be added to snarls,
+        // And 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
+
         size_t chain_order : 3; 
 
         public:
@@ -1098,10 +1107,10 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                    current_interval.code_type == ZipCode::ROOT_SNARL);
 #endif
 
-            if (forest_state.active_zip_tree == std::numeric_limits<size_t>::max() 
-                || trees[forest_state.active_zip_tree].zip_code_tree.size() != 0) {
+            if (forest_state.active_zip_tree_i == std::numeric_limits<size_t>::max() 
+                || trees[forest_state.active_zip_tree_i].zip_code_tree.size() != 0) {
                 trees.emplace_back();
-                forest_state.active_zip_tree = trees.size()-1;
+                forest_state.active_zip_tree_i = trees.size()-1;
             }
 
             if (current_interval.code_type == ZipCode::ROOT_SNARL) {
@@ -1110,7 +1119,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
             } else if (current_interval.code_type == ZipCode::NODE) {
                 //For a root node, just add it as a chain with all the seeds
 
-                trees[forest_state.active_zip_tree].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_zip_tree_i].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
                                                                              false);
 
@@ -1131,7 +1140,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 
             } else {
                 // Open the root chain/node
-                trees[forest_state.active_zip_tree].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_zip_tree_i].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
                                                                              false);
 
@@ -1223,8 +1232,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         forest_state.open_intervals.pop_back();
     }
 
-    if (trees[forest_state.active_zip_tree].zip_code_tree.size() == 0) {
-        trees.erase(trees.begin() + forest_state.active_zip_tree);
+    if (trees[forest_state.active_zip_tree_i].zip_code_tree.size() == 0) {
+        trees.erase(trees.begin() + forest_state.active_zip_tree_i);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
     print_self(&seeds);
