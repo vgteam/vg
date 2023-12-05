@@ -546,6 +546,22 @@ class ZipCodeForest {
         //For cyclic snarls, what is the limit for separating runs of seeds
         size_t gap_distance_limit;
 
+        //The overall distance limit for splitting of new connected components
+        size_t distance_limit;
+
+        // Constructor given seeds and a distance index
+        forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
+                               size_t gap_distance_limit, size_t distance_limit) :
+            seeds(&seeds), distance_index(&distance_index), gap_distance_limit(gap_distance_limit),
+            distance_limit(distance_limit), active_zip_tree(std::numeric_limits<size_t>::max()) {
+
+            //This represents the current sort order of the seeds
+            seed_sort_order.assign(seeds.size(), 0);
+            for (size_t i = 0 ; i < seed_sort_order.size() ; i++) {
+                seed_sort_order[i] = i;
+            }
+            sort_values_by_seed.resize(seeds.size());
+        }
 
     };
 
@@ -719,8 +735,8 @@ class ZipCodeForest {
     // in the snarl (found with sibling_indices_at_depth) 
     // Open the chain, and record its presence and distance-to-start in the parent snarl, if 
     // necessary seed_index is the index into seeds of the first seed in the chain
-    void open_chain(forest_growing_state_t& forest_state, const size_t& distance_limit, 
-                    const size_t& depth, size_t seed_index, bool chain_is_reversed);
+    void open_chain(forest_growing_state_t& forest_state, const size_t& depth, 
+                    size_t seed_index, bool chain_is_reversed);
 
     // Close a chain that ends at last_seed
     // If the chain was empty, remove it and anything relating to it in the parent snarl and 
@@ -728,8 +744,8 @@ class ZipCodeForest {
     // If it can be spliced out, take out a subtree
     // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to 
     // everything before it in the snarl and remember the distance to the end of the chain
-    void close_chain(forest_growing_state_t& forest_state, const size_t& distance_limit, 
-                     const size_t& depth, const Seed& last_seed, bool chain_is_reversed);
+    void close_chain(forest_growing_state_t& forest_state, const size_t& depth, 
+                     const Seed& last_seed, bool chain_is_reversed);
 
     // Add the current seed (or snarl starting at the seed) and its distance to the previous thing 
     // in a chain
@@ -739,7 +755,7 @@ class ZipCodeForest {
     // is trivial)
     // seed_index is the index of the current seed in the list of seeds
     void add_child_to_chain(forest_growing_state_t& forest_state,
-                      const size_t& distance_limit, const size_t& depth, const size_t& seed_index, 
+                      const size_t& depth, const size_t& seed_index, 
                       bool child_is_reversed, bool chain_is_reversed, bool is_cyclic_snarl);
 
     // Start a new snarl
@@ -898,23 +914,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
     */
 
     //Start by initializing the state
-    forest_growing_state_t forest_state;
-
-    forest_state.seeds = &seeds;
-
-    forest_state.distance_index = &distance_index;
-
-    forest_state.gap_distance_limit=gap_distance_limit;
-
-    //We work on one tree at a time, but it doesn't exist yet
-    forest_state.active_zip_tree = std::numeric_limits<size_t>::max();
-
-    //This represents the current sort order of the seeds
-    forest_state.seed_sort_order.assign(seeds.size(), 0);
-    for (size_t i = 0 ; i < forest_state.seed_sort_order.size() ; i++) {
-        forest_state.seed_sort_order[i] = i;
-    }
-    forest_state.sort_values_by_seed.resize(seeds.size());
+    forest_growing_state_t forest_state(seeds, distance_index, gap_distance_limit, distance_limit);
 
     //Start with the root as the interval over seed_sort_order containing everything
     interval_and_orientation_t first_interval (0, seeds.size(), false, ZipCode::EMPTY, 0);
@@ -978,7 +978,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                     ancestor_interval.code_type == ZipCode::ROOT_NODE) {
                     //Close a chain
 
-                    close_chain(forest_state, distance_limit, depth, 
+                    close_chain(forest_state, depth, 
                                 last_seed, ancestor_interval.is_reversed); 
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1093,11 +1093,11 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                 //If this is a node, then the interval contains everything in it, so add the seeds and close the chain here
                 for (size_t seed_i = current_interval.interval_start ; seed_i < current_interval.interval_end ; seed_i++) {
 
-                    add_child_to_chain(forest_state, distance_limit, current_depth, 
+                    add_child_to_chain(forest_state, current_depth, 
                                        forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
                                        current_interval.is_reversed, false); 
                 }
-                close_chain(forest_state, distance_limit, current_depth, 
+                close_chain(forest_state, current_depth, 
                             seeds.at(forest_state.seed_sort_order[current_interval.interval_end-1]), 
                             current_interval.is_reversed); 
 
@@ -1125,11 +1125,11 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 
                     if (current_depth-1 == seeds.at(forest_state.seed_sort_order[seed_i]).zipcode_decoder->max_depth()) {
                         //If this is getting added to a node
-                        add_child_to_chain(forest_state, distance_limit, current_depth-1, 
+                        add_child_to_chain(forest_state, current_depth-1, 
                                            forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
                                            forest_state.open_intervals.back().is_reversed, false); 
                     } else {
-                        add_child_to_chain(forest_state, distance_limit, current_depth, 
+                        add_child_to_chain(forest_state, current_depth, 
                                            forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
                                            forest_state.open_intervals.back().is_reversed, false); 
                     }
@@ -1143,7 +1143,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 #endif
 
                 //Add the snarl to the chain
-                add_child_to_chain(forest_state, distance_limit, current_depth,
+                add_child_to_chain(forest_state, current_depth,
                                    forest_state.seed_sort_order[current_interval.interval_start], 
                                    current_interval.is_reversed, forest_state.open_intervals.back().is_reversed,
                                    false);
@@ -1160,7 +1160,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 #endif
 
             //Open the child chain
-            open_chain(forest_state, distance_limit, forest_state.open_intervals.size(), 
+            open_chain(forest_state, forest_state.open_intervals.size(), 
                        forest_state.seed_sort_order[current_interval.interval_start], current_interval.is_reversed);
             
         }
@@ -1182,7 +1182,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
             ancestor_interval.code_type == ZipCode::ROOT_NODE) {
             //Close a chain
 
-            close_chain(forest_state, distance_limit, forest_state.open_intervals.size()-1, 
+            close_chain(forest_state, forest_state.open_intervals.size()-1, 
                         last_seed, ancestor_interval.is_reversed); 
         } else {
 #ifdef DEBUG_ZIP_CODE_TREE

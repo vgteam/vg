@@ -15,7 +15,7 @@ using namespace std;
 namespace vg {
 
 
-void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const size_t& distance_limit, 
+void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, 
                                const size_t& depth, size_t seed_index, bool chain_is_reversed) {
     //If this is the start of a new chain
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -69,11 +69,11 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const size_
         //Remember the opening of this chain, and if its first child was far enough from the start to 
         //start a new subtree
         forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size()-1, 
-                                               forest_state.sibling_indices_at_depth[depth-1].back().distances.first > distance_limit);
+                              forest_state.sibling_indices_at_depth[depth-1].back().distances.first > forest_state.distance_limit);
     }
 }
 
-void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const size_t& distance_limit, 
+void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, 
                                 const size_t& depth, const Seed& last_seed, bool chain_is_reversed) {
 
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -130,7 +130,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const size
             size_t distance_to_chain_end = SnarlDistanceIndex::minus(last_seed.zipcode_decoder->get_length(depth),
                                           forest_state.sibling_indices_at_depth[depth].back().value);
             bool add_distances = true;
-            if (distance_to_chain_end > distance_limit && forest_state.open_chains.back().second) {
+            if (distance_to_chain_end > forest_state.distance_limit && forest_state.open_chains.back().second) {
                 //If the distance to the end is greater than the distance limit, and there was something
                 // in the chain with a large distance to the thing before it, then splice out a chain slice
 
@@ -231,7 +231,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const size
 }
 
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, 
-                       const size_t& distance_limit, const size_t& depth, const size_t& seed_index, bool child_is_reversed,
+                       const size_t& depth, const size_t& seed_index, bool child_is_reversed,
                        bool chain_is_reversed, bool is_cyclic_snarl) {
     const Seed& current_seed = forest_state.seeds->at(seed_index);
     //For these things, we need to remember the offset in the node/chain
@@ -282,7 +282,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
         forest_state.sibling_indices_at_depth[chain_depth-1][0].distances.first = current_offset;
 
         //Also update the last chain opened
-        forest_state.open_chains.back().second = current_offset > distance_limit;
+        forest_state.open_chains.back().second = current_offset > forest_state.distance_limit;
 
 
     } else if (forest_state.sibling_indices_at_depth[chain_depth][0].type != ZipCodeTree::CHAIN_START) {
@@ -297,7 +297,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             distance_between = current_offset - previous_offset;
         }
 
-        if (chain_depth == 0 && distance_between > distance_limit) {
+        if (chain_depth == 0 && distance_between > forest_state.distance_limit) {
             //The next thing in the zip tree will be the first seed (or snarl) in a top-level chain, 
             // so start a new tree
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -324,7 +324,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             forest_state.sibling_indices_at_depth[chain_depth].pop_back();
             forest_state.sibling_indices_at_depth[chain_depth].push_back({ZipCodeTree::CHAIN_START, 0}); 
 
-        } else if (distance_between > distance_limit) { 
+        } else if (distance_between > forest_state.distance_limit) { 
             //If this is too far from the previous thing, but inside a snarl
 
             if (forest_state.open_chains.back().second) {
