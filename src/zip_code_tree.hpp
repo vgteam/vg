@@ -771,17 +771,17 @@ class ZipCodeForest {
     // seed_index is the index of the current seed in the list of seeds
     void add_child_to_chain(forest_growing_state_t& forest_state,
                       const size_t& depth, const size_t& seed_index, 
-                      bool child_is_reversed, bool chain_is_reversed, bool is_cyclic_snarl);
+                      bool child_is_reversed, bool chain_is_reversed);
 
     // Start a new snarl
-    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);
+    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
 
     // Close a snarl
     // depth is the depth of the snarl and last_seed is the last seed in the snarl
     // If the snarl has no children, then delete the whole thing
     // Otherwise, add all necessary distances and close it
     void close_snarl(forest_growing_state_t& forest_state, const size_t& depth, 
-                     const Seed& last_seed, bool last_is_reversed, bool is_cyclic_snarl);
+                     const Seed& last_seed, bool last_is_reversed);
 
     // Add all the distances from everything in the snarl to either the last child of the snarl or,
     // if to_snarl_end is true, to the end bound of the snarl
@@ -789,7 +789,7 @@ class ZipCodeForest {
     void add_snarl_distances(forest_growing_state_t& forest_state,
                              const size_t& depth, const Seed& seed, bool child_is_reversed, 
                              bool snarl_is_reversed, 
-                             bool to_snarl_end, bool is_cyclic_snarl);
+                             bool to_snarl_end);
 
 
     /// Given a vector of value pairs, and a bool indicating if the pair is used for the correlation,
@@ -1018,7 +1018,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 #endif
                     //Close a snarl
                     close_snarl(forest_state, depth, last_seed, 
-                                ancestor_interval.is_reversed, ancestor_interval.code_type == ZipCode::CYCLIC_SNARL); 
+                                ancestor_interval.is_reversed); 
                 }
 
                 //Clear the list of children of the snarl tree structure at this level
@@ -1115,7 +1115,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
             if (current_interval.code_type == ZipCode::ROOT_SNARL) {
                 // Open the root snarl
-                open_snarl(forest_state, 0, false);
+                open_snarl(forest_state, 0);
             } else if (current_interval.code_type == ZipCode::NODE) {
                 //For a root node, just add it as a chain with all the seeds
 
@@ -1131,7 +1131,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                     add_child_to_chain(forest_state, current_depth, 
                                        forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                       current_interval.is_reversed, false); 
+                                       current_interval.is_reversed); 
                 }
                 close_chain(forest_state, current_depth, 
                             seeds.at(forest_state.seed_sort_order[current_interval.interval_end-1]), 
@@ -1164,7 +1164,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                     add_child_to_chain(forest_state, is_trivial_chain ? current_depth-1 : current_depth, 
                                        forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                       forest_state.open_intervals.back().is_reversed, false); 
+                                       forest_state.open_intervals.back().is_reversed); 
                 }
 
             } else {
@@ -1177,8 +1177,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 //Add the snarl to the chain
                 add_child_to_chain(forest_state, current_depth,
                                    forest_state.seed_sort_order[current_interval.interval_start], 
-                                   current_interval.is_reversed, forest_state.open_intervals.back().is_reversed,
-                                   false);
+                                   current_interval.is_reversed, forest_state.open_intervals.back().is_reversed);
             }
             
 
@@ -1226,7 +1225,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 #endif
             //Close a snarl
             close_snarl(forest_state, forest_state.open_intervals.size()-1, 
-                        last_seed, ancestor_interval.is_reversed, ancestor_interval.code_type == ZipCode::CYCLIC_SNARL); 
+                        last_seed, ancestor_interval.is_reversed); 
         }
 
         forest_state.open_intervals.pop_back();
