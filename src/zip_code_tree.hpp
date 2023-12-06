@@ -781,7 +781,7 @@ class ZipCodeForest {
     // If the snarl has no children, then delete the whole thing
     // Otherwise, add all necessary distances and close it
     void close_snarl(forest_growing_state_t& forest_state, const size_t& depth, 
-                     const Seed& last_seed, bool last_is_reversed);
+                     const Seed& last_seed, bool last_is_reversed, bool is_cyclic_snarl);
 
     // Add all the distances from everything in the snarl to either the last child of the snarl or,
     // if to_snarl_end is true, to the end bound of the snarl
@@ -789,7 +789,7 @@ class ZipCodeForest {
     void add_snarl_distances(forest_growing_state_t& forest_state,
                              const size_t& depth, const Seed& seed, bool child_is_reversed, 
                              bool snarl_is_reversed, 
-                             bool to_snarl_end);
+                             bool to_snarl_end, bool is_cyclic_snarl);
 
 
     /// Given a vector of value pairs, and a bool indicating if the pair is used for the correlation,
@@ -1018,7 +1018,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 #endif
                     //Close a snarl
                     close_snarl(forest_state, depth, last_seed, 
-                                ancestor_interval.is_reversed); 
+                                ancestor_interval.is_reversed, ancestor_interval.code_type == ZipCode::CYCLIC_SNARL); 
                 }
 
                 //Clear the list of children of the snarl tree structure at this level
@@ -1225,7 +1225,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 #endif
             //Close a snarl
             close_snarl(forest_state, forest_state.open_intervals.size()-1, 
-                        last_seed, ancestor_interval.is_reversed); 
+                        last_seed, ancestor_interval.is_reversed, ancestor_interval.code_type == ZipCode::CYCLIC_SNARL); 
         }
 
         forest_state.open_intervals.pop_back();
