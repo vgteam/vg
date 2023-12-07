@@ -1849,7 +1849,7 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator:
 }
 
 void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, 
-    const interval_and_orientation_t& interval, size_t interval_depth) const {
+    const interval_state_t& interval, size_t interval_depth) const {
 
     vector<size_t>& zipcode_sort_order = forest_state.seed_sort_order; 
     vector<sort_value_t>& sort_values_by_seed = forest_state.sort_values_by_seed;
@@ -2025,8 +2025,8 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
     return;
 }
 
-vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, 
-    const interval_and_orientation_t& interval, size_t interval_depth) const {
+vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, 
+    const interval_state_t& interval, size_t interval_depth) const {
 
     vector<size_t>& zipcode_sort_order = forest_state.seed_sort_order;
     vector<sort_value_t>& sort_values_by_seed = forest_state.sort_values_by_seed;
@@ -2037,7 +2037,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_next_interv
     /*********   Check for new intervals of the children ****************/
 
     //The new intervals to return
-    vector<interval_and_orientation_t> new_intervals;
+    vector<interval_state_t> new_intervals;
 
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Finding intervals after sorting at depth " << interval_depth << endl;
@@ -2145,7 +2145,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_next_interv
 }
 
 void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<sort_value_t>& sort_values_by_seed,
-                                        const interval_and_orientation_t& interval, bool reverse_order,
+                                        const interval_state_t& interval, bool reverse_order,
                                         size_t min_value, size_t max_value) const {
     //Radix sort the interval of zipcode_sort_order in the given interval
 #ifdef DEBUG_ZIP_CODE_SORTING
@@ -2195,7 +2195,7 @@ void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
 
 }
 void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<sort_value_t>& sort_values_by_seed,
-                                   const interval_and_orientation_t& interval, bool reverse_order) const { 
+                                   const interval_state_t& interval, bool reverse_order) const { 
     //std::sort the interval of zipcode_sort_order between interval_start and interval_end
     
 #ifdef DEBUG_ZIP_CODE_SORTING
