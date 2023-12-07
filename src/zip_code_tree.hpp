@@ -448,24 +448,38 @@ class ZipCodeForest {
       **********************************************************************************************
 
       Construction is done in a depth-first traversal of the snarl tree. So when each 
-      snarl tree node is visited, the start of the structure is added to the zip tree, then each of 
-      its children is added to the zip tree, then the end of the structure is added.
+      snarl tree node is visited, the start of the structure is added to the zip tree, then each of
+      its children is added to the zip tree along with the distances between them, then the end of
+      the structure is added.
       
       The traversal of the snarl tree is accomplished by progressively sorting the seeds to identify
-      the snarl tree structures that they lie on. Using the zip codes, the seeds can be sorted at 
-      each depth separately. The seeds get sorted using a radix-like sort, starting with the root of 
-      the snarl tree and moving down. So first, the seeds are sorted into connected components. The 
-      components are saved as "intervals" that remember the range in the sort order that the seeds 
-      occur on. Each interval of seeds represents a root-level snarl or chain. Each interval is then
-      sorted to order the seeds along the snarl or chain, and new intervals are found representing 
-      ranges of seeds on the children.
+      the snarl tree structures that they lie on. Using the zip codes, the seeds can be sorted on 
+      each snarl tree structure separately. Seeds along a chain are sorted to be ordered along a 
+      chain, and seeds in a snarl are sorted by the child of the snarl that they are on. The seeds 
+      get sorted using a radix-like sort on each structure at each depth of the snarl tree, starting
+      with the root and moving down. 
+      "Intervals" of seeds in the sort order are used to keep track of the location on the snarl 
+      tree. An interval represents a range of seeds that are all on the same snarl tree structure.
+      After sorting an interval at one depth, sub-intervals representing the children can be found.
+      So first, the seeds are sorted into connected components and sliced into intervals 
+      representing root-level snarls and chains. Each interval is then sorted to order the seeds
+      along the snarl or chain, and new intervals are found representing ranges of seeds on the 
+      children.
 
-      Each snarl and chain is comprised of the start and end bounds, the children, and distances 
-      between children/bounds. So as each child is added, we will need to know what came before it
-      in the parent snarl/chain so that we can add the distances. We also need to remember the 
-      ancestors of each snarl and chain as we are building them, so that we can close each structure
-      properly. All of this information is stored in a forest_growing_state_t as the zip trees are 
-      being built.
+      Sorting and tree-building are done at the same time, progressively at each structure in the
+      snarl tree. The order of tree-building is based on a stack of intervals. The algorithm starts 
+      with an interval for each child of the root snarl. An interval is popped from the stack. Any 
+      incomplete snarls or chains that the interval is not a child of must be completed. Then, the
+      snarl or chain that the interval represents is started in the zip tree, and any relevant 
+      distances are added. Intervals representing the children of the snarl or chain are found and
+      added to the stack. This repeats until the stack is empty.
+
+      Each snarl and chain in the zip code tree is comprised of the start and end bounds, the 
+      children, and distances between children/bounds. So as each child is added, we will need
+      to know what came before it in the parent snarl/chain so that we can add the distances. We 
+      also need to remember the ancestors of each snarl and chain as we are building them, so that
+      we can close each structure properly. All of this information is stored in a 
+      forest_growing_state_t as the zip trees are being built.
 
      **********************************************************************************************/
 
@@ -914,26 +928,18 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
     }
 
     /*
-    Make a ZipCodeForest
-    Takes a vector of seeds and their minimizers and fills in the forest
-
     The zip forest is made by sorting the seeds along chains/snarls, then adding each seed, 
     snarl/chain boundary, and distance to zip_code_tree.
 
     Sorting and tree-making are done at the same time, in a depth-first traversal of the snarl tree.
-    Sorting is done per node in the snarl tree; seeds along a chain are sorted to be ordered along
-    a chain, and seeds in a snarl are sorted by the child of the snarl that they are on.
-
-    "Intervals" of seeds in the sort order are used to keep track of the location on the snarl tree.
-    An interval represents a range of seeds that are all on the same snarl tree structure.
-    After sorting an interval at one depth, sub-intervals representing the children can be found.
+    Sorting is done per node in the snarl tree.
     
-    Intervals are stored in a stack. The algorithm starts with an interval for each child of the
-    root snarl. An interval is popped from the stack. Any incomplete snarls or chains that the
-    interval is not a child of must be completed. Then, the snarl or chain that the interval
-    represents is added to the zip tree, along with any relevant distances. Intervals representing 
-    the children of the snarl or chain are found and added to the stack. This repeats until the
-    stack is empty.
+    Intervals representing ranges of seeds corresponding to snarl tree structures are stored in a 
+    stack. The algorithm starts with an interval for each child of the root snarl. An interval is
+    popped from the stack. Any incomplete snarls or chains that the interval is not a child of 
+    must be completed. Then, the snarl or chain that the interval represents is added to the zip 
+    tree, along with any relevant distances. Intervals representing the children of the snarl or 
+    chain are found and added to the stack. This repeats until the stack is empty.
 
     */
 
@@ -1363,7 +1369,8 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
 
 
     forward_list<run_t> all_runs;
-    vector<std::tuple<size_t, size_t, bool>> read_and_chain_values (snarl_interval.interval_end-snarl_interval.interval_start);
+    //For each seed, remember its offset in the read and chain to later compute the correlation
+    vector<std::tuple<size_t, size_t, bool>> read_and_chain_offsets (snarl_interval.interval_end-snarl_interval.interval_start);
 
     for (size_t interval_i = 0 ; interval_i < child_intervals.size() ; interval_i++) {
         const auto& child_interval = child_intervals[interval_i];
@@ -1414,10 +1421,10 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
             size_t chain_offset = sort_values_by_seed[zipcode_sort_order[sort_i]].get_distance_value(); 
 
             //Remember the values for finding the correlation later
-            std::get<0>(read_and_chain_values [sort_i-snarl_interval.interval_start])= read_offset;
-            std::get<1>(read_and_chain_values [sort_i-snarl_interval.interval_start]) = 
+            std::get<0>(read_and_chain_offsets [sort_i-snarl_interval.interval_start])= read_offset;
+            std::get<1>(read_and_chain_offsets [sort_i-snarl_interval.interval_start]) = 
                     sort_values_by_seed[zipcode_sort_order[sort_i]].get_sort_value();
-            std::get<2>(read_and_chain_values [sort_i-snarl_interval.interval_start]) =
+            std::get<2>(read_and_chain_offsets [sort_i-snarl_interval.interval_start]) =
                     seed.zipcode_decoder->max_depth() <= snarl_interval.depth+2;
 
 
@@ -1540,9 +1547,9 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
             vector<pair<size_t, size_t>> run_values;
             run_values.reserve(run_seeds.size());
             for (size_t x : run_seeds) {
-                if (std::get<2>(read_and_chain_values[x])){
-                    run_values.emplace_back(std::get<0>(read_and_chain_values[x]),
-                                                  std::get<1>(read_and_chain_values[x]));
+                if (std::get<2>(read_and_chain_offsets[x])){
+                    run_values.emplace_back(std::get<0>(read_and_chain_offsets[x]),
+                                            std::get<1>(read_and_chain_offsets[x]));
                 }
             }
 
