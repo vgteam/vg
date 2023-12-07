@@ -2678,13 +2678,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
 
+
+        gbwt::GBWT cover;
+        
         // Downsample only if it would reduce the number of haplotypes sufficiently.
         size_t threshold = IndexingParameters::giraffe_gbwt_downsample * IndexingParameters::downsample_threshold;
-        bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
-
-
-        int code;
-        if (downsample) {
+        if (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold) {
             // Downsample the haplotypes and generate a path cover of components without haplotypes.
             
             // We need to drop paths that are alt allele paths and not pass them
@@ -2693,19 +2692,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 return !Paths::is_alt(xg_index->get_path_name(path));
             };
             
-            // clang wants this one cast to function first for some reason?
-            function<void(void)> exec = [&]() {
-                gbwt::GBWT cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                               IndexingParameters::giraffe_gbwt_downsample,
-                                                               IndexingParameters::downsample_context_length,
-                                                               IndexingParameters::gbwt_insert_batch_size,
-                                                               IndexingParameters::gbwt_sampling_interval,
-                                                               true, // Also include named paths from the graph
-                                                               &path_filter,
-                                                               IndexingParameters::verbosity >= IndexingParameters::Debug);
-                save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-            };
-            code = execute_in_fork(exec);
+            cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
+                                                          IndexingParameters::giraffe_gbwt_downsample,
+                                                          IndexingParameters::downsample_context_length,
+                                                          IndexingParameters::gbwt_insert_batch_size,
+                                                          IndexingParameters::gbwt_sampling_interval,
+                                                          true, // Also include named paths from the graph
+                                                          &path_filter,
+                                                          IndexingParameters::verbosity >= IndexingParameters::Debug));
         }
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
@@ -2713,24 +2707,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
             }
             
-            code = execute_in_fork([&]() {
-                gbwt::DynamicGBWT dynamic_index(*gbwt_index);
-                gbwt_index.reset();
-                gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
-                                        IndexingParameters::path_cover_depth,
-                                        IndexingParameters::downsample_context_length,
-                                        IndexingParameters::gbwt_insert_batch_size,
-                                        IndexingParameters::gbwt_sampling_interval,
-                                        IndexingParameters::verbosity >= IndexingParameters::Debug);
-                gbwt::GBWT cover = gbwt::GBWT(dynamic_index);
-                save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-            });
+            gbwt::DynamicGBWT dynamic_index(*gbwt_index);
+            gbwt_index.reset();
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
+                                    IndexingParameters::path_cover_depth,
+                                    IndexingParameters::downsample_context_length,
+                                    IndexingParameters::gbwt_insert_batch_size,
+                                    IndexingParameters::gbwt_sampling_interval,
+                                    IndexingParameters::verbosity >= IndexingParameters::Debug);
+            cover = std::move(gbwt::GBWT(dynamic_index));
         }
         
-        if (code != 0) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
-        }
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -2776,23 +2764,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        int code = execute_in_fork([&]() {
-            gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
-                                                          IndexingParameters::path_cover_depth,
-                                                          IndexingParameters::downsample_context_length,
-                                                          std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
-                                                          IndexingParameters::gbwt_sampling_interval,
-                                                          true, // Also include named paths from the graph
-                                                          &path_filter,
-                                                          IndexingParameters::verbosity >= IndexingParameters::Debug);
-            
-            save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        });
-                
-        if (code != 0) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
-        }
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
+                                                      IndexingParameters::path_cover_depth,
+                                                      IndexingParameters::downsample_context_length,
+                                                      std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
+                                                      IndexingParameters::gbwt_sampling_interval,
+                                                      true, // Also include named paths from the graph
+                                                      &path_filter,
+                                                      IndexingParameters::verbosity >= IndexingParameters::Debug);
+        
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -2939,23 +2920,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 // init the haplotype transcript GBWT
                 size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
-                int code = execute_in_fork([&]() {
-                    gbwt::GBWTBuilder gbwt_builder(node_width,
-                                                   IndexingParameters::gbwt_insert_batch_size,
-                                                   IndexingParameters::gbwt_sampling_interval);
-                    // actually build it
-                    transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
-                    
-                    // save the haplotype transcript GBWT
-                    gbwt_builder.finish();
-                    save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-                });
-
-                if (code != 0) {
-                    IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-                    throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
-                                              {"Haplotype-Transcript GBWT"});
-                }
+                
+                gbwt::GBWTBuilder gbwt_builder(node_width,
+                                               IndexingParameters::gbwt_insert_batch_size,
+                                               IndexingParameters::gbwt_sampling_interval);
+                // actually build it
+                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
+                
+                // save the haplotype transcript GBWT
+                gbwt_builder.finish();
+                save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
                 
                 // write transcript origin info table
                 info_table_name = plan->output_filepath(output_tx_table, i, graph_filenames.size());
@@ -3147,23 +3121,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // init the haplotype transcript GBWT
             size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
-            int code = execute_in_fork([&]() {
-                gbwt::GBWTBuilder gbwt_builder(node_width,
-                                               IndexingParameters::gbwt_insert_batch_size,
-                                               IndexingParameters::gbwt_sampling_interval);
-                // actually build it
-                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
-                
-                // save the haplotype transcript GBWT
-                gbwt_builder.finish();
-                save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-            });
-
-            if (code != 0) {
-                IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-                throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
-                                          {"Haplotype-Transcript GBWT"});
-            }
+            gbwt::GBWTBuilder gbwt_builder(node_width,
+                                           IndexingParameters::gbwt_insert_batch_size,
+                                           IndexingParameters::gbwt_sampling_interval);
+            // actually build it
+            transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
+            
+            // save the haplotype transcript GBWT
+            gbwt_builder.finish();
+            save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             // write transcript origin info table
             string info_table_name = plan->output_filepath(output_tx_table);
@@ -3889,24 +3855,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         params.max_node_length = IndexingParameters::max_node_size;
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
         
-        int code = execute_in_fork([&]() {
-            
-            // jointly generate the GBWT and record sequences
-            unique_ptr<gbwt::GBWT> gbwt_index;
-            unique_ptr<gbwtgraph::SequenceSource> seq_source;
-            tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
-            
-            // convert sequences into gbwt graph
-            gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
-            
-            // save together as a GBZ
-            save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        });
-        if (code != 0) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
-                                      {"Giraffe GBZ"});
-        }
+        // jointly generate the GBWT and record sequences
+        unique_ptr<gbwt::GBWT> gbwt_index;
+        unique_ptr<gbwtgraph::SequenceSource> seq_source;
+        tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
+        
+        // convert sequences into gbwt graph
+        gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
+        
+        // save together as a GBZ
+        save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
