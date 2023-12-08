@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <cstdlib>
+#include <regex>
 #include <omp.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -4716,12 +4717,77 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
         cerr << "error:[IndexRegistry] Could not open GFA file " << filepath << endl;
         exit(1);
     }
+    
+    unordered_set<string> ref_samples;
+    
+    // to pull the value out of the ref sense tag
+    regex ref_tag_regex("RS:Z:([a-zA-Z0-9 ._\\-]+)");
+    // to split the value into samples along whitespace
+    regex sample_regex("([^\\s]+)(\\s+([^\\s]+))*");
+    
     while (strm.good()) {
         char line_type = strm.get();
-        if (line_type == 'W') {
-            return true;
+        if (line_type == 'H') {
+            // look for reference sense path names
+            string line;
+            getline(strm, line);
+            smatch tag_sub;
+            bool found_match = regex_search(line, tag_sub, ref_tag_regex);
+            if (!found_match) {
+                // no ref sense tag
+                continue;
+            }
+            string tag_value = tag_sub[1];
+            smatch val_sub;
+            found_match = regex_search(tag_value, val_sub, sample_regex);
+            if (!found_match) {
+                // ref sense tag is malformed
+                cerr << tag_sub[0] << endl;
+                exit(1);
+            }
+            
+            // record the ref samples
+            for (size_t i = 1; i < val_sub.size(); ++i) {
+                string submatch = val_sub[i];
+                if (isspace(submatch[0])) {
+                    // TODO: ugly
+                    // this is one of the splits that includes the spacer between sample names
+                    continue;
+                }
+                ref_samples.insert(submatch);
+            }
         }
-        strm.ignore(numeric_limits<streamsize>::max(), '\n');
+        else {
+            if (line_type == 'P') {
+                if (strm.get() != '\t') {
+                    cerr << "error: P-line does not have tab following line type\n";
+                    exit(1);
+                }
+                
+                string path_name;
+                getline(strm, path_name, '\t');
+                
+                if (PathMetadata::parse_sense(path_name) == PathSense::HAPLOTYPE) {
+                    string sample = PathMetadata::parse_sample_name(path_name);
+                    if (sample != PathMetadata::NO_SAMPLE_NAME || !ref_samples.count(sample)) {
+                        return true;
+                    }
+                }
+            }
+            else if (line_type == 'W') {
+                if (strm.get() != '\t') {
+                    cerr << "error: W-line does not have tab following line type\n";
+                    exit(1);
+                }
+                
+                string sample;
+                getline(strm, sample, '\t');
+                if (!ref_samples.count(sample)) {
+                    return true;
+                }
+            }
+            strm.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
     }
     return false;
 }
