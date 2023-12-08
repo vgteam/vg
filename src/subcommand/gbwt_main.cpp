@@ -1829,4 +1829,4 @@ void print_metadata(std::ostream& out, const GBWTHandler& gbwts) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWTs", vg::subcommand::TOOLKIT, main_gbwt);
+static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWT and GBZ files", vg::subcommand::TOOLKIT, main_gbwt);
