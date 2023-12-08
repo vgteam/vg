@@ -38,11 +38,18 @@ is $(vg gbwt -S -Z no_ref.gbz) 1 "1 sample"
 is $(vg gbwt -C -Z no_ref.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z no_ref.gbz) 4 "4 haplotypes"
 
+# Diploid sampling
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling -g diploid.gbz full.gbz
+is $? 0 "diploid sampling"
+is $(vg gbwt -S -Z diploid.gbz) 3 "1 generated + 2 reference samples"
+is $(vg gbwt -C -Z diploid.gbz) 2 "2 contigs"
+is $(vg gbwt -H -Z diploid.gbz) 4 "2 generated + 2 reference haplotypes"
+
 # Giraffe integration, guessed output name
 vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     -f haplotype-sampling/HG003.fq.gz > default.gam 2> /dev/null
 is $? 0 "Giraffe integration with a guessed output name"
-cmp indirect.gbz full.HG003.gbz
+cmp diploid.gbz full.HG003.gbz
 is $? 0 "the sampled graph is identical to a manually sampled one"
 
 # Giraffe integration, specified output name
@@ -53,16 +60,9 @@ is $? 0 "Giraffe integration with a specified output name"
 cmp full.HG003.gbz sampled.003HG.gbz
 is $? 0 "the sampled graphs are identical"
 
-# Diploid sampling
-vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling --num-haplotypes 8 -g diploid.gbz full.gbz
-is $? 0 "diploid sampling"
-is $(vg gbwt -S -Z diploid.gbz) 3 "1 generated + 2 reference samples"
-is $(vg gbwt -C -Z diploid.gbz) 2 "2 contigs"
-is $(vg gbwt -H -Z diploid.gbz) 4 "2 generated + 2 reference haplotypes"
-
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz
+rm -f diploid.gbz
 rm -f full.HG003.gbz full.HG003.dist full.HG003.min default.gam
 rm -f sampled.003HG.gbz sampled.003HG.dist sampled.003HG.min specified.gam
-rm -f diploid.gbz
