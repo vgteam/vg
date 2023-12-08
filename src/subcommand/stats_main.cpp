@@ -1109,8 +1109,10 @@ int main_stats(int argc, char** argv) {
         manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
         
 
-        // TSV header
-        cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+        if (snarl_stats) {
+            // TSV header
+            cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+        }
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
