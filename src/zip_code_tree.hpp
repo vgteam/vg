@@ -535,9 +535,9 @@ class ZipCodeForest {
         // This keeps track of which is the active tree, as an index into trees
         // Note that this can't be an actual pointer to the forest because the address may move if 
         // the vectors get shifted around in memory.
-        size_t active_zip_tree_i;
+        size_t active_tree_index;
 
-        // Keep track of all open chains as an index into the current active_zip_tree_i of the start 
+        // Keep track of all open chains as an index into the current active_tree_index of the start 
         // of the chain, and a boolean that is true if the start of the chain is farther than the 
         // distance_limit from anything else in the snarl tree.
         // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it 
@@ -567,7 +567,7 @@ class ZipCodeForest {
         forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
                                size_t gap_distance_limit, size_t distance_limit) :
             seeds(&seeds), distance_index(&distance_index), gap_distance_limit(gap_distance_limit),
-            distance_limit(distance_limit), active_zip_tree_i(std::numeric_limits<size_t>::max()) {
+            distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
 
             //This represents the current sort order of the seeds
             seed_sort_order.assign(seeds.size(), 0);
@@ -1107,10 +1107,10 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                    current_interval.code_type == ZipCode::ROOT_SNARL);
 #endif
 
-            if (forest_state.active_zip_tree_i == std::numeric_limits<size_t>::max() 
-                || trees[forest_state.active_zip_tree_i].zip_code_tree.size() != 0) {
+            if (forest_state.active_tree_index == std::numeric_limits<size_t>::max() 
+                || trees[forest_state.active_tree_index].zip_code_tree.size() != 0) {
                 trees.emplace_back();
-                forest_state.active_zip_tree_i = trees.size()-1;
+                forest_state.active_tree_index = trees.size()-1;
             }
 
             if (current_interval.code_type == ZipCode::ROOT_SNARL) {
@@ -1119,7 +1119,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
             } else if (current_interval.code_type == ZipCode::NODE) {
                 //For a root node, just add it as a chain with all the seeds
 
-                trees[forest_state.active_zip_tree_i].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
                                                                              false);
 
@@ -1140,7 +1140,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 
             } else {
                 // Open the root chain/node
-                trees[forest_state.active_zip_tree_i].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
+                trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
                                                                              false);
 
@@ -1231,8 +1231,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         forest_state.open_intervals.pop_back();
     }
 
-    if (trees[forest_state.active_zip_tree_i].zip_code_tree.size() == 0) {
-        trees.erase(trees.begin() + forest_state.active_zip_tree_i);
+    if (trees[forest_state.active_tree_index].zip_code_tree.size() == 0) {
+        trees.erase(trees.begin() + forest_state.active_tree_index);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
     print_self(&seeds);
