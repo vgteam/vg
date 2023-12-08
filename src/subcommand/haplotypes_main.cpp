@@ -179,7 +179,7 @@ int main_haplotypes(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::DEVELOPMENT, main_haplotypes);
+static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::TOOLKIT, main_haplotypes);
 
 //----------------------------------------------------------------------------
 
