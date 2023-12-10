@@ -2025,19 +2025,25 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
     return;
 }
 
-vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, 
-    const interval_state_t& interval) const {
+void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, const interval_state_t& interval,
+                                       std::forward_list<ZipCodeForest::interval_state_t>& next_intervals) const {
 
     vector<size_t>& zipcode_sort_order = forest_state.seed_sort_order;
     vector<sort_value_t>& sort_values_by_seed = forest_state.sort_values_by_seed;
     const vector<Seed>* seeds = forest_state.seeds;
     const SnarlDistanceIndex* distance_index = forest_state.distance_index;
+    
+
+    //New intervals get added to the front of next intervals, in the sort order that they are found in.
+    //This means that the first interval found gets added to the front of the list, then the next one
+    //gets added after that one.
+    //insert_itr will always point to the item in front of wherever the next interval should be added,
+    //so always emplace/insert_after the instert_itr, and move it forward after inserting
+    std::forward_list<ZipCodeForest::interval_state_t>::iterator insert_itr = next_intervals.before_begin();
+
 
 
     /*********   Check for new intervals of the children ****************/
-
-    //The new intervals to return
-    vector<interval_state_t> new_intervals;
 
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Finding intervals after sorting at depth " << interval.depth << endl;
@@ -2059,12 +2065,12 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\tthis was a trivial chain so just return the same interval as a node" << endl;
 #endif
-        new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
+        next_intervals.emplace_after(insert_itr, interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
                                    child_depth);
         if (interval.is_ordered) {
-            new_intervals.back().is_ordered=true;
+            next_intervals.front().is_ordered=true;
         }
-        return new_intervals;
+        return;
     }
 
 
@@ -2081,13 +2087,14 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest
                                    : sort_values_by_seed[zipcode_sort_order[interval.interval_start]].get_sort_value();
 
     //Start the first interval. The end value and is_reversed gets set when ending the interval
-    new_intervals.emplace_back(interval.interval_start, interval.interval_start, interval.is_reversed, 
+    next_intervals.emplace_after(insert_itr, interval.interval_start, interval.interval_start, interval.is_reversed, 
                                first_type, child_depth);
+    ++insert_itr;
 
     //If the parent interval was reversed, then this is the second copy of the parent, and it was sorted and processed
     //in the forward direction already, and was reversed when sorting this interval, so it is sorted 
     if (interval.is_ordered || interval.is_reverse_ordered) {
-        new_intervals.back().is_ordered=true;
+        insert_itr->is_ordered=true;
     }
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
         
@@ -2106,11 +2113,11 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest
             //If this is the end of a run, close the previous run
             //Add its end value and orientation
 
-            new_intervals.back().interval_end = i;
+            insert_itr->interval_end = i;
 
             
             if (!previous_is_node) {
-                new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
+                insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
                                                                                           child_depth, *distance_index) 
                                                  ? !interval.is_reversed
                                                  : interval.is_reversed;
@@ -2119,15 +2126,17 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest
  
 
             //Open a new run
-            new_intervals.emplace_back(i, i, interval.is_reversed, is_node ? ZipCode::NODE : current_type, 
-                               child_depth);
+            next_intervals.emplace_after(insert_itr, i, i, interval.is_reversed, 
+                                         is_node ? ZipCode::NODE : current_type, 
+                                         child_depth);
+            ++insert_itr;
         }
     }
 
     //Close the last run
-    new_intervals.back().interval_end = interval.interval_end;
+    insert_itr->interval_end = interval.interval_end;
 
-    new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[interval.interval_end-1]), 
+    insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[interval.interval_end-1]), 
                                                                                child_depth, *distance_index) 
                              ? !interval.is_reversed
                              : interval.is_reversed;
@@ -2141,7 +2150,7 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_next_intervals(forest
     }
     cerr << endl;
 #endif
-    return new_intervals;
+    return;
 }
 
 void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<sort_value_t>& sort_values_by_seed,

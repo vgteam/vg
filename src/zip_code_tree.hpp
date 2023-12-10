@@ -551,7 +551,7 @@ class ZipCodeForest {
         // to the zip tree. After an interval is popped, intervals of its children get added to 
         // intervals_to_process
         // The stack structure ensures that the snarl tree gets processed in the right order
-        vector<interval_state_t> intervals_to_process;
+        forward_list<interval_state_t> intervals_to_process;
     
         //Intervals that are currently open. These represent ancestors of whatever is currently 
         //being worked on. So the size is the depth of the snarl tree
@@ -730,15 +730,18 @@ class ZipCodeForest {
 
 
     /// Assuming that the range of seeds in sort_values_by_seeds given by the interval is sorted,
-    /// return the intervals of the children of the interval, in the order of traversal
-    /// For children of chains, seeds that are on the chain itself and not nested will be put on
-    /// the same interval if there are no seeds in snarls between them, even if they are not on
-    /// the same node
-    vector<interval_state_t> get_next_intervals(forest_growing_state_t& forest_state, 
-                                                const interval_state_t& interval) const;
+    /// add the intervals of the children of the interval to the front of next_intervals. The new
+    /// intervals get added in their sort order, so the start of a chain will be at the start of
+    /// the list, to be popped first. For children of chains, seeds that are on the chain itself 
+    ///and not nested will be put on the same interval if there are no seeds in snarls between them,
+    /// even if they are not on the same node
+    void get_next_intervals(forest_growing_state_t& forest_state, 
+                            const interval_state_t& interval,
+                            std::forward_list<interval_state_t>& next_intervals) const;
 
-    /// Given intervals representing child chains on a cyclic snarl, re-partition them and return
-    /// new intervals representing runs of seeds that are "close" in each chain
+    /// Given intervals representing child chains on a cyclic snarl, re-partition them and get
+    /// new intervals representing runs of seeds that are "close" in each chain.
+    /// Like in get_next_intervals, new intervals are added to next_intervals in their sort order.
     /// Two seeds are close to each other if: 
     /// (1) the distance between them on the read is <= t, where t is a given distance limit, 
     /// (2) the minimum distance between them on the chain is <= t, and 
@@ -749,10 +752,11 @@ class ZipCodeForest {
     /// seeds. If the orientation of a run is unclear, then it is duplicated to be oriented in each 
     /// direction 
     template<typename Minimizer>
-    vector<interval_state_t> get_cyclic_snarl_intervals(forest_growing_state_t& forest_state,
+    void get_cyclic_snarl_intervals(forest_growing_state_t& forest_state,
             const VectorView<Minimizer>& minimizers, const interval_state_t& snarl_interval,
             const interval_state_t& parent_interval,
-            const vector<interval_state_t>& child_intervals) const;
+            const forward_list<interval_state_t>& child_intervals,
+            forward_list<interval_state_t>& next_intervals) const;
 
     //////////////////////////////////////////////////////
     ///////////          functions for building the trees
@@ -953,11 +957,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
     //Sort and get the intervals of the connected components
     sort_one_interval(forest_state, first_interval);
-    vector<interval_state_t> new_intervals 
-            = get_next_intervals(forest_state, first_interval);
-    forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                             std::make_move_iterator(new_intervals.rbegin()),
-                                             std::make_move_iterator(new_intervals.rend()));
+    get_next_intervals(forest_state, first_interval, forest_state.intervals_to_process);
 
 
     while (!forest_state.intervals_to_process.empty()) {
@@ -974,8 +974,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
 
         //Get the interval
-        interval_state_t current_interval = std::move(forest_state.intervals_to_process.back());
-        forest_state.intervals_to_process.pop_back();
+        interval_state_t current_interval = std::move(forest_state.intervals_to_process.front());
+        forest_state.intervals_to_process.pop_front();
 
         /********************
 
@@ -1051,7 +1051,6 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         if (current_interval.code_type != ZipCode::NODE ) {
             //Sort the current interval and get the intervals corresponding to its children
             sort_one_interval(forest_state, current_interval);
-            vector<interval_state_t> child_intervals = get_next_intervals(forest_state, current_interval);
             if (current_interval.code_type != ZipCode::CYCLIC_SNARL || current_interval.is_reverse_ordered
                     || current_interval.is_ordered){ 
 
@@ -1061,23 +1060,17 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 //By forcing duplicated copies of a cyclic snarl child to be processed here, we 
                 //prevent nested cyclic snarls from being duplicated in each copy, preventing an 
                 //exponential blowup
-                forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                                         std::make_move_iterator(child_intervals.rbegin()),
-                                                         std::make_move_iterator(child_intervals.rend()));
+                get_next_intervals(forest_state, current_interval, forest_state.intervals_to_process);
             } else {
                 //If this is a cyclic snarl, then we do further partitioning before adding the child intervals
                 //The new intervals may include duplicates, so we want to limit how many times this happens
 
-                vector<interval_state_t> snarl_child_intervals = get_cyclic_snarl_intervals(
-                                                                              forest_state, 
-                                                                              minimizers,
-                                                                              current_interval,
-                                                                              forest_state.open_intervals.back(),
-                                                                              child_intervals);
+                forward_list<interval_state_t> child_intervals;
+                get_next_intervals(forest_state, current_interval, child_intervals);
 
-                forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                                         std::make_move_iterator(snarl_child_intervals.rbegin()),
-                                                         std::make_move_iterator(snarl_child_intervals.rend()));
+                get_cyclic_snarl_intervals(forest_state, minimizers, current_interval,
+                                           forest_state.open_intervals.back(), child_intervals,
+                                           forest_state.intervals_to_process);
             }
         }
     
@@ -1244,11 +1237,12 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 }
 
 template<typename Minimizer>
-vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_intervals(
+void ZipCodeForest::get_cyclic_snarl_intervals(
     forest_growing_state_t& forest_state,
     const VectorView<Minimizer>& minimizers, const interval_state_t& snarl_interval,
     const interval_state_t& parent_interval,
-    const vector<interval_state_t>& child_intervals) const {
+    const forward_list<interval_state_t>& child_intervals,
+    forward_list<ZipCodeForest::interval_state_t>& next_intervals) const {
 
     vector<size_t>& zipcode_sort_order = forest_state.seed_sort_order;
     vector<sort_value_t>& sort_values_by_seed = forest_state.sort_values_by_seed;
@@ -1290,8 +1284,10 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
         size_t chain_range_start;
         size_t chain_range_end;
 
-        //The index of the original interval in child_intervals
-        size_t interval_i;
+        //Information from the original interval
+        size_t depth;
+        ZipCode::code_type_t code_type;
+        bool is_reversed;
 
         bool is_reversed_read;
 
@@ -1372,8 +1368,9 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
     //For each seed, remember its offset in the read and chain to later compute the correlation
     vector<std::tuple<size_t, size_t, bool>> read_and_chain_offsets (snarl_interval.interval_end-snarl_interval.interval_start);
 
-    for (size_t interval_i = 0 ; interval_i < child_intervals.size() ; interval_i++) {
-        const auto& child_interval = child_intervals[interval_i];
+    //Index into child_intervals
+    size_t interval_i = 0;
+    for (const auto& child_interval : child_intervals) {
 
         //Each interval is on one chain, but the chains aren't sorted yet so sort them
         sort_one_interval(forest_state, child_interval);
@@ -1432,7 +1429,9 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
             run_t seed_run({sort_i - snarl_interval.interval_start,
                             read_offset, read_offset,
                             chain_offset, chain_offset,
-                            interval_i,
+                            child_interval.depth,
+                            child_interval.code_type,
+                            child_interval.is_reversed,
                             is_reversed_read,
                             interval_is_reversable});
 
@@ -1508,6 +1507,7 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
                 return a.read_range_end < b.read_range_end;
             }
             });
+        interval_i++;
     }
     //TODO: Merge consecutive runs on the same chain. This shouldn't affect correctness because separate 
     //      should be unreachable, but it would make the snarls smaller
@@ -1516,7 +1516,15 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
         The orientation of the runs is determined by the orientation of the read along the parent chain  ***********/
     
 
-    vector<ZipCodeForest::interval_state_t> new_intervals;
+    //New intervals get added to the front of next intervals, in the sort order that they are found in.
+    //This means that the first interval found gets added to the front of the list, then the next one
+    //gets added after that one.
+    //insert_itr will always point to the item in front of wherever the next interval should be added,
+    //so always emplace/insert_after the instert_itr, and move it forward after inserting
+    std::forward_list<ZipCodeForest::interval_state_t>::iterator insert_itr = next_intervals.before_begin();
+
+
+
     //New sort order to replace what's currently in zipcode_sort_order for this snarl 
     vector<size_t> new_sort_order;
     new_sort_order.reserve(snarl_interval.interval_end - snarl_interval.interval_start);
@@ -1531,11 +1539,13 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
         vector<size_t> run_seeds = union_find.group(run.uf_head);
         std::sort(run_seeds.begin(), run_seeds.end());
 
-        new_intervals.emplace_back(snarl_interval.interval_start + new_sort_order.size(),
-                                    snarl_interval.interval_start + new_sort_order.size() + run_seeds.size(),   
-                                    child_intervals[run.interval_i].is_reversed,
-                                    child_intervals[run.interval_i].code_type,
-                                    child_intervals[run.interval_i].depth);
+        next_intervals.emplace_after(insert_itr, 
+                                     snarl_interval.interval_start + new_sort_order.size(),
+                                     snarl_interval.interval_start + new_sort_order.size() + run_seeds.size(),   
+                                     run.is_reversed,
+                                     run.code_type,
+                                     run.depth);
+        ++insert_itr;
 
         //Figure out if the read running backwards through this run
         bool reverse_run = false;
@@ -1588,14 +1598,16 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
 
             //If we're also duplicating this run, add another interval for the same thing reversed
             if (duplicate_run) {
-                const auto& last_interval = new_intervals.back();
-                new_intervals.emplace_back(last_interval.interval_start,
-                                           last_interval.interval_end,
-                                           !last_interval.is_reversed,
-                                           last_interval.code_type,
-                                           last_interval.depth);
+                const auto& last_interval = *insert_itr;
+                next_intervals.emplace_after(insert_itr,
+                                             last_interval.interval_start,
+                                             last_interval.interval_end,
+                                             !last_interval.is_reversed,
+                                             last_interval.code_type,
+                                             last_interval.depth);
+                ++insert_itr;
                 //Remember to reverse the order
-                new_intervals.back().is_reverse_ordered=true;
+                insert_itr->is_reverse_ordered=true;
             }
 
         } else {
@@ -1603,7 +1615,7 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
             for (int i = run_seeds.size()-1 ; i >= 0 ; --i) {
                 new_sort_order.push_back(zipcode_sort_order[snarl_interval.interval_start+run_seeds[i]]);
             }
-            new_intervals.back().is_reversed = !new_intervals.back().is_reversed;
+            insert_itr->is_reversed = !insert_itr->is_reversed;
         }
     }
 
@@ -1623,7 +1635,7 @@ vector<ZipCodeForest::interval_state_t> ZipCodeForest::get_cyclic_snarl_interval
     cerr << endl;
 #endif
 
-    return new_intervals;
+    return;
 }
 }
 
