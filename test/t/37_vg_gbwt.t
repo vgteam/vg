@@ -404,8 +404,7 @@ is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "GRCh37 C
 rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
-# TODO: When <https://github.com/vgteam/vg/issues/4110> is fixed, actually parse this as GFA
-vg gbwt -g gfa.gbz --gbz-format -E -x graphs/gfa_two_part_reference.gfa
+vg gbwt -g gfa.gbz --gbz-format -G graphs/gfa_two_part_reference.gfa
 is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l)" "2" "GBZ can represent reference paths without haplotype numbers"
 
 rm -f gfa.gbz
