@@ -21,7 +21,7 @@ gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
     );
 
     // Parse panSN with a range after it as a normal but with a fragment based
-    // on start position (e.g. HG002#1#chr3#[1566235] or HG002#1#chr3#[1566235-2397571]).
+    // on start position (e.g. HG002#1#chr3[1566235] or HG002#1#chr3[1566235-2397571]).
     parameters.path_name_formats.emplace_back(
         gbwtgraph::GFAParsingParameters::PAN_SN_REGEX + "\\[([0-9][0-9]*)(-[0-9]*)?\\]",
         gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS + "F",
