@@ -545,7 +545,7 @@ $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc_debug.* $(LIB_DIR)/libjemalloc.* $(LIB_DIR)/libjemalloc_pic.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/libjemalloc.a $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
-	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc_debug.* $(LIB_DIR)/libjemalloc.* $(LIB_DIR)/libjemalloc_pic.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable_fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a && cp -r include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc_debug.* $(LIB_DIR)/libjemalloc.* $(LIB_DIR)/libjemalloc_pic.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable-fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
