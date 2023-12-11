@@ -410,6 +410,7 @@ endif
 
 # Control variable for allocator
 # On the command line, you can `make jemalloc=off` if you definitely don't want jemalloc.
+# Or you can `make jemalloc=debug` to use a version that tries to find memory errors.
 jemalloc = on
 ifeq ($(shell uname -s),Darwin)
 	jemalloc = off
@@ -426,6 +427,13 @@ ifeq ($(jemalloc),on)
 	LD_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
 	# Use the config object for jemalloc
     CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o
+else ifeq ($(jemalloc),debug)
+    # Use jemalloc at link time
+	LINK_DEPS += $(LIB_DIR)/libjemalloc_debug.a
+    # We have to use it statically or we can't get at its secret symbols.
+	LD_LIB_FLAGS += $(LIB_DIR)/libjemalloc_debug.a
+	# Use the config object for jemalloc
+    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o
 else
 	# Use the config object for the normal allocator
     CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_system.o
@@ -534,7 +542,10 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc_debug.* $(LIB_DIR)/libjemalloc.* $(LIB_DIR)/libjemalloc_pic.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/libjemalloc.a $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+
+$(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
+	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc_debug.* $(LIB_DIR)/libjemalloc.* $(LIB_DIR)/libjemalloc_pic.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable_fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
@@ -918,6 +929,9 @@ $(UNITTEST_SUPPORT_OBJ): $(UNITTEST_SUPPORT_OBJ_DIR)/%.o : $(UNITTEST_SUPPORT_SR
 	
 # Config objects get individual rules
 $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS) $(LIB_DIR)/libjemalloc.a
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
+$(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc_debug.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.d $(DEPS) $(LIB_DIR)/libjemalloc_debug.a
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(CONFIG_OBJ_DIR)/allocator_config_system.o: $(CONFIG_SRC_DIR)/allocator_config_system.cpp $(CONFIG_OBJ_DIR)/allocator_config_system.d $(DEPS)
