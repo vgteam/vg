@@ -2545,7 +2545,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
 template void ZipCodeForest::get_cyclic_snarl_intervals<MinimizerMapper::Minimizer>(forest_growing_state_t&, 
     const VectorView<MinimizerMapper::Minimizer>&, const ZipCodeForest::interval_state_t&, const ZipCodeForest::interval_state_t&, 
-    const forward_list<ZipCodeForest::interval_state_t>&, forward_list<ZipCodeForest::interval_state_t>&);
+    const forward_list<ZipCodeForest::interval_state_t>&, forward_list<ZipCodeForest::interval_state_t>&) const;
 
 template<typename Minimizer>
 void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_state,
@@ -2676,6 +2676,8 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
 
     forward_list<run_t> all_runs;
     //For each seed, remember its offset in the read and chain to later compute the correlation
+    //The bool is true if the pair gets used for calculating correlation - if it is on the 
+    //chain itself and not nested
     vector<std::tuple<size_t, size_t, bool>> read_and_chain_offsets (snarl_interval.interval_end-snarl_interval.interval_start);
 
     //Index into child_intervals
