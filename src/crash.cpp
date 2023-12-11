@@ -51,7 +51,67 @@
     #include <backward.hpp>
 #endif
 
+#include <omp.h>
+
 namespace vg {
+
+/// Each thread stores a string of its crash context locally for exception handling
+thread_local std::string stored_crash_context;
+
+// We also store context data statically for signal handling. This needs OMP.
+
+/// How many chartacters of context do we store statically?
+constexpr static size_t CONTEXT_BUFFER_SIZE = 256;
+/// How many threads do we store static context data for?
+constexpr static size_t CONTEXT_BUFFER_COUNT = 256;
+/// Stores not-always-null-terminated context data. The compiler automatically
+/// initializes this to nulls.
+static char context_buffer[CONTEXT_BUFFER_COUNT][CONTEXT_BUFFER_SIZE];
+
+void set_crash_context(const std::string& message) {
+    // Store locally
+    stored_crash_context = message;
+
+    size_t thread_num = omp_get_thread_num();
+    if (thread_num < CONTEXT_BUFFER_COUNT) {
+        // Store for other threads.
+        strncpy(context_buffer[thread_num], message.c_str(), CONTEXT_BUFFER_SIZE);
+    }
+}
+
+void clear_crash_context() {
+    // Clear locally
+    stored_crash_context.clear();
+
+    size_t thread_num = omp_get_thread_num();
+    if (thread_num < CONTEXT_BUFFER_COUNT) {
+        // Clear for other threads
+        context_buffer[thread_num][0] = '\0';
+    }
+}
+
+/**
+ * Log all stored crash contexts to the given stream.
+ * 
+ * Will produce undefined string values if the threads in question update their
+ * contexts at the same time.
+ */
+static void dump_crash_contexts(std::ostream& out) {
+    out << "Context dump:" << std::endl;
+    // We need to copy to a local buffer because the other thread may still be running!
+    char local_buffer[CONTEXT_BUFFER_SIZE];
+    size_t threads_with_context = 0;
+    for (size_t i = 0; i < CONTEXT_BUFFER_COUNT; i++) {
+        strncpy(local_buffer, context_buffer[i], CONTEXT_BUFFER_SIZE);
+        if (local_buffer[0] != '\0') {
+            // Somebody wrote something here and never cleared it.
+            local_buffer[CONTEXT_BUFFER_SIZE - 1] = '\0';
+            out << "\tThread " << i << ": " << local_buffer << std::endl;
+            threads_with_context++;
+        }
+    }
+    out << "Found " << threads_with_context << " threads with context." << std::endl;
+}
 
 // env var for getting full stack trace on cerr instead of a file path
 const char* var = "VG_FULL_TRACEBACK";
@@ -246,9 +306,7 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
     // See
     // <https://github.com/bombela/backward-cpp/blob/65a769ffe77cf9d759d801bc792ac56af8e911a3/backward.hpp#L4239>
     // for how to decode this on different platforms.
-
     
-   
     #if defined(__APPLE__) && defined(__x86_64__) 
         // On x86-64 Mac we do a manual stack trace.
         // We model IP as a pointer to void, into the code(?)
@@ -295,7 +353,7 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
             *out << "Caught signal " << signalNumber << " at unknown address" << endl;
         }
     #endif
-
+    
     tempStream.close();
 
     // Use OSC-8 to link the user to their destination.
@@ -306,6 +364,9 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
     cerr << " to report a bug.";
     stop_link();
     cerr << endl;
+    draw_br();
+    dump_crash_contexts(std::cerr);
+    draw_br();
     if (fullTrace) {
         cerr << "Please include this entire error log in your bug report!" << endl; 
     } else {
@@ -351,16 +412,6 @@ void enable_crash_handling() {
     
     // We don't set_terminate for aborts because we still want the standard
     // library's message about what the exception was.
-}
-
-thread_local std::string stored_crash_context;
-
-void set_crash_context(const std::string& message) {
-    stored_crash_context = message;
-}
-
-void clear_crash_context() {
-    stored_crash_context.clear();
 }
 
 void with_exception_handling(const std::function<void(void)>& body) {

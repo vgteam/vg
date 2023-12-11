@@ -60,6 +60,7 @@ int main(int argc, char *argv[]) {
     
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
+    set_crash_context("Starting up");
 
     // Determine a sensible default number of threads and apply it.
     choose_good_thread_count();
