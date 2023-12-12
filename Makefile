@@ -408,6 +408,14 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
+# Control varialbe for address sanitizer
+# Like valgrind but fast!
+# You can `make clean && make jemalloc=off asan=on` to build with it.
+asan = off
+ifeq ($(asan),on)
+	CXXFLAGS += -fsantitze=address
+endif
+
 # Control variable for allocator
 # On the command line, you can `make jemalloc=off` if you definitely don't want jemalloc.
 # Or you can `make jemalloc=debug` to use a version that tries to find memory errors.
