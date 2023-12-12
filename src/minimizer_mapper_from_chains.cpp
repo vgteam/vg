@@ -237,7 +237,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             << ":" << handle_and_range.second.first
                             << "-" << handle_and_range.second.second << std::endl;
                     }
-                    if (track_correctness && funnel.was_correct(funnel.latest())) {
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
                         cerr << log_name() << "\t\tCORRECT!" << endl;
                     }
                 }
@@ -454,7 +454,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             << ":" << handle_and_range.second.first
                             << "-" << handle_and_range.second.second << std::endl;
                     }
-                    if (track_correctness && funnel.was_correct(funnel.latest())) {
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
                         #pragma omp critical (cerr)
                         cerr << log_name() << "\t\tCORRECT!" << endl;
                     }
@@ -681,7 +681,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                 << "-" << handle_and_range.second.second << std::endl;
                         }
                     }
-                    if (track_correctness && funnel.was_correct(funnel.latest())) {
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
                         #pragma omp critical (cerr)
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
