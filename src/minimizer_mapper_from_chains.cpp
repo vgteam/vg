@@ -1342,10 +1342,12 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (left_tail_length > MAX_DP_LENGTH) {
                 // Left tail is too long to align.
                 
+#ifdef debug
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << left_tail_length << " bp left tail against " << right_anchor << " in " << aln.name() << " to avoid overflow" << endl;
                 }
+#endif
                 
                 // Make a softclip for it.
                 left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
@@ -1556,10 +1558,12 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (linking_bases.size() > MAX_DP_LENGTH) {
                 // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
+#ifdef debug
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
                 }
+#endif
                 // Just jump to right tail
                 break;
             }
@@ -1678,11 +1682,13 @@ Alignment MinimizerMapper::find_chain_alignment(
 
             if (right_tail.size() > MAX_DP_LENGTH) {
                 // Right tail is too long to align.
-                
+               
+#ifdef debug
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor << " in " << aln.name() << " to avoid overflow" << endl;
                 }
+#endif
                 
                 // Make a softclip for it.
                 right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
