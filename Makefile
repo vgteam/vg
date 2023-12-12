@@ -413,7 +413,7 @@ endif
 # You can `make clean && make jemalloc=off asan=on` to build with it.
 asan = off
 ifeq ($(asan),on)
-	CXXFLAGS += -fsantitze=address
+	CXXFLAGS += -fsanitize=address
 endif
 
 # Control variable for allocator
