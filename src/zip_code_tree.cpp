@@ -405,7 +405,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
         trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
 
         //Forget about this chain in its parent snarl
-        if (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
+        if (trees[forest_state.active_zip_tree].zip_code_tree.size() > 0 &&
+            trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
         }
 
