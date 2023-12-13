@@ -231,9 +231,18 @@ BandedGlobalAligner<IntType>::BAMatrix::~BAMatrix() {
 #ifdef debug_banded_aligner_objects
     cerr << "[BAMatrix::~BAMatrix] destructing matrix for handle " << handlegraph::as_integer(node) << endl;
 #endif
-    free(match);
-    free(insert_row);
-    free(insert_col);
+    if (match) {
+        free(match);
+        match = nullptr;
+    }
+    if (insert_row) {
+        free(insert_row);
+        insert_row = nullptr;
+    }
+    if (insert_col) {
+        free(insert_col);
+        insert_col = nullptr;
+    }
 }
 
 template <class IntType>
@@ -275,18 +284,21 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
             usable_size[0] = malloc_usable_size(match);
 #endif
             free(match);
+            match = nullptr;
         }
         if (insert_col) {
 #ifdef debug_jemalloc
             usable_size[1] = malloc_usable_size(insert_col);
 #endif
             free(insert_col);
+            insert_col = nullptr;
         }
         if (insert_row) {
 #ifdef debug_jemalloc
             usable_size[2] = malloc_usable_size(insert_row);
 #endif
             free(insert_row);
+            insert_row = nullptr;
         }
         
         cerr << "[BAMatrix::fill_matrix]: failed to allocate matrices of height " << band_height << " and width " << ncols << " for a total cell count of " << band_size << endl;
