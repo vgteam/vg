@@ -227,7 +227,7 @@ There are multiple read mappers in `vg`:
 
 * `vg giraffe` is designed to be fast for highly accurate short reads, against graphs with haplotype information.
 * `vg map` is a general-purpose read mapper.
-* `vg mpmap` does "munti-path" mapping, to allow describing local alignment uncertainty. [This is useful for transcriptomics.](#Transcriptomic-analysis)
+* `vg mpmap` does "multi-path" mapping, to allow describing local alignment uncertainty. [This is useful for transcriptomics.](#Transcriptomic-analysis)
 
 #### Mapping with `vg giraffe`
 
