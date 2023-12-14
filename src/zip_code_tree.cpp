@@ -88,7 +88,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
         trees[forest_state.active_tree_index].zip_code_tree.pop_back();
 
         //Forget about this chain in its parent snarl
-        if (trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::EDGE) {
+        if (trees[forest_state.active_tree_index].zip_code_tree.size() > 0 && 
+            trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::EDGE) {
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
         }
 

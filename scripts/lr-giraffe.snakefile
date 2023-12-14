@@ -157,9 +157,13 @@ def fastq(wildcards):
         # Maybe there's a GAM to extract from? GAMs are always under per-sample directories.
         gam_pattern = os.path.join(READS_DIR, "{realness}/{tech}/{sample}/*{sample}*{trimmedness}[._-]{subset}.gam".format(**wildcards))
         results = glob.glob(gam_pattern)
-        if len(results) == 0 and wildcards["realness"] == "sim":
-            # TODO: We give up and assume we can make this subset.
-            results = [os.path.join(READS_DIR, "{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.gam".format(**wildcards))]
+        if len(results) == 0:
+            if wildcards["realness"] == "sim":
+                # TODO: We give up and assume we can make this subset.
+                results = [os.path.join(READS_DIR, "{realness}/{tech}/{sample}/{sample}-{realness}-{tech}{trimmedness}-{subset}.gam".format(**wildcards))]
+            else:
+                # For real files we don't know the file to make the subset from.
+                raise FileNotFoundError(f"No files found matching {fastq_pattern} or {gam_pattern}")
         if len(results) > 1:
             raise AmbiguousRuleException("Multiple files matched " + gam_pattern)
         # Replace the extension
@@ -464,6 +468,8 @@ rule inject_bam:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
         gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
+    wildcard_constraints:
+        mapper="(minimap2|winnowmap)"
     threads: 64
     resources:
         mem_mb=300000,
@@ -670,26 +676,29 @@ rule experiment_mapping_rate_plot:
         "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 for subset in KNOWN_SUBSETS:
+    for stage in ["aligned", "compared"]:
+        # We can chunk reads either before or after comparison.
+        # TODO: This is now like 3 copies of the whole GAM.
 
-    # This rule has a variable number of outputs so we need to generate it in a loop.
-    rule:
-        input:
-            gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
-        params:
-            basename="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
-        output:
-            expand("{{root}}/compared/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", subset=subset, chunk=each_chunk_of(subset))
-        threads: 1
-        resources:
-            mem_mb=4000,
-            runtime=90,
-            slurm_partition=choose_partition(90)
-        shell:
-            "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
+        # This rule has a variable number of outputs so we need to generate it in a loop.
+        rule:
+            input:
+                gam="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
+            params:
+                basename="{root}/" + stage + "/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
+            output:
+                expand("{{root}}/{stage}/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", stage=stage, subset=subset, chunk=each_chunk_of(subset))
+            threads: 1
+            resources:
+                mem_mb=4000,
+                runtime=90,
+                slurm_partition=choose_partition(90)
+            shell:
+                "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
 
 rule chain_coverage_chunk:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
     threads: 2
@@ -702,7 +711,7 @@ rule chain_coverage_chunk:
 
 rule time_used_chunk:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.time_used.tsv"
     threads: 2
@@ -715,7 +724,7 @@ rule time_used_chunk:
 
 rule stage_time_chunk:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.stage_{stage}_time.tsv"
     threads: 2
@@ -728,7 +737,7 @@ rule stage_time_chunk:
 
 rule length_by_mapping_chunk:
     input:
-        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
     threads: 2
@@ -738,6 +747,19 @@ rule length_by_mapping_chunk:
         slurm_partition=choose_partition(30)
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
+
+rule length_chunk:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    shell:
+        "cut -f2 {input} >{output}"
 
 rule length_by_correctness_chunk:
     input:
@@ -861,7 +883,8 @@ rule average_stage_time_barchart:
 
 rule length_by_mapping_histogram:
     input:
-        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length.mean.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 1
@@ -870,7 +893,7 @@ rule length_by_mapping_histogram:
         runtime=10,
         slurm_partition=choose_partition(10)
     shell:
-        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
+        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Read Length, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
 
 
 rule length_by_correctness_histogram:

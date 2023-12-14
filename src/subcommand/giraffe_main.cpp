@@ -68,6 +68,9 @@ struct GiraffeMainOptions {
     /// How long should we wait while mapping a read before complaining, in seconds.
     static constexpr size_t default_watchdog_timeout = 10;
     size_t watchdog_timeout = default_watchdog_timeout;
+    /// Should we log all the reads we map?
+    static constexpr bool default_log_reads = false;
+    bool log_reads = default_log_reads;
     /// How many reads to send to a thread at a time
     static constexpr size_t default_batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
     size_t batch_size = default_batch_size;
@@ -92,6 +95,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &GiraffeMainOptions::watchdog_timeout,
         GiraffeMainOptions::default_watchdog_timeout,
         "complain after INT seconds working on a read or read pair"
+    );
+    main_opts.add_flag(
+        "log-reads",
+        &GiraffeMainOptions::log_reads,
+        GiraffeMainOptions::default_log_reads,
+        "log each read being mapped"
     );
     main_opts.add_range(
         "batch-size", 'B', 
@@ -1528,6 +1537,10 @@ int main_giraffe(int argc, char** argv) {
                         if (watchdog) {
                             watchdog->check_in(thread_num, aln1.name() + ", " + aln2.name());
                         }
+                        if (main_options.log_reads) {
+                            #pragma omp critical (cerr)
+                            std::cerr << "Thread " << thread_num << " now mapping " << aln1.name() << ", " << aln2.name() << std::endl;
+                        }
                         
                         toUppercaseInPlace(*aln1.mutable_sequence());
                         toUppercaseInPlace(*aln2.mutable_sequence());
@@ -1631,6 +1644,10 @@ int main_giraffe(int argc, char** argv) {
 #endif
                         if (watchdog) {
                             watchdog->check_in(thread_num, aln.name());
+                        }
+                        if (main_options.log_reads) {
+                            #pragma omp critical (cerr)
+                            std::cerr << "Thread " << thread_num << " now mapping " << aln.name() << std::endl;
                         }
                         
                         toUppercaseInPlace(*aln.mutable_sequence());
