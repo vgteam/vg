@@ -189,6 +189,10 @@ class ZipCode {
     friend class ZipCodeDecoder;
 };
 
+/// Print a code type to a stream
+std::ostream& operator<<(std::ostream& out, const ZipCode::code_type_t& type);
+
+
 //A structure for holding a vector of zipcodes
 //This is really just used for serializing
 class ZipCodeCollection {

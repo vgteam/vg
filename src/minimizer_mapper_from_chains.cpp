@@ -173,7 +173,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Make them into a zip code tree
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
-    zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
+    zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
+                                   max_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
     if (show_work) {
@@ -201,7 +202,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 tree_seeds.push_back(found.seed);
             }
             // For each seed in the tree, find what minimizer it comes from
-            size_t source = seeds[found.seed].source;
+            if (found.seed >= seeds.size()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Error for read " << aln.name() << ": tree " << i << " has seed " << found.seed << " but we only have " << seeds.size() << " seeds" << std::endl;
+                    std::cerr << log_name() << "Zip code forest:";
+                    zip_code_forest.print_self(&seeds);
+                }
+            }
+            size_t source = seeds.at(found.seed).source;
             if (!present.contains(source)) {
                 // If it's a new minimizer, count its score
                 score += minimizers[source].score;

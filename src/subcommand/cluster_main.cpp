@@ -430,6 +430,7 @@ int main_cluster(int argc, char** argv) {
             vector<MinimizerMapper::Minimizer> minimizers_in_read;
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
+            VectorView<MinimizerMapper::Minimizer> minimizers;
             
             if (mapper) {
                 // Find MEMs
@@ -471,7 +472,7 @@ int main_cluster(int argc, char** argv) {
                 // Indexes of minimizers, sorted into score order, best score first
                 std::vector<size_t> minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read);
                 // Minimizers sorted by best score first
-                VectorView<MinimizerMapper::Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
+                minimizers = {minimizers_in_read, minimizer_score_order};
                 
                 // Find the seeds and mark the minimizers that were located.
                 seeds = minimizer_mapper.find_seeds(minimizers_in_read, minimizers, aln, funnel);
@@ -496,7 +497,7 @@ int main_cluster(int argc, char** argv) {
                 ZipCodeForest zip_forest;
 
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                zip_forest.fill_in_forest(seeds, *distance_index);
+                zip_forest.fill_in_forest(seeds, minimizers, *distance_index, std::numeric_limits<size_t>::max());
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
 
