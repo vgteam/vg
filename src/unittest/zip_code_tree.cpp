@@ -2383,7 +2383,7 @@ namespace unittest {
         zip_forest.print_self(&seeds);
         zip_forest.validate_zip_forest(distance_index, &seeds, 61);
     }
-    TEST_CASE("Components of root", "[zip_tree][bug]") {
+    TEST_CASE("Components of root", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGCACA");//8
@@ -2566,6 +2566,149 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 4);
             positions.emplace_back(10, false, 0);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+    }
+    TEST_CASE("Remove a child of the top-level chain", "[zip_tree][bug]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTGGGGGGG");
+        Node* n2 = graph.create_node("GGGGGGGTG");
+        Node* n3 = graph.create_node("GGGGGGAAA");
+        Node* n4 = graph.create_node("GGGGGGGAT");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n3, n4);
+       
+
+        //ofstream out ("testGraph.hg");
+        //graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION( "One tree on each node" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 7);
+            positions.emplace_back(3, false, 3);
+            positions.emplace_back(4, false, 7);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+        SECTION( "Remove second child of snarl" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(3, false, 8);
+            positions.emplace_back(4, false, 5);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+    }
+    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree][bug]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTGGGGGGG");
+        Node* n2 = graph.create_node("GGGGGGGTG");
+        Node* n3 = graph.create_node("GGGGGGAAA");
+        Node* n4 = graph.create_node("GGGGGGGAT");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n4, false, true);
+       
+
+        //ofstream out ("testGraph.hg");
+        //graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION( "One tree on each node" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 5);
+            positions.emplace_back(2, false, 5);
+            positions.emplace_back(3, false, 5);
+            positions.emplace_back(4, false, 5);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+        SECTION( "Remove second child of snarl" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(3, false, 8);
+            positions.emplace_back(4, false, 5);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+        SECTION( "Remove first child of snarl" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(3, false, 5);
+            positions.emplace_back(4, false, 0);
             
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
