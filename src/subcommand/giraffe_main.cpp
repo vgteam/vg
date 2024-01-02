@@ -427,7 +427,7 @@ string sample_haplotypes(const vector<pair<string, string>>& indexes, string& ba
 
 //----------------------------------------------------------------------------
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
     cerr
     << "usage:" << endl
     << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
@@ -445,7 +445,18 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (";
+    for (auto p = presets.begin(); p != presets.end(); ++p) {
+        // Announce each preset name, slash-separated
+        cerr << p->first;
+        auto next_p = p;
+        ++next_p;
+        if (next_p != presets.end()) {
+            // There's another preset.
+            cerr << " / ";
+        }
+    }
+    cerr << ") [default]" << endl
     << "  -h, --help                    print full help with all available options" << endl;
 
     cerr
@@ -510,11 +521,6 @@ int main_giraffe(int argc, char** argv) {
     // Set up to parse options
     std::unique_ptr<GroupedOptionGroup> parser = get_options();
 
-    if (argc == 2) {
-        help_giraffe(argv, *parser, false);
-        return 1;
-    }
-    
     constexpr int OPT_OUTPUT_BASENAME = 1001;
     constexpr int OPT_REPORT_NAME = 1002;
     constexpr int OPT_TRACK_PROVENANCE = 1003;
@@ -705,6 +711,11 @@ int main_giraffe(int argc, char** argv) {
     
     std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
     parser->make_short_options(short_options);
+
+    if (argc == 2) {
+        help_giraffe(argv, *parser, presets, false);
+        return 1;
+    }
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -992,7 +1003,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, *parser, true);
+                help_giraffe(argv, *parser, presets, true);
                 exit(1);
                 break;
         }
