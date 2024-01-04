@@ -108,8 +108,14 @@ breaks <- c(0,1,2,3,4)
 limits <- c(0, 4)
 if ( reads.per.condition > 10000 ) {
     # Use big scale if there are a lot of reads
-    labels <- c(labels, "1e-5","1e-6","1e-7","1e-8","1e-9")
-    breaks <- c(breaks, 5,6,7,8,9)
+    labels <- c(labels, "1e-5","1e-6")
+    breaks <- c(breaks, 5,6)
+    limits <- c(0, 6)
+}
+if ( reads.per.condition > 1000000 ) {
+    # Use big scale if there are a lot of reads
+    labels <- c(labels, "1e-7","1e-8","1e-9")
+    breaks <- c(breaks, 7,8,9)
     limits <- c(0, 9)
 }
 
@@ -145,7 +151,7 @@ dat.plot <- dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=1)) +
         # And we want a size legend
         scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis

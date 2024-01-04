@@ -672,7 +672,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("align-from-chains", true)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 100)
+        .add_entry<size_t>("downsample-min", 70)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
