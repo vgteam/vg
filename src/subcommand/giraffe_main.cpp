@@ -285,10 +285,10 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "attempt rescue with at most INT seeds"
     );
     comp_opts.add_flag(
-        "no-explored-cap",
+        "explored-cap",
         &MinimizerMapper::use_explored_cap,
         MinimizerMapper::default_use_explored_cap,
-        "disable explored minimizer layout cap on mapping quality"
+        "use explored minimizer layout cap on mapping quality"
     );
     comp_opts.add_range(
         "mapq-score-scale",
@@ -644,12 +644,13 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("extension-set", 20)
         .add_entry<int>("extension-score", 1);
     // And a default preset that doesn't.
-    presets["default"];
+    presets["default"]
+        // This is always on in the non-chaining codepath right now, but just to be sure...
+        .add_entry<bool>("explored-cap", true);
     // And a long read preset (TODO: make into PacBio and Nanopore)
     presets["lr"]
         .add_entry<bool>("align-from-chains", true)
-        // Since the default is true, the option name has "no", but we are setting the cap off.
-        .add_entry<bool>("no-explored-cap", false)
+        .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
@@ -670,20 +671,21 @@ int main_giraffe(int argc, char** argv) {
     // And a short reads with chaining preset
     presets["sr"]
         .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", true)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 70)
+        .add_entry<size_t>("downsample-min", 100)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384)
+        .add_entry<size_t>("hard-hit-cap", 20000)
         .add_entry<double>("mapq-score-scale", 1.0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
-        .add_entry<int>("min-chains", 4)
-        .add_entry<size_t>("max-alignments", 5);
+        .add_entry<int>("min-chains", 2)
+        .add_entry<size_t>("max-alignments", 2);
         
    
     std::vector<struct option> long_options =
