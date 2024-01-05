@@ -13,6 +13,36 @@
 using namespace std;
 namespace vg {
 
+template void ZipCodeTree::print_self<MinimizerMapper::Minimizer>(const vector<Seed>*, const VectorView<MinimizerMapper::Minimizer>*) const;
+
+template<typename Minimizer>
+void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const {
+    for (const tree_item_t item : zip_code_tree) {
+        if (item.get_type() == SEED) {
+            cerr << seeds->at(item.get_value()).pos << "/" 
+                 << (minimizers->size() == 0 ? 0
+                                             : (*minimizers)[seeds->at(item.get_value()).source].value.offset);
+            if (item.get_is_reversed()) {
+                cerr << "rev";
+            }
+        } else if (item.get_type() == SNARL_START) {
+            cerr << "(";
+        } else if (item.get_type() == SNARL_END) {
+            cerr << ")";
+        } else if (item.get_type() == CHAIN_START) {
+            cerr << "[";
+        } else if (item.get_type() == CHAIN_END) {
+            cerr << "]";
+        } else if (item.get_type() == EDGE) {
+            cerr << " " << item.get_value() << " ";
+        } else if (item.get_type() == NODE_COUNT) {
+            cerr << " " << item.get_value();
+        } else {
+            throw std::runtime_error("[zip tree]: Trying to print a zip tree item of the wrong type");
+        }
+    }
+    cerr << endl;
+}
 
 void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, 
                                const size_t& depth, size_t seed_index, bool chain_is_reversed) {
@@ -916,31 +946,6 @@ bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, con
 }
 
 
-void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
-    for (const tree_item_t item : zip_code_tree) {
-        if (item.get_type() == SEED) {
-            cerr << seeds->at(item.get_value()).pos << "/" << seeds->at(item.get_value()).source;
-            if (item.get_is_reversed()) {
-                cerr << "rev";
-            }
-        } else if (item.get_type() == SNARL_START) {
-            cerr << "(";
-        } else if (item.get_type() == SNARL_END) {
-            cerr << ")";
-        } else if (item.get_type() == CHAIN_START) {
-            cerr << "[";
-        } else if (item.get_type() == CHAIN_END) {
-            cerr << "]";
-        } else if (item.get_type() == EDGE) {
-            cerr << " " << item.get_value() << " ";
-        } else if (item.get_type() == NODE_COUNT) {
-            cerr << " " << item.get_value();
-        } else {
-            throw std::runtime_error("[zip tree]: Trying to print a zip tree item of the wrong type");
-        }
-    }
-    cerr << endl;
-}
 
 bool ZipCodeTree::node_is_invalid(nid_t id, const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
     bool is_invalid = false;
@@ -2270,7 +2275,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
     while (!forest_state.intervals_to_process.empty()) {
 #ifdef DEBUG_ZIP_CODE_TREE
-        print_self(&seeds);
+        print_self(&seeds, &minimizers);
 #endif
         // For each unprocessed interval, process it
         // First, check if anything needs to be closed, which will happen if the interval's depth is 
@@ -2536,7 +2541,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         trees.erase(trees.begin() + forest_state.active_tree_index);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
-    print_self(&seeds);
+    print_self(&seeds, &minimizers);
     validate_zip_forest(distance_index, &seeds, distance_limit);
     assert(forest_state.open_chains.empty());
     assert(forest_state.open_intervals.empty());

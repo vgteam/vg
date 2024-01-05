@@ -35,7 +35,7 @@
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump the zip code forest
-//#define debug_print_forest
+#define debug_print_forest
 // Dump local graphs that we align against 
 //#define debug_dump_graph
 // Dump fragment length distribution information
@@ -181,7 +181,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         {
             std::cerr << log_name() << "Zip code forest:";
-            zip_code_forest.print_self(&seeds);
+            zip_code_forest.print_self(&seeds, &minimizers);
         }
     }
 #endif

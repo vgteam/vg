@@ -352,7 +352,8 @@ public:
     /// ( and ) are used for the starts and ends of snarls
     /// [ and ] are used for the starts and ends of chains
     /// seeds are printed as their positions
-    void print_self(const vector<Seed>* seeds) const;
+    template<typename Minimizer>
+    void print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const;
 
     /// Is the given node in a multicomponent chain, looping chain, or anything else that would cause
     /// it to not have exact distances?
@@ -820,11 +821,12 @@ class ZipCodeForest {
 
     public:
 
-    void print_self(const vector<Seed>* seeds) const {
+    template<typename Minimizer>
+    void print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
             cerr << i << ": ";
-            tree.print_self(seeds);
+            tree.print_self(seeds, minimizers);
         }
     }
     void validate_zip_forest(const SnarlDistanceIndex& distance_index, 
