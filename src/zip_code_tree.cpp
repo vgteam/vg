@@ -2148,14 +2148,14 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
                              ? !interval.is_reversed
                              : interval.is_reversed;
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "New sort order " << endl;
-    for (auto& interval : new_intervals) {
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << ", ";
-        }
-        cerr << "|";
-    }
-    cerr << endl;
+    //cerr << "New sort order " << endl;
+    //for (auto& interval : new_intervals) {
+    //    for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+    //        cerr << seeds->at(zipcode_sort_order[i]).pos << ", ";
+    //    }
+    //    cerr << "|";
+    //}
+    //cerr << endl;
 #endif
     return;
 }
@@ -2569,8 +2569,12 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
     assert(seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_code_type(snarl_interval.depth) 
                 == ZipCode::CYCLIC_SNARL);
     net_handle_t handle = seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(snarl_interval.depth, distance_index);
-    cerr << "Sorting and finding intervals for cyclic snarl " << distance_index->net_handle_as_string(handle)
-         << " with " << child_intervals.size() << " children" << endl;
+    cerr << "Sorting and finding intervals for cyclic snarl " << distance_index->net_handle_as_string(handle);
+    size_t child_count = 0;
+    for (auto& x : child_intervals) {
+        child_count++;
+    }
+    cerr << " with " << child_count << " children" << endl;
 #endif
 
     net_handle_t snarl_handle = seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(snarl_interval.depth, distance_index);
@@ -2612,15 +2616,21 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
     };
 
     //Helper function to check if the value is close enough to a range of values
-    auto is_within_range = [&] (size_t range_start, size_t range_end, size_t value) {
-        if (value >= range_start && value <= range_end) {
-            //If the value is inside the range
+    auto is_within_range = [&] (size_t range_start1, size_t range_end1, 
+                                size_t range_start2, size_t range_end2) {
+        if ((range_start1 >= range_start2 && range_start1 <= range_end2) ||
+            (range_end1 >= range_start2 && range_end1 <= range_end2)) {
+            //If either end of range1 is inside range2
             return true;
-        } else if (value < range_start && range_start - value <= forest_state.gap_distance_limit) {
-            //If the value is before the range but still within the distance limit
+        } else if ((range_start2 >= range_start1 && range_start2 <= range_end1) ||
+            (range_end2 >= range_start1 && range_end2 <= range_end1)) {
+            //If either end of range2 is inside range1
             return true;
-        } else if (value > range_end && value - range_end <= forest_state.gap_distance_limit) {
-            //If the value is after the range but still within the distance limit
+        } else if (range_end1 < range_start2 && range_start2 - range_end1 <= forest_state.gap_distance_limit) {
+            //If range1 is before range2 but still within the distance limit
+            return true;
+        } else if (range_end2 < range_start1 && range_start1 - range_end2 <= forest_state.gap_distance_limit) {
+            //If range1 is after range2 but still within the distance limit
             return true;
         } else {
             return false;
@@ -2734,6 +2744,9 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             bool is_reversed_read = minimizer.value.is_reverse;
             size_t read_offset = minimizer.value.offset;
             size_t chain_offset = sort_values_by_seed[zipcode_sort_order[sort_i]].get_distance_value(); 
+#ifdef DEBUG_ZIP_CODE_TREE
+            cerr << "AT SEED: " << seed.pos << " with chain offset " << chain_offset << " and read offset " << read_offset << endl;
+#endif
 
             //Remember the values for finding the correlation later
             std::get<0>(read_and_chain_offsets [sort_i-snarl_interval.interval_start])= read_offset;
@@ -2759,15 +2772,34 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             // and remove_after the previous iterator
             auto prev_itr = runs.before_begin();
             auto run_itr = runs.begin();
+
+#ifdef DEBUG_ZIP_CODE_TREE
+            bool got_combined = false;
+#endif
             while (run_itr != runs.end()) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                cerr << "\tcompare to existing run with orientations " << is_reversed_read << " and " << run_itr->is_reversed_read << " and chain range " 
+                     << run_itr->chain_range_start << "-"  << run_itr->chain_range_end << " and " 
+                     << seed_run.chain_range_start << "-" << seed_run.chain_range_end << ": " 
+                     << is_within_range(run_itr->chain_range_start, run_itr->chain_range_end, 
+                                    seed_run.chain_range_start, seed_run.chain_range_end)
+                     << " and read range " 
+                     << run_itr->read_range_start << "-" << run_itr->read_range_end << " and "
+                     << seed_run.read_range_start << "-" << seed_run.read_range_end << ": "
+                     << is_within_range(run_itr->read_range_start, run_itr->read_range_end, 
+                                    seed_run.read_range_start, seed_run.read_range_end)<< endl;
+#endif
 
                 //A seed is reachable with a run if they are both on the same strand on the read,
                 //the seed is close enough in the read, and if the seed is close enough in the chain 
 
-                if (is_reversed_read == run_itr->is_reversed_read &&
-                    is_within_range(run_itr->read_range_start, run_itr->read_range_end, read_offset) &&
-                    is_within_range(run_itr->chain_range_start, run_itr->chain_range_end, chain_offset)) {
+                if (//is_reversed_read == run_itr->is_reversed_read &&
+                    is_within_range(run_itr->read_range_start, run_itr->read_range_end, 
+                                    seed_run.read_range_start, seed_run.read_range_end) &&
+                    is_within_range(run_itr->chain_range_start, run_itr->chain_range_end, 
+                                    seed_run.chain_range_start, seed_run.chain_range_end)) {
                     //If this run is reachable with the seed
+
 
                     //Combine the runs
                     seed_run.uf_head = union_find.union_groups(run_itr->uf_head, 
@@ -2784,12 +2816,24 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
 
                     //Remove this run
                     run_itr = runs.erase_after(prev_itr);
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << ": COMBINED" << endl;
+                    got_combined = true;
+#endif
                 } else {
                     //Otherwise, iterate to the new run
                     ++run_itr;
                     ++prev_itr;
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << ": NOT COMBINED" << endl;
+#endif
                 }
             }
+#ifdef DEBUG_ZIP_CODE_TREE
+            if (!got_combined) { 
+                cerr << "\t\tNOTHING GOT COMBINED" << endl;
+            }
+#endif
             //Add the new run
             runs.push_front(std::move(seed_run));
             //TODO: Remove runs that are definitely too far away from anything else
@@ -2799,7 +2843,8 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
         for (auto& run : runs) {
             auto seed_is = union_find.group(run.uf_head);
             for (size_t i : seed_is) {
-                cerr << seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]).pos << ", ";
+                cerr << seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]).pos << "/" 
+                     << minimizers[seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]).source].value.offset << ", ";
             }
             cerr << "|";
         }
