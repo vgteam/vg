@@ -207,7 +207,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 {
                     std::cerr << log_name() << "Error for read " << aln.name() << ": tree " << i << " has seed " << found.seed << " but we only have " << seeds.size() << " seeds" << std::endl;
                     std::cerr << log_name() << "Zip code forest:";
-                    zip_code_forest.print_self(&seeds);
+                    zip_code_forest.print_self(&seeds, &minimizers);
                 }
             }
             size_t source = seeds.at(found.seed).source;
