@@ -188,7 +188,7 @@ public:
     static constexpr double default_pad_cluster_score_threshold = 20;
     double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
 
-    /// If the read coverage of a cluster is less than the best coverage of any cluster
+    /// If the read coverage of a cluster is less than the best coverage of any cluster or tree
     /// by more than this much, don't extend it
     static constexpr double default_cluster_coverage_threshold = 0.3;
     double cluster_coverage_threshold = default_cluster_coverage_threshold;
@@ -549,7 +549,16 @@ protected:
      *
      * Puts the cluster in the funnel as coming from its seeds.
      */
-    void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const;
+    void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
+
+    /**
+     * Determine score and read coverage for a zip code tree. Score is the sum
+     * of the scores of distinct minimizers in the tree, while read coverage is
+     * the fraction of the read covered by seeds in the tree.
+     *
+     * Puts the tree in the funnel as coming from its seeds.
+     */
+    std::pair<double, double> score_tree(const ZipCodeForest& zip_code_forest, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
