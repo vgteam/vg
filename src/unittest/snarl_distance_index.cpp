@@ -47,51 +47,47 @@ namespace vg {
         TEST_CASE( "Load",
                   "[load]" ) {
             SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist");
+            distance_index.deserialize("/private/groups/patenlab/xhchang/graphs/hprc_1.1_d9/hprc-v1.1-mc-chm13.d9.dist");
 
 
-            //HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
-            //
-            net_handle_t chain = distance_index.get_parent(distance_index.get_node_net_handle(60122464));
-            size_t prefix_sum = 0;
-            distance_index.for_each_child(chain, [&](const net_handle_t& child){
-                cerr << distance_index.net_handle_as_string(child) << ": " << distance_index.minimum_length(child) << " " << (distance_index.is_node(child) ? distance_index.get_prefix_sum_value(child) : std::numeric_limits<size_t>::max()) << endl;
-                if (distance_index.is_node(child)) {
-                    assert(prefix_sum == distance_index.get_prefix_sum_value(child));
+            auto graph = vg::io::VPKG::load_one<HandleGraph>("/private/groups/patenlab/xhchang/graphs/hprc_1.1_d9/hprc-v1.1-mc-chm13.d9.gbz");
+
+            net_handle_t n = distance_index.get_node_net_handle(3604315);
+            net_handle_t snarl;
+            while (!distance_index.is_root(n)) {
+                cerr << distance_index.net_handle_as_string(n) << " " << distance_index.minimum_length(n);
+                if (distance_index.is_snarl(n) && ! distance_index.is_dag(n)) {
+                    cerr << "CYCLIC";
+                    snarl = n;
                 }
-                assert(distance_index.minimum_length(child) != std::numeric_limits<size_t>::max());
-                prefix_sum += distance_index.minimum_length(child);
+                cerr << endl;
+                n = distance_index.get_parent(n);
+            }
+
+            distance_index.for_each_child(snarl, [&](const net_handle_t child) {
+                cerr << "SNARL CHILD: "<< distance_index.net_handle_as_string(child) 
+                     << " " << distance_index.minimum_length(child) << endl;
+                cerr << "FD:" << endl;
+                distance_index.follow_net_edges(child,  graph.get(), false, [&](net_handle_t next) {
+                    cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+                });
+                cerr << "BK: " << endl;
+                distance_index.follow_net_edges(child,  graph.get(), true, [&](net_handle_t next) {
+                    cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+                });
             });
-
-
-            net_handle_t node = distance_index.get_node_net_handle(60121719);
-            cerr << distance_index.net_handle_as_string(node) << ": " << distance_index.get_prefix_sum_value(node) << " " << distance_index.minimum_length(node) << endl;
-
-            node = distance_index.get_node_net_handle(60104962);
-            cerr << distance_index.net_handle_as_string(node) << ": " << distance_index.get_prefix_sum_value(node) << " " << distance_index.minimum_length(node) << endl;
-
-            net_handle_t n1 = distance_index.get_node_net_handle(60121746);
-
-            chain = distance_index.get_parent(distance_index.get_parent(distance_index.get_parent(n1)));
-            cerr << distance_index.net_handle_as_string(chain)<< endl;
-
-            while (!distance_index.is_root(n1)) {
-                cerr << distance_index.net_handle_as_string(n1) << ": " << distance_index.minimum_length(n1) << endl;
-                n1 = distance_index.get_parent(n1);
-            }
-            cerr << distance_index.net_handle_as_string(n1) << endl;
-
-            n1 = distance_index.get_node_net_handle(60000328);
-            while (!distance_index.is_root(n1)) {
-                cerr << distance_index.net_handle_as_string(n1) << ": " << distance_index.minimum_length(n1) << endl;
-                n1 = distance_index.get_parent(n1);
-            }
-            cerr << distance_index.net_handle_as_string(n1) << endl;
-
-
-            //HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
-            //cerr << "Distance: " << distance_index.minimum_distance(77136065, false, 24, 77136058, true, 28, true) << endl;
-//
+            net_handle_t sentinel = distance_index.get_bound(snarl, false, true);
+            cerr << "from start sentinel:" << endl;
+            distance_index.follow_net_edges(sentinel,  graph.get(), false, [&](net_handle_t next) {
+                cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+            });
+            cerr << "DISTANCE START START" << distance_index.distance_in_snarl(snarl, 0, false, 0, false) << endl;
+            sentinel = distance_index.get_bound(snarl, true, true);
+            cerr << "from end sentinel:" << endl;
+            distance_index.follow_net_edges(sentinel,  graph.get(), false, [&](net_handle_t next) {
+                cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+            });
+            cerr << "DISTANCE END END" << distance_index.distance_in_snarl(snarl, 1, false, 1, false) << endl;
             
         }
         */
