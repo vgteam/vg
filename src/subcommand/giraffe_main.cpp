@@ -306,6 +306,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "chain up extensions to create alignments, instead of doing each separately"
     );
     chaining_opts.add_range(
+        "zipcode-tree-score-threshold",
+        &MinimizerMapper::zipcode_tree_score_threshold,
+        MinimizerMapper::default_zipcode_tree_score_threshold,
+        "score below the top zipcode tree score to fragment"
+    );
+    chaining_opts.add_range(
         "min-to-fragment",
         &MinimizerMapper::min_to_fragment,
         MinimizerMapper::default_min_to_fragment,

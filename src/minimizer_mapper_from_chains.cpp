@@ -337,16 +337,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
 
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
-            return tree_coverages[i];
+            return tree_scores[i];
         }, [&](size_t a, size_t b) -> bool {
-            return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
-        }, cluster_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num) -> bool {
+            return tree_scores[a] > tree_scores[b] || (tree_scores[a] == tree_scores[b] && tree_coverages[a] > tree_coverages[b]); 
+        }, zipcode_tree_score_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
-                funnel.pass("fragmenting-coverage", item_num, tree_coverages[item_num]);
-                funnel.pass("max-to-fragment", item_num);
                 funnel.pass("fragmenting-score", item_num, tree_scores[item_num]);
+                funnel.pass("max-to-fragment", item_num);
+                funnel.pass("fragmenting-coverage", item_num, tree_coverages[item_num]);
             }
             
             if (show_work) {
@@ -526,14 +526,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }, [&](size_t item_num) -> void {
             // There are too many sufficiently good problems to do
             if (track_provenance) {
-                funnel.pass("fragmenting-coverage", item_num, tree_coverages[item_num]);
+                funnel.pass("fragmenting-score", item_num, tree_scores[item_num]);
                 funnel.fail("max-to-fragment", item_num);
             }
             
         }, [&](size_t item_num) -> void {
             // This item is not sufficiently good.
             if (track_provenance) {
-                funnel.fail("fragmenting-coverage", item_num, tree_coverages[item_num]);
+                funnel.fail("fragmenting-score", item_num, tree_scores[item_num]);
             }
         });
 
@@ -1169,6 +1169,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_num-bp-per-min", (double) num_bp_per_min);
         set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
         set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
+        set_annotation(mappings[0], "param_zipcode-tree-score-threshold", (double) zipcode_tree_score_threshold);
         set_annotation(mappings[0], "param_min-to-fragment", (double) min_to_fragment);
         set_annotation(mappings[0], "param_max-to-fragment", (double) max_to_fragment);
         

@@ -209,7 +209,9 @@ public:
     static constexpr double default_zipcode_tree_scale = 2.0;
     double zipcode_tree_scale = default_zipcode_tree_scale;
 
-
+    /// How far do we want to go down looking at zip code trees to make fragments?
+    static constexpr double default_zipcode_tree_score_threshold = 1.5;
+    double zipcode_tree_score_threshold = default_zipcode_tree_score_threshold;
     
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
