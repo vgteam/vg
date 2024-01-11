@@ -106,7 +106,10 @@ public:
     /// A string formatted "annotation[.subfield]*:value"
     /// Value is optional if the key is a flag
     /// Used like jq select
-    string annotation = "";
+    string annotation_to_match = "";
+
+    /// Filter to only correctly mapped reads
+    bool only_correctly_mapped = false;
       
     /**
      * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
@@ -255,6 +258,11 @@ private:
      bool matches_annotation(const Read& read) const;
     
     /**
+     * Check if the alignment is marked as being correctly mapped
+     */
+    bool is_correctly_mapped(const Read& read) const;
+
+    /**
      * Write the read to stdout
      */
     void emit(Read& read);
@@ -279,7 +287,7 @@ struct Counts {
     // note: "last" must be kept as the final value in this enum
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
         min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, unmapped, annotation, last};
+        proper_pair, unmapped, annotation, incorrectly_mapped, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -547,9 +555,16 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
             keep = false;
         }
     }
-    if ((keep || verbose) && !annotation.empty()) {
+    if ((keep || verbose) && !annotation_to_match.empty()) {
         if (!matches_annotation(read)) {
             ++counts.counts[Counts::FilterName::annotation];
+            keep = false;
+        }
+    }
+
+    if ((keep || verbose) && only_correctly_mapped) {
+        if (!is_correctly_mapped(read)) {
+            ++counts.counts[Counts::FilterName::incorrectly_mapped];
             keep = false;
         }
     }
@@ -1311,23 +1326,23 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
 
     //This gets updated as needed
     google::protobuf::Struct read_annotation = read.annotation();
-    for (size_t end_i = 0 ; end_i < annotation.size() ; end_i++) {
-        if (annotation[end_i] == '.' || annotation[end_i] == ':') {
-            if (!read_annotation.fields().count(annotation.substr(start_i, end_i-start_i))) {
+    for (size_t end_i = 0 ; end_i < annotation_to_match.size() ; end_i++) {
+        if (annotation_to_match[end_i] == '.' || annotation_to_match[end_i] == ':') {
+            if (!read_annotation.fields().count(annotation_to_match.substr(start_i, end_i-start_i))) {
                 //If the annotation doesn't exist 
                 return false;
-            } else if ( end_i == annotation.size()-1) {
+            } else if ( end_i == annotation_to_match.size()-1) {
                 //If the annotation does exist and we only want to check if the read has it
                 return true;
-            } else if (annotation[end_i] == ':') {
+            } else if (annotation_to_match[end_i] == ':') {
                 //If this is the last annotation key and now we want to check the value
-                google::protobuf::Value value= read_annotation.fields().at(annotation.substr(start_i, end_i-start_i));
+                google::protobuf::Value value= read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i));
 
                 if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue &&
-                    regex_match(annotation.substr(end_i+1, annotation.size() - end_i - 1),
+                    regex_match(annotation_to_match.substr(end_i+1, annotation_to_match.size() - end_i - 1),
                                 regex("([0-9]*\\.)?[0-9]*"))) {
                     //If the value is supposed to be a number
-                } else if (value_cast<string>(value) == annotation.substr(end_i+1, annotation.size() - end_i - 1)) {
+                } else if (value_cast<string>(value) == annotation_to_match.substr(end_i+1, annotation_to_match.size() - end_i - 1)) {
                     //Otherwise assume that the value is a string
                     return true;
                 } else {
@@ -1335,16 +1350,16 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
                 }
             } else {
                 //Otherwise, this is the end of one annotation but it has a subfield next
-                google::protobuf::Value value= read_annotation.fields().at(annotation.substr(start_i, end_i-start_i));
+                google::protobuf::Value value= read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i));
                 if (value.kind_case() != google::protobuf::Value::KindCase::kStructValue) {
                     //If this isn't a google::protobuf::Struct, then the input was bad
                     cerr << "warning: expected another annotation field after " 
-                         << annotation.substr(start_i, end_i-start_i) 
+                         << annotation_to_match.substr(start_i, end_i-start_i) 
                          << " but annotation ends with value " 
-                         << value_cast<string>(read_annotation.fields().at(annotation.substr(start_i, end_i-start_i))) << endl;
+                         << value_cast<string>(read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i))) << endl;
                     return false;
                 } else {
-                    read_annotation = read_annotation.fields().at(annotation.substr(start_i, end_i-start_i)).struct_value();
+                    read_annotation = read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i)).struct_value();
                 }
             }
         }
@@ -1353,6 +1368,7 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
     return true;
     
 }
+
 
 template<typename Read>
 bool ReadFilter<Read>::sample_read(const Read& read) const {
