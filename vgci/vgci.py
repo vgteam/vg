@@ -54,8 +54,8 @@ class VGCITest(TestCase):
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
         # /public/groups/vg/vg-data on Courtyard is served as
-        # https://courtyard.gi.ucsc.edu/~anovak/vg-data/
-        self.vg_data = 'https://courtyard.gi.ucsc.edu/~anovak/vg-data'
+        # https://public.gi.ucsc.edu/~anovak/vg-data/
+        self.vg_data = 'https://public.gi.ucsc.edu/~anovak/vg-data'
         self.input_store = self.vg_data + '/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
