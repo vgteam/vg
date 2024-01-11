@@ -56,6 +56,7 @@ void help_filter(char** argv) {
          << "    -i, --interleaved          assume interleaved input. both ends will be filtered out if either fails filter" << endl
          << "    -I, --interleaved-all      assume interleaved input. both ends will be filtered out if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
+         << "    -B, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the value equal" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
@@ -105,6 +106,7 @@ int main_filter(int argc, char** argv) {
     bool complement_filter = false;
     bool only_proper_pairs = false;
     bool only_mapped = false;
+    string annotation = "";
 
     // What XG index, if any, should we load to support the other options?
     string xg_name;
@@ -141,13 +143,14 @@ int main_filter(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
+                {"annotation", required_argument, 0, 'B'},
                 {"complement", no_argument, 0, 'U'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:B:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -308,6 +311,9 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
+        case 'B':
+            annotation = optarg;
+            break;
         case 'U':
             complement_filter = true;
             break;
@@ -403,6 +409,7 @@ int main_filter(int argc, char** argv) {
             filter.min_base_quality = min_base_quality;
             filter.min_base_quality_fraction = min_base_quality_fraction;
         }
+        filter.annotation = annotation;
         filter.complement_filter = complement_filter;
         filter.threads = get_thread_count();
         filter.graph = xindex;
