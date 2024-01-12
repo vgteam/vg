@@ -48,6 +48,7 @@ void help_filter(char** argv) {
          << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
+         << "    -T, --tsv-out FIELD[;FIELD] do not write filtered gam but a tsv of the given fields" << endl
          << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N        filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
@@ -56,7 +57,8 @@ void help_filter(char** argv) {
          << "    -i, --interleaved          assume interleaved input. both ends will be filtered out if either fails filter" << endl
          << "    -I, --interleaved-all      assume interleaved input. both ends will be filtered out if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
-         << "    -B, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the value equal" << endl
+         << "    -B, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the values are equal" << endl
+         << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
          << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
@@ -108,6 +110,7 @@ int main_filter(int argc, char** argv) {
     bool only_proper_pairs = false;
     bool only_mapped = false;
     string annotation = "";
+    string output_fields = "";
     bool correctly_mapped = false;
 
     // What XG index, if any, should we load to support the other options?
@@ -137,6 +140,7 @@ int main_filter(int argc, char** argv) {
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"tsv-out",  no_argument, 0, 'T'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
@@ -153,7 +157,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:B:cUt:",
+        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:cUt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -249,6 +253,9 @@ int main_filter(int argc, char** argv) {
         case 'V':
             verbose = true;
             write_output = false;
+            break;
+        case 'T':
+            output_fields=optarg;
             break;
         case 'E':
             set_repeat_size = true;
@@ -387,6 +394,19 @@ int main_filter(int argc, char** argv) {
         }
         filter.verbose = verbose;
         filter.write_output = write_output;
+
+
+        if (!output_fields.empty()){
+            //Get the fields for tsv output
+            filter.write_tsv = true;
+            size_t start_i = 0;
+            for (size_t end_i = 0 ; end_i <= output_fields.size() ; end_i++) {
+                if (end_i == output_fields.size() || output_fields[end_i] == ';') {
+                    filter.output_fields.emplace_back(output_fields.substr(start_i, end_i-start_i));
+                    start_i = end_i + 1;
+                }
+            }
+        }
         if (set_repeat_size) {
             filter.repeat_size = repeat_size;
         }

@@ -90,6 +90,10 @@ public:
     /// Sometimes we only want a report, and not a filtered gam.  toggling off output
     /// speeds things up considerably.
     bool write_output = true;
+    /// Sometimes we want to pick out fields and write a tsv instead of a gam;
+    bool write_tsv = false;
+    /// What fields do we want to write to the tsv?
+    vector<string> output_fields;
     /// A HandleGraph is required for some filters (Note: ReadFilter doesn't own/free this)
     const HandleGraph* graph = nullptr;
     /// Interleaved input
@@ -272,6 +276,11 @@ private:
      */
     void emit(Read& read1, Read& read2);
 
+    /**
+     * Write a tsv line for a read to stdout
+     */
+     void emit_tsv(Read& read);
+
     
     
     /// The twp specializations have different writing infrastructure
@@ -346,7 +355,11 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         Counts read_counts = filter_alignment(read);
         counts_vec[omp_get_thread_num()] += read_counts;
         if ((read_counts.keep() != complement_filter) && write_output) {
-            emit(read);
+            if (write_tsv) {
+                emit_tsv(read);
+            } else {
+                emit(read);
+            }
         }
     };
     
@@ -363,9 +376,25 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         }
         counts_vec[omp_get_thread_num()] += read_counts;
         if ((read_counts.keep() != complement_filter) && write_output) {
-            emit(read1, read2);
+            if (write_tsv) {
+                emit_tsv(read1);
+                emit_tsv(read2);
+            } else {
+                emit(read1, read2);
+            }
         }
     };
+
+    if (write_tsv) {
+        //write a header for the tsv
+        for (size_t i = 0 ; i < output_fields.size() i++) {
+            const string& field = output_fields[i];
+            cout << field;
+            if (i == output_fields.size()-1) {
+                cout << "\t";
+            }
+        }
+    }
     
     if (interleaved) {
         vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda);
@@ -1321,52 +1350,54 @@ bool ReadFilter<Read>::contains_subsequence(const Read& read) const {
 template<typename Read>
 bool ReadFilter<Read>::matches_annotation(const Read& read) const {
 
-    //Walk through the annotation until we find a . or :
-    size_t start_i = 0;
-
-    //This gets updated as needed
-    google::protobuf::Struct read_annotation = read.annotation();
-    for (size_t end_i = 0 ; end_i < annotation_to_match.size() ; end_i++) {
-        if (annotation_to_match[end_i] == '.' || annotation_to_match[end_i] == ':') {
-            if (!read_annotation.fields().count(annotation_to_match.substr(start_i, end_i-start_i))) {
-                //If the annotation doesn't exist 
-                return false;
-            } else if ( end_i == annotation_to_match.size()-1) {
-                //If the annotation does exist and we only want to check if the read has it
-                return true;
-            } else if (annotation_to_match[end_i] == ':') {
-                //If this is the last annotation key and now we want to check the value
-                google::protobuf::Value value= read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i));
-
-                if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue &&
-                    regex_match(annotation_to_match.substr(end_i+1, annotation_to_match.size() - end_i - 1),
-                                regex("([0-9]*\\.)?[0-9]*"))) {
-                    //If the value is supposed to be a number
-                } else if (value_cast<string>(value) == annotation_to_match.substr(end_i+1, annotation_to_match.size() - end_i - 1)) {
-                    //Otherwise assume that the value is a string
-                    return true;
-                } else {
-                    return false;
-                }
-            } else {
-                //Otherwise, this is the end of one annotation but it has a subfield next
-                google::protobuf::Value value= read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i));
-                if (value.kind_case() != google::protobuf::Value::KindCase::kStructValue) {
-                    //If this isn't a google::protobuf::Struct, then the input was bad
-                    cerr << "warning: expected another annotation field after " 
-                         << annotation_to_match.substr(start_i, end_i-start_i) 
-                         << " but annotation ends with value " 
-                         << value_cast<string>(read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i))) << endl;
-                    return false;
-                } else {
-                    read_annotation = read_annotation.fields().at(annotation_to_match.substr(start_i, end_i-start_i)).struct_value();
-                }
-            }
+    //Assume that there's only one level of annotations
+    size_t colon_pos = annotation_to_match.find(":");
+    if (colon_pos == string::npos) {
+        //If there was no colon, then just check for the existence of the annotation
+        return has_annotation(read, annotation_to_match);
+    } else {
+        string annotation_key = annotation_to_match.substr(0, colon_pos);
+        if (!has_annotation(read, annotation_key)) {
+            return false;
+        } else {
+            string annotation_val = annotation_to_match.substr(colon_pos+1, annotation_to_match.size() - colon_pos - 1);
+            return get_annotation<string>(read, annotation_key) == annotation_val; 
         }
     }
-    //If we got through then we must have found the annotations
-    return true;
     
+}
+
+template<typename Read>
+void ReadFilter<Read>::emit_tsv(Read& read) {
+    cout << endl;
+    for (size_t i = 0 ; i < output_fields.size() ; i++) {
+        const string& field = output_fields[i];
+        if (field == "name") {
+            cout << read.name();
+        } else if (field == "correctly_mapped") {
+            if (is_correctly_mapped(read)) {
+                cout << "True";
+            } else {
+                cout << "False";
+            }
+        } else if (field == "mapping_quality") {
+            cout << get_mapq(read); 
+        } else if (field == "annotation") {
+            throw runtime_error("error: Cannot write all annotations");
+        } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
+            if (!has_annotation(read, field.substr(11, field.size()-11))) {
+                throw runtime_error("error: Cannot find annotation "+ field);
+            } else {
+                cout << get_annotation<string>(read, field.substr(11, field.size()-11));
+            }
+        } else {
+            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+            throw runtime_error("error: Writing non-existent field to tsv: " + field);
+        }
+        if (i != output_fields.size()-1) {
+            cout << "\t";
+        }
+    }
 }
 
 
