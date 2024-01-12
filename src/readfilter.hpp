@@ -387,7 +387,7 @@ void ReadFilter<Read>::filter_internal(istream* in) {
 
     if (write_tsv) {
         //write a header for the tsv
-        for (size_t i = 0 ; i < output_fields.size() i++) {
+        for (size_t i = 0 ; i < output_fields.size() ; i++) {
             const string& field = output_fields[i];
             cout << field;
             if (i == output_fields.size()-1) {
