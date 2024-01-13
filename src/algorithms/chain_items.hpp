@@ -325,6 +325,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            int item_bonus = 0,
                            int item_scale = 1,
+                           double gap_scale = 1.0,
                            size_t max_indel_bases = 100,
                            bool show_work = false);
 
@@ -368,6 +369,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                                    int item_bonus = 0,
                                                    int item_scale = 1,
+                                                   double gap_scale = 1.0,
                                                    size_t max_indel_bases = 100,
                                                    bool show_work = false);
 
@@ -388,6 +390,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           int item_bonus = 0,
                                           int item_scale = 1,
+                                          double gap_scale = 1.0,
                                           size_t max_indel_bases = 100);
                                           
 /**

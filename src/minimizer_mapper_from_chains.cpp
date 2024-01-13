@@ -442,6 +442,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 for_each_transition,
                 this->item_bonus,
                 this->item_scale,
+                this->gap_scale,
                 this->fragment_max_indel_bases,
                 this->show_work && aln.sequence().size() < 1000
             );
@@ -686,6 +687,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             for_each_transition,
             this->item_bonus,
             this->item_scale,
+            this->gap_scale,
             this->max_indel_bases,
             this->show_work
         );
@@ -1203,6 +1205,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_max-lookback-bases", (double) max_lookback_bases);
         set_annotation(mappings[0], "param_item-bonus", (double) item_bonus);
         set_annotation(mappings[0], "param_item-scale", (double) item_scale);
+        set_annotation(mappings[0], "param_gap-scale", (double) gap_scale);
         set_annotation(mappings[0], "param_max-indel-bases", (double) max_indel_bases);
         
         set_annotation(mappings[0], "param_max-chain-connection", (double) max_chain_connection);

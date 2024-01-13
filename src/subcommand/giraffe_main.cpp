@@ -380,6 +380,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_item_scale,
         "scale for items' scores when fragmenting or chaining"
     );
+    chaining_opts.add_range(
+        "gap-scale",
+        &MinimizerMapper::gap_scale,
+        MinimizerMapper::default_gap_scale,
+        "scale for gap scores when fragmenting or chaining",
+        double_is_nonnegative
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",
@@ -707,6 +714,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("zipcode-tree-score-threshold", 50)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        .add_entry<double>("gap-scale", 2.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)

@@ -271,8 +271,12 @@ public:
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
     /// in fragmenting/chaining?
-    static constexpr int default_item_scale = 0;
+    static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// in fragmenting/chaining?
+    static constexpr double default_gap_scale = 1.0;
+    double gap_scale = default_gap_scale;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
