@@ -144,6 +144,23 @@ public:
     static constexpr size_t default_max_extensions = 800;
     size_t max_extensions = default_max_extensions;
 
+    // If a cluster's score is smaller than the best score of any cluster by more than
+    /// this much, then don't extend it
+    static constexpr double default_cluster_score_threshold = 50;
+    double cluster_score_threshold = default_cluster_score_threshold;
+    
+    /// If the second best cluster's score is no more than this many points below
+    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    /// second best cluster's score, to avoid throwing away promising
+    /// secondaries.
+    static constexpr double default_pad_cluster_score_threshold = 20;
+    double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
+
+    /// If the read coverage of a cluster is less than the best coverage of any tree
+    /// by more than this much, don't extend it
+    static constexpr double default_cluster_coverage_threshold = 0.3;
+    double cluster_coverage_threshold = default_cluster_coverage_threshold;
+
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
     static constexpr double default_extension_set_score_threshold = 20;
@@ -163,35 +180,19 @@ public:
     /// process anything with a score smaller than this.
     static constexpr int default_extension_set_min_score = 20;
     int extension_set_min_score = default_extension_set_min_score;
-    
-    /////////////////
-    // More shared parameters:
-    /////////////////
 
-    /// How many extended clusters should we align, max?
-    static constexpr size_t default_max_alignments = 8;
-    size_t max_alignments = default_max_alignments;
-    
     /// How many extensions should we try as seeds within a mapping location?
     static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
     size_t max_local_extensions = default_max_local_extensions;
 
-    /// If a cluster's score is smaller than the best score of any cluster by more than
-    /// this much, then don't extend it
-    static constexpr double default_cluster_score_threshold = 50;
-    double cluster_score_threshold = default_cluster_score_threshold;
     
-    /// If the second best cluster's score is no more than this many points below
-    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
-    /// second best cluster's score, to avoid throwing away promising
-    /// secondaries.
-    static constexpr double default_pad_cluster_score_threshold = 20;
-    double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
-
-    /// If the read coverage of a cluster is less than the best coverage of any cluster or tree
-    /// by more than this much, don't extend it
-    static constexpr double default_cluster_coverage_threshold = 0.3;
-    double cluster_coverage_threshold = default_cluster_coverage_threshold;
+    /////////////////
+    // More shared parameters:
+    /////////////////
+    
+    /// How many alignments should we make, max?
+    static constexpr size_t default_max_alignments = 8;
+    size_t max_alignments = default_max_alignments;
     
     //////////////////
     // Alignment-from-chains/long read Giraffe specific parameters:
@@ -210,8 +211,20 @@ public:
     double zipcode_tree_scale = default_zipcode_tree_scale;
 
     /// How far do we want to go down looking at zip code trees to make fragments?
-    static constexpr double default_zipcode_tree_score_threshold = 1.5;
+    static constexpr double default_zipcode_tree_score_threshold = 50;
     double zipcode_tree_score_threshold = default_zipcode_tree_score_threshold;
+
+    /// If the second best tree's score is no more than this many points below
+    /// the cutoff set by zipcode_tree_score_threshold, snap that cutoff down
+    /// to the second best tree's score, to avoid throwing away promising
+    /// secondaries.
+    static constexpr double default_pad_zipcode_tree_score_threshold = 20;
+    double pad_zipcode_tree_score_threshold = default_pad_zipcode_tree_score_threshold;
+
+    /// If the read coverage of a tree is less than the best coverage of any tree
+    /// by more than this much, don't extend it
+    static constexpr double default_zipcode_tree_coverage_threshold = 0.3;
+    double zipcode_tree_coverage_threshold = default_zipcode_tree_coverage_threshold;
     
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;

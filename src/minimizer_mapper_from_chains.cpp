@@ -190,7 +190,7 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
             auto tree_positions = funnel.get_positions(funnel.latest());
             #pragma omp critical (cerr)
             {
-                std::cerr << log_name() << "Positions for tree " << i << ":" << std::endl;
+                std::cerr << log_name() << "Positions for tree " << i << " score " << score << " coverage " << coverage << ":" << std::endl;
                 for (auto& handle_and_range : tree_positions) {
                     // Log each range on a path associated with the tree.
                     std::cerr << log_name() << "\t"
@@ -299,6 +299,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    // We will set a score cutoff based on the best, but move it down to the
+    // second best if it does not include the second best and the second best
+    // is within pad_zipcode_tree_score_threshold of where the cutoff would
+    // otherwise be. This ensures that we won't throw away all but one 
+    // based on score alone, unless it is really bad.
+    double tree_score_cutoff = best_tree_score - zipcode_tree_score_threshold;
+    if (tree_score_cutoff - pad_zipcode_tree_score_threshold < second_best_tree_score) {
+        tree_score_cutoff = std::min(tree_score_cutoff, second_best_tree_score);
+    }
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -336,19 +346,35 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
 
+    size_t kept_tree_count = 0;
+
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
-            return tree_scores[i];
+            return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
-            return tree_scores[a] > tree_scores[b] || (tree_scores[a] == tree_scores[b] && tree_coverages[a] > tree_coverages[b]); 
+            return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
         }, zipcode_tree_score_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
-                funnel.pass("fragmenting-score", item_num, tree_scores[item_num]);
+                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
                 funnel.pass("max-to-fragment", item_num);
-                funnel.pass("fragmenting-coverage", item_num, tree_coverages[item_num]);
+            }
+
+            // First check against the additional score filter
+            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff 
+                && kept_tree_count >= min_to_fragment) {
+                // If the score isn't good enough and we already kept at least min_to_fragment trees,
+                // ignore this tree
+                if (track_provenance) {
+                    funnel.fail("zipcode-tree-score", item_num, tree_scores[item_num]);
+                }
+                return false;
             }
             
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-score", item_num, tree_scores[item_num]); 
+            }
+
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -417,7 +443,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->fragment_max_indel_bases,
-                false // Don't show work for fragmenting, there are too many seeds.
+                this->show_work && aln.sequence().size() < 1000
             );
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -526,14 +552,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }, [&](size_t item_num) -> void {
             // There are too many sufficiently good problems to do
             if (track_provenance) {
-                funnel.pass("fragmenting-score", item_num, tree_scores[item_num]);
+                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
                 funnel.fail("max-to-fragment", item_num);
             }
             
         }, [&](size_t item_num) -> void {
             // This item is not sufficiently good.
             if (track_provenance) {
-                funnel.fail("fragmenting-score", item_num, tree_scores[item_num]);
+                funnel.fail("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
             }
         });
 
@@ -2216,6 +2242,8 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     pos_t graph_start;
     size_t read_start;
     size_t hint_start;
+    size_t margin_left;
+    size_t margin_right;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
@@ -2223,6 +2251,10 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         
         // Work out how much of the node it could use before there.
         length = std::min((size_t) source.length, offset(graph_end));
+        // And how much we cut off the start
+        margin_left = (size_t)source.length - length;
+        // We cut nothing off the end
+        margin_right = 0;
         // And derive the graph start
         graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
         // And the read start
@@ -2237,7 +2269,10 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         handle_t start_handle = graph.get_handle(id(graph_start), is_rev(graph_start));
         // Work out how much of the node it could use before there.
         length = std::min((size_t) source.length, graph.get_length(start_handle) - offset(graph_start));
-        
+        // We cut nothing off the start
+        margin_left = 0;
+        // How much do we cut off the end?
+        margin_right = (size_t)source.length - length;
         // And we store the read start position already in the item
         read_start = source.value.offset;
         // The seed is actually at the start
@@ -2251,10 +2286,11 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
               << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
 #endif
 
-    // Work out how many points the anchor is
+    // Work out how many points the anchor is.
     // TODO: Always make sequence and quality available for scoring!
-    int score = aligner->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
+    // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
+    int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {

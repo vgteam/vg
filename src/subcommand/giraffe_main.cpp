@@ -309,7 +309,22 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "zipcode-tree-score-threshold",
         &MinimizerMapper::zipcode_tree_score_threshold,
         MinimizerMapper::default_zipcode_tree_score_threshold,
-        "score below the top zipcode tree score to fragment"
+        "only fragment trees if they are within INT of the best score",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "pad-zipcode-tree-score-threshold",
+        &MinimizerMapper::pad_zipcode_tree_score_threshold,
+        MinimizerMapper::default_pad_zipcode_tree_score_threshold,
+        "also fragment trees within INT of above threshold to get a second-best cluster",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "zipcode-tree-coverage-threshold",
+        &MinimizerMapper::zipcode_tree_coverage_threshold,
+        MinimizerMapper::default_zipcode_tree_coverage_threshold,
+        "only fragment trees if they are within FLOAT of the best read coverage",
+        double_is_nonnegative
     );
     chaining_opts.add_range(
         "min-to-fragment",
@@ -678,20 +693,25 @@ int main_giraffe(int argc, char** argv) {
     presets["sr"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", true)
-        // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 100)
-        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
-        .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0)
-        // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384)
-        .add_entry<double>("mapq-score-scale", 1.0)
+        // Cap minimizers at a number we won't reach.
+        .add_entry<size_t>("max-min", 500)
+        // Don't downsample
+        .add_entry<size_t>("downsample-min", 0)
+        // Use the hit-cap||score-fraction filter
+        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<double>("score-fraction", 0.9)
+        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
+        // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
-        .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<size_t>("max-to-fragment", 800)
+        .add_entry<double>("zipcode-tree-score-threshold", 50)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
-        .add_entry<size_t>("max-alignments", 5);
+        .add_entry<size_t>("max-alignments", 5)
+        .add_entry<double>("mapq-score-scale", 1.0);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)

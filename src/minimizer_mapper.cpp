@@ -212,6 +212,11 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         exp.value(graph_start);
         exp.key("graph_end");
         exp.value(anchors[index].graph_end());
+
+        exp.key("read_exclusion_start");
+        exp.value(anchors[index].read_exclusion_start());
+        exp.key("read_exclusion_end");
+        exp.value(anchors[index].read_exclusion_start());
         
         exp.object_end();
     }

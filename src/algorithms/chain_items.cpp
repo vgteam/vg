@@ -11,7 +11,8 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
+#define debug_transition
 
 namespace vg {
 namespace algorithms {
@@ -19,7 +20,17 @@ namespace algorithms {
 using namespace std;
 
 ostream& operator<<(ostream& out, const Anchor& anchor) {
-    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    // TODO: Just friend class to get these?
+    size_t margin_left = anchor.read_start() - anchor.read_exclusion_start();
+    size_t margin_right = anchor.read_exclusion_end() - anchor.read_end();
+    if (margin_left) {
+        out << "(" << margin_left << ")";
+    }
+    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    if (margin_right) {
+        out << "(" << margin_right << ")";
+    }
+    return out;
 }
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
@@ -221,6 +232,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // Not reachable in read
 #ifdef debug_transition
                 std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+                return;
+            }
+
+            if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
+                // The actual core anchor part is reachable in the read, but we cut these down from overlapping minimizers.
+#ifdef debug_transition
+                std::cerr << "\tOriginally overlapped in read." << std::endl;
 #endif
                 return;
             }

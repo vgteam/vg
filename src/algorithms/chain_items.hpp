@@ -50,10 +50,23 @@ public:
     inline size_t read_start() const {
         return start;
     }
+
     /// Get the start position in the graph of this anchor's match
     inline const pos_t& graph_start() const {
         return start_pos;
     }
+
+    /// Get the start position in the read of the part of the read that you
+    /// can't have another anchor in if you take this one.
+    ///
+    /// We trimmed the anchors down from the minimizers to avoid having to deal
+    /// with the tail ends of the minimizers going multiple places in the
+    /// graph. But we don't want to let you take anchors from minimizers that
+    /// overlapped.
+    inline size_t read_exclusion_start() const {
+        return read_start() - margin_before;
+    }
+
     /// Get the length of this anchor's match
     inline size_t length() const {
         return size;
@@ -67,10 +80,16 @@ public:
     inline size_t read_end() const {
         return read_start() + length();
     }
-    
+
     /// Get the end position in the graph of this anchor's match
     inline pos_t graph_end() const {
         return end_pos;
+    }
+    
+    /// Get the end position in the read of the part of the read that you
+    /// can't have another anchor in if you take this one.
+    inline size_t read_exclusion_end() const {
+        return read_end() + margin_after;
     }
     
     /// Get the number of the seed at the start of the anchor, or
@@ -115,14 +134,14 @@ public:
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset) {
+    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before), margin_after(last.margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset) {
         // Nothing to do!
     }
     
@@ -136,6 +155,8 @@ public:
 protected:
     size_t start;
     size_t size;
+    size_t margin_before;
+    size_t margin_after;
     pos_t start_pos;
     pos_t end_pos;
     int points;
