@@ -285,7 +285,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // here with the multiplicity of the trees for each fragment
     // For now, this just stores how many trees had equal or better score. Later each value will 
     // be divided by the number of trees used
-    std::vector<float> multiplicity_by_fragment;
+    std::vector<double> multiplicity_by_fragment;
+    size_t tree_used_count = 0;;
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             // TODO: should we order the trees by coverage and not score? We used to do that.
             return tree_scores[i];
@@ -422,6 +423,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragment_scores.push_back(scored_fragment.first);
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
+                //Remember the multiplicity
+                multiplicity_by_fragment.emplace_back((float)item_count);
 
                 if (track_provenance) {
                     // Tell the funnel
@@ -464,6 +467,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     }
                 }
             }
+            ++tree_used_count;
 
             
             if (track_provenance) {
@@ -487,6 +491,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         });
 
+    //Get the actual multiplicity from the counts
+    for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
+        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] / (float)tree_used_count;
+    }
     // Now glom the fragments together into chains 
     if (track_provenance) {
         funnel.stage("chain");
@@ -505,6 +513,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<int> chain_score_estimates;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
     std::vector<std::vector<size_t>> minimizer_kept_chain_count;
+    // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
+    std::vector<double> multiplicity_by_chain;
     
     // Make a list of anchors where we have each fragment as itself an anchor
     std::vector<algorithms::Anchor> fragment_anchors;
@@ -518,8 +528,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
     // TODO: Stop reswizzling so much.
     std::unordered_map<size_t, std::vector<size_t>> tree_to_fragments;
+    vector<double> multiplicity_by_tree(zip_code_forest.trees.size(), 0);
     for (size_t i = 0; i < fragment_source_tree.size(); i++) {
         tree_to_fragments[fragment_source_tree[i]].push_back(i);
+#ifdef debug
+        if (multiplicity_by_tree[fragment_source_tree[i]] != 0) {
+            assert(multiplicity_by_tree[fragment_source_tree[i]] == multiplicity_by_fragment[i]);
+        }
+#endif
+        multiplicity_by_tree[fragment_source_tree[i]] = multiplicity_by_fragment[i];
     }
     
     // Get the score of the top-scoring fragment in each collection.
@@ -627,6 +644,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // And counts of each minimizer kept
             minimizer_kept_chain_count.emplace_back();
             auto& minimizer_kept = minimizer_kept_chain_count.back();
+            //Remember the multiplicity from the fragments. For now, it is just based on
+            //the trees so it doesn't matter which fragment this comes from
+            multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
             
             // We record the fragments that merge into each chain for reporting.
             std::vector<size_t> chain_fragment_nums_overall;
@@ -781,6 +801,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(chain_score_estimates.size());
+    //The multiplicity for each alignment
+    vector<double> multiplicity_by_alignment;
 
     // Create a new alignment object to get rid of old annotations.
     {
@@ -886,6 +908,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(processed_num);
+                multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
 
                 if (track_provenance) {
     
@@ -954,6 +977,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
+        multiplicity_by_alignment.emplace_back(0);
         
         if (track_provenance) {
             // Say it came from nowhere
@@ -969,6 +993,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
+    vector<double> multiplicity_by_mapping;
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -985,6 +1010,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
+        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance) {
             // Tell the funnel
@@ -1032,7 +1058,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false) ;
+        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_mapping) ;
     
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
