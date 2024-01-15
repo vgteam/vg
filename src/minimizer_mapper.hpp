@@ -1100,13 +1100,15 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
 
     // Find how many items have a better or equal score
     vector<size_t> better_or_equal_count(items, 0);
-    for (int i = items-2 ; i <= 0 ; --i) {
+    better_or_equal_count.back() = better_or_equal_count.size();
+    for (int i = items-2 ; i >= 0 ; --i) {
         //Starting from the second to last item, use the comparator to determine if it has the same
         // or lower score than the item after it
         if (comparator(indexes_in_order[i], indexes_in_order[i+1])){
-            //If this is less than the thing after it
+            //If the score is less than the item after it
             better_or_equal_count[i] = i+1;
         } else {
+            //Otherwise, they must be equal since they are ordered
             better_or_equal_count[i] = better_or_equal_count[i+1];
         }
     }
