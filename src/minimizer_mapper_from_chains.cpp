@@ -993,7 +993,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
-    vector<double> multiplicity_by_mapping;
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -1010,7 +1009,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
-        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance) {
             // Tell the funnel
@@ -1058,7 +1056,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_mapping) ;
+        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
     
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
