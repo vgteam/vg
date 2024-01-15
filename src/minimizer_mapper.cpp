@@ -700,7 +700,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
-        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num) -> bool {
+        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
             Cluster& cluster = clusters[cluster_num];
@@ -847,7 +847,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     
     // Go through the gapless extension groups in score order.
     process_until_threshold_b<int>(cluster_extension_scores,
-        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num) -> bool {
+        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num, size_t item_count) -> bool {
             // This extension set is good enough.
             // Called in descending score order.
             
@@ -1025,7 +1025,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     
     process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
         
@@ -1711,7 +1711,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     return clusters[a].score > clusters[b].score;
                 }
             },
-            0, min_extensions, max_extensions, rng, [&](size_t cluster_num) -> bool {
+            0, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count) -> bool {
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
                 if (!found_paired_cluster || fragment_cluster_has_pair[cluster.fragment] || 
@@ -1809,7 +1809,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // Go through the processed clusters in estimated-score order.
         process_until_threshold_b(cluster_alignment_score_estimates,
-            extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) {
+            extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num, size_t item_count) {
                 // This processed cluster is good enough.
                 // Called in descending score order.
                 
@@ -2213,7 +2213,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
             process_until_threshold_a(unpaired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).lookup_in(alignments).score();
-            }, 0, 1, max_rescue_attempts, rng, [&](size_t i) {
+            }, 0, 1, max_rescue_attempts, rng, [&](size_t i, size_t item_count) {
                 auto& index = unpaired_alignments.at(i);
                 size_t j = index.lookup_in(alignment_indices);
                 if (track_provenance) {
@@ -2346,7 +2346,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     process_until_threshold_a(paired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
 
@@ -4344,7 +4344,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     process_until_threshold_a<double>(extended_seeds.size(),
         [&](size_t extended_seed_num) -> double {
             return static_cast<double>(extended_seeds[extended_seed_num].score);
-        }, extension_score_threshold, min_tails, max_local_extensions, rng, [&](size_t extended_seed_num) -> bool {
+        }, extension_score_threshold, min_tails, max_local_extensions, rng, [&](size_t extended_seed_num, size_t item_count) -> bool {
        
             // This extended seed looks good enough.
             const GaplessExtension& extension = extended_seeds[extended_seed_num];

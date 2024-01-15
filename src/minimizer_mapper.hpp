@@ -946,7 +946,8 @@ protected:
      * score-difference-from-the-best cutoff, a min and max processed item
      * count, and a function to get a sort-shuffling seed for breaking ties,
      * process items in descending score order by calling process_item with the
-     * item's number, until min_count items are processed and either max_count
+     * item's number and the number of other items with the same or better score,
+     * until min_count items are processed and either max_count
      * items are processed or the score difference threshold is hit (or we run
      * out of items).
      *
@@ -963,7 +964,7 @@ protected:
     void process_until_threshold_a(size_t items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
-        const function<bool(size_t)>& process_item,
+        const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
@@ -974,7 +975,7 @@ protected:
     void process_until_threshold_b(const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
-        const function<bool(size_t)>& process_item,
+        const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
@@ -987,7 +988,7 @@ protected:
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& get_seed,
-        const function<bool(size_t)>& process_item,
+        const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
         
@@ -1053,7 +1054,7 @@ template<typename Score>
 void MinimizerMapper::process_until_threshold_a(size_t items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
     LazyRNG& rng,
-    const function<bool(size_t)>& process_item,
+    const function<bool(size_t, size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
@@ -1066,7 +1067,7 @@ template<typename Score>
 void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
     LazyRNG& rng,
-    const function<bool(size_t)>& process_item,
+    const function<bool(size_t, size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
     
@@ -1082,7 +1083,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
-        const function<bool(size_t)>& process_item,
+        const function<bool(size_t, size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const {
 
@@ -1096,6 +1097,19 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
     // Put the highest scores first, but shuffle top ties so reads spray evenly
     // across equally good mappings
     sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, rng);
+
+    // Find how many items have a better or equal score
+    vector<size_t> better_or_equal_count(items, 0);
+    for (int i = items-2 ; i <= 0 ; --i) {
+        //Starting from the second to last item, use the comparator to determine if it has the same
+        // or lower score than the item after it
+        if (comparator(indexes_in_order[i], indexes_in_order[i+1])){
+            //If this is less than the thing after it
+            better_or_equal_count[i] = i+1;
+        } else {
+            better_or_equal_count[i] = better_or_equal_count[i+1];
+        }
+    }
 
     // Retain items only if their score is at least as good as this
     double cutoff = items == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
@@ -1117,7 +1131,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
             } else {
                 // We will reject it for score
                 discard_item_by_score(item_num);
@@ -1131,7 +1145,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
                 // Go do it.
                 // If it is not skipped by the user, add it to the total number
                 // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
+                unskipped += (size_t) process_item(item_num, better_or_equal_count[i]);
             } else {
                 // We are out of room! Reject for count.
                 discard_item_by_count(item_num);

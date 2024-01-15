@@ -281,13 +281,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // How many of each minimizer ought to be considered explored by each fragment?
     // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
-
+    // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
+    // here with the multiplicity of the trees for each fragment
+    // For now, this just stores how many trees had equal or better score. Later each value will 
+    // be divided by the number of trees used
+    std::vector<float> multiplicity_by_fragment;
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             // TODO: should we order the trees by coverage and not score? We used to do that.
             return tree_scores[i];
         }, [&](size_t a, size_t b) -> bool {
             return tree_scores[a] > tree_scores[b]; 
-        }, 0.75, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num) -> bool {
+        }, 0.75, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
@@ -822,7 +826,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
-        chain_score_threshold, min_chains, max_alignments, rng, [&](size_t processed_num) -> bool {
+        chain_score_threshold, min_chains, max_alignments, rng, 
+        [&](size_t processed_num, size_t item_count) -> bool {
             // This chain is good enough.
             // Called in descending score order.
             
@@ -971,7 +976,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
         
