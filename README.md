@@ -34,6 +34,7 @@ Please cite:
 * [The GBZ Paper](https://doi.org/10.1093/bioinformatics/btad097) when using GBZ
 * [The HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x) when using `vg deconstruct`
 * [The Snarls Paper](https://doi.org/10.1089/cmb.2017.0251) when using `vg snarls`
+* [The Personalized Pangenome Paper](https://doi.org/10.1101/2023.12.13.571553) when using `vg haplotypes` and/or `vg giraffe --haplotype-name`
 
 ## Support 
 
