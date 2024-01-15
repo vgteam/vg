@@ -1099,8 +1099,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
     sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, rng);
 
     // Find how many items have a better or equal score
-    vector<size_t> better_or_equal_count(items, 0);
-    better_or_equal_count.back() = better_or_equal_count.size();
+    vector<size_t> better_or_equal_count(items, items);
     for (int i = items-2 ; i >= 0 ; --i) {
         //Starting from the second to last item, use the comparator to determine if it has the same
         // or lower score than the item after it
