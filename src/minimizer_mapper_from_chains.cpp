@@ -132,6 +132,82 @@ void MinimizerMapper::dump_debug_graph(const HandleGraph& graph) {
     });
 }
 
+std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_code_forest, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const {
+    // Initialize the values.
+    std::pair<double, double> to_return;
+    auto& score = to_return.first;
+    auto& coverage = to_return.second;
+    
+    // Start score at 0.
+    score = 0;
+    // Coverage gets set all at once.
+
+    // Track if minimizers are present
+    SmallBitset present(minimizers.size());
+    // And if read bases are covered
+    sdsl::bit_vector covered(seq_length, 0);
+
+    vector<size_t> tree_seeds;
+    for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i]) {
+        if (this->track_provenance) {
+            // Remember the seeds
+            tree_seeds.push_back(found.seed);
+        }
+        // For each seed in the tree, find what minimizer it comes from
+        if (found.seed >= seeds.size()) {
+            throw std::out_of_range("Tree " + std::to_string(i) + " has seed " + std::to_string(found.seed) + " but we only have " + std::to_string(seeds.size()) + " seeds");
+        }
+        size_t source = seeds.at(found.seed).source;
+        if (!present.contains(source)) {
+            // If it's a new minimizer, count its score
+            score += minimizers[source].score;
+
+            // Mark its read bases covered.
+            // The offset of a reverse minimizer is the endpoint of the kmer
+            size_t start_offset = minimizers[source].forward_offset();
+            size_t k = minimizers[source].length;
+
+            // Set the k bits starting at start_offset.
+            covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
+
+            // Mark it present
+            present.insert(source);
+        }
+    }
+
+    // Count up the covered positions and turn it into a fraction.
+    coverage = sdsl::util::cnt_one_bits(covered) / static_cast<double>(seq_length);
+
+    if (this->track_provenance) {
+        // Record the tree in the funnel as a group of the size of the number of items.
+        funnel.merge_group(tree_seeds.begin(), tree_seeds.end());
+        funnel.score(funnel.latest(), score);
+
+        // TODO: Should we tell the funnel we produced an output?
+
+        if (show_work && track_correctness) {
+            // We will have positions early, for all the seeds.
+            auto tree_positions = funnel.get_positions(funnel.latest());
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "Positions for tree " << i << ":" << std::endl;
+                for (auto& handle_and_range : tree_positions) {
+                    // Log each range on a path associated with the tree.
+                    std::cerr << log_name() << "\t"
+                        << this->path_graph->get_path_name(handle_and_range.first)
+                        << ":" << handle_and_range.second.first
+                        << "-" << handle_and_range.second.second << std::endl;
+                }
+                if (track_correctness && funnel.is_correct(funnel.latest())) {
+                    cerr << log_name() << "\t\tCORRECT!" << endl;
+                }
+            }
+        }
+    }
+
+    return to_return;
+}
+
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (show_work) {
@@ -191,26 +267,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double best_tree_score = 0;
     double second_best_tree_score = 0;
     tree_scores.reserve(zip_code_forest.trees.size());
+
+    vector<double> tree_coverages;
+    double best_tree_coverage = 0;
+    double second_best_tree_coverage = 0;
+    tree_coverages.reserve(zip_code_forest.trees.size());
+
     for (size_t i = 0; i < zip_code_forest.trees.size(); i++) {
         // For each zip code tree
-        double score = 0;
-        auto present = SmallBitset(minimizers.size());
-        vector<size_t> tree_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[i]) {
-            if (this->track_provenance) {
-                // Remember the seeds
-                tree_seeds.push_back(found.seed);
-            }
-            // For each seed in the tree, find what minimizer it comes from
-            size_t source = seeds[found.seed].source;
-            if (!present.contains(source)) {
-                // If it's a new minimizer, count its score
-                score += minimizers[source].score;
-                present.insert(source);
-            }
-        }
-        // Remember the score for the tree
+        
+        // Score it
+        std::pair<double, double> metrics = this->score_tree(zip_code_forest, i, minimizers, seeds, aln.sequence().size(), funnel);
+        auto& score = metrics.first;
+        auto& coverage = metrics.second;
+
         tree_scores.push_back(score);
+        tree_coverages.push_back(coverage);
 
         if (score > best_tree_score) {
             second_best_tree_score = best_tree_score;
@@ -219,36 +291,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             second_best_tree_score = score;
         }
 
-        if (this->track_provenance) {
-            // Record the tree in the funnel as a group of the size of the number of items.
-            funnel.merge_group(tree_seeds.begin(), tree_seeds.end());
-            funnel.score(funnel.latest(), score);
-
-            if (show_work && track_correctness) {
-                // We will have positions early, for all the seeds.
-                auto tree_positions = funnel.get_positions(funnel.latest());
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << log_name() << "Positions for tree " << i << ":" << std::endl;
-                    for (auto& handle_and_range : tree_positions) {
-                        // Log each range on a path associated with the tree.
-                        std::cerr << log_name() << "\t"
-                            << this->path_graph->get_path_name(handle_and_range.first)
-                            << ":" << handle_and_range.second.first
-                            << "-" << handle_and_range.second.second << std::endl;
-                    }
-                    if (track_correctness && funnel.is_correct(funnel.latest())) {
-                        cerr << log_name() << "\t\tCORRECT!" << endl;
-                    }
-                }
-            }
+        if (coverage > best_tree_coverage) {
+            second_best_tree_coverage = best_tree_coverage;
+            best_tree_coverage = coverage;
+        } else if (coverage > second_best_tree_coverage) {
+            second_best_tree_coverage = coverage;
         }
     }
 
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best" << std::endl;
+            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best, coverages " << best_tree_coverage << " best, " << second_best_tree_coverage << " second best" << std::endl;
         }
     }
     
@@ -288,22 +342,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> multiplicity_by_fragment;
     size_t tree_used_count = 0;;
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
-            // TODO: should we order the trees by coverage and not score? We used to do that.
             return tree_scores[i];
         }, [&](size_t a, size_t b) -> bool {
-            return tree_scores[a] > tree_scores[b]; 
-        }, 0.75, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
+            return tree_scores[a] > tree_scores[b] || (tree_scores[a] == tree_scores[b] && tree_coverages[a] > tree_coverages[b]); 
+        }, zipcode_tree_score_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
                 funnel.pass("fragmenting-score", item_num, tree_scores[item_num]);
                 funnel.pass("max-to-fragment", item_num);
+                funnel.pass("fragmenting-coverage", item_num, tree_coverages[item_num]);
             }
             
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Making fragments for zip code tree " << item_num << endl;
+                    cerr << log_name() << "Making fragments for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
                 }
             }
             
@@ -1144,6 +1198,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_num-bp-per-min", (double) num_bp_per_min);
         set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
         set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
+        set_annotation(mappings[0], "param_zipcode-tree-score-threshold", (double) zipcode_tree_score_threshold);
         set_annotation(mappings[0], "param_min-to-fragment", (double) min_to_fragment);
         set_annotation(mappings[0], "param_max-to-fragment", (double) max_to_fragment);
         

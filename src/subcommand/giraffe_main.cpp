@@ -285,10 +285,10 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "attempt rescue with at most INT seeds"
     );
     comp_opts.add_flag(
-        "no-explored-cap",
+        "explored-cap",
         &MinimizerMapper::use_explored_cap,
         MinimizerMapper::default_use_explored_cap,
-        "disable explored minimizer layout cap on mapping quality"
+        "use explored minimizer layout cap on mapping quality"
     );
     comp_opts.add_range(
         "mapq-score-scale",
@@ -304,6 +304,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::align_from_chains,
         MinimizerMapper::default_align_from_chains,
         "chain up extensions to create alignments, instead of doing each separately"
+    );
+    chaining_opts.add_range(
+        "zipcode-tree-score-threshold",
+        &MinimizerMapper::zipcode_tree_score_threshold,
+        MinimizerMapper::default_zipcode_tree_score_threshold,
+        "score below the top zipcode tree score to fragment"
     );
     chaining_opts.add_range(
         "min-to-fragment",
@@ -427,7 +433,7 @@ string sample_haplotypes(const vector<pair<string, string>>& indexes, string& ba
 
 //----------------------------------------------------------------------------
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
     cerr
     << "usage:" << endl
     << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
@@ -445,7 +451,18 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (";
+    for (auto p = presets.begin(); p != presets.end(); ++p) {
+        // Announce each preset name, slash-separated
+        cerr << p->first;
+        auto next_p = p;
+        ++next_p;
+        if (next_p != presets.end()) {
+            // There's another preset.
+            cerr << " / ";
+        }
+    }
+    cerr << ") [default]" << endl
     << "  -h, --help                    print full help with all available options" << endl;
 
     cerr
@@ -510,11 +527,6 @@ int main_giraffe(int argc, char** argv) {
     // Set up to parse options
     std::unique_ptr<GroupedOptionGroup> parser = get_options();
 
-    if (argc == 2) {
-        help_giraffe(argv, *parser, false);
-        return 1;
-    }
-    
     constexpr int OPT_OUTPUT_BASENAME = 1001;
     constexpr int OPT_REPORT_NAME = 1002;
     constexpr int OPT_TRACK_PROVENANCE = 1003;
@@ -638,12 +650,13 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("extension-set", 20)
         .add_entry<int>("extension-score", 1);
     // And a default preset that doesn't.
-    presets["default"];
+    presets["default"]
+        // This is always on in the non-chaining codepath right now, but just to be sure...
+        .add_entry<bool>("explored-cap", true);
     // And a long read preset (TODO: make into PacBio and Nanopore)
     presets["lr"]
         .add_entry<bool>("align-from-chains", true)
-        // Since the default is true, the option name has "no", but we are setting the cap off.
-        .add_entry<bool>("no-explored-cap", false)
+        .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
@@ -659,6 +672,41 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-alignments", 5);
+    // And a short reads with chaining preset
+    presets["sr"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", true)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-min", 100)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        // Use a high hard hit cap to allow centromeres
+        .add_entry<size_t>("hard-hit-cap", 16384)
+        .add_entry<double>("mapq-score-scale", 1.0)
+        .add_entry<size_t>("min-to-fragment", 2)
+        .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-alignments", 5);
+    presets["srold"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-min", 100)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        // Use a high hard hit cap to allow centromeres
+        .add_entry<size_t>("hard-hit-cap", 16384)
+        .add_entry<double>("mapq-score-scale", 1.0)
+        .add_entry<size_t>("min-to-fragment", 2)
+        .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-alignments", 5);
         
@@ -705,6 +753,11 @@ int main_giraffe(int argc, char** argv) {
     
     std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
     parser->make_short_options(short_options);
+
+    if (argc == 2) {
+        help_giraffe(argv, *parser, presets, false);
+        return 1;
+    }
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -992,7 +1045,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, *parser, true);
+                help_giraffe(argv, *parser, presets, true);
                 exit(1);
                 break;
         }

@@ -783,7 +783,8 @@ int main_stats(int argc, char** argv) {
                 stats.total_secondary++;
             } else {
                 stats.total_primary++;
-                bool has_alignment = aln.score() > 0;
+                // Injected alignments may have paths but no scores.
+                bool has_alignment = aln.score() > 0 || aln.path().mapping_size() > 0;
                 if (has_alignment) {
                     // We only count aligned primary reads in "total aligned";
                     // the primary can't be unaligned if the secondary is
