@@ -337,10 +337,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
     // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
     // here with the multiplicity of the trees for each fragment
-    // For now, this just stores how many trees had equal or better score. Later each value will 
-    // be divided by the number of trees used
+    // For now, this just stores how many trees had equal or better score. After going through all
+    // trees and counting how many are kept, each value will be divided by the number of trees kept
     std::vector<double> multiplicity_by_fragment;
-    size_t tree_used_count = 0;;
+    size_t tree_used_count = 0;
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_scores[i];
         }, [&](size_t a, size_t b) -> bool {
@@ -477,7 +477,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragment_scores.push_back(scored_fragment.first);
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
-                //Remember the multiplicity
+                //Remember the number of better or equal-scoring trees
                 multiplicity_by_fragment.emplace_back((float)item_count);
 
                 if (track_provenance) {
@@ -855,7 +855,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(chain_score_estimates.size());
-    //The multiplicity for each alignment
+    //For finding the multiplicity of each alignment, first get the count
+    // of equal scoring chains
+    vector<size_t> chain_count_by_alignment (alignments.size(), 0);
+    //The multiplicity for each alignment, projected from previous stages
     vector<double> multiplicity_by_alignment;
 
     // Create a new alignment object to get rid of old annotations.
@@ -963,6 +966,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(processed_num);
                 multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
+                chain_count_by_alignment.emplace_back(item_count);
 
                 if (track_provenance) {
     
@@ -1036,6 +1040,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (track_provenance) {
             // Say it came from nowhere
             funnel.introduce();
+        }
+    } else {
+        for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
+            multiplicity_by_alignment[i] += ((double)chain_count_by_alignment[i] / (double) alignments.size());
         }
     }
     
