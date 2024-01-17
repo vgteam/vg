@@ -547,7 +547,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     //Get the actual multiplicity from the counts
     for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] / (float)tree_used_count;
+        multiplicity_by_fragment[i] = max(1.0, multiplicity_by_fragment[i] / (float)tree_used_count);
     }
     // Now glom the fragments together into chains 
     if (track_provenance) {
