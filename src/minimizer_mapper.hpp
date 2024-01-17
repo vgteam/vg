@@ -494,8 +494,8 @@ protected:
     /// Convert a single seed to a single chaining anchor.
     static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
     
-    /// Convert an Anchor to a WFAAlignment
-    WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 
+    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
+    WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 
 
     /// The information we store for each cluster.
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;

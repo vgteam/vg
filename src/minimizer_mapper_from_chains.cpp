@@ -1350,6 +1350,9 @@ Alignment MinimizerMapper::find_chain_alignment(
     auto next_it = here_it;
     ++next_it;
     
+    // Track the anchor we're at.
+    // Note that, although it has a score, that's an anchor score; it isn't the
+    // right score for the perfect-match alignment it represents.
     const algorithms::Anchor* here = &to_chain[*here_it];
     
 #ifdef debug_chaining
@@ -1517,14 +1520,14 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << " with score of " << (*here).score() << endl;
+                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << endl;
             }
         }
 #endif
         
         // Make an alignment for the bases used in this item, and
         // concatenate it in.
-        WFAAlignment here_alignment = this->to_wfa_alignment(*here);
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += here_alignment.score;
         
@@ -1693,7 +1696,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     }
 #endif
     
-    WFAAlignment here_alignment = this->to_wfa_alignment(*here);
+    WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
     
     here_alignment.check_lengths(gbwt_graph);
     
@@ -2296,14 +2299,14 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
-WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
+WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
     return {
         {gbwt_graph.get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
         {{WFAAlignment::match, (uint32_t)anchor.length()}},
         (uint32_t)offset(anchor.graph_start()),
         (uint32_t)anchor.read_start(),
         (uint32_t)anchor.length(),
-        anchor.score(),
+        aligner->score_exact_match(aln, anchor.read_start(), anchor.length()),
         true
     };
 }
