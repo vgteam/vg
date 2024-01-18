@@ -42,6 +42,8 @@
 //#define debug_fragment_distr
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
+// Debug generation of alignments from chains
+//#define debug_chain_alignment
 
 namespace vg {
 
@@ -444,7 +446,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_scale,
                 this->gap_scale,
                 this->fragment_max_indel_bases,
-                this->show_work && aln.sequence().size() < 1000
+                false
             );
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -689,7 +691,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             this->item_scale,
             this->gap_scale,
             this->max_indel_bases,
-            this->show_work
+            false
         );
         
         for (size_t result = 0; result < chain_results.size(); result++) {
@@ -1355,7 +1357,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     // right score for the perfect-match alignment it represents.
     const algorithms::Anchor* here = &to_chain[*here_it];
     
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -1407,7 +1409,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // We got an alignment, so make it a path
             left_alignment.check_lengths(gbwt_graph);
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1424,7 +1426,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (left_tail_length > MAX_DP_LENGTH) {
                 // Left tail is too long to align.
                 
-#ifdef debug
+#ifdef debug_chain_alignment
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << left_tail_length << " bp left tail against " << right_anchor << " in " << aln.name() << " to avoid overflow" << endl;
@@ -1437,7 +1439,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 composed_score = left_alignment.score;
             } else {
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
@@ -1495,7 +1497,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (algorithms::get_read_distance(*here, *next) == std::numeric_limits<size_t>::max()) {
                 // There's overlap between these items. Keep here and skip next.
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
@@ -1516,7 +1518,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             break;
         }
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -1528,10 +1530,20 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Make an alignment for the bases used in this item, and
         // concatenate it in.
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        }
+    }
+#endif
+
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += here_alignment.score;
         
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -1550,7 +1562,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         string linking_bases = aln.sequence().substr(link_start, link_length);
         size_t graph_length = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
         
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -1567,7 +1579,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // an empty graph region.
             // TODO: We can be leaving the GBWT's space here!
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1594,7 +1606,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     // Try falling back to a pure insertion.
                     // TODO: We can be leaving the GBWT's space here!
                     // TODO: What if this is forcing an insertion that could also be in the graph already?
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
@@ -1620,7 +1632,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (link_alignment) {
             // We found a link alignment
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1640,7 +1652,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (linking_bases.size() > MAX_DP_LENGTH) {
                 // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
-#ifdef debug
+#ifdef debug_chain_alignment
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
@@ -1687,16 +1699,25 @@ Alignment MinimizerMapper::find_chain_alignment(
         here = next;
     }
     
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << " with score of " << (*here).score() << endl;
+            cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
         }
     }
 #endif
     
     WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+
+#ifdef debug_chain_alignment
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        }
+    }
+#endif
     
     here_alignment.check_lengths(gbwt_graph);
     
@@ -1737,7 +1758,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 right_alignment.print(ss);
                 throw ChainAlignmentFailedError(ss.str());
             }
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1753,7 +1774,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         } else {
             // We need to fall back on alignment against the graph
             
-#ifdef debug_chaining
+#ifdef debug_chain_alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1765,7 +1786,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (right_tail.size() > MAX_DP_LENGTH) {
                 // Right tail is too long to align.
                
-#ifdef debug
+#ifdef debug_chain_alignment
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor << " in " << aln.name() << " to avoid overflow" << endl;
@@ -1825,7 +1846,10 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Convert to a vg Alignment.
     Alignment result(aln);
-    *result.mutable_path() = std::move(simplify(composed_path));
+    // Simplify the path but keep internal deletions; we want to assert the
+    // read deleted relative to some graph, and avoid jumps along nonexistent
+    // edges.
+    *result.mutable_path() = std::move(simplify(composed_path, false));
     result.set_score(composed_score);
     if (!result.sequence().empty()) {
         result.set_identity(identity(result.path()));

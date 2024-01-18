@@ -714,7 +714,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("zipcode-tree-score-threshold", 50)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
-        .add_entry<double>("gap-scale", 2.0)
+        .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
