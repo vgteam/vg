@@ -338,6 +338,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_to_fragment,
         "maximum number of fragmenting problems to run"
     );
+    chaining_opts.add_flag(
+        "do-gapless-extension",
+        &MinimizerMapper::do_gapless_extension,,
+        MinimizerMapper::default_do_gapless_extension,
+        "do gapless extension to seeds in a tree before fragmenting"
+    );
     chaining_opts.add_range(
         "fragment-max-lookback-bases",
         &MinimizerMapper::fragment_max_lookback_bases,
@@ -711,6 +717,7 @@ int main_giraffe(int argc, char** argv) {
         // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 800)
+        .add_entry<bool>("do-gapless-extension", true)
         .add_entry<double>("zipcode-tree-score-threshold", 50)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)

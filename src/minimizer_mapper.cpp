@@ -749,7 +749,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                 aln.sequence(),
                 GaplessExtender::MAX_MISMATCHES,
                 minimizer_extended_cluster_count,
-                funnel));
+                &funnel));
             
             kept_cluster_count ++;
             
@@ -1754,7 +1754,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         aln.sequence(),
                         GaplessExtender::MAX_MISMATCHES,
                         minimizer_kept_cluster_count_by_read[read_num],
-                        funnels[read_num])), cluster.fragment);
+                        &funnels[read_num])), cluster.fragment);
                     
                     kept_cluster_count ++;
                     
@@ -3893,10 +3893,10 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     const string& sequence,
     size_t max_mismatches,
     vector<vector<size_t>>& minimizer_kept_count,
-    Funnel& funnel,
+    Funnel* funnel,
     std::vector<std::vector<size_t>>* seeds_used) const {
 
-    if (track_provenance) {
+    if (track_provenance && funnel) {
         // Say we're working on this source item
         funnel.processing_input(source_num);
     }
@@ -4053,7 +4053,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
         }
     }
             
-    if (track_provenance) {
+    if (track_provenance && funnel) {
         // Record with the funnel that the previous group became a group of this size.
         // Don't bother recording the seed to extension matching...
         funnel.project_group(source_num, extension.size());

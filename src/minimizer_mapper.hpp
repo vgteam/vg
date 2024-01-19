@@ -225,7 +225,19 @@ public:
     /// by more than this much, don't extend it
     static constexpr double default_zipcode_tree_coverage_threshold = 0.3;
     double zipcode_tree_coverage_threshold = default_zipcode_tree_coverage_threshold;
+
+    /// How many things should we produce fragments for, min?
+    static constexpr size_t default_min_to_fragment = 4;
+    size_t min_to_fragment = default_min_to_fragment;
+
+    /// How many things should we produce fragments for, max?
+    static constexpr size_t default_max_to_fragment = 10;
+    size_t max_to_fragment = default_max_to_fragment;
     
+    /// If true, do gapless extension to the seeds in each tree before fragmenting the tree.
+    static constexpr bool default_do_gapless_extension = false;
+    bool do_gapless_extension = default_do_gapless_extension;
+
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
@@ -237,14 +249,6 @@ public:
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
-    /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 4;
-    size_t min_to_fragment = default_min_to_fragment;
-
-    /// How many things should we produce fragments for, max?
-    static constexpr size_t default_max_to_fragment = 10;
-    size_t max_to_fragment = default_max_to_fragment;
-
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
@@ -584,8 +588,11 @@ protected:
     std::pair<double, double> score_tree(const ZipCodeForest& zip_code_forest, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
-     * Extends the seeds in a cluster or other grouping from the previous
-     * funnel stage into a collection of GaplessExtension objects.
+     * Extends the seeds in a cluster or other grouping into a collection of
+     * GaplessExtension objects.
+     *
+     * If funnel is set, the group is intended to come from the previous funnel
+     * stage and will be introduced in this one.
      *
      * If seeds_used is not null, it should be an empty vector that gets filled
      * with, for each gapless extension, the numbers of the seeds in seeds that
@@ -601,7 +608,7 @@ protected:
         const string& sequence,
         size_t max_mismatches,
         vector<vector<size_t>>& minimizer_kept_count,
-        Funnel& funnel,
+        Funnel* funnel = nullptr,
         std::vector<std::vector<size_t>>* seeds_used = nullptr) const;
     
     /**
