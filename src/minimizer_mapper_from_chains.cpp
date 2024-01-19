@@ -82,6 +82,101 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
     return position;
 }
 
+/// Figure out if the chains that start and end at the given seeds represent equivalent mappings
+/// based on the range they cover in their top-level chain
+static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1, const MinimizerMapper::Seed& end_seed1,
+                                        const MinimizerMapper::Seed& start_seed2, const MinimizerMapper::Seed& end_seed2) {
+#ifdef debug
+    assert(start_seed1.zipcode_decoder->get_distance_index_address(0) ==
+           end_seed1.zipcode_decoder->get_distance_index_address(0));
+    assert(start_seed2.zipcode_decoder->get_distance_index_address(0) ==
+           end_seed2.zipcode_decoder->get_distance_index_address(0));
+#endif
+    if (start_seed1.zipcode_decoder->get_distance_index_address(0) !=
+        start_seed2.zipcode_decoder->get_distance_index_address(0)) {
+        //If the two ranges are on different connected components
+        return false;
+    }
+    if (start_seed1.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_SNARL) {
+        //If this is in a root snarl
+        if (start_seed1.zipcode_decoder->get_rank_in_snarl(1) !=
+            start_seed2.zipcode_decoder->get_rank_in_snarl(1) 
+            ||
+            start_seed1.zipcode_decoder->get_rank_in_snarl(1) !=
+            end_seed1.zipcode_decoder->get_rank_in_snarl(1) 
+            ||
+            start_seed2.zipcode_decoder->get_rank_in_snarl(1) !=
+            end_seed2.zipcode_decoder->get_rank_in_snarl(1)) {
+            //If the two ranges are on different children of the snarl
+            return false;
+        }
+    }
+
+    //Get the offset used for determining the range
+    //On the top-level chain, node, or child of the top-level snarl 
+    auto get_seed_offset = [&] (const MinimizerMapper::Seed& seed) {
+        if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_CHAIN) {
+            return seed.zipcode_decoder->get_offset_in_chain(0);
+        } else if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_NODE) {
+            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(0) - offset(seed.pos)
+                                    : offset(seed.pos);
+        } else {
+            //Otherwise, this is a top-level snarl, and we've already made sure that it's on the 
+            //same child chain/node
+            if (seed.zipcode_decoder->get_code_type(1) == ZipCode::CHAIN) {
+                //On a chain
+                return seed.zipcode_decoder->get_offset_in_chain(1);
+            } else {
+                //On a node
+                return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(1) - offset(seed.pos)
+                                        : offset(seed.pos);
+            }
+        }
+    };
+    size_t offset_start1 = get_seed_offset(start_seed1); 
+    size_t offset_end1 = get_seed_offset(end_seed1);
+    size_t offset_start2 = get_seed_offset(start_seed2); 
+    size_t offset_end2 = get_seed_offset(end_seed2);
+
+    if (offset_start1 > offset_end1) {
+        size_t temp = offset_start1;
+        offset_start1 = offset_end1;
+        offset_end1 = temp;
+    }
+    if (offset_start2 > offset_end2) {
+        size_t temp = offset_start2;
+        offset_start2 = offset_end2;
+        offset_end2 = temp;
+    }
+
+    if (offset_start1 > offset_end2 || offset_start2 > offset_end1 ){
+        //If the ranges are disconnected
+        return false;
+    }if ( (offset_start1 <= offset_start2 && offset_end1 >= offset_end2) ||
+         (offset_start2 <= offset_start1 && offset_end2 >= offset_end1)) {
+        //If one range contains the other
+        return true;
+    } else {
+        //Otherwise the two ranges must overlap on just one side
+
+        if (offset_start1 > offset_start2) { 
+            //Flip them so that range1 is first
+            size_t tmp_start = offset_start1;
+            size_t tmp_end = offset_end1;
+            offset_start1 = offset_start2;
+            offset_end1 = offset_end2;
+            offset_start2 = tmp_start;
+            offset_end2 = tmp_end;
+        }
+
+        size_t overlap_size = offset_end1 - offset_start2;
+        //The two ranges count as equivalent if the length of the overlap is more than half the 
+        //length of the shorter range
+        return overlap_size > (std::min(offset_end1-offset_start1, offset_end2-offset_start2) / 2);
+
+    }
+}
+
 void MinimizerMapper::dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph) {
     if (!path_graph) {
         // We don't have a path positional graph for this
@@ -1042,6 +1137,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             funnel.introduce();
         }
     } else {
+        //chain_count_by_alignment is currently the number of better or equal chains that were used
+        // We really want the number of chains not including the ones that represent the same mapping
+        // TODO: This isn't very efficient
+        for (size_t i = 0 ; i < chain_count_by_alignment.size() ; ++i) {
+            size_t chain_i = alignments_to_source[i];
+            for (size_t j = 0 ; j < chain_count_by_alignment.size() ; ++j) {
+                size_t chain_j = alignments_to_source[j];
+                if (i != j &&
+                    chain_score_estimates[chain_i] >= chain_score_estimates[chain_j] &&
+                    chain_ranges_are_equivalent(seeds[chains[chain_i].front()],
+                                         seeds[chains[chain_i].back()],
+                                         seeds[chains[chain_j].front()],
+                                         seeds[chains[chain_j].back()])) {
+                    --chain_count_by_alignment[i];
+                }
+            }
+        }
         for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
             multiplicity_by_alignment[i] += ((double)chain_count_by_alignment[i] / (double) alignments.size());
         }
