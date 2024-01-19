@@ -141,10 +141,10 @@ public:
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before), margin_after(last.margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset) {
+    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset) {
         // Nothing to do!
     }
-    
+
     // Act like data
     Anchor() = default;
     Anchor(const Anchor& other) = default;

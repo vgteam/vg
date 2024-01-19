@@ -493,6 +493,10 @@ protected:
     
     /// Convert a single seed to a single chaining anchor.
     static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
+
+    /// Convert a single GaplessExtension to a single chaining anchor.
+    /// extension_seeds is sorted by the order of the corresponding anchors in the read.
+    static algorithms::Anchor to_anchor(const Alignment& aln, const GaplessExtension& extension, const std::vector<size_t>& extension_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner);
     
     /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 
@@ -580,16 +584,25 @@ protected:
     std::pair<double, double> score_tree(const ZipCodeForest& zip_code_forest, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
-     * Extends the seeds in a cluster into a collection of GaplessExtension objects.
+     * Extends the seeds in a cluster or other grouping from the previous
+     * funnel stage into a collection of GaplessExtension objects.
+     *
+     * If seeds_used is not null, it should be an empty vector that gets filled
+     * with, for each gapless extension, the numbers of the seeds in seeds that
+     * are subsumed into the extension. They will be sorted by the stapled base
+     * (first base for forward strand, last base for reverse strand) in the
+     * read. 
      */
-    vector<GaplessExtension> extend_cluster(
-        const Cluster& cluster,
-        size_t cluster_num,
+    vector<GaplessExtension> extend_seed_group(
+        const std::vector<size_t>& seed_group,
+        size_t source_num,
         const VectorView<Minimizer>& minimizers,
         const std::vector<Seed>& seeds,
         const string& sequence,
-        vector<vector<size_t>>& minimizer_kept_cluster_count,
-        Funnel& funnel) const;
+        size_t max_mismatches,
+        vector<vector<size_t>>& minimizer_kept_count,
+        Funnel& funnel,
+        std::vector<std::vector<size_t>>* seeds_used = nullptr) const;
     
     /**
      * Score the given group of gapless extensions. Determines the best score

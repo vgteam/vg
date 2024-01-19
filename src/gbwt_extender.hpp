@@ -64,8 +64,14 @@ struct GaplessExtension
     /// Number of mismatches in the extension.
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
+    /// Iterate over all read regions and the seed (handle and offset) with which they are visited.
+    /// Lets you work out which read interval/graph interval pairings are involved. 
+    /// Function should return false to stop iteration. Returns false if the callback returns false.
+    /// Iterates as read start, interval length, seed.
+    bool for_each_read_interval(const HandleGraph& graph, const std::function<bool(size_t, size_t, const seed_type&)>& iteratee) const; 
+
     /// Does the extension contain the seed?
-    bool contains(const HandleGraph& graph, seed_type seed) const;
+    bool contains(const HandleGraph& graph, const seed_type& seed) const;
 
     /// Return the starting position of the extension.
     Position starting_position(const HandleGraph& graph) const;

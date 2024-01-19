@@ -741,12 +741,13 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             
             // Extend seed hits in the cluster into one or more gapless extensions
-            cluster_extensions.emplace_back(this->extend_cluster(
-                cluster,
+            cluster_extensions.emplace_back(this->extend_seed_group(
+                cluster.seeds,
                 cluster_num,
                 minimizers,
                 seeds,
                 aln.sequence(),
+                GaplessExtender::MAX_MISMATCHES,
                 minimizer_extended_cluster_count,
                 funnel));
             
@@ -1745,12 +1746,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     }
                     
                     // Extend seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(std::move(this->extend_cluster(
-                        cluster,
+                    cluster_extensions.emplace_back(std::move(this->extend_seed_group(
+                        cluster.seeds,
                         cluster_num,
                         minimizers,
                         seeds,
                         aln.sequence(),
+                        GaplessExtender::MAX_MISMATCHES,
                         minimizer_kept_cluster_count_by_read[read_num],
                         funnels[read_num])), cluster.fragment);
                     
@@ -3884,44 +3886,73 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView
 
 //-----------------------------------------------------------------------------
 
-vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
-    size_t cluster_num,
+vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<size_t>& seed_group,
+    size_t source_num,
     const VectorView<Minimizer>& minimizers,
     const std::vector<Seed>& seeds,
     const string& sequence,
-    vector<vector<size_t>>& minimizer_kept_cluster_count,
-    Funnel& funnel) const {
+    size_t max_mismatches,
+    vector<vector<size_t>>& minimizer_kept_count,
+    Funnel& funnel,
+    std::vector<std::vector<size_t>>* seeds_used) const {
 
     if (track_provenance) {
-        // Say we're working on this cluster
-        funnel.processing_input(cluster_num);
+        // Say we're working on this source item
+        funnel.processing_input(source_num);
     }
 
-    // Count how many of each minimizer is in each cluster that we kept
-    minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
+    // Count how many of each minimizer is in each input seed group that we kept
+    minimizer_kept_count.emplace_back(minimizers.size(), 0);
     // Pack the seeds for GaplessExtender.
     GaplessExtender::cluster_type seed_matchings;
-    for (auto seed_index : cluster.seeds) {
-        // Insert the (graph position, read offset) pair.
+    
+    // We also need to be able to get back to the original seeds from the
+    // gapless extensions. The original seeds staple one read base and one
+    // graph base together, as viewed by the gapless extensions. So we record
+    // all the seed indexes, sorted by the read base stapled, and organized by
+    // the handle/read-node offset that the gapless extender uses.
+    std::map<GaplessExtender::seed_type, std::vector<size_t>> extension_seed_to_seeds;
+
+    for (auto seed_index : seed_group) {
+        // Find the seed
         auto& seed = seeds[seed_index];
-        seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-        minimizer_kept_cluster_count.back()[seed.source]++;
+        // Make it into a handle/read offset pair for its determining base match (first for forward in the read, last for reverse in the read).
+        auto extension_seed = GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset);
+        // Add that to the set we use for gapless extending
+        seed_matchings.insert(extension_seed);
+        // Mark the minimizer used
+        minimizer_kept_count.back()[seed.source]++;
+
+        if (seeds_used) {
+            // We need to keep track of the back-mapping from the extension seeds to the original seed.
+            // So index all of our seeds by the handle, read-node offset that they belong to, so we can find them later.
+            extension_seed_to_seeds[extension_seed].push_back(seed_index);
+        }
         
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                dump_debug_seeds(minimizers, seeds, cluster.seeds);
+                dump_debug_seeds(minimizers, seeds, seed_group);
             }
         }
     }
+
+    // Sort all the vectors in extension_seed_to_seeds by stapled base.
+    for (auto& seed_options : extension_seed_to_seeds) {
+        std::sort(seed_options.begin(), seed_options.end(), [](size_t a, size_t b) {
+            auto& a_minimizer = minimizers[seeds[a].source];
+            auto& b_minimizer = minimizers[seeds[b].source];
+            return a_minimizer.value.offset < b_minimizer.value.offset;
+        });
+    }
     
-    vector<GaplessExtension> cluster_extension = extender->extend(seed_matchings, sequence);
+    vector<GaplessExtension> extensions = extender->extend(seed_matchings, sequence, nullptr, max_mismatches);
 
     if (show_work) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Extensions:" << endl;
-            for (auto& e : cluster_extension) {
+            for (auto& e : extensions) {
                 cerr << log_name() << "\tRead " << e.read_interval.first
                     << "-" << e.read_interval.second << " with "
                     << e.mismatch_positions.size() << " mismatches:";
@@ -3932,16 +3963,105 @@ vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
             }
         }
     }
+
+    if (seeds_used) {
+        for (GaplessExtension& extension : extensions) {
+            // We're going to make a list of the seeds involved in each
+            // extension.
+            seeds_used->emplace_back();
+            std::vector<size_t>& seeds_in_extension = seeds_used->back();
+
+            // We need to go through this extension and work out which seeds
+            // are involved.
+            extension.for_each_read_interval(graph, [&](size_t read_start, size_t length, const GaplessExtension::seed_type& extension_seed) {
+                // A seed is involved if it is on the handle at the given (read
+                // pos - node pos) offset, and its stapled base falls in this
+                // read interval.
+                
+                // So we are going to look at all the seeds on the right handle at the right offset.
+                auto found = extension_seed_to_seeds.find(extension_seed);
+                if (found != extension_seed_to_seeds.end()) {
+                    // And if there are any we are going to binary search out
+                    // the one with the first stapled base in the read
+                    // interval.
+                    //
+                    // This looks like O(n^2 log n), because every time we
+                    // visit the same read/handle offset we do an O(n log n)
+                    // binary search. But we really should only visit each
+                    // read/handle offset once, since the read can't visit the
+                    // same handle at the same offset relative to the read more
+                    // than once.
+                    std::vector<size_t>& possible_seeds = found->second;
+                    auto left = 0;
+                    auto right = possible_seeds.size();
+                    size_t cursor = 0;
+                    while (left != right) {
+                        cursor = left + (right - left) / 2;
+                        auto& seed_index = possible_seeds[cursor];
+                        if (minimizers[seeds[seed_index].source].value.offset < read_start) {
+                            // This seed's first stapled base is before the
+                            // read interval, so kick out it and anything to
+                            // the left of it from being the first seed in the
+                            // interval.
+                            left = cursor + 1;
+                        } else {
+                            // This seed's first stapled base is after the read
+                            // interval, so kick out anything to the right of
+                            // it from being the first seed in the interval.
+                            right = cursor + 1;
+                        }
+                    }
+                    // Now cursor is the index in possible_seeds of the first
+                    // seed with a stapled base in the read interval, if any.
+                    // Scan through the rest of the seeds on this handle and
+                    // offset combination and collect the ones whose stapled
+                    // bases are in the read interval.
+                    while (cursor < possible_seeds.size()) {
+                        // If this seed's stapled base is in the read interval,
+                        // we'll add it to the list of seeds used.
+                        auto& minimizer = minimizers[seeds[possible_seeds[cursor]].source];
+                        size_t stapled_base = minimizer.value.offset;
+                        if (stapled_base >= read_start) {
+                            // It is at or after the start of the read
+                            // interval.
+                            if (stapled_base < read_start + length) {
+                                // And it is before the end of the read
+                                // interval, so its stapled base is in.
+                                
+                                // But we want to filter down so the entire
+                                // seed is in the extension as a whole.
+                                if (minimizer.forward_offset() >= extension.read_interval.first &&
+                                    minimizer.forward_offset() + minimizer.length <= extension.read_interval.second) {
+                                    // It is in the read interval completely.
+                                    seeds_in_extension.push_back(possible_seeds[cursor]);
+                                }
+                            } else {
+                                // Stapled bases are now too late to be in this iterated interval.
+                                break;
+                            }
+                        } else {
+                            // Because of the way we sorted the seeds and did
+                            // the binary search, this should never happen.
+                            throw std::runtime_error("First seed in the read interval isn't.");
+                        }
+                        cursor++;
+                    }
+
+                    // Seeds have all been visites in stapled base order, no need to sort. 
+                }
+            });
+        }
+    }
             
     if (track_provenance) {
         // Record with the funnel that the previous group became a group of this size.
         // Don't bother recording the seed to extension matching...
-        funnel.project_group(cluster_num, cluster_extension.size());
-        // Say we finished with this cluster, for now.
+        funnel.project_group(source_num, extension.size());
+        // Say we finished with this input, for now.
         funnel.processed_input();
     }
     
-    return cluster_extension;
+    return extensions;
 }
 
 //-----------------------------------------------------------------------------

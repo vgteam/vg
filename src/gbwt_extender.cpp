@@ -19,24 +19,32 @@ constexpr double GaplessExtender::OVERLAP_THRESHOLD;
 
 //------------------------------------------------------------------------------
 
-bool GaplessExtension::contains(const HandleGraph& graph, seed_type seed) const {
-    handle_t expected_handle = GaplessExtender::get_handle(seed);
-    size_t expected_node_offset = GaplessExtender::get_node_offset(seed);
-    size_t expected_read_offset = GaplessExtender::get_read_offset(seed);
-
+bool GaplessExtension::for_each_read_interval(const HandleGraph& graph, const std::function<bool(size_t, size_t, const seed_type&)>& iteratee) const {
     size_t read_offset = this->read_interval.first;
     size_t node_offset = this->offset;
     for (handle_t handle : this->path) {
         size_t len = graph.get_length(handle) - node_offset;
-        read_offset += len;
-        node_offset += len;
-        if (handle == expected_handle && read_offset - expected_read_offset == node_offset - expected_node_offset) {
-            return true;
+        if (!iteratee(read_offset, len, seed_type(handle, read_offset - node_offset))) {
+            return false;
         }
+        read_offset += len;
         node_offset = 0;
     }
+    return true;
+}
 
-    return false;
+bool GaplessExtension::contains(const HandleGraph& graph, const seed_type& seed) const {
+    // Scan all the seeds we represent to see if that one is one of them.
+    bool found = false;
+    for_each_read_interval(graph, [&](size_t read_offset, size_t len, const seed_type& our_seed) {
+        if (our_seed == seed) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+
+    return found;
 }
 
 Position GaplessExtension::starting_position(const HandleGraph& graph) const {

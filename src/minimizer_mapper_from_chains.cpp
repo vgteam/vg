@@ -317,6 +317,120 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best, coverages " << best_tree_coverage << " best, " << second_best_tree_coverage << " second best" << std::endl;
         }
     }
+
+    // Turn all the seeds into anchors. Either we'll fragment them directly or
+    // use them to make gapless extension anchors over them.
+    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
+    // If we make gapless extensions, we make them into anchors and they go here.
+    vector<algorithms::Anchor> extension_anchors;
+    // And what seeds they represent visiting, in what order
+    std::vector<std::vector<size_t>> extensions;
+    // We need to remember which anchors came from which tree, so we can chain the right ones together.
+    std::vector<size_t> extension_source_tree;
+
+    size_t kept_tree_count = 0;
+
+    if (do_gapless_extension) {
+        // Run the seeds through gapless extension before turning them into
+        // anchors, to get more information to differentiate good and bad
+        // placements/collections of seeds. Also helps combine overlapping
+        // seeds that we can't chain.
+
+        if (track_provenance) {
+            funnel.stage("extend");
+            funnel.substage("extend");
+        }
+        
+        process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
+            return tree_coverages[i];
+        }, [&](size_t a, size_t b) -> bool {
+            return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
+        }, zipcode_tree_score_threshold, min_extensions, max_extensions, rng, [&](size_t item_num) -> bool {
+            // Handle sufficiently good trees in descending score order
+            
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+                funnel.pass("max-extensions", item_num);
+            }
+
+            // First check against the additional score filter
+            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff 
+                && kept_tree_count >= min_extensions) {
+                // If the score isn't good enough and we already kept at least min_extensions trees,
+                // ignore this tree
+                if (track_provenance) {
+                    funnel.fail("zipcode-tree-score", item_num, tree_scores[item_num]);
+                }
+                return false;
+            }
+            
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-score", item_num, tree_scores[item_num]); 
+            }
+
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Making extensions for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
+                }
+            }
+
+            // Make an extension set for this tree
+            tree_extension_sets.emplace_back();
+
+            // Collect seeds to extend.
+            //Make sure that each seed gets added only once
+            vector<bool> added_seed (seeds.size(), false);
+            vector<size_t> selected_seeds;
+            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
+                if (!added_seed[found.seed]) {
+                    selected_seeds.push_back(found.seed);
+                    added_seed[found.seed] = true;
+                }
+            }
+            
+            // Extend the seeds and keep track of the seeds that went into each extension
+            // We'll use this to make anchors later
+            std::vector<std::vector<size_t>> seeds_for_extension;
+            std::vector<GaplessExtension> tree_extensions = this->extend_seed_group(
+                selected_seeds,
+                item_num,
+                minimizers,
+                seeds,
+                aln.sequence(),
+                0,
+                minimizer_extended_cluster_count,
+                funnel,
+                &seeds_for_extension);
+
+            for (size_t i = 0; i < tree_extensions.size(); i++) {
+                auto& extension = tree_extensions[i];
+                auto& extension_seeds = seeds_for_extension[i];
+                // Now turn each extension into an anchor, based on the per-seed anchors.
+                extension_anchors.push_back(to_anchor(aln, extension, extension_seeds, seed_anchors, graph, this->get_regular_aligner());
+                // And if we take that anchor, we'll grab these underlying seeds into the elaborating chain.
+                // Just use the bounding seeds and chain between them.
+                extensions.push_back({extension_seeds.front(), extension_seeds.back()});
+                // And remember the tree it came from.
+                extension_source_tree.push_back(item_num);
+            }
+
+            return true;
+            
+        }, [&](size_t item_num) -> void {
+            // There are too many sufficiently good trees to do
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+                funnel.fail("max-extensions", item_num);
+            }
+            
+        }, [&](size_t item_num) -> void {
+            // This item is not sufficiently good.
+            if (track_provenance) {
+                funnel.fail("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+            }
+        });
+    }
     
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
@@ -334,8 +448,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    // Convert the seeds into chainable anchors in the same order
-    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
+    // Work out what set of anchors we want to fragment.
+    vector<algorithms::Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
+
+    // For each of these, what seeds do they represent visiting, in what order?
+
 
     // Now compute fragments into these variables.
     // What seeds are visited in what order in the fragment?
@@ -407,7 +524,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
            
             // Sort seeds by read start of seeded region
-            algorithms::sort_anchor_indexes(seed_anchors, selected_seeds);
+            algorithms::sort_anchor_indexes(anchors_to_fragment, selected_seeds);
             
             if (track_provenance) {
                 funnel.substage("find_fragment");
@@ -423,7 +540,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #ifdef debug
             if (show_work) {
                 // Log the chaining problem so we can try it again elsewhere.
-                this->dump_chaining_problem(seed_anchors, selected_seeds, gbwt_graph);
+                this->dump_chaining_problem(anchors_to_fragment, selected_seeds, gbwt_graph);
             }
 #endif
             
@@ -433,7 +550,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 zip_code_forest.trees[item_num],
                 this->fragment_max_lookback_bases
             ); 
-            VectorView<algorithms::Anchor> anchor_view {seed_anchors, selected_seeds};
+            VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, selected_seeds};
             std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
@@ -451,7 +568,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (show_work) {
                 #pragma omp critical (cerr)
                 cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
-                    << " running " << seed_anchors[selected_seeds.front()] << " to " << seed_anchors[selected_seeds.back()] << std::endl;
+                    << " running " << anchors_to_fragment[selected_seeds.front()] << " to " << anchors_to_fragment[selected_seeds.back()] << std::endl;
             }
             for (size_t result = 0; result < results.size(); result++) {
                 // For each result
@@ -591,7 +708,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (size_t i = 0; i < fragments.size(); i++) {
         auto& fragment = fragments.at(i);
         auto& score = fragment_scores.at(i);
-        fragment_anchors.push_back(algorithms::Anchor(seed_anchors.at(fragment.front()), seed_anchors.at(fragment.back()), score));
+        fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(fragment.front()), anchors_to_fragment.at(fragment.back()), score));
     }
     
     // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
@@ -817,8 +934,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
             // Find the pair of anchors we go between
-            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
-            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
+            auto& left_anchor = anchors_to_fragment.at(chains.at(best_chain).at(i - 1));
+            auto& right_anchor = anchors_to_fragment.at(chains.at(best_chain).at(i));
             // And get the distance between them in the read
             size_t jump = right_anchor.read_start() - left_anchor.read_end();
             // Max and add it in
@@ -838,7 +955,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchor_length = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (auto& item : chains.at(best_chain)) {
-            best_chain_anchor_length += seed_anchors.at(item).length();
+            best_chain_anchor_length += anchors_to_fragment.at(item).length();
         }
     }
     
@@ -947,7 +1064,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 
                 try {
                     // Do the DP between the items in the chain. 
-                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain);
+                    best_alignments[0] = find_chain_alignment(aln, anchors_to_fragment, chain);
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2321,6 +2438,36 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
+}
+
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const GaplessExtension& extension, const std::vector<size_t>& extension_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
+    // Make sure there are no mismatches, we can't handle those.
+    if (!extension.mismatch_positions.empty()) {
+        throw std::runtime_error("Cannot make an anchor from an extension with mismatches");
+    }
+
+    if (extension_seeds.empty()) {
+        // This should never happen
+        throw std::runtime_error("Found a gapless extension that didn't come from any seeds");
+    }
+
+    // Score the extension's perfect match
+    int score = aligner->score_exact_match(aln, extension.read_interval.first, extension.length());
+
+    // Get the anchors we are going to weld together.
+    const Anchor& left_anchor = seed_anchors.at(extension_seeds.front());
+    const Anchor& right_anchor = seed_anchors.at(extension_seeds.back());
+
+    // Work out the additional left and right margin we need to block out other
+    // overlapping extensions and justify our score. The extension can extend
+    // beyond even the outermost minimizers.
+    size_t extra_left_margin = left_anchor.read_exclusion_start() - extension.read_interval.first;
+    size_t extra_right_margin = extension.read_interval.second - right_anchor.read_exclusion_start();
+
+    // Now make an anchor with the score of the extension, with the anchors of
+    // the first and last seeds, and enough margin to cover the distance out
+    // from the outer seeds that we managed to extend.
+    return algorithms::Anchor(seed_anchors.at(extension_seeds.front()), seed_anchors.at(extension_seeds.back()), extra_left_margin, extra_right_margin, score);
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
