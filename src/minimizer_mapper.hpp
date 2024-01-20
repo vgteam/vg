@@ -607,7 +607,7 @@ protected:
         const std::vector<Seed>& seeds,
         const string& sequence,
         size_t max_mismatches,
-        vector<vector<size_t>>& minimizer_kept_count,
+        vector<vector<size_t>>* minimizer_kept_count = nullptr,
         Funnel* funnel = nullptr,
         std::vector<std::vector<size_t>>* seeds_used = nullptr) const;
     

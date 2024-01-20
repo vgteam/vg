@@ -352,6 +352,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> fragments;
     // What score does each fragment have?
     std::vector<double> fragment_scores;
+    // What are the fragments themselves as combined anchors, for chaining later?
+    std::vector<algorithms::Anchor> fragment_anchors;
     // Which zip code tree did each fragment come from, so we know how to chain them?
     std::vector<size_t> fragment_source_tree;
     // How many of each minimizer ought to be considered explored by each fragment?
@@ -442,7 +444,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     seeds,
                     aln.sequence(),
                     0,
-                    minimizer_extended_cluster_count,
+                    nullptr,
                     nullptr,
                     &seeds_for_extension);
                 // Note that we don't use the funnel here; we don't actually
@@ -453,7 +455,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     auto& extension_seeds = seeds_for_extension[i];
                     // Now turn each extension into an anchor, based on the per-seed anchors.
                     extension_anchor_indexes.push_back(extension_anchors.size());
-                    extension_anchors.push_back(to_anchor(aln, extension, extension_seeds, seed_anchors, graph, this->get_regular_aligner());
+                    extension_anchors.push_back(to_anchor(aln, extension, extension_seeds, seed_anchors, gbwt_graph, this->get_regular_aligner()));
                     // And if we take that anchor, we'll grab these underlying
                     // seeds into the elaborating chain. Just use the bounding
                     // seeds and connect between them where it is easy.
@@ -470,11 +472,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             
             // Figure out what anchors we want to view.
-            const std::vector<Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
+            const std::vector<algorithms::Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
             // And what seeds each represents
             const std::vector<std::vector<size_t>>& anchor_seed_sequences = do_gapless_extension ? extension_seed_sequences : seed_seed_sequences;
             // And what subset/in what order
-            const std::vector<size_t>& anchor_indexes = do_gapless_extension ? extension_anchor_indexes : selected_seeds;
+            std::vector<size_t>& anchor_indexes = do_gapless_extension ? extension_anchor_indexes : selected_seeds;
             // Sort anchors by read start of seeded region
             algorithms::sort_anchor_indexes(anchors_to_fragment, anchor_indexes);
 
@@ -575,11 +577,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
+                        // TODO: Can we get the gapless extension logic to count this for us for that codepath?
                         minimizer_kept_fragment_count.back()[seeds[seed_number].source]++;
                     }
                 }
                 // Remember the score
                 fragment_scores.push_back(scored_fragment.first);
+                // And make an anchor of it right now, for chaining later.
+                // Make sure to do it by combining the gapless extension anchors if applicable.
+                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
 
@@ -666,15 +672,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<int> chain_score_estimates;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
     std::vector<std::vector<size_t>> minimizer_kept_chain_count;
-    
-    // Make a list of anchors where we have each fragment as itself an anchor
-    std::vector<algorithms::Anchor> fragment_anchors;
-    fragment_anchors.reserve(fragments.size());
-    for (size_t i = 0; i < fragments.size(); i++) {
-        auto& fragment = fragments.at(i);
-        auto& score = fragment_scores.at(i);
-        fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(fragment.front()), anchors_to_fragment.at(fragment.back()), score));
-    }
     
     // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
     // TODO: Stop reswizzling so much.
@@ -899,8 +896,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
             // Find the pair of anchors we go between
-            auto& left_anchor = anchors_to_fragment.at(chains.at(best_chain).at(i - 1));
-            auto& right_anchor = anchors_to_fragment.at(chains.at(best_chain).at(i));
+            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
+            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
             // And get the distance between them in the read
             size_t jump = right_anchor.read_start() - left_anchor.read_end();
             // Max and add it in
@@ -920,7 +917,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchor_length = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (auto& item : chains.at(best_chain)) {
-            best_chain_anchor_length += anchors_to_fragment.at(item).length();
+            best_chain_anchor_length += seed_anchors.at(item).length();
         }
     }
     
@@ -1029,7 +1026,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 
                 try {
                     // Do the DP between the items in the chain. 
-                    best_alignments[0] = find_chain_alignment(aln, anchors_to_fragment, chain);
+                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain);
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2420,8 +2417,8 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Gaples
     int score = aligner->score_exact_match(aln, extension.read_interval.first, extension.length());
 
     // Get the anchors we are going to weld together.
-    const Anchor& left_anchor = seed_anchors.at(extension_seeds.front());
-    const Anchor& right_anchor = seed_anchors.at(extension_seeds.back());
+    const algorithms::Anchor& left_anchor = seed_anchors.at(extension_seeds.front());
+    const algorithms::Anchor& right_anchor = seed_anchors.at(extension_seeds.back());
 
     // Work out the additional left and right margin we need to block out other
     // overlapping extensions and justify our score. The extension can extend

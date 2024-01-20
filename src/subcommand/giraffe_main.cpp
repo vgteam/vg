@@ -340,7 +340,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
     );
     chaining_opts.add_flag(
         "do-gapless-extension",
-        &MinimizerMapper::do_gapless_extension,,
+        &MinimizerMapper::do_gapless_extension,
         MinimizerMapper::default_do_gapless_extension,
         "do gapless extension to seeds in a tree before fragmenting"
     );

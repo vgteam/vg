@@ -748,7 +748,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                 seeds,
                 aln.sequence(),
                 GaplessExtender::MAX_MISMATCHES,
-                minimizer_extended_cluster_count,
+                &minimizer_extended_cluster_count,
                 &funnel));
             
             kept_cluster_count ++;
@@ -1753,7 +1753,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         seeds,
                         aln.sequence(),
                         GaplessExtender::MAX_MISMATCHES,
-                        minimizer_kept_cluster_count_by_read[read_num],
+                        &minimizer_kept_cluster_count_by_read[read_num],
                         &funnels[read_num])), cluster.fragment);
                     
                     kept_cluster_count ++;
@@ -3892,17 +3892,19 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     const std::vector<Seed>& seeds,
     const string& sequence,
     size_t max_mismatches,
-    vector<vector<size_t>>& minimizer_kept_count,
+    vector<vector<size_t>>* minimizer_kept_count,
     Funnel* funnel,
     std::vector<std::vector<size_t>>* seeds_used) const {
 
     if (track_provenance && funnel) {
         // Say we're working on this source item
-        funnel.processing_input(source_num);
+        funnel->processing_input(source_num);
     }
 
-    // Count how many of each minimizer is in each input seed group that we kept
-    minimizer_kept_count.emplace_back(minimizers.size(), 0);
+    if (minimizer_kept_count) {
+        // Count how many of each minimizer is in each input seed group that we kept
+        minimizer_kept_count->emplace_back(minimizers.size(), 0);
+    }
     // Pack the seeds for GaplessExtender.
     GaplessExtender::cluster_type seed_matchings;
     
@@ -3920,8 +3922,10 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
         auto extension_seed = GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset);
         // Add that to the set we use for gapless extending
         seed_matchings.insert(extension_seed);
-        // Mark the minimizer used
-        minimizer_kept_count.back()[seed.source]++;
+        if (minimizer_kept_count) {
+            // Mark the minimizer used
+            minimizer_kept_count->back()[seed.source]++;
+        }
 
         if (seeds_used) {
             // We need to keep track of the back-mapping from the extension seeds to the original seed.
@@ -3938,8 +3942,9 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     }
 
     // Sort all the vectors in extension_seed_to_seeds by stapled base.
-    for (auto& seed_options : extension_seed_to_seeds) {
-        std::sort(seed_options.begin(), seed_options.end(), [](size_t a, size_t b) {
+    for (auto& kv : extension_seed_to_seeds) {
+        auto& seed_options = kv.second;
+        std::sort(seed_options.begin(), seed_options.end(), [&](size_t a, size_t b) {
             auto& a_minimizer = minimizers[seeds[a].source];
             auto& b_minimizer = minimizers[seeds[b].source];
             return a_minimizer.value.offset < b_minimizer.value.offset;
@@ -3973,7 +3978,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
 
             // We need to go through this extension and work out which seeds
             // are involved.
-            extension.for_each_read_interval(graph, [&](size_t read_start, size_t length, const GaplessExtension::seed_type& extension_seed) {
+            extension.for_each_read_interval(this->gbwt_graph, [&](size_t read_start, size_t length, const GaplessExtension::seed_type& extension_seed) {
                 // A seed is involved if it is on the handle at the given (read
                 // pos - node pos) offset, and its stapled base falls in this
                 // read interval.
@@ -4049,6 +4054,8 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
 
                     // Seeds have all been visites in stapled base order, no need to sort. 
                 }
+
+                return true;
             });
         }
     }
@@ -4056,9 +4063,9 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     if (track_provenance && funnel) {
         // Record with the funnel that the previous group became a group of this size.
         // Don't bother recording the seed to extension matching...
-        funnel.project_group(source_num, extension.size());
+        funnel->project_group(source_num, extensions.size());
         // Say we finished with this input, for now.
-        funnel.processed_input();
+        funnel->processed_input();
     }
     
     return extensions;
