@@ -3997,25 +3997,34 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                     // same handle at the same offset relative to the read more
                     // than once.
                     std::vector<size_t>& possible_seeds = found->second;
+                    // Inclusive
                     auto left = 0;
+                    // Exclusive, so search should end when right == left + 1.
                     auto right = possible_seeds.size();
+                    // This will have the last index of a seed with a stapled base strictly before the read interval.
                     size_t cursor = 0;
-                    while (left != right) {
-                        cursor = left + (right - left) / 2;
-                        auto& seed_index = possible_seeds[cursor];
-                        if (minimizers[seeds[seed_index].source].value.offset < read_start) {
-                            // This seed's first stapled base is before the
-                            // read interval, so kick out it and anything to
-                            // the left of it from being the first seed in the
-                            // interval.
-                            left = cursor + 1;
+                    while (left + 1 < right) {
+                        // Until the range is empty...
+                        
+                        // Find the middle, rounding left.
+                        cursor = (left + right) / 2;
+                        auto& seed_index = possible_seeds.at(cursor);
+                        size_t stapled_position = minimizers[seeds[seed_index].source].value.offset;
+                        if (stapled_position >= read_start) {
+                            // This one is inside the interval, so kick it out of the search range.
+                            right = cursor;
                         } else {
-                            // This seed's first stapled base is after the read
-                            // interval, so kick out anything to the right of
-                            // it from being the first seed in the interval.
-                            right = cursor + 1;
+                            // We know we can get up to here without being in the read interval.
+                            // So this is the leftmost answer we can get.
+                            left = cursor;
                         }
                     }
+                    
+                    if (cursor < possible_seeds.size() && minimizers[seeds[possible_seeds.at(cursor)].source].value.offset < read_start) {
+                        // Now advance to the first seed actually in the interval, if any.
+                        cursor++;
+                    }
+
                     // Now cursor is the index in possible_seeds of the first
                     // seed with a stapled base in the read interval, if any.
                     // Scan through the rest of the seeds on this handle and
@@ -4045,9 +4054,12 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                                 break;
                             }
                         } else {
-                            // Because of the way we sorted the seeds and did
-                            // the binary search, this should never happen.
-                            throw std::runtime_error("First seed in the read interval isn't.");
+                            // Should only happen if all seeds are too early.
+                            if (cursor + 1 != possible_seeds.size()) {
+                                // We didn't just search to the end, but we didn't find what we should have.
+                                throw std::runtime_error("Binary search did not find the correct first seed");
+                            }
+                            break;
                         }
                         cursor++;
                     }
