@@ -2403,11 +2403,6 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const GaplessExtension& extension, const std::vector<size_t>& extension_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
-    // Make sure there are no mismatches, we can't handle those.
-    if (!extension.mismatch_positions.empty()) {
-        throw std::runtime_error("Cannot make an anchor from an extension with mismatches");
-    }
-
     if (extension_seeds.empty()) {
         // This should never happen
         throw std::runtime_error("Found a gapless extension that didn't come from any seeds");
@@ -2415,6 +2410,18 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Gaples
 
     // Score the extension's perfect match
     int score = aligner->score_exact_match(aln, extension.read_interval.first, extension.length());
+    
+    // TODO: Even though we ask for no mismatches, the gapless extension can
+    // still have unlimited mismatches in the node it started from. So deduct
+    // the score for them.
+    for (auto& mismatch_position : extension.mismatch_positions) {
+        // Back out a 1 base perfect match here
+        score -= aligner->score_exact_match(aln, mismatch_position, 1);
+        // And add in the mismatch score (which has a different API)
+        auto mismatch_start = aln.sequence().begin() + mismatch_position;
+        auto mismatch_quality_start = aln.quality().begin() + mismatch_position;
+        score += aligner->score_mismatch(mismatch_start, mismatch_start + 1, mismatch_quality_start);
+    }
 
     // Get the anchors we are going to weld together.
     const algorithms::Anchor& left_anchor = seed_anchors.at(extension_seeds.front());
