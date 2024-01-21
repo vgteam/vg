@@ -116,7 +116,7 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
     //On the top-level chain, node, or child of the top-level snarl 
     auto get_seed_offset = [&] (const MinimizerMapper::Seed& seed) {
         if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_CHAIN) {
-            return seed.zipcode_decoder->get_offset_in_chain(0);
+            return seed.zipcode_decoder->get_offset_in_chain(1);
         } else if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_NODE) {
             return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(0) - offset(seed.pos)
                                     : offset(seed.pos);
@@ -125,7 +125,7 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
             //same child chain/node
             if (seed.zipcode_decoder->get_code_type(1) == ZipCode::CHAIN) {
                 //On a chain
-                return seed.zipcode_decoder->get_offset_in_chain(1);
+                return seed.zipcode_decoder->get_offset_in_chain(2);
             } else {
                 //On a node
                 return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(1) - offset(seed.pos)
