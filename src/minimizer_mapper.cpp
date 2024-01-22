@@ -3886,6 +3886,8 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView
 
 //-----------------------------------------------------------------------------
 
+#define debug_seed_extension
+
 vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<size_t>& seed_group,
     size_t source_num,
     const VectorView<Minimizer>& minimizers,
@@ -3895,6 +3897,18 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     vector<vector<size_t>>* minimizer_kept_count,
     Funnel* funnel,
     std::vector<std::vector<size_t>>* seeds_used) const {
+
+    auto diagonal_to_string = [&](const GaplessExtension::seed_type& diagonal) {
+            std::stringstream ss;
+        ss << this->gbwt_graph.get_id(diagonal.first) << (this->gbwt_graph.get_is_reverse(diagonal.first) ? "-" : "+") << " @ " << diagonal.second;
+        return ss.str();
+    };
+
+    auto extension_to_string = [&](const GaplessExtension& extension) {
+        std::stringstream ss;
+        ss << extension.read_interval.first << "-" << extension.read_interval.second << "=" << extension.starting_position(this->gbwt_graph).node_id(); 
+        return ss.str();
+    };
 
     if (track_provenance && funnel) {
         // Say we're working on this source item
@@ -3931,6 +3945,10 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
             // We need to keep track of the back-mapping from the extension seeds to the original seed.
             // So index all of our seeds by the handle, read-node offset that they belong to, so we can find them later.
             extension_seed_to_seeds[extension_seed].push_back(seed_index);
+
+#ifdef debug_seed_extension
+            std::cerr << log_name() << "Seed number " << seed_index << " is on diagonal " << diagonal_to_string(extension_seed) << std::endl;
+#endif
         }
         
         if (show_work) {
@@ -3970,6 +3988,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     }
 
     if (seeds_used) {
+
         for (GaplessExtension& extension : extensions) {
             // We're going to make a list of the seeds involved in each
             // extension.
@@ -3982,6 +4001,9 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                 // A seed is involved if it is on the handle at the given (read
                 // pos - node pos) offset, and its stapled base falls in this
                 // read interval.
+#ifdef debug_seed_extension
+                std::cerr << log_name() << "Extension " << extension_to_string(extension) << " visits read interval at " << read_start << " of " << length << " bp with diagonal " << diagonal_to_string(extension_seed) << std::endl;
+#endif
                 
                 // So we are going to look at all the seeds on the right handle at the right offset.
                 auto found = extension_seed_to_seeds.find(extension_seed);
@@ -4025,6 +4047,10 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                         cursor++;
                     }
 
+#ifdef debug_seed_extension
+                    std::cerr << log_name() << "\tFirst possible seed at or after this read position on diagonal " << diagonal_to_string(extension_seed) << " is " << cursor << "/" << possible_seeds.size() << std::endl;
+#endif
+
                     // Now cursor is the index in possible_seeds of the first
                     // seed with a stapled base in the read interval, if any.
                     // Scan through the rest of the seeds on this handle and
@@ -4033,8 +4059,14 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                     while (cursor < possible_seeds.size()) {
                         // If this seed's stapled base is in the read interval,
                         // we'll add it to the list of seeds used.
-                        auto& minimizer = minimizers[seeds[possible_seeds[cursor]].source];
+                        size_t seed_index = possible_seeds[cursor];
+                        auto& minimizer = minimizers[seeds[seed_index].source];
                         size_t stapled_base = minimizer.value.offset;
+
+#ifdef debug_seed_extension
+                        std::cerr << log_name() << "\t\tCheck seed " << seed_index << " stapled at " << stapled_base << std::endl;
+#endif
+
                         if (stapled_base >= read_start) {
                             // It is at or after the start of the read
                             // interval.
@@ -4047,13 +4079,21 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                                 if (minimizer.forward_offset() >= extension.read_interval.first &&
                                     minimizer.forward_offset() + minimizer.length <= extension.read_interval.second) {
                                     // It is in the read interval completely.
-                                    seeds_in_extension.push_back(possible_seeds[cursor]);
+                                    seeds_in_extension.push_back(seed_index);
+
+#ifdef debug_seed_extension
+                                    std::cerr << log_name() << "\t\t\tIn range!" << std::endl;
+#endif
+
                                 }
                             } else {
                                 // Stapled bases are now too late to be in this iterated interval.
                                 break;
                             }
                         } else {
+#ifdef debug_seed_extension
+                            std::cerr << log_name() << "\t\t\tStapled base is before read interval start at " << read_start << std::endl;
+#endif
                             // Should only happen if all seeds are too early.
                             if (cursor + 1 != possible_seeds.size()) {
                                 // We didn't just search to the end, but we didn't find what we should have.
@@ -4064,11 +4104,21 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                         cursor++;
                     }
 
-                    // Seeds have all been visites in stapled base order, no need to sort. 
+                    // Seeds have all been visites in stapled base order, no need to sort.
+                } else {
+#ifdef debug_seed_extension
+                    std::cerr << log_name() << "\tNo input seeds were on this diagonal" << std::endl;
+#endif
                 }
 
                 return true;
             });
+
+            
+            if (seeds_in_extension.empty()) {
+                // There should be seeds!
+                throw std::runtime_error("No seeds for for extension " + extension_to_string(extension));
+            }
         }
     }
             
