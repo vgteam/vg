@@ -390,7 +390,7 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         for (size_t i = 0 ; i < output_fields.size() ; i++) {
             const string& field = output_fields[i];
             cout << field;
-            if (i == output_fields.size()-1) {
+            if (i != output_fields.size()-1) {
                 cout << "\t";
             }
         }
