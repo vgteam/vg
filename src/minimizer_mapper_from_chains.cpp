@@ -642,7 +642,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     //Get the actual multiplicity from the counts
     for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] / (float)tree_used_count;
+        assert(multiplicity_by_fragment[i] >= tree_used_count);
+        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] - (float)tree_used_count;
     }
     // Now glom the fragments together into chains 
     if (track_provenance) {
@@ -1155,7 +1156,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }
         for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
-            multiplicity_by_alignment[i] += ((double)chain_count_by_alignment[i] / (double) alignments.size());
+            assert(chain_count_by_alignment[i] >= alignments.size());
+            multiplicity_by_alignment[i] += ((double)chain_count_by_alignment[i] - (double) alignments.size());
         }
     }
     
