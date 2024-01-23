@@ -327,10 +327,33 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
-    vector<ZipCodeDecoder> decoders;
-    
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+
+    // We want to adjust the final mapq based on how many reasonable minimizers got thrown away.
+    // To do this, we keep track of the lowest-scoring minimizer that was kept, and the number
+    // of equivalently-scoring minimizers that were discarded. Since seeds get added in order
+    // of the minimizer score, just check the last seed to get the lowest score of a kept minimizer
+    // and then walk through the ordered list of minimizers to see how many were discarded
+    //TODO: This is a bit hacky and doesn't really take into account everything - downsampling, etc
+    double lowest_minimizer_score = seeds.size() == 0 
+                                  ? 0.0 
+                                  : minimizers[seeds.back().source].score;
+    size_t equivalent_minimizers_discarded_count = 0;
+    if (seeds.size() != 0) {
+        for (size_t i = seeds.back().source ; i < minimizers.size() ; i++) {
+            if (minimizers[i].score > lowest_minimizer_score) {
+                break;
+            } else {
+                equivalent_minimizers_discarded_count++;
+            }
+        }
+    }
+    //The multiplicity that gets used for the minimizers discarded
+    // The denominator is supposed to be the number of minimizers that passed the filters, although
+    // some might have been discarded for other reasons besides score
+    double minimizer_multiplicity = (double) equivalent_minimizers_discarded_count /
+                                    (double) seeds.back().source;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -1160,6 +1183,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                           ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
                                           : 0.0);
+            // Also add the multiplicity of the minimizers- the number of minimizers that got discarded
+            // that scored as well as the lowest-scoring minimizer that was kept, divided by the total 
+            // number of minimizers kept
+            multiplicity_by_alignment[i] += minimizer_multiplicity; 
         }
     }
     
