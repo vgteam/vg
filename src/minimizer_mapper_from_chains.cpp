@@ -342,7 +342,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t equivalent_minimizers_discarded_count = 0;
     if (seeds.size() != 0) {
         for (size_t i = seeds.back().source ; i < minimizers.size() ; i++) {
-            if (minimizers[i].score > lowest_minimizer_score) {
+            if (minimizers[i].score < lowest_minimizer_score) {
                 break;
             } else {
                 equivalent_minimizers_discarded_count++;
