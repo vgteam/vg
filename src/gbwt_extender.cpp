@@ -529,7 +529,7 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
 
 //------------------------------------------------------------------------------
 
-std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
+std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold, bool trim) const {
 
     std::vector<GaplessExtension> result;
     if (this->graph == nullptr || this->aligner == nullptr || cluster.empty() || sequence.empty()) {
@@ -706,12 +706,18 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
     else {
         remove_duplicates(result);
         find_mismatches(sequence, *cache, result);
-        bool trimmed = false;
-        for (GaplessExtension& extension : result) {
-            trimmed |= trim_mismatches(extension, *cache, *(this->aligner));
-        }
-        if (trimmed) {
-            remove_duplicates(result);
+        if (trim) {
+            // It's OK if out extensions don't include all matches between the
+            // read and each node that are in phase with our seeds. Trim back
+            // to maximize score.
+            bool trimmed = false;
+            for (GaplessExtension& extension : result) {
+                trimmed |= trim_mismatches(extension, *cache, *(this->aligner));
+            }
+            if (trimmed) {
+                remove_duplicates(result);
+    
+            }
         }
     }
 

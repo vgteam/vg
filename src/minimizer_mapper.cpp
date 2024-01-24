@@ -3906,7 +3906,11 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
 
     auto extension_to_string = [&](const GaplessExtension& extension) {
         std::stringstream ss;
-        ss << extension.read_interval.first << "-" << extension.read_interval.second << "=" << extension.starting_position(this->gbwt_graph).node_id(); 
+        Position start_pos = extension.starting_position(this->gbwt_graph);
+        Position tail_pos = extension.tail_position(this->gbwt_graph);
+        ss << "(Read " << extension.read_interval.first << "-" << extension.read_interval.second << " = Graph "
+                << start_pos.node_id() << (start_pos.is_reverse() ? "-" : "+") << start_pos.offset() << " - "
+                << tail_pos.node_id() << (tail_pos.is_reverse() ? "-" : "+") << tail_pos.offset() << ")"; 
         return ss.str();
     };
 
@@ -3969,7 +3973,8 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
         });
     }
     
-    vector<GaplessExtension> extensions = extender->extend(seed_matchings, sequence, nullptr, max_mismatches);
+    // Do the extension, allowing trimming to maximal-score subregion if we don't need to map back to seeds responsible for and contained in each extension.
+    vector<GaplessExtension> extensions = extender->extend(seed_matchings, sequence, nullptr, max_mismatches, GaplessExtender::OVERLAP_THRESHOLD, seeds_used == nullptr);
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -4035,7 +4040,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                             return false;
                         } else {
 #ifdef debug_seed_extension
-                            std::cerr << log_name() << "\t\tSeed " << " stapled at " << stapled_position << " strictly before" << std::endl;
+                            std::cerr << log_name() << "\t\tSeed " << seed_index << " stapled at " << stapled_position << " strictly before" << std::endl;
 #endif
                             return true;
                         }
@@ -4109,7 +4114,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
 
             
             if (seeds_in_extension.empty()) {
-                // There should be seeds!
+                // Because we don't trim the extensions, they should always cover all the seeds in phase with them.
                 throw std::runtime_error("No seeds for for extension " + extension_to_string(extension));
             }
         }
