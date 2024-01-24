@@ -354,7 +354,7 @@ void ReadFilter<Read>::filter_internal(istream* in) {
 #endif
         Counts read_counts = filter_alignment(read);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && write_output) {
+        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
             if (write_tsv) {
                 emit_tsv(read);
             } else {
@@ -375,7 +375,7 @@ void ReadFilter<Read>::filter_internal(istream* in) {
             read_counts.set_paired_any();
         }
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && write_output) {
+        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
             if (write_tsv) {
                 emit_tsv(read1);
                 emit_tsv(read2);
