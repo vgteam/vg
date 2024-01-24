@@ -498,9 +498,8 @@ protected:
     /// Convert a single seed to a single chaining anchor.
     static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
 
-    /// Convert a single GaplessExtension to a single chaining anchor.
-    /// extension_seeds is sorted by the order of the corresponding anchors in the read.
-    static algorithms::Anchor to_anchor(const Alignment& aln, const GaplessExtension& extension, const std::vector<size_t>& extension_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner);
+    /// Convert a read region that is a perfect match to the graph, and the seeds that that region covers the stapled bases of (sorted by stapled base), into a single chaining anchor.
+    static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner);
     
     /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 

@@ -451,23 +451,80 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // track a gapless extension stage.
 
                 for (size_t i = 0; i < tree_extensions.size(); i++) {
-                    auto& extension = tree_extensions[i];
-                    auto& extension_seeds = seeds_for_extension[i];
-                    // Now turn each extension into an anchor, based on the per-seed anchors.
-                    extension_anchor_indexes.push_back(extension_anchors.size());
-                    extension_anchors.push_back(to_anchor(aln, extension, extension_seeds, seed_anchors, gbwt_graph, this->get_regular_aligner()));
-                    // And if we take that anchor, we'll grab these underlying
-                    // seeds into the elaborating chain. Just use the bounding
-                    // seeds and connect between them where it is easy.
-                    extension_seed_sequences.push_back({extension_seeds.front()});
-                    if (seed_anchors.at(extension_seed_sequences.back().front()).read_end() <= seed_anchors.at(extension_seeds.back()).read_start()) {
-                        // There are multiple seeds in the extension and the last
-                        // one doesn't overlap the first, so take the last one too.
-                        extension_seed_sequences.back().push_back(extension_seeds.back());
-                    }
+                    // For each extension
+                    const GaplessExtension& extension = tree_extensions[i];
+                    // And the seeds that made it, sorted by stapled base
+                    const std::vector<size_t>& extension_seeds = seeds_for_extension[i];
 
-                    // Keep all the seeds that this extension counts as using.
-                    extension_represented_seeds.emplace_back(std::move(extension_seeds));
+                    // We want to break up the extension into mismatch-free
+                    // read intervals and the seeds that go with them. Each of
+                    // those will become an anchor.
+
+                    // So we sweep line across
+                    auto mismatch_it = extension.mismatch_positions.begin();
+                    auto seed_it = extension_seeds.begin();
+
+                    // And we keep track of the anchor in progress
+                    size_t anchor_start = extension.read_interval.first;
+                    std::vector<size_t> anchor_seeds;
+                    auto make_anchor_ending = [&](size_t anchor_end) {
+                        // Turn all the seeds in anchor_seeds into an anchor and clear anchor_seeds.
+                        
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_start << "-" << anchor_end << " with " << anchor_seeds.size() << " seeds involved" << endl;
+                            }
+                        }
+
+                        // Note the index of the new anchor
+                        extension_anchor_indexes.push_back(extension_anchors.size());
+                        // Make the actual anchor out of this range of seeds and this read range.
+                        extension_anchors.push_back(to_anchor(aln, anchor_start, anchor_end, anchor_seeds, seed_anchors, gbwt_graph, this->get_regular_aligner()));
+
+                        // And if we take that anchor, we'll grab these underlying
+                        // seeds into the elaborating chain. Just use the bounding
+                        // seeds and connect between them where it is easy.
+                        extension_seed_sequences.push_back({anchor_seeds.front()});
+                        if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
+                            // There are multiple seeds in the extension and the last
+                            // one doesn't overlap the first, so take the last one too.
+                            extension_seed_sequences.back().push_back(anchor_seeds.back());
+                        }
+
+                        // Keep all the seeds that this anchor counts as using.
+                        extension_represented_seeds.emplace_back(std::move(anchor_seeds));
+                        // And clear out to get ready to make a new anchor.
+                        anchor_seeds.clear();
+                    };
+
+                    while (mismatch_it != extension.mismatch_positions.end() && seed_it != extension_seeds.end()) {
+                        if (minimizers[seeds.at(*seed_it).source].value.offset < *mismatch_it) {
+                            // If this seed's stapled base is before this mismatch
+                        
+                            // Glom it in and advance the seed
+                            anchor_seeds.push_back(*seed_it);
+                            ++seed_it;
+                        } else {
+                            // Otherwise make an anchor of anything we have
+                            if (!anchor_seeds.empty()) {
+                                make_anchor_ending(*mismatch_it);
+                            }
+                            // Next anchor starts after that mismatch
+                            anchor_start = *mismatch_it + 1;
+                            // And advance the mismatch
+                            ++mismatch_it;
+                        }
+                    }
+                    while (seed_it != extension_seeds.end()) {
+                        // If there are any more seeds, glom them all thogether
+                        anchor_seeds.push_back(*seed_it);
+                        ++seed_it;
+                    }
+                    if (!anchor_seeds.empty()) {
+                        // And make the last anchor, up to the next mismatch if any or up to the end
+                        make_anchor_ending(mismatch_it == extension.mismatch_positions.end() ? extension.read_interval.second : *mismatch_it);
+                    }
                 }
             }
             
@@ -2402,41 +2459,29 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const GaplessExtension& extension, const std::vector<size_t>& extension_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
-    if (extension_seeds.empty()) {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
+    if (sorted_seeds.empty()) {
         // This should never happen
-        throw std::runtime_error("Found a gapless extension that didn't come from any seeds");
+        throw std::runtime_error("Can't make an anchor form no seeds");
     }
 
-    // Score the extension's perfect match
-    int score = aligner->score_exact_match(aln, extension.read_interval.first, extension.length());
+    // Score the passed perfect match
+    int score = aligner->score_exact_match(aln, read_start, read_end - read_start);
     
-    // TODO: Even though we ask for no mismatches, the gapless extension can
-    // still have unlimited mismatches in the node it started from. So deduct
-    // the score for them.
-    for (auto& mismatch_position : extension.mismatch_positions) {
-        // Back out a 1 base perfect match here
-        score -= aligner->score_exact_match(aln, mismatch_position, 1);
-        // And add in the mismatch score (which has a different API)
-        auto mismatch_start = aln.sequence().begin() + mismatch_position;
-        auto mismatch_quality_start = aln.quality().begin() + mismatch_position;
-        score += aligner->score_mismatch(mismatch_start, mismatch_start + 1, mismatch_quality_start);
-    }
-
-    // Get the anchors we are going to weld together.
-    const algorithms::Anchor& left_anchor = seed_anchors.at(extension_seeds.front());
-    const algorithms::Anchor& right_anchor = seed_anchors.at(extension_seeds.back());
+    // Get the anchors we are going to weld together. These may be the same one.
+    const algorithms::Anchor& left_anchor = seed_anchors.at(sorted_seeds.front());
+    const algorithms::Anchor& right_anchor = seed_anchors.at(sorted_seeds.back());
 
     // Work out the additional left and right margin we need to block out other
-    // overlapping extensions and justify our score. The extension can extend
+    // overlapping extensions and justify our score. The range can extend
     // beyond even the outermost minimizers.
-    size_t extra_left_margin = left_anchor.read_exclusion_start() - extension.read_interval.first;
-    size_t extra_right_margin = extension.read_interval.second - right_anchor.read_exclusion_start();
+    size_t extra_left_margin = left_anchor.read_exclusion_start() - read_start;
+    size_t extra_right_margin = read_end - right_anchor.read_exclusion_start();
 
-    // Now make an anchor with the score of the extension, with the anchors of
+    // Now make an anchor with the score of the range, with the anchors of
     // the first and last seeds, and enough margin to cover the distance out
     // from the outer seeds that we managed to extend.
-    return algorithms::Anchor(seed_anchors.at(extension_seeds.front()), seed_anchors.at(extension_seeds.back()), extra_left_margin, extra_right_margin, score);
+    return algorithms::Anchor(left_anchor, right_anchor, extra_left_margin, extra_right_margin, score);
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
