@@ -1360,8 +1360,16 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
         if (!has_annotation(read, annotation_key)) {
             return false;
         } else {
+            google::protobuf::Value value = read.annotation().fields().at(annotation_key);
             string annotation_val = annotation_to_match.substr(colon_pos+1, annotation_to_match.size() - colon_pos - 1);
-            return get_annotation<string>(read, annotation_key) == annotation_val; 
+            if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                double read_value = get_annotation<double>(read, annotation_key);
+                return read_value == std::stod(annotation_val);
+            } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                return get_annotation<string>(read, annotation_key) == annotation_val; 
+            } else {
+                throw runtime_error("error: Cannot check equality of annotation " + annotation_to_match);
+            }
         }
     }
     
@@ -1391,7 +1399,16 @@ void ReadFilter<Read>::emit_tsv(Read& read) {
                 if (!has_annotation(read, field.substr(11, field.size()-11))) {
                     throw runtime_error("error: Cannot find annotation "+ field);
                 } else {
-                    cout << get_annotation<string>(read, field.substr(11, field.size()-11));
+                    string annotation_key = field.substr(11, field.size()-11);
+                    google::protobuf::Value value = read.annotation().fields().at(annotation_key);
+
+                    if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                        cout << get_annotation<double>(read, annotation_key);
+                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                        cout << get_annotation<string>(read, annotation_key);
+                    } else {
+                        cout << "?";
+                    }
                 }
             } else {
                 cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
