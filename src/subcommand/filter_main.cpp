@@ -399,6 +399,7 @@ int main_filter(int argc, char** argv) {
         if (!output_fields.empty()){
             //Get the fields for tsv output
             filter.write_tsv = true;
+            filter.write_output = false;
             size_t start_i = 0;
             for (size_t end_i = 0 ; end_i <= output_fields.size() ; end_i++) {
                 if (end_i == output_fields.size() || output_fields[end_i] == ';') {
