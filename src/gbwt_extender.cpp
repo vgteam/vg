@@ -20,10 +20,14 @@ constexpr double GaplessExtender::OVERLAP_THRESHOLD;
 //------------------------------------------------------------------------------
 
 bool GaplessExtension::for_each_read_interval(const HandleGraph& graph, const std::function<bool(size_t, size_t, const seed_type&)>& iteratee) const {
+    // Track correspondign read and node offsets on the current node
     size_t read_offset = this->read_interval.first;
     size_t node_offset = this->offset;
-    for (handle_t handle : this->path) {
-        size_t len = graph.get_length(handle) - node_offset;
+    for (const handle_t& handle : this->path) {
+        // For each node
+        
+        // How many bases of the node do we use? Either remaining node or remaining read if shorter.
+        size_t len = std::min(graph.get_length(handle) - node_offset, this->read_interval.second - read_offset);
         if (!iteratee(read_offset, len, seed_type(handle, read_offset - node_offset))) {
             return false;
         }

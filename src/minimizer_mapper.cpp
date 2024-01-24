@@ -42,7 +42,7 @@
 // Make sure by-index references are correct
 //#define debug_validate_index_references
 // Make sure seeds are properly found for gapless extensions
-//#define debug_seed_extension
+#define debug_seed_extension
 
 namespace vg {
 
