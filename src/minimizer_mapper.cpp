@@ -4019,47 +4019,41 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                     // same handle at the same offset relative to the read more
                     // than once.
                     std::vector<size_t>& possible_seeds = found->second;
-                    // Inclusive
-                    auto left = 0;
-                    // Exclusive, so search should end when right == left + 1.
-                    auto right = possible_seeds.size();
-                    // This will have the last index of a seed with a stapled base strictly before the read interval.
-                    size_t cursor = 0;
-                    while (left + 1 < right) {
-                        // Until the range is empty...
-                        
-                        // Find the middle, rounding left.
-                        cursor = (left + right) / 2;
-                        auto& seed_index = possible_seeds.at(cursor);
-                        size_t stapled_position = minimizers[seeds[seed_index].source].value.offset;
-                        if (stapled_position >= read_start) {
-                            // This one is inside the interval, so kick it out of the search range.
-                            right = cursor;
-                        } else {
-                            // We know we can get up to here without being in the read interval.
-                            // So this is the leftmost answer we can get.
-                            left = cursor;
-                        }
-                    }
-                    
-                    if (cursor < possible_seeds.size() && minimizers[seeds[possible_seeds.at(cursor)].source].value.offset < read_start) {
-                        // Now advance to the first seed actually in the interval, if any.
-                        cursor++;
-                    }
 
 #ifdef debug_seed_extension
-                    std::cerr << log_name() << "\tFirst possible seed at or after this read position on diagonal " << diagonal_to_string(extension_seed) << " is " << cursor << "/" << possible_seeds.size() << std::endl;
+                        std::cerr << log_name() << "\tBinary search over " << possible_seeds.size() << " possible seeds for last seed with stapled base strictly before " << read_start << std::endl;
 #endif
 
-                    // Now cursor is the index in possible_seeds of the first
-                    // seed with a stapled base in the read interval, if any.
+                    std::vector<size_t>::iterator cursor_it = std::partition_point(possible_seeds.begin(), possible_seeds.end(), [&](const size_t& seed_index) {
+                        // Return true if the seed's stapled base is strictly before the read interval
+                        size_t stapled_position = minimizers[seeds[seed_index].source].value.offset;
+
+                        if (stapled_position >= read_start) {
+#ifdef debug_seed_extension
+                            std::cerr << log_name() << "\t\tSeed " << seed_index << " stapled at " << stapled_position << " not strictly before" << std::endl;
+#endif
+                            return false;
+                        } else {
+#ifdef debug_seed_extension
+                            std::cerr << log_name() << "\t\tSeed " << " stapled at " << stapled_position << " strictly before" << std::endl;
+#endif
+                            return true;
+                        }
+                            
+                    });
+                    // Now we know the first seed that isn't strictly before the read interval, if any
+
+#ifdef debug_seed_extension
+                    std::cerr << log_name() << "\t\tFirst possible seed that could be at or after " << read_start << " is possible seed " << (cursor_it - possible_seeds.begin()) << std::endl;
+#endif
+                    
                     // Scan through the rest of the seeds on this handle and
                     // offset combination and collect the ones whose stapled
                     // bases are in the read interval.
-                    while (cursor < possible_seeds.size()) {
+                    while (cursor_it != possible_seeds.end()) {
                         // If this seed's stapled base is in the read interval,
                         // we'll add it to the list of seeds used.
-                        size_t seed_index = possible_seeds[cursor];
+                        size_t seed_index = *cursor_it;
                         auto& minimizer = minimizers[seeds[seed_index].source];
                         size_t stapled_base = minimizer.value.offset;
 
@@ -4085,23 +4079,26 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                                     std::cerr << log_name() << "\t\t\tIn range!" << std::endl;
 #endif
 
+                                } else {
+#ifdef debug_seed_extension
+                                    std::cerr << log_name() << "\t\t\tMinimizer runs " << minimizer.forward_offset() << "-" << (minimizer.forward_offset() + minimizer.length) << " and is not contained in extension which runs " << extension.read_interval.first << "-" << extension.read_interval.second << std::endl;
+#endif
                                 }
                             } else {
                                 // Stapled bases are now too late to be in this iterated interval.
+#ifdef debug_seed_extension
+                                std::cerr << log_name() << "\t\t\tStapled base at " << stapled_base << " is at or after read interval end at " << (read_start + length) << std::endl;
+#endif
                                 break;
                             }
                         } else {
 #ifdef debug_seed_extension
                             std::cerr << log_name() << "\t\t\tStapled base is before read interval start at " << read_start << std::endl;
 #endif
-                            // Should only happen if all seeds are too early.
-                            if (cursor + 1 != possible_seeds.size()) {
-                                // We didn't just search to the end, but we didn't find what we should have.
-                                throw std::runtime_error("Binary search did not find the correct first seed");
-                            }
-                            break;
+                            // Should never happen.
+                            throw std::runtime_error("Binary search did not find the correct first seed");
                         }
-                        cursor++;
+                        ++cursor_it;
                     }
 
                     // Seeds have all been visites in stapled base order, no need to sort.
