@@ -41,6 +41,8 @@
 //#define debug_validate_clusters
 // Make sure by-index references are correct
 //#define debug_validate_index_references
+// Make sure seeds are properly found for gapless extensions
+//#define debug_seed_extension
 
 namespace vg {
 
@@ -3886,8 +3888,6 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView
 
 //-----------------------------------------------------------------------------
 
-#define debug_seed_extension
-
 vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<size_t>& seed_group,
     size_t source_num,
     const VectorView<Minimizer>& minimizers,
@@ -4067,23 +4067,19 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
                             if (stapled_base < read_start + length) {
                                 // And it is before the end of the read
                                 // interval, so its stapled base is in.
+                                //
+                                // We can't restrict to just seeds whose entire
+                                // minimizer is in the gapless extension: it
+                                // will sometimes not cover the whole seed.
+                                // TODO: Is this because the gapless extension
+                                // won't commit to one side of a branch in the
+                                // graph?
                                 
-                                // But we want to filter down so the entire
-                                // seed is in the extension as a whole.
-                                if (minimizer.forward_offset() >= extension.read_interval.first &&
-                                    minimizer.forward_offset() + minimizer.length <= extension.read_interval.second) {
-                                    // It is in the read interval completely.
-                                    seeds_in_extension.push_back(seed_index);
+                                seeds_in_extension.push_back(seed_index);
 
 #ifdef debug_seed_extension
-                                    std::cerr << log_name() << "\t\t\tIn range!" << std::endl;
+                                std::cerr << log_name() << "\t\t\tIn range!" << std::endl;
 #endif
-
-                                } else {
-#ifdef debug_seed_extension
-                                    std::cerr << log_name() << "\t\t\tMinimizer runs " << minimizer.forward_offset() << "-" << (minimizer.forward_offset() + minimizer.length) << " and is not contained in extension which runs " << extension.read_interval.first << "-" << extension.read_interval.second << std::endl;
-#endif
-                                }
                             } else {
                                 // Stapled bases are now too late to be in this iterated interval.
 #ifdef debug_seed_extension
