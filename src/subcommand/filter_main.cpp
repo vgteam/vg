@@ -436,7 +436,7 @@ int main_filter(int argc, char** argv) {
             filter.min_base_quality_fraction = min_base_quality_fraction;
         }
         filter.annotation_to_match = annotation;
-        filter.only_correctly_mapped = true;
+        filter.only_correctly_mapped = correctly_mapped;
         filter.complement_filter = complement_filter;
         filter.threads = get_thread_count();
         filter.graph = xindex;
