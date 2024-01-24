@@ -1369,34 +1369,39 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
 
 template<typename Read>
 void ReadFilter<Read>::emit_tsv(Read& read) {
-    cout << endl;
-    for (size_t i = 0 ; i < output_fields.size() ; i++) {
-        const string& field = output_fields[i];
-        if (field == "name") {
-            cout << read.name();
-        } else if (field == "correctly_mapped") {
-            if (is_correctly_mapped(read)) {
-                cout << "True";
+#pragma omp critical (cout)
+    {
+
+        cout << endl;
+        for (size_t i = 0 ; i < output_fields.size() ; i++) {
+            const string& field = output_fields[i];
+            if (field == "name") {
+                cout << read.name();
+            } else if (field == "correctly_mapped") {
+                if (is_correctly_mapped(read)) {
+                    cout << "True";
+                } else {
+                    cout << "False";
+                }
+            } else if (field == "mapping_quality") {
+                cout << get_mapq(read); 
+            } else if (field == "annotation") {
+                throw runtime_error("error: Cannot write all annotations");
+            } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
+                if (!has_annotation(read, field.substr(11, field.size()-11))) {
+                    throw runtime_error("error: Cannot find annotation "+ field);
+                } else {
+                    cout << get_annotation<string>(read, field.substr(11, field.size()-11));
+                }
             } else {
-                cout << "False";
+                cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+                throw runtime_error("error: Writing non-existent field to tsv: " + field);
             }
-        } else if (field == "mapping_quality") {
-            cout << get_mapq(read); 
-        } else if (field == "annotation") {
-            throw runtime_error("error: Cannot write all annotations");
-        } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
-            if (!has_annotation(read, field.substr(11, field.size()-11))) {
-                throw runtime_error("error: Cannot find annotation "+ field);
-            } else {
-                cout << get_annotation<string>(read, field.substr(11, field.size()-11));
+            if (i != output_fields.size()-1) {
+                cout << "\t";
             }
-        } else {
-            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
-            throw runtime_error("error: Writing non-existent field to tsv: " + field);
         }
-        if (i != output_fields.size()-1) {
-            cout << "\t";
-        }
+
     }
 }
 
