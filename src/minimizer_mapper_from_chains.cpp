@@ -457,8 +457,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
     // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
     // here with the multiplicity of the trees for each fragment
-    // For now, this just stores how many trees had equal or better score. After going through all
-    // trees and counting how many are kept, each value will be divided by the number of trees kept
+    // For now, just store how many trees had equal or better score. After going through all
+    // trees and counting how many are kept, later find how many equal or better were discarded
+    std::vector<double> equivalent_trees_by_fragment;
     std::vector<double> multiplicity_by_fragment;
     size_t tree_used_count = 0;
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
@@ -587,18 +588,26 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // Translate fragments into seed numbers and not local anchor numbers.
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size());
+                multiplicity_by_fragment.emplace_back(0.0);
                 for (auto& selected_number : scored_fragment.second) {
                     // Translate from selected seed/anchor space to global seed space.
                     fragments.back().push_back(selected_seeds[selected_number]);
                     // And count the minimizer as being in the fragment
                     minimizer_kept_fragment_count.back()[seeds[fragments.back().back()].source]++;
+
+                    //If this minimizer has the same score as the lowest-scoring kept minimizer,
+                    //then add the multiplicity for discarded minimizers
+                    if (multiplicity_by_fragment.back() == 0.0 &&
+                        minimizers[seeds[fragments.back().back()].source].score == lowest_minimizer_score) {
+                        multiplicity_by_fragment.back() = minimizer_multiplicity; 
+                    }
                 }
                 // Remember the score
                 fragment_scores.push_back(scored_fragment.first);
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
-                multiplicity_by_fragment.emplace_back((float)item_count);
+                equivalent_trees_by_fragment.emplace_back(item_count);
 
                 if (track_provenance) {
                     // Tell the funnel
@@ -667,8 +676,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     //Get the actual multiplicity from the counts
     for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= tree_used_count
-                                    ?  multiplicity_by_fragment[i] - (float)tree_used_count
+        multiplicity_by_fragment[i] += equivalent_trees_by_fragment[i] >= tree_used_count
+                                    ?  equivalent_trees_by_fragment[i] - (float)tree_used_count
                                     : 0.0;
     }
     // Now glom the fragments together into chains 
@@ -1185,10 +1194,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                           ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
                                           : 0.0);
-            // Also add the multiplicity of the minimizers- the number of minimizers that got discarded
-            // that scored as well as the lowest-scoring minimizer that was kept, divided by the total 
-            // number of minimizers kept
-            multiplicity_by_alignment[i] += minimizer_multiplicity; 
         }
     }
     
