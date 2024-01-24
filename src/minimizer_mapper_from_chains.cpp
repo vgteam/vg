@@ -352,8 +352,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     //The multiplicity that gets used for the minimizers discarded
     // The denominator is supposed to be the number of minimizers that passed the filters, although
     // some might have been discarded for other reasons besides score
-    double minimizer_multiplicity = (double) equivalent_minimizers_discarded_count /
-                                    (double) seeds.back().source;
+    double minimizer_multiplicity = seeds.size() == 0 
+                                  ? 0.0
+                                  : (double) equivalent_minimizers_discarded_count /
+                                    (double) seeds.back().source+1;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
