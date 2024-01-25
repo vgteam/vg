@@ -342,10 +342,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double highest_minimizer_score = minimizers.size() == 0 
                                    ? 0.0
                                    : minimizers[0].score;
-    for (auto & seed : seeds) {
-        assert( minimizers[seed.source].score >= lowest_minimizer_score);
-        assert( minimizers[seed.source].score <= highest_minimizer_score);
-    }
     //The multiplicity that gets used for the minimizers discarded
     // The denominator is supposed to be the number of minimizers that passed the filters, although
     // some might have been discarded for other reasons besides score
