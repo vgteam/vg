@@ -330,22 +330,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
 
-    // We want to adjust the final mapq based on how many reasonable minimizers got thrown away.
-    // To do this, we keep track of the lowest-scoring minimizer that was kept, and the number
-    // of equivalently-scoring minimizers that were discarded. Since seeds get added in order
-    // of the minimizer score, just check the last seed to get the lowest score of a kept minimizer
-    // and then walk through the ordered list of minimizers to see how many were discarded
-    //TODO: This is a bit hacky and doesn't really take into account everything - downsampling, etc
-    double lowest_minimizer_score = seeds.size() == 0 
-                                  ? 0.0 
-                                  : minimizers[seeds.back().source].score;
-    double highest_minimizer_score = minimizers.size() == 0 
-                                   ? 0.0
-                                   : minimizers[0].score;
-    //The multiplicity that gets used for the minimizers discarded
-    // The denominator is supposed to be the number of minimizers that passed the filters, although
-    // some might have been discarded for other reasons besides score
-    double minimizer_multiplicity = lowest_minimizer_score / highest_minimizer_score;
+    // We want to adjust the final mapq based on the minimizers kept vs discarded.
+    // This will be the sum of the scores that are thrown away divided by the sum of scores
+    // that are discarded
+    double kept_scores = 0.0;
+    double discarded_scores = 0.0;
+    size_t first_discarded_index = seeds.size() == 0 ? std::numeric_limits<size_t>::max()
+                                                    : seeds.back().source + 1; 
+    for (size_t i=  0 ; i < minimizers.size() ; i++ ){
+        if (i < first_discarded_index) {
+            kept_scores += minimizers[i].score;
+        } else {
+            discarded_scores += minimizers[i].score;
+        }
+    }
+
+
+    double minimizer_multiplicity = discarded_scores / kept_scores;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
