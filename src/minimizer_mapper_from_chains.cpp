@@ -344,7 +344,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (kept_minimizers[i]) {
             kept_scores += minimizers[i].score;
         } else {
-            kept_scores += minimizers[i].score;
+            discarded_scores += minimizers[i].score;
         }
     }
 
