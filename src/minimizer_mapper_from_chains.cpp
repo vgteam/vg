@@ -333,15 +333,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // We want to adjust the final mapq based on the minimizers kept vs discarded.
     // This will be the sum of the scores that are thrown away divided by the sum of scores
     // that are discarded
+    //TODO: This doesn't get stored somewhere else? 
+    vector<bool> kept_minimizers(minimizers.size(), false);
+    for (auto& seed : seeds) {
+        kept_minimizers[seed.source] = true;
+    }
     double kept_scores = 0.0;
     double discarded_scores = 0.0;
-    size_t first_discarded_index = seeds.size() == 0 ? std::numeric_limits<size_t>::max()
-                                                    : seeds.back().source + 1; 
     for (size_t i=  0 ; i < minimizers.size() ; i++ ){
-        if (i < first_discarded_index) {
+        if (kept_minimizers[i]) {
             kept_scores += minimizers[i].score;
         } else {
-            discarded_scores += minimizers[i].score;
+            kept_scores += minimizers[i].score;
         }
     }
 
