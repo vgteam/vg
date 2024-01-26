@@ -39,7 +39,7 @@
 //#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
-#include <valgrind/callgrind.h
+#include <valgrind/callgrind.h>
 #endif
 
 #define USE_MEMORY_PROFILING
