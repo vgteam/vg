@@ -1090,6 +1090,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
                     // Leave the read unmapped.
                 }
+
+                if (track_provenance) {
+                    funnel.substage_stop();
+                }
                     
                 // TODO: Come up with a good secondary somehow.
             } else {
@@ -1135,6 +1139,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.processed_input();
             }
 
+            if (track_provenance) {
+                funnel.substage("minimizers_kept");
+            }
+
             for (size_t i = 0 ; i < minimizer_kept_chain_count[processed_num].size() ; i++) {
 #ifdef print_minimizer_table
                 minimizer_kept_count[i] += minimizer_kept_chain_count[processed_num][i];
@@ -1144,6 +1152,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // to at least one alignment, so it is explored.
                     minimizer_explored.insert(i);
                 }
+            }
+
+            if (track_provenance) {
+                funnel.substage_stop();
             }
             
             return true;
@@ -1516,7 +1528,10 @@ Alignment MinimizerMapper::find_chain_alignment(
     size_t left_tail_length = (*here).read_start();
     if (left_tail_length > 0) {
         // We need to do a left tail.
-        // Anchor position will not be covered. 
+        // Anchor position will not be covered.
+        
+        auto start_time = std::chrono::high_resolution_clock::now();
+
         string left_tail = aln.sequence().substr(0, left_tail_length);
         WFAAlignment left_alignment;
         pos_t right_anchor = (*here).graph_start();
@@ -1604,7 +1619,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Align the left tail, anchoring the right end.
                 align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
-                if (show_work) {
+                if (show_work && max_tail_length > 0) {
                     #pragma omp critical (cerr)
                     {
                         cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
@@ -1616,6 +1631,15 @@ Alignment MinimizerMapper::find_chain_alignment(
                 composed_score = tail_aln.score();
             }
         }
+        
+        auto stop_time = std::chrono::high_resolution_clock::now();
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Aligned left tail in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
+            }
+        }
+
     }
         
     size_t longest_attempted_connection = 0;
@@ -1626,6 +1650,8 @@ Alignment MinimizerMapper::find_chain_alignment(
         const algorithms::Anchor* next;
         // And the actual connecting alignment to it
         WFAAlignment link_alignment;
+        // Where did it come from?
+        std::string link_alignment_source;
         
         while (next_it != chain.end()) {
             next = &to_chain[*next_it];
@@ -1691,6 +1717,8 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
 #endif
+
+        auto start_time = std::chrono::high_resolution_clock::now();
         
         // Pull out the intervening string to the next, if any.
         size_t link_start = (*here).read_end();
@@ -1725,6 +1753,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
             
             link_alignment = WFAAlignment::make_empty();
+            link_alignment_source = "empty";
         } else if (link_length > 0 && link_length <= max_chain_connection) {
             // If it's not empty and is a reasonable size, align it.
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
@@ -1732,6 +1761,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             get_offset(left_anchor)--;
             
             link_alignment = extender.connect(linking_bases, left_anchor, (*next).graph_start());
+            link_alignment_source = "WFAExtender";
             
             longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
             
@@ -1751,6 +1781,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     }
 #endif
                     link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.score_gap(link_length));
+                    link_alignment_source = "unlocalized_insertion";
                 }
             } else if (link_alignment.length != linking_bases.size()) {
                 // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
@@ -1816,6 +1847,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
             size_t path_length = std::max(graph_length, link_length);
             MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            link_alignment_source = "align_sequence_between";
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1827,6 +1859,14 @@ Alignment MinimizerMapper::find_chain_alignment(
             // Then tack that path and score on
             append_path(composed_path, link_aln.path());
             composed_score += link_aln.score();
+        }
+
+        auto stop_time = std::chrono::high_resolution_clock::now();
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Aligned and added link of " << link_length << " via " << link_alignment_source << " in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
+            }
         }
         
         // Advance here to next and start considering the next after it
@@ -1865,6 +1905,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     size_t right_tail_length = aln.sequence().size() - (*here).read_end();
     if (right_tail_length > 0) {
         // We need to do a right tail
+        
+        auto start_time = std::chrono::high_resolution_clock::now();
         string right_tail = aln.sequence().substr((*here).read_end(), right_tail_length);
         WFAAlignment right_alignment;
         pos_t left_anchor = (*here).graph_end();
@@ -1955,7 +1997,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Align the right tail, anchoring the left end.
                 align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
-                if (show_work) {
+                if (show_work && max_tail_length > 0) {
                     #pragma omp critical (cerr)
                     {
                         cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
@@ -1967,6 +2009,15 @@ Alignment MinimizerMapper::find_chain_alignment(
                 composed_score += tail_aln.score();
             }
         } 
+        
+        auto stop_time = std::chrono::high_resolution_clock::now();
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Aligned right tail in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
+            }
+        }
+
     }
     
     if (show_work) {

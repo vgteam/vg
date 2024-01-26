@@ -39,7 +39,7 @@
 //#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
-#include <valgrind/callgrind.h>
+#include <valgrind/callgrind.h
 #endif
 
 #define USE_MEMORY_PROFILING
@@ -427,13 +427,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,
         MinimizerMapper::default_max_chain_connection,
-        "maximum distance across which to connect seeds when aligning a chain"
+        "maximum distance across which to connect seeds with WFAExtender when aligning a chain"
     );
     chaining_opts.add_range(
         "max-tail-length",
         &MinimizerMapper::max_tail_length,
         MinimizerMapper::default_max_tail_length,
-        "maximum length of a tail to align before forcing softclipping when aligning a chain"
+        "maximum length of a tail to align with WFAExtender when aligning a chain"
     );
     chaining_opts.add_range(
         "max-dp-cells",
@@ -727,6 +727,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-alignments", 5)
+        // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
+        .add_entry<size_t>("max-chain-connection", 0)
         .add_entry<double>("mapq-score-scale", 1.0);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
