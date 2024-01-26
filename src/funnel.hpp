@@ -225,8 +225,9 @@ public:
     size_t latest() const;
     
     /// Call the given callback with stage name, and vector of result item
-    /// sizes at that stage, and a duration in seconds, for each stage.
-    void for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const;
+    /// sizes at that stage, and a duration in seconds, and a map form substage
+    /// name to duration in seconds, for each stage.
+    void for_each_stage(const function<void(const string&, const vector<size_t>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const;
     
     /// Represents the performance of a filter, for either item counts or total item sizes.
     /// Note that passing_correct and failing_correct will always be 0 if nothing is tagged correct.
@@ -285,6 +286,9 @@ protected:
     
     /// What's the name of the current substage? Will be empty if no substage is running.
     string substage_name;
+
+    /// At what time did the substage start?
+    time_point substage_start_time;
     
     /// What's the current prev-stage input we are processing?
     /// Will be numeric_limits<size_t>::max() if none.
@@ -340,13 +344,15 @@ protected:
         /// And what statistic did it fail with (or NaN)?
         double failed_statistic = nan("");
     };
-    
+
     /// Represents a Stage which is a series of Items, which track their own provenance.
     struct Stage {
         string name;
         vector<Item> items;
         /// How long did the stage last, in seconds?
-        float duration;
+        double duration;
+        /// How long did any substages of the stage last, in seconds?
+        std::unordered_map<std::string, double> sub_durations;
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;

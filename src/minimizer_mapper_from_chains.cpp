@@ -543,7 +543,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             
 
             if (track_provenance) {
-                funnel.substage("find_fragment");
+                funnel.substage("fragment");
             }
             
             if (show_work) {

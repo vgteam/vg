@@ -3954,13 +3954,6 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
             std::cerr << log_name() << "Seed number " << seed_index << " is on diagonal " << diagonal_to_string(extension_seed) << std::endl;
 #endif
         }
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                dump_debug_seeds(minimizers, seeds, seed_group);
-            }
-        }
     }
 
     // Sort all the vectors in extension_seed_to_seeds by stapled base.
@@ -3979,7 +3972,7 @@ vector<GaplessExtension> MinimizerMapper::extend_seed_group(const std::vector<si
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Extensions:" << endl;
+            cerr << log_name() << "Found " << extensions.size() << " extensions:" << endl;
             for (auto& e : extensions) {
                 cerr << log_name() << "\tRead " << e.read_interval.first
                     << "-" << e.read_interval.second << " with "

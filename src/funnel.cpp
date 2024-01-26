@@ -154,6 +154,9 @@ void Funnel::substage(const string& name) {
     
     // Save the name 
     substage_name = name;
+
+    // Record the start time
+    substage_start_time = clock::now();
 }
     
 void Funnel::substage_stop() {
@@ -161,6 +164,11 @@ void Funnel::substage_stop() {
         // A substage was running.
         
         // Substages don't bound produce/process.
+
+        // Record the duration in seconds
+        auto substage_stop_time = clock::now();
+        // Add it in. TODO: Might add small and large floats in any order!
+        stages.back().sub_durations[substage_name] += chrono::duration_cast<chrono::duration<double>>(substage_stop_time - substage_start_time).count();
         
         // Say the stage is stopped 
         substage_name.clear();
@@ -382,7 +390,7 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes
         vector<size_t> item_sizes;
@@ -390,8 +398,8 @@ void Funnel::for_each_stage(const function<void(const string&, const vector<size
         for (auto& item : stage.items) {
             item_sizes.push_back(item.group_size);
         }
-        // Report the name and item count of each stage.
-        callback(stage.name, item_sizes, stage.duration);
+        // Report the name and item count of each stage, along with timings.
+        callback(stage.name, item_sizes, stage.duration, stage.sub_durations);
     }
 }
 
@@ -605,11 +613,15 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
     // Save the total duration in the field set asside for it
     aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
     
-    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration) {
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
         // Save the number of items
         set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
         // And the per-stage duration
         set_annotation(aln, "stage_" + stage + "_time", duration);
+        for (auto& kv : sub_durations) {
+            // And the substage durations
+            set_annotation(aln, "stage_" + stage + "_sub_" + kv.first + "_time", kv.second);
+        }
     });
     
     set_annotation(aln, "last_placed_stage", last_tagged_stage(State::PLACED));
