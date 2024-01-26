@@ -330,26 +330,38 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
 
-    // We want to adjust the final mapq based on the minimizers kept vs discarded.
-    // This will be the sum of the scores that are thrown away divided by the sum of scores
-    // that are discarded
-    //TODO: This doesn't get stored somewhere else? 
-    vector<bool> kept_minimizers(minimizers.size(), false);
-    for (auto& seed : seeds) {
-        kept_minimizers[seed.source] = true;
+    // We want to adjust the final mapq based on the frequency of the minimizers.
+    // If a read is covered only by very frequent minimizers, it should have a lower mapq
+    // So count the percent of the read that is covered by a minimizer with only one hit.
+    vector<bool> read_coverage_unique (aln.sequence().size(), false);
+    for (const Minimizer& minimizer : minimizers_in_read) {
+        if (minimizer.hits == 1) {
+            for (size_t i=  0 ; i < minimizer.length ; i++) {
+                read_coverage_unique[i+minimizer.forward_offset()] = true;
+            }
+        }
     }
-    double kept_scores = 0.0;
-    double discarded_scores = 0.0;
-    for (size_t i=  0 ; i < minimizers.size() ; i++ ){
-        if (kept_minimizers[i]) {
-            kept_scores += minimizers[i].score;
-        } else {
-            discarded_scores += minimizers[i].score;
+    size_t coverage_sum = 0;
+    for (const bool& unique : read_coverage_unique) {
+        if (unique) {++coverage_sum;}
+    }
+    vector<bool> minimizer_kept (minimizers.size(), false);
+    for (const Seed& seed : seeds) {
+        minimizer_kept[seed.source] = true;
+    }
+    size_t minimizer_kept_count = 0;
+    for (bool kept : minimizer_kept) {
+        if (kept) {
+            minimizer_kept_count += 1;
         }
     }
 
+    //What fraction of the read is covered by unique minimizers?
+    double fraction_unique_minimizers = (double) coverage_sum / read_coverage_unique.size();
 
-    double minimizer_multiplicity = discarded_scores / kept_scores;
+    double best_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[0].score;
+    double worst_kept_minimizer_score = seeds.size() == 0 ? 0.0 : minimizers[seeds.back().source].score;
+    size_t minimizer_discarded_count = minimizers.size() - minimizer_kept_count;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -1179,10 +1191,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                           ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
                                           : 0.0);
-            // Also add the multiplicity of the minimizers- the number of minimizers that got discarded
-            // that scored as well as the lowest-scoring minimizer that was kept, divided by the total 
-            // number of minimizers kept
-            multiplicity_by_alignment[i] += minimizer_multiplicity; 
         }
     }
     
@@ -1263,6 +1271,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double uncapped_mapq = mapq;
 #endif
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
+    set_annotation(mappings.front(), "fraction_unique_minimizers", fraction_unique_minimizers);
+    set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
+    set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
+    set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
+    set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
     
     if (use_explored_cap) {
 
@@ -1283,6 +1296,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
         double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
         double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+        if (fraction_unique_minimizers < 0.1) {
+            mapq = min(1.0, mapq);
+        }
 
         set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
