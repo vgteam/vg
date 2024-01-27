@@ -716,7 +716,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hard-hit-cap", 400) // Default: 500
         // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
-        .add_entry<size_t>("max-to-fragment", 400)
+        .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<bool>("do-gapless-extension", true)
         .add_entry<double>("zipcode-tree-score-threshold", 50)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
