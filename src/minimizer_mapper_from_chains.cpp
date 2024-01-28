@@ -1310,9 +1310,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
         double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
         double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
-        if (fraction_unique_minimizers < 0.1) {
-            mapq = min(1.0, mapq);
-        }
 
         set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
