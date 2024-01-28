@@ -350,9 +350,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         minimizer_kept[seed.source] = true;
     }
     size_t minimizer_kept_count = 0;
-    for (bool kept : minimizer_kept) {
-        if (kept) {
+    double mean_kept_score = 0.0;
+    double mean_discarded_score = 0.0;
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
+        if (minimizer_kept[i]) {
             minimizer_kept_count += 1;
+            mean_kept_score += minimizers[i].score;
+        } else {
+            mean_discarded_score += minimizers[i].score;
         }
     }
 
@@ -360,8 +365,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double fraction_unique_minimizers = (double) coverage_sum / read_coverage_unique.size();
 
     double best_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[0].score;
+    double worst_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[minimizers.size()-1].score;
     double worst_kept_minimizer_score = seeds.size() == 0 ? 0.0 : minimizers[seeds.back().source].score;
     size_t minimizer_discarded_count = minimizers.size() - minimizer_kept_count;
+
+    mean_kept_score = mean_kept_score / minimizer_kept_count;
+    mean_discarded_score = mean_discarded_score / minimizer_discarded_count;
+
+    //This gets added as a multiplicity to everything
+    double minimizer_multiplicity = (mean_kept_score - mean_discarded_score) / mean_kept_score;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -1191,6 +1203,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                           ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
                                           : 0.0);
+            multiplicity_by_alignment[i] += minimizer_multiplicity;
         }
     }
     
@@ -1273,6 +1286,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "fraction_unique_minimizers", fraction_unique_minimizers);
     set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
+    set_annotation(mappings.front(), "worst_minimizer_score", worst_minimizer_score);
     set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
