@@ -350,14 +350,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         minimizer_kept[seed.source] = true;
     }
     size_t minimizer_kept_count = 0;
-    double mean_kept_score = 0.0;
-    double mean_discarded_score = 0.0;
+    double mean_kept_minimizer_score = 0.0;
+    double mean_discarded_minimizer_score = 0.0;
     for (size_t i = 0 ; i < minimizers.size() ; i++) {
         if (minimizer_kept[i]) {
             minimizer_kept_count += 1;
-            mean_kept_score += minimizers[i].score;
+            mean_kept_minimizer_score += minimizers[i].score;
         } else {
-            mean_discarded_score += minimizers[i].score;
+            mean_discarded_minimizer_score += minimizers[i].score;
         }
     }
 
@@ -369,11 +369,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double worst_kept_minimizer_score = seeds.size() == 0 ? 0.0 : minimizers[seeds.back().source].score;
     size_t minimizer_discarded_count = minimizers.size() - minimizer_kept_count;
 
-    mean_kept_score = mean_kept_score / minimizer_kept_count;
-    mean_discarded_score = mean_discarded_score / minimizer_discarded_count;
+    mean_kept_minimizer_score = mean_kept_minimizer_score / minimizer_kept_count;
+    mean_discarded_minimizer_score = mean_discarded_minimizer_score / minimizer_discarded_count;
 
     //This gets added as a multiplicity to everything
-    double minimizer_score_difference_fraction = (mean_kept_score - mean_discarded_score) / mean_kept_score;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -1278,8 +1277,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
-    if (minimizer_score_difference_fraction >= 0.75) {
-        mapq = mapq / 2.0;
+
+    //If the minimizers we threw away are too bad, the read is probably not well mapped
+    //TODO : idk about this
+    if ((mean_discarded_minimizer_score / mean_kept_minimizer_score) < 0.2) {
+        mapq = 1.0;
     }
     
 #ifdef print_minimizer_table
@@ -1290,8 +1292,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
     set_annotation(mappings.front(), "worst_minimizer_score", worst_minimizer_score);
     set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
-    set_annotation(mappings.front(), "minimizer_kept_score", mean_kept_score);
-    set_annotation(mappings.front(), "minimizer_discarded_score", mean_discarded_score);
+    set_annotation(mappings.front(), "minimizer_kept_score", mean_kept_minimizer_score);
+    set_annotation(mappings.front(), "minimizer_discarded_score", mean_discarded_minimizer_score);
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
     
