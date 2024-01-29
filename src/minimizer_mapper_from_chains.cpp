@@ -333,17 +333,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // We want to adjust the final mapq based on the frequency of the minimizers.
     // If a read is covered only by very frequent minimizers, it should have a lower mapq
     // So count the percent of the read that is covered by a minimizer with only one hit.
-    vector<bool> read_coverage_unique (aln.sequence().size(), false);
-    for (const Minimizer& minimizer : minimizers_in_read) {
-        if (minimizer.hits == 1) {
-            for (size_t i=  0 ; i < minimizer.length ; i++) {
-                read_coverage_unique[i+minimizer.forward_offset()] = true;
-            }
+    vector<size_t> best_hit_count_by_base (aln.sequence().size(), std::numeric_limits<size_t>::max());
+
+    for (const Minimizer& minimizer : minimizers) {
+        for (size_t i =  0 ; i < minimizer.length ; i++) {
+            best_hit_count_by_base[i+minimizer.forward_offset()] 
+                = std::min(minimizer.hits, best_hit_count_by_base[i+minimizer.forward_offset()]);
         }
-    }
+        
+    } 
     size_t coverage_sum = 0;
-    for (const bool& unique : read_coverage_unique) {
-        if (unique) {++coverage_sum;}
+    //keeping only the best minimizer for each base, what is the worst minimizer
+    size_t worst_minimizer_hits = 0;
+    for (const size_t& hits : best_hit_count_by_base) {
+        if (hits == 1) {++coverage_sum;}
+        if (hits != std::numeric_limits<size_t>::max()) {
+            worst_minimizer_hits = std::max(hits, worst_minimizer_hits);
+        }
     }
     vector<bool> minimizer_kept (minimizers.size(), false);
     for (const Seed& seed : seeds) {
@@ -362,7 +368,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     //What fraction of the read is covered by unique minimizers?
-    double fraction_unique_minimizers = (double) coverage_sum / read_coverage_unique.size();
+    double fraction_unique_minimizers = (double) coverage_sum / best_hit_count_by_base.size();
 
     double best_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[0].score;
     double worst_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[minimizers.size()-1].score;
@@ -1289,6 +1295,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #endif
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "fraction_unique_minimizers", fraction_unique_minimizers);
+    set_annotation(mappings.front(), "minimizer_worst_hits", worst_minimizer_hits);
     set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
     set_annotation(mappings.front(), "worst_minimizer_score", worst_minimizer_score);
     set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
@@ -1316,11 +1323,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
         double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
         double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+        double mapq_kept_cap = minimizer_kept_cap(minimizers, minimizer_kept); 
+        double mapq_coverage_cap = minimizer_coverage_cap(minimizers, minimizer_kept, aln.sequence()); 
 
         set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
         // Apply the caps and transformations
-        mapq = round(min(mapq_explored_cap, mapq));
+        mapq = round(min(min(mapq_explored_cap, min(mapq_kept_cap, mapq_coverage_cap)), mapq));
 
         if (show_work) {
             #pragma omp critical (cerr)

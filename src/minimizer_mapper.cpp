@@ -2857,6 +2857,55 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     return result;
 }
 
+double MinimizerMapper::minimizer_kept_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept) {
+    double kept_score_sum = 0.0;
+    double discarded_score_sum = 0.0;
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
+        if (minimizer_kept[i]) {
+            kept_score_sum += minimizers[i].score;
+        } else {
+            discarded_score_sum += minimizers[i].score;
+        }
+    }
+
+    double score_fraction_kept = kept_score_sum / (kept_score_sum + discarded_score_sum);
+
+    //Try to stop this from cutting the mapq too much
+    return prob_to_phred(pow(score_fraction_kept,6));
+
+}
+
+double MinimizerMapper::minimizer_coverage_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept, const string& sequence) {
+
+    vector<size_t> best_hit_count_by_base (sequence.size(), std::numeric_limits<size_t>::max());
+
+    for (const Minimizer& minimizer : minimizers) {
+        for (size_t i =  0 ; i < minimizer.length ; i++) {
+            best_hit_count_by_base[i+minimizer.forward_offset()] 
+                = std::min(minimizer.hits, best_hit_count_by_base[i+minimizer.forward_offset()]);
+        }
+        
+    }
+
+    size_t coverage_sum = 0;
+    //keeping only the best minimizer for each base, what is the worst minimizer 
+    size_t worst_minimizer_hits = 0;
+    for (const size_t& hits : best_hit_count_by_base) {
+        if (hits == 1) {++coverage_sum;}
+        if (hits != std::numeric_limits<size_t>::max()) {
+            worst_minimizer_hits = std::max(hits, worst_minimizer_hits);
+        }
+    }
+
+    //What fraction of the read is covered by unique minimizers?
+    double fraction_unique_minimizers = (double) coverage_sum / best_hit_count_by_base.size();
+
+    //Try to stop this from cutting the mapq too much
+    return prob_to_phred(pow(1.0-fraction_unique_minimizers,6));
+
+}
+
+
 void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer>& minimizers,
     const string& sequence, const string& quality_bytes,
     const vector<size_t>& minimizer_indices,
