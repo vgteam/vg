@@ -373,7 +373,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     mean_discarded_score = mean_discarded_score / minimizer_discarded_count;
 
     //This gets added as a multiplicity to everything
-    double minimizer_multiplicity = (mean_kept_score - mean_discarded_score) / mean_kept_score;
+    double minimizer_score_difference_fraction = (mean_kept_score - mean_discarded_score) / mean_kept_score;
 
     if (seeds.empty()) {
         #pragma omp critical (cerr)
@@ -1203,7 +1203,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                           ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
                                           : 0.0);
-            multiplicity_by_alignment[i] += minimizer_multiplicity;
         }
     }
     
@@ -1279,6 +1278,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
+    if (minimizer_score_difference_fraction >= 0.75) {
+        mapq = mapq / 2.0;
+    }
     
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
