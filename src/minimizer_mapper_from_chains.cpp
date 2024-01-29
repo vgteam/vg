@@ -1290,6 +1290,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
     set_annotation(mappings.front(), "worst_minimizer_score", worst_minimizer_score);
     set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
+    set_annotation(mappings.front(), "minimizer_kept_score", mean_kept_score);
+    set_annotation(mappings.front(), "minimizer_discarded_score", mean_discarded_score);
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
     
