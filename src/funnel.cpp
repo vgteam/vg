@@ -6,6 +6,8 @@
 /**
  * \file funnel.hpp: implementation of the Funnel class
  */
+
+#define debug
  
 namespace vg {
 using namespace std;
@@ -64,8 +66,10 @@ bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
     // Find the last interval starting strictly before start
     auto predecessor = regions.lower_bound(start);
     if (predecessor != regions.begin()) {
+        std::cerr << "Lower bound of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
         --predecessor;
         // We have one.
+        std::cerr << "Predecessor of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
         if (predecessor->first + predecessor->second > start) {
             // It covers our start, so we overlap
             return true;
@@ -74,6 +78,7 @@ bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
     
     auto successor = regions.upper_bound(start);
     if (successor != regions.end()) {
+        std::cerr << "Succesor of " << start << "+" << length << " is " << successor->first << "+" << successor->second << std::endl;
         // There's something starting at or after us
         if (start + length > successor->first) {
             // And we overlap it
@@ -356,10 +361,16 @@ bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name,
 string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
+        std::cerr << "Check stage " << it->name << " from " << tag_start << " length " << tag_length << std::endl;
         if (it->tag >= tag && it->tag_space.is_any_painted(tag_start, tag_length)) {
             // If we are tagged good enough and have a tag in part of that
             // area, then we are a matching stage.
+            std::cerr << "Stage matches!" << std::endl;
             return it->name;
+        } else if (it->tag < tag) {
+            std::cerr << "Stage tag of " << (int)it->tag << " is less than " << (int)tag << std::endl;
+        } else {
+            std::cerr << "Stage doesn't overlap query range" << std::endl;
         }
     }
     return "none";
