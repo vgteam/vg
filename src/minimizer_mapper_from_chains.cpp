@@ -1293,7 +1293,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
 #endif
+
+    double mapq_kept_cap = minimizer_kept_cap(minimizers, minimizer_kept); 
+    double mapq_coverage_cap = minimizer_coverage_cap(minimizers, minimizer_kept, aln.sequence()); 
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
+    set_annotation(mappings.front(), "mapq_kept_cap", mapq_kept_cap);
+    set_annotation(mappings.front(), "mapq_coverage_cap", mapq_coverage_cap);
     set_annotation(mappings.front(), "fraction_unique_minimizers", fraction_unique_minimizers);
     set_annotation(mappings.front(), "minimizer_worst_hits", worst_minimizer_hits);
     set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
@@ -1303,6 +1308,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "minimizer_discarded_score", mean_discarded_minimizer_score);
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
+
+    mapq = min(min(mapq_kept_cap, mapq_coverage_cap), mapq);
     
     if (use_explored_cap) {
 
@@ -1323,13 +1330,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
         double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
         double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
-        double mapq_kept_cap = minimizer_kept_cap(minimizers, minimizer_kept); 
-        double mapq_coverage_cap = minimizer_coverage_cap(minimizers, minimizer_kept, aln.sequence()); 
 
         set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
         // Apply the caps and transformations
-        mapq = round(min(min(mapq_explored_cap, min(mapq_kept_cap, mapq_coverage_cap)), mapq));
+        mapq = round(min(mapq_explored_cap, mapq));
 
         if (show_work) {
             #pragma omp critical (cerr)
