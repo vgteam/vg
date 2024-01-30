@@ -13,8 +13,9 @@ namespace vg {
 using namespace std;
 
 void Funnel::PaintableSpace::paint(size_t start, size_t length) {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
@@ -37,7 +38,7 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
         }
     }
     
-    // Find the first interval starting at or after start
+    // Find the first interval starting strictly after start
     auto successor = regions.upper_bound(start);
     auto range_first = regions.end();
     auto range_last = regions.end();
@@ -63,10 +64,11 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
 }
 
 bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+    std::cerr << "Checking for painting " << start << "+" << length << " in " << regions.size() << " regions" << std::endl;
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
-        std::cerr << "Lower bound of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
         --predecessor;
         // We have one.
         std::cerr << "Predecessor of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
@@ -75,11 +77,12 @@ bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
             return true;
         }
     }
-    
+   
+    // Find the first interval starting strictly after start.
     auto successor = regions.upper_bound(start);
     if (successor != regions.end()) {
         std::cerr << "Succesor of " << start << "+" << length << " is " << successor->first << "+" << successor->second << std::endl;
-        // There's something starting at or after us
+        // There's something starting after us
         if (start + length > successor->first) {
             // And we overlap it
             return true;
@@ -334,6 +337,9 @@ void Funnel::tag(size_t item, State state, size_t tag_start, size_t tag_length) 
     
     // Say the stage has tag over this interval.
     stages.back().tag = std::max(stages.back().tag, state);
+#ifdef debug
+    std::cerr << "\tTag stage overall as " << stages.back().tag << " on " << tag_start << "-" << tag_start + tag_length << std::endl;
+#endif
     stages.back().tag_space.paint(tag_start, tag_length);
 }
 
