@@ -2871,7 +2871,7 @@ double MinimizerMapper::minimizer_kept_cap(const VectorView<Minimizer>& minimize
     double score_fraction_kept = kept_score_sum / (kept_score_sum + discarded_score_sum);
 
     //Try to stop this from cutting the mapq too much
-    return prob_to_phred(pow(score_fraction_kept,6)) + 20;
+    return prob_to_phred(pow(score_fraction_kept,6)) + 30;
 
 }
 
@@ -2901,8 +2901,7 @@ double MinimizerMapper::minimizer_coverage_cap(const VectorView<Minimizer>& mini
     double fraction_unique_minimizers = (double) coverage_sum / best_hit_count_by_base.size();
 
     //Try to stop this from cutting the mapq too much
-    fraction_unique_minimizers += 0.25;
-    return prob_to_phred(pow(1.0-fraction_unique_minimizers,6));
+    return prob_to_phred(pow(1.0-fraction_unique_minimizers,6)) + 30;
 
 }
 
