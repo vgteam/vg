@@ -7,7 +7,7 @@
  * \file funnel.hpp: implementation of the Funnel class
  */
 
-#define debug
+//#define debug
  
 namespace vg {
 using namespace std;
@@ -64,14 +64,18 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
 }
 
 bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
+#ifdef debug
     std::cerr << "Checking for painting " << start << "+" << length << " in " << regions.size() << " regions" << std::endl;
+#endif
     // Find the last interval starting at or before start, by finding the first
     // one starting strictly after start and going left.
     auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
+#ifdef debug
         std::cerr << "Predecessor of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
+#endif
         if (predecessor->first + predecessor->second > start) {
             // It covers our start, so we overlap
             return true;
@@ -81,7 +85,9 @@ bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
     // Find the first interval starting strictly after start.
     auto successor = regions.upper_bound(start);
     if (successor != regions.end()) {
+#ifdef debug
         std::cerr << "Succesor of " << start << "+" << length << " is " << successor->first << "+" << successor->second << std::endl;
+#endif
         // There's something starting after us
         if (start + length > successor->first) {
             // And we overlap it
@@ -367,16 +373,24 @@ bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name,
 string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
+#ifdef debug
         std::cerr << "Check stage " << it->name << " from " << tag_start << " length " << tag_length << std::endl;
+#endif
         if (it->tag >= tag && it->tag_space.is_any_painted(tag_start, tag_length)) {
             // If we are tagged good enough and have a tag in part of that
             // area, then we are a matching stage.
+#ifdef debug
             std::cerr << "Stage matches!" << std::endl;
+#endif
             return it->name;
         } else if (it->tag < tag) {
+#ifdef debug
             std::cerr << "Stage tag of " << (int)it->tag << " is less than " << (int)tag << std::endl;
+#endif
         } else {
+#ifdef debug
             std::cerr << "Stage doesn't overlap query range" << std::endl;
+#endif
         }
     }
     return "none";
