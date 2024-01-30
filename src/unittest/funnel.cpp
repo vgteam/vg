@@ -17,6 +17,7 @@ using namespace std;
 TEST_CASE("Funnel tracks tags correctly through merge_group", "[funnel]") {
     
     Funnel funnel;
+    funnel.start("test_read");
 
     funnel.stage("seed");
     funnel.introduce(3);
@@ -39,7 +40,9 @@ TEST_CASE("Funnel tracks tags correctly through merge_group", "[funnel]") {
     funnel.stage("chain");
     funnel.merge_group(fragments_to_merge.begin(), fragments_to_merge.end());
 
-    REQUIRE(funnel.last_correct_stage() == "chain"); 
+    REQUIRE(funnel.last_correct_stage() == "chain");
+
+    funnel.stop();
 
 }
 }
