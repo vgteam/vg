@@ -2871,8 +2871,7 @@ double MinimizerMapper::minimizer_kept_cap(const VectorView<Minimizer>& minimize
     double score_fraction_kept = kept_score_sum / (kept_score_sum + discarded_score_sum);
 
     //Try to stop this from cutting the mapq too much
-    score_fraction_kept = score_fraction_kept <= 0.25 ? 1.0 / (kept_score_sum + discarded_score_sum) : score_fraction_kept - 0.25;
-    return prob_to_phred(pow(score_fraction_kept,6));
+    return prob_to_phred(pow(score_fraction_kept,6)) + 20;
 
 }
 
