@@ -1309,7 +1309,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
 
-    mapq = min(min(mapq_kept_cap, mapq_coverage_cap), mapq);
+    mapq = min(mapq_kept_cap, mapq);
     
     if (use_explored_cap) {
 
