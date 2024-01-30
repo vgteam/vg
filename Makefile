@@ -627,9 +627,9 @@ $(SHARED_OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRES
 $(INC_DIR)/Fasta.h:  $(FASTAHACK_DIR)/Fasta.h
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h $(FASTAHACK_DIR)/fastahack
+$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h 
 	+. ./source_me.sh && $(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
-$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h $(FASTAHACK_DIR)/fastahack
+$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h
 	+. ./source_me.sh && $(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
 
 # We have this target to clean up the old Protobuf we used to have.
