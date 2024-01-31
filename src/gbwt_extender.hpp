@@ -418,9 +418,11 @@ public:
      * entire sequence with an acceptable score, returns the highest-scoring
      * partial alignment, which may be empty.
      *
+     * Applies the full-length bonus if the result ends with a match or mismatch.
+     * TODO: Use the full-length bonus to determine the optimal alignment.
+     *
      * NOTE: This creates a suffix of the full alignment by aligning a
      * prefix of the sequence.
-     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
@@ -430,9 +432,11 @@ public:
      * sequence with an acceptable score, returns the highest-scoring partial
      * alignment, which may be empty.
      *
+     * Applies the full-length bonus if the result begins with a match or mismatch.
+     * TODO: Use the full-length bonus to determine the optimal alignment.
+     *
      * NOTE: This creates a prefix of the full alignment by aligning a suffix
      * of the sequence.
-     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
