@@ -1596,6 +1596,29 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
     }
 }
 
+TEST_CASE("Exact matches in a linear graph with full length bonus", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    // Rely on some scoring parameters we know for this test
+    REQUIRE(aligner.match == 1);
+    REQUIRE(aligner.full_length_bonus == 5);
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Single node, prefix") {
+        // This should get 4 matches and a full length bonus
+        std::string sequence("GATT");
+        pos_t to(2, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        correct_score(result, aligner);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        REQUIRE(result.score == 4 * 1 + 5);
+    }
+
+}
+
+
 //------------------------------------------------------------------------------
 
 TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
