@@ -1295,7 +1295,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #pragma omp critical
     {
         std::ofstream out;
-        out.open("minimizers.tsv");
+        out.open("minimizers.tsv", std::ios::app);
         out << aln.name() << "\t" << mapq;
         for (size_t i = 0 ; i < minimizers.size() ; i++) {
             out << "\t";
