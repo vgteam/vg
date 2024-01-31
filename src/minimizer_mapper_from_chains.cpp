@@ -1292,19 +1292,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         mapq = 1.0;
     }
 #ifdef debug_write_minimizers
-    std::ofstream out;
-    out.open("minimizers.tsv");
-    out << aln.name() << "\t" << mapq;
-    for (size_t i = 0 ; i < minimizers.size() ; i++) {
-        out << "\t";
-        out << minimizer_kept[i]
-            << "," << minimizers[i].hits 
-            << "," << minimizers[i].score
-            << "," << minimizers[i].forward_offset()
-            << "," << minimizers[i].length;
+#pragma omp critical
+    {
+        std::ofstream out;
+        out.open("minimizers.tsv");
+        out << aln.name() << "\t" << mapq;
+        for (size_t i = 0 ; i < minimizers.size() ; i++) {
+            out << "\t";
+            out << minimizer_kept[i]
+                << "," << minimizers[i].hits 
+                << "," << minimizers[i].score
+                << "," << minimizers[i].forward_offset()
+                << "," << minimizers[i].length;
+        }
+        out << endl;
+        out.close(); 
     }
-    out << endl;
-    out.close(); 
 #endif
     
 #ifdef print_minimizer_table
