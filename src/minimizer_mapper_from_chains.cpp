@@ -42,6 +42,7 @@
 //#define debug_fragment_distr
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
+#define debug_write_minimizers
 
 namespace vg {
 
@@ -342,6 +343,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
         
     } 
+
     size_t coverage_sum = 0;
     //keeping only the best minimizer for each base, what is the worst minimizer
     size_t worst_minimizer_hits = 0;
@@ -1289,6 +1291,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if ((mean_discarded_minimizer_score / mean_kept_minimizer_score) < 0.2) {
         mapq = 1.0;
     }
+#ifdef debug_write_minimizers
+    std::ofstream out;
+    out.open("minimizers.tsv");
+    out << aln.name() << "\t" << mapq;
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
+        out << "\t";
+        out << minimizer_kept[i]
+            << "," << minimizers[i].hits 
+            << "," << minimizers[i].score
+            << "," << minimizers[i].forward_offset()
+            << "," << minimizers[i].length;
+    }
+    out << endl;
+    out.close(); 
+#endif
     
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
