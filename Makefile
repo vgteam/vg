@@ -432,7 +432,7 @@ LINK_DEPS =
 
 ifeq ($(jemalloc),on)
     # Use jemalloc at link time
-	LINK_DEPS += $(LIB_DIR)/libjemalloc.a $(LIB_DIR)/libjemalloc_pic.a
+	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
     # We have to use it statically or we can't get at its secret symbols.
 	LD_EXE_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
 	# Use the config object for jemalloc
@@ -552,7 +552,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 # TODO: The normal and debug jemalloc builds can't safely be run at the same time.
-$(LIB_DIR)/%jemalloc.a $(LIB_DIR)/%jemalloc_pic.a: $(JEMALLOC_DIR)/src/*.c
+$(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
