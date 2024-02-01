@@ -182,6 +182,7 @@ struct RebuildParameters {
     gbwt::size_type sample_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
 };
 
+// TODO: Use the new parallelization scheme.
 /// Rebuild the GBWT by applying all provided mappings. Each mapping is a pair
 /// (original subpath, new subpath). If the original subpath is empty, the
 /// mapping is ignored. If there are multiple applicable mappings, the first one
@@ -238,6 +239,16 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 /// GBWT metadata, made of just the sample and contig and haplotype.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
+//------------------------------------------------------------------------------
+
+/// Copies the reference sample tag from the source GBWT index to the destination GBWT index.
+void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination);
+
+/// Copies reference samples from the source graph to the destination GBWT index.
+/// Every sample with at least one reference path in the source graph is considered
+/// a reference sample.
+void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination);
 
 //------------------------------------------------------------------------------
 

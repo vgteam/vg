@@ -2691,15 +2691,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             std::function<bool(const path_handle_t&)> path_filter = [&xg_index](const path_handle_t& path) {
                 return !Paths::is_alt(xg_index->get_path_name(path));
             };
-            
-            cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                          IndexingParameters::giraffe_gbwt_downsample,
-                                                          IndexingParameters::downsample_context_length,
-                                                          IndexingParameters::gbwt_insert_batch_size,
-                                                          IndexingParameters::gbwt_sampling_interval,
-                                                          true, // Also include named paths from the graph
-                                                          &path_filter,
-                                                          IndexingParameters::verbosity >= IndexingParameters::Debug));
+
+            // TODO: Determine the number of parallel jobs.
+            gbwtgraph::PathCoverParameters parameters;
+            parameters.num_paths = IndexingParameters::path_cover_depth;
+            parameters.context = IndexingParameters::downsample_context_length;
+            // TODO: See path cover for handling graphs with large components.
+            parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
+            parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+            parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+            cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index, parameters, true, &path_filter));
+            // Reference samples tag is not copied automatically.
+            copy_reference_samples(*gbwt_index, cover);
         }
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
@@ -2709,12 +2712,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             gbwt::DynamicGBWT dynamic_index(*gbwt_index);
             gbwt_index.reset();
-            gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
-                                    IndexingParameters::path_cover_depth,
-                                    IndexingParameters::downsample_context_length,
-                                    IndexingParameters::gbwt_insert_batch_size,
-                                    IndexingParameters::gbwt_sampling_interval,
-                                    IndexingParameters::verbosity >= IndexingParameters::Debug);
+            gbwtgraph::PathCoverParameters parameters;
+            parameters.num_paths = IndexingParameters::path_cover_depth;
+            parameters.context = IndexingParameters::downsample_context_length;
+            parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
+            parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+            parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index, parameters);
             cover = std::move(gbwt::GBWT(dynamic_index));
         }
         
@@ -2764,14 +2768,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
-                                                      IndexingParameters::path_cover_depth,
-                                                      IndexingParameters::downsample_context_length,
-                                                      std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
-                                                      IndexingParameters::gbwt_sampling_interval,
-                                                      true, // Also include named paths from the graph
-                                                      &path_filter,
-                                                      IndexingParameters::verbosity >= IndexingParameters::Debug);
+        // TODO: Determine the number of parallel jobs.
+        gbwtgraph::PathCoverParameters parameters;
+        parameters.num_paths = IndexingParameters::path_cover_depth;
+        parameters.context = IndexingParameters::downsample_context_length;
+        parameters.batch_size = std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size);
+        parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+        parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index, parameters, true, &path_filter);
+        // Determine reference samples from reference paths.
+        copy_reference_samples(*xg_index, cover);
         
         save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         

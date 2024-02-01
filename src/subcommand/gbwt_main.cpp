@@ -102,6 +102,17 @@ struct GBWTConfig {
     static size_t default_merge_jobs() {
         return std::min(static_cast<size_t>(gbwt::MergeParameters::MERGE_JOBS), std::max(static_cast<size_t>(1), static_cast<size_t>(omp_get_max_threads() / 2)));
     }
+
+    gbwtgraph::PathCoverParameters path_cover_parameters() const {
+        gbwtgraph::PathCoverParameters parameters;
+        parameters.num_paths = this->num_paths;
+        parameters.context = this->context_length;
+        parameters.batch_size = this->haplotype_indexer.gbwt_buffer_size * gbwt::MILLION;
+        parameters.sample_interval = this->haplotype_indexer.id_interval;
+        parameters.parallel_jobs = this->build_jobs;
+        parameters.show_progress = this->show_progress;
+        return parameters;
+    }
 };
 
 struct GraphHandler {
@@ -245,7 +256,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Multithreading:" << std::endl;
-    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v and -G; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
+    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v, -G, -l, -P; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
     std::cerr << "        --num-threads N     use N parallel search threads (for -b and -r; default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
@@ -1504,41 +1515,28 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
         if (config.show_progress) {
             std::cerr << "Algorithm: greedy" << std::endl;
         }
-        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph),
-                                                      config.num_paths,
-                                                      config.context_length,
-                                                      config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                                      config.haplotype_indexer.id_interval,
-                                                      config.include_named_paths,
-                                                      &path_filter,
-                                                      config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(
+            *(graphs.path_graph), config.path_cover_parameters(),
+            config.include_named_paths, &path_filter
+        );
+        copy_reference_samples(*(graphs.path_graph), cover);
         gbwts.use(cover);
     } else if (config.path_cover == GBWTConfig::path_cover_augment) {
         if (config.show_progress) {
             std::cerr << "Algorithm: augment" << std::endl;
         }
         gbwts.use_dynamic();
-        gbwtgraph::augment_gbwt(*(graphs.path_graph),
-                                gbwts.dynamic,
-                                config.num_paths,
-                                config.context_length,
-                                config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                config.haplotype_indexer.id_interval,
-                                config.show_progress);
+        gbwtgraph::augment_gbwt(*(graphs.path_graph), gbwts.dynamic, config.path_cover_parameters());
     } else {
         if (config.show_progress) {
             std::cerr << "Algorithm: local haplotypes" << std::endl;
         }
         gbwts.use_compressed();
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph),
-                                                       gbwts.compressed,
-                                                       config.num_paths,
-                                                       config.context_length,
-                                                       config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                                       config.haplotype_indexer.id_interval,
-                                                       config.include_named_paths,
-                                                       &path_filter,
-                                                       config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::local_haplotypes(
+            *(graphs.path_graph), gbwts.compressed, config.path_cover_parameters(),
+            config.include_named_paths, &path_filter
+        );
+        copy_reference_samples(gbwts.compressed, cover);
         gbwts.use(cover);
     }
     gbwts.unbacked(); // We modified the GBWT.

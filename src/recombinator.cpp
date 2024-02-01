@@ -321,15 +321,15 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     });
     size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
     gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
-    if (jobs.components != total_chains) {
+    if (jobs.components() != total_chains) {
         // TODO: Could we instead identify the components with multiple top-level chains
         // and skip them?
         std::string msg = "HaplotypePartitioner::partition_haplotypes(): there are "
-            + std::to_string(total_chains) + " top-level chains and " + std::to_string(jobs.components)
+            + std::to_string(total_chains) + " top-level chains and " + std::to_string(jobs.components())
             + " weakly connected components; haplotype sampling cannot be used with this graph";
         throw std::runtime_error(msg);
     }
-    result.header.top_level_chains = jobs.components;
+    result.header.top_level_chains = jobs.components();
     result.header.construction_jobs = jobs.size();
     result.chains.resize(result.components());
     for (size_t chain_id = 0; chain_id < result.components(); chain_id++) {
@@ -361,6 +361,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     }
 
     // Assign named and reference paths to jobs.
+    // TODO: Use gbwtgraph::assign_paths()?
     result.jobs_for_cached_paths.reserve(this->gbz.graph.named_paths.size());
     for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
         const gbwtgraph::NamedPath& path = this->gbz.graph.named_paths[i];
@@ -370,12 +371,12 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
             continue;
         }
         nid_t node_id = gbwt::Node::id(path.from.first);
-        auto iter = jobs.node_to_job.find(node_id);
-        if (iter == jobs.node_to_job.end()) {
+        size_t job = jobs.job(node_id);
+        if (job >= jobs.size()) {
             std::string msg = "HaplotypePartitioner::partition_haplotypes(): cannot assign node " + std::to_string(node_id) + " to a job";
             throw std::runtime_error(msg);
         }
-        result.jobs_for_cached_paths.push_back(iter->second);
+        result.jobs_for_cached_paths.push_back(job);
     }
 
     jobs = gbwtgraph::ConstructionJobs(); // Save memory.
