@@ -2692,9 +2692,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 return !Paths::is_alt(xg_index->get_path_name(path));
             };
 
-            // TODO: Determine the number of parallel jobs.
+            // FIXME: Determine the number of parallel jobs and set parameters.parallel_jobs.
             gbwtgraph::PathCoverParameters parameters;
-            parameters.num_paths = IndexingParameters::path_cover_depth;
+            parameters.num_paths = IndexingParameters::giraffe_gbwt_downsample;
             parameters.context = IndexingParameters::downsample_context_length;
             // TODO: See path cover for handling graphs with large components.
             parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
@@ -2712,6 +2712,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             gbwt::DynamicGBWT dynamic_index(*gbwt_index);
             gbwt_index.reset();
+            // Note that augmenting a GBWT is always single-threaded.
             gbwtgraph::PathCoverParameters parameters;
             parameters.num_paths = IndexingParameters::path_cover_depth;
             parameters.context = IndexingParameters::downsample_context_length;
@@ -2768,7 +2769,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        // TODO: Determine the number of parallel jobs.
+        // FIXME: Determine the number of parallel jobs and set parameters.parallel_jobs.
         gbwtgraph::PathCoverParameters parameters;
         parameters.num_paths = IndexingParameters::path_cover_depth;
         parameters.context = IndexingParameters::downsample_context_length;
@@ -3854,6 +3855,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         string output_name = plan->output_filepath(gbz_output);
         
         gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
+        // FIXME: Determine the number of parallel jobs and set params.parallel_jobs.
         // TODO: there's supposedly a heuristic to set batch size that could perform better than this global param,
         // but it would be kind of a pain to update it like we do the global param
         params.batch_size = IndexingParameters::gbwt_insert_batch_size;

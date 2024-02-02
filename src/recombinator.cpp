@@ -220,7 +220,7 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
 void Haplotypes::TopLevelChain::load_old(std::istream& in) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
-    this->contig_name = "chain_" + std::to_string(this->offset);
+    this->contig_name = "component_" + std::to_string(this->offset);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
     for (size_t i = 0; i < subchain_count; i++) {
@@ -310,17 +310,20 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
 
-    // Determine top-level chains.
+    // Determine GBWT construction jobs.
     double start = gbwt::readTimer();
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Determining construction jobs" << std::endl;
     }
+    size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
+    gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
+    result.header.construction_jobs = jobs.size();
+
+    // Determine the number of top-level chains and fill in basic information.
     size_t total_chains = 0;
     this->distance_index.for_each_child(this->distance_index.get_root(), [&](const handlegraph::net_handle_t&) {
         total_chains++;
     });
-    size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
-    gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
     if (jobs.components() != total_chains) {
         // TODO: Could we instead identify the components with multiple top-level chains
         // and skip them?
@@ -330,53 +333,47 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         throw std::runtime_error(msg);
     }
     result.header.top_level_chains = jobs.components();
-    result.header.construction_jobs = jobs.size();
     result.chains.resize(result.components());
     for (size_t chain_id = 0; chain_id < result.components(); chain_id++) {
         result.chains[chain_id].offset = chain_id;
         result.chains[chain_id].job_id = result.jobs(); // Not assigned to any job yet.
-        result.chains[chain_id].contig_name = "chain_" + std::to_string(chain_id); // Placeholder name.
+        result.chains[chain_id].contig_name = "component_" + std::to_string(chain_id); // Placeholder name.
     }
 
-    // Assign chains to jobs and determine contig names.
+    // Assign chains to jobs and fill in contig names.
     auto chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
+    // We do not use a path filter, because a GBZ graph should not contain alt paths.
+    auto contig_names = jobs.contig_names(this->gbz.graph);
     for (size_t job_id = 0; job_id < result.jobs(); job_id++) {
         for (auto& chain : chains_by_job[job_id]) {
             result.chains[chain.offset].job_id = job_id;
-            auto da = this->r_index.decompressDA(gbwtgraph::GBWTGraph::handle_to_node(chain.handle));
-            for (gbwt::size_type seq_id : da) {
-                gbwt::size_type path_id = gbwt::Path::id(seq_id);
-                auto iter = this->gbz.graph.id_to_path.find(path_id);
-                if (iter != this->gbz.graph.id_to_path.end()) {
-                    // This is a generic / reference path. Use its contig name for the chain.
-                    gbwt::PathName path_name = this->gbz.index.metadata.path(path_id);
-                    result.chains[chain.offset].contig_name = this->gbz.index.metadata.contig(path_name.contig);
-                    if (this->verbosity >= Haplotypes::verbosity_debug) {
-                        std::cerr << "Using contig name " << result.chains[chain.offset].contig_name << " for chain " << chain.offset << std::endl;
-                    }
-                    break;
-                }
+            nid_t node_id = this->gbz.graph.get_id(chain.handle);
+            size_t component_id = jobs.component(node_id);
+            if (component_id >= contig_names.size()) {
+                std::string msg = "HaplotypePartitioner::partition_haplotypes(): cannot map top-level chain " + std::to_string(chain.offset) + " to a component";
+                throw std::runtime_error(msg);
+            }
+            result.chains[chain.offset].contig_name = contig_names[component_id];
+            if (this->verbosity >= Haplotypes::verbosity_debug) {
+                std::cerr << "Using contig name " << contig_names[component_id] << " for chain " << chain.offset << std::endl;
             }
         }
     }
 
     // Assign named and reference paths to jobs.
-    // TODO: Use gbwtgraph::assign_paths()?
-    result.jobs_for_cached_paths.reserve(this->gbz.graph.named_paths.size());
-    for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
-        const gbwtgraph::NamedPath& path = this->gbz.graph.named_paths[i];
-        if (path.from == gbwt::invalid_edge()) {
-            // Skip empty paths.
-            result.jobs_for_cached_paths.push_back(result.jobs());
-            continue;
+    result.jobs_for_cached_paths = std::vector<size_t>(this->gbz.graph.named_paths.size(), result.jobs());
+    // Again, we do not use a path filter, because a GBZ graph should not contain alt paths.
+    auto assignments = gbwtgraph::assign_paths(this->gbz.graph, jobs, nullptr, nullptr);
+    for (size_t job = 0; job < assignments.size(); job++) {
+        for (const path_handle_t& path : assignments[job]) {
+            // We know that GBWTGraph path handles for reference/generic paths are offsets in named_paths.
+            size_t path_id = handlegraph::as_integer(path);
+            if (path_id >= result.jobs_for_cached_paths.size()) {
+                std::string msg = "HaplotypePartitioner::partition_haplotypes(): path " + std::to_string(path_id) + " is not a reference/generic path";
+                throw std::runtime_error(msg);
+            }
+            result.jobs_for_cached_paths[path_id] = job;
         }
-        nid_t node_id = gbwt::Node::id(path.from.first);
-        size_t job = jobs.job(node_id);
-        if (job >= jobs.size()) {
-            std::string msg = "HaplotypePartitioner::partition_haplotypes(): cannot assign node " + std::to_string(node_id) + " to a job";
-            throw std::runtime_error(msg);
-        }
-        result.jobs_for_cached_paths.push_back(job);
     }
 
     jobs = gbwtgraph::ConstructionJobs(); // Save memory.
@@ -1171,6 +1168,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     }
 
     // Build partial indexes.
+    // FIXME we should use MetadataBuilder here
     double checkpoint = gbwt::readTimer();
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Running " << omp_get_max_threads() << " GBWT construction jobs in parallel" << std::endl;
@@ -1213,18 +1211,14 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
         std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
-    // Merge the partial indexes.
+    // Merge the partial indexes and set the reference samples tag.
     checkpoint = gbwt::readTimer();
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Merging the partial indexes" << std::endl;
     }
     gbwt::GBWT merged(indexes);
     if (parameters.include_reference) {
-        // If we included reference paths, set the same samples as references in the output GBWT.
-        std::string reference_samples = this->gbz.index.tags.get(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG);
-        if (!reference_samples.empty()) {
-            merged.tags.set(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, reference_samples);
-        }
+        copy_reference_samples(this->gbz.index, merged);
     }
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
