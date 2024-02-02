@@ -713,7 +713,7 @@ int main_giraffe(int argc, char** argv) {
         // Use the hit-cap||score-fraction filter
         .add_entry<size_t>("hit-cap", 10)
         .add_entry<double>("score-fraction", 0.9)
-        .add_entry<size_t>("hard-hit-cap", 400) // Default: 500
+        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
         // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
