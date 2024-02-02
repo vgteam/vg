@@ -335,6 +335,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, &passed_downsampling);
 
+    double sum_kept = 0.0;
+    double sum_downsampled = 0.0;
+    for (size_t i = 0 ; i < minimizers_in_read.size() ; i++) {
+        if (passed_downsampling[i]) {
+            sum_kept += minimizers_in_read[i].score;
+        } else {
+            sum_downsampled += minimizers_in_read[i].score;
+        }
+    }
+
+    //This gets added as a multiplicity to everything
+    double minimizer_downsampled_multiplicity = sum_kept / sum_downsampled;
+
     // We want to adjust the final mapq based on the frequency of the minimizers.
     // If a read is covered only by very frequent minimizers, it should have a lower mapq
     // So count the percent of the read that is covered by a minimizer with only one hit.
@@ -699,6 +712,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= tree_used_count
                                     ?  multiplicity_by_fragment[i] - (float)tree_used_count
                                     : 0.0;
+        multiplicity_by_fragment[i] += minimizer_downsampled_multiplicity;
     }
     // Now glom the fragments together into chains 
     if (track_provenance) {
@@ -1334,8 +1348,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
     set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
 
-    mapq = min(mapq_kept_cap, mapq);
-    
     if (use_explored_cap) {
 
         if (show_work) {
