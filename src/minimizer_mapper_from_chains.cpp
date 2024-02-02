@@ -739,21 +739,24 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Get the score of the top-scoring fragment in each collection.
     std::unordered_map<size_t, double> best_fragment_score_in;
+    // And overall
+    double best_fragment_score = 0;
     for (auto& kv : tree_to_fragments) {
         for (auto& fragment_num : kv.second) {
             // Max in the score of each fragment 
             best_fragment_score_in[kv.first] = std::max(best_fragment_score_in[kv.first], fragment_scores.at(fragment_num));
+            best_fragment_score = std::max(best_fragment_score, best_fragment_score_in[kv.first]);
         }
     }
     
+    // Decide on how good fragments have to be to keep.
+    double fragment_score_threshold = best_fragment_score * fragment_score_fraction;
+
     // Filter down to just the good ones, sorted by read start
     // TODO: Should we drop short fragments in one place because of long fragments in a *different* place?
     // TODO: If not, can we just immediately chain the results of each fragmenting run?
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
     for (auto& kv : tree_to_fragments) {
-        // Decide on how good fragments have to be to keep.
-        double fragment_score_threshold = best_fragment_score_in.at(kv.first) * fragment_score_fraction;
-    
         if (show_work) {
             #pragma omp critical (cerr)
             {

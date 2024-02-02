@@ -260,7 +260,7 @@ public:
     size_t max_tail_length = default_max_tail_length;
     
     /// How good should a fragment be in order to keep it? Fragments with
-    /// scores less than this fraction of the best sibling fragment's score
+    /// scores less than this fraction of the best fragment's score
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
