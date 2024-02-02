@@ -612,7 +612,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, nullptr);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1445,7 +1445,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // TODO: Let the clusterer use something else?
     std::vector<std::vector<Seed>> seeds_by_read(2);
     for (auto r : {0, 1}) {
-        seeds_by_read[r] = this->find_seeds(minimizers_in_read_by_read[r], minimizers_by_read[r], *alns[r], funnels[r]);
+        seeds_by_read[r] = this->find_seeds(minimizers_in_read_by_read[r], minimizers_by_read[r], *alns[r], funnels[r], nullptr);
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -3383,7 +3383,7 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel, vector<bool>* passed_downsampling) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3479,6 +3479,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             }, [&](size_t sampled) -> void {
                 // This minimizer is actually best in a window
                 downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
+                if (passed_downsampling != nullptr) {
+                    passed_downsampling->at(min_indexes.at(sampled)) = true;
+                }
             });
         }
         if (show_work) {

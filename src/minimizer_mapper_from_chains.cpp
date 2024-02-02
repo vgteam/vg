@@ -328,8 +328,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
+    //This gets filled in by find_seeds
+    // Bool for each minimizer in minimizers_in_read, NOT minimizers
+    vector<bool> passed_downsampling (minimizers_in_read.size(), false);
+
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, &passed_downsampling);
 
     // We want to adjust the final mapq based on the frequency of the minimizers.
     // If a read is covered only by very frequent minimizers, it should have a lower mapq
@@ -1296,10 +1300,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     {
         std::ofstream out;
         out.open("minimizers.tsv", std::ios::app);
-        out << aln.name() << "\t" << mapq;
+        out << aln.name() << "\t" << mapq << "\t" << aln.sequence().size();
         for (size_t i = 0 ; i < minimizers.size() ; i++) {
             out << "\t";
             out << minimizer_kept[i]
+                << "," << passed_downsampling[minimizer_score_order[i]]
                 << "," << minimizers[i].hits 
                 << "," << minimizers[i].score
                 << "," << minimizers[i].forward_offset()

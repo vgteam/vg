@@ -532,8 +532,9 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters. Takes in minimizers
      * sorted in read order, and a view of them sorted in score order.
+     * Optionally fills in passed_downsampling for each minimizer in minimizers_in_read_order.
      */
-    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel, vector<bool>* passed_downsampling) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct

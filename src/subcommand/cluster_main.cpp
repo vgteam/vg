@@ -475,7 +475,7 @@ int main_cluster(int argc, char** argv) {
                 minimizers = {minimizers_in_read, minimizer_score_order};
                 
                 // Find the seeds and mark the minimizers that were located.
-                seeds = minimizer_mapper.find_seeds(minimizers_in_read, minimizers, aln, funnel);
+                seeds = minimizer_mapper.find_seeds(minimizers_in_read, minimizers, aln, funnel, nullptr);
 
                 //Fill in seeds_to_source using the funnel
                 vector<vector<size_t>> seed_to_source_vector = funnel.map_stage_results_to_previous_stage("seed");
