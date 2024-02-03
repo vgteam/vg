@@ -2742,6 +2742,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 parameters.batch_size
             );
             parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
+            }
             cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index, parameters, true, &path_filter));
             // Reference samples tag is not copied automatically.
             copy_reference_samples(*gbwt_index, cover);
@@ -2824,6 +2827,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             parameters.batch_size
         );
         parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
+        }
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index, parameters, true, &path_filter);
         // Determine reference samples from reference paths.
         copy_reference_samples(*xg_index, cover);
@@ -3918,7 +3924,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             params.batch_size
         );
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
-        
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            std::cerr << "[IndexRegistry]: Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
+        }
+
         // jointly generate the GBWT and record sequences
         unique_ptr<gbwt::GBWT> gbwt_index;
         unique_ptr<gbwtgraph::SequenceSource> seq_source;
