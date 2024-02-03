@@ -342,20 +342,20 @@ size_t guess_parallel_gbwt_jobs(size_t node_count, size_t haplotype_count, size_
 
     // Memory usage of the GBWT construction itself.
     size_t bytes_per_node = 100 * std::max(std::log10(haplotype_count + 1), 1.0);
+    // Construction buffers typically use 3-4 bytes per node, and the builder has two buffers.
+    size_t bytes_per_job = batch_size * 8;
 
     size_t jobs = 1;
     size_t max_jobs = get_thread_count();
     // We assume that the largest chromosome is 10% of the genome.
     size_t job_size = std::max(node_count / 10, size_t(1));
-    size_t total_size = job_size;
+    size_t memory_usage = bytes_per_node * job_size + bytes_per_job;
 
     while (jobs < max_jobs) {
         // We assume that the next chromosome is 5% smaller than the previous one.
         job_size = std::max(size_t(job_size * 0.95), size_t(1));
-        total_size += job_size;
-        // Construction buffers typically use 3-4 bytes per node, and the builder has two buffers.
-        size_t memory_usage = bytes_per_node * total_size + (jobs + 1) * batch_size * 8;
-        if (total_size > node_count || memory_usage > available_memory) {
+        memory_usage += bytes_per_node * job_size + bytes_per_job;
+        if (memory_usage > available_memory) {
             break;
         }
         jobs++;
