@@ -341,7 +341,7 @@ vector<string> vcf_contigs(const string& filename) {
 size_t guess_parallel_gbwt_jobs(size_t node_count, size_t haplotype_count, size_t available_memory, size_t batch_size) {
 
     // Memory usage of the GBWT construction itself.
-    size_t bytes_per_node = 100 * std::max(std::log10(haplotype_count + 1), 1.0);
+    size_t bytes_per_node = 135 * std::max(std::log10(haplotype_count + 1), 1.0);
     // Construction buffers typically use 3-4 bytes per node, and the builder has two buffers.
     size_t bytes_per_job = batch_size * 8;
 
@@ -3909,9 +3909,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         params.sample_interval = IndexingParameters::gbwt_sampling_interval;
         params.max_node_length = IndexingParameters::max_node_size;
         // TODO: Here we assume that the GFA file contains 100 haplotypes. If there are more,
-        // we could safely launch more jobs.
+        // we could safely launch more jobs. Using 600 as the divisor would be a better
+        // estimate of the number of segments, but we chop long segments to 32 bp nodes.
         params.parallel_jobs = guess_parallel_gbwt_jobs(
-            std::max(get_file_size(gfa_filename) / 600, std::int64_t(1)),
+            std::max(get_file_size(gfa_filename) / 300, std::int64_t(1)),
             100,
             plan->target_memory_usage(),
             params.batch_size
