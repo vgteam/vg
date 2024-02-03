@@ -42,7 +42,7 @@
 //#define debug_fragment_distr
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
-#define debug_write_minimizers
+//#define debug_write_minimizers
 
 namespace vg {
 
@@ -346,59 +346,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     //This gets added as a multiplicity to everything
-    double minimizer_downsampled_multiplicity = sum_kept / sum_downsampled;
-
-    // We want to adjust the final mapq based on the frequency of the minimizers.
-    // If a read is covered only by very frequent minimizers, it should have a lower mapq
-    // So count the percent of the read that is covered by a minimizer with only one hit.
-    vector<size_t> best_hit_count_by_base (aln.sequence().size(), std::numeric_limits<size_t>::max());
-
-    for (const Minimizer& minimizer : minimizers) {
-        for (size_t i =  0 ; i < minimizer.length ; i++) {
-            best_hit_count_by_base[i+minimizer.forward_offset()] 
-                = std::min(minimizer.hits, best_hit_count_by_base[i+minimizer.forward_offset()]);
-        }
-        
-    } 
-
-    size_t coverage_sum = 0;
-    //keeping only the best minimizer for each base, what is the worst minimizer
-    size_t worst_minimizer_hits = 0;
-    for (const size_t& hits : best_hit_count_by_base) {
-        if (hits == 1) {++coverage_sum;}
-        if (hits != std::numeric_limits<size_t>::max()) {
-            worst_minimizer_hits = std::max(hits, worst_minimizer_hits);
-        }
-    }
-    vector<bool> minimizer_kept (minimizers.size(), false);
-    for (const Seed& seed : seeds) {
-        minimizer_kept[seed.source] = true;
-    }
-    size_t minimizer_kept_count = 0;
-    double mean_kept_minimizer_score = 0.0;
-    double mean_discarded_minimizer_score = 0.0;
-    for (size_t i = 0 ; i < minimizers.size() ; i++) {
-        if (minimizer_kept[i]) {
-            minimizer_kept_count += 1;
-            mean_kept_minimizer_score += minimizers[i].score;
-        } else {
-            mean_discarded_minimizer_score += minimizers[i].score;
-        }
-    }
-
-    //What fraction of the read is covered by unique minimizers?
-    double fraction_unique_minimizers = (double) coverage_sum / best_hit_count_by_base.size();
-
-    double best_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[0].score;
-    double worst_minimizer_score = minimizers.size() == 0 ? 0.0 : minimizers[minimizers.size()-1].score;
-    double worst_kept_minimizer_score = seeds.size() == 0 ? 0.0 : minimizers[seeds.back().source].score;
-    size_t minimizer_discarded_count = minimizers.size() - minimizer_kept_count;
-
-    mean_kept_minimizer_score = mean_kept_minimizer_score / minimizer_kept_count;
-    mean_discarded_minimizer_score = mean_discarded_minimizer_score / minimizer_discarded_count;
-
-    //This gets added as a multiplicity to everything
-
+    double minimizer_downsampled_cap = pow(sum_kept / (sum_kept+sum_downsampled), 10);
     if (seeds.empty()) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: No seeds found for " << aln.name() << "!" << std::endl;
@@ -712,7 +660,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= tree_used_count
                                     ?  multiplicity_by_fragment[i] - (float)tree_used_count
                                     : 0.0;
-        multiplicity_by_fragment[i] += minimizer_downsampled_multiplicity;
     }
     // Now glom the fragments together into chains 
     if (track_provenance) {
@@ -1304,11 +1251,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
 
-    //If the minimizers we threw away are too bad, the read is probably not well mapped
-    //TODO : idk about this
-    if ((mean_discarded_minimizer_score / mean_kept_minimizer_score) < 0.2) {
-        mapq = 1.0;
-    }
 #ifdef debug_write_minimizers
 #pragma omp critical
     {
@@ -1333,20 +1275,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double uncapped_mapq = mapq;
 #endif
 
-    double mapq_kept_cap = minimizer_kept_cap(minimizers, minimizer_kept); 
-    double mapq_coverage_cap = minimizer_coverage_cap(minimizers, minimizer_kept, aln.sequence()); 
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    set_annotation(mappings.front(), "mapq_kept_cap", mapq_kept_cap);
-    set_annotation(mappings.front(), "mapq_coverage_cap", mapq_coverage_cap);
-    set_annotation(mappings.front(), "fraction_unique_minimizers", fraction_unique_minimizers);
-    set_annotation(mappings.front(), "minimizer_worst_hits", worst_minimizer_hits);
-    set_annotation(mappings.front(), "best_minimizer_score", best_minimizer_score);
-    set_annotation(mappings.front(), "worst_minimizer_score", worst_minimizer_score);
-    set_annotation(mappings.front(), "worst_kept_minimizer_score", worst_kept_minimizer_score);
-    set_annotation(mappings.front(), "minimizer_kept_score", mean_kept_minimizer_score);
-    set_annotation(mappings.front(), "minimizer_discarded_score", mean_discarded_minimizer_score);
-    set_annotation(mappings.front(), "minimizer_kept_count", minimizer_kept_count);
-    set_annotation(mappings.front(), "minimizer_discarded_count", minimizer_discarded_count);
+    mapq = std::min(mapq, prob_to_phred(minimizer_downsampled_cap));
 
     if (use_explored_cap) {
 
