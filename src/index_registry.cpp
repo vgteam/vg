@@ -335,6 +335,42 @@ vector<string> vcf_contigs(const string& filename) {
     return return_val;
 }
 
+// Returns a guess for an appropriate number of parallel GBWT construction jobs.
+// This is intended for GBWT recipes where the construction uses an external
+// mechanism for parallelism.
+size_t guess_parallel_gbwt_jobs(size_t node_count, size_t haplotype_count, size_t available_memory, size_t batch_size) {
+
+    // Memory usage of the GBWT construction itself.
+    size_t bytes_per_node = 100 * std::max(std::log10(haplotype_count + 1), 1.0);
+
+    size_t jobs = 1;
+    size_t max_jobs = get_thread_count();
+    // We assume that the largest chromosome is 10% of the genome.
+    size_t job_size = std::max(node_count / 10, size_t(1));
+    size_t total_size = job_size;
+
+    while (jobs < max_jobs) {
+        // We assume that the next chromosome is 5% smaller than the previous one.
+        job_size = std::max(size_t(job_size * 0.95), size_t(1));
+        total_size += job_size;
+        // Construction buffers typically use 3-4 bytes per node, and the builder has two buffers.
+        size_t memory_usage = bytes_per_node * total_size + (jobs + 1) * batch_size * 8;
+        if (total_size > node_count || memory_usage > available_memory) {
+            break;
+        }
+        jobs++;
+    }
+
+    return jobs;
+}
+
+// Returns the in-memory size of an XG index in bytes, using the same approach as
+// sdsl::size_in_bytes().
+size_t xg_index_size(const xg::XG& index) {
+    sdsl::nullstream ns;
+    return index.serialize_and_measure(ns);
+}
+
 /*********************
  * Indexing helper functions
  ***********************/
@@ -2692,13 +2728,19 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 return !Paths::is_alt(xg_index->get_path_name(path));
             };
 
-            // FIXME: Determine the number of parallel jobs and set parameters.parallel_jobs.
             gbwtgraph::PathCoverParameters parameters;
             parameters.num_paths = IndexingParameters::giraffe_gbwt_downsample;
             parameters.context = IndexingParameters::downsample_context_length;
             // TODO: See path cover for handling graphs with large components.
             parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
             parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+            std::int64_t available_memory = plan->target_memory_usage() - xg_index_size(*xg_index) - sdsl::size_in_bytes(*gbwt_index);
+            parameters.parallel_jobs = guess_parallel_gbwt_jobs(
+                xg_index->get_node_count(),
+                parameters.num_paths,
+                std::max(available_memory, std::int64_t(0)),
+                parameters.batch_size
+            );
             parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
             cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index, parameters, true, &path_filter));
             // Reference samples tag is not copied automatically.
@@ -2707,7 +2749,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
+                cerr << "[IndexRegistry]: Not too many haplotypes; augmenting the full GBWT instead." << endl;
             }
             
             gbwt::DynamicGBWT dynamic_index(*gbwt_index);
@@ -2769,12 +2811,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        // FIXME: Determine the number of parallel jobs and set parameters.parallel_jobs.
         gbwtgraph::PathCoverParameters parameters;
         parameters.num_paths = IndexingParameters::path_cover_depth;
         parameters.context = IndexingParameters::downsample_context_length;
         parameters.batch_size = std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size);
         parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+        std::int64_t available_memory = plan->target_memory_usage() - xg_index_size(*xg_index);
+        parameters.parallel_jobs = guess_parallel_gbwt_jobs(
+            xg_index->get_node_count(),
+            parameters.num_paths,
+            std::max(available_memory, std::int64_t(0)),
+            parameters.batch_size
+        );
         parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index, parameters, true, &path_filter);
         // Determine reference samples from reference paths.
@@ -3855,12 +3903,19 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         string output_name = plan->output_filepath(gbz_output);
         
         gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
-        // FIXME: Determine the number of parallel jobs and set params.parallel_jobs.
         // TODO: there's supposedly a heuristic to set batch size that could perform better than this global param,
         // but it would be kind of a pain to update it like we do the global param
         params.batch_size = IndexingParameters::gbwt_insert_batch_size;
         params.sample_interval = IndexingParameters::gbwt_sampling_interval;
         params.max_node_length = IndexingParameters::max_node_size;
+        // TODO: Here we assume that the GFA file contains 100 haplotypes. If there are more,
+        // we could safely launch more jobs.
+        params.parallel_jobs = guess_parallel_gbwt_jobs(
+            std::max(get_file_size(gfa_filename) / 600, std::int64_t(1)),
+            100,
+            plan->target_memory_usage(),
+            params.batch_size
+        );
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
         
         // jointly generate the GBWT and record sequences
