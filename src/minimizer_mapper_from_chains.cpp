@@ -2516,7 +2516,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
     if (sorted_seeds.empty()) {
         // This should never happen
-        throw std::runtime_error("Can't make an anchor form no seeds");
+        throw std::runtime_error("Can't make an anchor from no seeds");
     }
 
     // Score the passed perfect match
@@ -2530,12 +2530,17 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     // overlapping extensions and justify our score. The range can extend
     // beyond even the outermost minimizers.
     size_t extra_left_margin = left_anchor.read_exclusion_start() - read_start;
-    size_t extra_right_margin = read_end - right_anchor.read_exclusion_start();
+    size_t extra_right_margin = read_end - right_anchor.read_exclusion_end();
 
     // Now make an anchor with the score of the range, with the anchors of
     // the first and last seeds, and enough margin to cover the distance out
     // from the outer seeds that we managed to extend.
-    return algorithms::Anchor(left_anchor, right_anchor, extra_left_margin, extra_right_margin, score);
+    algorithms::Anchor result(left_anchor, right_anchor, extra_left_margin, extra_right_margin, score);
+
+    assert(result.read_exclusion_start() == read_start);
+    assert(result.read_exclusion_end() == read_end);
+
+    return result;
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
