@@ -501,7 +501,27 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         anchor_seeds.clear();
                     };
 
-                    // TODO: Right now this is hacked to just make one big anchor for the whole extension.
+
+                    // We can't just make the whole extension into an anchor
+                    // because it can have unlimited mismatches on the seed
+                    // node and a negative score.
+                    //
+                    // We can't just make the mismatch-free region a seed falls
+                    // in into an anchor because then we can't tell what's on
+                    // the other side of those mismatches and we drop half the
+                    // read's score form the chain when one side of a read is
+                    // common and has no seeds in it and is also split off from
+                    // our seeds by a mismatch.
+                    //
+                    // We don't want to do a complex Centroalign-style
+                    // find-the-max-scoring-run because I'm lazy.
+                    //
+                    // So we want to find max score runs with a greedy sweep line algorithm.
+                    // If moving the left edge in one mismatch increases score, do it.
+                    // If moving the right edge out one mismatch increases score, do it.
+                    // For 4 point mismatch, 1 point match, this means if we see 2 mismatches with <4 bases between them, we cut, and otherwise we combine.
+                    
+                    size_t min_mismatch_spacing = 4;
                     while (mismatch_it != extension.mismatch_positions.end() && seed_it != extension_seeds.end()) {
                         // While there are both seeds and mismatches.
                         if (minimizers[seeds.at(*seed_it).source].value.offset < *mismatch_it) {
@@ -511,25 +531,61 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             anchor_seeds.push_back(*seed_it);
                             ++seed_it;
                         } else {
-                            // Otherwise, just skip over the mismatch to look
-                            // at the seeds on the other side.
-                            ++mismatch_it;
+                            // Otherwise, next is a mismatch.
+                            auto next_mismatch_it = mismatch_it;
+                            ++next_mismatch_it;
+
+                            if ((next_mismatch_it != extension.mismatch_positions.end() && *next_mismatch_it - *mismatch_it >= min_mismatch_spacing) ||
+                                (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing)) {
+                                // We have enough match between this mismatch
+                                // and the one after it or the extension end to
+                                // justify advancing through it.
+                                mismatch_it = next_mismatch_it;
+                                // This mismatch should be included in the anchor mismatches.
+                                anchor_mismatch_end = next_mismatch_it;
+                            } else {
+                                // We should finish the anchor (if any) before this mismatch.
+                                if (!anchor_seeds.empty()) {
+                                    make_anchor_ending(*mismatch_it);
+                                }
+
+                                // The next anchor starts after this mismatch
+                                anchor_start = *mismatch_it + 1;
+                                // The next anchor's mismatches are an empty range starting at the next mismatch.
+                                anchor_mismatch_begin = next_mismatch_it;
+                                anchor_mismatch_end = anchor_mismatch_begin;
+
+                                // Next we will look at the next mismatch.
+                                mismatch_it = next_mismatch_it;
+                            }
                         }
                     }
                     while (mismatch_it != extension.mismatch_positions.end()) {
-                        // If there are any more mismatches after the last seed, advance past them.
-                        ++mismatch_it;
+                        // If there are any more mismatches after the last seed, take all the ones we can pay to advance through
+                        auto next_mismatch_it = mismatch_it;
+                        ++next_mismatch_it;
+
+                        if ((next_mismatch_it != extension.mismatch_positions.end() && *next_mismatch_it - *mismatch_it >= min_mismatch_spacing) ||
+                            (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing)) {
+                            // We have enough match between this mismatch
+                            // and the one after it or the extension end to
+                            // justify advancing through it.
+                            mismatch_it = next_mismatch_it;
+                            // This mismatch should be included in the anchor mismatches.
+                            anchor_mismatch_end = next_mismatch_it;
+                        } else {
+                            // Stop glomming on mismatches here
+                            break;
+                        }
                     }
-                    // And include them all in the anchor score.
-                    anchor_mismatch_end = mismatch_it;
                     while (seed_it != extension_seeds.end()) {
-                        // If there are any more seeds after the last mismatch, glom them all thogether
+                        // If there are any more seeds after the last mismatch, take them all
                         anchor_seeds.push_back(*seed_it);
                         ++seed_it;
                     }
                     if (!anchor_seeds.empty()) {
-                        // And make the last (only) anchor, up to the end
-                        make_anchor_ending(extension.read_interval.second);
+                        // And make the last (only) anchor, up to the terminating mismatch if any, or else the end of the extension.
+                        make_anchor_ending(anchor_mismatch_end != extension.mismatch_positions.end() ? *anchor_mismatch_end : extension.read_interval.second);
                     }
                 }
             }
