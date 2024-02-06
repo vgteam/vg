@@ -343,7 +343,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     //This gets added as a multiplicity to everything
-    double minimizer_downsampled_cap = exp(1 / sum_downsampled) - 1;
+    double minimizer_downsampled_cap = prob_to_phred(exp(1 / sum_downsampled) - 1) + 25;
     if (seeds.empty()) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: No seeds found for " << aln.name() << "!" << std::endl;
@@ -1273,7 +1273,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #endif
 
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    mapq = std::min(mapq, prob_to_phred(minimizer_downsampled_cap));
+    mapq = std::min(mapq, minimizer_downsampled_cap);
 
     if (use_explored_cap) {
 
