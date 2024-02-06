@@ -498,8 +498,11 @@ protected:
     /// Convert a single seed to a single chaining anchor.
     static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
 
-    /// Convert a read region that is a perfect match to the graph, and the seeds that that region covers the stapled bases of (sorted by stapled base), into a single chaining anchor.
-    static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner);
+    /// Convert a read region, and the seeds that that region covers the
+    /// stapled bases of (sorted by stapled base), into a single chaining
+    /// anchor. Takes an iterator range of positions within the base range that
+    /// are mismatches.
+    static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner);
     
     /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 

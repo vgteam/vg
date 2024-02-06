@@ -443,7 +443,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     minimizers,
                     seeds,
                     aln.sequence(),
-                    0,
+                    GaplessExtender::MAX_MISMATCHES,
                     nullptr,
                     nullptr,
                     &seeds_for_extension);
@@ -456,9 +456,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // And the seeds that made it, sorted by stapled base
                     const std::vector<size_t>& extension_seeds = seeds_for_extension[i];
 
-                    // We want to break up the extension into mismatch-free
-                    // read intervals and the seeds that go with them. Each of
-                    // those will become an anchor.
+                    // We want to break up the extension into read intervals
+                    // and the seeds that go with them. Each of those will
+                    // become an anchor.
 
                     // So we sweep line across
                     auto mismatch_it = extension.mismatch_positions.begin();
@@ -467,6 +467,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // And we keep track of the anchor in progress
                     size_t anchor_start = extension.read_interval.first;
                     std::vector<size_t> anchor_seeds;
+                    // What run of mismatch positions are in the anchor?
+                    std::vector<size_t>::const_iterator anchor_mismatch_begin = mismatch_it;
+                    std::vector<size_t>::const_iterator anchor_mismatch_end = mismatch_it;
                     auto make_anchor_ending = [&](size_t anchor_end) {
                         // Turn all the seeds in anchor_seeds into an anchor and clear anchor_seeds.
                         
@@ -480,7 +483,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         // Note the index of the new anchor
                         extension_anchor_indexes.push_back(extension_anchors.size());
                         // Make the actual anchor out of this range of seeds and this read range.
-                        extension_anchors.push_back(to_anchor(aln, anchor_start, anchor_end, anchor_seeds, seed_anchors, gbwt_graph, this->get_regular_aligner()));
+                        extension_anchors.push_back(to_anchor(aln, anchor_start, anchor_end, anchor_seeds, seed_anchors, anchor_mismatch_begin, anchor_mismatch_end, gbwt_graph, this->get_regular_aligner()));
 
                         // And if we take that anchor, we'll grab these underlying
                         // seeds into the elaborating chain. Just use the bounding
@@ -498,7 +501,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         anchor_seeds.clear();
                     };
 
+                    // TODO: Right now this is hacked to just make one big anchor for the whole extension.
                     while (mismatch_it != extension.mismatch_positions.end() && seed_it != extension_seeds.end()) {
+                        // While there are both seeds and mismatches.
                         if (minimizers[seeds.at(*seed_it).source].value.offset < *mismatch_it) {
                             // If this seed's stapled base is before this mismatch
                         
@@ -506,24 +511,25 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             anchor_seeds.push_back(*seed_it);
                             ++seed_it;
                         } else {
-                            // Otherwise make an anchor of anything we have
-                            if (!anchor_seeds.empty()) {
-                                make_anchor_ending(*mismatch_it);
-                            }
-                            // Next anchor starts after that mismatch
-                            anchor_start = *mismatch_it + 1;
-                            // And advance the mismatch
+                            // Otherwise, just skip over the mismatch to look
+                            // at the seeds on the other side.
                             ++mismatch_it;
                         }
                     }
+                    while (mismatch_it != extension.mismatch_positions.end()) {
+                        // If there are any more mismatches after the last seed, advance past them.
+                        ++mismatch_it;
+                    }
+                    // And include them all in the anchor score.
+                    anchor_mismatch_end = mismatch_it;
                     while (seed_it != extension_seeds.end()) {
-                        // If there are any more seeds, glom them all thogether
+                        // If there are any more seeds after the last mismatch, glom them all thogether
                         anchor_seeds.push_back(*seed_it);
                         ++seed_it;
                     }
                     if (!anchor_seeds.empty()) {
-                        // And make the last anchor, up to the next mismatch if any or up to the end
-                        make_anchor_ending(mismatch_it == extension.mismatch_positions.end() ? extension.read_interval.second : *mismatch_it);
+                        // And make the last (only) anchor, up to the end
+                        make_anchor_ending(extension.read_interval.second);
                     }
                 }
             }
@@ -2513,14 +2519,27 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const HandleGraph& graph, const Aligner* aligner) {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {
     if (sorted_seeds.empty()) {
         // This should never happen
         throw std::runtime_error("Can't make an anchor from no seeds");
     }
 
-    // Score the passed perfect match
-    int score = aligner->score_exact_match(aln, read_start, read_end - read_start);
+    // Score all the matches and mismatches.
+    int score = 0;
+    size_t scored_until = read_start;
+    auto mismatch_it = mismatch_begin;
+    while(mismatch_it != mismatch_end) {
+        // Score the perfect match up to mismatch_it, and the mismatch at mismatch_it.
+        score += aligner->score_exact_match(aln, scored_until, *mismatch_it - scored_until);
+        score += aligner->score_mismatch(aln.sequence().begin() + *mismatch_it,
+                                         aln.sequence().begin() + *mismatch_it + 1,
+                                         aln.quality().begin() + *mismatch_it); 
+        scored_until = *mismatch_it + 1;
+        ++mismatch_it;
+    }
+    // Score the perfect match from where we are to the end.
+    score += aligner->score_exact_match(aln, scored_until, read_end - scored_until);
     
     // Get the anchors we are going to weld together. These may be the same one.
     const algorithms::Anchor& left_anchor = seed_anchors.at(sorted_seeds.front());
