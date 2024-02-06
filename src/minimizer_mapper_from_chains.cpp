@@ -335,18 +335,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, &passed_downsampling);
 
-    double sum_kept = 0.0;
     double sum_downsampled = 0.0;
     for (size_t i = 0 ; i < minimizers_in_read.size() ; i++) {
-        if (passed_downsampling[i]) {
-            sum_kept += minimizers_in_read[i].score;
-        } else {
+        if (!passed_downsampling[i]) {
             sum_downsampled += minimizers_in_read[i].score;
         }
     }
 
     //This gets added as a multiplicity to everything
-    double minimizer_downsampled_cap = pow(sum_kept / (sum_kept+sum_downsampled), 10);
+    double minimizer_downsampled_cap = exp(1 / sum_downsampled) - 1;
     if (seeds.empty()) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: No seeds found for " << aln.name() << "!" << std::endl;
