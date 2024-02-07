@@ -182,7 +182,6 @@ struct RebuildParameters {
     gbwt::size_type sample_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
 };
 
-// TODO: Use the new parallelization scheme.
 /// Rebuild the GBWT by applying all provided mappings. Each mapping is a pair
 /// (original subpath, new subpath). If the original subpath is empty, the
 /// mapping is ignored. If there are multiple applicable mappings, the first one
@@ -210,6 +209,9 @@ struct RebuildParameters {
 ///
 /// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
 /// no longer valid after rebuilding the GBWT.
+///
+/// NOTE: This could use the ConstructionJob / MetadataBuilder scheme for
+/// parallelization, but it would change the interface.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                         const std::vector<RebuildJob>& jobs,
                         const std::unordered_map<nid_t, size_t>& node_to_job,
