@@ -3223,21 +3223,21 @@ void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
     else if (i != 0 || j != 0) {
         // we found a deletion on the left side, remove it
         auto mappings = alignment.mutable_path()->mutable_mapping();
-        auto edits = mappings->at(j).mutable_edit();
+        auto edits = (*mappings)[j].mutable_edit();
         size_t removed = 0;
         for (size_t k = 0; k < j; ++k) {
-            removed += edits->at(k).from_length();
+            removed += (*edits)[k].from_length();
         }
         edits->erase(edits->begin(), edits->begin() + j);
         mappings->erase(mappings->begin(), mappings->begin() + i);
-        auto position =  mappings->at(0).mutable_position();
+        auto position =  (*mappings)[0].mutable_position();
         position->set_offset(position->offset() + removed);
     }
     
     // remove deletions on the right side
     for (int64_t i = alignment.path().mapping_size() - 1; i >= 0; --i) {
         auto edits = alignment.mutable_path()->mutable_mapping(i)->mutable_edit();
-        while (!edits->empty() && edits->at(edits->size() - 1).to_length() == 0) {
+        while (!edits->empty() && (*edits)[edits->size() - 1].to_length() == 0) {
             edits->RemoveLast();
         }
         if (edits->empty()) {
