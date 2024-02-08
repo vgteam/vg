@@ -3235,7 +3235,7 @@ void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
     }
     
     // remove deletions on the right side
-    for (int64_t i = alignment.path().mapping_size(); i >= 0; --i) {
+    for (int64_t i = alignment.path().mapping_size() - 1; i >= 0; --i) {
         auto edits = alignment.mutable_path()->mutable_mapping(i)->mutable_edit();
         while (!edits->empty() && edits->at(edits->size() - 1).to_length() == 0) {
             edits->RemoveLast();
