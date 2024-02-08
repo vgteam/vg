@@ -10,11 +10,16 @@ require("tidyverse")
 require("ggrepel")
 
 # Read in the combined toil-vg stats.tsv, listing:
-# correct, mapq, aligner (really graph name), read name, count
-dat <- read.table(commandArgs(TRUE)[1], header=T)
+# correct, mapq, aligner (really graph name), read name, count, eligible
+dat <- read.table(commandArgs(TRUE)[1], header=T, colClasses=c("aligner"="factor"))
+
+if (("eligible" %in% names(dat))) {
+    # If the eligible column is present, remove ineligible reads
+    dat <- dat[dat$eligible == 1, ]
+}
 
 if (! ("count" %in% names(dat))) {
-    # If the count column is not present, add i
+    # If the count column is not present, add it
     dat$count <- rep(1, nrow(dat))
 }
 
@@ -48,8 +53,8 @@ dat$aligner <- factor(dat$aligner, levels=aligner.names)
 name.lists <- name.lists[name.order]
 
 # Determine colors for aligners
-bold.colors <- c("#1f78b4","#e31a1c","#33a02c","#6600cc","#ff8000","#5c415d","#458b74","#698b22","#008b8b")
-light.colors <- c("#a6cee3","#fb9a99","#b2df8a","#e5ccff","#ffe5cc","#9a7c9b","#76eec6","#b3ee3a","#00eeee")
+bold.colors <- c("#1f78b4","#e31a1c","#33a02c","#6600cc","#ff8000","#5c415d","#458b74","#698b22","#008b8b","#6caed1")
+light.colors <- c("#a6cee3","#fb9a99","#b2df8a","#e5ccff","#ffe5cc","#9a7c9b","#76eec6","#b3ee3a","#00eeee","#b9d9e9")
 # We have to go through both lists together when assigning colors, because pe and non-pe versions of a condition need corresponding colors.
 cursor <- 1
 
@@ -95,6 +100,25 @@ colors <- colors[aligner.names]
 # Add a bin "factor" to each row, binning float MAPQs into bins from 0 to 60 (and inclusing bins for out of range on each end)
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 
+# We need to work out our scales
+reads.per.condition <- sum(dat$count) / length(aligner.names)
+# Start with small scale
+labels <- c("1e-0","1e-1","1e-2","1e-3","1e-4")
+breaks <- c(0,1,2,3,4)
+limits <- c(0, 4)
+if ( reads.per.condition > 10000 ) {
+    # Use big scale if there are a lot of reads
+    labels <- c(labels, "1e-5","1e-6")
+    breaks <- c(breaks, 5,6)
+    limits <- c(0, 6)
+}
+if ( reads.per.condition > 1000000 ) {
+    # Use big scale if there are a lot of reads
+    labels <- c(labels, "1e-7","1e-8","1e-9")
+    breaks <- c(breaks, 7,8,9)
+    limits <- c(0, 9)
+}
+
 # Now we break out the cool dplyr/magrittr/tidyverse tools like %>% pipe operators.
 dat.roc <- dat %>%
     # Make positive and negative count columns
@@ -127,15 +151,15 @@ dat.plot <- dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=1)) +
         # And we want a size legend
         scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis
-        scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7","1e-8","1e-9"), breaks=c(0,1,2,3,4,5,6,7,8,9), limits=c(0, 9)) +
+        scale_y_continuous(labels=labels, breaks=breaks, limits=limits) +
         # Label it
         ylab("1 - Precision") +
         # And we want a fake log X axis
-        scale_x_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7","1e-8","1e-9"), breaks=c(0,1,2,3,4,5,6,7,8,9), limits=c(0, 9)) +
+        scale_x_continuous(labels=labels, breaks=breaks, limits=limits) +
         # Label it
         xlab("1 - Recall") +
         # And we want this cool theme
