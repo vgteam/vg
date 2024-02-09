@@ -258,16 +258,20 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
     size_t interval_start = read_interval.first;
 
     auto visit_seed = [&]() {
+#ifdef debug_anchor_intervals
         if (seed_it != seed_positions.end()) {
             std::cerr << "Visit seed at " << *seed_it << std::endl;
         } else {
             std::cerr << "Visit fake final seed" << std::endl;
         }
+#endif
         
         // Process the seed at seed_it (which may be the end), which comes next.
         if (prev_seed == seed_positions.end()) {
             // This is the first seed, so we need to trim from the left end of the read.
+#ifdef debug_anchor_intervals
             std::cerr << "This is the first seed" << std::endl;
+#endif
             assert(seed_it != seed_positions.end());
             int score = 0;
             auto here = mismatch_before_current_seed;
@@ -303,13 +307,17 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
                 interval_start = *max_cut + 1;
             }
             // Otherwise leave the anchor interval start at the read interval start.
+#ifdef debug_anchor_intervals
             std::cerr << "First seed interval should start at " << interval_start << std::endl;
+#endif
         } else if (mismatch_after_prev_seed != mismatch_positions.end()) {
             // This is the first seed after some mismatches (or we did all the seeds and mismatches)
             assert(mismatch_before_current_seed != mismatch_positions.end());
 
+#ifdef debug_anchor_intervals
             std::cerr << "Mismatch after previous seed was at " << *mismatch_after_prev_seed << std::endl;
             std::cerr << "Mismatch before current seed was at " << *mismatch_before_current_seed << std::endl;
+#endif
 
             // So we have to finish off the last seed's interval.
 
@@ -350,7 +358,9 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
             }
             auto left_separating_mismatch = max_cut;
             size_t interval_end = (left_separating_mismatch == mismatch_positions.end() ? read_interval.second : *left_separating_mismatch);
+#ifdef debug_anchor_intervals
             std::cerr << "Previous seed interval should end at " << interval_end << std::endl;
+#endif
             // So that's where the old interval ends.
             anchor_intervals.emplace_back(interval_start, interval_end);
             
@@ -380,13 +390,17 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
                 auto right_separating_mismatch = max_cut;
                 // And after it is where our interval starts.
                 interval_start = *right_separating_mismatch + 1;
+#ifdef debug_anchor_intervals
                 std::cerr << "Current seed interval should start at " << interval_start << std::endl;
+#endif
             }
         } else if (seed_it == seed_positions.end()) {
             // We ran out of seeds and there are no mismatches between the last seed and the itnerval end.
             // TODO: Combine with above case?
             size_t interval_end =read_interval.second;
-            std::cerr << "Previous seed interval should end at end of read at " << interval_end << std::endl;
+#ifdef debug_anchor_intervals
+            std::cerr << "Previous seed interval should end at end of extension at " << interval_end << std::endl;
+#endif
             // So that's where the old interval ends.
             anchor_intervals.emplace_back(interval_start, interval_end);
         }
@@ -399,7 +413,9 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 
     auto visit_mismatch = [&]() {
         // Process the mismatch at mismatch_it (which is not the end), which comes next.
+#ifdef debug_anchor_intervals
         std::cerr << "Visit mismatch at " << *mismatch_it << std::endl;
+#endif
 
         if (prev_seed != seed_positions.end() && mismatch_after_prev_seed == mismatch_positions.end()) {
             // This is the first mismatch since we saw a seed, so save it.
