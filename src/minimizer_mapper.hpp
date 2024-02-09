@@ -296,8 +296,8 @@ public:
     int min_chains = default_min_chains;
 
     /// Allow up to this many chains per tree
-    static constexpr int default_max_chains_per_tree = 1;
-    int max_chains_per_tree = default_max_chains_per_tree;
+    static constexpr size_t default_max_chains_per_tree = 1;
+    size_t max_chains_per_tree = default_max_chains_per_tree;
     
     /// Even if we would have fewer than min_chains results, don't
     /// process anything with a score smaller than this, per read base.

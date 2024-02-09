@@ -1113,6 +1113,26 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // This chain is good enough.
             // Called in descending score order.
         
+            if (chain_score_estimates[processed_num] < chain_min_score) {
+                // Actually discard by score
+                discard_chain_by_score(processed_num);
+                return false;
+            }
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+            if (track_provenance) {
+                funnel.pass("chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("max-alignments", processed_num);
+            }
+
             // Make sure we aren't doing too many chains from this one tree.
             auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
             if (tree_count >= max_chains_per_tree) {
@@ -1145,25 +1165,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
                 tree_count++;
             }
-            
-            if (chain_score_estimates[processed_num] < chain_min_score) {
-                // Actually discard by score
-                discard_chain_by_score(processed_num);
-                return false;
-            }
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
-                    if (track_correctness && funnel.was_correct(processed_num)) {
-                        cerr << log_name() << "\tCORRECT!" << endl;
-                    }
-                }
-            }
+
             if (track_provenance) {
-                funnel.pass("chain-score", processed_num, chain_score_estimates[processed_num]);
-                funnel.pass("max-alignments", processed_num);
                 funnel.processing_input(processed_num);
             }
 

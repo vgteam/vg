@@ -451,6 +451,9 @@ extern const ValidatorFunction<double> double_is_nonnegative;
 /// Validate that a size_t is not zero, or throw std::domain_error
 extern const ValidatorFunction<size_t> size_t_is_nonzero;
 
+/// Validate that a size_t is positive, or throw std::domain_error;
+extern const ValidatorFunction<size_t> size_t_is_positive;
+
 /// Validate that an int is not negative, or throw std::domain_error;
 extern const ValidatorFunction<int> int_is_nonnegative;
 
