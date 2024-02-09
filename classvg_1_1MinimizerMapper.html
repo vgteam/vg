@@ -473,6 +473,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a98117858da937a277f445898bcc2d125"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab6a0d266ef94fbda125ebdde64617c84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab6a0d266ef94fbda125ebdde64617c84">fix_dozeu_score</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;rescue_graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order) const</td></tr>
 <tr class="separator:ab6a0d266ef94fbda125ebdde64617c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ec441e3df74303c16a60529f08cb70a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4ec441e3df74303c16a60529f08cb70a">fix_dozeu_end_deletions</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment) const</td></tr>
+<tr class="separator:a4ec441e3df74303c16a60529f08cb70a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af68c4bd9915413525c9c66b668779331"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af68c4bd9915413525c9c66b668779331">distance_between</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos1, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos2)</td></tr>
 <tr class="separator:af68c4bd9915413525c9c66b668779331"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae68add551501e3b58c9329d9297d620d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d">distance_between</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
@@ -2005,6 +2007,33 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find seeds for all minimizers passing the filters. </p>
+
+</div>
+</div>
+<a id="a4ec441e3df74303c16a60529f08cb70a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4ec441e3df74303c16a60529f08cb70a">&#9670;&nbsp;</a></span>fix_dozeu_end_deletions()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::fix_dozeu_end_deletions </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescued_alignment</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>When dozeu doesn't have any seeds, it's scan heuristic can lead to inaccurate anchoring with the end result that one end of the alignment has a deletion that doesn't connect to an aligned base. This function removes those deletions </p>
 
 </div>
 </div>
