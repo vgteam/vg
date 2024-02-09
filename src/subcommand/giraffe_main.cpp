@@ -422,6 +422,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "accept chains with this score or more regardless of read length",
         int_is_nonnegative
     );
+    chaining_opts.add_range(
+        "max-chains-per-tree",
+        &MinimizerMapper::max_chains_per_tree,
+        MinimizerMapper::default_max_chains_per_tree,
+        "align up to this many chains from each tree",
+        int_is_nonnegative
+    );
     
     chaining_opts.add_range(
         "max-chain-connection",
@@ -701,6 +708,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
         .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
     // And a short reads with chaining preset
     presets["sr"]
@@ -726,6 +734,7 @@ int main_giraffe(int argc, char** argv) {
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 1)
         .add_entry<size_t>("max-alignments", 5)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
         .add_entry<size_t>("max-chain-connection", 0)
@@ -746,6 +755,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
         
    

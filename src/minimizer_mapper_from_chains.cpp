@@ -521,7 +521,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // If moving the right edge out one mismatch increases score, do it.
                     // For 4 point mismatch, 1 point match, this means if we see 2 mismatches with <4 bases between them, we cut, and otherwise we combine.
                     
-                    size_t min_mismatch_spacing = 4;
+                    // 1 base for the mismatch, 4 for the required matches.
+                    size_t min_mismatch_spacing = 5;
                     while (mismatch_it != extension.mismatch_positions.end() && seed_it != extension_seeds.end()) {
                         // While there are both seeds and mismatches.
                         if (minimizers[seeds.at(*seed_it).source].value.offset < *mismatch_it) {
@@ -815,8 +816,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double fragment_score_threshold = best_fragment_score * fragment_score_fraction;
 
     // Filter down to just the good ones, sorted by read start
-    // TODO: Should we drop short fragments in one place because of long fragments in a *different* place?
-    // TODO: If not, can we just immediately chain the results of each fragmenting run?
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
     for (auto& kv : tree_to_fragments) {
         if (show_work) {
@@ -1104,12 +1103,48 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
+
+    // Track if how many tree chains were used
+    std::unordered_map<size_t, size_t> chains_per_tree;
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
         chain_score_threshold, min_chains, max_alignments, rng, [&](size_t processed_num) -> bool {
             // This chain is good enough.
             // Called in descending score order.
+        
+            // Make sure we aren't doing too many chains from this one tree.
+            auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
+            if (tree_count >= max_chains_per_tree) {
+                if (track_provenance) {
+                    funnel.fail("chains-per-tree", processed_num, tree_count);
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                        if (track_correctness && funnel.was_correct(processed_num)) {
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    }
+                }
+                tree_count++;
+                return false;
+            } else {
+                if (track_provenance) {
+                    funnel.pass("chains-per-tree", processed_num, tree_count);
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
+                        if (track_correctness && funnel.was_correct(processed_num)) {
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    }
+                }
+                tree_count++;
+            }
             
             if (chain_score_estimates[processed_num] < chain_min_score) {
                 // Actually discard by score
