@@ -210,6 +210,200 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
     return to_return;
 }
 
+/**
+ * Given a read interval for a gapless extension, the read positions of
+ * mismatches, and the read positions of seeds, compute anchor intervals.
+ *
+ * Inputs and outputs are all sorted.
+ *
+ * Anchor intervals do not overlap.
+ *
+ * There will be at least one seed in each anchor interval.
+ * 
+ * Anchor intervals will begin and end at the bounds of the read interval, or
+ * just outside mismatches.
+ *
+ * Anchor intervals will not go over logn runs of mismatches that give them
+ * deceptively terrible scores.
+ */
+std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
+    const std::pair<size_t, size_t>& read_interval,
+    const std::vector<size_t>& mismatch_positions,
+    const std::vector<size_t>& seed_positions) {
+
+    std::vector<std::pair<size_t, size_t>> anchor_intervals;
+
+
+    // We are going to sweep line.
+    auto mismatch_it = mismatch_positions.begin();
+    auto seed_it = seed_positions.begin();
+
+    // We need to track:
+    // The previous seed.
+    auto prev_seed = seed_positions.end();
+    // The first mismatch we saw after the previous seed.
+    auto mismatch_after_prev_seed = mismatch_positions.end();
+    // The last mismatch we saw before the current seed.
+    auto mismatch_before_current_seed = mismatch_positions.end();
+
+    size_t interval_start = read_interval.first;
+
+    auto visit_seed = [&]() {
+        // Process the seed at seed_it (which may be the end), which comes next.
+        if (prev_seed == seed_positions.end()) {
+            // This is the first seed, so we need to trim from the left end of the read.
+            assert(seed_it != seed_positions.end());
+            int score = 0;
+            auto here = mismatch_before_current_seed;
+            int max_score = score;
+            auto max_cut = here;
+            if (here != mismatch_positions.end()) {
+                // There are mismatches to score 
+                while (here != mismatch_positions.begin()) {
+                    auto next = here;
+                    --next;
+                    // Score taking that mismatch and then going up to the next one
+                    size_t matches = *here - *next - 1;
+                    score += matches;
+                    score -= 4; // TODO: use real scoring
+                    if (score > max_score) {
+                        max_score = score;
+                        max_cut = next;
+                    }
+                    here = next;
+                }
+                // Now we're at the first mismatch, so score from there to the bound of the read interval.
+                size_t matches = *here - read_interval.first;
+                score += matches;
+                score -= 4; // TODO: use real scoring
+                if (score > max_score) {
+                    max_score = score;
+                    // Use end to represent going all the way to the read bound
+                    max_cut = mismatch_positions.end();
+                }
+            }
+            if (max_cut != mismatch_positions.end()) {
+                // Trim the anchor interval start
+                interval_start = *max_cut + 1;
+            }
+            // Otherwise leave the anchor interval start at the read interval start.
+        } else if (mismatch_after_prev_seed != mismatch_positions.end()) {
+            // This is the first seed after some mismatches (or we did all the seeds and mismatches)
+            assert(mismatch_before_current_seed != mismatch_positions.end());
+
+            // So we have to finish off the last seed's interval.
+
+            std::vector<size_t>::const_iterator split_mismatch;
+            if (seed_it != seed_positions.end()) {
+                // Pick a middle mismatch to divide the two intervals with initially.
+                size_t separating_mismatches = mismatch_before_current_seed - mismatch_after_prev_seed  + 1;
+                size_t middle_offset = separating_mismatches / 2;
+                // TODO: Feed in information that would let us round in a
+                // consistent direction even if we flip the read.
+                split_mismatch = mismatch_after_prev_seed + middle_offset;
+            } else {
+                // Do the split at the past-end mismatch
+                split_mismatch = mismatch_positions.end();
+            }
+
+            // Trim left for the old seed's interval.
+            //
+            // Starting at mismatch_after_prev_seed and going right to
+            // split_mismatch, get the score we have taking up to just before
+            // each mismatch, and the mismatch we cut at to get it.
+            int score = 0;
+            auto here = mismatch_after_prev_seed;
+            int max_score = score;
+            auto max_cut = here;
+            while (here != split_mismatch) {
+                auto next = here;
+                ++next;
+                // Score taking that mismatch and then going up to the next one
+                size_t matches = (next == mismatch_positions.end() ? read_interval.second : *next) - *here - 1;
+                score += matches;
+                score -= 4; // TODO: use real scoring
+                if (score > max_score) {
+                    max_score = score;
+                    max_cut = next;
+                }
+                here = next;
+            }
+            auto left_separating_mismatch = max_cut;
+            // So that's where the old interval ends.
+            anchor_intervals.emplace_back(interval_start, (left_separating_mismatch == mismatch_positions.end() ? read_interval.second : *left_separating_mismatch));
+            
+            if (seed_it != seed_positions.end()) {
+                // Trim right for the new seed's interval.
+                //
+                // Starting at mismatch_before_current_seed and going left to
+                // split_mismatch, get the score we have taking up to just before
+                // each mismatch, and the mismatch we cut at to get it.
+                score = 0;
+                here = mismatch_before_current_seed;
+                max_score = score;
+                max_cut = here;
+                while (here != split_mismatch) {
+                    auto next = here;
+                    --next;
+                    // Score taking that mismatch and then going up to the next one
+                    size_t matches = *here - *next - 1;
+                    score += matches;
+                    score -= 4; // TODO: use real scoring
+                    if (score > max_score) {
+                        max_score = score;
+                        max_cut = next;
+                    }
+                    here = next;
+                }
+                auto right_separating_mismatch = max_cut;
+                // And after it is where our interval starts.
+                interval_start = *right_separating_mismatch + 1;
+            }
+        }
+
+        // Now this seed is the previous seed.
+        prev_seed = seed_it;
+        // And no mismatch has been seen after it yet.
+        mismatch_after_prev_seed = mismatch_positions.end();
+    };
+
+    auto visit_mismatch = [&]() {
+        // Process the mismatch at mismatch_it (which is not the end), which comes next.
+        if (prev_seed != seed_positions.end() && mismatch_after_prev_seed == mismatch_positions.end()) {
+            // This is the first mismatch since we saw a seed, so save it.
+            mismatch_after_prev_seed = mismatch_it;
+        }
+        // This is now the last mismatch we've seen.
+        mismatch_before_current_seed = mismatch_it;
+    };
+
+    while (mismatch_it != mismatch_positions.end() && seed_it != seed_positions.end()) {
+        if (*mismatch_it < *seed_it) {
+            // Next is a mismatch
+            visit_mismatch();
+            ++mismatch_it;
+        } else {
+            // Next is a seed
+            visit_seed();
+            ++seed_it;
+        }
+    }
+    while (mismatch_it != mismatch_positions.end()) {
+        // Next is a mismatch
+        visit_mismatch();
+        ++mismatch_it;
+    }
+    while (seed_it != seed_positions.end()) {
+        // Next is a seed
+        visit_seed();
+        ++seed_it;
+    }
+    // Visit the end seed to finish off the last interval
+    visit_seed();
+
+    return anchor_intervals;
+}
+
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (show_work) {
@@ -456,34 +650,62 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // And the seeds that made it, sorted by stapled base
                     const std::vector<size_t>& extension_seeds = seeds_for_extension[i];
 
+                    // Make a list of all the seed positions
+                    std::vector<size_t> seed_positions;
+                    seed_positions.reserve(extension_seeds.size());
+                    for (auto& seed_index : extension_seeds) {
+                        seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                    }
+
+
                     // We want to break up the extension into read intervals
                     // and the seeds that go with them. Each of those will
                     // become an anchor.
+                    std::vector<std::pair<size_t, size_t>> anchor_intervals = find_anchor_intervals(extension.read_interval, extension.mismatch_positions, seed_positions);
 
-                    // So we sweep line across
+                    // Then convert those intervals into anchors.
                     auto mismatch_it = extension.mismatch_positions.begin();
                     auto seed_it = extension_seeds.begin();
-
-                    // And we keep track of the anchor in progress
-                    size_t anchor_start = extension.read_interval.first;
+                    // We keep track of the anchor in progress.
                     std::vector<size_t> anchor_seeds;
-                    // What run of mismatch positions are in the anchor?
-                    std::vector<size_t>::const_iterator anchor_mismatch_begin = mismatch_it;
-                    std::vector<size_t>::const_iterator anchor_mismatch_end = mismatch_it;
-                    auto make_anchor_ending = [&](size_t anchor_end) {
-                        // Turn all the seeds in anchor_seeds into an anchor and clear anchor_seeds.
-                        
+                    for (auto& anchor_interval : anchor_intervals) {
+                        // Find the relevant mismatch range
+                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.first) {
+                            // Move mismatch iterator to inside or past the interval
+                            ++mismatch_it;
+                        }
+                        auto internal_mismatch_begin = mismatch_it;
+                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.second) {
+                            // Move mismatch iterator to past the interval
+                            ++mismatch_it;
+                        }
+                        auto internal_mismatch_end = mismatch_it;
+
+                        // Find the relevant seed range
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.first) {
+                            // Move seed iterator to inside or past the interval (should really always be already inside).
+                            ++seed_it;
+                        }
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.second) {
+                            // Take all the seeds into the vector of anchor seeds.
+                            anchor_seeds.push_back(*seed_it);
+                            ++seed_it;
+                        }
+
+                        // Each interval should have seeds.
+                        assert(!anchor_seeds.empty());
+
                         if (show_work) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_start << "-" << anchor_end << " with " << anchor_seeds.size() << " seeds involved" << endl;
+                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches" << endl;
                             }
                         }
 
                         // Note the index of the new anchor
                         extension_anchor_indexes.push_back(extension_anchors.size());
                         // Make the actual anchor out of this range of seeds and this read range.
-                        extension_anchors.push_back(to_anchor(aln, anchor_start, anchor_end, anchor_seeds, seed_anchors, anchor_mismatch_begin, anchor_mismatch_end, gbwt_graph, this->get_regular_aligner()));
+                        extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
 
                         // And if we take that anchor, we'll grab these underlying
                         // seeds into the elaborating chain. Just use the bounding
@@ -499,116 +721,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         extension_represented_seeds.emplace_back(std::move(anchor_seeds));
                         // And clear out to get ready to make a new anchor.
                         anchor_seeds.clear();
-                    };
-
-
-                    // We can't just make the whole extension into an anchor
-                    // because it can have unlimited mismatches on the seed
-                    // node and a negative score.
-                    //
-                    // We can't just make the mismatch-free region a seed falls
-                    // in into an anchor because then we can't tell what's on
-                    // the other side of those mismatches and we drop half the
-                    // read's score form the chain when one side of a read is
-                    // common and has no seeds in it and is also split off from
-                    // our seeds by a mismatch.
-                    //
-                    // We don't want to do a complex Centroalign-style
-                    // find-the-max-scoring-run because I'm lazy.
-                    //
-                    // So the plan is:
-                    // Go along and cut anchors wherever there are mismatches too close together.
-                    // Except if you would cut an anchor, but you haven't collected any seeds yet, don't.
-                    // And then when you go to make an anchor, bring in the left mismatch when that would increase score without discarding seeds.
-                    
-                    // 1 base for the mismatch, 4 for the required matches.
-                    size_t min_mismatch_spacing = 5;
-                    while (mismatch_it != extension.mismatch_positions.end() && seed_it != extension_seeds.end()) {
-                        // While there are both seeds and mismatches.
-                        if (minimizers[seeds.at(*seed_it).source].value.offset < *mismatch_it) {
-                            // If this seed's stapled base is before this mismatch
-                        
-                            // Glom it in and advance the seed
-                            anchor_seeds.push_back(*seed_it);
-                            ++seed_it;
-                        } else {
-                            // Otherwise, next is a mismatch.
-                            auto next_mismatch_it = mismatch_it;
-                            ++next_mismatch_it;
-
-                            if ((next_mismatch_it != extension.mismatch_positions.end() && *next_mismatch_it - *mismatch_it >= min_mismatch_spacing) ||
-                                (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing) ||
-                                (anchor_seeds.empty())) {
-                                // We have enough match between this mismatch
-                                // and the one after it or the extension end to
-                                // justify advancing through it, or we don't
-                                // have any seeds yet but could get some.
-                                mismatch_it = next_mismatch_it;
-                                // This mismatch should be included in the anchor mismatches.
-                                anchor_mismatch_end = next_mismatch_it;
-                            } else {
-                                // We should finish the anchor (if any) before this mismatch.
-                                if (!anchor_seeds.empty()) {
-                                    // Trim the left while it improves the score, which we know by looking at the min_mismatch_spacing, and if it doesn't drop any seeds.
-                                    while (anchor_mismatch_begin != anchor_mismatch_end) {
-                                        size_t anchor_until_first_mismatch = *anchor_mismatch_begin - anchor_start;
-                                        if (anchor_until_first_mismatch < min_mismatch_spacing) {
-                                            // We could trim this part. Would we drop seeds?
-                                            if (minimizers[seeds.at(anchor_seeds.front()).source].value.offset < *anchor_mismatch_begin) {
-                                                // The first seed is before the first mismatch, so we would drop it. Stop trimming.
-                                                break;
-                                            } else {
-                                                // We won't lose a seed, and we will increase score, so trim off until past this first msimatch.
-                                                anchor_start = *anchor_mismatch_begin + 1;
-                                                ++anchor_mismatch_begin;
-                                            }
-                                        } else {
-                                            // The outermost piece pays for itself. Stop trimming.
-                                            break;
-                                        }
-                                    }
-
-
-                                    make_anchor_ending(*mismatch_it);
-                                }
-
-                                // The next anchor starts after this mismatch
-                                anchor_start = *mismatch_it + 1;
-                                // The next anchor's mismatches are an empty range starting at the next mismatch.
-                                anchor_mismatch_begin = next_mismatch_it;
-                                anchor_mismatch_end = anchor_mismatch_begin;
-
-                                // Next we will look at the next mismatch.
-                                mismatch_it = next_mismatch_it;
-                            }
-                        }
-                    }
-                    while (mismatch_it != extension.mismatch_positions.end()) {
-                        // If there are any more mismatches after the last seed, take all the ones we can pay to advance through
-                        auto next_mismatch_it = mismatch_it;
-                        ++next_mismatch_it;
-
-                        if ((next_mismatch_it != extension.mismatch_positions.end() && *next_mismatch_it - *mismatch_it >= min_mismatch_spacing) ||
-                            (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing)) {
-                            // We have enough match between this mismatch
-                            // and the one after it or the extension end to
-                            // justify advancing through it.
-                            mismatch_it = next_mismatch_it;
-                            // This mismatch should be included in the anchor mismatches.
-                            anchor_mismatch_end = next_mismatch_it;
-                        } else {
-                            // Stop glomming on mismatches here
-                            break;
-                        }
-                    }
-                    while (seed_it != extension_seeds.end()) {
-                        // If there are any more seeds after the last mismatch, take them all
-                        anchor_seeds.push_back(*seed_it);
-                        ++seed_it;
-                    }
-                    if (!anchor_seeds.empty()) {
-                        // And make the last (only) anchor, up to the terminating mismatch if any, or else the end of the extension.
-                        make_anchor_ending(anchor_mismatch_end != extension.mismatch_positions.end() ? *anchor_mismatch_end : extension.read_interval.second);
                     }
                 }
             }
