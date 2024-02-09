@@ -516,10 +516,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // We don't want to do a complex Centroalign-style
                     // find-the-max-scoring-run because I'm lazy.
                     //
-                    // So we want to find max score runs with a greedy sweep line algorithm.
-                    // If moving the left edge in one mismatch increases score, do it.
-                    // If moving the right edge out one mismatch increases score, do it.
-                    // For 4 point mismatch, 1 point match, this means if we see 2 mismatches with <4 bases between them, we cut, and otherwise we combine.
+                    // So the plan is:
+                    // Go along and cut anchors wherever there are mismatches too close together.
+                    // Except if you would cut an anchor, but you haven't collected any seeds yet, don't.
+                    // And then when you go to make an anchor, bring in the left mismatch when that would increase score without discarding seeds.
                     
                     // 1 base for the mismatch, 4 for the required matches.
                     size_t min_mismatch_spacing = 5;
@@ -537,16 +537,38 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             ++next_mismatch_it;
 
                             if ((next_mismatch_it != extension.mismatch_positions.end() && *next_mismatch_it - *mismatch_it >= min_mismatch_spacing) ||
-                                (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing)) {
+                                (next_mismatch_it == extension.mismatch_positions.end() && extension.read_interval.second - *mismatch_it >= min_mismatch_spacing) ||
+                                (anchor_seeds.empty())) {
                                 // We have enough match between this mismatch
                                 // and the one after it or the extension end to
-                                // justify advancing through it.
+                                // justify advancing through it, or we don't
+                                // have any seeds yet but could get some.
                                 mismatch_it = next_mismatch_it;
                                 // This mismatch should be included in the anchor mismatches.
                                 anchor_mismatch_end = next_mismatch_it;
                             } else {
                                 // We should finish the anchor (if any) before this mismatch.
                                 if (!anchor_seeds.empty()) {
+                                    // Trim the left while it improves the score, which we know by looking at the min_mismatch_spacing, and if it doesn't drop any seeds.
+                                    while (anchor_mismatch_begin != anchor_mismatch_end) {
+                                        size_t anchor_until_first_mismatch = *anchor_mismatch_begin - anchor_start;
+                                        if (anchor_until_first_mismatch < min_mismatch_spacing) {
+                                            // We could trim this part. Would we drop seeds?
+                                            if (minimizers[seeds.at(anchor_seeds.front()).source].value.offset < *anchor_mismatch_begin) {
+                                                // The first seed is before the first mismatch, so we would drop it. Stop trimming.
+                                                break;
+                                            } else {
+                                                // We won't lose a seed, and we will increase score, so trim off until past this first msimatch.
+                                                anchor_start = *anchor_mismatch_begin + 1;
+                                                ++anchor_mismatch_begin;
+                                            }
+                                        } else {
+                                            // The outermost piece pays for itself. Stop trimming.
+                                            break;
+                                        }
+                                    }
+
+
                                     make_anchor_ending(*mismatch_it);
                                 }
 
