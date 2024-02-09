@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 52
+plan tests 55
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -47,6 +47,9 @@ is "${?}" "0" "a read can be mapped with the default preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b sr >/dev/null
 is "${?}" "0" "a read can be mapped with the short read chaining preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b sr >/dev/null
+is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
 
 rm -Rf grid-out
 mkdir grid-out
