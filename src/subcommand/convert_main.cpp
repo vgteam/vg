@@ -491,7 +491,7 @@ void help_convert(char** argv) {
          << "                           Not compatible with other GFA output options or non-GBWT graphs." << endl
          << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types," << endl
          << "                           but can't preserve original GFA coordinates." << endl
-         << "    --no-translation       When using the GBWTGraph algorith, convert the graph directly to GFA." << endl
+         << "    --no-translation       When using the GBWTGraph algorithm, convert the graph directly to GFA." << endl
          << "                           Do not use the translation to preserve original coordinates." << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl

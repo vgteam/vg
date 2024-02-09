@@ -521,7 +521,7 @@ private:
     // Generate haplotypes for the given chain.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-        gbwt::GBWTBuilder& builder,
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage) const;
 };
 

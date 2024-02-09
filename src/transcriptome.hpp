@@ -14,9 +14,9 @@
 #include <bdsg/overlays/path_position_overlays.hpp>
 #include <sparsepp/spp.h>
 
-#include "../vg.hpp"
-#include "../types.hpp"
-#include "../gbwt_helper.hpp"
+#include "vg.hpp"
+#include "types.hpp"
+#include "gbwt_helper.hpp"
 
 namespace vg {
 
