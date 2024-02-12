@@ -732,7 +732,7 @@ int main_giraffe(int argc, char** argv) {
         // And fragment them
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
-        .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 1)
         .add_entry<size_t>("max-alignments", 5)
