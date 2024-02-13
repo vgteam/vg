@@ -604,7 +604,10 @@ protected:
      * with, for each gapless extension, the numbers of the seeds in seeds that
      * are subsumed into the extension. They will be sorted by the stapled base
      * (first base for forward strand, last base for reverse strand) in the
-     * read. 
+     * read.
+     *
+     * Note that multiple gapless extensions might cover each seed position or
+     * use each seed.
      */
     vector<GaplessExtension> extend_seed_group(
         const std::vector<size_t>& seed_group,

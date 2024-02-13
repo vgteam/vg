@@ -693,18 +693,47 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     &seeds_for_extension);
                 // Note that we don't use the funnel here; we don't actually
                 // track a gapless extension stage.
+                
+                // We can't actually handle the same seed being used as the
+                // endpoint of multiple anchors in the chaining. So we need to
+                // go through the gapless extensions in score order and make
+                // them into anchors using the seeds not yet used by previous
+                // ones.
+                auto extension_score_order = sort_permutation(tree_extensions.begin(), tree_extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) {
+                    // Return true if the first gapless extension needs to be first.
+                    // TODO: use real scores from the aligner.
+                    int a_score = (a.read_interval.second - a.read_interval.first) - a.mismatch_positions.size() * 5;
+                    int b_score = (b.read_interval.second - b.read_interval.first) - b.mismatch_positions.size() * 5;
+                    // We want to sort descending so larger scores come first.
+                    return a_score > b_score;
+                });
 
-                for (size_t i = 0; i < tree_extensions.size(); i++) {
+                // This holds the seeds used to make previous anchors.
+                std::unordered_set<size_t> used_seeds;
+
+                for (auto& extension_index : extension_score_order) {
                     // For each extension
-                    const GaplessExtension& extension = tree_extensions[i];
+                    const GaplessExtension& extension = tree_extensions[extension_index];
                     // And the seeds that made it, sorted by stapled base
-                    const std::vector<size_t>& extension_seeds = seeds_for_extension[i];
+                    const std::vector<size_t>& extension_seeds = seeds_for_extension[extension_index];
 
-                    // Make a list of all the seed positions
+                    // Make a list of all the seed positions still available
                     std::vector<size_t> seed_positions;
                     seed_positions.reserve(extension_seeds.size());
                     for (auto& seed_index : extension_seeds) {
-                        seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                        if (!used_seeds.count(seed_index)) {
+                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                        }
+                    }
+
+                    if (seed_positions.empty()) {
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " has no distinct seeds left to use for anchors" << endl;
+                            }
+                        }
+                        continue;
                     }
 
 
@@ -716,8 +745,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // Then convert those intervals into anchors.
                     auto mismatch_it = extension.mismatch_positions.begin();
                     auto seed_it = extension_seeds.begin();
-                    // We keep track of the anchor in progress.
-                    std::vector<size_t> anchor_seeds;
                     for (auto& anchor_interval : anchor_intervals) {
                         // Find the relevant mismatch range
                         while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.first) {
@@ -732,45 +759,59 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         auto internal_mismatch_end = mismatch_it;
 
                         // Find the relevant seed range
+                        std::vector<size_t> anchor_seeds;
                         while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.first) {
                             // Move seed iterator to inside or past the interval (should really always be already inside).
                             ++seed_it;
                         }
                         while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.second) {
                             // Take all the seeds into the vector of anchor seeds.
-                            anchor_seeds.push_back(*seed_it);
+                            auto found = used_seeds.find(*seed_it);
+                            if (found == used_seeds.end()) {
+                                // As long as they haven't been used
+                                anchor_seeds.push_back(*seed_it);
+                                // And mark them used
+                                used_seeds.insert(found, *seed_it);
+                            }
                             ++seed_it;
                         }
 
-                        // Each interval should have seeds.
-                        assert(!anchor_seeds.empty());
-
-                        if (show_work) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches" << endl;
+                        if (anchor_seeds.empty()) {
+                            // All the seeds we wanted for this piece specifically are already represented by pieces of previous extensions
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " would produce anchor " << anchor_interval.first << "-" << anchor_interval.second << " but all seeds in the interval were used already" << endl;
+                                }
                             }
+                            // Go on to the next anchor interval
+                        } else {
+                            // We have seeds here and can make an anchor
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches" << endl;
+                                }
+                            }
+
+                            // Note the index of the new anchor
+                            extension_anchor_indexes.push_back(extension_anchors.size());
+                            // Make the actual anchor out of this range of seeds and this read range.
+                            extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
+
+                            // And if we take that anchor, we'll grab these underlying
+                            // seeds into the elaborating chain. Just use the bounding
+                            // seeds and connect between them where it is easy.
+                            extension_seed_sequences.push_back({anchor_seeds.front()});
+                            if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
+                                // There are multiple seeds in the extension and the last
+                                // one doesn't overlap the first, so take the last one too.
+                                extension_seed_sequences.back().push_back(anchor_seeds.back());
+                            }
+
+                            // Keep all the seeds that this anchor counts as using.
+                            extension_represented_seeds.emplace_back(std::move(anchor_seeds));
                         }
-
-                        // Note the index of the new anchor
-                        extension_anchor_indexes.push_back(extension_anchors.size());
-                        // Make the actual anchor out of this range of seeds and this read range.
-                        extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
-
-                        // And if we take that anchor, we'll grab these underlying
-                        // seeds into the elaborating chain. Just use the bounding
-                        // seeds and connect between them where it is easy.
-                        extension_seed_sequences.push_back({anchor_seeds.front()});
-                        if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
-                            // There are multiple seeds in the extension and the last
-                            // one doesn't overlap the first, so take the last one too.
-                            extension_seed_sequences.back().push_back(anchor_seeds.back());
-                        }
-
-                        // Keep all the seeds that this anchor counts as using.
-                        extension_represented_seeds.emplace_back(std::move(anchor_seeds));
-                        // And clear out to get ready to make a new anchor.
-                        anchor_seeds.clear();
                     }
                 }
             }
@@ -1356,9 +1397,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
-                        if (track_correctness && funnel.was_correct(processed_num)) {
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
                     }
                 }
                 tree_count++;
@@ -1371,9 +1409,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
-                        if (track_correctness && funnel.was_correct(processed_num)) {
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
                     }
                 }
                 tree_count++;
