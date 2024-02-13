@@ -734,7 +734,7 @@ int main_giraffe(int argc, char** argv) {
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<int>("min-chains", 4)
-        .add_entry<size_t>("max-chains-per-tree", 1)
+        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
         .add_entry<size_t>("max-chain-connection", 0)

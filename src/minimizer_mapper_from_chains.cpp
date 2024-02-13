@@ -873,7 +873,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size() * 2);
                 for (auto& selected_number : scored_fragment.second) {
-                    // For each anchor in the chain, get its number int he whole group of anchors.
+                    // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the fragment.
@@ -1288,8 +1288,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
 
-    // Track if how many tree chains were used
+    // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
+
+    // Track what graph nodes were used in previously generated alignments, so we can fish out alignments to different placements.
+    // TODO: Make this in terms of ranges/positions instead
+    std::unordered_set<nid_t> used_nodes;
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1315,6 +1319,31 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (track_provenance) {
                 funnel.pass("chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.pass("max-alignments", processed_num);
+            }
+
+            for (auto& seed_num : chains[processed_num]) {
+                auto node_id = id(seeds.at(seed_num).pos);
+                if (used_nodes.count(node_id)) {
+                    if (track_provenance) {
+                        funnel.fail("chain-overlap", processed_num);
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at node " << node_id << endl;
+                        }
+                    }
+                    return false;
+                }
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_nodes.size() << " nodes used in previous alignments" << endl;
+                }
+            }
+            if (track_provenance) {
+                funnel.pass("chain-overlap", processed_num);
             }
 
             // Make sure we aren't doing too many chains from this one tree.
@@ -1393,8 +1422,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(processed_num);
 
+                for (auto& mapping : alignments.back().path().mapping()) {
+                    // Mark all the nodes it visits used.
+                    used_nodes.insert(mapping.position().node_id());
+                }
+
                 if (track_provenance) {
-    
                     funnel.project(processed_num);
                     funnel.score(alignments.size() - 1, alignments.back().score());
                 }
