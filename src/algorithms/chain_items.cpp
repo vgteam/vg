@@ -399,7 +399,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     DiagramExplainer diagram(false);
 #endif
     diagram.add_globals({{"rankdir", "LR"}});
-    
+   
+#ifdef debug_chaining
+    show_work = true;
+#endif
+
     if (show_work) {
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }

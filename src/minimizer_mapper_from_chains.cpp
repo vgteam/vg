@@ -43,7 +43,7 @@
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
 // Debug generation of alignments from chains
-#define debug_chain_alignment
+//#define debug_chain_alignment
 
 namespace vg {
 
@@ -789,17 +789,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             // Go on to the next anchor interval
                         } else {
                             // We have seeds here and can make an anchor
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches" << endl;
-                                }
-                            }
 
                             // Note the index of the new anchor
                             extension_anchor_indexes.push_back(extension_anchors.size());
                             // Make the actual anchor out of this range of seeds and this read range.
                             extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches, score " << extension_anchors.back().score() << endl;
+                                }
+                            }
 
                             // And if we take that anchor, we'll grab these underlying
                             // seeds into the elaborating chain. Just use the bounding
