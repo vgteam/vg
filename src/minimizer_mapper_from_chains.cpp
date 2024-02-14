@@ -328,22 +328,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
-    //This gets filled in by find_seeds
-    // Bool for each minimizer in minimizers_in_read, NOT minimizers
-    vector<bool> passed_downsampling (minimizers_in_read.size(), false);
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, &passed_downsampling);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
 
-    double sum_downsampled = 0.0;
-    for (size_t i = 0 ; i < minimizers_in_read.size() ; i++) {
-        if (!passed_downsampling[i]) {
-            sum_downsampled += minimizers_in_read[i].score;
-        }
-    }
-
-    //This gets added as a multiplicity to everything
-    double minimizer_downsampled_cap = prob_to_phred(exp(1 / sum_downsampled) - 1) + 25;
     if (seeds.empty()) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: No seeds found for " << aln.name() << "!" << std::endl;
@@ -1273,7 +1261,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #endif
 
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    mapq = std::min(mapq, minimizer_downsampled_cap);
 
     if (use_explored_cap) {
 

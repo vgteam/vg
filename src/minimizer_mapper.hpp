@@ -532,9 +532,8 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters. Takes in minimizers
      * sorted in read order, and a view of them sorted in score order.
-     * Optionally fills in passed_downsampling for each minimizer in minimizers_in_read_order.
      */
-    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel, vector<bool>* passed_downsampling) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct
@@ -800,21 +799,6 @@ protected:
      */
     static double faster_cap(const VectorView<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
     
-
-    /**
-     * Given a set of minimizers and whether or not they passed the hard hit cap, 
-     * find an upper limit of the mapping qualit.
-     * TODO: Fill this in with whatever gets implemented 
-     */
-    static double minimizer_kept_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept);
-
-    /**
-     * Given a set of minimizers and whether or not they passed the hard hit cap, 
-     * find an upper limit of the mapping quality based on the coverage of minimizers in the read.
-     * TODO: Fill this in with whatever gets implemented 
-     */
-    static double minimizer_coverage_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept, const string& sequence);
-
     /**
      * Given a collection of minimizers, and a list of the minimizers we
      * actually care about (as indices into the collection), iterate over

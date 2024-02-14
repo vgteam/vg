@@ -612,7 +612,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel, nullptr);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1445,7 +1445,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // TODO: Let the clusterer use something else?
     std::vector<std::vector<Seed>> seeds_by_read(2);
     for (auto r : {0, 1}) {
-        seeds_by_read[r] = this->find_seeds(minimizers_in_read_by_read[r], minimizers_by_read[r], *alns[r], funnels[r], nullptr);
+        seeds_by_read[r] = this->find_seeds(minimizers_in_read_by_read[r], minimizers_by_read[r], *alns[r], funnels[r]);
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -2857,55 +2857,6 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     return result;
 }
 
-double MinimizerMapper::minimizer_kept_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept) {
-    double kept_score_sum = 0.0;
-    double discarded_score_sum = 0.0;
-    for (size_t i = 0 ; i < minimizers.size() ; i++) {
-        if (minimizer_kept[i]) {
-            kept_score_sum += minimizers[i].score;
-        } else {
-            discarded_score_sum += minimizers[i].score;
-        }
-    }
-
-    double score_fraction_kept = kept_score_sum / (kept_score_sum + discarded_score_sum);
-
-    //Try to stop this from cutting the mapq too much
-    return prob_to_phred(pow(score_fraction_kept,6)) + 30;
-
-}
-
-double MinimizerMapper::minimizer_coverage_cap(const VectorView<Minimizer>& minimizers, vector<bool>& minimizer_kept, const string& sequence) {
-
-    vector<size_t> best_hit_count_by_base (sequence.size(), std::numeric_limits<size_t>::max());
-
-    for (const Minimizer& minimizer : minimizers) {
-        for (size_t i =  0 ; i < minimizer.length ; i++) {
-            best_hit_count_by_base[i+minimizer.forward_offset()] 
-                = std::min(minimizer.hits, best_hit_count_by_base[i+minimizer.forward_offset()]);
-        }
-        
-    }
-
-    size_t coverage_sum = 0;
-    //keeping only the best minimizer for each base, what is the worst minimizer 
-    size_t worst_minimizer_hits = 0;
-    for (const size_t& hits : best_hit_count_by_base) {
-        if (hits == 1) {++coverage_sum;}
-        if (hits != std::numeric_limits<size_t>::max()) {
-            worst_minimizer_hits = std::max(hits, worst_minimizer_hits);
-        }
-    }
-
-    //What fraction of the read is covered by unique minimizers?
-    double fraction_unique_minimizers = (double) coverage_sum / best_hit_count_by_base.size();
-
-    //Try to stop this from cutting the mapq too much
-    return prob_to_phred(pow(1.0-fraction_unique_minimizers,6)) + 50;
-
-}
-
-
 void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer>& minimizers,
     const string& sequence, const string& quality_bytes,
     const vector<size_t>& minimizer_indices,
@@ -3383,7 +3334,7 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel, vector<bool>* passed_downsampling) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3479,9 +3430,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             }, [&](size_t sampled) -> void {
                 // This minimizer is actually best in a window
                 downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
-                if (passed_downsampling != nullptr) {
-                    passed_downsampling->at(min_indexes.at(sampled)) = true;
-                }
             });
         }
         if (show_work) {
