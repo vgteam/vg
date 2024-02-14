@@ -3410,51 +3410,56 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // TODO: change how the filters work!
 
     //Adjust the downsampling window by read length
-    //If the windows will be too small (<2), then don't downsample
-    size_t minimizer_downsampling_window_size = this->minimizer_downsampling_window_count == 0 
-                                                || aln.sequence().size() < this->minimizer_downsampling_window_count*2
-                                              ? 0 
-                                              : aln.sequence().size() / this->minimizer_downsampling_window_count;
+    size_t minimizer_downsampling_window_size = 0;
 
     std::unordered_set<const Minimizer*> downsampled;
-    if (minimizer_downsampling_window_size != 0) {
+    if (this->minimizer_downsampling_window_count != 0) {
         // Downsample the minimizers. This needs to break up by minimizer length.
         // So we need to organize the minimizers by length if we are weirdly using multiple lengths of minimizer.
         std::unordered_map<size_t, std::vector<size_t>> minimizers_in_read_order_by_length;
+        size_t min_minimizer_length = std::numeric_limits<size_t>::max();
         for (size_t i = 0; i < minimizers_in_read_order.size(); i++) {
             // TODO: Skip this copy if we think we have only one minimizer length!
             // We probably have only one length so do a reserve here.
             minimizers_in_read_order_by_length[minimizers_in_read_order[i].length].reserve(minimizers_in_read_order.size());
             minimizers_in_read_order_by_length[minimizers_in_read_order[i].length].push_back(i);
+            min_minimizer_length = std::min(min_minimizer_length, (size_t)minimizers_in_read_order[i].length);
         }
-        for (auto& kv : minimizers_in_read_order_by_length) {
-            auto& length = kv.first;
-            crash_unless(length <= minimizer_downsampling_window_size);
-            auto& min_indexes = kv.second;
-            // Run downsampling for this length of minimizer.
-            algorithms::sample_minimal(min_indexes.size(), length, minimizer_downsampling_window_size, aln.sequence().size(), [&](size_t i) -> size_t {
-                // Get item start
-                return minimizers_in_read_order.at(min_indexes.at(i)).forward_offset();
-            }, [&](size_t a, size_t b) -> bool {
-                // Return if minimizer a should beat minimizer b
-                auto& min_a = minimizers_in_read_order.at(min_indexes.at(a));
-                auto& min_b = minimizers_in_read_order.at(min_indexes.at(b));
+        //If the windows will be too small (< the smallest minimizer size), then don't downsample
+        minimizer_downsampling_window_size = aln.sequence().size() < this->minimizer_downsampling_window_count*min_minimizer_length
+                                           ? 0 
+                                           : aln.sequence().size() / this->minimizer_downsampling_window_count;
 
-                // The better minimizer is the one that does match the reference, or
-                // if both match the reference it is the one that has more score. Or if both have equal score it is the more minimal one.
-                // That happens to be how we defined the Minimizer operator<.
-                return (min_a.hits > 0 && min_b.hits == 0) || (min_a.hits > 0 && min_b.hits > 0 && min_a < min_b);
-            }, [&](size_t sampled) -> void {
-                // This minimizer is actually best in a window
-                downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
-            });
-        }
-        if (show_work) {
-            #pragma omp critical (cerr)
-            std::cerr << log_name() << "Downsampled "
-                << minimizers_in_read_order.size() << " minimizers of "
-                << minimizers_in_read_order_by_length.size() << " lengths to "
-                << downsampled.size() << " minimizers" << std::endl;
+        if (minimizer_downsampling_window_size != 0) {
+            for (auto& kv : minimizers_in_read_order_by_length) {
+                auto& length = kv.first;
+                crash_unless(length <= minimizer_downsampling_window_size);
+                auto& min_indexes = kv.second;
+                // Run downsampling for this length of minimizer.
+                algorithms::sample_minimal(min_indexes.size(), length, minimizer_downsampling_window_size, aln.sequence().size(), [&](size_t i) -> size_t {
+                    // Get item start
+                    return minimizers_in_read_order.at(min_indexes.at(i)).forward_offset();
+                }, [&](size_t a, size_t b) -> bool {
+                    // Return if minimizer a should beat minimizer b
+                    auto& min_a = minimizers_in_read_order.at(min_indexes.at(a));
+                    auto& min_b = minimizers_in_read_order.at(min_indexes.at(b));
+
+                    // The better minimizer is the one that does match the reference, or
+                    // if both match the reference it is the one that has more score. Or if both have equal score it is the more minimal one.
+                    // That happens to be how we defined the Minimizer operator<.
+                    return (min_a.hits > 0 && min_b.hits == 0) || (min_a.hits > 0 && min_b.hits > 0 && min_a < min_b);
+                }, [&](size_t sampled) -> void {
+                    // This minimizer is actually best in a window
+                    downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
+                });
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Downsampled "
+                    << minimizers_in_read_order.size() << " minimizers of "
+                    << minimizers_in_read_order_by_length.size() << " lengths to "
+                    << downsampled.size() << " minimizers" << std::endl;
+            }
         }
     }
     
