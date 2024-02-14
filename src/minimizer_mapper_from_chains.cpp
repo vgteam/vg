@@ -2911,13 +2911,24 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
+    // Get the score without full length bonuses
+    auto score = aligner->score_exact_match(aln, anchor.read_start(), anchor.length());
+    if (anchor.read_start() == 0) {
+        // Apply full elngth bonus on the left if we abut the left end of the read.
+        score += aligner->score_full_length_bonus(true, aln);
+    }
+    if (anchor.read_end() == aln.sequence().length()) {
+        // Apply full lenght bonus on the right if we abut the riht end of the read.
+        score += aligner->score_full_length_bonus(false, aln);
+    }
+
     return {
         {gbwt_graph.get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
         {{WFAAlignment::match, (uint32_t)anchor.length()}},
         (uint32_t)offset(anchor.graph_start()),
         (uint32_t)anchor.read_start(),
         (uint32_t)anchor.length(),
-        aligner->score_exact_match(aln, anchor.read_start(), anchor.length()),
+        score,
         true
     };
 }

@@ -508,7 +508,8 @@ protected:
     /// are mismatches.
     static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner);
     
-    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
+    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring.
+    /// Accounts for fuill length bonuses if the anchor abuts the end of the read.
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 
 
     /// The information we store for each cluster.
