@@ -64,8 +64,14 @@ struct GaplessExtension
     /// Number of mismatches in the extension.
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
+    /// Iterate over all read regions and the seed (handle and offset) with which they are visited.
+    /// Lets you work out which read interval/graph interval pairings are involved. 
+    /// Function should return false to stop iteration. Returns false if the callback returns false.
+    /// Iterates as read start, interval length, seed.
+    bool for_each_read_interval(const HandleGraph& graph, const std::function<bool(size_t, size_t, const seed_type&)>& iteratee) const; 
+
     /// Does the extension contain the seed?
-    bool contains(const HandleGraph& graph, seed_type seed) const;
+    bool contains(const HandleGraph& graph, const seed_type& seed) const;
 
     /// Return the starting position of the extension.
     Position starting_position(const HandleGraph& graph) const;
@@ -184,8 +190,8 @@ public:
      * if the fraction of identical base mappings is greater than
      * overlap_threshold.
      * If there are no good enough full-length extensions, trim the
-     * extensions to maximize the score and remove duplicates. In this
-     * case, the extensions are sorted by read interval.
+     * extensions to maximize the score (unless trim is false) and remove
+     * duplicates. In this case, the extensions are sorted by read interval.
      * Use full_length_extensions() to determine the type of the returned
      * extension set.
      * The sequence that will be aligned is passed by value. All non-ACGT
@@ -196,7 +202,7 @@ public:
      * max_mismatches / 2 mismatches on each flank.
      * Use the provided CachedGBWTGraph or allocate a new one.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD, bool trim = true) const;
 
     /**
      * Determine whether the extension set contains non-overlapping
@@ -412,9 +418,11 @@ public:
      * entire sequence with an acceptable score, returns the highest-scoring
      * partial alignment, which may be empty.
      *
+     * Applies the full-length bonus if the result ends with a match or mismatch.
+     * TODO: Use the full-length bonus to determine the optimal alignment.
+     *
      * NOTE: This creates a suffix of the full alignment by aligning a
      * prefix of the sequence.
-     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
@@ -424,9 +432,11 @@ public:
      * sequence with an acceptable score, returns the highest-scoring partial
      * alignment, which may be empty.
      *
+     * Applies the full-length bonus if the result begins with a match or mismatch.
+     * TODO: Use the full-length bonus to determine the optimal alignment.
+     *
      * NOTE: This creates a prefix of the full alignment by aligning a suffix
      * of the sequence.
-     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 

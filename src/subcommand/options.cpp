@@ -112,6 +112,12 @@ const ValidatorFunction<size_t> size_t_is_nonzero = [](const size_t& s) {
     }
 };
 
+const ValidatorFunction<size_t> size_t_is_positive = [](const size_t& s) {
+    if (s <= 0) {
+        throw std::domain_error("must be strictly positive");
+    }
+};
+
 const ValidatorFunction<int> int_is_nonnegative = [](const int& i) {
     if (i < 0) {
         throw std::domain_error("cannot be negative");

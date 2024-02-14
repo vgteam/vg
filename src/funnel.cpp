@@ -6,13 +6,16 @@
 /**
  * \file funnel.hpp: implementation of the Funnel class
  */
+
+//#define debug
  
 namespace vg {
 using namespace std;
 
 void Funnel::PaintableSpace::paint(size_t start, size_t length) {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
@@ -35,7 +38,7 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
         }
     }
     
-    // Find the first interval starting at or after start
+    // Find the first interval starting strictly after start
     auto successor = regions.upper_bound(start);
     auto range_first = regions.end();
     auto range_last = regions.end();
@@ -61,20 +64,31 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
 }
 
 bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+#ifdef debug
+    std::cerr << "Checking for painting " << start << "+" << length << " in " << regions.size() << " regions" << std::endl;
+#endif
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
+#ifdef debug
+        std::cerr << "Predecessor of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
+#endif
         if (predecessor->first + predecessor->second > start) {
             // It covers our start, so we overlap
             return true;
         }
     }
-    
+   
+    // Find the first interval starting strictly after start.
     auto successor = regions.upper_bound(start);
     if (successor != regions.end()) {
-        // There's something starting at or after us
+#ifdef debug
+        std::cerr << "Succesor of " << start << "+" << length << " is " << successor->first << "+" << successor->second << std::endl;
+#endif
+        // There's something starting after us
         if (start + length > successor->first) {
             // And we overlap it
             return true;
@@ -154,6 +168,9 @@ void Funnel::substage(const string& name) {
     
     // Save the name 
     substage_name = name;
+
+    // Record the start time
+    substage_start_time = clock::now();
 }
     
 void Funnel::substage_stop() {
@@ -161,6 +178,11 @@ void Funnel::substage_stop() {
         // A substage was running.
         
         // Substages don't bound produce/process.
+
+        // Record the duration in seconds
+        auto substage_stop_time = clock::now();
+        // Add it in. TODO: Might add small and large floats in any order!
+        stages.back().sub_durations[substage_name] += chrono::duration_cast<chrono::duration<double>>(substage_stop_time - substage_start_time).count();
         
         // Say the stage is stopped 
         substage_name.clear();
@@ -321,6 +343,9 @@ void Funnel::tag(size_t item, State state, size_t tag_start, size_t tag_length) 
     
     // Say the stage has tag over this interval.
     stages.back().tag = std::max(stages.back().tag, state);
+#ifdef debug
+    std::cerr << "\tTag stage overall as " << stages.back().tag << " on " << tag_start << "-" << tag_start + tag_length << std::endl;
+#endif
     stages.back().tag_space.paint(tag_start, tag_length);
 }
 
@@ -348,10 +373,24 @@ bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name,
 string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
+#ifdef debug
+        std::cerr << "Check stage " << it->name << " from " << tag_start << " length " << tag_length << std::endl;
+#endif
         if (it->tag >= tag && it->tag_space.is_any_painted(tag_start, tag_length)) {
             // If we are tagged good enough and have a tag in part of that
             // area, then we are a matching stage.
+#ifdef debug
+            std::cerr << "Stage matches!" << std::endl;
+#endif
             return it->name;
+        } else if (it->tag < tag) {
+#ifdef debug
+            std::cerr << "Stage tag of " << (int)it->tag << " is less than " << (int)tag << std::endl;
+#endif
+        } else {
+#ifdef debug
+            std::cerr << "Stage doesn't overlap query range" << std::endl;
+#endif
         }
     }
     return "none";
@@ -382,7 +421,7 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes
         vector<size_t> item_sizes;
@@ -390,8 +429,8 @@ void Funnel::for_each_stage(const function<void(const string&, const vector<size
         for (auto& item : stage.items) {
             item_sizes.push_back(item.group_size);
         }
-        // Report the name and item count of each stage.
-        callback(stage.name, item_sizes, stage.duration);
+        // Report the name and item count of each stage, along with timings.
+        callback(stage.name, item_sizes, stage.duration, stage.sub_durations);
     }
 }
 
@@ -605,11 +644,15 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
     // Save the total duration in the field set asside for it
     aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
     
-    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration) {
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
         // Save the number of items
         set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
         // And the per-stage duration
         set_annotation(aln, "stage_" + stage + "_time", duration);
+        for (auto& kv : sub_durations) {
+            // And the substage durations
+            set_annotation(aln, "stage_" + stage + "_sub_" + kv.first + "_time", kv.second);
+        }
     });
     
     set_annotation(aln, "last_placed_stage", last_tagged_stage(State::PLACED));

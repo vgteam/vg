@@ -309,7 +309,22 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "zipcode-tree-score-threshold",
         &MinimizerMapper::zipcode_tree_score_threshold,
         MinimizerMapper::default_zipcode_tree_score_threshold,
-        "score below the top zipcode tree score to fragment"
+        "only fragment trees if they are within INT of the best score",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "pad-zipcode-tree-score-threshold",
+        &MinimizerMapper::pad_zipcode_tree_score_threshold,
+        MinimizerMapper::default_pad_zipcode_tree_score_threshold,
+        "also fragment trees within INT of above threshold to get a second-best cluster",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "zipcode-tree-coverage-threshold",
+        &MinimizerMapper::zipcode_tree_coverage_threshold,
+        MinimizerMapper::default_zipcode_tree_coverage_threshold,
+        "only fragment trees if they are within FLOAT of the best read coverage",
+        double_is_nonnegative
     );
     chaining_opts.add_range(
         "min-to-fragment",
@@ -322,6 +337,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::max_to_fragment,
         MinimizerMapper::default_max_to_fragment,
         "maximum number of fragmenting problems to run"
+    );
+    chaining_opts.add_flag(
+        "do-gapless-extension",
+        &MinimizerMapper::do_gapless_extension,
+        MinimizerMapper::default_do_gapless_extension,
+        "do gapless extension to seeds in a tree before fragmenting"
     );
     chaining_opts.add_range(
         "fragment-max-lookback-bases",
@@ -365,6 +386,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_item_scale,
         "scale for items' scores when fragmenting or chaining"
     );
+    chaining_opts.add_range(
+        "gap-scale",
+        &MinimizerMapper::gap_scale,
+        MinimizerMapper::default_gap_scale,
+        "scale for gap scores when fragmenting or chaining",
+        double_is_nonnegative
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",
@@ -394,18 +422,25 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "accept chains with this score or more regardless of read length",
         int_is_nonnegative
     );
+    chaining_opts.add_range(
+        "max-chains-per-tree",
+        &MinimizerMapper::max_chains_per_tree,
+        MinimizerMapper::default_max_chains_per_tree,
+        "align up to this many chains from each tree",
+        size_t_is_positive
+    );
     
     chaining_opts.add_range(
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,
         MinimizerMapper::default_max_chain_connection,
-        "maximum distance across which to connect seeds when aligning a chain"
+        "maximum distance across which to connect seeds with WFAExtender when aligning a chain"
     );
     chaining_opts.add_range(
         "max-tail-length",
         &MinimizerMapper::max_tail_length,
         MinimizerMapper::default_max_tail_length,
-        "maximum length of a tail to align before forcing softclipping when aligning a chain"
+        "maximum length of a tail to align with WFAExtender when aligning a chain"
     );
     chaining_opts.add_range(
         "max-dp-cells",
@@ -673,25 +708,37 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
         .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
     // And a short reads with chaining preset
     presets["sr"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", true)
-        // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 100)
-        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
-        .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0)
-        // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384)
-        .add_entry<double>("mapq-score-scale", 1.0)
+        // Cap minimizers at a number we won't reach.
+        .add_entry<size_t>("max-min", 500)
+        // Don't downsample
+        .add_entry<size_t>("downsample-min", 0)
+        // Use the hit-cap||score-fraction filter
+        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<double>("score-fraction", 0.9)
+        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
+        // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
-        .add_entry<size_t>("max-to-fragment", 10)
-        .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<size_t>("max-to-fragment", 800)
+        .add_entry<bool>("do-gapless-extension", true)
+        .add_entry<double>("zipcode-tree-score-threshold", 50)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        // And fragment them
+        .add_entry<double>("gap-scale", 4.0)
+        // And take those to chains
+        .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<int>("min-chains", 4)
-        .add_entry<size_t>("max-alignments", 5);
+        .add_entry<size_t>("max-chains-per-tree", 1)
+        .add_entry<size_t>("max-alignments", 5)
+        // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
+        .add_entry<size_t>("max-chain-connection", 0)
+        .add_entry<double>("mapq-score-scale", 1.0);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
@@ -708,6 +755,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
         
    

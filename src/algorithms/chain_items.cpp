@@ -12,6 +12,7 @@
 #include <structures/min_max_heap.hpp>
 
 //#define debug_chaining
+//#define debug_transition
 
 namespace vg {
 namespace algorithms {
@@ -19,7 +20,17 @@ namespace algorithms {
 using namespace std;
 
 ostream& operator<<(ostream& out, const Anchor& anchor) {
-    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    // TODO: Just friend class to get these?
+    size_t margin_left = anchor.read_start() - anchor.read_exclusion_start();
+    size_t margin_right = anchor.read_exclusion_end() - anchor.read_end();
+    if (margin_left) {
+        out << "(" << margin_left << ")";
+    }
+    out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
+    if (margin_right) {
+        out << "(" << margin_right << ")";
+    }
+    return out;
 }
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
@@ -225,6 +236,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 return;
             }
 
+            if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
+                // The actual core anchor part is reachable in the read, but we cut these down from overlapping minimizers.
+#ifdef debug_transition
+                std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+                return;
+            }
+
             // The zipcode tree is about point positions, but we need distances between whole anchors.
             // The stored zipcode positions will be at distances from the start/end of the associated anchor.
             
@@ -370,6 +389,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
                            int item_scale,
+                           double gap_scale,
                            size_t max_indel_bases,
                            bool show_work) {
     
@@ -384,10 +404,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    // Compute an average anchor length
+    // Compute an average anchor length. Really, use the exclusion zone length,
+    // so we will be on the right scale for the item scores.
     size_t average_anchor_length = 0;
     for (auto& anchor : to_chain) {
-        average_anchor_length += anchor.length();
+        average_anchor_length += (anchor.read_exclusion_end() - anchor.read_exclusion_start());
     }
     average_anchor_length /= to_chain.size();
 
@@ -459,7 +480,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // start of this one (not the end as in Minimap2's formulation).
             // And our anchors also thus never overlap. So we can just always
             // use the length of the destination anchor.
-            jump_points = (int) here.length() - score_chain_gap(indel_length, average_anchor_length);
+            //
+            // But we account for anchor length in the item points, so don't use it
+            // here.
+            jump_points = -score_chain_gap(indel_length, average_anchor_length) * gap_scale;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
@@ -596,7 +620,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // But then re-add our score for just us
                     penalty -= (to_chain[here].score() * item_scale + item_bonus);
                     // TODO: Score this more simply.
-                    // TODO: find the dege to nowhere???
+                    // TODO: find the edge to nowhere???
                     break;
                 } else {
                     // Add to the traceback
@@ -635,6 +659,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const transition_iterator& for_each_transition, 
                                                    int item_bonus,
                                                    int item_scale,
+                                                   double gap_scale,
                                                    size_t max_indel_bases,
                                                    bool show_work) {
                                                                          
@@ -653,6 +678,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              for_each_transition,
                                                              item_bonus,
                                                              item_scale,
+                                                             gap_scale,
                                                              max_indel_bases,
                                                              show_work);
     // Then do the tracebacks
@@ -683,6 +709,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const transition_iterator& for_each_transition,
                                           int item_bonus,
                                           int item_scale,
+                                          double gap_scale,
                                           size_t max_indel_bases) {
                                                                  
     return find_best_chains(
@@ -695,6 +722,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         for_each_transition,
         item_bonus,
         item_scale,
+        gap_scale,
         max_indel_bases
     ).front();
 }

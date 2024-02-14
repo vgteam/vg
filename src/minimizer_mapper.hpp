@@ -144,6 +144,23 @@ public:
     static constexpr size_t default_max_extensions = 800;
     size_t max_extensions = default_max_extensions;
 
+    // If a cluster's score is smaller than the best score of any cluster by more than
+    /// this much, then don't extend it
+    static constexpr double default_cluster_score_threshold = 50;
+    double cluster_score_threshold = default_cluster_score_threshold;
+    
+    /// If the second best cluster's score is no more than this many points below
+    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    /// second best cluster's score, to avoid throwing away promising
+    /// secondaries.
+    static constexpr double default_pad_cluster_score_threshold = 20;
+    double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
+
+    /// If the read coverage of a cluster is less than the best coverage of any tree
+    /// by more than this much, don't extend it
+    static constexpr double default_cluster_coverage_threshold = 0.3;
+    double cluster_coverage_threshold = default_cluster_coverage_threshold;
+
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
     static constexpr double default_extension_set_score_threshold = 20;
@@ -163,35 +180,19 @@ public:
     /// process anything with a score smaller than this.
     static constexpr int default_extension_set_min_score = 20;
     int extension_set_min_score = default_extension_set_min_score;
-    
-    /////////////////
-    // More shared parameters:
-    /////////////////
 
-    /// How many extended clusters should we align, max?
-    static constexpr size_t default_max_alignments = 8;
-    size_t max_alignments = default_max_alignments;
-    
     /// How many extensions should we try as seeds within a mapping location?
     static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
     size_t max_local_extensions = default_max_local_extensions;
 
-    /// If a cluster's score is smaller than the best score of any cluster by more than
-    /// this much, then don't extend it
-    static constexpr double default_cluster_score_threshold = 50;
-    double cluster_score_threshold = default_cluster_score_threshold;
     
-    /// If the second best cluster's score is no more than this many points below
-    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
-    /// second best cluster's score, to avoid throwing away promising
-    /// secondaries.
-    static constexpr double default_pad_cluster_score_threshold = 20;
-    double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
-
-    /// If the read coverage of a cluster is less than the best coverage of any cluster or tree
-    /// by more than this much, don't extend it
-    static constexpr double default_cluster_coverage_threshold = 0.3;
-    double cluster_coverage_threshold = default_cluster_coverage_threshold;
+    /////////////////
+    // More shared parameters:
+    /////////////////
+    
+    /// How many alignments should we make, max?
+    static constexpr size_t default_max_alignments = 8;
+    size_t max_alignments = default_max_alignments;
     
     //////////////////
     // Alignment-from-chains/long read Giraffe specific parameters:
@@ -210,9 +211,33 @@ public:
     double zipcode_tree_scale = default_zipcode_tree_scale;
 
     /// How far do we want to go down looking at zip code trees to make fragments?
-    static constexpr double default_zipcode_tree_score_threshold = 1.5;
+    static constexpr double default_zipcode_tree_score_threshold = 50;
     double zipcode_tree_score_threshold = default_zipcode_tree_score_threshold;
+
+    /// If the second best tree's score is no more than this many points below
+    /// the cutoff set by zipcode_tree_score_threshold, snap that cutoff down
+    /// to the second best tree's score, to avoid throwing away promising
+    /// secondaries.
+    static constexpr double default_pad_zipcode_tree_score_threshold = 20;
+    double pad_zipcode_tree_score_threshold = default_pad_zipcode_tree_score_threshold;
+
+    /// If the read coverage of a tree is less than the best coverage of any tree
+    /// by more than this much, don't extend it
+    static constexpr double default_zipcode_tree_coverage_threshold = 0.3;
+    double zipcode_tree_coverage_threshold = default_zipcode_tree_coverage_threshold;
+
+    /// How many things should we produce fragments for, min?
+    static constexpr size_t default_min_to_fragment = 4;
+    size_t min_to_fragment = default_min_to_fragment;
+
+    /// How many things should we produce fragments for, max?
+    static constexpr size_t default_max_to_fragment = 10;
+    size_t max_to_fragment = default_max_to_fragment;
     
+    /// If true, do gapless extension to the seeds in each tree before fragmenting the tree.
+    static constexpr bool default_do_gapless_extension = false;
+    bool do_gapless_extension = default_do_gapless_extension;
+
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
@@ -224,14 +249,6 @@ public:
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
-    /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 4;
-    size_t min_to_fragment = default_min_to_fragment;
-
-    /// How many things should we produce fragments for, max?
-    static constexpr size_t default_max_to_fragment = 10;
-    size_t max_to_fragment = default_max_to_fragment;
-
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
@@ -243,7 +260,7 @@ public:
     size_t max_tail_length = default_max_tail_length;
     
     /// How good should a fragment be in order to keep it? Fragments with
-    /// scores less than this fraction of the best sibling fragment's score
+    /// scores less than this fraction of the best fragment's score
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
@@ -258,8 +275,12 @@ public:
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
     /// in fragmenting/chaining?
-    static constexpr int default_item_scale = 0;
+    static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// in fragmenting/chaining?
+    static constexpr double default_gap_scale = 1.0;
+    double gap_scale = default_gap_scale;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
@@ -273,6 +294,10 @@ public:
     /// fewer than this many chains.
     static constexpr int default_min_chains = 4;
     int min_chains = default_min_chains;
+
+    /// Allow up to this many chains per tree
+    static constexpr size_t default_max_chains_per_tree = 1;
+    size_t max_chains_per_tree = default_max_chains_per_tree;
     
     /// Even if we would have fewer than min_chains results, don't
     /// process anything with a score smaller than this, per read base.
@@ -476,9 +501,15 @@ protected:
     
     /// Convert a single seed to a single chaining anchor.
     static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
+
+    /// Convert a read region, and the seeds that that region covers the
+    /// stapled bases of (sorted by stapled base), into a single chaining
+    /// anchor. Takes an iterator range of positions within the base range that
+    /// are mismatches.
+    static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner);
     
-    /// Convert an Anchor to a WFAAlignment
-    WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 
+    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
+    WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 
 
     /// The information we store for each cluster.
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;
@@ -563,16 +594,28 @@ protected:
     std::pair<double, double> score_tree(const ZipCodeForest& zip_code_forest, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
-     * Extends the seeds in a cluster into a collection of GaplessExtension objects.
+     * Extends the seeds in a cluster or other grouping into a collection of
+     * GaplessExtension objects.
+     *
+     * If funnel is set, the group is intended to come from the previous funnel
+     * stage and will be introduced in this one.
+     *
+     * If seeds_used is not null, it should be an empty vector that gets filled
+     * with, for each gapless extension, the numbers of the seeds in seeds that
+     * are subsumed into the extension. They will be sorted by the stapled base
+     * (first base for forward strand, last base for reverse strand) in the
+     * read. 
      */
-    vector<GaplessExtension> extend_cluster(
-        const Cluster& cluster,
-        size_t cluster_num,
+    vector<GaplessExtension> extend_seed_group(
+        const std::vector<size_t>& seed_group,
+        size_t source_num,
         const VectorView<Minimizer>& minimizers,
         const std::vector<Seed>& seeds,
         const string& sequence,
-        vector<vector<size_t>>& minimizer_kept_cluster_count,
-        Funnel& funnel) const;
+        size_t max_mismatches,
+        vector<vector<size_t>>* minimizer_kept_count = nullptr,
+        Funnel* funnel = nullptr,
+        std::vector<std::vector<size_t>>* seeds_used = nullptr) const;
     
     /**
      * Score the given group of gapless extensions. Determines the best score

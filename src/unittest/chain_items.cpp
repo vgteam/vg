@@ -16,7 +16,7 @@ static vector<algorithms::Anchor> make_anchors(const vector<tuple<size_t, handle
     vector<algorithms::Anchor> to_score;
     for (auto& item : test_data) {
         pos_t graph_pos = make_pos_t(graph.get_id(get<1>(item)), graph.get_is_reverse(get<1>(item)), get<2>(item));
-        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), get<4>(item));
+        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), 0, 0, get<4>(item));
     }
     
     // Sort by read interval as is required
