@@ -56,7 +56,7 @@ void help_cluster(char** argv) {
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
     << "  -U, --max-min INT             use at most INT minimizers, 0 for no limit [500]" << endl
     << "  -b, --num-bp-per-min INT      use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
-    << "  -D, --downsample-min INT      downsample minimizers with windows of length INT, 0 for no downsampling [0]" << endl
+    << "  -D, --downsample-min INT      downsample minimizers with windows of length read length/INT, 0 for no downsampling [0]" << endl
     << "  -z, --zip-codes FILE          file containing extra zip codes not stored in the minimizers" << endl
     << "  -Z, --zip-tree                create a zipcode tree instead of clustering" << endl
     << "computational parameters:" << endl 
@@ -290,7 +290,7 @@ int main_cluster(int argc, char** argv) {
         using MinimizerMapper::minimizer_score_fraction;
         using MinimizerMapper::max_unique_min;
         using MinimizerMapper::num_bp_per_min;
-        using MinimizerMapper::minimizer_downsampling_window_size;
+        using MinimizerMapper::minimizer_downsampling_window_count;
         using MinimizerMapper::track_provenance;
 
     };
@@ -462,7 +462,7 @@ int main_cluster(int argc, char** argv) {
                 minimizer_mapper.minimizer_score_fraction = score_fraction;
                 minimizer_mapper.max_unique_min = max_min;
                 minimizer_mapper.num_bp_per_min = num_bp_per_min;
-                minimizer_mapper.minimizer_downsampling_window_size = downsample_min;
+                minimizer_mapper.minimizer_downsampling_window_count = downsample_min;
                 minimizer_mapper.track_provenance = true;
                 Funnel funnel;
                 funnel.start(aln.name());

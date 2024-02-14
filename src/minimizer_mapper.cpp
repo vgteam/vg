@@ -3408,8 +3408,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // We keep a set of the minimizers that pass downsampling.
     // We later need to filter given a minimizer reference and that makes it hard to use a bit vector here.
     // TODO: change how the filters work!
+
+    //Adjust the downsampling window by read length
+    //If the windows will be too small (<2), then don't downsample
+    size_t minimizer_downsampling_window_size = this->minimizer_downsampling_window_count == 0 
+                                                || aln.sequence().size() < this->minimizer_downsampling_window_count*2
+                                              ? 0 
+                                              : aln.sequence().size() / this->minimizer_downsampling_window_count;
+
     std::unordered_set<const Minimizer*> downsampled;
-    if (this->minimizer_downsampling_window_size != 0) {
+    if (minimizer_downsampling_window_size != 0) {
         // Downsample the minimizers. This needs to break up by minimizer length.
         // So we need to organize the minimizers by length if we are weirdly using multiple lengths of minimizer.
         std::unordered_map<size_t, std::vector<size_t>> minimizers_in_read_order_by_length;
@@ -3421,10 +3429,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
         for (auto& kv : minimizers_in_read_order_by_length) {
             auto& length = kv.first;
-            crash_unless(length <= this->minimizer_downsampling_window_size);
+            crash_unless(length <= minimizer_downsampling_window_size);
             auto& min_indexes = kv.second;
             // Run downsampling for this length of minimizer.
-            algorithms::sample_minimal(min_indexes.size(), length, this->minimizer_downsampling_window_size, aln.sequence().size(), [&](size_t i) -> size_t {
+            algorithms::sample_minimal(min_indexes.size(), length, minimizer_downsampling_window_size, aln.sequence().size(), [&](size_t i) -> size_t {
                 // Get item start
                 return minimizers_in_read_order.at(min_indexes.at(i)).forward_offset();
             }, [&](size_t a, size_t b) -> bool {
@@ -3450,7 +3458,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
     }
     
-    if (show_work && this->minimizer_downsampling_window_size != 0) {
+    if (show_work && minimizer_downsampling_window_size != 0) {
         size_t total_hits = 0;
         size_t with_hits = 0;
         for (const Minimizer* m : downsampled) {
@@ -3481,7 +3489,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     using filter_t = std::tuple<const char*, std::function<bool(const Minimizer&)>, std::function<double(const Minimizer&)>, std::function<void(const Minimizer&)>, std::function<void(const Minimizer&)>>;
     std::vector<filter_t> minimizer_filters;
     minimizer_filters.reserve(5);
-    if (this->minimizer_downsampling_window_size != 0) {
+    if (minimizer_downsampling_window_size != 0) {
         // Drop minimizers if we didn't select them at downsampling.
         // TODO: Downsampling isn't actually by run, and that's kind of the point?
         minimizer_filters.emplace_back(
