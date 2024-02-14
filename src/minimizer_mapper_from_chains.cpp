@@ -640,6 +640,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
             
+            kept_tree_count++;
+
             if (track_provenance) {
                 // Say we're working on this 
                 funnel.processing_input(item_num);
