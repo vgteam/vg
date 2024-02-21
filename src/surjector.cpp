@@ -3068,6 +3068,13 @@ using namespace std;
 #endif
             }
             
+            // left align on forward strands and right align on reverse strands
+            unordered_map<handle_t, bool> left_align_strand;
+            left_align_strand.reserve(aln_graph->get_node_count());
+            aln_graph->for_each_handle([&](const handle_t& handle) {
+                left_align_strand[handle] = node_trans.at(aln_graph->get_id(handle)).second;
+            });
+            
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, *aln_graph, get_aligner(),
@@ -3083,7 +3090,8 @@ using namespace std;
                                nullptr,                                  // snarl manager
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
-                               allow_negative_scores);
+                               allow_negative_scores,
+                               &left_align_strand);
             
             topologically_order_subpaths(mp_aln);
             
