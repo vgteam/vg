@@ -3090,8 +3090,8 @@ using namespace std;
                                nullptr,                                  // snarl manager
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
-                               allow_negative_scores,
-                               &left_align_strand);
+                               allow_negative_scores,                    // subpath local
+                               &left_align_strand);                      // strand to left align against
             
             topologically_order_subpaths(mp_aln);
             
