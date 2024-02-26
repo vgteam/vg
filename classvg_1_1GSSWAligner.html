@@ -100,10 +100,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae920579abfc1f15c43d0f30e3472fd65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34052d83b0a62374e411ee89eead4175"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a34052d83b0a62374e411ee89eead4175">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const =0</td></tr>
 <tr class="separator:a34052d83b0a62374e411ee89eead4175"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a350908e38cee67ddbe77395624a1cb50"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a350908e38cee67ddbe77395624a1cb50">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const =0</td></tr>
-<tr class="separator:a350908e38cee67ddbe77395624a1cb50"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab3b92372eb75a5b54311b74aa6fe9190"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab3b92372eb75a5b54311b74aa6fe9190">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const =0</td></tr>
-<tr class="separator:ab3b92372eb75a5b54311b74aa6fe9190"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a75d946105738eca7793da2a5c77bf57e"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a75d946105738eca7793da2a5c77bf57e">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *left_align_strand=nullptr) const =0</td></tr>
+<tr class="separator:a75d946105738eca7793da2a5c77bf57e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab942a7b77fbe5169e35a09bd8fee3198"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab942a7b77fbe5169e35a09bd8fee3198">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *left_align_strand=nullptr) const =0</td></tr>
+<tr class="separator:ab942a7b77fbe5169e35a09bd8fee3198"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a71da93203b17beaffac6d7e6bbfe7c0b">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const =0</td></tr>
 <tr class="memdesc:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="mdescLeft">&#160;</td><td class="mdescRight">xdrop aligner  <a href="classvg_1_1GSSWAligner.html#a71da93203b17beaffac6d7e6bbfe7c0b">More...</a><br /></td></tr>
 <tr class="separator:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -339,8 +339,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a350908e38cee67ddbe77395624a1cb50"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a350908e38cee67ddbe77395624a1cb50">&#9670;&nbsp;</a></span>align_global_banded()</h2>
+<a id="a75d946105738eca7793da2a5c77bf57e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a75d946105738eca7793da2a5c77bf57e">&#9670;&nbsp;</a></span>align_global_banded()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -370,7 +370,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>permissive_banding</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>permissive_banding</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *&#160;</td>
+          <td class="paramname"><em>left_align_strand</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -386,12 +392,12 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>store optimal global alignment against a graph within a specified band in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object permissive banding auto detects the width of band needed so that paths can travel through every node in the graph </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#af7982acd5c785bf80de3e2b8ddeb89dd">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a7d0af54853dfa98e238e1457faa00f4f">vg::Aligner</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a5ec114f94ee25899d7a0667c6f31036c">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a23391205007eb9ed1c14c023dc744924">vg::Aligner</a>.</p>
 
 </div>
 </div>
-<a id="ab3b92372eb75a5b54311b74aa6fe9190"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab3b92372eb75a5b54311b74aa6fe9190">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
+<a id="ab942a7b77fbe5169e35a09bd8fee3198"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab942a7b77fbe5169e35a09bd8fee3198">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -433,7 +439,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>permissive_banding</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>permissive_banding</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *&#160;</td>
+          <td class="paramname"><em>left_align_strand</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -449,7 +461,7 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). if there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. the optimal alignment will be stored in both the vector and the original alignment object </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a61c7e3502ccbc03884be829da20768c2">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a86579ab7dbf7799ae998bcac6ac4c9d0">vg::Aligner</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a3dc0c0bf01cb230d1bd627c5b842f1de">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a7cf5d0a98af2eceeced2aeb0d21bf1a1">vg::Aligner</a>.</p>
 
 </div>
 </div>

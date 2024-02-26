@@ -128,10 +128,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans, vector&lt; size_t &gt; *path_node_provenance=nullptr)</td></tr>
 <tr class="memdesc:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">More...</a><br /></td></tr>
 <tr class="separator:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a307deeac2e8e6c29c89bddbcf08e6e37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a307deeac2e8e6c29c89bddbcf08e6e37">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:a307deeac2e8e6c29c89bddbcf08e6e37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad175966776feb760bcdef44158b2b830"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ad175966776feb760bcdef44158b2b830">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:ad175966776feb760bcdef44158b2b830"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0441b6564d570a37a778d9966e180e43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a0441b6564d570a37a778d9966e180e43">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *left_align_strand=nullptr)</td></tr>
+<tr class="separator:a0441b6564d570a37a778d9966e180e43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8afc1b58038770a8376fe27ca6d6ce3c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8afc1b58038770a8376fe27ca6d6ce3c">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *left_align_strand=nullptr)</td></tr>
+<tr class="separator:a8afc1b58038770a8376fe27ca6d6ce3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a90ff13eb09622a6f5fa9238f6ec4950b">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const</td></tr>
 <tr class="separator:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4fc215d24f20c5ddc3916024c7ab62b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">get_connected_components</a> () const</td></tr>
@@ -920,8 +920,8 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad175966776feb760bcdef44158b2b830"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad175966776feb760bcdef44158b2b830">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="a8afc1b58038770a8376fe27ca6d6ce3c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8afc1b58038770a8376fe27ca6d6ce3c">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1020,7 +1020,13 @@ Static Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *&#160;</td>
+          <td class="paramname"><em>left_align_strand</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1034,8 +1040,8 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a307deeac2e8e6c29c89bddbcf08e6e37"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a307deeac2e8e6c29c89bddbcf08e6e37">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
+<a id="a0441b6564d570a37a778d9966e180e43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0441b6564d570a37a778d9966e180e43">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1134,7 +1140,13 @@ Static Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, bool &gt; *&#160;</td>
+          <td class="paramname"><em>left_align_strand</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
