@@ -387,6 +387,7 @@ void ReadFilter<Read>::filter_internal(istream* in) {
 
     if (write_tsv) {
         //write a header for the tsv
+        cout << "#";
         for (size_t i = 0 ; i < output_fields.size() ; i++) {
             const string& field = output_fields[i];
             cout << field;
@@ -1393,6 +1394,8 @@ void ReadFilter<Read>::emit_tsv(Read& read) {
                 }
             } else if (field == "mapping_quality") {
                 cout << get_mapq(read); 
+            } else if (field == "sequence") {
+                cout << read.sequence(); 
             } else if (field == "annotation") {
                 throw runtime_error("error: Cannot write all annotations");
             } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
