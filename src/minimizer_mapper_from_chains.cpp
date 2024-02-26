@@ -2266,12 +2266,15 @@ Alignment MinimizerMapper::find_chain_alignment(
         auto start_time = std::chrono::high_resolution_clock::now();
         string right_tail = aln.sequence().substr((*here).read_end(), right_tail_length);
         WFAAlignment right_alignment;
-        pos_t left_anchor = (*here).graph_end();
-        get_offset(left_anchor)--;
+        // Grab the past-end graph position from the last thing in the chain. It is included in the tail as a base to align against.
+        pos_t left_anchor_included = (*here).graph_end();
+        // Pull back a base to get the outside-the-alignment anchoring position.
+        pos_t left_anchor_excluded = left_anchor_included;
+        get_offset(left_anchor_excluded)--;
         if (right_tail_length <= max_tail_length) {
             // We align the right tail with suffix(), which creates a suffix of the alignment.
-            // Make sure to walk back the anchor so it is outside of the region to be aligned.
-            right_alignment = extender.suffix(right_tail, left_anchor);
+            // Make sure to use the anchor outside of the region to be aligned.
+            right_alignment = extender.suffix(right_tail, left_anchor_excluded);
         }
         
         if (right_alignment) {
@@ -2289,7 +2292,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (right_alignment.length != right_tail_length) {
                 // We didn't get the alignment we expected.
                 stringstream ss;
-                ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
+                ss << "Aligning right tail " << right_tail << " from " << left_anchor_excluded << " produced wrong-length alignment ";
                 right_alignment.print(ss);
                 throw ChainAlignmentFailedError(ss.str());
             }
@@ -2324,7 +2327,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #ifdef debug_chain_alignment
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor << " in " << aln.name() << " to avoid overflow" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor_included << " in " << aln.name() << " to avoid overflow" << endl;
                 }
 #endif
                 
@@ -2347,12 +2350,14 @@ Alignment MinimizerMapper::find_chain_alignment(
 #ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor_included << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
 #endif
 
                 // Align the right tail, anchoring the left end.
-                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                // We need to use the included-in-the-alignment left anchor position.
+                // TODO: What if it is past a node end? Is it guaranteed to be handled right?
+                align_sequence_between(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work && max_tail_length > 0) {
                     #pragma omp critical (cerr)
@@ -2770,9 +2775,16 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             m->mutable_position()->set_node_id(base_coords.first);
             m->mutable_position()->set_is_reverse(base_coords.second);
         }
-        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
+        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0 && offset(left_anchor) < graph->get_length(graph->get_handle(id(left_anchor)))) {
+            // There is some of the left anchor's node actually in the
+            // extracted graph. The left anchor isn't past the end of its node.
+            
             // Get the positions of the leftmost mapping
             Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
+
+            // The alignment must actually start on the anchor node.
+            assert(left_pos->node_id() == id(left_anchor));
+
             // Add on the offset for the missing piece of the left anchor node
             left_pos->set_offset(left_pos->offset() + offset(left_anchor));
         }

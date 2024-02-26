@@ -388,6 +388,140 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         REQUIRE(aln.path().mapping(2).position().offset() == 0);
 }
 
+TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "T"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 0}; // This includes the base on node 1
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should have a 1bp deletion and then the matching node.
+        REQUIRE(aln.path().mapping_size() == 2);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 0);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+        REQUIRE(aln.path().mapping(1).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(1).edit_size() == 1);
+        REQUIRE(aln.path().mapping(1).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+}
+
+TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "TATA"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 3}; // This includes the last base on node 1
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should have a 1bp deletion and then the matching node.
+        REQUIRE(aln.path().mapping_size() == 2);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 3);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+        REQUIRE(aln.path().mapping(1).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(1).edit_size() == 1);
+        REQUIRE(aln.path().mapping(1).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+}
+
+TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "T"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 1}; // This is the past-end position
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should pick the matching node and use it. 
+        REQUIRE(aln.path().mapping_size() == 1);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 0);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+}
+
 TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a node", "[giraffe][mapping]") {
 
         Aligner aligner;
