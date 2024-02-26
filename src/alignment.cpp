@@ -910,9 +910,9 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar, char mismatch_operation) {
     for (const auto& edit : mapping.edit()) {
-        if (edit.from_length() && edit.from_length() == edit.to_length()) {
+        if (edit.sequence().empty() && edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
             append_cigar_operation(edit.from_length(), 'M', cigar);
@@ -921,8 +921,8 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
-                append_cigar_operation(edit.from_length(), 'M', cigar);
-                //cerr << "match " << edit.from_length() << endl;
+                append_cigar_operation(edit.from_length(), mismatch_operation, cigar);
+                //cerr << "mismatch " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();

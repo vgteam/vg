@@ -102,10 +102,10 @@ string MinimizerMapper::log_alignment(const Path& path, bool force_condensed) {
     } else {
         // Log as a long alignment
         
-        // Turn it into one big CIGAR string
+        // Turn it into one big CIGAR string, with mismatches marked.
         vector<pair<int, char>> cigar;
         for (auto& mapping : path.mapping()) {
-            mapping_cigar(mapping, cigar);
+            mapping_cigar(mapping, cigar, 'X');
         }
         
         // And then put that
