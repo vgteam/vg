@@ -1334,9 +1334,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
-    // Track what graph nodes were used in previously generated alignments, so we can fish out alignments to different placements.
-    // TODO: Make this in terms of ranges/positions instead
-    std::unordered_set<nid_t> used_nodes;
+    // Track what read offset, graph node pairs were used in previously generated alignments, so we can fish out alignments to different placements.
+    std::unordered_set<std::pair<size_t, pos_t>> used_matchings;
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1365,15 +1364,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             for (auto& seed_num : chains[processed_num]) {
-                auto node_id = id(seeds.at(seed_num).pos);
-                if (used_nodes.count(node_id)) {
+                auto matching = std::make_pair(minimizers[seeds.at(seed_num).source].forward_offset(), seeds.at(seed_num).pos);
+                if (used_matchings.count(matching)) {
                     if (track_provenance) {
                         funnel.fail("chain-overlap", processed_num);
                     }
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at node " << node_id << endl;
+                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read position " << matching.first << " and graph position " << matching.second << endl;
                         }
                     }
                     return false;
@@ -1382,7 +1381,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_nodes.size() << " nodes used in previous alignments" << endl;
+                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
                 }
             }
             if (track_provenance) {
@@ -1458,10 +1457,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(processed_num);
-
+                
+                size_t read_pos = 0;
                 for (auto& mapping : alignments.back().path().mapping()) {
-                    // Mark all the nodes it visits used.
-                    used_nodes.insert(mapping.position().node_id());
+                    // Mark all the read-node matches it visits used.
+                    used_matchings.emplace(read_pos, make_pos_t(mapping.position()));
+                    read_pos += mapping_to_length(mapping);
                 }
 
                 if (track_provenance) {
