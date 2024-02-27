@@ -1,8 +1,6 @@
 /** \file haplotypes_main.cpp
  *
- * Defines the "vg haplotypes" subcommand, which will ultimately sample haplotypes.
- *
- * This is currently highly experimental.
+ * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
  */
 
 #include "subcommand.hpp"
@@ -79,6 +77,7 @@ struct HaplotypesConfig {
         mode_sample_haplotypes,
         mode_map_variants,
         mode_extract,
+        mode_classify,
     };
 
     OperatingMode mode = mode_invalid;
@@ -86,7 +85,7 @@ struct HaplotypesConfig {
 
     // File names.
     std::string graph_name;
-    std::string gbz_output, haplotype_output, score_output;
+    std::string gbz_output, haplotype_output, score_output, kmer_output;
     std::string distance_name, r_index_name;
     std::string haplotype_input, kmer_input, vcf_input;
 
@@ -116,6 +115,8 @@ void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, 
 void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+
+void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 //----------------------------------------------------------------------------
 
@@ -169,6 +170,11 @@ int main_haplotypes(int argc, char** argv) {
     // Extract local haplotypes in FASTA format.
     if (config.mode == HaplotypesConfig::mode_extract) {
         extract_haplotypes(gbz, haplotypes, config);
+    }
+
+    // Classify kmers.
+    if (config.mode == HaplotypesConfig::mode_classify) {
+        classify_kmers(gbz, haplotypes, config);
     }
 
     if (config.verbosity >= Haplotypes::verbosity_basic) {
@@ -233,6 +239,7 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << "        --extract M:N         extract haplotypes in chain M, subchain N in FASTA format" << std::endl;
         std::cerr << "        --score-output X      write haplotype scores to X" << std::endl;
+        std::cerr << "        --classify X          classify kmers and write output to X" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -255,6 +262,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_CONTIG_PREFIX = 1501;
     constexpr int OPT_EXTRACT = 1600;
     constexpr int OPT_SCORE_OUTPUT = 1601;
+    constexpr int OPT_CLASSIFY = 1602;
 
     static struct option long_options[] =
     {
@@ -281,6 +289,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "contig-prefix", required_argument, 0, OPT_CONTIG_PREFIX },
         { "extract", required_argument, 0, OPT_EXTRACT },
         { "score-output", required_argument, 0, OPT_SCORE_OUTPUT },
+        { "classify", required_argument, 0, OPT_CLASSIFY },
         { 0, 0, 0, 0 }
     };
 
@@ -418,6 +427,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_SCORE_OUTPUT:
             this->score_output = optarg;
             break;
+        case OPT_CLASSIFY:
+            this->kmer_output = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -445,6 +457,8 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() &&
         this->chain_id < std::numeric_limits<size_t>::max() && this->subchain_id < std::numeric_limits<size_t>::max()) {
         this->mode = mode_extract;
+    } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() && !this->kmer_output.empty()) {
+        this->mode = mode_classify;
     }
     if (this->mode == mode_invalid) {
         help_haplotypes(argv, false);
@@ -918,6 +932,28 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
             out << "\n";
         }
     }
+}
+
+//----------------------------------------------------------------------------
+
+void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Classifying kmers" << std::endl;
+    }
+    Recombinator recombinator(gbz, config.verbosity);
+    std::vector<char> classifications = recombinator.classify_kmers(haplotypes, config.kmer_input, config.recombinator_parameters);
+
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Writing " << classifications.size() << " classifications to " << config.kmer_output << std::endl;
+    }
+    std::ofstream out(config.kmer_output, std::ios_base::binary);
+    if (!out) {
+        std::cerr << "error: [vg haplotypes] cannot open kmer classification file " << config.kmer_output << " for writing" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    // Multi-gigabyte writes do not work in every environment, but we assume that
+    // there are only at most a few hundred million kmers.
+    out.write(classifications.data(), classifications.size());
 }
 
 //----------------------------------------------------------------------------
