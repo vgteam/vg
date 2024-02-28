@@ -523,6 +523,29 @@ TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][
         REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
 }
 
+TEST_CASE("MinimizerMapper can compute longest detectable gap in range", "[giraffe][mapping]") {
+
+    Alignment aln;
+    aln.set_sequence("GATTACACATTAGGATTACACATTAG");
+
+    Aligner aligner;
+
+    size_t whole_sequence_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
+    size_t first_base_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + 1, &aligner);
+    size_t last_base_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().end() - 1, aln.sequence().end(), &aligner);
+    size_t left_subrange_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin() + 4,aln.sequence().begin() + 7, &aligner);
+    size_t right_subrange_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().end() - 7, aln.sequence().end() - 4, &aligner);
+
+    // Having the whole sequence should give you the longest gap
+    REQUIRE(whole_sequence_gap > left_subrange_gap);
+    // Subranges equal distances from the ends should have equal gaps
+    REQUIRE(left_subrange_gap == right_subrange_gap);
+    // Being right at the end should have the smallest gap
+    REQUIRE(left_subrange_gap > first_base_gap);
+    // The end bases as subranges should have equal gaps
+    REQUIRE(first_base_gap == last_base_gap);
+}
+
 TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting softclip", "[giraffe][mapping][left_tail]") {
 
         Aligner aligner;
