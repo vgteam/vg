@@ -1557,14 +1557,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Now say we are finding the winner(s)
         funnel.stage("winner");
     }
-
-    // We need all the alignments sorted by score, but with the best-scoring
-    // ones shuffled so we can't tend to pick the wrong ones and so MAPQ is
-    // true at the low end.
-    std::vector<size_t> alignment_indices = range_vector(alignments.size());
-    sort_shuffling_ties(alignment_indices.begin(), alignment_indices.end(), [&](size_t a, size_t b) {
-        return alignments.at(a).score() > alignments.at(b).score();  
-    }, rng);
     
     // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
@@ -1574,12 +1566,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
-    process_until_threshold_a(alignment_indices.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        return alignments.at(alignment_indices.at(i)).score();
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_index_num) {
+    // Go through the alignments in descending score order, with ties at the top end shuffled.
+    process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
+        return alignments.at(i).score();
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
         // This alignment makes it
         // Called in score order
-        auto alignment_num = alignment_indices.at(alignment_index_num);
         
         // Remember the score at its rank
         scores.emplace_back(alignments[alignment_num].score());
@@ -1595,9 +1587,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
         
         return true;
-    }, [&](size_t alignment_index_num) {
+    }, [&](size_t alignment_num) {
         // We already have enough alignments, although this one has a good score
-        auto alignment_num = alignment_indices.at(alignment_index_num);
         
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
@@ -1605,7 +1596,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
         }
-    }, [&](size_t alignment_index_num) {
+    }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
         crash_unless(false);
