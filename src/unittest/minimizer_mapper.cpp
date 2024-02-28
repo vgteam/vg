@@ -548,8 +548,6 @@ TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting so
         size_t max_gap_length = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
         TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, aln.sequence().size() + max_gap_length, max_gap_length, &graph, &aligner, aln);
 
-        std::cerr << pb2json(aln) << std::endl;
-
         // First edit shouldn't be a softclip
         REQUIRE(aln.path().mapping_size() > 0);
         REQUIRE(aln.path().mapping(0).edit_size() > 0);

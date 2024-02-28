@@ -2647,7 +2647,27 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
 
 size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner) {
     
-    return aligner->longest_detectable_gap(aln, sequence_begin);
+    // TODO: Should we take numbers and not iterators? This API could convert
+    // better to quality adjustment later though.
+
+    // If the range covers the middle, the longest detectable gap is the one from the middle.
+    // TODO: Won't always be true anymore if we add quality adjustment
+    size_t middle_index = aln.sequence().size() / 2;
+    size_t begin_index = sequence_begin - aln.sequence().begin();
+    size_t end_index = sequence_end - aln.sequence().begin();
+    if (end_index > middle_index && begin_index <= middle_index) {
+        return aligner->longest_detectable_gap(aln, aln.sequence().begin() + middle_index);
+    }
+    
+    // Otherwise it is the length from the boundary nearest to the middle.
+    // And we know the while range is on one side or the other of the middle.
+    if (begin_index > middle_index) {
+        // Beginning is on the inside
+        return aligner->longest_detectable_gap(aln, sequence_begin);
+    }
+
+    // Otherwise the end is on the inside
+    return aligner->longest_detectable_gap(aln, sequence_end);
 }
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
