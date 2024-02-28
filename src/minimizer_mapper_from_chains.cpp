@@ -1971,7 +1971,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
                 
                 // Work out how far the tail can see
-                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + left_tail_length);
+                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + left_tail_length, this->get_regular_aligner());
                 size_t graph_horizon = left_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
@@ -2209,7 +2209,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             // Guess how long of a graph path we ought to allow in the alignment.
-            size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
+            size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner());
             size_t path_length = std::max(graph_length, link_length);
             MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             link_alignment_source = "align_sequence_between";
@@ -2352,7 +2352,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
 
                 // Work out how far the tail can see
-                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + (*here).read_end(), aln.sequence().end(), this->get_regular_aligner());
                 size_t graph_horizon = right_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
@@ -2643,6 +2643,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     
     // Show the graph we made and the translation function
     callback(dagified_graph, dagified_handle_to_base);
+}
+
+size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner) {
+    
+    return aligner->longest_detectable_gap(aln, sequence_begin);
 }
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {

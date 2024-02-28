@@ -30,6 +30,7 @@ public:
     using MinimizerMapper::fragment_length_distr;
     using MinimizerMapper::faster_cap;
     using MinimizerMapper::with_dagified_local_graph;
+    using MinimizerMapper::longest_detectable_gap_in_range;
     using MinimizerMapper::align_sequence_between;
     using MinimizerMapper::to_anchor;
 };
@@ -527,9 +528,7 @@ TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting so
         Aligner aligner;
         
         string graph_json = R"({
-            "node": [
-                {"id": "1", "sequence": "AAAAAAAATACAAAAAATTAGCCGGGCGTGGTAGCGGGCGCCTGTAGTCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATGGCGTGAACCCGGGAGGCGGAGCTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATTCCATAGTTAGAAAAATAAGACATATCAGGTTTTCAA"}
-            ]
+            "edge": [{"from": "30788083", "to": "30788088"}, {"from": "30788083", "to": "30788084"}, {"from": "30788074", "to": "30788075"}, {"from": "30788074", "to": "30788076"}, {"from": "30788079", "to": "30788080"}, {"from": "30788079", "to": "30788081"}, {"from": "30788086", "to": "30788088"}, {"from": "30788086", "to": "30788087", "to_end": true}, {"from": "30788075", "to": "30788077"}, {"from": "30788073", "to": "30788074"}, {"from": "30788078", "to": "30788079"}, {"from": "30788077", "to": "30788078"}, {"from": "30788084", "to": "30788088"}, {"from": "30788084", "to": "30788085"}, {"from": "30788076", "to": "30788077"}, {"from": "30788087", "from_start": true, "to": "30788088"}, {"from": "30788081", "to": "30788082"}, {"from": "30788080", "to": "30788082"}, {"from": "30788082", "to": "30788088"}, {"from": "30788082", "to": "30788083"}, {"from": "30788085", "to": "30788086"}], "node": [{"id": "30788083", "sequence": "AAA"}, {"id": "30788074", "sequence": "AAAAAAAATACAAAAAATTAGC"}, {"id": "30788079", "sequence": "CGCCACTGCACTCCAGCCTGGGC"}, {"id": "30788086", "sequence": "AAAAAAA"}, {"id": "30788075", "sequence": "T"}, {"id": "30788073", "sequence": "GAAAGAGAGTTGTTTAAATTCCATAGTTAGGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACGAGGTCAGGAGATCGAGACCATCCTGGCTAACACGGTGAAACCCCGTCTCTACTA"}, {"id": "30788078", "sequence": "G"}, {"id": "30788077", "sequence": "GGGCGTGGTAGCGGGCGCCTGTAGTCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATGGCGTGAACCCGGGAGGCGGAGCTTGCAGTGAGCCGAGATC"}, {"id": "30788084", "sequence": "A"}, {"id": "30788088", "sequence": "AATTCCATAGTTAGAAAAATAAGACATATCAGGTTTTCAAAAAGTGTAGCCATTTTCTGTTTCTAAAAGGGACACTTAAAGTGAAA"}, {"id": "30788076", "sequence": "C"}, {"id": "30788087", "sequence": "T"}, {"id": "30788081", "sequence": "A"}, {"id": "30788080", "sequence": "G"}, {"id": "30788082", "sequence": "ACAGAGCGAGACTCCGTCTCAAAAAAAAAAAAAA"}, {"id": "30788085", "sequence": "AA"}]
         })";
         
         // TODO: Write a json_to_handle_graph
@@ -541,18 +540,20 @@ TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting so
         aln.set_sequence("TTGAAAACCTGATATGTCTTATTTTTCTAACTATGGAATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAGACGGAGTCTCGCTCTGTCGCCCAGGCTGGAGTGCAGTGGCGCGATCTCGGCTCACTGCAAGCTCCGCCTCCCGGGTTCACGCCATTCTCCTGCCTCAGCCTCCCGAGTAGCTGGGACTACAGGCGCCCGCTACCACGCCCGGCTAATTTTTTGTATTTTTTTT");
         
         pos_t left_anchor = empty_pos_t();
-        pos_t right_anchor = {1, true, 234}; // This is the past-end position
+        pos_t right_anchor = {30788073, true, 0};
         
-        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+        // The case that prompted this unit test was caused by
+        // misunderestimating the longest detectable gap length when the tail
+        // is nearly all of the read. So do the max gap length estimation.
+        size_t max_gap_length = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, aln.sequence().size() + max_gap_length, max_gap_length, &graph, &aligner, aln);
 
         std::cerr << pb2json(aln) << std::endl;
 
-        // Make sure we get the right alignment. We should pick the matching node and use it. 
-        REQUIRE(aln.path().mapping_size() == 1);
-        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
-        REQUIRE(aln.path().mapping(0).position().is_reverse() == true);
-        REQUIRE(aln.path().mapping(0).position().offset() == 0);
-        REQUIRE(aln.path().mapping(0).edit_size() == 3);
+        // First edit shouldn't be a softclip
+        REQUIRE(aln.path().mapping_size() > 0);
+        REQUIRE(aln.path().mapping(0).edit_size() > 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
 }
 
 TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a node", "[giraffe][mapping]") {

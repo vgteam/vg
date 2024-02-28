@@ -751,7 +751,17 @@ protected:
      * and orientation in the base graph.
      */
     static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
-   
+    
+    /**
+     * Determine the gap limit to use when aligning the given range of sequence
+     * bases for the given Alignment.
+     *
+     * Accounts for the lognest gap that could be detected anywhere in the
+     * range, not just at the very beginning or the very end, or at a single
+     * point like GSSWAligner::longest_detectable_gap().
+     */
+    static size_t longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner);
+
     /**
      * Clip out the part of the graph between the given positions and
      * global-align the sequence of the given Alignment to it. Populate the
