@@ -522,6 +522,39 @@ TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][
         REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
 }
 
+TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting softclip", "[giraffe][mapping][left_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "node": [
+                {"id": "1", "sequence": "AAAAAAAATACAAAAAATTAGCCGGGCGTGGTAGCGGGCGCCTGTAGTCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATGGCGTGAACCCGGGAGGCGGAGCTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATTCCATAGTTAGAAAAATAAGACATATCAGGTTTTCAA"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("TTGAAAACCTGATATGTCTTATTTTTCTAACTATGGAATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAGACGGAGTCTCGCTCTGTCGCCCAGGCTGGAGTGCAGTGGCGCGATCTCGGCTCACTGCAAGCTCCGCCTCCCGGGTTCACGCCATTCTCCTGCCTCAGCCTCCCGAGTAGCTGGGACTACAGGCGCCCGCTACCACGCCCGGCTAATTTTTTGTATTTTTTTT");
+        
+        pos_t left_anchor = empty_pos_t();
+        pos_t right_anchor = {1, true, 234}; // This is the past-end position
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        std::cerr << pb2json(aln) << std::endl;
+
+        // Make sure we get the right alignment. We should pick the matching node and use it. 
+        REQUIRE(aln.path().mapping_size() == 1);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == true);
+        REQUIRE(aln.path().mapping(0).position().offset() == 0);
+        REQUIRE(aln.path().mapping(0).edit_size() == 3);
+}
+
 TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a node", "[giraffe][mapping]") {
 
         Aligner aligner;

@@ -43,7 +43,7 @@
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
 // Debug generation of alignments from chains
-//#define debug_chain_alignment
+#define debug_chain_alignment
 
 namespace vg {
 
@@ -1271,6 +1271,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (track_provenance) {
         funnel.stage("align");
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating alignments=====" << endl;
+        }
     }
 
 #ifdef print_minimizer_table
