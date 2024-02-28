@@ -524,10 +524,8 @@ TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][
 }
 
 TEST_CASE("MinimizerMapper can compute longest detectable gap in range", "[giraffe][mapping]") {
-
     Alignment aln;
     aln.set_sequence("GATTACACATTAGGATTACACATTAG");
-
     Aligner aligner;
 
     size_t whole_sequence_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
