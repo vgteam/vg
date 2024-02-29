@@ -451,6 +451,18 @@ inline int ReadFilter<MultipathAlignment>::filter(istream* alignment_stream) {
     
     return 0;
 }
+template<>
+inline bool ReadFilter<Alignment>::is_correctly_mapped(const Alignment& alignment) const {
+    return alignment.correctly_mapped();
+}
+
+//Looks like multipath alignments don't have a field for this
+template<>
+inline bool ReadFilter<MultipathAlignment>::is_correctly_mapped(const MultipathAlignment& alignment) const {
+    throw(std::runtime_error("error: multipath alignments don't have a field correctly_mapped"));
+    return true;
+}
+
 
 template<>
 inline void ReadFilter<Alignment>::emit(Alignment& aln) {
@@ -1376,8 +1388,12 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
     
 }
 
-template<typename Read>
-void ReadFilter<Read>::emit_tsv(Read& read) {
+template<>
+inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read) {
+    return;
+}
+template<>
+inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
 #pragma omp critical (cout)
     {
 
@@ -1396,6 +1412,8 @@ void ReadFilter<Read>::emit_tsv(Read& read) {
                 cout << get_mapq(read); 
             } else if (field == "sequence") {
                 cout << read.sequence(); 
+            } else if (field == "time_used") {
+                cout << read.time_used();
             } else if (field == "annotation") {
                 throw runtime_error("error: Cannot write all annotations");
             } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {

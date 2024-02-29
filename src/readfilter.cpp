@@ -47,16 +47,5 @@ bool ReadFilter<MultipathAlignment>::is_mapped(const MultipathAlignment& mp_alig
     return false;
 }
 
-template<>
-bool ReadFilter<Alignment>::is_correctly_mapped(const Alignment& alignment) const {
-    return alignment.correctly_mapped();
-}
-
-//Looks like multipath alignments don't have a field for this
-template<>
-bool ReadFilter<MultipathAlignment>::is_correctly_mapped(const MultipathAlignment& alignment) const {
-    throw(std::runtime_error("error: multipath alignments don't have a field correctly_mapped"));
-    return true;
-}
 
 }
