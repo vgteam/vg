@@ -3105,6 +3105,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
                                                dozeu_seed, false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
+            this->fix_dozeu_end_deletions(rescued_alignment);
         } else {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
         }
@@ -3143,6 +3144,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
         get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
+        this->fix_dozeu_end_deletions(rescued_alignment);
     } else if (this->rescue_algorithm == rescue_gssw) {
         get_regular_aligner()->align(rescued_alignment, dagified, true);
     }
@@ -3198,6 +3200,55 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
         }
     }
 }
+
+void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
+    
+    // figure out where the first insert/aligned base occurs on the left side
+    size_t i = 0, j = 0;
+    for (; i < alignment.path().mapping_size(); ++i) {
+        const auto& mapping = alignment.path().mapping(i);
+        for (j = 0; j < mapping.edit_size(); ++j) {
+            if (mapping.edit(j).to_length() != 0) {
+                break;
+            }
+        }
+        if (j != mapping.edit_size()) {
+            break;
+        }
+    }
+    if (i == alignment.path().mapping_size()) {
+        // the entire alignment is a deletion, clear it
+        alignment.clear_path();
+    }
+    else if (i != 0 || j != 0) {
+        // we found a deletion on the left side, remove it
+        auto mappings = alignment.mutable_path()->mutable_mapping();
+        auto edits = (*mappings)[j].mutable_edit();
+        size_t removed = 0;
+        for (size_t k = 0; k < j; ++k) {
+            removed += (*edits)[k].from_length();
+        }
+        edits->erase(edits->begin(), edits->begin() + j);
+        mappings->erase(mappings->begin(), mappings->begin() + i);
+        auto position =  (*mappings)[0].mutable_position();
+        position->set_offset(position->offset() + removed);
+    }
+    
+    // remove deletions on the right side
+    for (int64_t i = alignment.path().mapping_size() - 1; i >= 0; --i) {
+        auto edits = alignment.mutable_path()->mutable_mapping(i)->mutable_edit();
+        while (!edits->empty() && (*edits)[edits->size() - 1].to_length() == 0) {
+            edits->RemoveLast();
+        }
+        if (edits->empty()) {
+            alignment.mutable_path()->mutable_mapping()->RemoveLast();
+        }
+        else {
+            break;
+        }
+    }
+}
+
 
 //-----------------------------------------------------------------------------
 
