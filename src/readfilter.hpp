@@ -1408,6 +1408,14 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
                 } else {
                     cout << "False";
                 }
+            } else if (field == "correctness") {
+                if (is_correctly_mapped(read)) {
+                    cout << "correct";
+                } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
+                    cout << "off-reference";
+                } else {
+                    cout << "incorrect";
+                }
             } else if (field == "mapping_quality") {
                 cout << get_mapq(read); 
             } else if (field == "sequence") {
