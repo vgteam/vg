@@ -1367,7 +1367,16 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
     size_t colon_pos = annotation_to_match.find(":");
     if (colon_pos == string::npos) {
         //If there was no colon, then just check for the existence of the annotation
-        return has_annotation(read, annotation_to_match);
+        // or, if it is a boolean value, check that it's true
+        if (!has_annotation(read, annotation_to_match)) {
+            return false;
+        }
+        google::protobuf::Value value = read.annotation().fields().at(annotation_to_match);
+        if (value.kind_case() == google::protobuf::Value::KindCase::kBoolValue) {
+            return get_annotation<bool>(read, annotation_to_match);
+        } else {
+            return true;
+        }
     } else {
         string annotation_key = annotation_to_match.substr(0, colon_pos);
         if (!has_annotation(read, annotation_key)) {
