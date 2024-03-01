@@ -193,6 +193,11 @@ public:
     /// How many alignments should we make, max?
     static constexpr size_t default_max_alignments = 8;
     size_t max_alignments = default_max_alignments;
+
+    /// How many mismatches should we allow in gapless extension (except for
+    /// start node where the limit doesn't count)?
+    static constexpr size_t default_max_extension_mismatches = GaplessExtender::MAX_MISMATCHES;
+    size_t max_extension_mismatches = default_max_extension_mismatches;
     
     //////////////////
     // Alignment-from-chains/long read Giraffe specific parameters:

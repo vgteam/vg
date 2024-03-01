@@ -229,6 +229,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     comp_opts.add_range(
+        "max-extension-mismatches",
+        &MinimizerMapper::max_extension_mismatches,
+        MinimizerMapper::default_max_extension_mismatches,
+        "maximum number of mismatches to pass through in a gapless extension"
+    );
+    comp_opts.add_range(
         "extension-score", 'v',
         &MinimizerMapper::extension_score_threshold,
         MinimizerMapper::default_extension_score_threshold,
@@ -725,10 +731,13 @@ int main_giraffe(int argc, char** argv) {
         // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 800)
-        .add_entry<bool>("do-gapless-extension", true)
         .add_entry<double>("zipcode-tree-score-threshold", 50)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        // And extend them
+        .add_entry<bool>("do-gapless-extension", true)
+        // Allowing a lot of mismatches because we chop later
+        .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains

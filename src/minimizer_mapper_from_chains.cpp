@@ -689,7 +689,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     minimizers,
                     seeds,
                     aln.sequence(),
-                    GaplessExtender::MAX_MISMATCHES,
+                    this->max_extension_mismatches,
                     nullptr,
                     nullptr,
                     &seeds_for_extension);
