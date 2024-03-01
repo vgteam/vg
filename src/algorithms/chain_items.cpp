@@ -380,6 +380,16 @@ int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
     }
 }
 
+int score_affine_gap(size_t distance_difference, int gap_open, int gap_extend) {
+     if (distance_difference == 0) {
+        return 0;
+    } else if (distance_difference == 1) {
+        return gap_open;
+    } else {
+        return gap_open + (distance_difference - 1) * gap_extend;    
+    }
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
@@ -464,6 +474,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Don't allow an indel this long
             jump_points = std::numeric_limits<int>::min();
         } else {
+            jump_points = 0;
             // Assign points for the assumed matches in the transition, and charge for the indel.
             //
             // The Minimap2 paper
@@ -487,7 +498,13 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, average_anchor_length) * gap_scale;
+            if (gap_scale != 0) {
+                jump_points -= score_chain_gap(indel_length, average_anchor_length) * gap_scale;
+            }
+            if (gap_open != 0 || gap_extension != 0) {
+                // Also apply extra affine gap scoring
+                jump_points -= score_affine_gap(indel_length, gap_open, gap_extension);
+            }
         }
             
         if (jump_points != numeric_limits<int>::min()) {

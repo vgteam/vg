@@ -282,10 +282,16 @@ public:
     /// in fragmenting/chaining?
     static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
-    /// How much of a multiple should we apply to each transition's gap penalty
-    /// in fragmenting/chaining?
+    /// How much of a multiple should we apply to each transition's
+    /// Minimap-style gap penalty in fragmenting/chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    /// Additionally, what gap open cost should we also charge in fragmenting/chaining?
+    static constexpr int default_chaining_gap_open = 0;
+    int chaining_gap_open = default_chaining_gap_open;
+    /// And what gap extend cost should we also charge in fragmenting/chaining?
+    static constexpr int default_chaining_gap_extend = 0;
+    int chaining_gap_extend = default_chaining_gap_extend;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
