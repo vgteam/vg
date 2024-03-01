@@ -226,10 +226,11 @@ public:
     
     /// Call the given callback with stage name, a vector of result item sizes
     /// at that stage, a vector of correct item scores at that stage (if any),
-    /// a duration in seconds, and a map from substage name to duration in
-    /// seconds, for each stage.
+    /// a vector of non-correct item scores at that stage (if any), a duration
+    /// in seconds, and a map from substage name to duration in seconds, for
+    /// each stage.
     /// TODO: Just expose the item and stage types?
-    void for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const;
+    void for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const;
     
     /// Represents the performance of a filter, for either item counts or total item sizes.
     /// Note that passing_correct and failing_correct will always be 0 if nothing is tagged correct.

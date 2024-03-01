@@ -421,22 +421,26 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes
         vector<size_t> item_sizes;
         item_sizes.reserve(stage.items.size());
         // And correct item scores
         vector<double> correct_scores;
-        correct_scores.reserve(stage.items.size());
+        // And noncorrect item scores
+        vector<double> noncorrect_scores;
+        noncorrect_scores.reserve(stage.items.size());
         for (auto& item : stage.items) {
             item_sizes.push_back(item.group_size);
             if (item.tag >= State::CORRECT) {
                 correct_scores.push_back(item.score); 
+            } else {
+                noncorrect_scores.push_back(item.score);
             }
         }
         // Report the name and item count of each stage, along with timings.
-        callback(stage.name, item_sizes, correct_scores, stage.duration, stage.sub_durations);
+        callback(stage.name, item_sizes, correct_scores, noncorrect_scores, stage.duration, stage.sub_durations);
     }
 }
 
@@ -650,7 +654,7 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
     // Save the total duration in the field set asside for it
     aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
     
-    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const vector<double>& correct_scores, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const vector<double>& correct_scores, const vector<double>& noncorrect_scores, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
         // Save the number of items
         set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
         // And the per-stage duration
@@ -662,6 +666,8 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         if (annotate_correctness) {
             // And the correct scores
             set_annotation(aln, "stage_" + stage + "_correct_scores", correct_scores);
+            // And the non-correct scores
+            set_annotation(aln, "stage_" + stage + "_noncorrect_scores", noncorrect_scores);
         }
     });
     
