@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 151
+plan tests 159
 
 
 # Build vg graphs for two chromosomes
@@ -298,10 +298,15 @@ is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"
 is $(vg gbwt -S xy.local.gbwt) 16 "local haplotypes: 16 samples"
 
-# Build GBZ from 16 paths of local haplotypes
-vg gbwt -x xy-alt.xg -g xy.local.gbz --gbz-format -l -n 16 -v small/xy2.vcf.gz
-is $? 0 "Local haplotypes GBZ construction"
-is $(md5sum xy.local.gbz | cut -f 1 -d\ ) 65d2290f32c200ea57212cb7b71075b0 "GBZ was serialized correctly"
+# Build GBZ from 16 paths of local haplotypes with a single job
+vg gbwt -x xy-alt.xg -g xy.local.gbz --gbz-format -l -n 16 --num-jobs 1 -v small/xy2.vcf.gz
+is $? 0 "Local haplotypes GBZ construction (single job)"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) b6540312514c4e70aa45fc65b4bd762c "GBZ was serialized correctly"
+
+# As above, but with two parallel jobs
+vg gbwt -x xy-alt.xg -g xy.local.gbz --gbz-format -l -n 16 --num-jobs 2 -v small/xy2.vcf.gz
+is $? 0 "Local haplotypes GBZ construction (two jobs)"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) b6540312514c4e70aa45fc65b4bd762c "GBZ was serialized correctly"
 
 rm -f xy.local.gg xy.local.gbwt xy.local.gbz
 
@@ -316,6 +321,18 @@ is $(vg gbwt -S xy.local.gbwt) 17 "local haplotypes w/ paths: 17 samples"
 
 rm -f xy.local.gg xy.local.gbwt
 
+# Build GBZ from a GFA and then build a local haplotype cover with reference paths from the GBZ
+vg gbwt -G haplotype-sampling/micb-kir3dl1.gfa -g large.gbz --gbz-format
+vg gbwt -Z large.gbz -l -n 16 --pass-paths -o large.local.gbwt
+is $? 0 "Local haplotypes with reference paths from a larger GBZ"
+is $(vg gbwt -c large.local.gbwt) 36 "local haplotypes w/ paths: 36 threads"
+is $(vg gbwt -C large.local.gbwt) 2 "local haplotypes w/ paths: 2 contigs"
+is $(vg gbwt -H large.local.gbwt) 18 "local haplotypes w/ paths: 18 haplotypes"
+is $(vg gbwt -S large.local.gbwt) 18 "local haplotypes w/ paths: 18 samples"
+is $(vg gbwt --tags large.local.gbwt | grep -c reference_samples) 1 "local haplotypes w/ paths: reference_samples set"
+
+rm -f large.gbz large.local.gbwt
+
 
 # Build GBWTGraph from an augmented GBWT
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
@@ -324,7 +341,7 @@ is $? 0 "Augmented GBWTGraph construction"
 is $(md5sum augmented.gg | cut -f 1 -d\ ) 00429586246711abcf1367a97d3c468c "GBWTGraph was serialized correctly"
 is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 threads"
 is $(vg gbwt -C augmented.gbwt) 2 "augmented: 2 contigs"
-is $(vg gbwt -H augmented.gbwt) 2 "augmented: 2 haplotypes"
+is $(vg gbwt -H augmented.gbwt) 18 "augmented: 18 haplotypes"
 is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
 
 rm -f x.gbwt augmented.gg augmented.gbwt
@@ -383,7 +400,7 @@ is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
 rm -f gfa.gbwt
 rm -f gfa2.gbwt gfa2.gg gfa2.trans gfa2.gbz
 rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
-rm -f chopping.gbwt chopping.gg chopping.trans from_gbz.trans
+rm -f chopping.gbwt chopping.gg chopping.gbz chopping.trans from_gbz.trans
 
 # Build a GBZ from a graph with a reference
 vg gbwt -g gfa.gbz --gbz-format -G graphs/gfa_with_reference.gfa

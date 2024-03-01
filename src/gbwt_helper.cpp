@@ -532,6 +532,38 @@ std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_typ
 
 //------------------------------------------------------------------------------
 
+void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination) {
+    if (source.tags.contains(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG)) {
+        // Reference samples tag is not copied automatically.
+        destination.tags.set(
+            gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG,
+            source.tags.get(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG)
+        );
+    }
+}
+
+void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination) {
+    std::vector<std::string> reference_samples;
+    source.for_each_path_of_sense(PathSense::REFERENCE, [&](const path_handle_t& path) {
+        std::string sample_name = source.get_sample_name(path);
+        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
+            reference_samples.push_back(sample_name);
+        }
+    });
+
+    if (!reference_samples.empty()) {
+        std::string reference_samples_tag = reference_samples.front();
+        for (size_t i = 1; i < reference_samples.size(); i++) {
+            reference_samples_tag += gbwtgraph::REFERENCE_SAMPLE_LIST_SEPARATOR + reference_samples[i];
+        }
+        destination.tags.set(
+            gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, reference_samples_tag
+        );
+    }
+}
+
+//------------------------------------------------------------------------------
+
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
     gbwt::size_type node_width = 1, total_length = 0;
     for (auto& path : paths) {
