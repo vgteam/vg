@@ -158,6 +158,12 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a2d00933de6bd943fed0a4ec48112f39e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a249032f1613c12263e7c14d83b4e527e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a249032f1613c12263e7c14d83b4e527e">write_output</a> = true</td></tr>
 <tr class="separator:a249032f1613c12263e7c14d83b4e527e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9979d9966e9ea82a9cd160dbf38d4b7c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a9979d9966e9ea82a9cd160dbf38d4b7c">write_tsv</a> = false</td></tr>
+<tr class="memdesc:a9979d9966e9ea82a9cd160dbf38d4b7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sometimes we want to pick out fields and write a tsv instead of a gam;.  <a href="classvg_1_1ReadFilter.html#a9979d9966e9ea82a9cd160dbf38d4b7c">More...</a><br /></td></tr>
+<tr class="separator:a9979d9966e9ea82a9cd160dbf38d4b7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade1a4a40379d72d2811fe0e32bece8f7"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ade1a4a40379d72d2811fe0e32bece8f7">output_fields</a></td></tr>
+<tr class="memdesc:ade1a4a40379d72d2811fe0e32bece8f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">What fields do we want to write to the tsv?  <a href="classvg_1_1ReadFilter.html#ade1a4a40379d72d2811fe0e32bece8f7">More...</a><br /></td></tr>
+<tr class="separator:ade1a4a40379d72d2811fe0e32bece8f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73ca67996129403044a23de9544e88fd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a73ca67996129403044a23de9544e88fd">graph</a> = nullptr</td></tr>
 <tr class="memdesc:a73ca67996129403044a23de9544e88fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">A HandleGraph is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this)  <a href="classvg_1_1ReadFilter.html#a73ca67996129403044a23de9544e88fd">More...</a><br /></td></tr>
 <tr class="separator:a73ca67996129403044a23de9544e88fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -170,6 +176,11 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a7fe13f943f153913f16aa594720d350a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8c6af52884a83d9538ea7ef42ac9eb4"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab8c6af52884a83d9538ea7ef42ac9eb4">min_base_quality_fraction</a> = numeric_limits&lt;double&gt;::lowest()</td></tr>
 <tr class="separator:ab8c6af52884a83d9538ea7ef42ac9eb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44b9ee21da92a8cd89af5b6538ac32a0"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a44b9ee21da92a8cd89af5b6538ac32a0">annotation_to_match</a> = &quot;&quot;</td></tr>
+<tr class="separator:a44b9ee21da92a8cd89af5b6538ac32a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab0f19128ff55e1e2c1cad90adcfc0d6e">only_correctly_mapped</a> = false</td></tr>
+<tr class="memdesc:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Filter.html">Filter</a> to only correctly mapped reads.  <a href="classvg_1_1ReadFilter.html#ab0f19128ff55e1e2c1cad90adcfc0d6e">More...</a><br /></td></tr>
+<tr class="separator:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -213,10 +224,16 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ad5ebb80a71eaf7c765f33b306ab230d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a553af1f5f52e24334fb2dd22928ac86a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a553af1f5f52e24334fb2dd22928ac86a">contains_subsequence</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:a553af1f5f52e24334fb2dd22928ac86a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95d1165f7c3901772a70ba863d1fc983"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a95d1165f7c3901772a70ba863d1fc983">matches_annotation</a> (const Read &amp;read) const</td></tr>
+<tr class="separator:a95d1165f7c3901772a70ba863d1fc983"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac5da32515034e6669d9e14de3c748122"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac5da32515034e6669d9e14de3c748122">is_correctly_mapped</a> (const Read &amp;read) const</td></tr>
+<tr class="separator:ac5da32515034e6669d9e14de3c748122"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50fce1e4c1159834e6371156040c6cbe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a50fce1e4c1159834e6371156040c6cbe">emit</a> (Read &amp;read)</td></tr>
 <tr class="separator:a50fce1e4c1159834e6371156040c6cbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5beda5e781b3a4b1b6ec139b280785d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a5beda5e781b3a4b1b6ec139b280785d9">emit</a> (Read &amp;read1, Read &amp;read2)</td></tr>
 <tr class="separator:a5beda5e781b3a4b1b6ec139b280785d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea009ada29c5944d17ce7e9a922b94b5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aea009ada29c5944d17ce7e9a922b94b5">emit_tsv</a> (Read &amp;read)</td></tr>
+<tr class="separator:aea009ada29c5944d17ce7e9a922b94b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3220ffe3aa6042a1423c6251c95a2b05"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3220ffe3aa6042a1423c6251c95a2b05">filter_internal</a> (istream *in)</td></tr>
 <tr class="memdesc:a3220ffe3aa6042a1423c6251c95a2b05"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper function for filter.  <a href="classvg_1_1ReadFilter.html#a3220ffe3aa6042a1423c6251c95a2b05">More...</a><br /></td></tr>
 <tr class="separator:a3220ffe3aa6042a1423c6251c95a2b05"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -224,6 +241,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:acf05b0ded409cd19894c24b6fe9412bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad1fe573ba370f839adb1cd28350cac81"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad1fe573ba370f839adb1cd28350cac81">is_mapped</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;mp_alignment) const</td></tr>
 <tr class="separator:ad1fe573ba370f839adb1cd28350cac81"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab76d4dc77becdaf866f724d5b88dcdb5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab76d4dc77becdaf866f724d5b88dcdb5">is_correctly_mapped</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
+<tr class="separator:ab76d4dc77becdaf866f724d5b88dcdb5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a053397b20bc378d11f11b365e6d68032"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a053397b20bc378d11f11b365e6d68032">is_correctly_mapped</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;alignment) const</td></tr>
+<tr class="separator:a053397b20bc378d11f11b365e6d68032"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4436cd59a7d2ed18c4a315ef157239ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a4436cd59a7d2ed18c4a315ef157239ed">emit</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a4436cd59a7d2ed18c4a315ef157239ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae811413740325799e12d313149f2b15a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ae811413740325799e12d313149f2b15a">emit</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
@@ -260,6 +281,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aaf6db93c73e3030a098aa54a21416cd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1aa38e8c41e26d7932caa918cfcfe76e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a1aa38e8c41e26d7932caa918cfcfe76e">get_is_paired</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;mp_aln) const</td></tr>
 <tr class="separator:a1aa38e8c41e26d7932caa918cfcfe76e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7dc8a2c60fe139ed5890d8bb7ad42b9e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7dc8a2c60fe139ed5890d8bb7ad42b9e">emit_tsv</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;read)</td></tr>
+<tr class="separator:a7dc8a2c60fe139ed5890d8bb7ad42b9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e7121b0a308e9846ace0ea04badfb2a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8e7121b0a308e9846ace0ea04badfb2a">emit_tsv</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;read)</td></tr>
+<tr class="separator:a8e7121b0a308e9846ace0ea04badfb2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -546,6 +571,87 @@ template&lt;typename Read &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Write a read pair to stdout </p>
+
+</div>
+</div>
+<a id="a8e7121b0a308e9846ace0ea04badfb2a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e7121b0a308e9846ace0ea04badfb2a">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;::emit_tsv </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7dc8a2c60fe139ed5890d8bb7ad42b9e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7dc8a2c60fe139ed5890d8bb7ad42b9e">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;::emit_tsv </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aea009ada29c5944d17ce7e9a922b94b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aea009ada29c5944d17ce7e9a922b94b5">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::emit_tsv </td>
+          <td>(</td>
+          <td class="paramtype">Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Write a tsv line for a read to stdout </p>
 
 </div>
 </div>
@@ -1205,6 +1311,87 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="ab76d4dc77becdaf866f724d5b88dcdb5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab76d4dc77becdaf866f724d5b88dcdb5">&#9670;&nbsp;</a></span>is_correctly_mapped() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;::is_correctly_mapped </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a053397b20bc378d11f11b365e6d68032"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a053397b20bc378d11f11b365e6d68032">&#9670;&nbsp;</a></span>is_correctly_mapped() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;::is_correctly_mapped </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac5da32515034e6669d9e14de3c748122"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5da32515034e6669d9e14de3c748122">&#9670;&nbsp;</a></span>is_correctly_mapped() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::is_correctly_mapped </td>
+          <td>(</td>
+          <td class="paramtype">const Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Check if the alignment is marked as being correctly mapped </p>
+
+</div>
+</div>
 <a id="acf05b0ded409cd19894c24b6fe9412bf"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acf05b0ded409cd19894c24b6fe9412bf">&#9670;&nbsp;</a></span>is_mapped() <span class="overload">[1/3]</span></h2>
 
@@ -1478,6 +1665,35 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="a95d1165f7c3901772a70ba863d1fc983"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a95d1165f7c3901772a70ba863d1fc983">&#9670;&nbsp;</a></span>matches_annotation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::matches_annotation </td>
+          <td>(</td>
+          <td class="paramtype">const Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Does has the given annotation and does it match </p>
+
+</div>
+</div>
 <a id="ab72c4fd96eedcb4bcd6aa565e97dfe4d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab72c4fd96eedcb4bcd6aa565e97dfe4d">&#9670;&nbsp;</a></span>matches_name()</h2>
 
@@ -1734,6 +1950,23 @@ template&lt;typename Read &gt; </div>
 </div><div class="memdoc">
 
 <p>The twp specializations have different writing infrastructure. </p>
+
+</div>
+</div>
+<a id="a44b9ee21da92a8cd89af5b6538ac32a0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a44b9ee21da92a8cd89af5b6538ac32a0">&#9670;&nbsp;</a></span>annotation_to_match</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">string <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::annotation_to_match = &quot;&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A string formatted "annotation[.subfield]*:value" Value is optional if the key is a flag Used like jq select </p>
 
 </div>
 </div>
@@ -2118,6 +2351,24 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="ab0f19128ff55e1e2c1cad90adcfc0d6e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab0f19128ff55e1e2c1cad90adcfc0d6e">&#9670;&nbsp;</a></span>only_correctly_mapped</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::only_correctly_mapped = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p><a class="el" href="classvg_1_1Filter.html">Filter</a> to only correctly mapped reads. </p>
+
+</div>
+</div>
 <a id="ab19be8fc638af431bb1a629aeff77f4f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab19be8fc638af431bb1a629aeff77f4f">&#9670;&nbsp;</a></span>only_mapped</h2>
 
@@ -2151,6 +2402,24 @@ template&lt;typename Read &gt; </div>
 </div><div class="memdoc">
 
 <p><a class="el" href="classvg_1_1Filter.html">Filter</a> to proper pairs. </p>
+
+</div>
+</div>
+<a id="ade1a4a40379d72d2811fe0e32bece8f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade1a4a40379d72d2811fe0e32bece8f7">&#9670;&nbsp;</a></span>output_fields</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;string&gt; <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::output_fields</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What fields do we want to write to the tsv? </p>
 
 </div>
 </div>
@@ -2269,6 +2538,24 @@ template&lt;typename Read &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Sometimes we only want a report, and not a filtered gam. toggling off output speeds things up considerably. </p>
+
+</div>
+</div>
+<a id="a9979d9966e9ea82a9cd160dbf38d4b7c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9979d9966e9ea82a9cd160dbf38d4b7c">&#9670;&nbsp;</a></span>write_tsv</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::write_tsv = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sometimes we want to pick out fields and write a tsv instead of a gam;. </p>
 
 </div>
 </div>
