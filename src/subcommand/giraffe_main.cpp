@@ -753,9 +753,9 @@ int main_giraffe(int argc, char** argv) {
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
-        .add_entry<double>("gap-scale", 0.0)
-        .add_entry<int>("chaining-gap-open", 6)
-        .add_entry<int>("chaining-gap-extend", 1)
+        .add_entry<double>("gap-scale", 4.0)
+        .add_entry<int>("chaining-gap-open", 0)
+        .add_entry<int>("chaining-gap-extend", 0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<int>("min-chains", 4)
