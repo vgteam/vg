@@ -862,8 +862,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
-                chaining_gap_open,
-                chaining_gap_extend,
+                get_regular_aligner()->gap_open,
+                get_regular_aligner()->gap_extension,
                 this->max_fragments,
                 for_each_transition,
                 this->item_bonus,
@@ -890,13 +890,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         if (!scored_fragment.second.empty()) {
                             #pragma omp critical (cerr)
                             {
-                                cerr << log_name() << "\tFragment " << fragments.size() << " with score " << scored_fragment.first
+                                cerr << log_name() << "\tFragment with score " << scored_fragment.first
                                     << " and length " << scored_fragment.second.size()
                                     << " running " << anchor_view[scored_fragment.second.front()]
                                     << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+#ifdef debug
+                                
                                 for (auto& anchor_number : scored_fragment.second) {
                                     std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
                                 }
+#endif
 
                             }
                         }
@@ -1107,8 +1110,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             fragment_view,
             *distance_index,
             gbwt_graph,
-            chaining_gap_open,
-            chaining_gap_extend,
+            get_regular_aligner()->gap_open,
+            get_regular_aligner()->gap_extension,
             this->max_alignments,
             for_each_transition,
             this->item_bonus,
@@ -2923,8 +2926,9 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     while(mismatch_it != mismatch_end) {
         // Score the perfect match up to mismatch_it, and the mismatch at mismatch_it.
         score += aligner->score_exact_match(aln, scored_until, *mismatch_it - scored_until);
-        // Score mismatches as 0, so our scores match those computed with the
-        // anchors broken up at the mismatches
+        score += aligner->score_mismatch(aln.sequence().begin() + *mismatch_it,
+                                         aln.sequence().begin() + *mismatch_it + 1,
+                                         aln.quality().begin() + *mismatch_it); 
         scored_until = *mismatch_it + 1;
         ++mismatch_it;
     }
