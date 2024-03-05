@@ -30,6 +30,7 @@ public:
     using MinimizerMapper::fragment_length_distr;
     using MinimizerMapper::faster_cap;
     using MinimizerMapper::with_dagified_local_graph;
+    using MinimizerMapper::longest_detectable_gap_in_range;
     using MinimizerMapper::align_sequence_between;
     using MinimizerMapper::to_anchor;
     using MinimizerMapper::fix_dozeu_end_deletions;
@@ -387,6 +388,192 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         REQUIRE(aln.path().mapping(2).position().node_id() == 55511925);
         REQUIRE(aln.path().mapping(2).position().is_reverse() == false);
         REQUIRE(aln.path().mapping(2).position().offset() == 0);
+}
+
+TEST_CASE("MinimizerMapper can map with an initial deletion", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "T"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 0}; // This includes the base on node 1
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should have a 1bp deletion and then the matching node.
+        REQUIRE(aln.path().mapping_size() == 2);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 0);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+        REQUIRE(aln.path().mapping(1).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(1).edit_size() == 1);
+        REQUIRE(aln.path().mapping(1).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+}
+
+TEST_CASE("MinimizerMapper can map with an initial deletion on a multi-base node", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "TATA"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 3}; // This includes the last base on node 1
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should have a 1bp deletion and then the matching node.
+        REQUIRE(aln.path().mapping_size() == 2);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 3);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+        REQUIRE(aln.path().mapping(1).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(1).edit_size() == 1);
+        REQUIRE(aln.path().mapping(1).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+}
+
+TEST_CASE("MinimizerMapper can map right off the past-the-end base", "[giraffe][mapping][right_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "1", "to": "2"},
+                {"from": "1", "to": "3"}
+            ],
+            "node": [
+                {"id": "1", "sequence": "T"},
+                {"id": "2", "sequence": "GATTACA"},
+                {"id": "3", "sequence": "CATTAG"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("CATTAG");
+        
+        pos_t left_anchor {1, false, 1}; // This is the past-end position
+        pos_t right_anchor = empty_pos_t();
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+        // Make sure we get the right alignment. We should pick the matching node and use it. 
+        REQUIRE(aln.path().mapping_size() == 1);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 3);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 0);
+        REQUIRE(aln.path().mapping(0).edit_size() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+}
+
+TEST_CASE("MinimizerMapper can compute longest detectable gap in range", "[giraffe][mapping]") {
+    Alignment aln;
+    aln.set_sequence("GATTACACATTAGGATTACACATTAG");
+    Aligner aligner;
+
+    size_t whole_sequence_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
+    size_t first_base_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + 1, &aligner);
+    size_t last_base_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().end() - 1, aln.sequence().end(), &aligner);
+    size_t left_subrange_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin() + 4,aln.sequence().begin() + 7, &aligner);
+    size_t right_subrange_gap = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().end() - 7, aln.sequence().end() - 4, &aligner);
+
+    // Having the whole sequence should give you the longest gap
+    REQUIRE(whole_sequence_gap > left_subrange_gap);
+    // Subranges equal distances from the ends should have equal gaps
+    REQUIRE(left_subrange_gap == right_subrange_gap);
+    // Being right at the end should have the smallest gap
+    REQUIRE(left_subrange_gap > first_base_gap);
+    // The end bases as subranges should have equal gaps
+    REQUIRE(first_base_gap == last_base_gap);
+}
+
+TEST_CASE("MinimizerMapper can find a significant indel instead of a tempting softclip", "[giraffe][mapping][left_tail]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [{"from": "30788083", "to": "30788088"}, {"from": "30788083", "to": "30788084"}, {"from": "30788074", "to": "30788075"}, {"from": "30788074", "to": "30788076"}, {"from": "30788079", "to": "30788080"}, {"from": "30788079", "to": "30788081"}, {"from": "30788086", "to": "30788088"}, {"from": "30788086", "to": "30788087", "to_end": true}, {"from": "30788075", "to": "30788077"}, {"from": "30788073", "to": "30788074"}, {"from": "30788078", "to": "30788079"}, {"from": "30788077", "to": "30788078"}, {"from": "30788084", "to": "30788088"}, {"from": "30788084", "to": "30788085"}, {"from": "30788076", "to": "30788077"}, {"from": "30788087", "from_start": true, "to": "30788088"}, {"from": "30788081", "to": "30788082"}, {"from": "30788080", "to": "30788082"}, {"from": "30788082", "to": "30788088"}, {"from": "30788082", "to": "30788083"}, {"from": "30788085", "to": "30788086"}], "node": [{"id": "30788083", "sequence": "AAA"}, {"id": "30788074", "sequence": "AAAAAAAATACAAAAAATTAGC"}, {"id": "30788079", "sequence": "CGCCACTGCACTCCAGCCTGGGC"}, {"id": "30788086", "sequence": "AAAAAAA"}, {"id": "30788075", "sequence": "T"}, {"id": "30788073", "sequence": "GAAAGAGAGTTGTTTAAATTCCATAGTTAGGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACGAGGTCAGGAGATCGAGACCATCCTGGCTAACACGGTGAAACCCCGTCTCTACTA"}, {"id": "30788078", "sequence": "G"}, {"id": "30788077", "sequence": "GGGCGTGGTAGCGGGCGCCTGTAGTCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATGGCGTGAACCCGGGAGGCGGAGCTTGCAGTGAGCCGAGATC"}, {"id": "30788084", "sequence": "A"}, {"id": "30788088", "sequence": "AATTCCATAGTTAGAAAAATAAGACATATCAGGTTTTCAAAAAGTGTAGCCATTTTCTGTTTCTAAAAGGGACACTTAAAGTGAAA"}, {"id": "30788076", "sequence": "C"}, {"id": "30788087", "sequence": "T"}, {"id": "30788081", "sequence": "A"}, {"id": "30788080", "sequence": "G"}, {"id": "30788082", "sequence": "ACAGAGCGAGACTCCGTCTCAAAAAAAAAAAAAA"}, {"id": "30788085", "sequence": "AA"}]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("TTGAAAACCTGATATGTCTTATTTTTCTAACTATGGAATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAGACGGAGTCTCGCTCTGTCGCCCAGGCTGGAGTGCAGTGGCGCGATCTCGGCTCACTGCAAGCTCCGCCTCCCGGGTTCACGCCATTCTCCTGCCTCAGCCTCCCGAGTAGCTGGGACTACAGGCGCCCGCTACCACGCCCGGCTAATTTTTTGTATTTTTTTT");
+        
+        pos_t left_anchor = empty_pos_t();
+        pos_t right_anchor = {30788073, true, 0};
+        
+        // The case that prompted this unit test was caused by
+        // misunderestimating the longest detectable gap length when the tail
+        // is nearly all of the read. So do the max gap length estimation.
+        size_t max_gap_length = TestMinimizerMapper::longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().end(), &aligner);
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, aln.sequence().size() + max_gap_length, max_gap_length, &graph, &aligner, aln);
+
+        // First edit shouldn't be a softclip
+        REQUIRE(aln.path().mapping_size() > 0);
+        REQUIRE(aln.path().mapping(0).edit_size() > 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
 }
 
 TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a node", "[giraffe][mapping]") {

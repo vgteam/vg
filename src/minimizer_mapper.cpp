@@ -102,10 +102,10 @@ string MinimizerMapper::log_alignment(const Path& path, bool force_condensed) {
     } else {
         // Log as a long alignment
         
-        // Turn it into one big CIGAR string
+        // Turn it into one big CIGAR string, with mismatches marked.
         vector<pair<int, char>> cigar;
         for (auto& mapping : path.mapping()) {
-            mapping_cigar(mapping, cigar);
+            mapping_cigar(mapping, cigar, 'X');
         }
         
         // And then put that
@@ -749,7 +749,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
                 minimizers,
                 seeds,
                 aln.sequence(),
-                GaplessExtender::MAX_MISMATCHES,
+                this->max_extension_mismatches,
                 &minimizer_extended_cluster_count,
                 &funnel));
             
@@ -1754,7 +1754,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         minimizers,
                         seeds,
                         aln.sequence(),
-                        GaplessExtender::MAX_MISMATCHES,
+                        this->max_extension_mismatches,
                         &minimizer_kept_cluster_count_by_read[read_num],
                         &funnels[read_num])), cluster.fragment);
                     

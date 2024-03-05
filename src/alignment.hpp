@@ -68,7 +68,10 @@ bam_hdr_t* hts_string_header(string& header,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+/// Add a mapping to a CIGAR string. The mismatch operation character may be
+/// 'M' (the default) to roll them into matches, or 'X' to mark mismatches as a
+/// different operation.
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar, char mismatch_operation = 'M');
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 

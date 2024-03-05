@@ -193,6 +193,11 @@ public:
     /// How many alignments should we make, max?
     static constexpr size_t default_max_alignments = 8;
     size_t max_alignments = default_max_alignments;
+
+    /// How many mismatches should we allow in gapless extension (except for
+    /// start node where the limit doesn't count)?
+    static constexpr size_t default_max_extension_mismatches = GaplessExtender::MAX_MISMATCHES;
+    size_t max_extension_mismatches = default_max_extension_mismatches;
     
     //////////////////
     // Alignment-from-chains/long read Giraffe specific parameters:
@@ -508,7 +513,8 @@ protected:
     /// are mismatches.
     static algorithms::Anchor to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner);
     
-    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring. 
+    /// Convert an Anchor to a WFAAlignment, given the input read it is from and the Aligner to use for scoring.
+    /// Accounts for fuill length bonuses if the anchor abuts the end of the read.
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const; 
 
     /// The information we store for each cluster.
@@ -604,7 +610,10 @@ protected:
      * with, for each gapless extension, the numbers of the seeds in seeds that
      * are subsumed into the extension. They will be sorted by the stapled base
      * (first base for forward strand, last base for reverse strand) in the
-     * read. 
+     * read.
+     *
+     * Note that multiple gapless extensions might cover each seed position or
+     * use each seed.
      */
     vector<GaplessExtension> extend_seed_group(
         const std::vector<size_t>& seed_group,
@@ -755,7 +764,17 @@ protected:
      * and orientation in the base graph.
      */
     static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
-   
+    
+    /**
+     * Determine the gap limit to use when aligning the given range of sequence
+     * bases for the given Alignment.
+     *
+     * Accounts for the lognest gap that could be detected anywhere in the
+     * range, not just at the very beginning or the very end, or at a single
+     * point like GSSWAligner::longest_detectable_gap().
+     */
+    static size_t longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner);
+
     /**
      * Clip out the part of the graph between the given positions and
      * global-align the sequence of the given Alignment to it. Populate the

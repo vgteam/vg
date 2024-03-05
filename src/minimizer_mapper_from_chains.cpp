@@ -44,7 +44,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-#define debug_chain_alignment
+//#define debug_chain_alignment
 
 namespace vg {
 
@@ -739,6 +739,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
             
+            kept_tree_count++;
+
             if (track_provenance) {
                 // Say we're working on this 
                 funnel.processing_input(item_num);
@@ -786,24 +788,53 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     minimizers,
                     seeds,
                     aln.sequence(),
-                    GaplessExtender::MAX_MISMATCHES,
+                    this->max_extension_mismatches,
                     nullptr,
                     nullptr,
                     &seeds_for_extension);
                 // Note that we don't use the funnel here; we don't actually
                 // track a gapless extension stage.
+                
+                // We can't actually handle the same seed being used as the
+                // endpoint of multiple anchors in the chaining. So we need to
+                // go through the gapless extensions in score order and make
+                // them into anchors using the seeds not yet used by previous
+                // ones.
+                auto extension_score_order = sort_permutation(tree_extensions.begin(), tree_extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) {
+                    // Return true if the first gapless extension needs to be first.
+                    // TODO: use real scores from the aligner.
+                    int a_score = (a.read_interval.second - a.read_interval.first) - a.mismatch_positions.size() * 5;
+                    int b_score = (b.read_interval.second - b.read_interval.first) - b.mismatch_positions.size() * 5;
+                    // We want to sort descending so larger scores come first.
+                    return a_score > b_score;
+                });
 
-                for (size_t i = 0; i < tree_extensions.size(); i++) {
+                // This holds the seeds used to make previous anchors.
+                std::unordered_set<size_t> used_seeds;
+
+                for (auto& extension_index : extension_score_order) {
                     // For each extension
-                    const GaplessExtension& extension = tree_extensions[i];
+                    const GaplessExtension& extension = tree_extensions[extension_index];
                     // And the seeds that made it, sorted by stapled base
-                    const std::vector<size_t>& extension_seeds = seeds_for_extension[i];
+                    const std::vector<size_t>& extension_seeds = seeds_for_extension[extension_index];
 
-                    // Make a list of all the seed positions
+                    // Make a list of all the seed positions still available
                     std::vector<size_t> seed_positions;
                     seed_positions.reserve(extension_seeds.size());
                     for (auto& seed_index : extension_seeds) {
-                        seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                        if (!used_seeds.count(seed_index)) {
+                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                        }
+                    }
+
+                    if (seed_positions.empty()) {
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " has no distinct seeds left to use for anchors" << endl;
+                            }
+                        }
+                        continue;
                     }
 
 
@@ -815,8 +846,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // Then convert those intervals into anchors.
                     auto mismatch_it = extension.mismatch_positions.begin();
                     auto seed_it = extension_seeds.begin();
-                    // We keep track of the anchor in progress.
-                    std::vector<size_t> anchor_seeds;
                     for (auto& anchor_interval : anchor_intervals) {
                         // Find the relevant mismatch range
                         while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.first) {
@@ -831,45 +860,59 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         auto internal_mismatch_end = mismatch_it;
 
                         // Find the relevant seed range
+                        std::vector<size_t> anchor_seeds;
                         while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.first) {
                             // Move seed iterator to inside or past the interval (should really always be already inside).
                             ++seed_it;
                         }
                         while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.second) {
                             // Take all the seeds into the vector of anchor seeds.
-                            anchor_seeds.push_back(*seed_it);
+                            auto found = used_seeds.find(*seed_it);
+                            if (found == used_seeds.end()) {
+                                // As long as they haven't been used
+                                anchor_seeds.push_back(*seed_it);
+                                // And mark them used
+                                used_seeds.insert(found, *seed_it);
+                            }
                             ++seed_it;
                         }
 
-                        // Each interval should have seeds.
-                        assert(!anchor_seeds.empty());
-
-                        if (show_work) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches" << endl;
+                        if (anchor_seeds.empty()) {
+                            // All the seeds we wanted for this piece specifically are already represented by pieces of previous extensions
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " would produce anchor " << anchor_interval.first << "-" << anchor_interval.second << " but all seeds in the interval were used already" << endl;
+                                }
                             }
+                            // Go on to the next anchor interval
+                        } else {
+                            // We have seeds here and can make an anchor
+
+                            // Note the index of the new anchor
+                            extension_anchor_indexes.push_back(extension_anchors.size());
+                            // Make the actual anchor out of this range of seeds and this read range.
+                            extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches, score " << extension_anchors.back().score() << endl;
+                                }
+                            }
+
+                            // And if we take that anchor, we'll grab these underlying
+                            // seeds into the elaborating chain. Just use the bounding
+                            // seeds and connect between them where it is easy.
+                            extension_seed_sequences.push_back({anchor_seeds.front()});
+                            if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
+                                // There are multiple seeds in the extension and the last
+                                // one doesn't overlap the first, so take the last one too.
+                                extension_seed_sequences.back().push_back(anchor_seeds.back());
+                            }
+
+                            // Keep all the seeds that this anchor counts as using.
+                            extension_represented_seeds.emplace_back(std::move(anchor_seeds));
                         }
-
-                        // Note the index of the new anchor
-                        extension_anchor_indexes.push_back(extension_anchors.size());
-                        // Make the actual anchor out of this range of seeds and this read range.
-                        extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
-
-                        // And if we take that anchor, we'll grab these underlying
-                        // seeds into the elaborating chain. Just use the bounding
-                        // seeds and connect between them where it is easy.
-                        extension_seed_sequences.push_back({anchor_seeds.front()});
-                        if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
-                            // There are multiple seeds in the extension and the last
-                            // one doesn't overlap the first, so take the last one too.
-                            extension_seed_sequences.back().push_back(anchor_seeds.back());
-                        }
-
-                        // Keep all the seeds that this anchor counts as using.
-                        extension_represented_seeds.emplace_back(std::move(anchor_seeds));
-                        // And clear out to get ready to make a new anchor.
-                        anchor_seeds.clear();
                     }
                 }
             }
@@ -972,7 +1015,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size() * 2);
                 for (auto& selected_number : scored_fragment.second) {
-                    // For each anchor in the chain, get its number int he whole group of anchors.
+                    // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the fragment.
@@ -1036,7 +1079,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     }
                 }
             }
-            ++kept_tree_count;
 
             
             if (track_provenance) {
@@ -1350,6 +1392,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("align");
     }
 
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating alignments=====" << endl;
+        }
+    }
+
 #ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
     vector<size_t> minimizer_kept_count(minimizers.size(), 0);
@@ -1413,8 +1462,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
 
-    // Track if how many tree chains were used
+    // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
+
+    // Track what read offset, graph node pairs were used in previously generated alignments, so we can fish out alignments to different placements.
+    std::unordered_set<std::pair<size_t, pos_t>> used_matchings;
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1443,6 +1495,31 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.pass("max-alignments", processed_num);
             }
 
+            for (auto& seed_num : chains[processed_num]) {
+                auto matching = std::make_pair(minimizers[seeds.at(seed_num).source].forward_offset(), seeds.at(seed_num).pos);
+                if (used_matchings.count(matching)) {
+                    if (track_provenance) {
+                        funnel.fail("chain-overlap", processed_num);
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read position " << matching.first << " and graph position " << matching.second << endl;
+                        }
+                    }
+                    return false;
+                }
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
+                }
+            }
+            if (track_provenance) {
+                funnel.pass("chain-overlap", processed_num);
+            }
+
             // Make sure we aren't doing too many chains from this one tree.
             auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
             if (tree_count >= max_chains_per_tree) {
@@ -1453,9 +1530,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
-                        if (track_correctness && funnel.was_correct(processed_num)) {
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
                     }
                 }
                 tree_count++;
@@ -1468,9 +1542,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
-                        if (track_correctness && funnel.was_correct(processed_num)) {
-                            cerr << log_name() << "\tCORRECT!" << endl;
-                        }
                     }
                 }
                 tree_count++;
@@ -1520,9 +1591,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 alignments_to_source.push_back(processed_num);
                 multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
                 chain_count_by_alignment.emplace_back(item_count);
+                
+                size_t read_pos = 0;
+                for (auto& mapping : alignments.back().path().mapping()) {
+                    // Mark all the read-node matches it visits used.
+                    used_matchings.emplace(read_pos, make_pos_t(mapping.position()));
+                    read_pos += mapping_to_length(mapping);
+                }
 
                 if (track_provenance) {
-    
                     funnel.project(processed_num);
                     funnel.score(alignments.size() - 1, alignments.back().score());
                 }
@@ -1640,6 +1717,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
+    // Go through the alignments in descending score order, with ties at the top end shuffled.
     process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
@@ -2066,7 +2144,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
                 
                 // Work out how far the tail can see
-                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + left_tail_length);
+                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + left_tail_length, this->get_regular_aligner());
                 size_t graph_horizon = left_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
@@ -2304,7 +2382,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             // Guess how long of a graph path we ought to allow in the alignment.
-            size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
+            size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner());
             size_t path_length = std::max(graph_length, link_length);
             MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             link_alignment_source = "align_sequence_between";
@@ -2369,12 +2447,15 @@ Alignment MinimizerMapper::find_chain_alignment(
         auto start_time = std::chrono::high_resolution_clock::now();
         string right_tail = aln.sequence().substr((*here).read_end(), right_tail_length);
         WFAAlignment right_alignment;
-        pos_t left_anchor = (*here).graph_end();
-        get_offset(left_anchor)--;
+        // Grab the past-end graph position from the last thing in the chain. It is included in the tail as a base to align against.
+        pos_t left_anchor_included = (*here).graph_end();
+        // Pull back a base to get the outside-the-alignment anchoring position.
+        pos_t left_anchor_excluded = left_anchor_included;
+        get_offset(left_anchor_excluded)--;
         if (right_tail_length <= max_tail_length) {
             // We align the right tail with suffix(), which creates a suffix of the alignment.
-            // Make sure to walk back the anchor so it is outside of the region to be aligned.
-            right_alignment = extender.suffix(right_tail, left_anchor);
+            // Make sure to use the anchor outside of the region to be aligned.
+            right_alignment = extender.suffix(right_tail, left_anchor_excluded);
         }
         
         if (right_alignment) {
@@ -2392,7 +2473,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (right_alignment.length != right_tail_length) {
                 // We didn't get the alignment we expected.
                 stringstream ss;
-                ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
+                ss << "Aligning right tail " << right_tail << " from " << left_anchor_excluded << " produced wrong-length alignment ";
                 right_alignment.print(ss);
                 throw ChainAlignmentFailedError(ss.str());
             }
@@ -2427,7 +2508,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #ifdef debug_chain_alignment
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor << " in " << aln.name() << " to avoid overflow" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor_included << " in " << aln.name() << " to avoid overflow" << endl;
                 }
 #endif
                 
@@ -2444,18 +2525,20 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
 
                 // Work out how far the tail can see
-                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + (*here).read_end(), aln.sequence().end(), this->get_regular_aligner());
                 size_t graph_horizon = right_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor_included << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
 #endif
 
                 // Align the right tail, anchoring the left end.
-                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                // We need to use the included-in-the-alignment left anchor position.
+                // TODO: What if it is past a node end? Is it guaranteed to be handled right?
+                align_sequence_between(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work && max_tail_length > 0) {
                     #pragma omp critical (cerr)
@@ -2735,6 +2818,31 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     callback(dagified_graph, dagified_handle_to_base);
 }
 
+size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner) {
+    
+    // TODO: Should we take numbers and not iterators? This API could convert
+    // better to quality adjustment later though.
+
+    // If the range covers the middle, the longest detectable gap is the one from the middle.
+    // TODO: Won't always be true anymore if we add quality adjustment
+    size_t middle_index = aln.sequence().size() / 2;
+    size_t begin_index = sequence_begin - aln.sequence().begin();
+    size_t end_index = sequence_end - aln.sequence().begin();
+    if (end_index > middle_index && begin_index <= middle_index) {
+        return aligner->longest_detectable_gap(aln, aln.sequence().begin() + middle_index);
+    }
+    
+    // Otherwise it is the length from the boundary nearest to the middle.
+    // And we know the while range is on one side or the other of the middle.
+    if (begin_index > middle_index) {
+        // Beginning is on the inside
+        return aligner->longest_detectable_gap(aln, sequence_begin);
+    }
+
+    // Otherwise the end is on the inside
+    return aligner->longest_detectable_gap(aln, sequence_end);
+}
+
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     
     // Get the dagified local graph, and the back translation
@@ -2873,9 +2981,16 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             m->mutable_position()->set_node_id(base_coords.first);
             m->mutable_position()->set_is_reverse(base_coords.second);
         }
-        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
+        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0 && offset(left_anchor) < graph->get_length(graph->get_handle(id(left_anchor)))) {
+            // There is some of the left anchor's node actually in the
+            // extracted graph. The left anchor isn't past the end of its node.
+            
             // Get the positions of the leftmost mapping
             Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
+
+            // The alignment must actually start on the anchor node.
+            assert(left_pos->node_id() == id(left_anchor));
+
             // Add on the offset for the missing piece of the left anchor node
             left_pos->set_offset(left_pos->offset() + offset(left_anchor));
         }
@@ -3014,13 +3129,24 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor, const Alignment& aln, const Aligner* aligner) const {
+    // Get the score without full length bonuses
+    auto score = aligner->score_exact_match(aln, anchor.read_start(), anchor.length());
+    if (anchor.read_start() == 0) {
+        // Apply full elngth bonus on the left if we abut the left end of the read.
+        score += aligner->score_full_length_bonus(true, aln);
+    }
+    if (anchor.read_end() == aln.sequence().length()) {
+        // Apply full lenght bonus on the right if we abut the riht end of the read.
+        score += aligner->score_full_length_bonus(false, aln);
+    }
+
     return {
         {gbwt_graph.get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
         {{WFAAlignment::match, (uint32_t)anchor.length()}},
         (uint32_t)offset(anchor.graph_start()),
         (uint32_t)anchor.read_start(),
         (uint32_t)anchor.length(),
-        aligner->score_exact_match(aln, anchor.read_start(), anchor.length()),
+        score,
         true
     };
 }
