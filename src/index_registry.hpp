@@ -160,8 +160,11 @@ public:
     /// plan, and false if it is to be preserved.
     bool is_intermediate(const IndexName& identifier) const;
     
-    /// TODO: is this where this function wants to live?
+    // TODO: is this where this function wants to live?
+    /// The memory limit, with a little slosh for prediction inaccuracy
     int64_t target_memory_usage() const;
+    /// The mmeory limit with no slosh
+    int64_t literal_target_memory_usage() const;
     
     /// Returns the recipes in the plan that depend on this index, including the one in which
     /// it was created (if any)

@@ -54,8 +54,8 @@ class VGCITest(TestCase):
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
         # /public/groups/vg/vg-data on Courtyard is served as
-        # https://courtyard.gi.ucsc.edu/~anovak/vg-data/
-        self.vg_data = 'https://courtyard.gi.ucsc.edu/~anovak/vg-data'
+        # https://public.gi.ucsc.edu/~anovak/vg-data/
+        self.vg_data = 'https://public.gi.ucsc.edu/~anovak/vg-data'
         self.input_store = self.vg_data + '/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
@@ -1284,7 +1284,7 @@ class VGCITest(TestCase):
                            sim_opts='-p 570 -v 150 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
-                           sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
+                           sim_fastq='https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(2400)

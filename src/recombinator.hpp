@@ -364,6 +364,9 @@ public:
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 4;
 
+    /// A reasonable number of candidates for diploid sampling.
+    constexpr static size_t NUM_CANDIDATES = 32;
+
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
     constexpr static size_t COVERAGE = 0;
 
@@ -430,7 +433,8 @@ public:
 
     /// Parameters for `generate_haplotypes()`.
     struct Parameters {
-        /// Number of haplotypes to be generated.
+        /// Number of haplotypes to be generated, or the number of candidates
+        /// for diploid sampling.
         size_t num_haplotypes = NUM_HAPLOTYPES;
 
         /// Kmer coverage. Use 0 to estimate from kmer counts.
@@ -517,7 +521,7 @@ private:
     // Generate haplotypes for the given chain.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-        gbwt::GBWTBuilder& builder,
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage) const;
 };
 

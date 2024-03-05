@@ -209,13 +209,14 @@ void BandedGlobalAligner<IntType>::BABuilder::finalize_alignment(const list<int6
 
 template <class IntType>
 BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, handle_t node, int64_t top_diag, int64_t bottom_diag,
-                                                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len) :
+                                                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len, bool left_alignment_strand) :
                                                  node(node),
                                                  top_diag(top_diag),
                                                  bottom_diag(bottom_diag),
                                                  seeds(seeds),
                                                  alignment(alignment),
                                                  cumulative_seq_len(cumulative_seq_len),
+                                                 left_alignment_strand(left_alignment_strand),
                                                  match(nullptr),
                                                  insert_col(nullptr),
                                                  insert_row(nullptr)
@@ -822,6 +823,11 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
             continue;
         }
         
+        vector<matrix_t> prev_mats{InsertCol, Match, InsertRow};
+        if (left_alignment_strand) {
+            std::swap(prev_mats[0], prev_mats[2]);
+        }
+        
         // find optimal traceback
         idx = i * ncols + j;
         bool found_trace = false;
@@ -855,51 +861,71 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 cerr << "[BAMatrix::traceback] transitioning from match, current score " << (int) match[idx] << " match/mismatch score " << (int) match_score << " from node char " << j << " (" << node_seq[j] << ") and read char " << i + top_diag + j << " (" << read[i + top_diag + j] << ")" << endl;
 #endif
                 
-                source_score = match[next_idx];
-                score_diff = curr_score - (source_score + match_score);
-                if (score_diff == 0) {
+                for (auto prev_mat : prev_mats) {
+                    
+                    switch (prev_mat) {
+                        case Match:
+                        {
+                            source_score = match[next_idx];
+                            score_diff = curr_score - (source_score + match_score);
+                            if (score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                    cerr << "[BAMatrix::traceback] found next cell in match matrix with score " << (int) match[next_idx] << endl;
+                                cerr << "[BAMatrix::traceback] found next cell in match matrix with score " << (int) match[next_idx] << endl;
 #endif
-                    mat = Match;
-                    found_trace = true;
-                }
-                else if (source_score != min_inf) {
-                    alt_score = curr_traceback_score - score_diff;
-                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
-                }
-                
-                source_score = insert_row[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score + match_score);
-                    if (!found_trace && score_diff == 0) {
+                                mat = Match;
+                                found_trace = true;
+                            }
+                            else if (source_score != min_inf) {
+                                alt_score = curr_traceback_score - score_diff;
+                                traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
+                            }
+                            break;
+                        }
+                        case InsertRow:
+                        {
+                            source_score = insert_row[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score + match_score);
+                                if (!found_trace && score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback] found next cell in insert row matrix with score " << (int) insert_row[next_idx] << endl;
+                                    cerr << "[BAMatrix::traceback] found next cell in insert row matrix with score " << (int) insert_row[next_idx] << endl;
 #endif
-                        mat = InsertRow;
-                        found_trace = true;
-                    }
-                    else {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
-                    }
-                }
-                
-                source_score = insert_col[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score + match_score);
-                    if (!found_trace && score_diff == 0) {
+                                    mat = InsertRow;
+                                    found_trace = true;
+                                }
+                                else {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
+                                }
+                            }
+                            break;
+                        }
+                        case InsertCol:
+                        {
+                            source_score = insert_col[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score + match_score);
+                                if (!found_trace && score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback] found next cell in insert column matrix with score " << (int) insert_col[next_idx] << endl;
+                                    cerr << "[BAMatrix::traceback] found next cell in insert column matrix with score " << (int) insert_col[next_idx] << endl;
 #endif
-                        mat = InsertCol;
-                        found_trace = true;
+                                    mat = InsertCol;
+                                    found_trace = true;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
+                                }
+                                
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            cerr << "error: invalid previous matrix" << endl;
+                            exit(1);
+                        }
                     }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
-                    }
-
                 }
                 
                 if (!found_trace) {
@@ -930,41 +956,61 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 
                 curr_score = insert_row[idx];
                 next_idx = (i - 1) * ncols + j;
-                
-                source_score = match[next_idx];
-                score_diff = curr_score - (source_score - gap_open);
-                if (score_diff == 0) {
-                    mat = Match;
-                    found_trace = true;
-                }
-                else if (source_score != min_inf) {
-                    alt_score = curr_traceback_score - score_diff;
-                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
-                }
-                
-                source_score = insert_row[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score - gap_extend);
-                    if (!found_trace && score_diff == 0) {
-                        mat = InsertRow;
-                        found_trace = true;
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
-                    }
-                }
-                
-                source_score = insert_col[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score - gap_open);
-                    if (!found_trace && score_diff == 0) {
-                        mat = InsertCol;
-                        found_trace = true;
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
+
+                for (auto prev_mat : prev_mats) {
+                    
+                    switch (prev_mat) {
+                        case Match:
+                        {
+                            source_score = match[next_idx];
+                            score_diff = curr_score - (source_score - gap_open);
+                            if (score_diff == 0) {
+                                mat = Match;
+                                found_trace = true;
+                            }
+                            else if (source_score != min_inf) {
+                                alt_score = curr_traceback_score - score_diff;
+                                traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
+                            }
+                            break;
+                        }
+                        case InsertRow:
+                        {
+                            source_score = insert_row[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score - gap_extend);
+                                if (!found_trace && score_diff == 0) {
+                                    mat = InsertRow;
+                                    found_trace = true;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
+                                }
+                            }
+                            break;
+                        }
+                        case InsertCol:
+                        {
+                            source_score = insert_col[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score - gap_open);
+                                if (!found_trace && score_diff == 0) {
+                                    mat = InsertCol;
+                                    found_trace = true;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            cerr << "error: invalid previous matrix" << endl;
+                            exit(1);
+                        }
                     }
                 }
                 
@@ -990,40 +1036,59 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 curr_score = insert_col[idx];
                 next_idx = (i + 1) * ncols + j - 1;
 
-                source_score = match[next_idx];
-                score_diff = curr_score - (source_score - gap_open);
-                if (score_diff == 0) {
-                    mat = Match;
-                    found_trace = true;
-                }
-                else if (source_score != min_inf) {
-                    alt_score = curr_traceback_score - score_diff;
-                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
-                }
-                
-                source_score = insert_row[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score - gap_open);
-                    if (!found_trace && score_diff == 0) {
-                        mat = InsertRow;
-                        found_trace = true;
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
-                    }
-                }
-                
-                source_score = insert_col[next_idx];
-                if (source_score > min_inf) {
-                    score_diff = curr_score - (source_score - gap_extend);
-                    if (!found_trace && score_diff == 0) {
-                        mat = InsertCol;
-                        found_trace = true;
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
+                for (auto prev_mat : prev_mats) {
+                    switch (prev_mat) {
+                        case Match:
+                        {
+                            source_score = match[next_idx];
+                            score_diff = curr_score - (source_score - gap_open);
+                            if (score_diff == 0) {
+                                mat = Match;
+                                found_trace = true;
+                            }
+                            else if (source_score != min_inf) {
+                                alt_score = curr_traceback_score - score_diff;
+                                traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, Match);
+                            }
+                            break;
+                        }
+                        case InsertRow:
+                        {
+                            source_score = insert_row[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score - gap_open);
+                                if (!found_trace && score_diff == 0) {
+                                    mat = InsertRow;
+                                    found_trace = true;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertRow);
+                                }
+                            }
+                            break;
+                        }
+                        case InsertCol:
+                        {
+                            source_score = insert_col[next_idx];
+                            if (source_score > min_inf) {
+                                score_diff = curr_score - (source_score - gap_extend);
+                                if (!found_trace && score_diff == 0) {
+                                    mat = InsertCol;
+                                    found_trace = true;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, node_id, InsertCol);
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            cerr << "error: invalid previous matrix" << endl;
+                            exit(1);
+                        }
                     }
                 }
                 
@@ -1364,6 +1429,10 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
 #ifdef debug_banded_aligner_traceback
             cerr << "[BAMatrix::traceback_over_edge] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (mat == InsertCol) << endl;
 #endif
+            vector<matrix_t> prev_mats{InsertCol, Match, InsertRow};
+            if (left_alignment_strand) {
+                std::swap(prev_mats[0], prev_mats[2]);
+            }
             
             switch (mat) {
                 case Match:
@@ -1400,64 +1469,83 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         break;
                     }
                     
-                    source_score = seed->match[next_idx];
-                    // don't need to check edge condition because match does not have min inf
-                    score_diff = curr_score - (source_score + match_score);
-                    if (score_diff == 0 && !found_trace) {
-                        traceback_mat = Match;
-                        traceback_seed = seed;
-                        traceback_seed_row = seed_row;
-                        traceback_seed_col = seed_col;
-                        found_trace = true;
-                        empty_intermediate_nodes = seed_record.second;
+                    for (auto prev_mat : prev_mats) {
+                        switch (prev_mat) {
+                            case Match:
+                            {
+                                source_score = seed->match[next_idx];
+                                // don't need to check edge condition because match does not have min inf
+                                score_diff = curr_score - (source_score + match_score);
+                                if (score_diff == 0 && !found_trace) {
+                                    traceback_mat = Match;
+                                    traceback_seed = seed;
+                                    traceback_seed_row = seed_row;
+                                    traceback_seed_col = seed_col;
+                                    found_trace = true;
+                                    empty_intermediate_nodes = seed_record.second;
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
+                                    cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
-                    }
-                    
-                    source_score = seed->insert_col[next_idx];
-                    // check edge condition
-                    if (source_score > min_inf) {
-                        score_diff = curr_score - (source_score + match_score);
-                        if (score_diff == 0 && !found_trace) {
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
+                                }
+                                break;
+                            }
+                            case InsertRow:
+                            {
+                                source_score = seed->insert_row[next_idx];
+                                // check edge condition
+                                if (source_score > min_inf) {
+                                    score_diff = curr_score - (source_score + match_score);
+                                    if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix  with score " << (int) seed->insert_col[next_idx] << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix  with score " << (int) seed->insert_row[next_idx] << endl;
 #endif
-                            traceback_mat = InsertCol;
-                            traceback_seed = seed;
-                            traceback_seed_row = seed_row;
-                            traceback_seed_col = seed_col;
-                            found_trace = true;
-                            empty_intermediate_nodes = seed_record.second;
-                        }
-                        else {
-                            alt_score = curr_traceback_score - score_diff;
-                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
-                        }
-                    }
-                    
-                    source_score = seed->insert_row[next_idx];
-                    // check edge condition
-                    if (source_score > min_inf) {
-                        score_diff = curr_score - (source_score + match_score);
-                        if (score_diff == 0 && !found_trace) {
+                                        traceback_mat = InsertRow;
+                                        traceback_seed = seed;
+                                        traceback_seed_row = seed_row;
+                                        traceback_seed_col = seed_col;
+                                        found_trace = true;
+                                        empty_intermediate_nodes = seed_record.second;
+                                    }
+                                    else {
+                                        alt_score = curr_traceback_score - score_diff;
+                                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
+                                    }
+                                }
+                                break;
+                            }
+                            case InsertCol:
+                            {
+                                source_score = seed->insert_col[next_idx];
+                                // check edge condition
+                                if (source_score > min_inf) {
+                                    score_diff = curr_score - (source_score + match_score);
+                                    if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix  with score " << (int) seed->insert_row[next_idx] << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix  with score " << (int) seed->insert_col[next_idx] << endl;
 #endif
-                            traceback_mat = InsertRow;
-                            traceback_seed = seed;
-                            traceback_seed_row = seed_row;
-                            traceback_seed_col = seed_col;
-                            found_trace = true;
-                            empty_intermediate_nodes = seed_record.second;
-                        }
-                        else {
-                            alt_score = curr_traceback_score - score_diff;
-                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
+                                        traceback_mat = InsertCol;
+                                        traceback_seed = seed;
+                                        traceback_seed_row = seed_row;
+                                        traceback_seed_col = seed_col;
+                                        found_trace = true;
+                                        empty_intermediate_nodes = seed_record.second;
+                                    }
+                                    else {
+                                        alt_score = curr_traceback_score - score_diff;
+                                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
+                                    }
+                                }
+                                break;
+                            }
+                            default:
+                            {
+                                cerr << "error: invalid matrix type" << endl;
+                                exit(1);
+                            }
                         }
                     }
                     
@@ -1466,73 +1554,92 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                     
                 case InsertCol:
                 {
-                    source_score = seed->match[next_idx];
-                    // don't need to check edge condition because match does not have min inf
-                    score_diff = curr_score - (source_score - gap_open);
-                    if (score_diff == 0 && !found_trace) {
+                    for (auto prev_mat : prev_mats) {
+                        switch (prev_mat) {
+                            case Match:
+                            {
+                                source_score = seed->match[next_idx];
+                                // don't need to check edge condition because match does not have min inf
+                                score_diff = curr_score - (source_score - gap_open);
+                                if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
+                                    cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
-                        traceback_mat = Match;
-                        traceback_seed = seed;
-                        traceback_seed_row = seed_row;
-                        traceback_seed_col = seed_col;
-                        found_trace = true;
-                        empty_intermediate_nodes = seed_record.second;
-                    }
-                    else if (source_score != min_inf) {
-                        alt_score = curr_traceback_score - score_diff;
+                                    traceback_mat = Match;
+                                    traceback_seed = seed;
+                                    traceback_seed_row = seed_row;
+                                    traceback_seed_col = seed_col;
+                                    found_trace = true;
+                                    empty_intermediate_nodes = seed_record.second;
+                                }
+                                else if (source_score != min_inf) {
+                                    alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                                    cerr << "[BAMatrix::traceback_over_edge] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
-                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
-                    }
-                    
-                    source_score = seed->insert_col[next_idx];
-                    // check edge condition
-                    if (source_score > min_inf) {
-                        score_diff = curr_score - (source_score - gap_extend);
-                        if (score_diff == 0 && !found_trace) {
+                                    traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
+                                }
+                                break;
+                            }
+                            case InsertRow:
+                            {
+                                source_score = seed->insert_row[next_idx];
+                                // check edge condition
+                                if (source_score > min_inf) {
+                                    score_diff = curr_score - (source_score - gap_open);
+                                    if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix with score " << (int) seed->match[next_idx] << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
-                            traceback_mat = InsertCol;
-                            traceback_seed = seed;
-                            traceback_seed_row = seed_row;
-                            traceback_seed_col = seed_col;
-                            found_trace = true;
-                            empty_intermediate_nodes = seed_record.second;
-                        }
-                        else {
-                            alt_score = curr_traceback_score - score_diff;
+                                        traceback_mat = InsertRow;
+                                        traceback_seed = seed;
+                                        traceback_seed_row = seed_row;
+                                        traceback_seed_col = seed_col;
+                                        found_trace = true;
+                                        empty_intermediate_nodes = seed_record.second;
+                                    }
+                                    else {
+                                        alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
-                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
-                        }
-                    }
-                    
-                    source_score = seed->insert_row[next_idx];
-                    // check edge condition
-                    if (source_score > min_inf) {
-                        score_diff = curr_score - (source_score - gap_open);
-                        if (score_diff == 0 && !found_trace) {
+                                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
+                                    }
+                                }
+                                break;
+                            }
+                            case InsertCol:
+                            {
+                                source_score = seed->insert_col[next_idx];
+                                // check edge condition
+                                if (source_score > min_inf) {
+                                    score_diff = curr_score - (source_score - gap_extend);
+                                    if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix with score " << (int) seed->match[next_idx] << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
-                            traceback_mat = InsertRow;
-                            traceback_seed = seed;
-                            traceback_seed_row = seed_row;
-                            traceback_seed_col = seed_col;
-                            found_trace = true;
-                            empty_intermediate_nodes = seed_record.second;
-                        }
-                        else {
-                            alt_score = curr_traceback_score - score_diff;
+                                        traceback_mat = InsertCol;
+                                        traceback_seed = seed;
+                                        traceback_seed_row = seed_row;
+                                        traceback_seed_col = seed_col;
+                                        found_trace = true;
+                                        empty_intermediate_nodes = seed_record.second;
+                                    }
+                                    else {
+                                        alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                                        cerr << "[BAMatrix::traceback_over_edge] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
-                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
+                                        traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
+                                    }
+                                }
+                                break;
+                            }
+                            default:
+                            {
+                                cerr << "error: invalid matrix type" << endl;
+                                exit(1);
+                            }
                         }
                     }
                     
@@ -1821,12 +1928,14 @@ void BandedGlobalAligner<IntType>::BAMatrix::print_band(const HandleGraph& graph
 template <class IntType>
 BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                                                   int64_t band_padding, bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  const unordered_map<handle_t, bool>* left_align_strand) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       nullptr, 1,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality)
+                                                                      adjust_for_base_quality,
+                                                                      left_align_strand)
 {
     // nothing to do, just funnel into internal constructor
 }
@@ -1836,13 +1945,15 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   vector<Alignment>& alt_alignments,
                                                   int64_t max_multi_alns, int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  const unordered_map<handle_t, bool>* left_align_strand) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       &alt_alignments,
                                                                       max_multi_alns,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality)
+                                                                      adjust_for_base_quality,
+                                                                      left_align_strand)
 {
     // check data integrity and funnel into internal constructor
     if (!alt_alignments.empty()) {
@@ -1857,7 +1968,8 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   int64_t max_multi_alns,
                                                   int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  const unordered_map<handle_t, bool>* left_align_strand) :
                                                   graph(g),
                                                   alignment(alignment),
                                                   alt_alignments(alt_alignments),
@@ -1941,12 +2053,20 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                 seeds.push_back(banded_matrices[node_id_to_idx[graph.get_id(prev)]]);
             });
             
+            bool strand = false;
+            if (left_align_strand) {
+                auto it = left_align_strand->find(node);
+                if (it != left_align_strand->end()) {
+                    strand = it->second;
+                }
+            }
             banded_matrices[i] = new BAMatrix(alignment,
                                               node,
                                               band_ends[i].first,
                                               band_ends[i].second,
                                               std::move(seeds),
-                                              shortest_seqs[i]);
+                                              shortest_seqs[i],
+                                              strand);
             
         }
     }
@@ -2379,17 +2499,43 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 }
                 else {
                     // let the insert routine figure out which one is the best and which ones to keep in the stack
-                    if (band_matrix->match[final_idx] != min_inf) {
-                        insert_traceback(null_prefix, band_matrix->match[final_idx],
-                                         node_id, final_row, final_col, node_id, Match, path);
+                    vector<matrix_t> mats{InsertCol, Match, InsertRow};
+                    if (band_matrix->left_alignment_strand) {
+                        std::swap(mats[0], mats[2]);
                     }
-                    if (band_matrix->insert_row[final_idx] != min_inf) {
-                        insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
-                                         node_id, final_row, final_col, node_id, InsertRow, path);
-                    }
-                    if (band_matrix->insert_col[final_idx] != min_inf) {
-                        insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
-                                         node_id, final_row, final_col, node_id, InsertCol, path);
+                    for (auto mat : mats) {
+                        switch (mat)
+                        {
+                            case Match:
+                            {
+                                if (band_matrix->match[final_idx] != min_inf) {
+                                    insert_traceback(null_prefix, band_matrix->match[final_idx],
+                                                     node_id, final_row, final_col, node_id, Match, path);
+                                }
+                                break;
+                            }
+                            case InsertCol:
+                            {
+                                if (band_matrix->insert_row[final_idx] != min_inf) {
+                                    insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
+                                                     node_id, final_row, final_col, node_id, InsertRow, path);
+                                }
+                                break;
+                            }
+                            case InsertRow:
+                            {
+                                if (band_matrix->insert_col[final_idx] != min_inf) {
+                                    insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
+                                                     node_id, final_row, final_col, node_id, InsertCol, path);
+                                }
+                                break;
+                            }
+                            default:
+                            {
+                                cerr << "error: invalid matrix type" << endl;
+                                exit(1);
+                            }
+                        }
                     }
                 }
             }

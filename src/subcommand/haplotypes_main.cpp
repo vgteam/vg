@@ -51,6 +51,10 @@ constexpr size_t haplotypes_default_n() {
     return Recombinator::NUM_HAPLOTYPES;
 }
 
+constexpr size_t haplotypes_default_candidates() {
+    return Recombinator::NUM_CANDIDATES;
+}
+
 constexpr size_t haplotypes_default_coverage() {
     return Recombinator::COVERAGE;
 }
@@ -175,7 +179,7 @@ int main_haplotypes(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::DEVELOPMENT, main_haplotypes);
+static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::TOOLKIT, main_haplotypes);
 
 //----------------------------------------------------------------------------
 
@@ -211,6 +215,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
+    std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_default_candidates() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
@@ -282,6 +287,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     // Process the arguments.
     int c;
     optind = 2; // force optind past command positional argument
+    bool num_haplotypes_set = false;
     while (true) {
         int option_index = 0;
         c = getopt_long(argc, argv, "g:H:d:r:i:k:v:t:h", long_options, &option_index);
@@ -335,6 +341,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_NUM_HAPLOTYPES:
             this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
+            num_haplotypes_set = true;
             if (this->recombinator_parameters.num_haplotypes == 0) {
                 std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -442,6 +449,11 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     if (this->mode == mode_invalid) {
         help_haplotypes(argv, false);
         std::exit(EXIT_FAILURE);
+    }
+
+    // Use conditional defaults if the user did not override them.
+    if (this->recombinator_parameters.diploid_sampling && !num_haplotypes_set) {
+        this->recombinator_parameters.num_haplotypes = haplotypes_default_candidates();
     }
 }
 

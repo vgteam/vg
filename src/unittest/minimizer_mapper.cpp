@@ -32,6 +32,7 @@ public:
     using MinimizerMapper::with_dagified_local_graph;
     using MinimizerMapper::align_sequence_between;
     using MinimizerMapper::to_anchor;
+    using MinimizerMapper::fix_dozeu_end_deletions;
 };
 
 TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mapping]") {
@@ -665,6 +666,59 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
     }
 }
 
+
+TEST_CASE("MinimizerMapper can fix up alignments with deletions on the ends", "[giraffe][mapping]") {
+    
+    gbwtgraph::GBWTGraph gbwt_graph;
+    gbwt::GBWT gbwt;
+    gbwt_graph.set_gbwt(gbwt);
+    gbwtgraph::DefaultMinimizerIndex minimizer_index;
+    SnarlDistanceIndex distance_index;
+    PathPositionHandleGraph* handle_graph;
+    TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, &distance_index, handle_graph);
+
+    Alignment aln;
+    auto m1 = aln.mutable_path()->add_mapping();
+    auto p1 = m1->mutable_position();
+    p1->set_node_id(1);
+    p1->set_offset(3);
+    auto e1 = m1->add_edit();
+    e1->set_from_length(2);
+    e1->set_to_length(0);
+    
+    auto m2 = aln.mutable_path()->add_mapping();
+    auto p2 = m2->mutable_position();
+    p2->set_node_id(2);
+    p2->set_offset(0);
+    auto e2 = m2->add_edit();
+    e2->set_from_length(2);
+    e2->set_to_length(0);
+    auto e3 = m2->add_edit();
+    e3->set_from_length(1);
+    e3->set_to_length(1);
+    auto e4 = m2->add_edit();
+    e4->set_from_length(1);
+    e4->set_to_length(0);
+    
+    auto m3 = aln.mutable_path()->add_mapping();
+    auto p3 = m3->mutable_position();
+    p3->set_node_id(3);
+    p3->set_offset(0);
+    auto e5 = m3->add_edit();
+    e5->set_from_length(1);
+    e5->set_to_length(0);
+    
+    test_mapper.fix_dozeu_end_deletions(aln);
+    
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == 2);
+    REQUIRE(aln.path().mapping(0).position().offset() == 2);
+    REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+}
 
 
 }

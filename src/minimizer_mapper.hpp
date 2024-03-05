@@ -701,6 +701,14 @@ protected:
      */
     void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
                          const std::vector<handle_t>& topological_order) const;
+    
+    /**
+     * When dozeu doesn't have any seeds, it's scan heuristic can lead to
+     * inaccurate anchoring with the end result that one end of the alignment
+     * has a deletion that doesn't connect to an aligned base. This function
+     * removes those deletions
+     */
+    void fix_dozeu_end_deletions(Alignment& rescued_alignment) const;
 
 //-----------------------------------------------------------------------------
 
