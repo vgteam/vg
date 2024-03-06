@@ -173,9 +173,18 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 }
 
 bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
-    // Until we can change the tests, default to sending reference and
-    // haplotype paths as W lines, and generic paths as P lines. 
-    return graph->get_sense(path_handle) != PathSense::GENERIC;
+    if (graph->get_sense(path_handle) == PathSense::GENERIC) {
+        // Generic paths can't be W lines.
+        return false;
+    }
+
+    auto phase_block = graph->get_phase_block(path_handle);
+    if (phase_block != 0 && phase_block != PathMetadata::NO_PHASE_BLOCK) {
+        // We can't represent nonzero phase blocks in W lines in a way that round-trips, so make them P lines.
+        return false;
+    }
+    
+    return true;
 }
 
 void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {
@@ -219,12 +228,18 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
         cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << graph->get_path_name(path_handle)
              << ", using " << (start_offset + path_length) << " instead" << endl;
     }
+
+    if (subrange == PathMetadata::NO_SUBRANGE && phase_block != PathMetadata::NO_PHASE_BLOCK) {
+        // If phase blocks are big numbers that came from coordinates, and we
+        // can, we want to just pass them through in the GFA offset position.
+        start_offset = phase_block;
+    }
     
     // See if we need to bump along the start offset to avoid collisions of phase blocks
     auto key = std::tuple<string, int64_t, string>(sample, hap_index, contig);
     auto& phase_block_end_cursor = last_phase_block_end[key];
     if (phase_block_end_cursor != 0) {
-        if (start_offset != 0) {
+        if (subrange != PathMetadata::NO_SUBRANGE) {
             // TODO: Work out a way to support phase blocks and subranges at the same time.
             cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
                  << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
@@ -232,11 +247,11 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
         }
         // Budge us to after the last thing and budge the cursor to after us.
         // TODO: GBWTGraph algorithm just uses phase block number as start
-        // position so it can roudn trip. Settle on a way to round trip the
+        // position so it can round trip. Settle on a way to round trip the
         // small phase block numbers somehow?
-        start_offset += phase_block_end_cursor;
-        phase_block_end_cursor += path_length;
+        start_offset = std::max(start_offset, phase_block_end_cursor);
     }
+    phase_block_end_cursor = start_offset + path_length;
 
     out << "W\t" << sample << "\t" << hap_index << "\t" << contig << "\t" << start_offset << "\t" << (start_offset + path_length) << "\t";
 
