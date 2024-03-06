@@ -659,10 +659,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Turn all the seeds into anchors. Either we'll fragment them directly or
     // use them to make gapless extension anchors over them.
+    // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
     // If we don't do gapless extension, we need one-item vectors for all the
     // seeds of their own numbers, to show what seed each anchor represents.
+    // TODO: Can we only do this for the seeds that are in trees we keep?
     std::vector<std::vector<size_t>> seed_seed_sequences;
     if (!do_gapless_extension) {
         seed_seed_sequences.reserve(seed_anchors.size());
@@ -1167,27 +1169,49 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 cerr << log_name() << "Keeping, of the " << kv.second.size() << " fragments in " << kv.first << ", those with score of at least "  << fragment_score_threshold << endl;
             }
         }
-    
+        
+        size_t fragments_kept = 0;
+
         // Keep the fragments that have good scores.
         for (auto& fragment_num : kv.second) {
             // For each fragment
-            if (fragment_scores.at(fragment_num) >= fragment_score_threshold) {
-                // If its score is high enough, keep it.
-                // TODO: Tell the funnel.
+            auto fragment_score = fragment_scores.at(fragment_num);
+            if (fragment_score >= fragment_score_threshold) {
+                // If its score is high enough
+                if (track_provenance) {
+                    // Tell the funnel
+                    funnel.pass("fragment-score-threshold", fragment_num, fragment_score);
+                } 
+                // Keep it.
                 good_fragments_in[kv.first].push_back(fragment_num);
+                fragments_kept++;
+            } else {
+                // If its score is not high enough
+                if (track_provenance) {
+                    // Tell the funnel
+                    funnel.fail("fragment-score-threshold", fragment_num, fragment_score);
+                } 
             }
         }
         
-        // Now sort anchors by read start. Don't bother with shadowing.
-        algorithms::sort_anchor_indexes(fragment_anchors, good_fragments_in[kv.first]);
+        if (fragments_kept > 1) {
+            // Only access the vector if we put stuff in it, to avoid making
+            // empty vectors. And only sort if there are multiple fragments. 
+            
+            // Now sort anchors by read start. Don't bother with shadowing.
+            algorithms::sort_anchor_indexes(fragment_anchors, good_fragments_in[kv.first]);
+        }
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "\tKept " << good_fragments_in[kv.first].size() << "/" << kv.second.size() << " fragments." << endl;
+                cerr << log_name() << "\tKept " << fragments_kept << "/" << kv.second.size() << " fragments." << endl;
             }
         }
     }
+
+    // TODO: Add filtering out of trees that don't have *enough* good fragments?
+    // Right now we just take all good fragments through.
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -1201,15 +1225,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Get a view of all the good fragments.
         // TODO: Should we just not make a global fragment anchor list?
         VectorView<algorithms::Anchor> fragment_view {fragment_anchors, kv.second};
-
-        if (fragment_view.empty()) {
-            // Nothing to chain!
-            if (show_work) {
-                #pragma omp critical (cerr)
-                std::cerr << log_name() << "Zip code tree " << tree_num << " has no good fragments to chain!" << std::endl;
-            } 
-            continue;
-        }
+        
+        // We should not be making empty entries
+        crash_unless(!fragment_view.empty());
         
         if (show_work) {
             #pragma omp critical (cerr)
