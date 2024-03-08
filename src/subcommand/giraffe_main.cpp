@@ -369,6 +369,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "minimum fraction of best fragment score to retain a fragment"
     );
     chaining_opts.add_range(
+        "fragment-min-score",
+        &MinimizerMapper::fragment_min_score,
+        MinimizerMapper::default_fragment_min_score,
+        "minimum score to retain a fragment"
+    );
+    chaining_opts.add_range(
         "max-lookback-bases",
         &MinimizerMapper::max_lookback_bases,
         MinimizerMapper::default_max_lookback_bases,
@@ -713,6 +719,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -742,6 +749,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
@@ -763,6 +771,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);

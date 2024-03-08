@@ -1158,7 +1158,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Decide on how good fragments have to be to keep.
-    double fragment_score_threshold = best_fragment_score * fragment_score_fraction;
+    double fragment_score_threshold = std::max(best_fragment_score * fragment_score_fraction, fragment_min_score);
 
     // Filter down to just the good ones, sorted by read start
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;

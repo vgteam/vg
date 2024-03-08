@@ -269,7 +269,12 @@ public:
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
-    
+
+    /// What minimum score in points should a fragment have in order to keep
+    /// it? Needs to be set to some kind of significance threshold.
+    static constexpr double default_fragment_min_score = 60;
+    double fragment_min_score = default_fragment_min_score;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
