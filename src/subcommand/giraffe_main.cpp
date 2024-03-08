@@ -379,7 +379,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "fragment-set-score-threshold",
         &MinimizerMapper::fragment_set_score_threshold,
         MinimizerMapper::default_fragment_set_score_threshold,
-        "only chain fragments in a tree if their overasll score is within this many points of the best tree",
+        "only chain fragments in a tree if their overall score is within this many points of the best tree",
         double_is_nonnegative
     );
     chaining_opts.add_range(
@@ -740,8 +740,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
-        .add_entry<double>("fragment-score-fraction", 0.15)
-        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-score-fraction", 0)
+        .add_entry<double>("fragment-min-score", 60)
+        .add_entry<int>("min-chaining-problems", 2)
+        .add_entry<int>("max-chaining-problems", 10)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
