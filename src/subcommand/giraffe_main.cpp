@@ -42,7 +42,7 @@
 #include <valgrind/callgrind.h>
 #endif
 
-#define USE_MEMORY_PROFILING
+//#define USE_MEMORY_PROFILING
 
 #ifdef USE_MEMORY_PROFILING
 #include "../config/allocator_config.hpp"
@@ -372,7 +372,29 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "fragment-min-score",
         &MinimizerMapper::fragment_min_score,
         MinimizerMapper::default_fragment_min_score,
-        "minimum score to retain a fragment"
+        "minimum score to retain a fragment",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "fragment-set-score-threshold",
+        &MinimizerMapper::fragment_set_score_threshold,
+        MinimizerMapper::default_fragment_set_score_threshold,
+        "only chain fragments in a tree if their overasll score is within this many points of the best tree",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "min-chaining-problems",
+        &MinimizerMapper::min_chaining_problems,
+        MinimizerMapper::default_min_chaining_problems,
+        "ignore score threshold to get this many chaining problems",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "max-chaining-problems",
+        &MinimizerMapper::max_chaining_problems,
+        MinimizerMapper::default_max_chaining_problems,
+        "do no more than this many chaining problems",
+        int_is_nonnegative
     );
     chaining_opts.add_range(
         "max-lookback-bases",

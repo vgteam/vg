@@ -275,6 +275,20 @@ public:
     static constexpr double default_fragment_min_score = 60;
     double fragment_min_score = default_fragment_min_score;
 
+    /// If a fragment set's score is smaller than the best 
+    /// fragment set's score by more than this much, don't align it
+    static constexpr double default_fragment_set_score_threshold = 0;
+    double fragment_set_score_threshold = default_fragment_set_score_threshold;
+
+    /// Disregard the fragment set score thresholds when they would give us
+    /// fewer than this many chainign problems done.
+    static constexpr int default_min_chaining_problems = 1;
+    int min_chaining_problems = default_min_chaining_problems;
+    
+    /// Do no more than this many chaining problems.
+    static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
+    int max_chaining_problems = default_max_chaining_problems;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
@@ -301,7 +315,7 @@ public:
     double chain_score_threshold = default_chain_score_threshold;
     
     /// Disregard the chain score thresholds when they would give us
-    /// fewer than this many chains.
+    /// fewer than this many chains aligned.
     static constexpr int default_min_chains = 4;
     int min_chains = default_min_chains;
 
