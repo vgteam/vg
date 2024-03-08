@@ -742,6 +742,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0)
         .add_entry<double>("fragment-min-score", 60)
+        .add_entry<double>("fragment-set-score-threshold", 60)
         .add_entry<int>("min-chaining-problems", 2)
         .add_entry<int>("max-chaining-problems", 10)
         .add_entry<int>("min-chains", 4)
