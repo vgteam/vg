@@ -2267,7 +2267,7 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
                     // todo: passing in a single ploidy simplisitic, would need to derive from the calls when
                     // reucrising
                     // in practice, the results will nearly the same but still needs fixing
-                    // we try to get the the allele from the genotype if possible, but fallback on the fallback_allele
+                    // we try to get the allele from the genotype if possible, but fallback on the fallback_allele
                     int trav_allele = fallback_allele >= 0 ? fallback_allele : record.genotype_by_ploidy[ploidy-1].first[allele];
                     const SnarlTraversal& traversal = record.travs[trav_allele];
                     string nested_snarl_allele = trav_string(graph, traversal);
