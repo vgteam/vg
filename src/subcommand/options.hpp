@@ -1049,8 +1049,8 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     GroupedOptionGroup() = default;
     GroupedOptionGroup(const GroupedOptionGroup& other) = delete;
     GroupedOptionGroup& operator=(GroupedOptionGroup& other) = delete;
-    GroupedOptionGroup(GroupedOptionGroup&& other) = default;
-    GroupedOptionGroup& operator=(GroupedOptionGroup&& other) = default;
+    GroupedOptionGroup(GroupedOptionGroup&& other) = delete;
+    GroupedOptionGroup& operator=(GroupedOptionGroup&& other) = delete;
     virtual ~GroupedOptionGroup() = default;
 
     /// Create a new child group with a new heading, which we can add options

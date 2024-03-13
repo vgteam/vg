@@ -546,6 +546,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
         << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
         << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+        << "  --set-refpos                  set refpos field on reads to reference path positions they visit" << endl
         << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
         << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
         << "  --track-position              coarsely track linear reference positions of good intermediate alignment candidates (implies --track-provenance)" << endl
@@ -568,8 +569,9 @@ int main_giraffe(int argc, char** argv) {
     // Set up to parse options
     std::unique_ptr<GroupedOptionGroup> parser = get_options();
 
-    constexpr int OPT_OUTPUT_BASENAME = 1001;
-    constexpr int OPT_REPORT_NAME = 1002;
+    constexpr int OPT_OUTPUT_BASENAME = 1000;
+    constexpr int OPT_REPORT_NAME = 1001;
+    constexpr int OPT_SET_REFPOS = 1002;
     constexpr int OPT_TRACK_PROVENANCE = 1003;
     constexpr int OPT_TRACK_CORRECTNESS = 1004;
     constexpr int OPT_TRACK_POSITION = 1005;
@@ -631,6 +633,8 @@ int main_giraffe(int argc, char** argv) {
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we set the alignment refpos fields?
+    bool set_refpos = MinimizerMapper::default_set_refpos;
     // Should we track candidate provenance?
     bool track_provenance = MinimizerMapper::default_track_provenance;
     // Should we track candidate correctness?
@@ -799,6 +803,7 @@ int main_giraffe(int argc, char** argv) {
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
+        {"set-refpos", no_argument, 0, OPT_SET_REFPOS},
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
@@ -1066,6 +1071,10 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_SET_REFPOS:
+                set_refpos = true;
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -1338,7 +1347,7 @@ int main_giraffe(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
-    if (track_correctness || track_position || hts_output) {
+    if (track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
@@ -1432,6 +1441,11 @@ int main_giraffe(int argc, char** argv) {
         if (show_progress && prune_anchors) {
             cerr << "--prune-low-cplx" << endl;
         }
+
+        if (show_progress && set_refpos) {
+            cerr << "--set-refpos " << endl;
+        }
+        minimizer_mapper.set_refpos = set_refpos;
 
         if (show_progress && track_provenance) {
             cerr << "--track-provenance " << endl;
@@ -1563,7 +1577,6 @@ int main_giraffe(int argc, char** argv) {
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
-                
                 alignment_emitter = get_alignment_emitter(output_filename, output_format,
                                                           paths, thread_count,
                                                           emitter_graph, flags);

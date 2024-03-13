@@ -31,7 +31,7 @@ void help_annotate(char** argv) {
          << "    -x, --xg-name FILE     xg index of the graph against which the Alignments are aligned (required)" << endl
          << "    -p, --positions        annotate alignments with reference positions" << endl
          << "    -m, --multi-position   annotate alignments with multiple reference positions" << endl
-         << "    -l, --search-limit N   when annotating with positions, search this far for paths (default: read length)" << endl
+         << "    -l, --search-limit N   when annotating with positions, search this far for paths, or -1 to not search (default: 0 (auto from read length))" << endl
          << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
          << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
          << "    -t, --threads          use the specified number of threads" << endl;
@@ -94,7 +94,7 @@ int main_annotate(int argc, char** argv) {
     string gam_name;
     bool add_positions = false;
     bool add_multiple_positions = false;
-    size_t search_limit = 0;
+    int64_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
     string snarls_name;
@@ -163,7 +163,7 @@ int main_annotate(int argc, char** argv) {
             break;
             
         case 'l':
-            search_limit = parse<size_t>(optarg);
+            search_limit = parse<int64_t>(optarg);
             break;
             
         case 'n':

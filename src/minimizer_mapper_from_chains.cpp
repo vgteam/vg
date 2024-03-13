@@ -13,6 +13,7 @@
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -1883,10 +1884,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
     }
+
+    if (this->set_refpos) {
+        if (track_provenance) {
+            // Time how long setting reference positions takes
+            funnel.substage("refpos");
+        }
+
+        crash_unless(path_graph != nullptr);
+        for (auto& m : mappings) {
+            // Annotate the reads with the positions of the nodes they are actually on (fast)
+            vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+        }
+    }
     
     // Stop this alignment
     funnel.stop();
-    
+
     // Annotate with whatever's in the funnel
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
     

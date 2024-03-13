@@ -342,6 +342,10 @@ public:
     /// If false, skip computing base-level alignments.
     static constexpr bool default_do_dp = true;
     bool do_dp = default_do_dp;
+
+    /// Set refpos field of alignments to positions on nodes they visit.
+    static constexpr bool default_set_refpos = false;
+    bool set_refpos = default_set_refpos;
     
     /// Track which internal work items came from which others during each
     /// stage of the mapping algorithm.
@@ -521,7 +525,7 @@ protected:
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;
 
     // These are our indexes
-    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
+    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;

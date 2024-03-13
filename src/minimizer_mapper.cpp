@@ -12,6 +12,7 @@
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -1130,6 +1131,19 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
+    }
+
+    if (this->set_refpos) {
+        if (track_provenance) {
+            // Time how long setting reference positions takes
+            funnel.substage("refpos");
+        }
+
+        crash_unless(path_graph != nullptr);
+        for (auto& m : mappings) {
+            // Annotate the reads with the positions of the nodes they are actually on (fast)
+            vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+        }
     }
     
     // Stop this alignment
@@ -2619,9 +2633,30 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
     // Make sure pair partners reference each other
     pair_all(mappings);
+
+    for (auto r : {0, 1}) {
+        if (track_provenance) {
+            funnels[r].substage_stop();
+        }
+    }
+    
+    if (this->set_refpos) {
+        for (auto r : {0, 1}) {
+            if (track_provenance) {
+                // Time how long setting reference positions takes
+                funnels[r].substage("refpos");
+            }
+        }
+
+        for (auto r : {0, 1}) {
+            crash_unless(path_graph != nullptr);
+            for (auto& m : mappings[r]) {
+                // Annotate the reads with the positions of the nodes they are actually on (fast)
+                vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+            }
+        }
+    }
         
-    
-    
     for (auto r : {0, 1}) {
         if (track_provenance) {
             funnels[r].substage_stop();
