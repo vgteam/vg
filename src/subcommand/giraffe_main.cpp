@@ -42,7 +42,7 @@
 #include <valgrind/callgrind.h>
 #endif
 
-#define USE_MEMORY_PROFILING
+//#define USE_MEMORY_PROFILING
 
 #ifdef USE_MEMORY_PROFILING
 #include "../config/allocator_config.hpp"
@@ -367,6 +367,34 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::fragment_score_fraction,
         MinimizerMapper::default_fragment_score_fraction,
         "minimum fraction of best fragment score to retain a fragment"
+    );
+    chaining_opts.add_range(
+        "fragment-min-score",
+        &MinimizerMapper::fragment_min_score,
+        MinimizerMapper::default_fragment_min_score,
+        "minimum score to retain a fragment",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "fragment-set-score-threshold",
+        &MinimizerMapper::fragment_set_score_threshold,
+        MinimizerMapper::default_fragment_set_score_threshold,
+        "only chain fragments in a tree if their overasll score is within this many points of the best tree",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "min-chaining-problems",
+        &MinimizerMapper::min_chaining_problems,
+        MinimizerMapper::default_min_chaining_problems,
+        "ignore score threshold to get this many chaining problems",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "max-chaining-problems",
+        &MinimizerMapper::max_chaining_problems,
+        MinimizerMapper::default_max_chaining_problems,
+        "do no more than this many chaining problems",
+        int_is_nonnegative
     );
     chaining_opts.add_range(
         "max-lookback-bases",
@@ -717,6 +745,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -746,6 +775,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
@@ -767,6 +797,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<double>("fragment-min-score", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);

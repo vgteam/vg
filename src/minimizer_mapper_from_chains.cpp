@@ -1159,7 +1159,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Decide on how good fragments have to be to keep.
-    double fragment_score_threshold = best_fragment_score * fragment_score_fraction;
+    double fragment_score_threshold = std::max(best_fragment_score * fragment_score_fraction, fragment_min_score);
 
     // Filter down to just the good ones, sorted by read start
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
@@ -1211,9 +1211,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    // TODO: Add filtering out of trees that don't have *enough* good fragments?
-    // Right now we just take all good fragments through.
-    
+    // Draft trees to chain all the fragments of based on how good their fragment sets look. 
+    std::vector<size_t> trees_with_good_fragments;
+    std::vector<double> fragment_set_scores;
+    trees_with_good_fragments.reserve(good_fragments_in.size());
+    fragment_set_scores.reserve(good_fragments_in.size());
+    for (auto& kv : good_fragments_in) {
+        // Make a vector of the numbers of all the still-eligible trees
+        trees_with_good_fragments.push_back(kv.first);
+        // And score each set of fragments
+        double fragment_set_score = 0;
+        for (auto& anchor_index : kv.second) {
+            fragment_set_score += fragment_anchors.at(anchor_index).score();
+        }
+        fragment_set_scores.push_back(fragment_set_score);
+    }
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -1221,126 +1234,205 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    for (auto& kv : good_fragments_in) {
-        auto& tree_num = kv.first;
-        // Get a view of all the good fragments.
-        // TODO: Should we just not make a global fragment anchor list?
-        VectorView<algorithms::Anchor> fragment_view {fragment_anchors, kv.second};
-        
-        // We should not be making empty entries
-        crash_unless(!fragment_view.empty());
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            std::cerr << log_name() << "Chaining fragments from zip code tree " << tree_num << std::endl;
-        } 
+    process_until_threshold_b<double>(fragment_set_scores,
+        fragment_set_score_threshold, min_chaining_problems, max_chaining_problems, rng, 
+        [&](size_t processed_num, size_t item_count) -> bool {
+            // This tree's fragment set is good enough.
+            // Called in descending score order
+            
+            // TODO: How should this connect to multiplicity_by_tree? Given that we're dropping whole trees again?
 
-        // Chain up the fragments
-        algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-            seeds,
-            zip_code_forest.trees[tree_num],
-            this->max_lookback_bases
-        ); 
-        std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
-            fragment_view,
-            *distance_index,
-            gbwt_graph,
-            get_regular_aligner()->gap_open,
-            get_regular_aligner()->gap_extension,
-            this->max_alignments,
-            for_each_transition,
-            this->item_bonus,
-            this->item_scale,
-            this->gap_scale,
-            this->max_indel_bases,
-            false
-        );
-        
-        for (size_t result = 0; result < chain_results.size(); result++) {
-            auto& chain_result = chain_results[result];
-            // Each chain of fragments becomes a chain of seeds
-            chains.emplace_back();
-            auto& chain = chains.back();
-            // With a source
-            chain_source_tree.push_back(tree_num);
-            // With a score
-            chain_score_estimates.emplace_back(0);
-            int& score = chain_score_estimates.back();
-            // And counts of each minimizer kept
-            minimizer_kept_chain_count.emplace_back();
-            auto& minimizer_kept = minimizer_kept_chain_count.back();
-            //Remember the multiplicity from the fragments. For now, it is just based on
-            //the trees so it doesn't matter which fragment this comes from
-            multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
-            
-            // We record the fragments that merge into each chain for reporting.
-            std::vector<size_t> chain_fragment_nums_overall;
-            chain_fragment_nums_overall.reserve(chain_result.second.size());
-            
-            for (const size_t& local_fragment: chain_result.second) {
-                // For each fragment in the chain
-                           
-                // Get its fragment number out of all fragments
-                size_t fragment_num_overall = kv.second.at(local_fragment);
-                
-                // Save it
-                chain_fragment_nums_overall.push_back(fragment_num_overall);
-                
-                // Go get that fragment
-                auto& fragment = fragments.at(fragment_num_overall);
-                    
-                // And append all the seed numbers to the chain
-                std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
-                
-                // And count the score
-                score += fragment_scores.at(fragment_num_overall);
-                
-                // And count the kept minimizers
-                auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
-                if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
-                    minimizer_kept.resize(fragment_minimizer_kept.size());
-                }
-                for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
-                    minimizer_kept[i] += fragment_minimizer_kept[i];
+            // Look up which tree this is
+            size_t tree_num = trees_with_good_fragments.at(processed_num);
+            auto& tree_fragments = good_fragments_in[tree_num];
+
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Tree " << tree_num << " has a good enough fragment set (score=" << fragment_set_scores[processed_num] << ")" << endl;
+                    if (track_correctness) {
+                        for (auto& fragment_num : tree_fragments) {
+                            if (funnel.was_correct(fragment_num)) {
+                                cerr << log_name() << "\tCORRECT!" << endl;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
             if (track_provenance) {
-                // Say all those fragments became a chain
-                funnel.merge_group(chain_fragment_nums_overall.begin(), chain_fragment_nums_overall.end());
-                // With the total score
-                funnel.score(funnel.latest(), score);
+                for (auto& fragment_num : tree_fragments) {
+                    funnel.pass("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                    funnel.pass("max-chaining-problems", fragment_num);
+                }
             }
+
+            // Get a view of all the good fragments.
+            // TODO: Should we just not make a global fragment anchor list?
+            VectorView<algorithms::Anchor> fragment_view {fragment_anchors, tree_fragments};
+            
+            // We should not be making empty entries
+            crash_unless(!fragment_view.empty());
+            
             if (show_work) {
-                if (result < MANY_LIMIT) {
-                    #pragma omp critical (cerr)
-                    {
-                        std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
-                        for (auto& f : chain_fragment_nums_overall) {
-                            std::cerr << " " << f;
-                        } 
-                        std::cerr << std::endl;
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Chaining fragments from zip code tree " << tree_num << std::endl;
+            } 
+
+            // Chain up the fragments
+            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                seeds,
+                zip_code_forest.trees[tree_num],
+                this->max_lookback_bases
+            ); 
+            std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
+                fragment_view,
+                *distance_index,
+                gbwt_graph,
+                get_regular_aligner()->gap_open,
+                get_regular_aligner()->gap_extension,
+                this->max_alignments,
+                for_each_transition,
+                this->item_bonus,
+                this->item_scale,
+                this->gap_scale,
+                this->max_indel_bases,
+                false
+            );
+            
+            for (size_t result = 0; result < chain_results.size(); result++) {
+                auto& chain_result = chain_results[result];
+                // Each chain of fragments becomes a chain of seeds
+                chains.emplace_back();
+                auto& chain = chains.back();
+                // With a source
+                chain_source_tree.push_back(tree_num);
+                // With a score
+                chain_score_estimates.emplace_back(0);
+                int& score = chain_score_estimates.back();
+                // And counts of each minimizer kept
+                minimizer_kept_chain_count.emplace_back();
+                auto& minimizer_kept = minimizer_kept_chain_count.back();
+                //Remember the multiplicity from the fragments. For now, it is just based on
+                //the trees so it doesn't matter which fragment this comes from
+                multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
+                
+                // We record the fragments that merge into each chain for reporting.
+                std::vector<size_t> chain_fragment_nums_overall;
+                chain_fragment_nums_overall.reserve(chain_result.second.size());
+                
+                for (const size_t& local_fragment: chain_result.second) {
+                    // For each fragment in the chain
+                               
+                    // Get its fragment number out of all fragments
+                    size_t fragment_num_overall = tree_fragments.at(local_fragment);
+                    
+                    // Save it
+                    chain_fragment_nums_overall.push_back(fragment_num_overall);
+                    
+                    // Go get that fragment
+                    auto& fragment = fragments.at(fragment_num_overall);
+                        
+                    // And append all the seed numbers to the chain
+                    std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
+                    
+                    // And count the score
+                    score += fragment_scores.at(fragment_num_overall);
+                    
+                    // And count the kept minimizers
+                    auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
+                    if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
+                        minimizer_kept.resize(fragment_minimizer_kept.size());
                     }
-                    if (track_provenance) {
-                        for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                            // Log each range on a path associated with the chain.
+                    for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
+                        minimizer_kept[i] += fragment_minimizer_kept[i];
+                    }
+                }
+                if (track_provenance) {
+                    // Say all those fragments became a chain
+                    funnel.merge_group(chain_fragment_nums_overall.begin(), chain_fragment_nums_overall.end());
+                    // With the total score
+                    funnel.score(funnel.latest(), score);
+                }
+                if (show_work) {
+                    if (result < MANY_LIMIT) {
+                        #pragma omp critical (cerr)
+                        {
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                            for (auto& f : chain_fragment_nums_overall) {
+                                std::cerr << " " << f;
+                            } 
+                            std::cerr << std::endl;
+                        }
+                        if (track_provenance) {
+                            for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                                // Log each range on a path associated with the chain.
+                                #pragma omp critical (cerr)
+                                std::cerr << log_name() << "\tAt linear reference "
+                                    << this->path_graph->get_path_name(handle_and_range.first)
+                                    << ":" << handle_and_range.second.first
+                                    << "-" << handle_and_range.second.second << std::endl;
+                            }
+                        }
+                        if (track_correctness && funnel.is_correct(funnel.latest())) {
                             #pragma omp critical (cerr)
-                            std::cerr << log_name() << "\tAt linear reference "
-                                << this->path_graph->get_path_name(handle_and_range.first)
-                                << ":" << handle_and_range.second.first
-                                << "-" << handle_and_range.second.second << std::endl;
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    } else if (result == MANY_LIMIT) {
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "<" << (chain_results.size() - result) << " more chains>" << std::endl;
+                    }
+                } 
+            }
+
+            return true;
+
+        }, [&](size_t processed_num) -> void {
+            // There are too many sufficiently good fragment sets.
+            size_t tree_num = trees_with_good_fragments.at(processed_num);
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Tree " << tree_num << " skipped because too many trees have good enough fragment sets (score=" << fragment_set_scores[processed_num] << ")" << endl;
+                    if (track_correctness) {
+                        for (auto& fragment_num : good_fragments_in[tree_num]) {
+                            if (funnel.was_correct(fragment_num)) {
+                                cerr << log_name() << "\tCORRECT!" << endl;
+                                break;
+                            }
                         }
                     }
-                    if (track_correctness && funnel.is_correct(funnel.latest())) {
-                        #pragma omp critical (cerr)
-                        cerr << log_name() << "\tCORRECT!" << endl;
-                    }
-                } else if (result == MANY_LIMIT) {
-                    #pragma omp critical (cerr)
-                    std::cerr << log_name() << "<" << (chain_results.size() - result) << " more chains>" << std::endl;
                 }
-            } 
-        }
-    }
+            }
+            if (track_provenance) {
+                for (auto& fragment_num : good_fragments_in[tree_num]) {
+                    funnel.pass("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                    funnel.fail("max-chaining-problems", fragment_num);
+                }
+            }
+        }, [&](size_t processed_num) -> void {
+            // This fragment set is not sufficiently good.
+            size_t tree_num = trees_with_good_fragments.at(processed_num);
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Tree " << tree_num << " skipped because its fragment set is not good enough (score=" << fragment_set_scores[processed_num] << ")" << endl;
+                    if (track_correctness) {
+                        for (auto& fragment_num : good_fragments_in[tree_num]) {
+                            if (funnel.was_correct(fragment_num)) {
+                                cerr << log_name() << "\tCORRECT!" << endl;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (track_provenance) {
+                for (auto& fragment_num : good_fragments_in[tree_num]) {
+                    funnel.fail("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                }
+            }
+        });
     
     // Find the best chain
     size_t best_chain = std::numeric_limits<size_t>::max();
