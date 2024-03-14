@@ -2503,7 +2503,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             while (remaining_length > 0) {
 
                 size_t to_align_length = std::min(remaining_length, this->max_dp_align);
-                size_t align_start = right_tail_length - remaining_length - to_align_length;
+                size_t align_start = right_tail_length - remaining_length;
 
                 Alignment tail_aln;
                 tail_aln.set_sequence(right_tail.substr(align_start, to_align_length));

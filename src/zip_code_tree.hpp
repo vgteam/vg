@@ -58,8 +58,8 @@ class ZipCodeTree {
       The distances represent the number of nucleotides on the minimum-length path in the variation 
       graph between the structures that the zip code tree nodes represent.
       Seeds represent the first nucleotide of the alignment, so when the seed is traversed forwards
-      in the zip tree, the distance includes the position. If the seed is reversed in the zip tree,
-      then the distance doesn't include the position
+      in the zip tree, the distance starting from that seed includes the position. If the seed is 
+      reversed in the zip tree, then the distance doesn't include the position
       For two SEEDs on the same position, the distance between them would be 0.
       For chain distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner 
       edge (relative to the snarl) of the boundary node, so it includes the length of the boundary 
@@ -159,7 +159,7 @@ class ZipCodeTree {
     size_t get_tree_size() const {return zip_code_tree.size();}
 
     ///Access the values in the zip_code_tree
-    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};;
+    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 protected:
     //The actual tree structure
@@ -538,9 +538,11 @@ class ZipCodeForest {
         // the vectors get shifted around in memory.
         size_t active_tree_index;
 
-        // Keep track of all open chains as an index into the current active_tree_index of the start 
-        // of the chain, and a boolean that is true if the start of the chain is farther than the 
-        // distance_limit from anything else in the snarl tree.
+        // If part of a chain is unreachable with the rest of the chain, then we want to split it 
+        // off into a separate zipcode tree.
+        // This keeps track of all open chains as an index to the start of the chain in the current
+        // active tree, and a boolean that is true if the start of the chain is farther
+        // than the distance_limit from anything else in the snarl tree.
         // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it 
         // points to a SEED, then it is a slice.
         // Any time something gets added to a chain or the chain is closed, check if the distance 

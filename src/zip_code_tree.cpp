@@ -135,6 +135,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
         }
 
     } else {
+        //Otherwise, the chain wasn't empty so actually close it
+
         //Add the end of the chain to the zip code tree
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_END, 
                                                                          std::numeric_limits<size_t>::max(), 
@@ -143,7 +145,6 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
         if (depth == 0) {
             return;
         }
-
 
         // For chains in snarls, we want to know the distance from the last thing
         // in the chain to the end of the chain
@@ -275,7 +276,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
                        const size_t& depth, const size_t& seed_index, bool child_is_reversed,
                        bool chain_is_reversed) {
     const Seed& current_seed = forest_state.seeds->at(seed_index);
-    //For these things, we need to remember the offset in the node/chain
 
     ZipCode::code_type_t current_type = current_seed.zipcode_decoder->get_code_type(depth);
 
@@ -699,7 +699,6 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
         } else {
             //Otherwise, the previous thing was another child of the snarl
             //and we need to record the distance between these two
-            //TODO: This can be improved for simple snarls
             size_t distance;
             if (seed.zipcode_decoder->get_code_type(depth) == ZipCode::REGULAR_SNARL) {
                 //If this is the child of a regular snarl, then the distance between
@@ -1875,6 +1874,8 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
 
     //Get the minimum and maximum values that are used for sorting. These will be used to determine if 
     //radix sort will be more efficient
+    
+    //This must be done even if the interval is already sorted, because we need to fill in the sort values
 
     size_t max_sort_value = 0;
     size_t min_sort_value = std::numeric_limits<size_t>::max();
@@ -1919,7 +1920,8 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
 #endif
             // Get the prefix sum and chain order of the chain child. The chain order is the value added to the prefix
             // sum to specify the order of children with the same prefix sum.  1 will be added to snarls,
-            // nd 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
+            // and 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
+            // See sort_value_t for more details
 
             size_t prefix_sum = order_is_reversed ? SnarlDistanceIndex::minus(seed.zipcode_decoder->get_length(interval.depth),
                                                         SnarlDistanceIndex::sum( seed.zipcode_decoder->get_offset_in_chain(interval.depth+1),
@@ -1937,7 +1939,7 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
                 sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(prefix_sum);
                 sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(1);
             } else {
-                //If this is a node, then the offset in the position to the prefix sum
+                //If this is a node, then the order depends on where the position falls in the node
                 bool node_is_rev = seed.zipcode_decoder->get_is_reversed_in_parent(interval.depth+1) != is_rev(seed.pos);
                 node_is_rev = order_is_reversed ? !node_is_rev : node_is_rev;
                 size_t node_offset = node_is_rev ? seed.zipcode_decoder->get_length(interval.depth+1) - offset(seed.pos)
@@ -2108,7 +2110,6 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
         //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
         ZipCode::code_type_t current_type = sort_values_by_seed[zipcode_sort_order[i]].get_code_type();
         bool is_node = current_type == ZipCode::NODE;
-        //TODO: Why is there a different sort value here?
         size_t sort_value = is_node 
                           ? (ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i]), child_depth, *distance_index) ? 1 : 0)
                           : sort_values_by_seed[zipcode_sort_order[i]].get_sort_value();
@@ -2126,11 +2127,9 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
             if (!previous_is_node) {
                 insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
                                                                                           child_depth, *distance_index) 
-                                                 ? !interval.is_reversed
-                                                 : interval.is_reversed;
+                                        ? !interval.is_reversed
+                                        : interval.is_reversed;
             }
-           
- 
 
             //Open a new run
             next_intervals.emplace_after(insert_itr, i, i, interval.is_reversed, 
@@ -2604,8 +2603,11 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
         size_t chain_range_start;
         size_t chain_range_end;
 
+        //Identifier for the chain that the run is on
+        size_t chain_id : 32;
+
         //Information from the original interval
-        size_t depth;
+        size_t depth : 32;
         ZipCode::code_type_t code_type;
         bool is_reversed;
 
@@ -2760,6 +2762,7 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             run_t seed_run({sort_i - snarl_interval.interval_start,
                             read_offset, read_offset,
                             chain_offset, chain_offset,
+                            interval_i,
                             child_interval.depth,
                             child_interval.code_type,
                             child_interval.is_reversed,
@@ -2793,7 +2796,7 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
                 //A seed is reachable with a run if they are both on the same strand on the read,
                 //the seed is close enough in the read, and if the seed is close enough in the chain 
 
-                if (//is_reversed_read == run_itr->is_reversed_read &&
+                if (is_reversed_read == run_itr->is_reversed_read &&
                     is_within_range(run_itr->read_range_start, run_itr->read_range_end, 
                                     seed_run.read_range_start, seed_run.read_range_end) &&
                     is_within_range(run_itr->chain_range_start, run_itr->chain_range_end, 
@@ -2870,10 +2873,44 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
                 return a.read_range_end < b.read_range_end;
             }
             });
-        interval_i++;
+        ++interval_i;
     }
-    //TODO: Merge consecutive runs on the same chain. This shouldn't affect correctness because separate 
-    //      should be unreachable, but it would make the snarls smaller
+
+    //To remove an element, keep track of the element (run_itr) and the previous iterator (prev_itr),
+    // and remove_after the previous iterator
+    auto prev_itr = all_runs.begin();
+    auto run_itr = all_runs.begin();
+    run_itr++;
+
+    while (run_itr != all_runs.end()) {
+        if (run_itr->chain_id == prev_itr->chain_id && 
+            run_itr->is_reversed == prev_itr->is_reversed &&
+            run_itr->is_reversed_read == prev_itr->is_reversed_read) {
+            //If the current and previous run can be combined, add the current to the previous 
+            // and erase the current with remove_after(prev_itr)
+
+            //Combine the runs
+            prev_itr->uf_head = union_find.union_groups(run_itr->uf_head, 
+                                                       prev_itr->uf_head);
+            prev_itr->read_range_start = std::min(run_itr->read_range_start, 
+                                                 prev_itr->read_range_start);
+            prev_itr->read_range_end = std::max(run_itr->read_range_end, 
+                                               prev_itr->read_range_end);
+
+            prev_itr->chain_range_start = std::min(run_itr->chain_range_start, 
+                                                  prev_itr->chain_range_start);
+            prev_itr->chain_range_end = std::max(run_itr->chain_range_end, 
+                                                        prev_itr->chain_range_end);
+
+            //Remove this run
+            run_itr = all_runs.erase_after(prev_itr);
+        } else {
+            //Otherwise, iterate to the new run
+            ++run_itr;
+            ++prev_itr;
+        }
+    }
+
 
     /******* Re-sort seeds by the new runs and make new intervals of the runs on the chains 
         The orientation of the runs is determined by the orientation of the read along the parent chain  ***********/
