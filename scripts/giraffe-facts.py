@@ -98,8 +98,10 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description=__doc__, 
         formatter_class=argparse.RawDescriptionHelpFormatter)
     
-    parser.add_argument("--input", type=argparse.FileType('r'), default=sys.stdin,
-                        help="line-oriented JSON GAM to process")
+    parser.add_argument("input", type=str,
+                        help="GAM to process")
+    parser.add_argument("--vg", type=str, default="vg",
+                        help="vg binary to use")
     parser.add_argument("outdir",
                         help="directory to place output in")
     
@@ -286,11 +288,44 @@ def add_in_stats(destination, addend):
 
 def read_line_oriented_json(lines):
     """
-    For each line in the given stream, yield it as a parsed JSON object.
+    For each line in the given iterable of lines (such as a stream), yield it as a parsed JSON object.
     """
     
     for line in lines:
-        yield json.loads(line)
+        line = line.strip()
+        if len(line) > 0:
+            yield json.loads(line)
+
+
+def read_read_views(vg, filename):
+    """
+    Given a vg binary and a filename, iterate over subsets of the parsed read dicts for each read in the file.
+
+    The subsets will have the annotation and time_used fields.
+    """
+
+    # Extract just the annotations and times of reads as JSON, with a # header
+    # We don't know all the annotation field names in advance so we have to dump them all.
+    filter_process = subprocess.Popen([vg, "filter", "--tsv-out", "annotation;time_used", filename], stdout=subprocess.PIPE)
+
+    lines = iter(filter_process.stdout)
+    # Drop header line
+    next(lines)
+
+    for line in lines:
+        # Parse the TSV and reconstruct a view of the full read dict.
+        line = line.decode('utf-8')
+        line = line.strip()
+        if len(line) == 0:
+            continue
+        parts = line.split("\t")
+        assert len(parts) == 2
+        read = {"annotation": json.loads(parts[0]), "time_used": float(parts[1])}
+
+        yield read
+
+    return_code = filter_process.wait()
+    assert return_code == 0
         
 class Table(object):
     """
@@ -916,11 +951,20 @@ def main(args):
     # Count all the reads
     read_count = 0
     
-    # Record mapping parameters from at least one read
+    # Record mapping parameters from special magic GAM chunk, if any, or a read
     params = None
-    
-    for read in read_line_oriented_json(options.input):
-    
+   
+    # Get the params from a magic chunk.
+    # TODO: This is a whole pass through a possibly big file!
+    params_json = subprocess.check_output([options.vg, "view", "--extract-tag", "PARAMS_JSON", options.input]).decode('utf-8')
+    lines = params_json.split("\n")
+    for parsed_params in read_line_oriented_json(lines):
+        if params is None:
+            params = parsed_params
+
+    for read in read_read_views(options.vg, options.input):
+        # For the data we need on each read
+        
         if params is None:
             # Go get the mapping parameters
             params = sniff_params(read)
