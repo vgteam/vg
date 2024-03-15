@@ -1457,7 +1457,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
             } else if (field == "time_used") {
                 cout << read.time_used();
             } else if (field == "annotation") {
-                throw runtime_error("error: Cannot write all annotations");
+                cout << pb2json(read.annotation());
             } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
                 if (!has_annotation(read, field.substr(11, field.size()-11))) {
                     throw runtime_error("error: Cannot find annotation "+ field);
@@ -1469,6 +1469,21 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
                         cout << get_annotation<double>(read, annotation_key);
                     } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
                         cout << get_annotation<string>(read, annotation_key);
+                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
+                        for (size_t i = 0; i < value.list_value().values_size(); i++) {
+                            auto& item = value.list_value().values(i);
+                            if (i > 0) {
+                                cout << ",";
+                            }
+                            if (item.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                                cout << value_cast<double>(item);
+                            } else if (item.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                                cout << value_cast<string>(item);
+                            } else {
+                                cout << "?";
+                            }
+                        }
+                        cout << "]";
                     } else {
                         cout << "?";
                     }
