@@ -487,15 +487,27 @@ int main_view(int argc, char** argv) {
             // Iterate over the input as tagged messages.
             vg::io::MessageIterator it(in, verbose);
             while(it.has_current()) {
-                if ((*it).first == extract_tag && (*it).second.get() != nullptr) {
+                if ((*it).first == extract_tag) {
                     // We match the tag, so dump this message.
-                    if (verbose) {
-                        cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                    if ((*it).second.get() != nullptr) {
+                        if (verbose) {
+                            cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                        }
+                        cout << *((*it).second.get());
+                    } else {
+                        if (verbose) {
+                            cerr << "Messageless tag matching tag to extract" << endl;
+                        }
                     }
-                    cout << *((*it).second.get());
                 } else {
-                    if (verbose) {
-                        cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                    if ((*it).second.get() != nullptr) {
+                        if (verbose) {
+                            cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                        }
+                    } else {
+                        if (verbose) {
+                            cerr << "Messageless tag not matching tag to extract" << endl;
+                        }
                     }
                 }
                 ++it;
