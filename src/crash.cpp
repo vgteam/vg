@@ -193,6 +193,47 @@ static void stop_link() {
     std::cerr << "\e]8;;\e\\";
 }
 
+// Report a loaded library location, or an actual source file location if we can get it
+// If we need to do supplemental command line command lookups of source lines that backward-cpp can't do, do those too.
+// Does not include a trailing newline.
+void report_library(ostream& out, Dl_info& address_library, void* ip) {
+    #ifdef __APPLE__
+        // Try running atos to print a line number. This can be slow so we don't do it by default.
+        stringstream command;
+        
+        command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
+        
+        FILE* command_pipe = popen(command.str().c_str(), "r");
+        if (command_pipe != NULL) {
+            // We started the command
+
+            // Read the result. May or may not actually work, but if nothing is read it returns 0.
+            char result_buffer[1024];
+            size_t bytes_read = fread(result_buffer, 1, 1023, command_pipe);
+            while (bytes_read != 0 && result_buffer[bytes_read - 1] == '\n') {
+                // Strip off trailing newlines
+                bytes_read--;
+            }
+            // Add null terminator.
+            result_buffer[bytes_read] = 0;
+
+            // Dump any extra bytes so we can wait on the command.
+            while (fgetc(command_pipe) != EOF) {
+                // Do nothing
+            }
+
+            if (pclose(command_pipe) == 0) {
+                // The command ducceeded. Report what it said and the library path.
+                out << result_buffer << " in " << address_library.dli_fname << " loaded at " << address_library.dli_fbase;
+                return;
+            }
+        }
+    #endif
+
+    // If we don't quit early, just talk about the library.
+    out << "Library " << address_library.dli_fname << " loaded at " << address_library.dli_fbase;
+}
+
 void stacktrace_manually(ostream& out, int signalNumber, void* ip, void** bp) {
     // Now we compute our own stack trace, because backtrace() isn't so good on OS X.
     // We operate on the same principles as <https://stackoverflow.com/a/5426269>
@@ -234,21 +275,13 @@ void stacktrace_manually(ostream& out, int signalNumber, void* ip, void** bp) {
                     << ", in library " << address_library.dli_fname
                     << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
             }
-            
-            #ifdef __APPLE__
-                #ifdef VG_DO_ATOS
-                    // Try running atos to print a line number. This can be slow so we don't do it by default.
-                    stringstream command;
-                    
-                    command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
-                    out << "Running " << command.str() << "..." << endl;
-                    system(command.str().c_str());
-                #endif
-            #endif
-            
         } else {
             out << "Address " << ip << " out of symbol in library " << address_library.dli_fname << endl;
         }
+
+        out << "\t";
+        report_library(out, address_library, ip);
+        out << std::endl;
 
         if(address_library.dli_sname != nullptr && !strcmp(address_library.dli_sname, "main")) {
             out << "Stack hit main" << endl;
@@ -349,6 +382,19 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
             p.address = true;
             p.object = true;
             p.print(stack_trace, *out);
+
+            *out << std::endl;
+            *out << "Library locations:" << std::endl;
+
+            // Now report all the objects
+            for (int i = stack_trace.size(); i > 0; i--) {
+                Dl_info address_library;
+                if (dladdr(stack_trace[i].addr, &address_library)) {
+                    *out << "#" << i << "\t";
+                    report_library(*out, address_library, stack_trace[i].addr);
+                    *out << std::endl;
+                }
+            }
         } else {
             *out << "Caught signal " << signalNumber << " at unknown address" << endl;
         }
