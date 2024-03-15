@@ -2166,7 +2166,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
                 //Give up if the alignment is bad enough, soft clip the rest
                 //TODO: Maybe change how we decide if the alignment is bad?
-                if ((int32_t)tail_aln.score() <= 0) {
+                if ((int32_t)tail_aln.score() <= aligner.score_exact_match(tail_aln, 0, std::max((size_t)1, to_align_length/10))) {
 
                     left_alignment = WFAAlignment::make_unlocalized_insertion(0, remaining_length, 0);
                     auto new_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
@@ -2557,7 +2557,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
                 //Give up if the alignment is bad enough, soft clip the rest
                 //TODO: Maybe change how we decide if the alignment is bad?
-                if ((int32_t)tail_aln.score() <= 0) {
+                if ((int32_t)tail_aln.score() <= aligner.score_exact_match(tail_aln, 0, std::max((size_t)1, to_align_length/10))) {
 
                     right_alignment = WFAAlignment::make_unlocalized_insertion(old_read_end + right_tail_length - remaining_length, remaining_length, 0);
                     append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
