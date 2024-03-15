@@ -1156,16 +1156,6 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), 0, funnel);
         }
-        // Annotate with parameters used for the filters.
-        set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
-        set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
-        set_annotation(mappings[0], "param_score-fraction", (double) minimizer_score_fraction);
-        set_annotation(mappings[0], "param_max-extensions", (double) max_extensions);
-        set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
-        set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
-        set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
-        set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     
 #ifdef print_minimizer_table

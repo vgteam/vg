@@ -2000,34 +2000,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), fragments.size(), funnel);
         }
-        // Annotate with parameters used for the filters and algorithms.
-        
-        set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
-        set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
-        set_annotation(mappings[0], "param_score-fraction", (double) minimizer_score_fraction);
-        set_annotation(mappings[0], "param_max-unique-min", (double) max_unique_min);
-        set_annotation(mappings[0], "param_num-bp-per-min", (double) num_bp_per_min);
-        set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
-        set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
-        set_annotation(mappings[0], "param_zipcode-tree-score-threshold", (double) zipcode_tree_score_threshold);
-        set_annotation(mappings[0], "param_min-to-fragment", (double) min_to_fragment);
-        set_annotation(mappings[0], "param_max-to-fragment", (double) max_to_fragment);
-        
-        // Chaining algorithm parameters
-        set_annotation(mappings[0], "param_max-lookback-bases", (double) max_lookback_bases);
-        set_annotation(mappings[0], "param_item-bonus", (double) item_bonus);
-        set_annotation(mappings[0], "param_item-scale", (double) item_scale);
-        set_annotation(mappings[0], "param_gap-scale", (double) gap_scale);
-        set_annotation(mappings[0], "param_max-indel-bases", (double) max_indel_bases);
-        
-        set_annotation(mappings[0], "param_max-chain-connection", (double) max_chain_connection);
-        set_annotation(mappings[0], "param_max-tail-length", (double) max_tail_length);
-        set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
-        set_annotation(mappings[0], "param_chain-score", (double) chain_score_threshold);
-        set_annotation(mappings[0], "param_min-chain-score-per-base", min_chain_score_per_base);
-        set_annotation(mappings[0], "param_max-min-chain-score", (double) max_min_chain_score);
-        set_annotation(mappings[0], "param_min-chains", (double) min_chains);
-        
     }
     
     // Special fragment and chain statistics
