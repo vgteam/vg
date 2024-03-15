@@ -3615,7 +3615,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     }
     if (this->max_unique_min != 0) {
         minimizer_filters.emplace_back(
-            "max-unique-min||num-bp-per-min",
+            "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
                 return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
             },

@@ -716,7 +716,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
-                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
                 funnel.pass("max-to-fragment", item_num);
             }
 
@@ -726,13 +726,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // If the score isn't good enough and we already kept at least min_to_fragment trees,
                 // ignore this tree
                 if (track_provenance) {
-                    funnel.fail("zipcode-tree-score", item_num, tree_scores[item_num]);
+                    funnel.fail("zipcode-tree-score-threshold", item_num, tree_scores[item_num]);
                 }
                 return false;
             }
             
             if (track_provenance) {
-                funnel.pass("zipcode-tree-score", item_num, tree_scores[item_num]); 
+                funnel.pass("zipcode-tree-score-threshold", item_num, tree_scores[item_num]); 
             }
 
             if (show_work) {
@@ -1094,14 +1094,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }, [&](size_t item_num) -> void {
             // There are too many sufficiently good problems to do
             if (track_provenance) {
-                funnel.pass("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
                 funnel.fail("max-to-fragment", item_num);
             }
             
         }, [&](size_t item_num) -> void {
             // This item is not sufficiently good.
             if (track_provenance) {
-                funnel.fail("zipcode-tree-coverage", item_num, tree_coverages[item_num]);
+                funnel.fail("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
             }
         });
 
@@ -1181,7 +1181,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // If its score is high enough
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.pass("fragment-score-threshold", fragment_num, fragment_score);
+                    funnel.pass("fragment-score-fraction", fragment_num, fragment_score);
                 } 
                 // Keep it.
                 good_fragments_in[kv.first].push_back(fragment_num);
@@ -1190,7 +1190,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // If its score is not high enough
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.fail("fragment-score-threshold", fragment_num, fragment_score);
+                    funnel.fail("fragment-score-fraction", fragment_num, fragment_score);
                 } 
             }
         }
@@ -1262,7 +1262,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             if (track_provenance) {
                 for (auto& fragment_num : tree_fragments) {
-                    funnel.pass("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                    funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
                     funnel.pass("max-chaining-problems", fragment_num);
                 }
             }
@@ -1406,7 +1406,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             if (track_provenance) {
                 for (auto& fragment_num : good_fragments_in[tree_num]) {
-                    funnel.pass("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                    funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
                     funnel.fail("max-chaining-problems", fragment_num);
                 }
             }
@@ -1429,7 +1429,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             if (track_provenance) {
                 for (auto& fragment_num : good_fragments_in[tree_num]) {
-                    funnel.fail("fragment-set-score", fragment_num, fragment_set_scores[processed_num]);
+                    funnel.fail("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
                 }
             }
         });
@@ -1553,7 +1553,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     auto discard_chain_by_score = [&](size_t processed_num) -> void {
         // This chain is not good enough.
         if (track_provenance) {
-            funnel.fail("chain-score", processed_num, chain_score_estimates[processed_num]);
+            funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
         }
         
         if (show_work) {
@@ -1602,7 +1602,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
             if (track_provenance) {
-                funnel.pass("chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.pass("max-alignments", processed_num);
             }
 
@@ -1610,7 +1610,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 auto matching = std::make_pair(minimizers[seeds.at(seed_num).source].forward_offset(), seeds.at(seed_num).pos);
                 if (used_matchings.count(matching)) {
                     if (track_provenance) {
-                        funnel.fail("chain-overlap", processed_num);
+                        funnel.fail("no-chain-overlap", processed_num);
                     }
                     if (show_work) {
                         #pragma omp critical (cerr)
@@ -1628,14 +1628,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
             if (track_provenance) {
-                funnel.pass("chain-overlap", processed_num);
+                funnel.pass("no-chain-overlap", processed_num);
             }
 
             // Make sure we aren't doing too many chains from this one tree.
             auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
             if (tree_count >= max_chains_per_tree) {
                 if (track_provenance) {
-                    funnel.fail("chains-per-tree", processed_num, tree_count);
+                    funnel.fail("max-chains-per-tree", processed_num, tree_count);
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1647,7 +1647,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 return false;
             } else {
                 if (track_provenance) {
-                    funnel.pass("chains-per-tree", processed_num, tree_count);
+                    funnel.pass("max-chains-per-tree", processed_num, tree_count);
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1765,7 +1765,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }, [&](size_t processed_num) -> void {
             // There are too many sufficiently good chains
             if (track_provenance) {
-                funnel.pass("chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.fail("max-alignments", processed_num);
             }
             
