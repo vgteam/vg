@@ -956,7 +956,7 @@ def main(args):
    
     # Get the params from a magic chunk.
     # TODO: This is a whole pass through a possibly big file!
-    params_json = subprocess.check_output([options.vg, "view", "--extract-tag", "PARAMS_JSON", options.input]).decode('utf-8')
+    params_json = subprocess.check_output([options.vg, "view", "--extract-tag", "PARAMS_JSON", "--first", options.input]).decode('utf-8')
     lines = params_json.split("\n")
     for parsed_params in read_line_oriented_json(lines):
         if params is None:

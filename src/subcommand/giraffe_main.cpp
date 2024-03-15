@@ -1633,6 +1633,9 @@ int main_giraffe(int argc, char** argv) {
                                                           emitter_graph, flags);
             }
 
+            // Stick any metadata in the emitter near the front of the stream.
+            alignment_emitter->emit_extra_message("PARAMS_JSON", params_json.str());
+
 #ifdef USE_MEMORY_PROFILING
             // Start profiling memory allocations
             AllocatorConfig::set_profiling(true);
@@ -1948,24 +1951,6 @@ int main_giraffe(int argc, char** argv) {
             // Log output filename and mapping speed in reads/second/thread to report TSV
             report << output_filename << "\t" << reads_per_second_per_thread << endl;
         }
-
-        if (output_format == "GAM") {
-            // Put a footer in the file with some Giraffe run info.
-            // TODO: Teach libvgio to be able to append to a file with a flag so we can put this at the start.
-            // TODO: If prepending: make sure to make a chunk to make the file smell like reads first.
-            std::ofstream file_stream;
-            std::ostream* footer_stream = &std::cout;
-            if (output_filename != "-") {
-                file_stream.open(output_filename, std::ios_base::app);
-                footer_stream = &file_stream;
-            }
-            // We still do compression for GAM.
-            vg::io::MessageEmitter emitter(*footer_stream, true);
-
-            // And put it in the file with a special tag.
-            emitter.write_copy("PARAMS_JSON", params_json.str());
-        }
-        
     });
         
     return 0;

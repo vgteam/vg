@@ -75,4 +75,8 @@ void SurjectingAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& a
     backing->emit_mapped_pairs(std::move(alns1_batch_caught), std::move(alns2_batch_caught), std::move(tlen_limit_batch));
 }
 
+void SurjectingAlignmentEmitter::emit_extra_message(const std::string& tag, std::string&& data) {
+    backing->emit_extra_message(tag, std::move(data));
+}
+
 }

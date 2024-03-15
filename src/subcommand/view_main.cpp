@@ -90,6 +90,7 @@ void help_view(char** argv) {
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
          << "    -x, --extract-tag TAG      extract and concatenate messages with the given tag" << endl
+         << "    --first                    only extract the first message with the requested tag" << endl
          << "    --verbose                  explain the file being read with --extract-tag" << endl
          << "    --threads N                for parallel operations use this many threads [1]" << endl;
     
@@ -141,11 +142,13 @@ int main_view(int argc, char** argv) {
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
     string extract_tag;
-    bool verbose;
+    bool first_tag = false;
+    bool verbose = false;
     bool ascii_labels = false;
     omp_set_num_threads(1); // default to 1 thread
     
-    #define OPT_VERBOSE 1000
+    #define OPT_FIRST 1000
+    #define OPT_VERBOSE 1001
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -194,6 +197,7 @@ int main_view(int argc, char** argv) {
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
                 {"extract-tag", required_argument, 0, 'x'},
+                {"first", no_argument, 0, OPT_FIRST},
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
@@ -425,6 +429,10 @@ int main_view(int argc, char** argv) {
             extract_tag = optarg;
             break;
 
+        case OPT_FIRST:
+            first_tag = true;
+            break;
+
         case OPT_VERBOSE:
             verbose = true;
             break;
@@ -494,6 +502,10 @@ int main_view(int argc, char** argv) {
                             cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
                         }
                         cout << *((*it).second.get());
+                        if (first_tag) {
+                            // Stop at the first hit
+                            exit(0);
+                        }
                     } else {
                         if (verbose) {
                             cerr << "Messageless tag matching tag to extract" << endl;
