@@ -21,6 +21,7 @@
 #include "register_loader_saver_hash_graph.hpp"
 #include "register_loader_saver_gfa.hpp"
 #include "register_loader_saver_zip_codes.hpp"
+#include "register_loader_params_json.hpp"
 
 #include "register_libvg_io.hpp"
 
@@ -48,6 +49,7 @@ bool register_libvg_io() {
     register_loader_saver_packed_graph();
     register_loader_saver_hash_graph();
     register_loader_saver_zip_codes();
+    register_loader_params_json();
     return true;
 }
     
