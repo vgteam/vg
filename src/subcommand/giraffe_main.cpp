@@ -1452,7 +1452,7 @@ int main_giraffe(int argc, char** argv) {
                 s << "-i";
             }
             // Make a slug of the other options
-            parser->print_options(s, true);
+            parser->print_options(s, OptionFormat::SLUG);
             s << ".gam";
             
             output_filename = s.str();
@@ -1473,48 +1473,59 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(minimizer_mapper);
         parser->apply(main_options);
         parser->apply(scoring_options);
-        
-        if (show_progress && interleaved) {
-            cerr << "--interleaved" << endl;
-        }
-        
-        if (show_progress && prune_anchors) {
-            cerr << "--prune-low-cplx" << endl;
-        }
 
-        if (show_progress && set_refpos) {
-            cerr << "--set-refpos " << endl;
-        }
-        minimizer_mapper.set_refpos = set_refpos;
-
-        if (show_progress && track_provenance) {
-            cerr << "--track-provenance " << endl;
-        }
-        minimizer_mapper.track_provenance = track_provenance;
+        // Make a line of JSON about our command line options.
+        // We may embed it int he output file later.
+        std::stringstream params_json;
+        params_json << "{";
+        parser->print_options(params_json, OptionFormat::JSON);
         
-        if (show_progress && track_position) {
-            cerr << "--track-position " << endl;
-        }
-        minimizer_mapper.track_position = track_position;
-
-        if (show_progress && track_correctness) {
-            cerr << "--track-correctness " << endl;
-        }
-        minimizer_mapper.track_correctness = track_correctness;
-        
-        if (show_progress && show_work) {
-            cerr << "--show-work " << endl;
-        }
-        minimizer_mapper.show_work = show_work;
-
-        if (show_progress && paired) {
-            if (forced_mean && forced_stdev) {
-                cerr << "--fragment-mean " << fragment_mean << endl; 
-                cerr << "--fragment-stdev " << fragment_stdev << endl;
+        // We make this helper to report flags we manage both places, to deduplicate code.
+        auto report_flag = [&](const std::string& name, bool value) {
+            if (value) {
+                params_json << ",\"" << name << "\":true";
+                if (show_progress) {
+                    cerr << "--" << name << endl;
+                }
             }
-            cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
+        };
+        auto report_number = [&](const std::string& name, size_t value) {
+            params_json << ",\"" << name << "\":" << value;
+            if (show_progress) {
+                cerr << "--" << name << " " << value << endl;
+            }
+        };
+        auto report_string = [&](const std::string& name, const std::string& value) {
+            params_json << ",\"" << name << "\":\"" << value << "\"";
+            if (show_progress) {
+                cerr << "--" << name << " " << value << endl;
+            }
+        };
+
+        report_flag("interleaved", interleaved);
+        report_flag("prune-low-cplx", prune_anchors);
+        report_flag("set-refpos", set_refpos);
+        minimizer_mapper.set_refpos = set_refpos;
+        report_flag("track-provenance", track_provenance);
+        minimizer_mapper.track_provenance = track_provenance;
+        report_flag("track-position", track_position);
+        minimizer_mapper.track_position = track_position;
+        report_flag("track-correctness", track_correctness);
+        minimizer_mapper.track_correctness = track_correctness;
+        report_flag("show-work", show_work);
+        minimizer_mapper.show_work = show_work;
+        if (paired) {
+            if (forced_mean) {
+                report_number("fragment-mean", fragment_mean);
+            }
+            if (forced_stdev) {
+                report_number("fragment-stdev", fragment_stdev);
+            }
+            report_string("rescue-algorithm", algorithm_names[rescue_algorithm]);
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
+
+        params_json << "}" << std::endl;
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
@@ -1856,7 +1867,7 @@ int main_giraffe(int argc, char** argv) {
             }
         
         } // Make sure alignment emitter is destroyed and all alignments are on disk.
-        
+
         // Now mapping is done
         std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
         clock_t cpu_time_after = clock();
@@ -1936,6 +1947,23 @@ int main_giraffe(int argc, char** argv) {
         if (report) {
             // Log output filename and mapping speed in reads/second/thread to report TSV
             report << output_filename << "\t" << reads_per_second_per_thread << endl;
+        }
+
+        if (output_format == "GAM") {
+            // Put a footer in the file with some Giraffe run info.
+            // TODO: Teach libvgio to be able to append to a file with a flag so we can put this at the start.
+            // TODO: If prepending: make sure to make a chunk to make the file smell like reads first.
+            std::ofstream file_stream;
+            std::ostream* footer_stream = &std::cout;
+            if (output_filename != "-") {
+                file_stream.open(output_filename, std::ios_base::app);
+                footer_stream = &file_stream;
+            }
+            // We still do compression for GAM.
+            vg::io::MessageEmitter emitter(*footer_stream, true);
+
+            // And put it in the file with a special tag.
+            emitter.write_copy("PARAMS_JSON", params_json.str());
         }
         
     });

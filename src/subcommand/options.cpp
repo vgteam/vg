@@ -192,10 +192,16 @@ bool GroupedOptionGroup::query(BaseValuation& entry) const {
     return false;
 }
 
-void GroupedOptionGroup::print_options(ostream& out, bool slug) const {
+void GroupedOptionGroup::print_options(ostream& out, OptionFormat format) const {
+    bool first = true;
     for (auto& group : subgroups) {
         // Print options from all groups in order
-        group->print_options(out, slug);
+        if (format == OptionFormat::JSON && !first) {
+            // Add the separating comma
+            out << ",";
+        }
+        group->print_options(out, format);
+        first = false;
     }
 }
 
