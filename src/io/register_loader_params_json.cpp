@@ -6,6 +6,8 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_params_json.hpp"
 
+#include <iterator>
+
 
 namespace vg {
 
@@ -15,10 +17,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_params_json() {
-    Registry::register_loader<std::string>("PARAMS_JSON", wrap_bare_loader([](const std::istream& stream) -> void* {
+    Registry::register_loader<std::string>("PARAMS_JSON", wrap_bare_loader([](std::istream& stream) -> void* {
         // Read the whole stream with an iterator. See <https://stackoverflow.com/a/3203502>.
         return new std::string(std::istreambuf_iterator<char>(stream), {});
-    });
+    }));
 }
 
 }
