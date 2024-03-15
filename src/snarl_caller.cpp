@@ -101,11 +101,14 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
                                                                                        int ref_trav_idx,
                                                                                        int ploidy,
                                                                                        const string& ref_path_name,
-                                                                                       pair<size_t, size_t> ref_range) { 
+                                                                                       pair<size_t, size_t> ref_range,
+                                                                                       vector<int>* gt_override) { 
     
 #ifdef debug
     cerr << "Support calling site " << pb2json(snarl) << endl;
 #endif
+
+    assert(gt_override == nullptr);
 
     // get the traversal sizes
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
@@ -113,7 +116,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> RatioSupportSnarlCaller::ge
     // get the supports of each traversal independently
     vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx);
     int best_allele = get_best_support(supports, {});
-
+    
 #ifdef debug
     for (int i = 0; i < traversals.size(); ++i) {
         cerr << "trav " << i << " size = " << traversal_sizes[i] << " support = " << support_val(supports[i]);
@@ -490,7 +493,8 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
                                                                                          int ref_trav_idx,
                                                                                          int ploidy,
                                                                                          const string& ref_path_name,
-                                                                                         pair<size_t, size_t> ref_range) {
+                                                                                         pair<size_t, size_t> ref_range,
+                                                                                         vector<int>* gt_override) {
     
     
 #ifdef debug
@@ -499,6 +503,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
 #endif
 
     assert(ploidy == 2 || ploidy == 1);
+    assert(gt_override == nullptr || gt_override->size() == ploidy);
     
     // get the traversal sizes
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
@@ -531,6 +536,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
 
     // the candidate genotypes and their supports.  the numbers here are alleles as indexed in traversals[]
     set<vector<int>> candidates;
+    // add in the override
+    if (gt_override != nullptr) {
+        candidates.insert(*gt_override);
+    }    
     // we always consider the reference allele
 
     // pre-filter out some alleles based on poor exclusive support
@@ -604,12 +613,12 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     for (const auto& candidate : candidates) {
         double gl = genotype_likelihood(candidate, traversals, top_traversals, traversal_sizes, traversal_mapqs,
                                         ref_trav_idx, exp_depth, depth_err, max_trav_size, ref_trav_size);
-        if (gl > best_genotype_likelihood) {
+        if ((gt_override != nullptr && candidate == *gt_override) || (gt_override == nullptr && gl > best_genotype_likelihood)) {
             second_best_genotype_likelihood = best_genotype_likelihood;
             best_genotype_likelihood = gl;
-            best_genotype = candidate;
+            best_genotype = candidate;                
         } else if (gl > second_best_genotype_likelihood) {
-            assert(gl <= best_genotype_likelihood);
+            assert(gt_override != nullptr || gl <= best_genotype_likelihood);
             second_best_genotype_likelihood = gl;
         }
         total_likelihood = total_likelihood == 0 ? gl : add_log(total_likelihood, gl);
@@ -627,7 +636,12 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     // as difference between best and second best likelihoods
     call_info->gq = 0;
     if (!isnan(best_genotype_likelihood) && !isnan(second_best_genotype_likelihood)) {
-        call_info->gq = logprob_to_phred(second_best_genotype_likelihood) - logprob_to_phred(best_genotype_likelihood);
+        if (gt_override != nullptr && second_best_genotype_likelihood > best_genotype_likelihood) {
+            // corner case where the override isn't the best, we flip it
+            call_info->gq = logprob_to_phred(best_genotype_likelihood) - logprob_to_phred(second_best_genotype_likelihood); 
+        } else {
+            call_info->gq = logprob_to_phred(second_best_genotype_likelihood) - logprob_to_phred(best_genotype_likelihood);
+        }
     }
 
     call_info->expected_depth = exp_depth;

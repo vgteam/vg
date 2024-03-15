@@ -48,18 +48,27 @@ public:
                                        size_t max_trivial,
                                        RecurseType recurise_type = RecurseOnFail);
 
+    /// Information we pass on to override genotype in child snarl
+    struct ParentGenotype {
+        ParentGenotype() : specified(false) {}
+        bool specified; // if false, then there is no parent information
+        vector<SnarlTraversal> allele_travs; // list of |ploidy| parent alleles, which define the child allele. 
+    };
+
     /// Call a given snarl, and print the output to out_stream
-    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr) = 0;
+    virtual bool call_snarl(const Snarl& snarl, const ParentGenotype* gt_in = nullptr, ParentGenotype* gt_out = nullptr) = 0;
 
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
     vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
 
-    /// Compute the child ploidies baseds on the called genotype
-    void resolve_child_ploidies(const HandleGraph& graph, const Snarl* snarl, const vector<SnarlTraversal>& travs,
-                                const vector<int>& genotype, vector<int>& child_ploidies);
-    
+    /// Extract the parent genotypes for each child, buy finding the sub-traversals that apply to each child snarl
+    vector<ParentGenotype> extract_parent_genotypes(const HandleGraph& graph, const Snarl& snarl, const ParentGenotype& gt_in);
+
+    /// determine genotype from parent alleles
+    vector<int> apply_parent_genotype(const vector<SnarlTraversal>& travs, const ParentGenotype& parent_gt);
+
 protected:
 
     /// Our Genotyper
@@ -233,7 +242,7 @@ public:
 
     virtual ~VCFGenotyper();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);    
+    virtual bool call_snarl(const Snarl& snarl, const ParentGenotype* gt_in = nullptr, ParentGenotype* gt_out = nullptr);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -286,7 +295,7 @@ public:
 
     virtual ~LegacyCaller();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
+    virtual bool call_snarl(const Snarl& snarl, const ParentGenotype* gt_in = nullptr, ParentGenotype* gt_out = nullptr);   
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -386,9 +395,9 @@ public:
                const pair<int64_t, int64_t>& ref_allele_length_range);
    
     virtual ~FlowCaller();
-
-    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
-
+   
+    virtual bool call_snarl(const Snarl& snarl, const ParentGenotype* gt_in = nullptr, ParentGenotype* gt_out = nullptr);
+   
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
@@ -459,9 +468,9 @@ public:
                      size_t trav_padding,
                      bool genotype_snarls);
    
-    virtual ~NestedFlowCaller();
+   virtual ~NestedFlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
+    virtual bool call_snarl(const Snarl& snarl, const ParentGenotype* gt_in = nullptr, ParentGenotype* gt_out = nullptr);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;

@@ -39,12 +39,14 @@ public:
     /// ref_trav_idx : index of reference path traversal in traversals (in case it needs special treatment)
     /// ref_path : the reference path associated with the snarl
     /// ref_range : the interval along the reference path (forward coordinates) spanned by snarl
+    /// gt_override : override the returned genotype, but still run through logic to make metadata in callinfo
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
                                                              int ref_trav_idx,
                                                              int ploidy,
                                                              const string& ref_path_name,
-                                                             pair<size_t, size_t> ref_range) = 0;
+                                                             pair<size_t, size_t> ref_range,
+                                                             vector<int>* gt_override=nullptr) = 0;
     
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
@@ -143,7 +145,8 @@ public:
                                                              int ref_trav_idx,
                                                              int ploidy,
                                                              const string& ref_path_name,
-                                                             pair<size_t, size_t> ref_range);
+                                                             pair<size_t, size_t> ref_range,
+                                                             vector<int>* gt_override=nullptr);
 
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,
@@ -220,7 +223,8 @@ public:
                                                               int ref_trav_idx,
                                                               int ploidy,
                                                               const string& ref_path_name,
-                                                              pair<size_t, size_t> ref_range);
+                                                              pair<size_t, size_t> ref_range,
+                                                              vector<int>* gt_override=nullptr);
     
     /// Update INFO and FORMAT fields of the called variant
     virtual void update_vcf_info(const Snarl& snarl,

@@ -19,23 +19,29 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
-    vector<vector<pair<const Snarl*, int>>> snarl_queue(thread_count);
+    vector<vector<pair<const Snarl*, ParentGenotype>>> snarl_queue(thread_count);
 
     // Run the snarl caller on a snarl, and queue up the children if it fails
-    auto process_snarl = [&](const Snarl* snarl, int ploidy_override) {
+    auto process_snarl = [&](const Snarl* snarl, const ParentGenotype& parent_genotype) {
 
         if (!snarl_manager.is_trivial(snarl, graph)) {
 
 #ifdef debug
-            cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+            cerr << "GraphCaller running call_snarl on with spec=" << parent_genotype.specified << " " << pb2json(*snarl);
+            if (parent_genotype.specified) {
+                cerr << " parent genotype has " << parent_genotype.allele_travs.size() << " traversals";
+            }
+            cerr << endl;
 #endif
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            vector<int> child_ploidies(children.size(), -1);
-            bool was_called = call_snarl(*snarl, ploidy_override, &child_ploidies);
+            ParentGenotype snarl_genotype;
+            bool was_called = call_snarl(*snarl, &parent_genotype, &snarl_genotype);
             if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {                
-                vector<pair<const Snarl*, int>>& thread_queue = snarl_queue[omp_get_thread_num()];
+                vector<pair<const Snarl*, ParentGenotype>>& thread_queue = snarl_queue[omp_get_thread_num()];
+                vector<ParentGenotype> child_gt_overrides = extract_parent_genotypes(graph, *snarl, snarl_genotype);
+                assert(child_gt_overrides.size() == children.size());
                 for (int64_t i = 0; i < children.size(); ++i) {
-                    thread_queue.push_back(make_pair(children[i], child_ploidies[i]));
+                    thread_queue.push_back(make_pair(children[i], child_gt_overrides[i]));
                 }
             }
         }
@@ -49,14 +55,15 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
     });
 #pragma omp parallel for schedule(dynamic, 1)
     for (int64_t i = 0; i < top_level_snarls.size(); ++i) {
-        process_snarl(top_level_snarls[i], -1);
+        ParentGenotype pgt;
+        process_snarl(top_level_snarls[i], pgt);
     }
 
     // Then recurse on any children the snarl caller failed to handle
     while (!std::all_of(snarl_queue.begin(), snarl_queue.end(),
-                        [](const vector<pair<const Snarl*, int>>& snarl_vec) {return snarl_vec.empty();})) {
-        vector<pair<const Snarl*, int>> cur_queue;
-        for (vector<pair<const Snarl*, int>>& thread_queue : snarl_queue) {
+                        [](const vector<pair<const Snarl*, ParentGenotype>>& snarl_gt) {return snarl_gt.empty();})) {
+        vector<pair<const Snarl*, ParentGenotype>> cur_queue;
+        for (vector<pair<const Snarl*, ParentGenotype>>& thread_queue : snarl_queue) {
             cur_queue.reserve(cur_queue.size() + thread_queue.size());
             std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
             thread_queue.clear();
@@ -187,45 +194,130 @@ vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& ch
     return chain_frags;
 }
 
+vector<GraphCaller::ParentGenotype> GraphCaller::extract_parent_genotypes(const HandleGraph& graph, const Snarl& snarl, const ParentGenotype& gt_in) {
 
-void GraphCaller::resolve_child_ploidies(const HandleGraph& graph, const Snarl* snarl, const vector<SnarlTraversal>& travs,
-                                         const vector<int>& genotype, vector<int>& child_ploidies) {
-    const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+    // index the child snarls on their endpoints
+    const vector<const Snarl*>& children = snarl_manager.children_of(&snarl);
+    unordered_map<handle_t, int64_t> start_map;
+    unordered_map<handle_t, int64_t> end_map;
+    for (int64_t i = 0; i < children.size(); ++i) {
+        const Snarl* child = children[i];
+        start_map[graph.get_handle(child->start().node_id(), child->start().backward())] = i;
+        end_map[graph.get_handle(child->end().node_id(), child->end().backward())] = i;
+        end_map[graph.get_handle(child->start().node_id(), !child->start().backward())] = i;
+        start_map[graph.get_handle(child->end().node_id(), !child->end().backward())] = i;
+    }
 
-    child_ploidies.resize(children.size());
-    
-    if (!children.empty()) {
-        // index the nodes in the traversals
-        vector<unordered_set<handle_t>> trav_indexes(genotype.size());
-        for (int64_t i = 0; i < genotype.size(); ++i) {
-            const SnarlTraversal& trav = travs[genotype[i]];
-            unordered_set<handle_t>& trav_idx = trav_indexes[i];
-            if (i > 0 && genotype[i] == genotype[i-1]) {
-                trav_idx = trav_indexes[i-1];
-            } else {
-                for (int j = 0; j < trav.visit_size(); ++j) {
-                    trav_idx.insert(graph.get_handle(trav.visit(j).node_id(), trav.visit(j).backward()));
-                }
-            }
-        }
-
-        // for every child snarl, count the number of traversals that spans it -- this will be its ploidy
-        for (int64_t i = 0; i < children.size(); ++i) {
-            const Snarl* child_snarl = children[i];
-            child_ploidies[i] = 0;
-            handle_t child_start = graph.get_handle(child_snarl->start().node_id(), child_snarl->start().backward());
-            handle_t child_end = graph.get_handle(child_snarl->end().node_id(), child_snarl->end().backward());
-            for (int64_t j = 0; j < trav_indexes.size(); ++j) {
-                unordered_set<handle_t>& trav_idx = trav_indexes[j];
-                if ((trav_idx.count(child_start) && trav_idx.count(child_end)) ||
-                    (trav_idx.count(graph.flip(child_start)) && trav_idx.count(graph.flip(child_end)))) {
-                    ++child_ploidies[i];
+    // fill in the output information
+    vector<ParentGenotype> par_gts(children.size());
+    for (auto& par_gt : par_gts) {
+        par_gt.specified =true;
+    }
+    if (gt_in.specified) {
+        for (int64_t ti = 0; ti < gt_in.allele_travs.size(); ++ti) {
+            const SnarlTraversal& trav = gt_in.allele_travs.at(ti);
+            for (int64_t vi = 0; vi < trav.visit_size(); ++vi) {            
+                handle_t visit = graph.get_handle(trav.visit(vi).node_id(), trav.visit(vi).backward());
+                if (start_map.count(visit)) {
+                    // we've hit a child snarl, scan it out into the output
+                    int64_t child_idx = start_map.at(visit);
+                    SnarlTraversal sub_trav;
+                    bool complete = false;
+                    for (; !complete; ++vi) {
+                        // add the visit to the traversal
+                        Visit* proto_visit = sub_trav.add_visit();
+                        *proto_visit = trav.visit(vi);
+                        // check end of snarl
+                        visit = graph.get_handle(trav.visit(vi).node_id(), trav.visit(vi).backward());
+                        if (end_map.count(visit) && end_map.at(visit) == child_idx) {
+                            complete = true;
+                        }
+                        assert(vi < trav.visit_size());
+                    }
+                    // add the sub traversal to the output
+                    par_gts[child_idx].allele_travs.push_back(sub_trav);
+                    // go back one, since we'll check it for a new snarl
+                    assert(vi > 0);
+                    --vi;
                 }
             }
         }
     }
+    return par_gts;
 }
 
+vector<int> GraphCaller::apply_parent_genotype(const vector<SnarlTraversal>& travs, const ParentGenotype& parent_gt) {
+
+    vector<int> out_gt;
+    if (!parent_gt.specified) {
+        return out_gt;
+    }
+    
+    // for every parent traversal
+    for (int pa = 0; pa < parent_gt.allele_travs.size(); ++pa) {
+        const SnarlTraversal& par_trav = parent_gt.allele_travs.at(pa);
+        int64_t trav_idx = -1;
+        // for every step in parent
+        for (int p_step = 0; p_step < par_trav.visit_size(); ++p_step) {
+            // for every child traversal
+            for (int ca = 0; ca < travs.size(); ++ca) {
+                const SnarlTraversal& child_trav = travs.at(ca);
+                bool match = false;
+                int p_step_2 = p_step;
+                // try to match the child in the forward direction starting at p_step
+                for (int c_step = 0; c_step < child_trav.visit_size(); ++c_step, ++p_step_2) {
+                    if (par_trav.visit(p_step_2) == child_trav.visit(c_step)) {
+                        match = true;
+                    } else {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match == false) {
+                    p_step_2 = p_step;
+                    // try to match the child in the reverse direction starting at p_step                    
+                    for (int c_step = child_trav.visit_size() - 1; c_step >= 0; --c_step, ++p_step_2) {
+                        if (par_trav.visit(p_step_2).node_id() == child_trav.visit(c_step).node_id() &&
+                            par_trav.visit(p_step_2).backward() != child_trav.visit(c_step).backward()) {
+                            match = true;
+                        } else {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+                if (match == true) {
+                    trav_idx = ca;
+                    break;
+                }
+            }
+        }
+
+        if (trav_idx != -1) {
+            out_gt.push_back(trav_idx);
+        }
+        
+    }
+
+#ifdef debug
+
+    cerr << "child travs\n";
+    for (int64_t i = 0; i < travs.size(); ++i) {
+        cerr << i << " " << pb2json(travs.at(i)) << endl;
+    }
+    cerr << "parent travs\n";
+    for (int64_t i = 0; i < parent_gt.allele_travs.size(); ++i) {
+        cerr << i << " " << pb2json(parent_gt.allele_travs.at(i)) << endl;
+    }
+    cerr << "out_gt\n";
+    for (int i : out_gt) {
+        cerr << i << endl;
+    }
+#endif    
+    return out_gt;
+    
+}
+    
 
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name), translation(nullptr), include_nested(false), write_full_names(false)
 {
@@ -1119,7 +1211,7 @@ VCFGenotyper::~VCFGenotyper() {
 
 }
 
-bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy_override, vector<int>* out_child_ploidies) {
+bool VCFGenotyper::call_snarl(const Snarl& snarl, const ParentGenotype* gt_in, ParentGenotype* gt_out) {
 
     // could be that our graph is a subgraph of the graph the snarls were computed from
     // so bypass snarls we can't process
@@ -1372,7 +1464,7 @@ LegacyCaller::~LegacyCaller() {
     }
 }
 
-bool LegacyCaller::call_snarl(const Snarl& snarl, int ploidy_override, vector<int>* out_child_ploidies) {
+bool LegacyCaller::call_snarl(const Snarl& snarl, const ParentGenotype* gt_in, ParentGenotype* gt_out) {
 
     // if we can't handle the snarl, then the GraphCaller framework will recurse on its children
     if (!is_traversable(snarl)) {
@@ -1704,7 +1796,7 @@ FlowCaller::~FlowCaller() {
 
 }
 
-bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vector<int>* out_child_ploidies) {
+bool FlowCaller::call_snarl(const Snarl& managed_snarl, const ParentGenotype* gt_in, ParentGenotype* gt_out) {
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local
@@ -1712,14 +1804,24 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
     // wants a pointer will crash. 
     Snarl snarl = managed_snarl;
 
-    if (ploidy_override == 0) {
+    if (gt_in != nullptr && gt_in->specified == true && gt_in->allele_travs.empty()) {
+        if (gt_out != nullptr) {
+            gt_out->specified = true;
+            gt_out->allele_travs.clear();
+        }                
         // returning true is a bit ironic, but we do *not* want to recurse so it's important we do
+#ifdef debug
+        cerr << "aborting (without recursion) snarl because parent call is empty" << endl;
+#endif        
         return true;
     }
 
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         // can't call one-node or out-of graph snarls.
+#ifdef debug
+        cerr << "aborting snarl (with recursion) because snarl is one node or out of graph" << endl;
+#endif        
         return false;
     }
     // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
@@ -1731,6 +1833,9 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
         auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
         if (snarl_contents.second.size() > max_snarl_edges) {
             // size cap needed as FlowCaller doesn't have nesting support yet
+#ifdef debug
+            cerr << "aborting snarl (with recursion) as it exceeds size cap" << endl;
+#endif
             return false;
         }        
         size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
@@ -1775,6 +1880,9 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
                           std::back_inserter(common_names));
 
     if (common_names.empty()) {
+#ifdef debug
+        cerr << "aborting snarl (with recursion) because no reference path found" << endl;
+#endif
         return false;
     }
 
@@ -1784,6 +1892,9 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
     if (get<0>(ref_interval) == -1) {
         // could not find reference path interval consisten with snarl due to orientation conflict
+#ifdef debug
+        cerr << "aborting snalr (with recursion) because no reference path respects orientation" << endl;
+#endif
         return false;
     }
     if (get<2>(ref_interval) == true) {
@@ -1831,6 +1942,9 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
             ref_trav_len += graph.get_length(graph.get_handle(ref_trav.visit(j).node_id()));
         }
         if (ref_trav_len < ref_allele_length_range.first || ref_trav_len > ref_allele_length_range.second) {
+#ifdef debug
+            cerr << "aborting snarl (with recursion) due to ref len cap" << endl;
+#endif
             return false;
         }        
     }
@@ -1876,12 +1990,47 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vec
         // use our support caller to choose our genotype
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        int ploidy = ploidy_override == -1 ? ref_ploidies[ref_path_name] : ploidy_override;
+        vector<int> gt_override;
+        int ploidy = ref_ploidies[ref_path_name];
+        if (gt_in != nullptr && gt_in->specified && dynamic_cast<PoissonSupportSnarlCaller*>(&snarl_caller) != nullptr) {
+            gt_override = apply_parent_genotype(travs, *gt_in);
+            // if the child travs list isn't complete for some reason, then this will trip
+            // so may need a more graceful exit (ie just ignore override)
+#pragma omp critical (cerr)
+            {
+                if (gt_in->allele_travs.size() != gt_override.size()) {
+                    cerr << "WARNING: Resolved " << gt_override.size() << " from " << gt_in->allele_travs.size() << endl;
+                    cerr << "travs" << endl;
+                    for (int64_t i = 0; i < travs.size() ; ++i) {
+                        cerr << i << " " << pb2json(travs.at(i)) << endl;
+                    }
+                    cerr << "gt_in" << endl;
+                    for (int64_t i = 0; i < gt_in->allele_travs.size(); ++i) {
+                        cerr << i << " " << pb2json(gt_in->allele_travs.at(i)) << endl;
+                    }
+                    cerr << "override " << endl;
+                    for (int64_t i = 0; i < gt_override.size(); ++i) {
+                        cerr << i << " " << gt_override.at(i) << endl;
+                    }
+                }
+            }
+            assert(gt_override.size() <= ploidy);
+            ploidy = gt_override.size();
+            if (ploidy == 0) {
+                return true;
+            }
+            //assert(gt_in->size() == gt_override.size());
+            //return true;
+        }
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
-        if (out_child_ploidies != nullptr) {
-            // derive ploidies for child snarls from the genotype traversals and save them
-            resolve_child_ploidies(graph, &managed_snarl, travs, trav_genotype, *out_child_ploidies);
+                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                                                                        gt_in != nullptr && gt_in->specified ? &gt_override : nullptr);
+        if (gt_out != nullptr) {
+            gt_out->allele_travs.clear();
+            gt_out->specified = true;
+            for (int64_t i = 0; i < trav_genotype.size(); ++i) {
+                gt_out->allele_travs.push_back(travs.at(trav_genotype.at(i)));
+            }
         }
         
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
@@ -1951,7 +2100,7 @@ NestedFlowCaller::~NestedFlowCaller() {
 
 }
 
-bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy_override, vector<int>* out_child_ploidies) {
+bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl, const ParentGenotype* gt_in, ParentGenotype* gt_out) {
     
     // remember the calls for each child snarl in this table
     CallTable call_table;
