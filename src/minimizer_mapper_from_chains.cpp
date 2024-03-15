@@ -2163,6 +2163,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 //Update the bounds of the dp for the next round
                 remaining_length -= to_align_length;
                 right_anchor = make_pos_t(alignment_start(tail_aln));
+
+                //Give up if the alignment is bad enough
+                //TODO: Maybe change how we decide if the alignment is bad?
+                if ((int32_t)tail_aln.score() > 0) {
+                    remaining_length=0;
+                }
             }
         }
         
@@ -2541,6 +2547,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                 //Restart for next batch
                 remaining_length -= to_align_length; 
                 left_anchor_included = make_pos_t(alignment_end(tail_aln));;
+                //TODO: Maybe change how we decide if the alignment is bad?
+                if ((int32_t)tail_aln.score() > 0) {
+                    remaining_length=0;
+                }
             }
         } 
         
