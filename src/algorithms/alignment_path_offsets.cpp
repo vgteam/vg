@@ -10,7 +10,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
                        const Alignment& aln,
                        bool just_min,
                        bool nearby,
-                       size_t search_limit,
+                       int64_t search_limit,
                        const std::function<bool(const path_handle_t&)>* path_filter) {
     if (nearby && search_limit == 0) {
         // Fill in the search limit
@@ -49,8 +49,8 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
             }
         }
     }
-    if (!nearby && offsets.empty()) {
-        // find the nearest if we couldn't find any before
+    if (!nearby && offsets.empty() && search_limit != -1) {
+        // find the nearest if we couldn't find any before but we could do a search
         return alignment_path_offsets(graph, aln, just_min, true, search_limit, path_filter);
     }
     if (just_min) {
@@ -193,15 +193,15 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
     return return_val;
 }
 
-void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, int64_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
     annotate_with_path_positions(graph, aln, true, search_limit, path_filter);
 }
 
-void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, int64_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
     annotate_with_path_positions(graph, aln, false, search_limit, path_filter);
 }
 
-void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, int64_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
     if (!aln.refpos_size()) {
         // Get requested path positions
         unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, just_min, false, search_limit, path_filter);
@@ -221,7 +221,7 @@ void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignmen
     }
 }
 
-void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, vector<Alignment>& alns, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, vector<Alignment>& alns, int64_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
     for (auto& aln : alns) annotate_with_initial_path_positions(graph, aln, search_limit, path_filter);
 }
 

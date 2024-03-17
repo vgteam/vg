@@ -18,6 +18,8 @@
 #include <vg/vg.pb.h>
 #include <vg/io/stream.hpp>
 
+#include <google/protobuf/util/json_util.h>
+
 #include <htslib/khash.h>
 
 /** \file
@@ -414,6 +416,11 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size);
     } else {
         vg::io::for_each_parallel(*in, lambda, batch_size);
+    }
+
+    if (write_tsv) {
+        // Add a terminating newline
+        cout << endl;
     }
     
     if (verbose) {
@@ -1457,7 +1464,19 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
             } else if (field == "time_used") {
                 cout << read.time_used();
             } else if (field == "annotation") {
-                throw runtime_error("error: Cannot write all annotations");
+                // Since annotation is a Protobuf Struct, it comes out as JSON
+                // describing the Struct and not what the Struct describes if
+                // we pb2json it.
+                //
+                // So make Protobuf serialize it for us the specail Struct way
+                std::string buffer;
+                google::protobuf::util::JsonPrintOptions opts;
+                auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
+                
+                if (!status.ok()) {
+                    throw std::runtime_error("Could not serialize annotations for " + read.name() + ": " + status.ToString());
+                }
+                cout << buffer;
             } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
                 if (!has_annotation(read, field.substr(11, field.size()-11))) {
                     throw runtime_error("error: Cannot find annotation "+ field);
@@ -1469,6 +1488,22 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
                         cout << get_annotation<double>(read, annotation_key);
                     } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
                         cout << get_annotation<string>(read, annotation_key);
+                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
+                        cout << "[";
+                        for (size_t i = 0; i < value.list_value().values_size(); i++) {
+                            auto& item = value.list_value().values(i);
+                            if (i > 0) {
+                                cout << ",";
+                            }
+                            if (item.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                                cout << value_cast<double>(item);
+                            } else if (item.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                                cout << value_cast<string>(item);
+                            } else {
+                                cout << "?";
+                            }
+                        }
+                        cout << "]";
                     } else {
                         cout << "?";
                     }

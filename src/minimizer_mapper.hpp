@@ -269,7 +269,26 @@ public:
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
+
+    /// What minimum score in points should a fragment have in order to keep
+    /// it? Needs to be set to some kind of significance threshold.
+    static constexpr double default_fragment_min_score = 60;
+    double fragment_min_score = default_fragment_min_score;
+
+    /// If a fragment set's score is smaller than the best 
+    /// fragment set's score by more than this much, don't align it
+    static constexpr double default_fragment_set_score_threshold = 0;
+    double fragment_set_score_threshold = default_fragment_set_score_threshold;
+
+    /// Disregard the fragment set score thresholds when they would give us
+    /// fewer than this many chainign problems done.
+    static constexpr int default_min_chaining_problems = 1;
+    int min_chaining_problems = default_min_chaining_problems;
     
+    /// Do no more than this many chaining problems.
+    static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
+    int max_chaining_problems = default_max_chaining_problems;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
@@ -296,7 +315,7 @@ public:
     double chain_score_threshold = default_chain_score_threshold;
     
     /// Disregard the chain score thresholds when they would give us
-    /// fewer than this many chains.
+    /// fewer than this many chains aligned.
     static constexpr int default_min_chains = 4;
     int min_chains = default_min_chains;
 
@@ -347,6 +366,10 @@ public:
     /// If false, skip computing base-level alignments.
     static constexpr bool default_do_dp = true;
     bool do_dp = default_do_dp;
+
+    /// Set refpos field of alignments to positions on nodes they visit.
+    static constexpr bool default_set_refpos = false;
+    bool set_refpos = default_set_refpos;
     
     /// Track which internal work items came from which others during each
     /// stage of the mapping algorithm.
@@ -526,7 +549,7 @@ protected:
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;
 
     // These are our indexes
-    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
+    const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;

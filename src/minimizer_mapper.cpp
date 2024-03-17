@@ -12,6 +12,7 @@
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -1131,6 +1132,19 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
     }
+
+    if (this->set_refpos) {
+        if (track_provenance) {
+            // Time how long setting reference positions takes
+            funnel.substage("refpos");
+        }
+
+        crash_unless(path_graph != nullptr);
+        for (auto& m : mappings) {
+            // Annotate the reads with the positions of the nodes they are actually on (fast)
+            vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+        }
+    }
     
     // Stop this alignment
     funnel.stop();
@@ -1142,16 +1156,6 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), 0, funnel);
         }
-        // Annotate with parameters used for the filters.
-        set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
-        set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
-        set_annotation(mappings[0], "param_score-fraction", (double) minimizer_score_fraction);
-        set_annotation(mappings[0], "param_max-extensions", (double) max_extensions);
-        set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
-        set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
-        set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
-        set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     
 #ifdef print_minimizer_table
@@ -2619,9 +2623,30 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
     // Make sure pair partners reference each other
     pair_all(mappings);
+
+    for (auto r : {0, 1}) {
+        if (track_provenance) {
+            funnels[r].substage_stop();
+        }
+    }
+    
+    if (this->set_refpos) {
+        for (auto r : {0, 1}) {
+            if (track_provenance) {
+                // Time how long setting reference positions takes
+                funnels[r].substage("refpos");
+            }
+        }
+
+        for (auto r : {0, 1}) {
+            crash_unless(path_graph != nullptr);
+            for (auto& m : mappings[r]) {
+                // Annotate the reads with the positions of the nodes they are actually on (fast)
+                vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+            }
+        }
+    }
         
-    
-    
     for (auto r : {0, 1}) {
         if (track_provenance) {
             funnels[r].substage_stop();
@@ -3590,7 +3615,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     }
     if (this->max_unique_min != 0) {
         minimizer_filters.emplace_back(
-            "max-unique-min||num-bp-per-min",
+            "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
                 return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
             },

@@ -457,6 +457,13 @@ extern const ValidatorFunction<size_t> size_t_is_positive;
 /// Validate that an int is not negative, or throw std::domain_error;
 extern const ValidatorFunction<int> int_is_nonnegative;
 
+/// Represents a pringing format for options
+enum class OptionFormat {
+    SLUG,
+    JSON,
+    CLI
+};
+
 /**
  * Interface for a command-line argument that goes into a field on an object of
  * the given type.
@@ -494,21 +501,29 @@ struct BaseArgSpec : public TickChainLink {
     virtual void print_metavar(ostream& out, const char* sep = "") const = 0;
     /// Print default value to the given stream, if appropriate.
     virtual void print_default(ostream& out) const = 0;
-    /// Print option and value to the given stream, without newlines, between the given separators.
+    /// Print option and value to the given stream, without newlines, using the given prefix and format.
     /// If slug is set, only print if variable, use short option if available and don't include spaces.
-    virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
-        if (slug && this->is_static()) {
+    virtual void print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
+        if (format == OptionFormat::SLUG && this->is_static()) {
             // We never change, so exclude from the slug
             return;
         }
-        out << sep;
-        if (slug && short_option != '\0') {
-            out << "-" << short_option;
-        } else {
-            out << "--" << option;
+        out << before;
+        if (format == OptionFormat::JSON) {
+            out << "\"";
         }
-        this->print_value(out, slug ? "" : " ");
-        out << after;
+        if (format == OptionFormat::SLUG && this->short_option != '\0') {
+            out << "-" << this->short_option;
+        } else {
+            out << (format == OptionFormat::JSON ? "" : "--") << this->option;
+        }
+        if (format == OptionFormat::JSON) {
+            out << "\":";
+        }
+        this->print_value(out, format == OptionFormat::CLI ? " " : "");
+        if (format == OptionFormat::CLI) {
+            out << endl;
+        }
     }
     /// Get the getopt structure for this option. Option must outlive it and not move.
     virtual struct option get_option_struct() const = 0;
@@ -727,12 +742,25 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
     virtual void print_default(ostream& out) const {
         // Don't do anything
     }
-    virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
+    virtual void print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
         // Override print to just print the flag when used
-        if (!slug && this->value != this->default_value) {
-            out << sep;
-            out << "--" << this->option;
-            out << after;
+        if (this->value != this->default_value) {
+            if (format == OptionFormat::JSON) {
+                out << "\"";
+            }
+            out << before;
+            if (format == OptionFormat::SLUG && this->short_option != '\0') {
+                out << "-" << this->short_option;
+            } else {
+                out << (format == OptionFormat::JSON ? "" : "--") << this->option;
+            }
+            if (format == OptionFormat::JSON) {
+                // In JSON we always mark the option as true due to being passed.
+                out << "\":true";
+            }
+            if (format == OptionFormat::CLI) {
+                out << endl;
+            }
         }
     }
     virtual struct option get_option_struct() const {
@@ -763,10 +791,8 @@ struct BaseOptionGroup : public TickChainLink {
     /// that option. If so, return true.
     virtual bool query(BaseValuation& entry) const = 0;
     
-    /// Print all options set.
-    /// By default, prints one option per line.
-    /// If slug is set, prints short options for ranges only, all on one line.
-    virtual void print_options(ostream& out, bool slug = false) const = 0;
+    /// Print all options set, in the given format.
+    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const = 0;
     
     /// Get help, in the form of pairs of options and descriptions.
     /// Headings are descriptions without options.
@@ -944,16 +970,24 @@ struct OptionGroup : public BaseOptionGroup {
     }
     
     /// Print all options set
-    virtual void print_options(ostream& out, bool slug = false) const {
-        if (slug) {
+    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const {
+        if (format == OptionFormat::SLUG) {
             for (auto& arg : args) {
                 // Print unseparated short options
-                arg->print(out, "", "", true);
+                if (!arg->is_static()) {
+                    arg->print(out, "", format);
+                }
+            }
+        } else if (format == OptionFormat::JSON) {
+            bool first = true;
+            for (auto& arg : args) {
+                arg->print(out, first ? "" : ",", format);
+                first = false;
             }
         } else {
             for (auto& arg : args) {
                 // Print long options, one per line
-                arg->print(out, "", "\n");
+                arg->print(out, "", format);
             }
         }
     }
@@ -1049,8 +1083,8 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     GroupedOptionGroup() = default;
     GroupedOptionGroup(const GroupedOptionGroup& other) = delete;
     GroupedOptionGroup& operator=(GroupedOptionGroup& other) = delete;
-    GroupedOptionGroup(GroupedOptionGroup&& other) = default;
-    GroupedOptionGroup& operator=(GroupedOptionGroup&& other) = default;
+    GroupedOptionGroup(GroupedOptionGroup&& other) = delete;
+    GroupedOptionGroup& operator=(GroupedOptionGroup&& other) = delete;
     virtual ~GroupedOptionGroup() = default;
 
     /// Create a new child group with a new heading, which we can add options
@@ -1103,7 +1137,7 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     
     virtual bool query(BaseValuation& entry) const;
     
-    virtual void print_options(ostream& out, bool slug = false) const;
+    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const;
     
     virtual std::vector<std::pair<std::string, std::string>> get_help() const;
     

@@ -42,7 +42,7 @@
 #include <valgrind/callgrind.h>
 #endif
 
-#define USE_MEMORY_PROFILING
+//#define USE_MEMORY_PROFILING
 
 #ifdef USE_MEMORY_PROFILING
 #include "../config/allocator_config.hpp"
@@ -369,6 +369,34 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "minimum fraction of best fragment score to retain a fragment"
     );
     chaining_opts.add_range(
+        "fragment-min-score",
+        &MinimizerMapper::fragment_min_score,
+        MinimizerMapper::default_fragment_min_score,
+        "minimum score to retain a fragment",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "fragment-set-score-threshold",
+        &MinimizerMapper::fragment_set_score_threshold,
+        MinimizerMapper::default_fragment_set_score_threshold,
+        "only chain fragments in a tree if their overall score is within this many points of the best tree",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "min-chaining-problems",
+        &MinimizerMapper::min_chaining_problems,
+        MinimizerMapper::default_min_chaining_problems,
+        "ignore score threshold to get this many chaining problems",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "max-chaining-problems",
+        &MinimizerMapper::max_chaining_problems,
+        MinimizerMapper::default_max_chaining_problems,
+        "do no more than this many chaining problems",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
         "max-lookback-bases",
         &MinimizerMapper::max_lookback_bases,
         MinimizerMapper::default_max_lookback_bases,
@@ -552,6 +580,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
         << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
         << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+        << "  --set-refpos                  set refpos field on reads to reference path positions they visit" << endl
         << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
         << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
         << "  --track-position              coarsely track linear reference positions of good intermediate alignment candidates (implies --track-provenance)" << endl
@@ -574,8 +603,9 @@ int main_giraffe(int argc, char** argv) {
     // Set up to parse options
     std::unique_ptr<GroupedOptionGroup> parser = get_options();
 
-    constexpr int OPT_OUTPUT_BASENAME = 1001;
-    constexpr int OPT_REPORT_NAME = 1002;
+    constexpr int OPT_OUTPUT_BASENAME = 1000;
+    constexpr int OPT_REPORT_NAME = 1001;
+    constexpr int OPT_SET_REFPOS = 1002;
     constexpr int OPT_TRACK_PROVENANCE = 1003;
     constexpr int OPT_TRACK_CORRECTNESS = 1004;
     constexpr int OPT_TRACK_POSITION = 1005;
@@ -637,6 +667,8 @@ int main_giraffe(int argc, char** argv) {
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we set the alignment refpos fields?
+    bool set_refpos = MinimizerMapper::default_set_refpos;
     // Should we track candidate provenance?
     bool track_provenance = MinimizerMapper::default_track_provenance;
     // Should we track candidate correctness?
@@ -719,6 +751,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
+        .add_entry<int>("min-chaining-problems", 1)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -748,6 +784,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
+        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
+        .add_entry<int>("min-chaining-problems", 1)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
@@ -769,6 +809,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.8)
+        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
+        .add_entry<int>("min-chaining-problems", 1)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -805,6 +849,7 @@ int main_giraffe(int argc, char** argv) {
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
+        {"set-refpos", no_argument, 0, OPT_SET_REFPOS},
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
@@ -1072,6 +1117,10 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_SET_REFPOS:
+                set_refpos = true;
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -1344,7 +1393,7 @@ int main_giraffe(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
-    if (track_correctness || track_position || hts_output) {
+    if (track_correctness || track_position || set_refpos || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
@@ -1409,7 +1458,7 @@ int main_giraffe(int argc, char** argv) {
                 s << "-i";
             }
             // Make a slug of the other options
-            parser->print_options(s, true);
+            parser->print_options(s, OptionFormat::SLUG);
             s << ".gam";
             
             output_filename = s.str();
@@ -1430,43 +1479,59 @@ int main_giraffe(int argc, char** argv) {
         parser->apply(minimizer_mapper);
         parser->apply(main_options);
         parser->apply(scoring_options);
-        
-        if (show_progress && interleaved) {
-            cerr << "--interleaved" << endl;
-        }
-        
-        if (show_progress && prune_anchors) {
-            cerr << "--prune-low-cplx" << endl;
-        }
 
-        if (show_progress && track_provenance) {
-            cerr << "--track-provenance " << endl;
-        }
-        minimizer_mapper.track_provenance = track_provenance;
+        // Make a line of JSON about our command line options.
+        // We may embed it int he output file later.
+        std::stringstream params_json;
+        params_json << "{";
+        parser->print_options(params_json, OptionFormat::JSON);
         
-        if (show_progress && track_position) {
-            cerr << "--track-position " << endl;
-        }
-        minimizer_mapper.track_position = track_position;
-
-        if (show_progress && track_correctness) {
-            cerr << "--track-correctness " << endl;
-        }
-        minimizer_mapper.track_correctness = track_correctness;
-        
-        if (show_progress && show_work) {
-            cerr << "--show-work " << endl;
-        }
-        minimizer_mapper.show_work = show_work;
-
-        if (show_progress && paired) {
-            if (forced_mean && forced_stdev) {
-                cerr << "--fragment-mean " << fragment_mean << endl; 
-                cerr << "--fragment-stdev " << fragment_stdev << endl;
+        // We make this helper to report flags we manage both places, to deduplicate code.
+        auto report_flag = [&](const std::string& name, bool value) {
+            if (value) {
+                params_json << ",\"" << name << "\":true";
+                if (show_progress) {
+                    cerr << "--" << name << endl;
+                }
             }
-            cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
+        };
+        auto report_number = [&](const std::string& name, size_t value) {
+            params_json << ",\"" << name << "\":" << value;
+            if (show_progress) {
+                cerr << "--" << name << " " << value << endl;
+            }
+        };
+        auto report_string = [&](const std::string& name, const std::string& value) {
+            params_json << ",\"" << name << "\":\"" << value << "\"";
+            if (show_progress) {
+                cerr << "--" << name << " " << value << endl;
+            }
+        };
+
+        report_flag("interleaved", interleaved);
+        report_flag("prune-low-cplx", prune_anchors);
+        report_flag("set-refpos", set_refpos);
+        minimizer_mapper.set_refpos = set_refpos;
+        report_flag("track-provenance", track_provenance);
+        minimizer_mapper.track_provenance = track_provenance;
+        report_flag("track-position", track_position);
+        minimizer_mapper.track_position = track_position;
+        report_flag("track-correctness", track_correctness);
+        minimizer_mapper.track_correctness = track_correctness;
+        report_flag("show-work", show_work);
+        minimizer_mapper.show_work = show_work;
+        if (paired) {
+            if (forced_mean) {
+                report_number("fragment-mean", fragment_mean);
+            }
+            if (forced_stdev) {
+                report_number("fragment-stdev", fragment_stdev);
+            }
+            report_string("rescue-algorithm", algorithm_names[rescue_algorithm]);
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
+
+        params_json << "}" << std::endl;
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
@@ -1569,11 +1634,13 @@ int main_giraffe(int argc, char** argv) {
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
-                
                 alignment_emitter = get_alignment_emitter(output_filename, output_format,
                                                           paths, thread_count,
                                                           emitter_graph, flags);
             }
+
+            // Stick any metadata in the emitter near the front of the stream.
+            alignment_emitter->emit_extra_message("PARAMS_JSON", params_json.str());
 
 #ifdef USE_MEMORY_PROFILING
             // Start profiling memory allocations
@@ -1809,7 +1876,7 @@ int main_giraffe(int argc, char** argv) {
             }
         
         } // Make sure alignment emitter is destroyed and all alignments are on disk.
-        
+
         // Now mapping is done
         std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
         clock_t cpu_time_after = clock();
@@ -1890,7 +1957,6 @@ int main_giraffe(int argc, char** argv) {
             // Log output filename and mapping speed in reads/second/thread to report TSV
             report << output_filename << "\t" << reads_per_second_per_thread << endl;
         }
-        
     });
         
     return 0;
