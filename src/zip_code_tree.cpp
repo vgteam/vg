@@ -2875,41 +2875,10 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             });
         ++interval_i;
     }
+    //TODO: Merge consecutive runs on the same chain. This shouldn't affect correctness because separate 
+    //      should be unreachable, but it would make the snarls smaller
 
-    //To remove an element, keep track of the element (run_itr) and the previous iterator (prev_itr),
-    // and remove_after the previous iterator
-    auto prev_itr = all_runs.begin();
-    auto run_itr = all_runs.begin();
-    run_itr++;
 
-    while (run_itr != all_runs.end()) {
-        if (run_itr->chain_id == prev_itr->chain_id && 
-            run_itr->is_reversed == prev_itr->is_reversed &&
-            run_itr->is_reversed_read == prev_itr->is_reversed_read) {
-            //If the current and previous run can be combined, add the current to the previous 
-            // and erase the current with remove_after(prev_itr)
-
-            //Combine the runs
-            prev_itr->uf_head = union_find.union_groups(run_itr->uf_head, 
-                                                       prev_itr->uf_head);
-            prev_itr->read_range_start = std::min(run_itr->read_range_start, 
-                                                 prev_itr->read_range_start);
-            prev_itr->read_range_end = std::max(run_itr->read_range_end, 
-                                               prev_itr->read_range_end);
-
-            prev_itr->chain_range_start = std::min(run_itr->chain_range_start, 
-                                                  prev_itr->chain_range_start);
-            prev_itr->chain_range_end = std::max(run_itr->chain_range_end, 
-                                                        prev_itr->chain_range_end);
-
-            //Remove this run
-            run_itr = all_runs.erase_after(prev_itr);
-        } else {
-            //Otherwise, iterate to the new run
-            ++run_itr;
-            ++prev_itr;
-        }
-    }
 
 
     /******* Re-sort seeds by the new runs and make new intervals of the runs on the chains 
