@@ -2160,6 +2160,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Do the left tail, if any.
     size_t left_tail_length = (*here).read_start();
+    double left_align_time = 0.0;
     if (left_tail_length > 0) {
         // We need to do a left tail.
         // Anchor position will not be covered.
@@ -2281,6 +2282,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cerr << log_name() << "Aligned left tail in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
             }
         }
+        left_align_time = std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
 
     }
         
@@ -2545,6 +2547,7 @@ Alignment MinimizerMapper::find_chain_alignment(
    
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - (*here).read_end();
+    double right_align_time = 0.0;
     if (right_tail_length > 0) {
         // We need to do a right tail
         
@@ -2671,6 +2674,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cerr << log_name() << "Aligned right tail in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
             }
         }
+        right_align_time = std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
 
     }
     
@@ -2699,6 +2703,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     set_annotation(result, "left_tail_length", (double) left_tail_length);
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
     set_annotation(result, "right_tail_length", (double) right_tail_length); 
+    set_annotation(result, "right_tail_time", (double) right_align_time); 
+    set_annotation(result, "left_tail_time", (double) left_align_time); 
     
     return result;
 }
