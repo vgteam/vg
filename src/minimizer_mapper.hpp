@@ -343,7 +343,7 @@ public:
 
     /// How many long of a tail should we align in one go? If the tail is longer
     /// than this, then align this much, then restart the alignment from the end
-    static constexpr size_t default_max_dp_align = 1000;
+    static constexpr size_t default_max_dp_align = 5000;
     size_t max_dp_align = default_max_dp_align;
 
     /// If set, cap mapping quality based on minimizer layout in the read. Only
