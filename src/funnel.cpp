@@ -656,18 +656,18 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
     
     for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const vector<double>& correct_scores, const vector<double>& noncorrect_scores, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
         // Save the number of items
-        set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
+        set_annotation(aln, "stage." + stage + ".results", (double)result_sizes.size());
         // And the per-stage duration
-        set_annotation(aln, "stage_" + stage + "_time", duration);
+        set_annotation(aln, "stage." + stage + ".time", duration);
         for (auto& kv : sub_durations) {
             // And the substage durations
-            set_annotation(aln, "stage_" + stage + "_sub_" + kv.first + "_time", kv.second);
+            set_annotation(aln, "stage." + stage + ".sub." + kv.first + ".time", kv.second);
         }
         if (annotate_correctness) {
             // And the correct scores
-            set_compressed_annotation(aln, "stage_" + stage + "_correct_scores", correct_scores);
+            set_compressed_annotation(aln, "stage." + stage + ".correct_scores", correct_scores);
             // And the non-correct scores
-            set_compressed_annotation(aln, "stage_" + stage + "_noncorrect_scores", noncorrect_scores);
+            set_compressed_annotation(aln, "stage." + stage + ".noncorrect_scores", noncorrect_scores);
         }
     });
     
@@ -697,19 +697,19 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
         const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
 
-            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
+            string filter_id = to_string(filter_num) + "." + filter + "." + stage;
 
             // Save the stats
-            set_annotation(aln, "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-            set_annotation(aln, "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-            set_annotation(aln, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-            set_annotation(aln, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+            set_annotation(aln, "filter." + filter_id + ".passed.count_total", (double) by_count.passing);
+            set_annotation(aln, "filter." + filter_id + ".failed.count_total", (double) by_count.failing);
+            set_annotation(aln, "filter." + filter_id + ".passed.size_total", (double) by_size.passing);
+            set_annotation(aln, "filter." + filter_id + ".failed.size_total", (double) by_size.failing);
             
             if (annotate_correctness) {
-                set_annotation(aln, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                set_annotation(aln, "filter." + filter_id + ".passed.count_correct", (double) by_count.passing_correct);
+                set_annotation(aln, "filter." + filter_id + ".failed.count_correct", (double) by_count.failing_correct);
+                set_annotation(aln, "filter." + filter_id + ".passed.size_correct", (double) by_size.passing_correct);
+                set_annotation(aln, "filter." + filter_id + ".failed.size_correct", (double) by_size.failing_correct);
             }
             
             // Save the correct and non-correct filter statistics, even if
@@ -723,9 +723,9 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             }
             if (all_nan) {
                 // Elide all-nan vector
-                set_compressed_annotation(aln, "filterstats_" + filter_id + "_correct", std::vector<double>());
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".correct", std::vector<double>());
             } else {
-                set_compressed_annotation(aln, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".correct", filter_statistics_correct);
             }
             all_nan = true;
             for (auto& v : filter_statistics_non_correct) {
@@ -736,9 +736,9 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             }
             if (all_nan) {
                 // Elide all-nan vector
-                set_compressed_annotation(aln, "filterstats_" + filter_id + "_noncorrect", std::vector<double>());
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".noncorrect", std::vector<double>());
             } else {
-                set_compressed_annotation(aln, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".noncorrect", filter_statistics_non_correct);
             }
             filter_num++;
         });

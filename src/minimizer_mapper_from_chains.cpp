@@ -1963,7 +1963,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Remember the scores
-    set_annotation(mappings.front(),"secondary_scores", scores);
+    set_compressed_annotation(mappings.front(),"secondary_scores", scores);
 
     if (track_provenance) {
         funnel.substage_stop();
@@ -2005,13 +2005,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Special fragment and chain statistics
     set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
     if (track_correctness) {
-        set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
+        set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
     }
-    set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
-    set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
-    set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
-    set_annotation(mappings[0], "best_chain_anchors", (double) best_chain_anchors);
-    set_annotation(mappings[0], "best_chain_anchor_length", (double) best_chain_anchor_length);
+    set_annotation(mappings[0], "best_chain.coverage", best_chain_coverage);
+    set_annotation(mappings[0], "best_chain.longest_jump", (double) best_chain_longest_jump);
+    set_annotation(mappings[0], "best_chain.average_jump", best_chain_average_jump);
+    set_annotation(mappings[0], "best_chain.anchors", (double) best_chain_anchors);
+    set_annotation(mappings[0], "best_chain.anchor_length", (double) best_chain_anchor_length);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";

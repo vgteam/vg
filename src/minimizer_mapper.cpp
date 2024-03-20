@@ -3570,17 +3570,15 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     using filter_t = std::tuple<const char*, std::function<bool(const Minimizer&)>, std::function<double(const Minimizer&)>, std::function<void(const Minimizer&)>, std::function<void(const Minimizer&)>>;
     std::vector<filter_t> minimizer_filters;
     minimizer_filters.reserve(5);
-    if (minimizer_downsampling_window_size != 0) {
-        // Drop minimizers if we didn't select them at downsampling.
-        // TODO: Downsampling isn't actually by run, and that's kind of the point?
-        minimizer_filters.emplace_back(
-            "window-downsampling", 
-            [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
-            [&](const Minimizer& m) { return (double)m.hits; },
-            [](const Minimizer& m) {},
-            [](const Minimizer& m) {}
-        );
-    }
+    // Drop minimizers if we didn't select them at downsampling.
+    // TODO: Downsampling isn't actually by run, and that's kind of the point?
+    minimizer_filters.emplace_back(
+        "window-downsampling", 
+        [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
+        [&](const Minimizer& m) { return (double)m.hits; },
+        [](const Minimizer& m) {},
+        [](const Minimizer& m) {}
+    );
     minimizer_filters.emplace_back(
         "any-hits", 
         [&](const Minimizer& m) { return m.hits > 0; },

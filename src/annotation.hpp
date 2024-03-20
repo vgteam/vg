@@ -11,6 +11,7 @@
 #include <functional>
 #include <limits>
 #include <cmath>
+#include <sstream>
 
 #include <google/protobuf/struct.pb.h>
 
@@ -101,7 +102,7 @@ struct Annotation {
 };
 
 /// Cast a Protobuf generic Value to any type.
-template <typename T>
+template<typename T>
 inline T value_cast(const google::protobuf::Value& value);
 
 /// Cast any type to a generic Protobuf value.
@@ -128,6 +129,19 @@ void Annotation<T, Enabled>::clear(T* t) {
 }
 
 // We define all these value_cast implementations, in both directions
+
+// For Struct we use a pointer so you can tell if it's not really there by having a nullptr.
+template<>
+inline const google::protobuf::Struct* value_cast<const google::protobuf::Struct*>(const google::protobuf::Value& value) {
+    assert(value.kind_case() == google::protobuf::Value::KindCase::kStructValue);
+    return &value.struct_value();
+}
+
+// For Value we use a pointer so you can tell if it's not really there by having a nullptr.
+template<>
+inline const google::protobuf::Value* value_cast<const google::protobuf::Value*>(const google::protobuf::Value& value) {
+    return &value;
+}
 
 template<>
 inline bool value_cast<bool>(const google::protobuf::Value& value) {
@@ -231,31 +245,80 @@ inline google::protobuf::Value value_cast(const Container& wrap) {
 }
 
 template<typename Annotated>
-inline bool has_annotation(const Annotated& annotated, const string& name) {
+bool has_annotation(const Annotated& annotated, const string& name) {
     // Grab the whole annotation struct
-    auto annotation_struct = Annotation<Annotated>::get(annotated);
-    // Check for the annotation
-    return annotation_struct.fields().count(name);
+    const google::protobuf::Struct& annotation_struct = Annotation<Annotated>::get(annotated);
+
+    const google::protobuf::Struct* here = &annotation_struct;
+    const google::protobuf::Value* leaf = nullptr;
+    std::string name_part;
+    std::istringstream ss(name);
+    while (std::getline(ss, name_part, '.')) {
+        if (here == nullptr) {
+            // Path extends beyond a leaf value
+            return false;
+        }
+        // Look up each dot-separated segment
+        auto found = here->fields().find(name_part);
+        if (found == here->fields().end()) {
+            // This segment isn't present
+            return false;
+        }
+        const google::protobuf::Value& part_value = found->second;
+        if (part_value.kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+            // Recurse into the struct
+            here = &part_value.struct_value();
+        } else {
+            // Maybe this is the last segment and we found the actual thing?
+            here = nullptr;
+            leaf = &part_value;
+        }
+    }
+    // If we get here, we ran out of name
+    // Return true if there is any value here, even a struct
+    return true;
 }
 
 // TODO: more value casts for e.g. ints and embedded messages.
 
 template<typename AnnotationType, typename Annotated>
-inline AnnotationType get_annotation(const Annotated& annotated, const string& name) {
+AnnotationType get_annotation(const Annotated& annotated, const string& name) {
     // Grab the whole annotation struct
-    auto annotation_struct = Annotation<Annotated>::get(annotated);
-    
-    if (!annotation_struct.fields().count(name)) {
-        // Nothing is there.
-        // Return the Proto default value, by value-initializing.
-        return AnnotationType();
+    const google::protobuf::Struct& annotation_struct = Annotation<Annotated>::get(annotated);
+
+    const google::protobuf::Struct* here = &annotation_struct;
+    const google::protobuf::Value* leaf = nullptr;
+    std::string name_part;
+    std::istringstream ss(name);
+    while (std::getline(ss, name_part, '.')) {
+        if (here == nullptr) {
+            // Path extends beyond a leaf value
+            // Return the Proto default value, by value-initializing.
+            return AnnotationType();
+        }
+        // Look up each dot-separated segment.
+        // We don't use find because the find interface can't get us references
+        // into the Protobuf storage for giving back Value or Struct pointers.
+        if (!here->fields().count(name_part)) {
+            // This segment isn't present
+            // Return the Proto default value, by value-initializing.
+            return AnnotationType();
+        }
+        const google::protobuf::Value& part_value = here->fields().at(name_part);
+        if (part_value.kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+            // Recurse into the struct
+            here = &part_value.struct_value();
+            // We might be fetching the whole struct though
+            leaf = &part_value;
+        } else {
+            // Maybe this is the last segment and we found the actual thing?
+            here = nullptr;
+            leaf = &part_value;
+        }
     }
     
-    // Get the Protobuf Value for this annotation name
-    auto value = annotation_struct.fields().at(name);
-    
-    // Pull out the right type.
-    return value_cast<AnnotationType>(value);
+    // Pull out the right type from the leaf Value.
+    return value_cast<AnnotationType>(*leaf);
 }
 
 template<typename AnnotationType, typename Annotated>
@@ -264,12 +327,25 @@ inline AnnotationType get_annotation(Annotated* annotated, const string& name) {
 }
 
 template<typename AnnotationType, typename Annotated>
-inline void set_annotation(Annotated* annotated, const string& name, const AnnotationType& annotation) {
+void set_annotation(Annotated* annotated, const string& name, const AnnotationType& annotation) {
     // Get ahold of the struct
-    auto* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
-    
-    // Set the key to the wrapped value
-    (*annotation_struct->mutable_fields())[name] = value_cast(annotation);
+    google::protobuf::Struct* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
+
+    google::protobuf::Struct* here = annotation_struct;
+    google::protobuf::Value* leaf = nullptr;
+    std::string name_part;
+    std::istringstream ss(name);
+    while (std::getline(ss, name_part, '.')) {
+        // Look up each dot-separated segment and put a struct there
+        leaf = &(*here->mutable_fields())[name_part];
+        here = leaf->mutable_struct_value();
+    }
+
+    assert(leaf != nullptr);
+
+    // Actually make the last one not a struct but a real leaf value
+    here = nullptr;
+    *leaf = value_cast(annotation);
 }
 
 template<typename AnnotationType, typename Annotated>
@@ -297,10 +373,10 @@ void set_compressed_annotation(Annotated* annotated, const string& base_name, st
     }
 
     // Apply two annotations
-    set_annotation(annotated, base_name + "_values", values);
+    set_annotation(annotated, base_name + ".values", values);
     if (duplicates) {
         // Only include the weights if some are not 1
-        set_annotation(annotated, base_name + "_weights", counts);
+        set_annotation(annotated, base_name + ".weights", counts);
     }
 }
 
@@ -310,11 +386,44 @@ inline void set_compressed_annotation(Annotated& annotated, const string& base_n
 }
 
 template<typename Annotated>
-inline void clear_annotation(Annotated* annotated, const string& name) {
+void clear_annotation(Annotated* annotated, const string& name) {
     // Get ahold of the struct
-    auto* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
-    // Clear out that field
-    annotation_struct->mutable_fields()->erase(name);
+    google::protobuf::Struct* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
+    
+    google::protobuf::Struct* parent = nullptr;
+    google::protobuf::Struct* here = annotation_struct;
+    std::string name_part;
+    std::string last_part;
+    std::istringstream ss(name);
+    while (std::getline(ss, name_part, '.')) {
+        if (here == nullptr) {
+            // Path extends beyond a leaf value
+            return;
+        }
+        // Look up each dot-separated segment
+        auto found = here->mutable_fields()->find(name_part);
+        if (found == here->mutable_fields()->end()) {
+            // This segment isn't present
+            return;
+        }
+        google::protobuf::Value* part_value = &found->second;
+        if (part_value->kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+            // Recurse into the struct
+            parent = here;
+            here = part_value->mutable_struct_value();
+        } else {
+            // Maybe this is the last segment and we found the actual thing?
+            parent = here;
+            here = nullptr;
+        }
+        last_part = std::move(name_part);
+    }
+
+    if (parent != nullptr) {
+        // Clear out that field
+        here = nullptr;
+        parent->mutable_fields()->erase(last_part);
+    }
 }
 
 template<typename Annotated>

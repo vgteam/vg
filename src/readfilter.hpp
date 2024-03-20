@@ -1490,16 +1490,19 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 throw runtime_error("error: Cannot find annotation "+ field);
             } else {
                 string annotation_key = field.substr(11, field.size()-11);
-                google::protobuf::Value value = read.annotation().fields().at(annotation_key);
+                // Get that value (possibly holding a child struct) recursively
+                const google::protobuf::Value* value = get_annotation<const google::protobuf::Value*>(read, annotation_key);
+                // We checked with has_annotation so this needs to be here.
+                assert(value != nullptr);
 
-                if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
-                    out << get_annotation<double>(read, annotation_key);
-                } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
-                    out << get_annotation<string>(read, annotation_key);
-                } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
+                if (value->kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                    out << value_cast<double>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                    out << value_cast<string>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kListValue) {
                     out << "[";
-                    for (size_t i = 0; i < value.list_value().values_size(); i++) {
-                        auto& item = value.list_value().values(i);
+                    for (size_t i = 0; i < value->list_value().values_size(); i++) {
+                        auto& item = value->list_value().values(i);
                         if (i > 0) {
                             out << ",";
                         }
@@ -1512,8 +1515,17 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                         }
                     }
                     out << "]";
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+                    std::string buffer;
+                    google::protobuf::util::JsonPrintOptions opts;
+                    auto status = google::protobuf::util::MessageToJsonString(value->struct_value(), &buffer, opts);
+                    
+                    if (!status.ok()) {
+                        throw std::runtime_error("Could not serialize " + field + " for " + read.name() + ": " + status.ToString());
+                    }
+                    out << buffer;
                 } else {
-                    out << "?";
+                    out << "??" << value->kind_case() << "??";
                 }
             }
         } else {
