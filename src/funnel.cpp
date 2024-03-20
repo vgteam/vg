@@ -697,8 +697,11 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
         const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
 
-            string filter_id = to_string(filter_num) + "." + filter + "." + stage;
-
+            string filter_id = to_string(filter_num);
+            // Save the metadata
+            set_annotation(aln, "filter." + filter_id + ".name", filter);
+            set_annotation(aln, "filter." + filter_id + ".stage", stage);
+            
             // Save the stats
             set_annotation(aln, "filter." + filter_id + ".passed.count_total", (double) by_count.passing);
             set_annotation(aln, "filter." + filter_id + ".failed.count_total", (double) by_count.failing);
