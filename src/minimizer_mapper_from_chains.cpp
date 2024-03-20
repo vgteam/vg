@@ -2003,7 +2003,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Special fragment and chain statistics
-    set_annotation(mappings[0], "fragment_scores", fragment_scores);
+    set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
     if (track_correctness) {
         set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
     }

@@ -54,6 +54,16 @@ void set_annotation(Annotated* annotated, const string& name, const AnnotationTy
 template<typename AnnotationType, typename Annotated>
 void set_annotation(Annotated& annotated, const string& name, const AnnotationType& annotation);
 
+/// Set a pair of annotations to compactly express the values in the given
+/// vector which contains many repeated values. The values will be sorted in place.
+template<typename AnnotatonValueType, typename Annotated>
+void set_compressed_annotation(Annotated* annotated, const string& base_name, std::vector<AnnotatonValueType> annotation);
+
+/// Set a pair of annotations to compactly express the values in the given
+/// vector which contains many repeated values. The values will be sorted in place.
+template<typename AnnotatonValueType, typename Annotated>
+void set_compressed_annotation(Annotated& annotated, const string& base_name, std::vector<AnnotatonValueType> annotation);
+
 /// Clear the annotation with the given name.
 template<typename Annotated>
 void clear_annotation(Annotated* annotated, const string& name);
@@ -265,6 +275,38 @@ inline void set_annotation(Annotated* annotated, const string& name, const Annot
 template<typename AnnotationType, typename Annotated>
 inline void set_annotation(Annotated& annotated, const string& name, const AnnotationType& annotation) {
     set_annotation(&annotated, name, annotation);
+}
+
+template<typename AnnotatonValueType, typename Annotated>
+void set_compressed_annotation(Annotated* annotated, const string& base_name, std::vector<AnnotatonValueType> annotation) {
+    // Sort the values
+    std::sort(annotation.begin(), annotation.end());
+    
+    std::vector<AnnotatonValueType> values;
+    std::vector<size_t> counts;
+    bool duplicates = false;
+    for (auto& v : annotation) {
+        // Run lenght compress the values
+        if (!values.empty() && v == values.back()) {
+            counts.back()++;
+            duplicates = true;
+        } else {
+            values.push_back(v);
+            counts.push_back(1);
+        }
+    }
+
+    // Apply two annotations
+    set_annotation(annotated, base_name + "_values", values);
+    if (duplicates) {
+        // Only include the weights if some are not 1
+        set_annotation(annotated, base_name + "_weights", counts);
+    }
+}
+
+template<typename AnnotatonValueType, typename Annotated>
+inline void set_compressed_annotation(Annotated& annotated, const string& base_name, std::vector<AnnotatonValueType> annotation) {
+    set_compressed_annotation(&annotated, base_name, annotation);
 }
 
 template<typename Annotated>
