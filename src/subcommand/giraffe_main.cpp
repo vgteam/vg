@@ -480,13 +480,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "max-dp-cells",
         &MinimizerMapper::max_dp_cells,
         MinimizerMapper::default_max_dp_cells,
-        "maximum length of a tail that is aligned at a time"
+        "maximum number of alignment cells to allow in a tail"
     );
     chaining_opts.add_range(
         "max-dp-align",
         &MinimizerMapper::max_dp_align,
         MinimizerMapper::default_max_dp_align,
-        "maximum number of alignment cells to allow in a tail"
+        "maximum length of a tail that is aligned at a time"
     );
     return parser;
 }

@@ -2221,7 +2221,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     }
                 }
 #endif
-                size_t to_align_length = std::min(remaining_length, this->max_dp_align);
+                size_t to_align_length = std::min(std::min(remaining_length, this->max_dp_align), (size_t)MAX_DP_LENGTH);
                 size_t align_start = remaining_length-to_align_length;
                 
                 Alignment tail_aln;
@@ -2613,7 +2613,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             size_t old_read_end = (*here).read_end();
             while (remaining_length > 0) {
 
-                size_t to_align_length = std::min(remaining_length, this->max_dp_align);
+                size_t to_align_length = std::min(std::min(remaining_length, this->max_dp_align), (size_t)MAX_DP_LENGTH);
                 size_t align_start = right_tail_length - remaining_length;
 
                 Alignment tail_aln;
