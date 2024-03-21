@@ -3792,12 +3792,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
 void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, const VectorView<Minimizer>& minimizers, size_t funnel_offset, Funnel& funnel) const { 
     if (this->track_correctness && this->path_graph == nullptr) {
-        cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+        cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no path position support in the graph" << endl;
         exit(1);
     }
+
+    const size_t MAX_CORRECT_DISTANCE = 200;
    
     // Organize the alignment's refpos entries by path
     std::unordered_map<std::string, std::vector<const Position*>> refpos_by_path;
+    // And keep track of the nodes that are on any of those paths near the
+    // refpos positions. We only cherck seeds on those nodes to see if they are
+    // correct, because checking all seeds is too slow.
+    std::unordered_set<nid_t> eligible_nodes;
     if (this->track_correctness && aln.refpos_size() != 0) {
         for (const Position& refpos : aln.refpos()) {
             refpos_by_path[refpos.name()].push_back(&refpos); 
@@ -3807,6 +3813,62 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             std::sort(kv.second.begin(), kv.second.end(), [&](const Position* a, const Position* b) {
                 return a->offset() < b->offset();
             });
+            
+            if (this->path_graph->has_path(kv.first) && !kv.second.empty()) {
+                // Find the path
+                path_handle_t path = this->path_graph->get_path_handle(kv.first);
+                
+                // Find the bounding offsets
+                size_t lowest_offset = kv.second.front()->offset();
+                size_t highest_offset = kv.second.back()->offset();
+
+                // Find the bounding steps on the path
+                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, lowest_offset);
+                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, highest_offset);
+                
+                // It must be an actual path range we have or we can't do this
+                crash_unless(lowest_offset_step != this->path_graph->path_end(path));
+                crash_unless(highest_offset_step != this->path_graph->path_end(path));
+                crash_unless(this->path_graph->has_next_step(highest_offset_step));
+
+                // Advance one handle to be the past-end for the range.
+                step_handle_t end_step = this->path_graph->get_next_step(highest_offset_step);
+
+                for (step_handle_t here = lowest_offset_step; here != end_step; here = this->path_graph->get_next_step(here)) {
+                    // Walk the path between them and get all the node IDs
+                    nid_t here_node = this->path_graph->get_id(this->path_graph->get_handle_of_step(here));
+                    // And mark them all eligible
+                    eligible_nodes.insert(here_node);
+                    // TODO: If a read visits a path at wildly different positions we might mark a lot of nodes!
+                }
+
+                // Scan right off the end of the range up to our distance limit
+                size_t range_visited = 0;
+                step_handle_t here = highest_offset_step;
+                while (range_visited < MAX_CORRECT_DISTANCE && this->path_graph->has_next_step(here)) {
+                    here = this->path_graph->get_next_step(here);
+                    // Find all the nodes
+                    handle_t here_handle = this->path_graph->get_handle_of_step(here);
+                    nid_t here_node = this->path_graph->get_id(here_handle);
+                    // And mark them all eligible
+                    eligible_nodes.insert(here_node);
+                    // And record the distance traveled
+                    range_visited += this->path_graph->get_length(here_handle);
+                }
+                // Same scan but left
+                range_visited = 0;
+                here = lowest_offset_step;
+                while (range_visited < MAX_CORRECT_DISTANCE && this->path_graph->has_previous_step(here)) {
+                    here = this->path_graph->get_previous_step(here);
+                    // Find all the nodes
+                    handle_t here_handle = this->path_graph->get_handle_of_step(here);
+                    nid_t here_node = this->path_graph->get_id(here_handle);
+                    // And mark them all eligible
+                    eligible_nodes.insert(here_node);
+                    // And record the distance traveled
+                    range_visited += this->path_graph->get_length(here_handle);
+                }
+            }
         }
     }
 
@@ -3816,11 +3878,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
         
         // We know the seed is placed somewhere.
         Funnel::State tag = Funnel::State::PLACED;
-        if (this->track_correctness) {
-            // We are interested in correctness and positions.
+        if (this->track_correctness && eligible_nodes.count(id(it->pos))) {
+            // We are interested in correctness and positions, and this seed is on a node that may be at a plausible path position.
 
-            // Find every seed's reference positions. This maps from path handle to pairs of offset and orientation.
-            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, 100);
+            // Find every eligible seed's reference positions. This maps from path handle to pairs of offset and orientation.
+            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, -1);
             
             if (aln.refpos_size() != 0) {
                 // It might be correct
@@ -3845,7 +3907,7 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                         auto mapped_it = mapped_positions.begin();
                         while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
                             // As long as they are both in their collections, compare them
-                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < 200) {
+                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < MAX_CORRECT_DISTANCE) {
                                 // If they are close enough, we have a match
                                 tag = Funnel::State::CORRECT;
                                 break;
