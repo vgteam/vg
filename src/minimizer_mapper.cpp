@@ -3829,9 +3829,8 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                 // It must be an actual path range we have or we can't do this
                 crash_unless(lowest_offset_step != this->path_graph->path_end(path));
                 crash_unless(highest_offset_step != this->path_graph->path_end(path));
-                crash_unless(this->path_graph->has_next_step(highest_offset_step));
 
-                // Advance one handle to be the past-end for the range.
+                // Advance one handle to be the past-end for the range. This might hit the path)end sentinel.
                 step_handle_t end_step = this->path_graph->get_next_step(highest_offset_step);
 
                 for (step_handle_t here = lowest_offset_step; here != end_step; here = this->path_graph->get_next_step(here)) {
