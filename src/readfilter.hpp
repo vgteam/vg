@@ -1487,7 +1487,9 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << buffer;
         } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
             if (!has_annotation(read, field.substr(11, field.size()-11))) {
-                throw runtime_error("error: Cannot find annotation "+ field);
+                // We don't actually know what type this would be.
+                // TODO: Try and guess from previous reads?
+                out << "null";
             } else {
                 string annotation_key = field.substr(11, field.size()-11);
                 // Get that value (possibly holding a child struct) recursively
