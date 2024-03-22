@@ -1780,16 +1780,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }, discard_chain_by_score);
     
+    // We want to be able to feed in an unaligned alignment on the normal
+    // codepath, but we don't want it to really participate in the funnel
+    // filters anymore. So we set this flag if the funnle is really empty of
+    // items so we stop talking about filters.
+    bool funnle_depleted = false;
+
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
         multiplicity_by_alignment.emplace_back(0);
-        
-        if (track_provenance) {
-            // Say it came from nowhere
-            funnel.introduce();
-        }
+        // Stop telling the funnel about filters and items.
+        funnle_depleted = true;
     } else {
         //chain_count_by_alignment is currently the number of better or equal chains that were used
         // We really want the number of chains not including the ones that represent the same mapping
@@ -1841,7 +1844,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
-        if (track_provenance) {
+        if (track_provenance && !funnle_depleted) {
             // Tell the funnel
             funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
@@ -1855,7 +1858,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
         
-        if (track_provenance) {
+        if (track_provenance && !funnle_depleted) {
             funnel.fail("max-multimaps", alignment_num);
         }
     }, [&](size_t alignment_num) {
