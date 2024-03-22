@@ -712,7 +712,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
             return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
-        }, zipcode_tree_score_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
+        }, zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
