@@ -3336,12 +3336,19 @@ pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_
     
     handle_t start_handle = use_graph->get_handle(site.start().node_id(), site.start().backward());
     handle_t end_handle = use_graph->get_handle(site.end().node_id(), site.end().backward());
+
+    size_t max_path_length = max_traversal_length;
+    if (max_path_length != numeric_limits<size_t>::max()) {
+        // want to exclude snarl endpoints from path length clamp
+        max_path_length += use_graph->get_length(use_graph->get_handle(site.start().node_id())) +
+            use_graph->get_length(use_graph->get_handle(site.end().node_id()));
+    }
     
     vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(use_graph, start_handle, end_handle, K,
                                                                                           node_weight_callback,
                                                                                           edge_weight_callback,
                                                                                           greedy_avg,
-                                                                                          max_traversal_length);
+                                                                                          max_path_length);
 
     vector<SnarlTraversal> travs;
     travs.reserve(widest_paths.size());
