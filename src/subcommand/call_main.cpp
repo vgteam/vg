@@ -47,8 +47,8 @@ void help_call(char** argv) {
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
        << "    -A, --all-snarls        Genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
-       << "    -c, --min-length N      Genotype only snarls with reference traversal length >= N" << endl
-       << "    -C, --max-length N      Genotype only snarls with reference traversal length <= N" << endl
+       << "    -c, --min-length N      Genotype only snarls with at least one traversal of length >= N" << endl
+       << "    -C, --max-length N      Genotype only snarls where all traversals have length <= N" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
@@ -106,8 +106,8 @@ int main_call(int argc, char** argv) {
     bool nested = false;
     bool call_chains = false;
     bool all_snarls = false;
-    int64_t min_ref_allele_len = 0;
-    int64_t max_ref_allele_len = numeric_limits<int64_t>::max();    
+    size_t min_allele_len = 0;
+    size_t max_allele_len = numeric_limits<size_t>::max();    
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -196,10 +196,10 @@ int main_call(int argc, char** argv) {
             all_snarls = true;
             break;
         case 'c':
-            min_ref_allele_len = parse<int64_t>(optarg);
+            min_allele_len = parse<size_t>(optarg);
             break;
         case 'C':
-            max_ref_allele_len = parse<int64_t>(optarg);
+            max_allele_len = parse<size_t>(optarg);
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -359,7 +359,7 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
-    if ((min_ref_allele_len > 0 || max_ref_allele_len < numeric_limits<int64_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
+    if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
     }
@@ -787,7 +787,7 @@ int main_call(int argc, char** argv) {
                                               gaf_output,
                                               trav_padding,
                                               genotype_snarls,
-                                              make_pair(min_ref_allele_len, max_ref_allele_len)));
+                                              make_pair(min_allele_len, max_allele_len)));
         }
     }
 

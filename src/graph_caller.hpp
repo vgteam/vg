@@ -371,7 +371,7 @@ public:
                bool gaf_output,
                size_t trav_padding,
                bool genotype_snarls,
-               const pair<int64_t, int64_t>& ref_allele_length_range);
+               const pair<size_t, size_t>& allele_length_range);
    
     virtual ~FlowCaller();
 
@@ -416,8 +416,11 @@ protected:
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
 
-    /// clamp calling to reference alleles of a given length range
-    pair<int64_t, int64_t> ref_allele_length_range;
+    /// clamp calling to alleles of a given length range
+    /// more specifically, a snarl is only called if
+    /// 1) its largest allele is >= allele_length_range.first and
+    /// 2) all alleles are < allele_length_range.second
+    pair<size_t, size_t> allele_length_range;
 };
 
 class SnarlGraph;

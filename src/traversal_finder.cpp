@@ -3309,12 +3309,14 @@ pair<step_handle_t, bool> VCFTraversalFinder::step_in_path(handle_t handle, path
 FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                                          size_t K,
                                          function<double(handle_t)> node_weight_callback,
-                                         function<double(edge_t)> edge_weight_callback) :
+                                         function<double(edge_t)> edge_weight_callback,
+                                         size_t max_traversal_length) :
     graph(graph),
     snarl_manager(snarl_manager),
     K(K),
     node_weight_callback(node_weight_callback),
-    edge_weight_callback(edge_weight_callback)  {
+    edge_weight_callback(edge_weight_callback),
+    max_traversal_length(max_traversal_length) {
     
 }
 
@@ -3338,7 +3340,8 @@ pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_
     vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(use_graph, start_handle, end_handle, K,
                                                                                           node_weight_callback,
                                                                                           edge_weight_callback,
-                                                                                          greedy_avg);
+                                                                                          greedy_avg,
+                                                                                          max_traversal_length);
 
     vector<SnarlTraversal> travs;
     travs.reserve(widest_paths.size());
