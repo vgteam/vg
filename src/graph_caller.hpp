@@ -51,6 +51,9 @@ public:
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl) = 0;
 
+    /// toggle progress messages
+    void set_show_progress(bool show_progress);
+
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
@@ -63,6 +66,9 @@ protected:
 
     /// Our snarls
     SnarlManager& snarl_manager;
+
+    /// Toggle progress messages
+    bool show_progress;
 };
 
 /**
