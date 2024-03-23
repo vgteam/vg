@@ -390,6 +390,8 @@ int main_call(int argc, char** argv) {
         if (gbz_paths) {
             if (show_progress) cerr << "[vg call]: Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
+        } else {
+            cerr << "[vg call]: You can restrict the search to GBZ haplotypes, often to the benefict of speed and accuracy, with the -z option" << endl;
         }
     } else if (get<1>(input)) {
         path_handle_graph = std::move(get<1>(input));
