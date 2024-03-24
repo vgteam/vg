@@ -333,6 +333,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
+        "zipcode-tree-scale",
+        &MinimizerMapper::zipcode_tree_scale,
+        MinimizerMapper::default_zipcode_tree_scale,
+        "at what fraction of the read length should zipcode trees be split up"
+    );
+    chaining_opts.add_range(
         "min-to-fragment",
         &MinimizerMapper::min_to_fragment,
         MinimizerMapper::default_min_to_fragment,
@@ -488,6 +494,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_dp_align,
         "maximum length of a tail that is aligned at a time"
     );
+
     return parser;
 }
 
