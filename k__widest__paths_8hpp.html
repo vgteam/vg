@@ -74,6 +74,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;vector&gt;</code><br />
+<code>#include &lt;limits&gt;</code><br />
 <code>#include &quot;<a class="el" href="position_8hpp.html">../position.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
@@ -88,9 +89,8 @@ Namespaces</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memItemLeft" align="right" valign="top">pair&lt; double, vector&lt; handle_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e">vg::algorithms::widest_dijkstra</a> (const HandleGraph *g, handle_t source, handle_t sink, function&lt; double(const handle_t &amp;)&gt; node_weight_callback, function&lt; double(const edge_t &amp;)&gt; edge_weight_callback, function&lt; bool(const handle_t &amp;)&gt; is_node_ignored_callback, function&lt; bool(const edge_t &amp;)&gt; is_edge_ignored_callback, bool greedy_avg)</td></tr>
 <tr class="separator:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afcecbe277497471c983db60212a3c72e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; handle_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e">vg::algorithms::yens_k_widest_paths</a> (const HandleGraph *g, handle_t source, handle_t sink, size_t K, function&lt; double(const handle_t &amp;)&gt; node_weight_callback, function&lt; double(const edge_t &amp;)&gt; edge_weight_callback, bool greedy_avg=false)</td></tr>
-<tr class="memdesc:afcecbe277497471c983db60212a3c72e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the k widest paths.  <a href="namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e">More...</a><br /></td></tr>
-<tr class="separator:afcecbe277497471c983db60212a3c72e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9a715606bdd30499dc9db88583c6573"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; handle_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad9a715606bdd30499dc9db88583c6573">vg::algorithms::yens_k_widest_paths</a> (const HandleGraph *g, handle_t source, handle_t sink, size_t K, function&lt; double(const handle_t &amp;)&gt; node_weight_callback, function&lt; double(const edge_t &amp;)&gt; edge_weight_callback, bool greedy_avg, size_t max_path_length)</td></tr>
+<tr class="separator:ad9a715606bdd30499dc9db88583c6573"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Yen's algorithm to find the K widest </p>

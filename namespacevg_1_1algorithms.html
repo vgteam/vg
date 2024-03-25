@@ -277,9 +277,8 @@ Functions</h2></td></tr>
 <tr class="separator:a633a1600c6a7e447c040fefb1432e508"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memItemLeft" align="right" valign="top">pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e">widest_dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; is_node_ignored_callback, function&lt; bool(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; is_edge_ignored_callback, bool greedy_avg)</td></tr>
 <tr class="separator:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afcecbe277497471c983db60212a3c72e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e">yens_k_widest_paths</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, size_t K, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, bool greedy_avg=false)</td></tr>
-<tr class="memdesc:afcecbe277497471c983db60212a3c72e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the k widest paths.  <a href="namespacevg_1_1algorithms.html#afcecbe277497471c983db60212a3c72e">More...</a><br /></td></tr>
-<tr class="separator:afcecbe277497471c983db60212a3c72e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9a715606bdd30499dc9db88583c6573"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad9a715606bdd30499dc9db88583c6573">yens_k_widest_paths</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, size_t K, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, bool greedy_avg, size_t max_path_length)</td></tr>
+<tr class="separator:ad9a715606bdd30499dc9db88583c6573"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a30b8fd7a0d56e1827faa3aa56c8828f0">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max, const std::function&lt; void(const <a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="memdesc:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="namespacevg_1_1algorithms.html#a30b8fd7a0d56e1827faa3aa56c8828f0">More...</a><br /></td></tr>
 <tr class="separator:a30b8fd7a0d56e1827faa3aa56c8828f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5146,8 +5145,8 @@ template&lt;typename TECCNode &gt; </div>
 
 </div>
 </div>
-<a id="afcecbe277497471c983db60212a3c72e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afcecbe277497471c983db60212a3c72e">&#9670;&nbsp;</a></span>yens_k_widest_paths()</h2>
+<a id="ad9a715606bdd30499dc9db88583c6573"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad9a715606bdd30499dc9db88583c6573">&#9670;&nbsp;</a></span>yens_k_widest_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -5192,7 +5191,13 @@ template&lt;typename TECCNode &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>greedy_avg</em>&#160;</td>
+          <td class="paramname"><em>greedy_avg</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_path_length</em> = <code>numeric_limits&lt;&#160;size_t&#160;&gt;::max()</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -5201,8 +5206,7 @@ template&lt;typename TECCNode &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Find the k widest paths. </p>
+<p>Find the k widest paths Search is aborted (and current list returned) if a path longer than max_path_length is added to the results </p>
 
 </div>
 </div>

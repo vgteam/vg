@@ -1,17 +1,17 @@
 var searchData=
 [
-  ['dagifiedgraph_6392',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg']]],
-  ['deconstructor_6393',['Deconstructor',['../classvg_1_1Deconstructor.html',1,'vg']]],
-  ['deflection_6394',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
-  ['deletablehandlegraph_6395',['DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html',1,'handlegraph']]],
-  ['deletehaplotypecommand_6396',['DeleteHaplotypeCommand',['../structvg_1_1DeleteHaplotypeCommand.html',1,'vg']]],
-  ['deletionaligner_6397',['DeletionAligner',['../classvg_1_1DeletionAligner.html',1,'vg']]],
-  ['diagramexplainer_6398',['DiagramExplainer',['../classvg_1_1DiagramExplainer.html',1,'vg']]],
-  ['dinucleotidemachine_6399',['DinucleotideMachine',['../classvg_1_1DinucleotideMachine.html',1,'vg']]],
-  ['discrete_5fdistribution_6400',['discrete_distribution',['../classvg_1_1discrete__distribution.html',1,'vg']]],
-  ['distanceheuristic_6401',['DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html',1,'vg']]],
-  ['dotdumpexplainer_6402',['DotDumpExplainer',['../classvg_1_1DotDumpExplainer.html',1,'vg']]],
-  ['dozeuinterface_6403',['DozeuInterface',['../classvg_1_1DozeuInterface.html',1,'vg']]],
-  ['dozeupinningoverlay_6404',['DozeuPinningOverlay',['../classvg_1_1DozeuPinningOverlay.html',1,'vg']]],
-  ['dpscorecomparator_6405',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html',1,'vg::MEMClusterer']]]
+  ['dagifiedgraph_6394',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg']]],
+  ['deconstructor_6395',['Deconstructor',['../classvg_1_1Deconstructor.html',1,'vg']]],
+  ['deflection_6396',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
+  ['deletablehandlegraph_6397',['DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html',1,'handlegraph']]],
+  ['deletehaplotypecommand_6398',['DeleteHaplotypeCommand',['../structvg_1_1DeleteHaplotypeCommand.html',1,'vg']]],
+  ['deletionaligner_6399',['DeletionAligner',['../classvg_1_1DeletionAligner.html',1,'vg']]],
+  ['diagramexplainer_6400',['DiagramExplainer',['../classvg_1_1DiagramExplainer.html',1,'vg']]],
+  ['dinucleotidemachine_6401',['DinucleotideMachine',['../classvg_1_1DinucleotideMachine.html',1,'vg']]],
+  ['discrete_5fdistribution_6402',['discrete_distribution',['../classvg_1_1discrete__distribution.html',1,'vg']]],
+  ['distanceheuristic_6403',['DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html',1,'vg']]],
+  ['dotdumpexplainer_6404',['DotDumpExplainer',['../classvg_1_1DotDumpExplainer.html',1,'vg']]],
+  ['dozeuinterface_6405',['DozeuInterface',['../classvg_1_1DozeuInterface.html',1,'vg']]],
+  ['dozeupinningoverlay_6406',['DozeuPinningOverlay',['../classvg_1_1DozeuPinningOverlay.html',1,'vg']]],
+  ['dpscorecomparator_6407',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html',1,'vg::MEMClusterer']]]
 ];

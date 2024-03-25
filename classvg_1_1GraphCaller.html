@@ -112,6 +112,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6064d47ccef10174fab1037764a3cf29"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)=0</td></tr>
 <tr class="memdesc:a6064d47ccef10174fab1037764a3cf29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">More...</a><br /></td></tr>
 <tr class="separator:a6064d47ccef10174fab1037764a3cf29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1005b4de9fde3d23adcd1d35f8fece09"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a1005b4de9fde3d23adcd1d35f8fece09">set_show_progress</a> (bool <a class="el" href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">show_progress</a>)</td></tr>
+<tr class="memdesc:a1005b4de9fde3d23adcd1d35f8fece09"><td class="mdescLeft">&#160;</td><td class="mdescRight">toggle progress messages  <a href="classvg_1_1GraphCaller.html#a1005b4de9fde3d23adcd1d35f8fece09">More...</a><br /></td></tr>
+<tr class="separator:a1005b4de9fde3d23adcd1d35f8fece09"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -127,6 +130,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a55afa68762956066ccbea2e332342266"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a></td></tr>
 <tr class="memdesc:a55afa68762956066ccbea2e332342266"><td class="mdescLeft">&#160;</td><td class="mdescRight">Our snarls.  <a href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">More...</a><br /></td></tr>
 <tr class="separator:a55afa68762956066ccbea2e332342266"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1179324159b5518ebd0eb7d5fb71edd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">show_progress</a></td></tr>
+<tr class="memdesc:a1179324159b5518ebd0eb7d5fb71edd5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Toggle progress messages.  <a href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">More...</a><br /></td></tr>
+<tr class="separator:a1179324159b5518ebd0eb7d5fb71edd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1GraphCaller.html">GraphCaller</a>: Use the snarl decomposition to call snarls in a graph </p>
@@ -371,7 +377,51 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a1005b4de9fde3d23adcd1d35f8fece09"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1005b4de9fde3d23adcd1d35f8fece09">&#9670;&nbsp;</a></span>set_show_progress()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GraphCaller::set_show_progress </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>toggle progress messages </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a1179324159b5518ebd0eb7d5fb71edd5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1179324159b5518ebd0eb7d5fb71edd5">&#9670;&nbsp;</a></span>show_progress</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GraphCaller::show_progress</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Toggle progress messages. </p>
+
+</div>
+</div>
 <a id="a4b8c6f32019db8528bb6835fdce12ddb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4b8c6f32019db8528bb6835fdce12ddb">&#9670;&nbsp;</a></span>snarl_caller</h2>
 
