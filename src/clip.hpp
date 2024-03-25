@@ -64,19 +64,22 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
                                             function<void(function<void(handle_t, const Region*)>)> iterate_handles,
                                             function<void(function<void(edge_t, const Region*)>)> iterate_edges,
                                             int64_t min_depth, const vector<string>& ref_prefixes,
-                                            int64_t min_fragment_len, bool verbose);
+                                            int64_t min_fragment_len, const unordered_set<path_handle_t>& ignore_paths,
+                                            bool verbose);
 
 /**
  * Run above function on graph
  */
 void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
-                          int64_t min_fragment_len, bool verbose);
+                                    int64_t min_fragment_len, const unordered_set<path_handle_t>& ignore_paths, bool verbose);
 
 /**
  * Or on contained snarls
  */
-void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                                    SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose);
+void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph,
+                                              const vector<Region>& regions,  SnarlManager& snarl_manager, bool include_endpoints,
+                                              int64_t min_depth, int64_t min_fragment_len,
+                                              const unordered_set<path_handle_t>& ignore_paths, bool verbose);
 
 /**
  * clip out deletion edges 

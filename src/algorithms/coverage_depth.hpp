@@ -67,14 +67,16 @@ pair<double, double> sample_mapping_depth(const HandleGraph& graph, const vector
 /// print path-name offset base-coverage for every base on a path (just like samtools depth)
 /// ignoring things below min_coverage.  offsets are 1-based in output stream
 /// coverage here is the number of steps from (unique) other paths
-void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, bool count_cycles, ostream& out_stream);
+void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, bool count_cycles,
+                 const unordered_set<path_handle_t>& ignore_paths, ostream& out_stream);
 
 /// like packed_depth_of_bin (above), but use paths (as in path_depths) for measuring coverage
 pair<double, double> path_depth_of_bin(const PathHandleGraph& graph, step_handle_t start_step, step_handle_t end_plus_one_step,
-                                       size_t min_coverage, bool count_cycles);
+                                       size_t min_coverage, bool count_cycles, const unordered_set<path_handle_t>& ignore_paths);
 
-vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandleGraph& graph, const string& path_name, size_t bin_size,
-                                                                size_t min_coverage, bool count_cycles);
+vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandleGraph& graph, const string& path_name,
+                                                                size_t bin_size, size_t min_coverage, bool count_cycles,
+                                                                const unordered_set<path_handle_t>& ignore_paths);
 
 }
 }

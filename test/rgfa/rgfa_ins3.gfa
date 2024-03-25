@@ -1,0 +1,18 @@
+H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	TTT
+S	3	TTT
+S	4	TTT
+S	5	TTT
+S	6	TTTTTTTTTT
+P	x	1+,5+	*
+P	y	5-,4-,6-,2-,1-	*
+P	z	1+,2+,3+,4+,5+	*
+L	1	+	2	+	0M
+L	2	+	3	+	0M
+L	2	+	4	+	0M
+L	3	+	4	+	0M
+L	4	+	5	+	0M
+L	1	+	5	+	0M
+L	2	+	6	+	0M
+L	6	+	4	+	0M

@@ -295,7 +295,8 @@ pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Ali
     return combine_and_average_node_coverages(graph, node_coverages, min_coverage);
 }
 
-void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, bool count_cycles, ostream& out_stream) {
+void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, bool count_cycles,
+                 const unordered_set<path_handle_t>& ignore_paths, ostream& out_stream) {
     assert(graph.has_path(path_name));
 
     path_handle_t path_handle = graph.get_path_handle(path_name);
@@ -311,10 +312,14 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
             size_t step_count = 0;            
             handle_t handle = graph.get_handle_of_step(step_handle);
             graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle_2) {
+                    path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle_2);
+                    if (ignore_paths.count(step_path_handle)) {
+                        return true;
+                    }
                     if (count_cycles) {
                         ++step_count;
                     } else {
-                        path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle_2);
+
                         auto it = path_to_name.find(step_path_handle);
                         if (it == path_to_name.end()) {
                             string step_path_name = graph.get_path_name(step_path_handle);
@@ -323,6 +328,7 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
                         }
                         path_set.insert(it->second);
                     }
+                    return true;
                 });
             size_t coverage = (count_cycles ? step_count : path_set.size()) - 1;
             size_t node_len = graph.get_length(handle);
@@ -339,7 +345,7 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
 
 pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
                                        step_handle_t start_step, step_handle_t end_plus_one_step,
-                                       size_t min_coverage, bool count_cycles) {
+                                       size_t min_coverage, bool count_cycles, const unordered_set<path_handle_t>& ignore_paths) {
 
     // compute the mean and variance of our base coverage across the bin
     size_t bin_length = 0;
@@ -357,10 +363,13 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
         unordered_set<string> path_set;
         size_t step_count = 0;
         graph.for_each_step_on_handle(cur_handle, [&](step_handle_t step_handle) {
+                path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle);
+                if (ignore_paths.count(step_path_handle)) {
+                    return true;
+                }
                 if (count_cycles) {
                     ++step_count;
                 } else {
-                        path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle);
                         auto it = path_to_name.find(step_path_handle);
                         if (it == path_to_name.end()) {
                             string step_path_name = graph.get_path_name(step_path_handle);
@@ -368,7 +377,8 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
                             it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         path_set.insert(it->second);
-                }                    
+                }
+                return true;
             });
         size_t coverage = (count_cycles ? step_count : path_set.size()) - 1;        
 
@@ -386,7 +396,8 @@ vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandle
                                                                 const string& path_name,
                                                                 size_t bin_size,
                                                                 size_t min_coverage,
-                                                                bool count_cycles) {
+                                                                bool count_cycles,
+                                                                const unordered_set<path_handle_t>& ignore_paths) {
 
     path_handle_t path_handle = graph.get_path_handle(path_name);
     
@@ -414,7 +425,8 @@ vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandle
         step_handle_t bin_end_step = i < bins.size() - 1 ? bins[i+1].second : end_step;
         size_t bin_start = bins[i].first;
         size_t bin_end = i < bins.size() - 1 ? bins[i+1].first : offset;
-        pair<double, double> coverage = path_depth_of_bin(graph, bin_start_step, bin_end_step, min_coverage, count_cycles);
+        pair<double, double> coverage = path_depth_of_bin(graph, bin_start_step, bin_end_step, min_coverage, count_cycles,
+                                                          ignore_paths);
         binned_depths[i] = make_tuple(bin_start, bin_end, coverage.first, coverage.second);
     }
 
