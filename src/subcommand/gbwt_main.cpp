@@ -78,7 +78,7 @@ struct GBWTConfig {
     // Sample names and metadata
     std::set<std::string> to_remove; // Sample names to remove.
     std::map<std::string, std::string> tags_to_set; // Tag changes to apply to the GBWT
-
+    
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
     }
@@ -102,6 +102,17 @@ struct GBWTConfig {
     static size_t default_merge_jobs() {
         return std::min(static_cast<size_t>(gbwt::MergeParameters::MERGE_JOBS), std::max(static_cast<size_t>(1), static_cast<size_t>(omp_get_max_threads() / 2)));
     }
+
+    gbwtgraph::PathCoverParameters path_cover_parameters() const {
+        gbwtgraph::PathCoverParameters parameters;
+        parameters.num_paths = this->num_paths;
+        parameters.context = this->context_length;
+        parameters.batch_size = this->haplotype_indexer.gbwt_buffer_size * gbwt::MILLION;
+        parameters.sample_interval = this->haplotype_indexer.id_interval;
+        parameters.parallel_jobs = this->build_jobs;
+        parameters.show_progress = this->show_progress;
+        return parameters;
+    }
 };
 
 struct GraphHandler {
@@ -111,6 +122,10 @@ struct GraphHandler {
     std::unique_ptr<gbwtgraph::SequenceSource> sequence_source = nullptr;
     std::unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph = nullptr;
     graph_type in_use = graph_none;
+
+    // Returns a pointer to any stored `PathHandleGraph` or loads one according to
+    // the config if there is no such graph.
+    const PathHandleGraph* get_any_graph(const GBWTConfig& config);
 
     // Load the `PathHandleGraph` specified in the config and release other graphs.
     // No effect if the handler already contains a `PathHandleGraph`.
@@ -245,7 +260,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Multithreading:" << std::endl;
-    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v and -G; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
+    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v, -G, -l, -P; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
     std::cerr << "        --num-threads N     use N parallel search threads (for -b and -r; default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
@@ -292,8 +307,9 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 3: Alter GBWT (requires -o and one input GBWT):" << std::endl;
     std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
     std::cerr << "        --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
+    std::cerr << "        --set-reference X   set sample X as the reference (may repeat)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 4: Path cover GBWT construction (requires -o, -x, and one of { -a, -l, -P }):" << std::endl;
+    std::cerr << "Step 4: Path cover GBWT construction (requires an input graph, -o, and one of { -a, -l, -P }):" << std::endl;
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
     std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
@@ -355,6 +371,20 @@ void no_multiple_cover_types(const GBWTConfig& config) {
     }
 }
 
+void check_tag_validity(const std::string& key, const std::string& value, const std::unordered_set<char>& prohibited, const std::string& description) {
+    for (auto& letter : value) {
+        if (prohibited.count(letter)) {
+            // This letter isn't allowed.
+            std::cerr << "error: [vg gbwt] tag \"" << key << "\" contains prohibited character \"" << letter << "\". It needs to be " << description << " and may not contain any of:";
+            for (auto& c : prohibited) {
+                std::cerr << " '" << c << "'";
+            }
+            std::cerr << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+}
+
 GBWTConfig parse_gbwt_config(int argc, char** argv) {
     if (argc == 2) {
         help_gbwt(argv);
@@ -390,9 +420,16 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_MERGE_BUFFERS = 1203;
     constexpr int OPT_MERGE_JOBS = 1204;
     constexpr int OPT_SET_TAG = 1300;
+    constexpr int OPT_SET_REFERENCE = 1301;
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
     constexpr int OPT_TAGS = 1700;
+    
+    // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
+    // Values are description and list of prohibited characters.
+    const std::map<std::string, std::pair<std::string, std::unordered_set<char>>> KNOWN_TAGS = {
+        {gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}}
+    };
 
     static struct option long_options[] =
     {
@@ -459,6 +496,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // Alter GBWT
         { "remove-sample", required_argument, 0, 'R' },
         { "set-tag", required_argument, 0, OPT_SET_TAG },
+        { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
 
         // Path cover
         { "augment-gbwt", no_argument, 0, 'a' },
@@ -723,7 +761,43 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                     std::cerr << "Error: expected '=' in " << argument << std::endl;
                     std::exit(EXIT_FAILURE);
                 }
-                config.tags_to_set.emplace(argument.substr(0, separator), argument.substr(separator + 1));
+                auto tag_name = argument.substr(0, separator);
+                auto tag_value = argument.substr(separator + 1);
+                // See if this tag is known
+                auto tag_record = KNOWN_TAGS.lower_bound(tag_name);
+                if (tag_record == KNOWN_TAGS.end() && !KNOWN_TAGS.empty()) {
+                    // This tag is larger than all known tags. Closest match is last tag.
+                    --tag_record;
+                }
+                if (tag_record != KNOWN_TAGS.end()) {
+                    auto& tag_description = tag_record->second.first;
+                    auto& tag_prohibited_characters = tag_record->second.second;
+                    // Tag is either known, or is unknown but there's a known tag to compare it with.
+                    if (tag_name != tag_record->first) {
+                        // This is an unknown tag, but we have an idea what it should be.
+                        std::cerr << "warning: [vg gbwt] tag \"" << tag_name << "\" is not a tag with a meaning recognized by vg; maybe you meant \"" << tag_record->first << "\" which would be " << tag_description << std::endl;
+                    } else {
+                        // This is a known tag, so validate it.
+                        check_tag_validity(tag_name, tag_value, tag_prohibited_characters, tag_description);
+                    }
+                }
+                config.tags_to_set.emplace(tag_name, tag_value);
+            }
+            break;
+        case OPT_SET_REFERENCE:
+            {
+                const std::string& key = gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG;
+                auto tag_record = KNOWN_TAGS.find(key);
+                std::string sample_name = optarg;
+                auto prohibited = tag_record->second.second;
+                prohibited.insert(' ');
+                check_tag_validity(key, sample_name, prohibited, tag_record->second.first);
+                auto iter = config.tags_to_set.find(key);
+                if (iter != config.tags_to_set.end()) {
+                    iter->second += " " + sample_name;
+                } else {
+                    config.tags_to_set.emplace(key, sample_name);
+                }
             }
             break;
 
@@ -943,8 +1017,11 @@ void validate_gbwt_config(GBWTConfig& config) {
     }
 
     if (config.path_cover != GBWTConfig::path_cover_none) {
-        if (!has_gbwt_output || config.graph_name.empty()) {
-            std::cerr << "error: [vg gbwt] path cover options require -x and output GBWT" << std::endl;
+        if (!has_gbwt_output || (config.graph_name.empty() && config.build != GBWTConfig::build_gbz && config.build != GBWTConfig::build_gbwtgraph)) {
+            // Path cover options needs a graph. We can use the provided graph or the GBZ/GBWTGraph
+            // we took as an input. In the latter case, we know that the corresponding GBWT has not
+            // been modified and the graph is hence safe to use.
+            std::cerr << "error: [vg gbwt] path cover options require an input graph and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (config.path_cover == GBWTConfig::path_cover_greedy && !config.input_filenames.empty()) {
@@ -1405,7 +1482,7 @@ void set_tags(GBWTHandler& gbwts, GBWTConfig& config) {
     if (config.show_progress) {
         std::cerr << "Setting " << config.tags_to_set.size() << " tags on the GBWT" << std::endl;
     }
-
+    
     gbwts.use_compressed();
     for (auto& kv : config.tags_to_set) {
         gbwts.compressed.tags.set(kv.first, kv.second); 
@@ -1432,54 +1509,42 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
     if (config.show_progress) {
         std::cerr << "Finding a " << config.num_paths << "-path cover with context length " << config.context_length << std::endl;
     }
-    
-    graphs.get_graph(config);
+
+    // Select the appropriate graph.
+    const PathHandleGraph* graph = graphs.get_any_graph(config);
     
     // We need to drop paths that are alt allele paths and not pass them
     // through from a graph that has them to the synthesized GBWT.
-    std::function<bool(const path_handle_t&)> path_filter = [&graphs](const path_handle_t& path) {
-        return !Paths::is_alt(graphs.path_graph->get_path_name(path));
+    std::function<bool(const path_handle_t&)> path_filter = [&graph](const path_handle_t& path) {
+        return !Paths::is_alt(graph->get_path_name(path));
     };
     
     if (config.path_cover == GBWTConfig::path_cover_greedy) {
         if (config.show_progress) {
             std::cerr << "Algorithm: greedy" << std::endl;
         }
-        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph),
-                                                      config.num_paths,
-                                                      config.context_length,
-                                                      config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                                      config.haplotype_indexer.id_interval,
-                                                      config.include_named_paths,
-                                                      &path_filter,
-                                                      config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(
+            *graph, config.path_cover_parameters(),
+            config.include_named_paths, &path_filter
+        );
+        copy_reference_samples(*graph, cover);
         gbwts.use(cover);
     } else if (config.path_cover == GBWTConfig::path_cover_augment) {
         if (config.show_progress) {
             std::cerr << "Algorithm: augment" << std::endl;
         }
         gbwts.use_dynamic();
-        gbwtgraph::augment_gbwt(*(graphs.path_graph),
-                                gbwts.dynamic,
-                                config.num_paths,
-                                config.context_length,
-                                config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                config.haplotype_indexer.id_interval,
-                                config.show_progress);
+        gbwtgraph::augment_gbwt(*graph, gbwts.dynamic, config.path_cover_parameters());
     } else {
         if (config.show_progress) {
             std::cerr << "Algorithm: local haplotypes" << std::endl;
         }
         gbwts.use_compressed();
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph),
-                                                       gbwts.compressed,
-                                                       config.num_paths,
-                                                       config.context_length,
-                                                       config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
-                                                       config.haplotype_indexer.id_interval,
-                                                       config.include_named_paths,
-                                                       &path_filter,
-                                                       config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::local_haplotypes(
+            *graph, gbwts.compressed, config.path_cover_parameters(),
+            config.include_named_paths, &path_filter
+        );
+        copy_reference_samples(gbwts.compressed, cover);
         gbwts.use(cover);
     }
     gbwts.unbacked(); // We modified the GBWT.
@@ -1653,6 +1718,15 @@ void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config) {
 
 //----------------------------------------------------------------------------
 
+const PathHandleGraph* GraphHandler::get_any_graph(const GBWTConfig& config) {
+    if (this->in_use == GraphHandler::graph_gbz || this->in_use == GraphHandler::graph_gbwtgraph) {
+        return this->gbwt_graph.get();
+    } else {
+        this->get_graph(config);
+        return this->path_graph.get();
+    }
+}
+
 void GraphHandler::get_graph(const GBWTConfig& config) {
     if (this->in_use == graph_path) {
         return;
@@ -1770,4 +1844,4 @@ void print_metadata(std::ostream& out, const GBWTHandler& gbwts) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWTs", vg::subcommand::TOOLKIT, main_gbwt);
+static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWT and GBZ files", vg::subcommand::TOOLKIT, main_gbwt);

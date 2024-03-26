@@ -97,27 +97,27 @@ int32_t main_rna(int32_t argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"transcripts",  no_argument, 0, 'n'},
-                {"introns",  no_argument, 0, 'm'},
-                {"feature-type",  no_argument, 0, 'y'},
-                {"transcript-tag",  no_argument, 0, 's'},
-                {"haplotypes",  no_argument, 0, 'l'},
+                {"transcripts",  required_argument, 0, 'n'},
+                {"introns",  required_argument, 0, 'm'},
+                {"feature-type",  required_argument, 0, 'y'},
+                {"transcript-tag",  required_argument, 0, 's'},
+                {"haplotypes",  required_argument, 0, 'l'},
                 {"gbz-format",  no_argument, 0, 'z'},
                 {"use-hap-ref",  no_argument, 0, 'j'},
                 {"proj-embed-paths",  no_argument, 0, 'e'},
-                {"path-collapse",  no_argument, 0, 'c'},
-                {"max-node-length",  no_argument, 0, 'k'},
+                {"path-collapse",  required_argument, 0, 'c'},
+                {"max-node-length",  required_argument, 0, 'k'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
                 {"do-not-sort",  no_argument, 0, 'o'},
                 {"add-ref-paths",  no_argument, 0, 'r'},
                 {"add-hap-paths",  no_argument, 0, 'a'},      
-                {"write-gbwt",  no_argument, 0, 'b'},
-                {"write-fasta",  no_argument, 0, 'f'},
-                {"write-info",  no_argument, 0, 'i'},
+                {"write-gbwt",  required_argument, 0, 'b'},
+                {"write-fasta",  required_argument, 0, 'f'},
+                {"write-info",  required_argument, 0, 'i'},
                 {"out-ref-paths",  no_argument, 0, 'u'},
                 {"out-exclude-ref",  no_argument, 0, 'q'},
                 {"gbwt-bidirectional",  no_argument, 0, 'g'},   
-                {"threads",  no_argument, 0, 't'},
+                {"threads",  required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
@@ -292,7 +292,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Load GBZ file 
         unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(graph_filename);
-
+        
         if (show_progress) { cerr << "[vg rna] Converting graph format ..." << endl; }
 
         // Convert GBWTGraph to mutable graph type (PackedGraph).
@@ -305,7 +305,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             handlegraph::algorithms::copy_path(&(gbz->graph), path, graph.get());
         });
 
-        haplotype_index = make_unique<gbwt::GBWT>(gbz->index);
+        haplotype_index = make_unique<gbwt::GBWT>(std::move(gbz->index));
     }
 
     if (graph == nullptr) {
@@ -322,7 +322,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.path_collapse_type = path_collapse_type;
-
+    
     if (show_progress) { cerr << "[vg rna] Graph " << ((!haplotype_index->empty()) ? "and GBWT index " : "") << "parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
@@ -337,6 +337,10 @@ int32_t main_rna(int32_t argc, char** argv) {
         for (auto & filename: intron_filenames) {
 
             auto intron_stream = new ifstream(filename);
+            if (!(*intron_stream)) {
+                cerr << "ERROR: intron file " << filename << " could not be opened" << endl;
+                return 1;
+            }
             intron_streams.emplace_back(intron_stream);
         }
 
@@ -351,7 +355,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         if (show_progress) { cerr << "[vg rna] Introns parsed and graph updated in " << gcsa::readTimer() - time_intron_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
 
-
     vector<istream *> transcript_streams;
 
     if (!transcript_filenames.empty()) {
@@ -364,6 +367,10 @@ int32_t main_rna(int32_t argc, char** argv) {
         for (auto & filename: transcript_filenames) {
 
             auto transcript_stream = new ifstream(filename);
+            if (!(*transcript_stream)) {
+                cerr << "ERROR: transcript file " << filename << " could not be opened" << endl;
+                return 1;
+            }
             transcript_streams.emplace_back(transcript_stream);
         }
 
@@ -372,7 +379,6 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         if (show_progress) { cerr << "[vg rna] Transcripts parsed and graph updated in " << gcsa::readTimer() - time_transcript_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
-
 
     if (!transcript_streams.empty() && (!haplotype_index->empty() || proj_emded_paths) && !use_hap_ref) {
 

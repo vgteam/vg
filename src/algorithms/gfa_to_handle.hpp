@@ -78,19 +78,22 @@ void gfa_to_handle_graph(istream& in,
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                              unordered_set<PathSense>* ignore_sense = nullptr);
 
 /// Overload which serializes its translation to a file internally.
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               int64_t max_rgfa_rank,
-                              const string& translation_filename);
+                              const string& translation_filename,
+                              unordered_set<PathSense>* ignore_sense = nullptr);
                               
 /// Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.
 void gfa_to_path_handle_graph(istream& in,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                              unordered_set<PathSense>* ignore_sense = nullptr);
 
 /**
  * Lower-level tools for parsing GFA elements.
@@ -103,7 +106,7 @@ void gfa_to_path_handle_graph(istream& in,
  * raise GFAFormatError or its subclasses if they do not like what the GFA is
  * saying. Some types of GFAFormatError can be caught internally and
  * processing of the file will continue with the next line, but *not* with the
- * next listener for that line, so the user is responsible for worring about
+ * next listener for that line, so the user is responsible for worrying about
  * what happens if some but not all listeners for something end up getting
  * called because one failed.
  */

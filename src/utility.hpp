@@ -808,6 +808,9 @@ void get_input_file(const string& file_name, function<void(istream&)> callback);
 /// Split off the extension from a filename and return both parts. 
 pair<string, string> split_ext(const string& filename);
 
+/// Get the base name of a filename (without the directory and the extension).
+string file_base_name(const string& filename);
+
 /// Determine if a file exists.
 /// Only works for files readable by the current user.
 bool file_exists(const string& filename);

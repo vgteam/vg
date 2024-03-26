@@ -28,7 +28,7 @@ void build_gcsa_lcp(const HandleGraph& graph,
     params.reduceLimit(kmer_bytes);
 
     // set up the input graph using the kmers
-    gcsa::InputGraph input_graph({ tmpfile }, true);
+    gcsa::InputGraph input_graph({ tmpfile }, true, params);
     // run the GCSA construction
     gcsa = new gcsa::GCSA(input_graph, params);
     // and the LCP array construction

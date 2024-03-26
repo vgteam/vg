@@ -80,6 +80,9 @@ public:
     /// Filter to proper pairs
     bool only_proper_pairs = true;
     
+    /// Filter to only mapped reads
+    bool only_mapped = true;
+    
     /// Number of threads from omp
     int threads = -1;
     /// GAM output buffer size
@@ -87,6 +90,10 @@ public:
     /// Sometimes we only want a report, and not a filtered gam.  toggling off output
     /// speeds things up considerably.
     bool write_output = true;
+    /// Sometimes we want to pick out fields and write a tsv instead of a gam;
+    bool write_tsv = false;
+    /// What fields do we want to write to the tsv?
+    vector<string> output_fields;
     /// A HandleGraph is required for some filters (Note: ReadFilter doesn't own/free this)
     const HandleGraph* graph = nullptr;
     /// Interleaved input
@@ -99,6 +106,14 @@ public:
     int min_base_quality = numeric_limits<int>::min() / 2;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
     double min_base_quality_fraction = numeric_limits<double>::lowest();
+
+    /// A string formatted "annotation[.subfield]*:value"
+    /// Value is optional if the key is a flag
+    /// Used like jq select
+    string annotation_to_match = "";
+
+    /// Filter to only correctly mapped reads
+    bool only_correctly_mapped = false;
       
     /**
      * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
@@ -131,12 +146,17 @@ public:
 private:
 
     /**
-     * quick and dirty filter to see if removing reads that can slip around
+     * quick and dirty filter to see if removing reads that can slip around
      * and still map perfectly helps vg call.  returns true if at either
      * end of read sequence, at least k bases are repetitive, checking repeats
      * of up to size 2k
      */
     bool has_repeat(const Read& read, int k) const;
+    
+    /**
+     * Check if the alignment includes any aligned bases
+     */
+    bool is_mapped(const Read& read) const;
     
     /**
      * Trim only the end of the given alignment, leaving the start alone. Two
@@ -235,7 +255,17 @@ private:
      * Does the read contain at least one of the indicated sequences
      */
     bool contains_subsequence(const Read& read) const;
+
+    /** 
+     * Does has the given annotation and does it match
+     */
+     bool matches_annotation(const Read& read) const;
     
+    /**
+     * Check if the alignment is marked as being correctly mapped
+     */
+    bool is_correctly_mapped(const Read& read) const;
+
     /**
      * Write the read to stdout
      */
@@ -245,6 +275,12 @@ private:
      * Write a read pair to stdout
      */
     void emit(Read& read1, Read& read2);
+
+    /**
+     * Write a tsv line for a read to stdout
+     */
+     void emit_tsv(Read& read);
+
     
     
     /// The twp specializations have different writing infrastructure
@@ -257,9 +293,10 @@ private:
 
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
+    // note: "last" must be kept as the final value in this enum
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
         min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, last};
+        proper_pair, unmapped, annotation, incorrectly_mapped, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -317,8 +354,12 @@ void ReadFilter<Read>::filter_internal(istream* in) {
 #endif
         Counts read_counts = filter_alignment(read);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && write_output) {
-            emit(read);
+        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+            if (write_tsv) {
+                emit_tsv(read);
+            } else {
+                emit(read);
+            }
         }
     };
     
@@ -334,10 +375,27 @@ void ReadFilter<Read>::filter_internal(istream* in) {
             read_counts.set_paired_any();
         }
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && write_output) {
-            emit(read1, read2);
+        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+            if (write_tsv) {
+                emit_tsv(read1);
+                emit_tsv(read2);
+            } else {
+                emit(read1, read2);
+            }
         }
     };
+
+    if (write_tsv) {
+        //write a header for the tsv
+        cout << "#";
+        for (size_t i = 0 ; i < output_fields.size() ; i++) {
+            const string& field = output_fields[i];
+            cout << field;
+            if (i != output_fields.size()-1) {
+                cout << "\t";
+            }
+        }
+    }
     
     if (interleaved) {
         vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda);
@@ -393,6 +451,18 @@ inline int ReadFilter<MultipathAlignment>::filter(istream* alignment_stream) {
     
     return 0;
 }
+template<>
+inline bool ReadFilter<Alignment>::is_correctly_mapped(const Alignment& alignment) const {
+    return alignment.correctly_mapped();
+}
+
+//Looks like multipath alignments don't have a field for this
+template<>
+inline bool ReadFilter<MultipathAlignment>::is_correctly_mapped(const MultipathAlignment& alignment) const {
+    throw(std::runtime_error("error: multipath alignments don't have a field correctly_mapped"));
+    return true;
+}
+
 
 template<>
 inline void ReadFilter<Alignment>::emit(Alignment& aln) {
@@ -515,9 +585,28 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
             }
         }
     }
+    if ((keep || verbose) && only_mapped) {
+        if (!is_mapped(read)) {
+            ++counts.counts[Counts::FilterName::unmapped];
+            keep = false;
+        }
+    }
     if ((keep || verbose) && downsample_probability != 1.0) {
         if (!sample_read(read)) {
             ++counts.counts[Counts::FilterName::random];
+            keep = false;
+        }
+    }
+    if ((keep || verbose) && !annotation_to_match.empty()) {
+        if (!matches_annotation(read)) {
+            ++counts.counts[Counts::FilterName::annotation];
+            keep = false;
+        }
+    }
+
+    if ((keep || verbose) && only_correctly_mapped) {
+        if (!is_correctly_mapped(read)) {
+            ++counts.counts[Counts::FilterName::incorrectly_mapped];
             keep = false;
         }
     }
@@ -1270,6 +1359,107 @@ bool ReadFilter<Read>::contains_subsequence(const Read& read) const {
     }
     return found;
 }
+
+template<typename Read>
+bool ReadFilter<Read>::matches_annotation(const Read& read) const {
+
+    //Assume that there's only one level of annotations
+    size_t colon_pos = annotation_to_match.find(":");
+    if (colon_pos == string::npos) {
+        //If there was no colon, then just check for the existence of the annotation
+        // or, if it is a boolean value, check that it's true
+        if (!has_annotation(read, annotation_to_match)) {
+            return false;
+        }
+        google::protobuf::Value value = read.annotation().fields().at(annotation_to_match);
+        if (value.kind_case() == google::protobuf::Value::KindCase::kBoolValue) {
+            return get_annotation<bool>(read, annotation_to_match);
+        } else {
+            return true;
+        }
+    } else {
+        string annotation_key = annotation_to_match.substr(0, colon_pos);
+        if (!has_annotation(read, annotation_key)) {
+            return false;
+        } else {
+            google::protobuf::Value value = read.annotation().fields().at(annotation_key);
+            string annotation_val = annotation_to_match.substr(colon_pos+1, annotation_to_match.size() - colon_pos - 1);
+            if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                double read_value = get_annotation<double>(read, annotation_key);
+                return read_value == std::stod(annotation_val);
+            } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                return get_annotation<string>(read, annotation_key) == annotation_val; 
+            } else {
+                throw runtime_error("error: Cannot check equality of annotation " + annotation_to_match);
+            }
+        }
+    }
+    
+}
+
+template<>
+inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read) {
+    return;
+}
+template<>
+inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
+#pragma omp critical (cout)
+    {
+
+        cout << endl;
+        for (size_t i = 0 ; i < output_fields.size() ; i++) {
+            const string& field = output_fields[i];
+            if (field == "name") {
+                cout << read.name();
+            } else if (field == "correctly_mapped") {
+                if (is_correctly_mapped(read)) {
+                    cout << "True";
+                } else {
+                    cout << "False";
+                }
+            } else if (field == "correctness") {
+                if (is_correctly_mapped(read)) {
+                    cout << "correct";
+                } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
+                    cout << "off-reference";
+                } else {
+                    cout << "incorrect";
+                }
+            } else if (field == "mapping_quality") {
+                cout << get_mapq(read); 
+            } else if (field == "sequence") {
+                cout << read.sequence(); 
+            } else if (field == "time_used") {
+                cout << read.time_used();
+            } else if (field == "annotation") {
+                throw runtime_error("error: Cannot write all annotations");
+            } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
+                if (!has_annotation(read, field.substr(11, field.size()-11))) {
+                    throw runtime_error("error: Cannot find annotation "+ field);
+                } else {
+                    string annotation_key = field.substr(11, field.size()-11);
+                    google::protobuf::Value value = read.annotation().fields().at(annotation_key);
+
+                    if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                        cout << get_annotation<double>(read, annotation_key);
+                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                        cout << get_annotation<string>(read, annotation_key);
+                    } else {
+                        cout << "?";
+                    }
+                }
+            } else {
+                cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+                throw runtime_error("error: Writing non-existent field to tsv: " + field);
+            }
+            if (i != output_fields.size()-1) {
+                cout << "\t";
+            }
+        }
+
+    }
+}
+
 
 template<typename Read>
 bool ReadFilter<Read>::sample_read(const Read& read) const {

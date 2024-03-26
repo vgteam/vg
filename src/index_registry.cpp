@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <cstdlib>
+#include <regex>
 #include <omp.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -334,6 +335,42 @@ vector<string> vcf_contigs(const string& filename) {
     return return_val;
 }
 
+// Returns a guess for an appropriate number of parallel GBWT construction jobs.
+// This is intended for GBWT recipes where the construction uses an external
+// mechanism for parallelism.
+size_t guess_parallel_gbwt_jobs(size_t node_count, size_t haplotype_count, size_t available_memory, size_t batch_size) {
+
+    // Memory usage of the GBWT construction itself.
+    size_t bytes_per_node = 135 * std::max(std::log10(haplotype_count + 1), 1.0);
+    // Construction buffers typically use 3-4 bytes per node, and the builder has two buffers.
+    size_t bytes_per_job = batch_size * 8;
+
+    size_t jobs = 1;
+    size_t max_jobs = get_thread_count();
+    // We assume that the largest chromosome is 10% of the genome.
+    size_t job_size = std::max(node_count / 10, size_t(1));
+    size_t memory_usage = bytes_per_node * job_size + bytes_per_job;
+
+    while (jobs < max_jobs) {
+        // We assume that the next chromosome is 5% smaller than the previous one.
+        job_size = std::max(size_t(job_size * 0.95), size_t(1));
+        memory_usage += bytes_per_node * job_size + bytes_per_job;
+        if (memory_usage > available_memory) {
+            break;
+        }
+        jobs++;
+    }
+
+    return jobs;
+}
+
+// Returns the in-memory size of an XG index in bytes, using the same approach as
+// sdsl::size_in_bytes().
+size_t xg_index_size(const xg::XG& index) {
+    sdsl::nullstream ns;
+    return index.serialize_and_measure(ns);
+}
+
 /*********************
  * Indexing helper functions
  ***********************/
@@ -387,7 +424,7 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
 
 // execute a function in another process and return true if successful
 // REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
-bool execute_in_fork(const function<void(void)>& exec) {
+int execute_in_fork(const function<void(void)>& exec) {
     
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
@@ -407,12 +444,12 @@ bool execute_in_fork(const function<void(void)>& exec) {
         
         exec();
                 
-        // end the child process successfully
+        // end the child process successfullycode
         exit(0);
     } else {
         // This is the parent
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry] forked child " << pid << endl;
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            cerr << "[IndexRegistry]: Forked into child process with PID " << pid << "." << endl;
         }
     }
     
@@ -422,7 +459,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
     
     // pass through signal-based exits
     if (WIFSIGNALED(child_stat)) {
-        cerr << "error:[IndexRegistry] child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
+        cerr << "error:[IndexRegistry] Child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
         if (raise(WTERMSIG(child_stat)) == 0) {
             // TODO: on Mac, raise isn't guaranteed to not return before the handler if it succeeds.
             // Also the signal might not be one that necessarily kills us.
@@ -435,12 +472,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
     
     assert(WIFEXITED(child_stat));
     
-    if (WEXITSTATUS(child_stat) != 0) {
-        cerr << "warning:[IndexRegistry] child process " << pid << " failed with status " << child_stat << " representing exit code " << WEXITSTATUS(child_stat) << endl;
-        return false;
-    }
-    
-    return true;
+    return WEXITSTATUS(child_stat);
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -461,6 +493,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Reference GFA", "gfa");
     registry.register_index("Reference GFA w/ Haplotypes", "haplo.gfa");
     registry.register_index("GTF/GFF", "gff");
+    registry.register_index("Haplotype GTF/GFF", "haplo.gff");
     
     /// Chunked inputs
     registry.register_index("Chunked Reference FASTA", "chunked.fasta");
@@ -506,6 +539,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");
+    registry.register_index("GBZ", "gbz");
     registry.register_index("Giraffe GBZ", "giraffe.gbz");
     
     registry.register_index("Minimizers", "min");
@@ -582,8 +616,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
                         
         // boilerplate
-        assert(inputs.size() == 2 || inputs.size() == 3);
-        assert(constructing.size() == 2 || constructing.size() == 3);
+        assert(inputs.size() == 1 || inputs.size() == 2 || inputs.size() == 3);
         assert(constructing.size() == inputs.size());
         vector<string> fasta_filenames, vcf_filenames, tx_filenames;
         bool has_vcf = inputs.size() == 3 || (inputs.size() == 2 && !has_gff);
@@ -1195,11 +1228,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         exit(1);
                     }
                     if (phased_vcf && bcf_hdr_nsamples(header_out) == 0) {
-                        cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
-                        for (auto vcf_idx : vcf_indexes) {
-                            cerr << " " << vcf_filenames[vcf_idx];
+                        if (!vcf_indexes.empty()) {
+                            cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
+                            for (auto vcf_idx : vcf_indexes) {
+                                cerr << " " << vcf_filenames[vcf_idx];
+                            }
+                            cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
                         }
-                        cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
                         
                         // let's add a dummy so that HaplotypeIndexer doesn't get mad later
                         int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
@@ -1671,6 +1706,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexGroup& constructing) {
         return chunk_contigs(inputs, plan, alias_graph, constructing, true, false);
     });
+    registry.register_recipe({"Chunked Reference FASTA"}, {"Reference FASTA"},
+                             [=](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing, false, false);
+    });
     
     
     ////////////////////////////////////
@@ -1794,13 +1836,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // make the graph from GFA, and save segment info to the translation file if there is nontrivial segment info.
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name);
+            // TODO: this could be fragile if we repurpose this lambda for Reference GFA w/ Haplotypes
+            // if we're constructing from a reference GFA, we don't need anything from W lines
+            unordered_set<PathSense> ignore{PathSense::HAPLOTYPE};
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
             cerr << e.what() << endl;
             exit(1);
         }
+        
         
         // Now we need to append some splits to the output file.
         ofstream translation_outfile;
@@ -1811,10 +1857,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
+            stringstream strm;
+            strm << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
 #pragma omp critical (translation_outfile)
             {
                 // Write each cut to a line in the translation file, after the segment names are defined.
-                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
+                translation_outfile << strm.str();
             }
         });
         
@@ -2666,13 +2714,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
 
+
+        gbwt::GBWT cover;
+        
         // Downsample only if it would reduce the number of haplotypes sufficiently.
         size_t threshold = IndexingParameters::giraffe_gbwt_downsample * IndexingParameters::downsample_threshold;
-        bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
-
-
-        bool success;
-        if (downsample) {
+        if (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold) {
             // Downsample the haplotypes and generate a path cover of components without haplotypes.
             
             // We need to drop paths that are alt allele paths and not pass them
@@ -2680,45 +2727,48 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             std::function<bool(const path_handle_t&)> path_filter = [&xg_index](const path_handle_t& path) {
                 return !Paths::is_alt(xg_index->get_path_name(path));
             };
-            
-            // clang wants this one cast to function first for some reason?
-            function<void(void)> exec = [&]() {
-                gbwt::GBWT cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                               IndexingParameters::giraffe_gbwt_downsample,
-                                                               IndexingParameters::downsample_context_length,
-                                                               IndexingParameters::gbwt_insert_batch_size,
-                                                               IndexingParameters::gbwt_sampling_interval,
-                                                               true, // Also include named paths from the graph
-                                                               &path_filter,
-                                                               IndexingParameters::verbosity >= IndexingParameters::Debug);
-                save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-            };
-            success = execute_in_fork(exec);
+
+            gbwtgraph::PathCoverParameters parameters;
+            parameters.num_paths = IndexingParameters::giraffe_gbwt_downsample;
+            parameters.context = IndexingParameters::downsample_context_length;
+            // TODO: See path cover for handling graphs with large components.
+            parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
+            parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+            std::int64_t available_memory = plan->target_memory_usage() - xg_index_size(*xg_index) - sdsl::size_in_bytes(*gbwt_index);
+            parameters.parallel_jobs = guess_parallel_gbwt_jobs(
+                xg_index->get_node_count(),
+                parameters.num_paths,
+                std::max(available_memory, std::int64_t(0)),
+                parameters.batch_size
+            );
+            parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
+            }
+            cover = std::move(gbwtgraph::local_haplotypes(*xg_index, *gbwt_index, parameters, true, &path_filter));
+            // Reference samples tag is not copied automatically.
+            copy_reference_samples(*gbwt_index, cover);
         }
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
+                cerr << "[IndexRegistry]: Not too many haplotypes; augmenting the full GBWT instead." << endl;
             }
             
-            success = execute_in_fork([&]() {
-                gbwt::DynamicGBWT dynamic_index(*gbwt_index);
-                gbwt_index.reset();
-                gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
-                                        IndexingParameters::path_cover_depth,
-                                        IndexingParameters::downsample_context_length,
-                                        IndexingParameters::gbwt_insert_batch_size,
-                                        IndexingParameters::gbwt_sampling_interval,
-                                        IndexingParameters::verbosity >= IndexingParameters::Debug);
-                gbwt::GBWT cover = gbwt::GBWT(dynamic_index);
-                save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-            });
+            gbwt::DynamicGBWT dynamic_index(*gbwt_index);
+            gbwt_index.reset();
+            // Note that augmenting a GBWT is always single-threaded.
+            gbwtgraph::PathCoverParameters parameters;
+            parameters.num_paths = IndexingParameters::path_cover_depth;
+            parameters.context = IndexingParameters::downsample_context_length;
+            parameters.batch_size = IndexingParameters::gbwt_insert_batch_size;
+            parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+            parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index, parameters);
+            cover = std::move(gbwt::GBWT(dynamic_index));
         }
         
-        if (!success) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
-        }
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -2764,23 +2814,27 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        bool success = execute_in_fork([&]() {
-            gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
-                                                          IndexingParameters::path_cover_depth,
-                                                          IndexingParameters::downsample_context_length,
-                                                          std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
-                                                          IndexingParameters::gbwt_sampling_interval,
-                                                          true, // Also include named paths from the graph
-                                                          &path_filter,
-                                                          IndexingParameters::verbosity >= IndexingParameters::Debug);
-            
-            save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        });
-        
-        if (!success) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
+        gbwtgraph::PathCoverParameters parameters;
+        parameters.num_paths = IndexingParameters::path_cover_depth;
+        parameters.context = IndexingParameters::downsample_context_length;
+        parameters.batch_size = std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size);
+        parameters.sample_interval = IndexingParameters::gbwt_sampling_interval;
+        std::int64_t available_memory = plan->target_memory_usage() - xg_index_size(*xg_index);
+        parameters.parallel_jobs = guess_parallel_gbwt_jobs(
+            xg_index->get_node_count(),
+            parameters.num_paths,
+            std::max(available_memory, std::int64_t(0)),
+            parameters.batch_size
+        );
+        parameters.show_progress = (IndexingParameters::verbosity >= IndexingParameters::Debug);
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            std::cerr << "[IndexRegistry]: Running " << parameters.parallel_jobs << " jobs in parallel" << std::endl;
         }
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index, parameters, true, &path_filter);
+        // Determine reference samples from reference paths.
+        copy_reference_samples(*xg_index, cover);
+        
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -2927,22 +2981,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 // init the haplotype transcript GBWT
                 size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
-                bool success = execute_in_fork([&]() {
-                    gbwt::GBWTBuilder gbwt_builder(node_width,
-                                                   IndexingParameters::gbwt_insert_batch_size,
-                                                   IndexingParameters::gbwt_sampling_interval);
-                    // actually build it
-                    transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
-                    
-                    // save the haplotype transcript GBWT
-                    gbwt_builder.finish();
-                    save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-                });
-                if (!success) {
-                    IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-                    throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
-                                              {"Haplotype-Transcript GBWT"});
-                }
+                
+                gbwt::GBWTBuilder gbwt_builder(node_width,
+                                               IndexingParameters::gbwt_insert_batch_size,
+                                               IndexingParameters::gbwt_sampling_interval);
+                // actually build it
+                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
+                
+                // save the haplotype transcript GBWT
+                gbwt_builder.finish();
+                save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
                 
                 // write transcript origin info table
                 info_table_name = plan->output_filepath(output_tx_table, i, graph_filenames.size());
@@ -2986,11 +3034,230 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return all_outputs;
     };
     
+    // TODO: somewhat repetitive with non-GBZ pipeline, but also some notable differences...
+    auto gbz_vg_rna = [](const vector<const IndexFile*>& inputs,
+                         const IndexingPlan* plan,
+                         AliasGraph& alias_graph,
+                         const IndexGroup& constructing) {
+        
+        assert(constructing.size() == 4 || constructing.size() == 2);
+        bool making_hsts = constructing.size() == 4;
+        assert(inputs.size() == 2 || inputs.size() == 3);
+        bool projecting_transcripts = (inputs.size() == 2);
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            if (making_hsts) {
+                cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and spliced graph from GBZ-format graph." << endl;
+            }
+            else {
+                cerr << "[IndexRegistry]: Adding splice junctions to GBZ-format graph." << endl;
+            }
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+            }
+        }
+        else {
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+        }
+                
+        vector<vector<string>> all_outputs(constructing.size());
+        IndexName output_haplo_tx, output_tx_table, output_tx_graph, output_max_id;
+        if (making_hsts) {
+            int i = 0;
+            for (auto output_index : constructing) {
+                if (i == 0) {
+                    output_haplo_tx = output_index;
+                }
+                else if (i == 1) {
+                    output_max_id = output_index;
+                }
+                else if (i == 2) {
+                    output_tx_graph = output_index;
+                }
+                else {
+                    output_tx_table = output_index;
+                }
+                ++i;
+            }
+        }
+        else {
+            output_max_id = *constructing.begin();
+            output_tx_graph = *constructing.rbegin();
+        }
+
+        //auto& haplo_tx_gbwt_names = all_outputs[0];
+        auto& max_id_names = all_outputs[making_hsts ? 1 : 0];
+        auto& tx_graph_names = all_outputs[making_hsts ? 2 : 1];
+        //auto& tx_table_names = all_outputs[2];
+        
+        auto gbz_filenames = inputs[0]->get_filenames();
+        auto tx_filenames = inputs[1]->get_filenames();
+        vector<string> haplo_tx_filenames;
+        if (!projecting_transcripts) {
+            haplo_tx_filenames = inputs[2]->get_filenames();
+        }
+        assert(gbz_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+        
+        vector<ifstream> infiles_tx, infiles_haplo_tx;
+        for (auto& tx_filename : tx_filenames) {
+            infiles_tx.emplace_back();
+            init_in(infiles_tx.back(), tx_filename);
+        }
+        for (auto& haplo_tx_filename : haplo_tx_filenames) {
+            infiles_haplo_tx.emplace_back();
+            init_in(infiles_haplo_tx.back(), haplo_tx_filename);
+        }
+        
+        string max_id_name = plan->output_filepath(output_max_id);
+        ofstream max_id_outfile;
+        init_out(max_id_outfile, max_id_name);
+        
+        string tx_graph_name = plan->output_filepath(output_tx_graph);
+        ofstream tx_graph_outfile;
+        init_out(tx_graph_outfile, tx_graph_name);
+        
+        // load, convert, and discard the GBZ
+        unique_ptr<gbwt::GBWT> haplotype_index;
+        auto tx_graph = init_mutable_graph();
+        {
+            unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(gbz_filename);
+            // copy topology
+            handlealgs::copy_handle_graph(&(gbz->graph), tx_graph.get());
+            // copy ref paths
+            gbz->graph.for_each_path_matching({PathSense::GENERIC, PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
+                handlegraph::algorithms::copy_path(&(gbz->graph), path, tx_graph.get());
+            });
+            // copy the gbwt
+            haplotype_index = make_unique<gbwt::GBWT>(gbz->index);
+        }
+                
+        // hand over the graph
+        Transcriptome transcriptome(move(tx_graph));
+        transcriptome.error_on_missing_path = true;
+        transcriptome.feature_type = IndexingParameters::gff_feature_name;
+        transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
+        
+        // gather the GTF file pointers
+        vector<istream *> tx_file_ptrs;
+        for (auto& tx_file : infiles_tx) {
+            tx_file_ptrs.push_back(&tx_file);
+        }
+        for (auto& tx_file : infiles_haplo_tx) {
+            tx_file_ptrs.push_back(&tx_file);
+        }
+        
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+        }
+        else {
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+        }
+        
+        // add the splice edges and ref transcript paths
+        size_t transcripts_added = transcriptome.add_reference_transcripts(tx_file_ptrs, haplotype_index,
+                                                                           !projecting_transcripts, // use haplotypes as refs for GTF?
+                                                                           projecting_transcripts); // update the GBWT for the new node IDs?
+        
+        if (making_hsts) {
+            auto& gbwt_names = all_outputs.front();
+            auto& info_table_names = all_outputs.back();
+            
+            string gbwt_name = plan->output_filepath(output_haplo_tx);
+            
+            // add edges on other haplotypes
+            if (projecting_transcripts) {
+                
+                // go back to the beginning of the transcripts
+                for (auto& tx_file : infiles_tx) {
+                    tx_file.clear();
+                    tx_file.seekg(0);
+                }
+                for (auto& tx_file : infiles_haplo_tx) {
+                    tx_file.clear();
+                    tx_file.seekg(0);
+                }
+                
+                transcriptome.add_haplotype_transcripts(tx_file_ptrs, *haplotype_index, false);
+            }
+            
+            // init the haplotype transcript GBWT
+            size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
+            gbwt::GBWTBuilder gbwt_builder(node_width,
+                                           IndexingParameters::gbwt_insert_batch_size,
+                                           IndexingParameters::gbwt_sampling_interval);
+            // actually build it
+            transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
+            
+            // save the haplotype transcript GBWT
+            gbwt_builder.finish();
+            save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+            
+            // write transcript origin info table
+            string info_table_name = plan->output_filepath(output_tx_table);
+            ofstream info_outfile;
+            init_out(info_outfile, info_table_name);
+            transcriptome.write_transcript_info(&info_outfile, *haplotype_index, false);
+            
+            gbwt_names.push_back(gbwt_name);
+            info_table_names.push_back(info_table_name);
+        }
+        
+        
+        // save the graph with the transcript paths added
+        transcriptome.write_graph(&tx_graph_outfile);
+        tx_graph_names.push_back(tx_graph_name);
+        
+        // write the max ID as well
+        max_id_outfile << transcriptome.graph().max_node_id();
+        max_id_names.push_back(max_id_name);
+        
+        return all_outputs;
+    };
+    
+    
+    auto vg_rna_gbz_graph_only =
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Transcript Paths"}, {"GBZ", "GTF/GFF", "Haplotype GTF/GFF"},
+                             [gbz_vg_rna](const vector<const IndexFile*>& inputs,
+                                          const IndexingPlan* plan,
+                                          AliasGraph& alias_graph,
+                                          const IndexGroup& constructing) {
+        return gbz_vg_rna(inputs, plan, alias_graph, constructing);
+    });
+    
+    auto vg_rna_gbz_liftover_graph_only =
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Transcript Paths"}, {"GBZ", "GTF/GFF"},
+                             [gbz_vg_rna](const vector<const IndexFile*>& inputs,
+                                          const IndexingPlan* plan,
+                                          AliasGraph& alias_graph,
+                                          const IndexGroup& constructing) {
+        return gbz_vg_rna(inputs, plan, alias_graph, constructing);
+    });
+    
+    auto vg_rna_gbz_full =
+    registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced MaxNodeID", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table"},
+                             {"GBZ", "GTF/GFF", "Haplotype GTF/GFF"},
+                             [gbz_vg_rna](const vector<const IndexFile*>& inputs,
+                                          const IndexingPlan* plan,
+                                          AliasGraph& alias_graph,
+                                          const IndexGroup& constructing) {
+        return gbz_vg_rna(inputs, plan, alias_graph, constructing);
+    });
+    
+    auto vg_rna_gbz_liftover_full =
+    registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced MaxNodeID", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table"},
+                             {"GBZ", "GTF/GFF"},
+                             [gbz_vg_rna](const vector<const IndexFile*>& inputs,
+                                          const IndexingPlan* plan,
+                                          AliasGraph& alias_graph,
+                                          const IndexGroup& constructing) {
+        return gbz_vg_rna(inputs, plan, alias_graph, constructing);
+    });
+    
     auto vg_rna_graph_only =
     registry.register_recipe({"Spliced VG w/ Transcript Paths"},
                              {"Chunked GTF/GFF", "Spliced VG"},
                              [do_vg_rna](const vector<const IndexFile*>& inputs,
-                                    const IndexingPlan* plan,
+                                         const IndexingPlan* plan,
                                          AliasGraph& alias_graph,
                                          const IndexGroup& constructing) {
    
@@ -3010,6 +3277,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // if both the full and graph-only are required, only do the full
     registry.register_generalization(vg_rna_full, vg_rna_graph_only);
+    registry.register_generalization(vg_rna_gbz_full, vg_rna_gbz_graph_only);
+    registry.register_generalization(vg_rna_gbz_liftover_full, vg_rna_gbz_liftover_graph_only);
     
     ////////////////////////////////////
     // Info Table Recipes
@@ -3335,6 +3604,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto params = gcsa::ConstructionParameters();
         params.setSteps(IndexingParameters::gcsa_doubling_steps);
         params.setLimitBytes(IndexingParameters::gcsa_size_limit);
+        // we use the literal limit here because this is a measurement of memory use, not an estimate
+        params.setMemoryLimitBytes(plan->literal_target_memory_usage());
                 
 #ifdef debug_index_registry_recipes
         cerr << "enumerating k-mers for input pruned graphs:" << endl;
@@ -3360,7 +3631,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             throw RewindPlanException(msg, pruned_graphs);
         }
         
-        bool success = execute_in_fork([&]() {
+        // it seems to only keep the lowest 8 bits of the exit code? this is hack-y, but it gives us the correct
+        // code to compare to...
+        int size_code = execute_in_fork([](){ exit(gcsa::EXIT_SIZE_LIMIT_EXCEEDED); });
+        
+        int code = execute_in_fork([&]() {
 #ifdef debug_index_registry_recipes
             cerr << "making GCSA2 at " << gcsa_output_name << " and " << lcp_output_name << " after writing de Bruijn graph files to:" << endl;
             for (auto dbg_name : dbg_names) {
@@ -3370,7 +3645,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // construct the indexes (giving empty mapping name is sufficient to make
             // indexing skip the unfolded code path)
-            gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(),
+            gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(),
                                          mapping_filename);
             gcsa::GCSA gcsa_index(input_graph, params);
             gcsa::LCPArray lcp_array(input_graph, params);
@@ -3388,15 +3663,19 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             temp_file::remove(dbg_name);
         }
         
-        if (!success) {
+        if (code == size_code) {
             // the indexing was not successful, presumably because of exponential disk explosion
             
             // update pruning params
             IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
             IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
-            string msg = "[IndexRegistry]: Exceeded disk use limit while performing k-mer doubling steps. "
+            string msg = "[IndexRegistry]: Exceeded disk or memory use limit while performing k-mer doubling steps. "
                          "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
             throw RewindPlanException(msg, pruned_graphs);
+        }
+        else if (code != 0) {
+            cerr << "[IndexRegistry]: Unrecoverable error in GCSA2 indexing." << endl;
+            exit(code);
         }
         
         gcsa_names.push_back(gcsa_output_name);
@@ -3597,13 +3876,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // GBZ Recipes
     ////////////////////////////////////
     
-    registry.register_recipe({"Giraffe GBZ"}, {"Reference GFA w/ Haplotypes"},
+    registry.register_recipe({"Giraffe GBZ"}, {"GBZ"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+        return vector<vector<string>>(1, inputs.front()->get_filenames());
+    });
+    
+    registry.register_recipe({"GBZ"}, {"Reference GFA w/ Haplotypes"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+            cerr << "[IndexRegistry]: Constructing a GBZ from GFA input." << endl;
         }
         
         assert(inputs.size() == 1);
@@ -3626,26 +3914,30 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         params.batch_size = IndexingParameters::gbwt_insert_batch_size;
         params.sample_interval = IndexingParameters::gbwt_sampling_interval;
         params.max_node_length = IndexingParameters::max_node_size;
+        // TODO: Here we assume that the GFA file contains 100 haplotypes. If there are more,
+        // we could safely launch more jobs. Using 600 as the divisor would be a better
+        // estimate of the number of segments, but we chop long segments to 32 bp nodes.
+        params.parallel_jobs = guess_parallel_gbwt_jobs(
+            std::max(get_file_size(gfa_filename) / 300, std::int64_t(1)),
+            100,
+            plan->target_memory_usage(),
+            params.batch_size
+        );
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
-        
-        bool success = execute_in_fork([&]() {
-            
-            // jointly generate the GBWT and record sequences
-            unique_ptr<gbwt::GBWT> gbwt_index;
-            unique_ptr<gbwtgraph::SequenceSource> seq_source;
-            tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
-            
-            // convert sequences into gbwt graph
-            gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
-            
-            // save together as a GBZ
-            save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        });
-        if (!success) {
-            IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
-            throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
-                                      {"Giraffe GBZ"});
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            std::cerr << "[IndexRegistry]: Running " << params.parallel_jobs << " jobs in parallel" << std::endl;
         }
+
+        // jointly generate the GBWT and record sequences
+        unique_ptr<gbwt::GBWT> gbwt_index;
+        unique_ptr<gbwtgraph::SequenceSource> seq_source;
+        tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
+        
+        // convert sequences into gbwt graph
+        gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
+        
+        // save together as a GBZ
+        save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -3814,7 +4106,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
-        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::Payload {
             return MIPayload::encode(get_minimizer_distances(*distance_index, pos));
         });
         
@@ -3876,6 +4168,10 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
 
 int64_t IndexingPlan::target_memory_usage() const {
     return IndexingParameters::max_memory_proportion * registry->get_target_memory_usage();
+}
+
+int64_t IndexingPlan::literal_target_memory_usage() const {
+    return registry->get_target_memory_usage();
 }
     
 string IndexingPlan::output_filepath(const IndexName& identifier) const {
@@ -4452,12 +4748,77 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
         cerr << "error:[IndexRegistry] Could not open GFA file " << filepath << endl;
         exit(1);
     }
+    
+    unordered_set<string> ref_samples;
+    
+    // to pull the value out of the ref sense tag
+    regex ref_tag_regex("RS:Z:([a-zA-Z0-9 ._\\-]+)");
+    // to split the value into samples along whitespace
+    regex sample_regex("([^\\s]+)(\\s+([^\\s]+))*");
+    
     while (strm.good()) {
         char line_type = strm.get();
-        if (line_type == 'W') {
-            return true;
+        if (line_type == 'H') {
+            // look for reference sense path names
+            string line;
+            getline(strm, line);
+            smatch tag_sub;
+            bool found_match = regex_search(line, tag_sub, ref_tag_regex);
+            if (!found_match) {
+                // no ref sense tag
+                continue;
+            }
+            string tag_value = tag_sub[1];
+            smatch val_sub;
+            found_match = regex_search(tag_value, val_sub, sample_regex);
+            if (!found_match) {
+                // ref sense tag is malformed
+                cerr << tag_sub[0] << endl;
+                exit(1);
+            }
+            
+            // record the ref samples
+            for (size_t i = 1; i < val_sub.size(); ++i) {
+                string submatch = val_sub[i];
+                if (isspace(submatch[0])) {
+                    // TODO: ugly
+                    // this is one of the splits that includes the spacer between sample names
+                    continue;
+                }
+                ref_samples.insert(submatch);
+            }
         }
-        strm.ignore(numeric_limits<streamsize>::max(), '\n');
+        else {
+            if (line_type == 'P') {
+                if (strm.get() != '\t') {
+                    cerr << "error: P-line does not have tab following line type\n";
+                    exit(1);
+                }
+                
+                string path_name;
+                getline(strm, path_name, '\t');
+                
+                if (PathMetadata::parse_sense(path_name) == PathSense::HAPLOTYPE) {
+                    string sample = PathMetadata::parse_sample_name(path_name);
+                    if (sample != PathMetadata::NO_SAMPLE_NAME || !ref_samples.count(sample)) {
+                        return true;
+                    }
+                }
+            }
+            else if (line_type == 'W') {
+                if (strm.get() != '\t') {
+                    cerr << "error: W-line does not have tab following line type\n";
+                    exit(1);
+                }
+                
+                string sample;
+                getline(strm, sample, '\t');
+                if (!ref_samples.count(sample)) {
+                    return true;
+                }
+            }
+            strm.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
     }
     return false;
 }

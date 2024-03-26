@@ -47,7 +47,7 @@ uint8_t kff_encode(const std::string& kmer, size_t start, size_t limit, const ui
     uint8_t val = 0;
     for (size_t i = start; i < limit; i++) {
         val <<= 2;
-        auto packed = gbwtgraph::CHAR_TO_PACK[static_cast<uint8_t>(kmer[i])];
+        auto packed = gbwtgraph::KmerEncoding::CHAR_TO_PACK[static_cast<uint8_t>(kmer[i])];
         if (packed < 4) {
             val |= encoding[packed];
         }
@@ -207,15 +207,6 @@ std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const
     std::vector<uint8_t> result(kff_bytes(k), 0);
     for (size_t i = 0; i < k; i++) {
         kff_set(result, 4 * result.size() - 1 - i, complement[kff_get(kmer, i + offset)]);
-    }
-    return result;
-}
-
-gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k) {
-    gbwtgraph::Key64::value_type result = 0;
-    for (size_t i = 0; i < k; i++) {
-        result = (result << 2) | ((kmer & 3) ^ 3);
-        kmer >>= 2;
     }
     return result;
 }

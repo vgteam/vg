@@ -33,6 +33,8 @@ using namespace vg::subcommand;
 static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0, bool components = false);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
+static void check_read(const Alignment& aln, const HandleGraph* graph);
+                     
 
 void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
@@ -77,7 +79,7 @@ void help_chunk(char** argv) {
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
          << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [vg]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -111,7 +113,8 @@ int main_chunk(int argc, char** argv) {
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
-    string output_format = "vg";
+    string output_format = "pg";
+    bool output_format_set = false;
     bool components = false;
     bool path_components = false;
     string snarl_filename;
@@ -279,6 +282,7 @@ int main_chunk(int argc, char** argv) {
             
         case 'O':
             output_format = optarg;
+            output_format_set = true;
             break;
 
         case 'h':
@@ -324,6 +328,19 @@ int main_chunk(int argc, char** argv) {
         cerr << "error[vg chunk]: invalid output format" << endl;
         return 1;
     }
+    if (trace && output_format != "vg") {
+        // todo: trace code goes through vg conversion anyway and according to unit tests
+        //       fails when not outputting vg
+        output_format = "vg";
+        if (output_format_set) {
+            cerr << "warning[vg chunk]: ignoring -O and setting output format to vg, as required by -T" << endl;
+        }
+        
+    }
+    else if (output_format == "vg") {
+        cerr << "warning[vg chunk]: the vg-protobuf format is DEPRECATED. you probably want to use PackedGraph (pg) instead" << endl;
+    }    
+    string output_ext = output_format == "gfa" ? ".gfa"  : ".vg";
 
     // figure out which outputs we want.  the graph always
     // needs to be chunked, even if only gam output is requested,
@@ -788,7 +805,7 @@ int main_chunk(int argc, char** argv) {
             } else {
                 // Otherwise, we write files under the specified prefix, using
                 // a prefix-i-seq-start-end convention.
-                string name = chunk_name(out_chunk_prefix, i, output_regions[i], "." + output_format, 0, components);
+                string name = chunk_name(out_chunk_prefix, i, output_regions[i], output_ext, 0, components);
                 out_file.open(name);
                 if (!out_file) {
                     cerr << "error[vg chunk]: can't open output chunk file " << name << endl;
@@ -857,7 +874,14 @@ int main_chunk(int argc, char** argv) {
                             exit(1);
                         }
                         
-                        gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
+                        auto emit = vg::io::emit_to<Alignment>(out_gam_file);
+                    
+                        auto handle_read = [&](const Alignment& aln) {
+                            check_read(aln, graph);
+                            emit(aln);
+                        };
+                        
+                        gam_index->find(cursor, region_id_ranges, handle_read, fully_contained);
                     }
                 }
             } else {
@@ -898,7 +922,7 @@ int main_chunk(int argc, char** argv) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
-                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : "." + output_format, 0, components);
+                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : output_ext, 0, components);
             if (trace) {
                 obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt", 0, components);
             }
@@ -944,6 +968,8 @@ int main_chunk(int argc, char** argv) {
         };
         
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
+            check_read(aln, graph);
+             
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
                 nid_t aln_node_id = aln.path().mapping(0).position().node_id();
@@ -1148,5 +1174,23 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
         out_file.close();
     }
     return 0;
+}
+
+/// Stop and print an error if the graph exists and the read does not appear to
+/// actually be aligned against the graph.
+static void check_read(const Alignment& aln, const HandleGraph* graph) { 
+    if (!graph) {
+        return;
+    }
+    // Make sure the nodes it visits could be the nodes in the graph.
+    AlignmentValidity validity = alignment_is_valid(aln, graph);
+    if (!validity) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "error:[vg chunk] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
+        }
+        exit(1);
+    }
 }
 

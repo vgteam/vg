@@ -21,6 +21,7 @@ TEST_CASE("Summary statistics", "[statistics]") {
         REQUIRE(statistics.mean == 2.5);
         REQUIRE(statistics.median == 2.0);
         REQUIRE(statistics.stdev == std::sqrt(25.5 / 6));
+        REQUIRE(statistics.mode == 1.0);
         REQUIRE(statistics.number_of_values == 6);
         REQUIRE(statistics.max_value == 6.0);
         REQUIRE(statistics.count_of_max == 1);
@@ -32,6 +33,7 @@ TEST_CASE("Summary statistics", "[statistics]") {
         REQUIRE(statistics.mean == 5.0);
         REQUIRE(statistics.median == 5.0);
         REQUIRE(statistics.stdev == std::sqrt(114.0 / 9));
+        REQUIRE(statistics.mode == 5.0);
         REQUIRE(statistics.number_of_values == 9);
         REQUIRE(statistics.max_value == 12.0);
         REQUIRE(statistics.count_of_max == 1);

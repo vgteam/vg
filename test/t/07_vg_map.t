@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 54
+plan tests 55
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -52,6 +52,9 @@ scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.
 is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"
 
 is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -r -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
+
+vg map -d x -f small/r.fa > /dev/null
+is $? 0 "vg can map multi-line FASTA sequences" 
 
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
@@ -179,13 +182,13 @@ rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.xg x.gcsa x.gcsa.lcp x.gbwt graphs
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -k 16 -x tiny.xg -g tiny.gcsa tiny.vg
-is $(vg map -d tiny -f tiny/tiny.fa -j | jq -r .identity) 1 "mapper can read FASTA input"
+is $(vg map -d tiny -f tiny/tiny.fa -j | jq -r .identity | head -c1) 1 "mapper can read FASTA input"
 cat <<EOF >t.fa
 >x
 CAAATAAGGCTTGGAAATTTTCTGGA
 GTTCTATTATATTCCAACTCTCTG
 EOF
-is $(vg map -d tiny -F t.fa -j | jq -r .identity) 1 "mapper can read multiline FASTA input"
+is $(vg map -d tiny -F t.fa -j | jq -r .identity | head -c1) 1 "mapper can read multiline FASTA input"
 
 rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp t.fa t.fa.fai
 

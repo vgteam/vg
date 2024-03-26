@@ -42,6 +42,9 @@ public:
          SnarlDistanceIndex* distance_index,
          const PathPositionHandleGraph* path_graph = nullptr);
 
+    using AlignerClient::set_alignment_scores;
+    virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
      * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
@@ -393,7 +396,7 @@ public:
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        const gbwtgraph::hit_type* occs;
+        const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
@@ -441,13 +444,13 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static gbwtgraph::payload_type no_chain_info() {
+    inline static gbwtgraph::Payload no_chain_info() {
         return MIPayload::NO_CODE;  
     } 
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const gbwtgraph::payload_type& chain_info) {
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const gbwtgraph::Payload& chain_info) {
         return { hit, minimizer, chain_info };
     }
     
@@ -471,7 +474,10 @@ protected:
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
     /// We have a gapless extender to extend seed hits in haplotype space.
-    GaplessExtender extender;
+    /// Because this needs a reference to an Aligner, and because changing the
+    /// scoring parameters deletes all the alignmers, we need to keep this
+    /// somewhere we can clear out.
+    std::unique_ptr<GaplessExtender> extender;
     
     /// We have a clusterer
     SnarlDistanceIndexClusterer clusterer;
@@ -639,6 +645,14 @@ protected:
      */
     void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
                          const std::vector<handle_t>& topological_order) const;
+    
+    /**
+     * When dozeu doesn't have any seeds, it's scan heuristic can lead to
+     * inaccurate anchoring with the end result that one end of the alignment
+     * has a deletion that doesn't connect to an aligned base. This function
+     * removes those deletions
+     */
+    void fix_dozeu_end_deletions(Alignment& rescued_alignment) const;
 
 //-----------------------------------------------------------------------------
 
@@ -788,6 +802,9 @@ protected:
      * of the first minimizer with an agglomeration in the interval and top is
      * the index of the last minimizer with an agglomeration in the interval
      * (exclusive).
+     *
+     * minimizer_indices must be sorted by agglomeration end, and then by
+     * agglomeration start, so they can be decomposed into nice rectangles.
      *
      * Note that bottom and top are offsets into minimizer_indices, **NOT**
      * minimizers itself. Only contiguous ranges in minimizer_indices actually

@@ -26,7 +26,7 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use this graph or xg index (required)" << endl
+         << "    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 

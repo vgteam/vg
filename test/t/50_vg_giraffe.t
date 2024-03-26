@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 45
+plan tests 50
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -13,9 +13,8 @@ vg gbwt -o x-haps.gbwt -x x.vg -v small/x.vcf.gz
 vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
-vg snarls --include-trivial x.vg > x.snarls
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg
+vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.min x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
@@ -38,7 +37,19 @@ is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 
 is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l)" "1" "Mapping logs runtime per read"
 
-vg minimizer -k 29 -b -s 18 -g x.gbwt -o x.sync x.xg
+is "$(vg view -aj mapped1.gam | jq '.score')" "73" "Mapping produces the correct score"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b fast >/dev/null
+is "${?}" "0" "a read can be mapped with the fast preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
+is "${?}" "0" "a read can be mapped with the default preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
+is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"
+rm -f mapped-nobonus.gam
+
+vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
@@ -47,7 +58,17 @@ chmod 400 x.dist
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
 is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
-rm -f x.vg x.xg x.gbwt x.snarls x.min x.sync x.dist x.gg
+echo "@read" >read.fq
+echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" >>read.fq
+echo "+" >>read.fq
+echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
+
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
+LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l)"
+is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
+
+rm -f read.fq read.gam
+rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
 
@@ -102,10 +123,10 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "2" "s
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.xg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
-
+rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
@@ -159,7 +180,7 @@ is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l)" "2000" "paired r
 is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l)" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
-rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
@@ -172,7 +193,7 @@ vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
 vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
 is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
-is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | wc -l)" "200" "Reads are all mapped"
+is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l)" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l)" "0" "GFA segment names are all set"
 
 vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
@@ -192,7 +213,7 @@ vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraf
 vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains
 # This is an 8001 bp read with 1 insert and 1 substitution
 is "$(vg view -aj longread.gam | jq -r '.score')" "7989" "A long read can be correctly aligned"
-is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l)" "2" "A long read hasd the correct edits found"
+is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l)" "2" "A long read has the correct edits found"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l)" "1" "Long read minimizer set is correctly restricted"
 
 rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt

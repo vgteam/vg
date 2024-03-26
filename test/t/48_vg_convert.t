@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 100
+plan tests 106
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -90,7 +90,7 @@ vg convert x.vg -F mut.gaf -t 1 > mut-back.gam
 vg view -a mut.gam | jq .path > mut.path
 vg view -a mut-back.gam | jq .path > mut-back.path
 # Json comparison that is not order dependent: https://stackoverflow.com/a/31933234
-is $(jq --argfile a mut.path --argfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
+is $(jq --slurpfile a mut.path --slurpfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
 
 vg view -a mut.gam | jq .sequence > mut.seq
 vg view -a mut-back.gam | jq .sequence > mut-back.seq
@@ -102,11 +102,12 @@ diff mut.gaf mut-back.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence of indels and snps"
   
 #hand-code cg example.  this is (for reference) mut.gaf:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GA*GA:8+TTT:16*GA*TA:18-AC-T-AG:16\n" > mut.cs.gaf
+# Except with the to length fixed (it is 80 bp if you decode the cs tag with https://github.com/lh3/minimap2#cs) 
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GA*GA:8+TTT:16*GA*TA:18-AC-T-AG:16\n" > mut.cs.gaf
 #manually convert to cg:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
 vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
@@ -360,6 +361,15 @@ vg convert -f components.gbz | sort > sorted.gfa
 cmp sorted.gfa correct.gfa
 is $? 0 "GBZ to GFA conversion works with multiple threads"
 
+# GFA extraction from GBZ with/without translation.
+vg gbwt --gbz-format -g chopping.gbz --max-node 2 -G graphs/chopping_walks.gfa
+vg convert -f -t 1 chopping.gbz > with-translation.gfa
+is $? 0 "GBZ to GFA with translation"
+is "$(grep -c "^S" with-translation.gfa)" "8" "8 segments"
+vg convert -f -t 1 --no-translation chopping.gbz > no-translation.gfa
+is $? 0 "GBZ to GFA without translation"
+is "$(grep -c "^S" no-translation.gfa)" "9" "9 segments"
+
 rm -f components.gbwt components.gg components.gbz
 rm -f direct.hg correct_paths.gaf correct_haplotypes.gaf
 rm -f components.hg hg_paths.gaf hg_haplotypes.gaf gbz_hg_paths.gaf gbz_hg_haplotypes.gaf
@@ -367,6 +377,7 @@ rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplo
 rm -f no_haplotypes.xg no_haplotypes.hg
 rm -f extracted.gfa gbz.gfa extracted.hg
 rm -f sorted.gfa correct.gfa
+rm -f chopping.gbz with-translation.gfa no-translation.gfa
 
 #####
 # Reference path conversion
@@ -410,8 +421,13 @@ vg convert -a graphs/components_paths_rgfa.gfa > components_paths_rgfa.hg
 is "${?}" "0" "GFA -> HashGraph conversion works with redundant paths"
 is "$(vg paths --list -x components_paths_rgfa.hg | wc -l)" "1" "GFA -> HashGraph conversion with redundant paths keeps one copy of the redundant path"
 
+# We should be able to handle pseudo-PanSN paths where there is no haplotype
+vg convert -a graphs/gfa_two_part_reference.gfa > gfa_two_part_reference.hg
+is "${?}" "0" "GFA -> HashGraph conversion works with two-part reference path names"
+is "$(vg paths -M -x gfa_two_part_reference.hg | grep REFERENCE | wc -l)" "2" "GFA -> HashGraph conversion with with two-part reference path names gets the right paths"
+
 rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt paths.hg.txt
-rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg rgfa_with_reference.hg extracted.gfa 
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg gfa_two_part_reference.hg rgfa_with_reference.hg extracted.gfa 
 
 #####
 # GFA Streaming

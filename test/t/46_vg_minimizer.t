@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 16
 
 
 # Indexing a single graph
@@ -15,35 +15,39 @@ vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg index -j x.dist x.xg
 
 # Default construction
-vg minimizer -o x.mi -g x.gbwt x.xg
+vg minimizer --no-dist -o x.mi -g x.gbwt x.xg
 is $? 0 "default parameters"
 
+# Construction fails without a distance index
+vg minimizer -o x.mi -g x.gbwt x.xg 2> /dev/null
+is $? 1 "distance index or --no-dist is required"
+
 # Single-threaded for deterministic results
-vg minimizer -t 1 -o x.mi -g x.gbwt x.xg
+vg minimizer --no-dist -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
 
 # Indexing syncmers
-vg minimizer -t 1 -o x.mi -c -g x.gbwt x.xg
+vg minimizer --no-dist -t 1 -o x.mi -c -g x.gbwt x.xg
 is $? 0 "syncmer index"
-is $(md5sum x.mi | cut -f 1 -d\ ) 9c4d84fb43d4db62a200bc6ebfea93ee "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 74d836b46799590835c7d61e283df4f0 "construction is deterministic"
 
 # Minimizer parameters
-vg minimizer -t 1 -k 7 -w 3 -o x.mi -g x.gbwt -p x.xg 
+vg minimizer --no-dist -t 1 -k 7 -w 3 -o x.mi -g x.gbwt x.xg 
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) e7f21c6a3acb0dc2e7722f699ab489b1 "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) 7260e5ea22f063a8dff1f9dd60f92288 "setting -k -w works correctly"
 
 # Construction from GBWTGraph
 vg gbwt -x x.xg -g x.gg x.gbwt
-vg minimizer -t 1 -g x.gbwt -o x.mi x.gg
+vg minimizer --no-dist -t 1 -g x.gbwt -o x.mi x.gg
 is $? 0 "construction from GBWTGraph"
-is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
 
 # Construction from GBZ
 vg gbwt -x x.xg -g x.gbz --gbz-format x.gbwt
-vg minimizer -t 1 -o x.mi x.gbz
+vg minimizer --no-dist -t 1 -o x.mi x.gbz
 is $? 0 "construction from GBZ"
-is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
 
 # Store payload in the index
 vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
@@ -62,11 +66,11 @@ vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg index -x y.xg -G y.gbwt -v small/xy2.vcf.gz y.vg
 
 # Appending to the index
-vg minimizer -t 1 -o x.mi -g x.gbwt x.xg
+vg minimizer --no-dist -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "multiple graphs: first"
-vg minimizer -t 1 -l x.mi -o xy.mi -g y.gbwt y.xg
+vg minimizer --no-dist -t 1 -l x.mi -o xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
-is $(md5sum xy.mi | cut -f 1 -d\ ) 0c42d6deab976da6e51a624c1eba4789 "construction is deterministic"
+is $(md5sum xy.mi | cut -f 1 -d\ ) 1ca39921b15cc3e7d27919a3ec7f47fa "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg

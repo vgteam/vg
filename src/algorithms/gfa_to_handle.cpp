@@ -71,7 +71,8 @@ static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
 }
 
 /// Add listeners which let a GFA parser fill in a path handle graph with paths.
-static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph) {
+static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph,
+                               unordered_set<PathSense>* ignore_sense) {
 
     // For rGFA we need to have some state. Use a smart pointer to smuggle it
     // into the closure.
@@ -101,10 +102,10 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         }
     });
 
-    parser.path_listeners.push_back([&parser, graph, reference_samples](const string& name,
-                                                                        const GFAParser::chars_t& visits,
-                                                                        const GFAParser::chars_t& overlaps,
-                                                                        const GFAParser::tag_list_t& tags) {
+    parser.path_listeners.push_back([&parser, graph, reference_samples, ignore_sense](const string& name,
+                                                                                      const GFAParser::chars_t& visits,
+                                                                                      const GFAParser::chars_t& overlaps,
+                                                                                      const GFAParser::tag_list_t& tags) {
         // For P lines, we add the path.
         
         // Parse out the path name's metadata
@@ -140,6 +141,10 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                 // Assign a phase block if none is specified, since haplotypes need one.
                 phase_block = 0;
             }
+        }
+        
+        if (ignore_sense && ignore_sense->count(sense)) {
+            return;
         }
         
         // Compose what we think the path ought to be named.
@@ -351,7 +356,8 @@ void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
 
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              GFAIDMapInfo* translation, int64_t max_rgfa_rank) {
+                              GFAIDMapInfo* translation, int64_t max_rgfa_rank,
+                              unordered_set<PathSense>* ignore_sense) {
     
     get_input_file(filename, [&](istream& in) {
         gfa_to_path_handle_graph(in, graph, translation, max_rgfa_rank);
@@ -359,7 +365,8 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
 }
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              int64_t max_rgfa_rank, const string& translation_filename) {
+                              int64_t max_rgfa_rank, const string& translation_filename,
+                              unordered_set<PathSense>* ignore_sense) {
 
     GFAIDMapInfo id_map_info;
     gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank);
@@ -370,7 +377,8 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
 void gfa_to_path_handle_graph(istream& in,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation,
-                              int64_t max_rgfa_rank) {
+                              int64_t max_rgfa_rank,
+                              unordered_set<PathSense>* ignore_sense) {
     
     // TODO: Deduplicate this setup code with gfa_to_handle_graph more.
     GFAParser parser;
@@ -382,7 +390,7 @@ void gfa_to_path_handle_graph(istream& in,
     
     // Set up for path input
     parser.max_rgfa_rank = max_rgfa_rank;
-    add_path_listeners(parser, graph);
+    add_path_listeners(parser, graph, ignore_sense);
     
     parser.parse(in);
 }

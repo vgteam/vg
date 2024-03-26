@@ -57,7 +57,7 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
-            gbwtgraph::payload_type minimizer_cache = MIPayload::NO_CODE; //minimizer payload
+            gbwtgraph::Payload minimizer_cache = MIPayload::NO_CODE; //minimizer payload
         };
 
         /// Seed information used for clustering
@@ -72,7 +72,7 @@ class SnarlDistanceIndexClusterer {
             //TODO: This gets copied because it needs to be mutable
             //Cached values from the minimizer
             //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
-            gbwtgraph::payload_type minimizer_cache;
+            gbwtgraph::Payload minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -274,14 +274,14 @@ class SnarlDistanceIndexClusterer {
                 end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 chain_component_start = distance_index.get_chain_component(start_in);
                 chain_component_end = distance_index.get_chain_component(end_in);
-                prefix_sum_value = SnarlDistanceIndex::sum({
+                prefix_sum_value = SnarlDistanceIndex::sum(
                                  distance_index.get_prefix_sum_value(start_in),
-                                 distance_index.minimum_length(start_in)});
-                loop_right = SnarlDistanceIndex::sum({distance_index.get_forward_loop_value(end_in),
-                                                             2*distance_index.minimum_length(end_in)});
+                                 distance_index.minimum_length(start_in));
+                loop_right = SnarlDistanceIndex::sum(distance_index.get_forward_loop_value(end_in),
+                                                             2*distance_index.minimum_length(end_in));
                 //Distance to go backward in the chain and back
-                loop_left = SnarlDistanceIndex::sum({distance_index.get_reverse_loop_value(start_in),
-                                                            2*distance_index.minimum_length(start_in)});
+                loop_left = SnarlDistanceIndex::sum(distance_index.get_reverse_loop_value(start_in),
+                                                            2*distance_index.minimum_length(start_in));
 
 
             }

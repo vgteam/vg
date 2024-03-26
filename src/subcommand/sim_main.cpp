@@ -101,7 +101,7 @@ void help_sim(char** argv) {
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
          << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
          << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
-         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.0)" << endl
+         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.01)" << endl
          << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
          << "    -f, --forward-only          don't simulate from the reverse strand" << endl
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
@@ -153,7 +153,7 @@ int main_sim(int argc, char** argv) {
     bool strip_bonuses = false;
     bool interleaved = false;
     bool unsheared_fragments = false;
-    double indel_prop = 0.0;
+    double indel_prop = 0.01;
     double error_scale_factor = 1.0;
     string fastq_name;
     string fastq_2_name;

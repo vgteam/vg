@@ -34,13 +34,35 @@ namespace vg {
  * may share kmers.)
  *
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
+ *
+ * Versions:
+ *
+ * * Version 2: Top-level chains include a contig name. Compatible with version 1.
+ *
+ * * Version 1: Initial version.
  */
 class Haplotypes {
 public:
+    /// The amount of progress information that should be printed to stderr.
+    enum Verbosity : size_t {
+        /// No progress information.
+        verbosity_silent = 0,
+
+        /// Basic information.
+        verbosity_basic = 1,
+
+        /// Basic information and detailed statistics.
+        verbosity_detailed = 2,
+
+        /// Basic information, detailed statistics, and debug information.
+        verbosity_debug = 3
+    };
+
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint32_t VERSION = 2;
+        constexpr static std::uint32_t MIN_VERSION = 1;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
         /// A magic number that identifies the file.
@@ -102,7 +124,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
-        // TODO: This could be compressed by removing duplicate haplotypes.
+        // TODO: This needs to be compressed for larger datasets.
         sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
@@ -138,6 +160,9 @@ public:
         /// GBWT construction job for this chain.
         size_t job_id;
 
+        /// Contig name corresponding to the chain.
+        std::string contig_name;
+
         /// Subchains in the order they appear in.
         std::vector<Subchain> subchains;
 
@@ -146,6 +171,9 @@ public:
 
         /// Loads the object from a stream in the simple-sds format.
         void simple_sds_load(std::istream& in);
+
+        /// Loads the old version without a contig name.
+        void load_old(std::istream& in);
 
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
@@ -175,7 +203,7 @@ public:
       * the file cannot be opened and throws `std::runtime_error` if the kmer
       * counts cannot be used.
      */
-    hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, bool verbose) const;
+    hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, Verbosity verbosity) const;
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;
@@ -203,25 +231,16 @@ public:
     constexpr static size_t APPROXIMATE_JOBS = 32;
 
     /// The amount of progress information that should be printed to stderr.
-    enum Verbosity : size_t {
-        /// No progress information.
-        verbosity_silent = 0,
-
-        /// Basic information.
-        verbosity_basic = 1,
-
-        /// Basic information and detailed statistics.
-        verbosity_detailed = 2,
-
-        /// Basic information, detailed statistics, and debug information.
-        verbosity_debug = 3
-    };
+    typedef Haplotypes::Verbosity Verbosity;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
 
     /// An encoded kmer.
     typedef Haplotypes::Subchain::kmer_type kmer_type;
+
+    /// Minimizer index without payloads.
+    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::Position> minimizer_index_type;
 
     /**
      * A subchain is a substring of a top-level chain defined by at most two
@@ -258,7 +277,7 @@ public:
     HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
         const gbwt::FastLocate& r_index,
         const SnarlDistanceIndex& distance_index,
-        const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+        const minimizer_index_type& minimizer_index,
         Verbosity verbosity);
 
     /// Parameters for `partition_haplotypes()`.
@@ -286,13 +305,16 @@ public:
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
      * single occurrence in the graph.
+     *
+     * Throws `std::runtime_error` on error in single-threaded parts and exits
+     * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
     Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
     const gbwt::FastLocate& r_index;
     const SnarlDistanceIndex& distance_index;
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    const minimizer_index_type& minimizer_index;
 
     Verbosity verbosity;
 
@@ -340,100 +362,35 @@ private:
 class Recombinator {
 public:
     /// Number of haplotypes to be generated.
-    constexpr static size_t NUM_HAPLOTYPES = 8;
+    constexpr static size_t NUM_HAPLOTYPES = 4;
 
-    /// Expected read coverage.
-    constexpr static size_t COVERAGE = 30;
+    /// A reasonable number of candidates for diploid sampling.
+    constexpr static size_t NUM_CANDIDATES = 32;
+
+    /// Expected kmer coverage. Use 0 to estimate from kmer counts.
+    constexpr static size_t COVERAGE = 0;
 
     /// Block size (in kmers) for reading KFF files.
     constexpr static size_t KFF_BLOCK_SIZE = 1000000;
 
     /// Multiplier to the score of a present kmer every time a haplotype with that
     /// kmer is selected.
-    constexpr static double PRESENT_DISCOUNT = 0.7;
+    constexpr static double PRESENT_DISCOUNT = 0.9;
 
     /// Adjustment to the score of a heterozygous kmer every time a haplotype with
     /// (-) or without (+) that kmer is selected.
-    constexpr static double HET_ADJUSTMENT = 0.2;
+    constexpr static double HET_ADJUSTMENT = 0.05;
+
+    /// Score for getting an absent kmer right/wrong. This should be less than 1, if
+    /// we assume that having the right variants in the graph is more important than
+    /// keeping wrong variants out.
+    constexpr static double ABSENT_SCORE = 0.8;
+
+    /// The amount of progress information that should be printed to stderr.
+    typedef Haplotypes::Verbosity Verbosity;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
-
-    /**
-     * A haplotype beging generated as a GBWT path.
-     *
-     * GBWT metadata will be set as following:
-     *
-     * * Sample name is "recombination".
-     * * Contig name is "chain_X", where X is the chain identifier.
-     * * Haplotype identifier is set during construction.
-     * * Fragment identifier is set as necessary.
-     */
-    struct Haplotype {
-        /// Contig identifier in GBWT metadata.
-        /// Offset of the top-level chain in the children of the root snarl.
-        size_t chain;
-
-        /// Haplotype identifier in GBWT metadata. 
-        size_t id;
-
-        /// Fragment identifier in GBWT metadata.
-        /// If no original haplotype crosses a subchain, a new fragment will
-        /// start after the subchain.
-        size_t fragment;
-
-        /// GBWT sequence indentifier in the previous subchain, or
-        /// `gbwt::invalid_sequence()` if there was no such sequence.
-        gbwt::size_type sequence_id;
-
-        /// GBWT position at the end of the latest `extend()` call.
-        /// `gbwt::invalid_edge()` otherwise.
-        gbwt::edge_type position;
-
-        /// The path being generated.
-        gbwt::vector_type path;
-
-        /**
-         * Extends the haplotype over the given subchain by using the given
-         * original haplotype.
-         *
-         * This assumes that the original haplotype crosses the subchain.
-         *
-         * If `extend()` has been called for this fragment, there must be a
-         * unary path connecting the subchains, which will be used in the
-         * generated haplotype.
-         *
-         * If `extend()` has not been called, the generated haplotype will
-         * take the prefix of the original original haplotype until the start
-         * of the subchain.
-         */
-        void extend(sequence_type sequence, const Haplotypes::Subchain& subchain, const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
-
-        /// Takes an existing haplotype from the GBWT index and inserts it into
-        /// the builder. This is intended for fragments that do not contain
-        /// subchains crossed by the original haplotypes. The call will fail if
-        /// `extend()` has been called.
-        void take(gbwt::size_type sequence_id, const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
-
-        /// Extends the original haplotype from the latest `extend()` call until
-        /// the end, inserts it into the builder, and starts a new fragment.
-        /// The call will fail if `extend()` has not been called for this
-        /// fragment.
-        void finish(const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
-
-    private:
-        // Extends the haplotype over a unary path from a previous subchain.
-        void connect(gbwt::node_type until, const gbwtgraph::GBWTGraph& graph);
-
-        // Takes a prefix of a sequence.
-        void prefix(gbwt::size_type sequence_id, gbwt::node_type until, const gbwt::GBWT& index);
-
-        // Extends the haplotype from the previous subchain until the end.
-        void suffix(const gbwt::GBWT& index);
-
-        // Inserts the current fragment into the builder.
-        void insert(gbwt::GBWTBuilder& builder);
-    };
 
     /// Statistics on the generated haplotypes.
     struct Statistics {
@@ -469,20 +426,18 @@ public:
 
         /// Prints the statistics and returns the output stream.
         std::ostream& print(std::ostream& out) const;
-
-        /// Prints the average score per kmer for each sequence rank in sorted order.
-        void print_scores(std::ostream& out) const;
     };
 
     /// Creates a new `Recombinator`.
-    Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verbosity verbosity);
+    Recombinator(const gbwtgraph::GBZ& gbz, Verbosity verbosity);
 
     /// Parameters for `generate_haplotypes()`.
     struct Parameters {
-        /// Number of haplotypes to be generated.
+        /// Number of haplotypes to be generated, or the number of candidates
+        /// for diploid sampling.
         size_t num_haplotypes = NUM_HAPLOTYPES;
 
-        /// Read coverage.
+        /// Kmer coverage. Use 0 to estimate from kmer counts.
         size_t coverage = COVERAGE;
 
         /// Buffer size (in nodes) for GBWT construction.
@@ -497,8 +452,14 @@ public:
         /// that kmer.
         double het_adjustment = HET_ADJUSTMENT;
 
-        /// Sample randomly instead of by score.
-        bool random_sampling = false;
+        /// Score for absent kmers. This should be less than 1 if we assume that
+        /// having the right variants in the graph is more important than keeping
+        /// the wrong variants out.
+        double absent_score = ABSENT_SCORE;
+
+        /// After selecting the initial `num_haplotypes` haplotypes, choose the
+        /// highest-scoring pair out of them.
+        bool diploid_sampling = false;
 
         /// Include named and reference paths.
         bool include_reference = false;
@@ -517,18 +478,51 @@ public:
      * the middle of a chain create fragment breaks. If the chain starts without
      * a prefix (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
+     *
+     * Throws `std::runtime_error` on error in single-threaded parts and exits
+     * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
     gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 
+    /// A local haplotype sequence within a single subchain.
+    struct LocalHaplotype {
+        /// Name of the haplotype.
+        std::string name;
+
+        /// Sequence in forward orientation.
+        std::string sequence;
+
+        /// (rank, score) in each round of haplotype selection this haplotype
+        /// participates in.
+        std::vector<std::pair<size_t, double>> scores;
+    };
+
+    /// Kmer classification.
+    enum kmer_presence { absent, heterozygous, present, frequent };
+
+    /**
+     * Extracts the local haplotypes in the given subchain. In addition to the
+     * haplotype sequence, this also reports the name of the corresponding path
+     * as well as (rank, score) for the haplotype in each round of haplotype
+     * selection. The number of rounds is `parameters.num_haplotyeps`, but if
+     * the haplotype is selected earlier, it will not get further scores.
+     *
+     * Throws `std::runtime_error` on error.
+     */
+    std::vector<LocalHaplotype> extract_sequences(
+        const Haplotypes& haplotypes, const std::string& kff_file,
+        size_t chain_id, size_t subchain_id, const Parameters& parameters
+    ) const;
+
     const gbwtgraph::GBZ& gbz;
-    HaplotypePartitioner::Verbosity verbosity;
+    Verbosity verbosity;
 
 private:
     // Generate haplotypes for the given chain.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-        gbwt::GBWTBuilder& builder,
-        const Parameters& parameters) const;
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
+        const Parameters& parameters, double coverage) const;
 };
 
 //------------------------------------------------------------------------------

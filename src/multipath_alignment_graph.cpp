@@ -3917,6 +3917,17 @@ namespace vg {
         
     }
     
+    size_t MultipathAlignmentGraph::count_reachability_edges() const {
+        if (!has_reachability_edges) {
+            return 0;
+        }
+        size_t count = 0;
+        for (auto& node : path_nodes) {
+            count += node.edges.size();
+        }
+        return count;
+    }
+    
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
         // Can only sort if edges are present.
@@ -4216,7 +4227,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
                                     size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                    bool allow_negative_scores) {
+                                    bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
         
         // don't dynamically choose band padding, shim constant value into a function type
         function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
@@ -4237,7 +4248,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               cutting_snarls,
               dist_index,
               project,
-              allow_negative_scores);
+              allow_negative_scores,
+              left_align_strand);
     }
 
     void MultipathAlignmentGraph::deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns,
@@ -5173,7 +5185,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                        bool allow_negative_scores) {
+                                        bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
         
         // TODO: magic number
         // how many tails we need to have before we try the more complicated but
@@ -5340,7 +5352,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         
                         vector<Alignment> alt_alignments;
                         aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
-                                                           band_padding_function(intervening_sequence, connecting_graph), true);
+                                                           band_padding_function(intervening_sequence, connecting_graph), true,
+                                                           left_align_strand);
                         
                         // remove alignments with the same path
                         deduplicated = convert_and_deduplicate(alt_alignments, false, false);
@@ -6422,7 +6435,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 auto node_id = path.mapping(j).position().node_id();
                 
                 if (!mentioned_nodes.count(node_id)) {
-                    // This graph node eneds to be made
+                    // This graph node needs to be made
                     mentioned_nodes.insert(node_id);
                     out << "g" << node_id << " [label=\"" << node_id << "\" shape=box];" << endl;
                 }

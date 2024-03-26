@@ -1421,7 +1421,8 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 }
 
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                  int32_t band_padding, bool permissive_banding) const {
+                                  int32_t band_padding, bool permissive_banding,
+                                  const unordered_map<handle_t, bool>* left_align_strand) const {
     
     if (alignment.sequence().empty()) {
         // we can save time by using a specialized deletion aligner for empty strings
@@ -1446,7 +1447,8 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                                g,
                                                band_padding,
                                                permissive_banding,
-                                               false);
+                                               false,
+                                               left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
@@ -1455,7 +1457,8 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
@@ -1464,7 +1467,8 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else {
@@ -1473,14 +1477,16 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     }
 }
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                        int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
+                                        int32_t max_alt_alns, int32_t band_padding, bool permissive_banding,
+                                        const unordered_map<handle_t, bool>* left_align_strand) const {
                               
     if (alignment.sequence().empty()) {
         // we can save time by using a specialized deletion aligner for empty strings
@@ -1505,7 +1511,8 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
                                                max_alt_alns,
                                                band_padding,
                                                permissive_banding,
-                                               false);
+                                               false,
+                                               left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
@@ -1516,7 +1523,8 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
@@ -1527,7 +1535,8 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else {
@@ -1538,7 +1547,8 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                false);
+                                                false,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     }
@@ -2095,7 +2105,8 @@ void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>&
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                         int32_t band_padding, bool permissive_banding) const {
+                                         int32_t band_padding, bool permissive_banding,
+                                         const unordered_map<handle_t, bool>* left_align_strand) const {
     
     if (alignment.sequence().empty()) {
         // we can save time by using a specialized deletion aligner for empty strings
@@ -2118,7 +2129,8 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
                                                g,
                                                band_padding,
                                                permissive_banding,
-                                               true);
+                                               true,
+                                               left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
@@ -2127,7 +2139,8 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
@@ -2136,7 +2149,8 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else {
@@ -2145,14 +2159,16 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
                                                 g,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     }
 }
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                               int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
+                                               int32_t max_alt_alns, int32_t band_padding, bool permissive_banding,
+                                               const unordered_map<handle_t, bool>* left_align_strand) const {
     
     if (alignment.sequence().empty()) {
         // we can save time by using a specialized deletion aligner for empty strings
@@ -2177,7 +2193,8 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                max_alt_alns,
                                                band_padding,
                                                permissive_banding,
-                                               true);
+                                               true,
+                                               left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
@@ -2188,7 +2205,8 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
@@ -2199,7 +2217,8 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     } else {
@@ -2210,7 +2229,8 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                 max_alt_alns,
                                                 band_padding,
                                                 permissive_banding,
-                                                true);
+                                                true,
+                                                left_align_strand);
         
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     }
@@ -2426,12 +2446,9 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
             matrix[i] = -mismatch;
         }
     }
-    
-    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(matrix, gap_open, gap_extend,
-                                                                     full_length_bonus, gc_content_estimate));
-    regular_aligner = unique_ptr<Aligner>(new Aligner(matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate));
-                  
+
+    this->set_alignment_scores(matrix, gap_open, gap_extend, full_length_bonus);
+
     free(matrix);
 }
 
@@ -2447,10 +2464,7 @@ void AlignerClient::set_alignment_scores(const int8_t* score_matrix, int8_t gap_
 
 void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
     int8_t* score_matrix = parse_matrix(matrix_stream);
-    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(score_matrix, gap_open, gap_extend,
-                                                                     full_length_bonus, gc_content_estimate));
-    regular_aligner = unique_ptr<Aligner>(new Aligner(score_matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate));
+    this->set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
     free(score_matrix);
 }
 

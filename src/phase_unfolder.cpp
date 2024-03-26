@@ -33,7 +33,9 @@ void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
 }
 
 void PhaseUnfolder::restore_paths(MutableHandleGraph& graph, bool show_progress) const {
-    this->path_graph.for_each_path_handle([&](const path_handle_t& path) {
+    // we include generic to also pick up transcript paths
+    this->path_graph.for_each_path_matching({PathSense::GENERIC, PathSense::REFERENCE}, {}, {},
+                                            [&](const path_handle_t& path) {
         handle_t prev;
         bool first = true;
         this->path_graph.for_each_step_in_path(path, [&](const step_handle_t& step) {

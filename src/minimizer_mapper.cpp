@@ -5,6 +5,7 @@
 
 #include "minimizer_mapper.hpp"
 
+#include "crash.hpp"
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
@@ -51,11 +52,20 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     distance_index(distance_index),  
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
-    extender(gbwt_graph, *(get_regular_aligner())),
+    extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     fragment_length_distr(1000,1000,0.95) {
     
     // The GBWTGraph needs a GBWT
-    assert(graph.index != nullptr);
+    crash_unless(graph.index != nullptr);
+}
+
+void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+    // Clear the extender before the aligners go away
+    extender.reset();
+    // Call the base class method and remake the aligners
+    AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+    // Remake the extender with new references
+    extender.reset(new GaplessExtender(gbwt_graph, *(get_regular_aligner())));
 }
 
 //-----------------------------------------------------------------------------
@@ -1014,7 +1024,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
-        assert(false);
+        crash_unless(false);
     });
     
     if (track_provenance) {
@@ -1030,7 +1040,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         }
     }
 
-    assert(!mappings.empty());
+    crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
@@ -1128,7 +1138,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
              << minimizer.hits << "\t"
              << minimizer_extensions_count[i];
          if (minimizer_extensions_count[i]>0) {
-             assert(minimizer.hits<=hard_hit_cap) ;
+             crash_unless(minimizer.hits<=hard_hit_cap) ;
          }
     }
     cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t"  << mappings.front().mapping_quality() << "\t";
@@ -1547,7 +1557,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 #ifdef debug
     for (size_t count : better_cluster_count) {
-        assert(count >= 1);
+        crash_unless(count >= 1);
     }
 #endif
 
@@ -2382,7 +2392,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
-        assert(false);
+        crash_unless(false);
     });
 
     if (track_provenance) {
@@ -2625,7 +2635,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                  << minimizer.hits << "\t"
                  << minimizer_explored_by_read[r].contains(i);
              if (minimizer_explored_by_read[r].contains(i)) {
-                 assert(minimizer.hits<=hard_hit_cap) ;
+                 crash_unless(minimizer.hits<=hard_hit_cap) ;
              }
         }
         cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
@@ -2638,9 +2648,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
 
             int64_t dist = distances[i];
-            assert(dist == distance_between(paired_alignments[0], paired_alignments[1])); 
+            crash_unless(dist == distance_between(paired_alignments[0], paired_alignments[1])); 
 
-            assert(scores[i] == score_alignment_pair(paired_alignments[0], paired_alignments[1], dist));
+            crash_unless(scores[i] == score_alignment_pair(paired_alignments[0], paired_alignments[1], dist));
 
             double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
@@ -2683,10 +2693,14 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
         return numeric_limits<double>::infinity();
     }
 
-    // Sort minimizer subset so we go through minimizers in increasing order of start position
+    // Sort minimizer subset so we go through minimizers in increasing order of
+    // agglomeration end position, and then increasing order of agglomeration
+    // start position
     std::sort(minimizers_explored.begin(), minimizers_explored.end(), [&](size_t a, size_t b) {
         // Return true if a must come before b, and false otherwise
-        return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+        size_t a_end = minimizers[a].agglomeration_start + minimizers[a].agglomeration_length;
+        size_t b_end = minimizers[b].agglomeration_start + minimizers[b].agglomeration_length;
+        return a_end < b_end || (a_end == b_end && minimizers[a].agglomeration_start < minimizers[b].agglomeration_start);
     });
 #ifdef debug
     cerr << "Sorted " << minimizers_explored.size() << " minimizers" << endl;
@@ -2696,6 +2710,28 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     cerr << "Explored minimizers:" << endl;
     dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
 #endif
+
+    for (auto it = minimizers_explored.begin(); it != minimizers_explored.end(); ++it) {
+        if (minimizers[*it].length == 0) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizer with no sequence found in read with sequence " << sequence << std::endl;
+                dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+                for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                    auto& m = minimizers[minimizers_explored[i]];
+                    std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                              << " core start " << m.value.offset << " length " << m.length << std::endl;
+                }
+                std::cerr << "Read sequence: " << sequence << std::endl;
+                std::cerr << "Read quality: ";
+                for (char q : quality_bytes) {
+                    std::cerr << (char) (33 + (int)q);
+                }
+                std::cerr << std::endl;
+                exit(1);
+            }
+        }
+    }
 
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
@@ -2719,6 +2755,26 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
 #ifdef debug
         cerr << "log10prob for here: " << p_here << endl;
 #endif
+
+        if (isinf(p_here)) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers seem impossible to disrupt in region " << left << " " << right << " " << bottom << " " << top << std::endl;
+                dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+                for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                    auto& m = minimizers[minimizers_explored[i]];
+                    std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                              << " core start " << m.value.offset << " length " << m.length << std::endl;
+                }
+                std::cerr << "Read sequence: " << sequence << std::endl;
+                std::cerr << "Read quality: ";
+                for (char q : quality_bytes) {
+                    std::cerr << (char) (33 + (int)q);
+                }
+                std::cerr << std::endl;
+            }
+            exit(1);
+        }
         
         // Calculate prob of all intervals up to top being disrupted
         double p = c[bottom] + p_here;
@@ -2746,7 +2802,26 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     cerr << "log10prob after all minimizers is " << c.back() << endl;
 #endif
     
-    assert(!isinf(c.back()));
+    if (isinf(c.back())) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers seem impossible to disrupt!" << std::endl;
+            dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+            for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                auto& m = minimizers[minimizers_explored[i]];
+                std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                          << " core start " << m.value.offset << " length " << m.length << std::endl;
+            }
+            std::cerr << "Read sequence: " << sequence << std::endl;
+            std::cerr << "Read quality: ";
+            for (char q : quality_bytes) {
+                std::cerr << (char) (33 + (int)q);
+            }
+            std::cerr << std::endl;
+        }
+        exit(1);
+    }
+    
     // Conver to Phred.
     double result = -c.back() * 10;
     return result;
@@ -2761,7 +2836,7 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
         // Handle no item case
         return;
     }
-
+    
     // Items currently being iterated over
     list<const Minimizer*> stack = {&minimizers[minimizer_indices.front()]};
     // The left end of an item interval
@@ -2776,6 +2851,16 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
             size_t stack_top_end = stack.front()->agglomeration_start + stack.front()->agglomeration_length;
             if (stack_top_end <= right) {
                 // Case where the left-most item ends before the start of the new item
+                
+                if (stack_top_end < left) {
+                    // Something is wrong with the order we are visiting these in.
+                    #pragma omp critical (cerr)
+                    {
+                        std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers not sorted properly for read with sequence " << sequence << "! Agglomeration on stack ends at " << stack_top_end << " but we are at " << left << " from a previous agglomeration" << std::endl;
+                        exit(1);
+                    }
+                }
+                
                 iteratee(left, stack_top_end, bottom, bottom + stack.size());
 
                 // If the stack contains only one item there is a gap between the item
@@ -2796,7 +2881,14 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
         // For each item in turn
         auto& item = minimizers[*it];
         
-        assert(stack.size() > 0);
+        if (stack.size() == 0) {
+            // Something is wrong with our stacking algorithm
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers not stacked up properly for read with sequence " << sequence << "!" << std::endl;
+                exit(1);
+            }
+        }
 
         // For each new item we return all intervals that
         // precede its start
@@ -2886,11 +2978,15 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
                                              min(index - m.agglomeration_start + 1,
                                              (m.agglomeration_start + m.agglomeration_length) - index));
 
+#ifdef debug
+            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << endl;
+#endif
+
             // Account for at least one of them beating the minimizer.
             double any_beat_prob = prob_for_at_least_one(m.value.hash, possible_minimizers);
             
 #ifdef debug
-            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives probability: " << any_beat_prob << endl;
+            cerr << "\t\t\t\tGives probability: " << any_beat_prob << endl;
 #endif
             
             p *= any_beat_prob;
@@ -2952,7 +3048,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     if (seeds.size() > this->rescue_seed_limit) {
         return;
     }
-    std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+    std::vector<GaplessExtension> extensions = this->extender->extend(seeds, rescued_alignment.sequence(), &cached_graph);
 
     // If we have a full-length extension, use it as the rescued alignment.
     if (GaplessExtender::full_length_extensions(extensions)) {
@@ -3009,6 +3105,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
                                                dozeu_seed, false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
+            this->fix_dozeu_end_deletions(rescued_alignment);
         } else {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
         }
@@ -3047,6 +3144,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
         get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
+        this->fix_dozeu_end_deletions(rescued_alignment);
     } else if (this->rescue_algorithm == rescue_gssw) {
         get_regular_aligner()->align(rescued_alignment, dagified, true);
     }
@@ -3075,7 +3173,7 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3103,6 +3201,55 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
     }
 }
 
+void MinimizerMapper::fix_dozeu_end_deletions(Alignment& alignment) const {
+    
+    // figure out where the first insert/aligned base occurs on the left side
+    size_t i = 0, j = 0;
+    for (; i < alignment.path().mapping_size(); ++i) {
+        const auto& mapping = alignment.path().mapping(i);
+        for (j = 0; j < mapping.edit_size(); ++j) {
+            if (mapping.edit(j).to_length() != 0) {
+                break;
+            }
+        }
+        if (j != mapping.edit_size()) {
+            break;
+        }
+    }
+    if (i == alignment.path().mapping_size()) {
+        // the entire alignment is a deletion, clear it
+        alignment.clear_path();
+    }
+    else if (i != 0 || j != 0) {
+        // we found a deletion on the left side, remove it
+        auto mappings = alignment.mutable_path()->mutable_mapping();
+        auto edits = (*mappings)[j].mutable_edit();
+        size_t removed = 0;
+        for (size_t k = 0; k < j; ++k) {
+            removed += (*edits)[k].from_length();
+        }
+        edits->erase(edits->begin(), edits->begin() + j);
+        mappings->erase(mappings->begin(), mappings->begin() + i);
+        auto position =  (*mappings)[0].mutable_position();
+        position->set_offset(position->offset() + removed);
+    }
+    
+    // remove deletions on the right side
+    for (int64_t i = alignment.path().mapping_size() - 1; i >= 0; --i) {
+        auto edits = alignment.mutable_path()->mutable_mapping(i)->mutable_edit();
+        while (!edits->empty() && (*edits)[edits->size() - 1].to_length() == 0) {
+            edits->RemoveLast();
+        }
+        if (edits->empty()) {
+            alignment.mutable_path()->mutable_mapping()->RemoveLast();
+        }
+        else {
+            break;
+        }
+    }
+}
+
+
 //-----------------------------------------------------------------------------
 
 
@@ -3122,8 +3269,8 @@ int64_t MinimizerMapper::unoriented_distance_between(const pos_t& pos1, const po
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
-    assert(aln1.path().mapping_size() != 0); 
-    assert(aln2.path().mapping_size() != 0); 
+    crash_unless(aln1.path().mapping_size() != 0); 
+    crash_unless(aln2.path().mapping_size() != 0); 
      
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
@@ -3159,10 +3306,10 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         this->minimizer_index.minimizer_regions(sequence);
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = this->minimizer_index.count_and_find(get<0>(m));
-        if (hits.first > 0) {
-            if (hits.first <= this->hard_hit_cap) {
-                score = base_score - std::log(hits.first);
+        auto hits = this->minimizer_index.find(get<0>(m));
+        if (hits.second > 0) {
+            if (hits.second <= this->hard_hit_cap) {
+                score = base_score - std::log(hits.second);
             } else {
                 score = 1.0;
             }
@@ -3184,7 +3331,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
             agglomeration_length = match_length;
         }
         
-        result.push_back({ value, agglomeration_start, agglomeration_length, hits.first, hits.second,
+        result.push_back({ value, agglomeration_start, agglomeration_length, hits.second, hits.first,
                             match_length, candidate_count, score });
     }
     
@@ -3390,7 +3537,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
 
             // Locate the hits.
             for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = gbwtgraph::Position::decode(minimizer.occs[j].pos);
+                pos_t hit = minimizer.occs[j].position.decode();
                 // Reverse the hits for a reverse minimizer
                 if (minimizer.value.is_reverse) {
                     size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
@@ -3399,7 +3546,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                gbwtgraph::payload_type chain_info = no_chain_info();
+                gbwtgraph::Payload chain_info = no_chain_info();
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = minimizer.occs[j].payload;
                 }
@@ -3616,7 +3763,7 @@ vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
         }
     }
     
-    vector<GaplessExtension> cluster_extension = extender.extend(seed_matchings, sequence);
+    vector<GaplessExtension> cluster_extension = extender->extend(seed_matchings, sequence);
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -3938,6 +4085,36 @@ static int32_t flank_penalty(size_t length, const std::vector<pareto_point>& fro
     return result;
 }
 
+/// A helper function that cna merge softclips in properly when joining up
+/// paths, but doesn't need expensive full passes over the paths later.
+static inline void add_to_path(Path* target, Path* to_append) {
+    for (auto& mapping : *to_append->mutable_mapping()) {
+        // For each mapping to append
+        if (target->mapping_size() > 0) {
+            // There is an existing mapping on the path.
+            // Find that previous mapping.
+            auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
+
+            if (mapping.position().node_id() == prev_mapping->position().node_id() && 
+                (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
+                // Previous mapping is to the same node, and either the new
+                // mapping doesn't start at 0, or one mapping takes up no
+                // space on the node (i.e. is a pure insert).
+                //
+                // So we want to combine the mappings.
+                for (auto& edit : *mapping.mutable_edit()) {
+                    // Move over all the edits in this mapping onto the end of that one.
+                    *prev_mapping->add_edit() = std::move(edit);
+                }
+
+                continue;
+            }
+        }
+        // If we don't combine the mappings, we need to just move the whole mapping
+        *target->add_mapping() = std::move(mapping);
+    }
+};
+
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const {
 
     // This assumes that full-length extensions have the highest scores.
@@ -4174,64 +4351,22 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     best.set_score(winning_score);
     second_best.set_score(second_score);
 
-    // Concatenate the paths. We know there must be at least an edit boundary
+    // Concatenate the paths.
+
+    // We know there must be at least an edit boundary
     // between each part, because the maximal extension doesn't end in a
     // mismatch or indel and eats all matches.
     // We also don't need to worry about jumps that skip intervening sequence.
     *best.mutable_path() = std::move(winning_left);
-
-    for (auto* to_append : {&winning_middle, &winning_right}) {
-        // For each path to append
-        for (auto& mapping : *to_append->mutable_mapping()) {
-            // For each mapping to append
-            
-            if (mapping.position().offset() != 0 && best.path().mapping_size() > 0) {
-                // If we have a nonzero offset in our mapping, and we follow
-                // something, we must be continuing on from a previous mapping to
-                // the node.
-                assert(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
-
-                // Find that previous mapping
-                auto* prev_mapping = best.mutable_path()->mutable_mapping(best.path().mapping_size() - 1);
-                for (auto& edit : *mapping.mutable_edit()) {
-                    // Move over all the edits in this mapping onto the end of that one.
-                    *prev_mapping->add_edit() = std::move(edit);
-                }
-            } else {
-                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
-                *best.mutable_path()->add_mapping() = std::move(mapping);
-            }
-        }
-    }
+    add_to_path(best.mutable_path(), &winning_middle);
+    add_to_path(best.mutable_path(), &winning_right);
+    // Compute the identity from the path.
     best.set_identity(identity(best.path()));
+    
     //Do the same for the second best
     *second_best.mutable_path() = std::move(second_left);
-
-    for (auto* to_append : {&second_middle, &second_right}) {
-        // For each path to append
-        for (auto& mapping : *to_append->mutable_mapping()) {
-            // For each mapping to append
-            
-            if (mapping.position().offset() != 0 && second_best.path().mapping_size() > 0) {
-                // If we have a nonzero offset in our mapping, and we follow
-                // something, we must be continuing on from a previous mapping to
-                // the node.
-                assert(mapping.position().node_id() == second_best.path().mapping(second_best.path().mapping_size() - 1).position().node_id());
-
-                // Find that previous mapping
-                auto* prev_mapping = second_best.mutable_path()->mutable_mapping(second_best.path().mapping_size() - 1);
-                for (auto& edit : *mapping.mutable_edit()) {
-                    // Move over all the edits in this mapping onto the end of that one.
-                    *prev_mapping->add_edit() = std::move(edit);
-                }
-            } else {
-                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
-                *second_best.mutable_path()->add_mapping() = std::move(mapping);
-            }
-        }
-    }
-
-    // Compute the identity from the path.
+    add_to_path(second_best.mutable_path(), &second_middle);
+    add_to_path(second_best.mutable_path(), &second_right);
     second_best.set_identity(identity(second_best.path()));
 }
 

@@ -1055,7 +1055,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
         }
     }
     
-    simiplify_cigar(cigar);
+    simplify_cigar(cigar);
     
     return cigar;
 }

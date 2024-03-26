@@ -217,6 +217,17 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
         REQUIRE(name == "path]");
     }
+
+    SECTION("Range extraction") {
+        string name;
+        int64_t start = -1;
+        int64_t end = -1;
+        parse_region("x:y:1-2", name, start, end);
+
+        REQUIRE(name == "x:y");
+        REQUIRE(start == 1);
+        REQUIRE(end == 2);
+    }
 }
 
 

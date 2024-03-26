@@ -209,6 +209,9 @@ struct RebuildParameters {
 ///
 /// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
 /// no longer valid after rebuilding the GBWT.
+///
+/// NOTE: This could use the ConstructionJob / MetadataBuilder scheme for
+/// parallelization, but it would change the interface.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                         const std::vector<RebuildJob>& jobs,
                         const std::unordered_map<nid_t, size_t>& node_to_job,
@@ -235,9 +238,19 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
 Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 /// Get a short version of a string representation of a thread name stored in
-/// GBWT metadata, made of just the sample and contig.
+/// GBWT metadata, made of just the sample and contig and haplotype.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
+//------------------------------------------------------------------------------
+
+/// Copies the reference sample tag from the source GBWT index to the destination GBWT index.
+void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination);
+
+/// Copies reference samples from the source graph to the destination GBWT index.
+/// Every sample with at least one reference path in the source graph is considered
+/// a reference sample.
+void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination);
 
 //------------------------------------------------------------------------------
 

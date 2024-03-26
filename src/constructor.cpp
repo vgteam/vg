@@ -5,7 +5,10 @@
  
 #include "constructor.hpp"
 #include "utility.hpp"
+#include "crash.hpp"
 #include "io/load_proto_to_graph.hpp"
+
+#include <IntervalTree.h>
 
 #include <cstdlib>
 #include <set>
@@ -316,11 +319,16 @@ namespace vg {
 
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
         vector<vcflib::Variant> variants, size_t chunk_offset) const {
-            
-        #ifdef debug
-        cerr << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size() << endl;
-        #endif
         
+        std::stringstream status_stream;
+        status_stream << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size();
+
+        set_crash_context(status_stream.str());
+
+        #ifdef debug
+        cerr << status_stream.str() << endl;
+        #endif
+
         // Make sure the input sequence is upper-case and all IUPAC codes are Ns
         sanitize_sequence_in_place(reference_sequence, &reference_path_name);
         
@@ -351,6 +359,8 @@ namespace vg {
         // need to visit every node in a run, we don't just care about the
         // bounding IDs. So we store entire copies of the runs. But since the
         // inversions always go backward, we only need them by their end.
+        // These are also on-the-end and not past-the-end positions, matching
+        // nodes_ending_at.
         map<size_t, vector<Node*>> ref_runs_by_end;
         
         // We don't want to wire inserts to each other, so we have a set of all
@@ -373,6 +383,8 @@ namespace vg {
 
         // We also need to track all points at which deletions start, so we can
         // search for the next one when deciding where to break the reference.
+        // We store the last NON-deleted base; the deletion arc attaches to the
+        // right side of this base! This base is *not* deleted.
         set<int64_t> deletion_starts;
 
         // We use this to get the next variant
@@ -529,6 +541,9 @@ namespace vg {
                 nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
                 
                 // Save the whole run for inversion tracing
+                #ifdef debug
+                cerr << "Create ref run ending at " << reference_cursor + seen_bases - 1 << endl;
+                #endif
                 ref_runs_by_end[reference_cursor + seen_bases - 1] = std::move(new_nodes);
 
             }
@@ -588,9 +603,8 @@ namespace vg {
                 // This holds the min and max values for the starts and ends of
                 // edits in each variant that are actual change-making edits. These
                 // are in chunk coordinates. They are only populated if a variant
-                // has a variable region. They can enclose a 0-length variable
-                // region by having the end before the beginning.
-                map<vcflib::Variant*, pair<int64_t, int64_t>> variable_bounds;
+                // has a variable region. Equal start and end indicate a 1-base region.
+                vector<IntervalTree<int64_t, vcflib::Variant*>::interval> variable_intervals;
 
                 // This holds the min and max values for starts and ends of edits
                 // not removed from the clump. These are in chunk coordinates.
@@ -682,7 +696,7 @@ namespace vg {
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
-                    string variant_name = make_variant_id(*variant);
+                    string variant_name = sha1_variant_name ? make_variant_id(*variant) : get_or_make_variant_id(*variant);
                     if (variants_by_name.count(variant_name)) {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the
@@ -831,9 +845,19 @@ namespace vg {
                         // There's a (possibly 0-length) variable region
                         bounds.first -= chunk_offset;
                         bounds.second -= chunk_offset;
-                        // Save the bounds for making reference node path visits
-                        // inside the ref allele of the variable region.
-                        variable_bounds[variant] = bounds;
+                        
+                        if (alt_paths && bounds.second >= bounds.first) {
+                            // The variant covers a nonempty part of the
+                            // reference, and we will need to find it for alt
+                            // path generation.
+
+                            // Save the bounds for making reference node path visits
+                            // inside the ref allele of the variable region.
+                            #ifdef debug
+                            cerr << "Record ref interval of " << bounds.first << " to " << bounds.second << " for " << *variant << endl;
+                            #endif
+                            variable_intervals.push_back(IntervalTree<int64_t, vcflib::Variant*>::interval(bounds.first, bounds.second, variant));
+                        }
 
                         #ifdef debug
                         if (bounds.first < first_edit_start) {
@@ -883,6 +907,9 @@ namespace vg {
                 cerr << "edits run between " << first_edit_start << " and " << last_edit_end << endl;
                 #endif
 
+                // Index the variants in the clump by the reference region they overlap
+                IntervalTree<int64_t, vcflib::Variant*> variable_interval_tree(std::move(variable_intervals));
+
                 // Create ref nodes from the end of the last clump (where the cursor
                 // is) to the start of this clump's interior non-ref content.
                 add_reference_nodes_until(first_edit_start);
@@ -898,7 +925,7 @@ namespace vg {
                 // This holds on to variant ref paths, which we can't actually fill
                 // in until all the variants in the clump have had their non-ref
                 // paths done.
-                map<vcflib::Variant*, Path*> variant_ref_paths;
+                unordered_map<vcflib::Variant*, Path*> variant_ref_paths;
                 
                 // This holds alt Path pointers and the inversions (start, end)
                 // that they need to trace through in their inverted
@@ -1089,6 +1116,16 @@ namespace vg {
                                         nodes_starting_at[edit_start].insert(node_run.front()->id());
                                         nodes_ending_at[edit_end].insert(node_run.back()->id());
 
+                                        if (edit.ref == edit.alt) {
+                                            // This edit is a no-op and so the node we just created is a reference run.
+                                            // These can be necessary if insertions and deletions are part of the same record.
+                                            // Remember the whole node run for inversion tracing
+                                            #ifdef debug
+                                            cerr << "Create ref run ending at " << edit_end << endl;
+                                            #endif
+                                            ref_runs_by_end[edit_end] = node_run;
+                                        }
+
                                         // Save it in case any other alts also have this edit.
                                         created_nodes[key] = node_run;
 
@@ -1159,12 +1196,26 @@ namespace vg {
                 // come in or out.
 
                 // We need a function to work that out
-                auto next_breakpoint_after = [&](size_t position) -> size_t {
-                    // This returns the position of the base to the left of the next
-                    // required breakpoint within this clump, after the given
-                    // position, given created nodes and deletions that already
-                    // exist.
 
+                /**
+                 * Find the next breakpoint.
+                 *
+                 * Takes in the search position, like the position of the next
+                 * un-made reference base. So searches from the left edge of
+                 * the passed inclusive position.
+                 *
+                 * Finds the next required breakpoint within this clump, after
+                 * the given position, given created nodes and deletions that
+                 * already exist.
+                 *
+                 * Returns the inclusive position of the base to the left of
+                 * this breakpoint, so the breakpoint is immediately to the
+                 * right of the base at the returned position. This means that
+                 * sometimes, such as if the next piece of the reference would
+                 * be 1 bp long, this function will return the same value it
+                 * was passed.
+                 */
+                auto next_breakpoint_after = [&](size_t position) -> size_t {
                     // If nothing else, we're going to break at the end of the last
                     // edit in the clump.
                     size_t to_return = last_edit_end;
@@ -1176,7 +1227,7 @@ namespace vg {
                     // See if any nodes are registered as starting after our
                     // position. They'll all start before the end of the clump, and
                     // we don't care if they start at our position since that
-                    // breakpoint already happened.
+                    // breakpoint would be to the left and already happened.
                     auto next_start_iter = nodes_starting_at.upper_bound(position);
 
                     if(next_start_iter != nodes_starting_at.end()) {
@@ -1190,7 +1241,8 @@ namespace vg {
 
                     // See if any nodes are registered as ending at or after our
                     // position. We do care if they end at our position, since that
-                    // means we need to break right here.
+                    // means we need to break right here because that
+                    // breakpoint would be to the right.
                     auto next_end_iter = nodes_ending_at.lower_bound(position);
 
                     if(next_end_iter != nodes_ending_at.end()) {
@@ -1202,7 +1254,10 @@ namespace vg {
                         #endif
                     }
 
-                    // See if any deletions are registered as ending at or after here.
+                    // See if any deletions are registered as ending at or
+                    // after here. If the deletion ends here, this is the last
+                    // base deleted, and that creates a breeakpoint to our
+                    // right.
                     auto deletion_end_iter = deletions_ending_at.lower_bound(position);
 
                     if(deletion_end_iter != deletions_ending_at.end()) {
@@ -1217,7 +1272,9 @@ namespace vg {
                     
                     // See if any deletions are known to start at or after this
                     // base. We care about exact hits now, because deletions break
-                    // after the base they start at.
+                    // to the right of the base they start at, since we are
+                    // storing the base that the deletion arc attaches to the
+                    // right side of.
                     auto deletion_start_iter = deletion_starts.lower_bound(position);
                     // We don't need to worry about -1s here. They won't be found
                     // with lower_bound on a size_t.
@@ -1232,16 +1289,21 @@ namespace vg {
                         #endif
                     }
 
-                    // Check to see if any inversions' last inverted bases are past this point
+                    // Check to see if any inversions' last (largest
+                    // coordinate) inverted bases are at or after this point
                     // Inversions break the reference twice, much like deletions.
-                    auto inv_end_iter = inversions_ending.upper_bound(position);
+                    // Since we store the final base that is inverted, and the
+                    // inversion creates a breakpoint on the right side of that
+                    // base, we care about exact hits.
+                    auto inv_end_iter = inversions_ending.lower_bound(position);
                     if (inv_end_iter != inversions_ending.end()){
                         to_return = min(to_return, (size_t) inv_end_iter->first);
                         #ifdef debug
-                        cerr << "Next inversion ends by inverting " << inv_end_iter->first << endl;
+                        cerr << "Next inversion ends after inverting " << inv_end_iter->first << endl;
                         #endif
                     }
 
+                    // Also look at inversions' first (smallest coordinate) bases.
                     // Inversions break just after the anchor the base they start at,
                     // so we care about exact hits and use lower_bound.
                     auto inv_start_iter = inversions_starting.lower_bound(position);
@@ -1300,8 +1362,8 @@ namespace vg {
 
                     // We need a key to see if a node (run) has been made for this sequece already
                     auto key = make_tuple(reference_cursor, run_sequence, run_sequence);
-
-                    if (created_nodes.count(key) == 0) {
+                    auto representative_nodes = created_nodes.find(key);
+                    if (representative_nodes == created_nodes.end()) {
                         // We don't have a run of ref nodes up to the next break, so make one
                         vector<Node*> node_run = create_nodes(run_sequence);
 
@@ -1310,6 +1372,9 @@ namespace vg {
                         nodes_ending_at[next_end].insert(node_run.back()->id());
                         
                         // Remember the whole node run for inversion tracing
+                        #ifdef debug
+                        cerr << "Create ref run ending at " << next_end << endl;
+                        #endif
                         ref_runs_by_end[next_end] = node_run;
                         
 
@@ -1318,34 +1383,43 @@ namespace vg {
 #endif
 
                         // Save it in case any other alts also have this edit.
-                        created_nodes[key] = node_run;
+                        representative_nodes = created_nodes.insert(representative_nodes, {key, node_run});
+                    } else {
+#ifdef debug
+                        cerr << "Reference nodes at  " << reference_cursor << " for constant " << run_sequence.size() << " bp sequence " << run_sequence << " already exist" << endl;
+#endif
                     }
 
-                    for (Node* node : created_nodes[key]) {
+                    for (Node* node : representative_nodes->second) {
                         // Add a reference visit to each node we created/found
                         add_match(ref_path, node);
+                    }
 
-                        if (alt_paths) {
-                            for (vcflib::Variant* variant : clump) {
+                    if (!representative_nodes->second.empty() && alt_paths) {
+                        // Ref paths from other variants may need to visit these new nodes.
+                        auto overlapping_intervals = variable_interval_tree.findOverlapping(reference_cursor, reference_cursor);
+                        #ifdef debug
+                        cerr << "Found " << overlapping_intervals.size() << " potential overlapping variants in clump at " << reference_cursor << endl;
+                        #endif
+                        for (auto& interval : overlapping_intervals) {
+                            if (interval.start <= reference_cursor && interval.stop >= reference_cursor && !skipped.count(interval.value)) {
                                 // For each variant we might also be part of the ref allele of
-                                if (!skipped.count(variant) &&
-                                        variable_bounds.count(variant) &&
-                                        reference_cursor >= variable_bounds[variant].first &&
-                                        reference_cursor <= variable_bounds[variant].second) {
-                                    // For unique variants that actually differ from reference,
-                                    // if this run of nodes starts within the variant's variable region...
-                                    // (We know if it starts in the variable region it has to
-                                    // end in the variant, because the variable region ends with
-                                    // a node break)
 
-                                    if (variant_ref_paths.count(variant) == 0) {
-                                        // All unique variants ought to have a ref path created
-                                        cerr << "error:[vg::Constructor] no ref path for " << *variant << endl;
-                                        exit(1);
-                                    }
+                                // For unique variants that actually differ from reference,
+                                // if this run of nodes starts within the variant's variable region...
+                                // (We know if it starts in the variable region it has to
+                                // end in the variant, because the variable region ends with
+                                // a node break)
 
+                                if (variant_ref_paths.count(interval.value) == 0) {
+                                    // All unique variants ought to have a ref path created
+                                    cerr << "error:[vg::Constructor] no ref path for " << *interval.value << endl;
+                                    exit(1);
+                                }
+                                
+                                for (Node* node : representative_nodes->second) {
                                     // Add a match along the variant's ref allele path
-                                    add_match(variant_ref_paths[variant], node);
+                                    add_match(variant_ref_paths[interval.value], node);
                                 }
                             }
                         }
@@ -1680,7 +1754,8 @@ namespace vg {
                 nonempty_paths++;
             }
         }
-
+        
+        clear_crash_context();
         return to_return;
     }
 
@@ -1748,9 +1823,11 @@ namespace vg {
         // max rank used?
         size_t max_ref_rank = 0;
 
-        // Whenever a chunk ends with a single node, we separate it out and buffer
-        // it here, because we may need to glue it together with subsequent leading
-        // nodes that were broken by a chunk boundary.
+        // Whenever a chunk ends with a single node, with no edges to the end
+        // or non-reference paths, we separate it out and buffer it here,
+        // because we may need to glue it together with subsequent leading
+        // nodes with no edges to the start or non-reference paths, to
+        // eliminate spurious node breaks at chunk boundaries. 
         Node last_node_buffer;
 
         // Sometimes we need to emit single node reference chunks gluing things
@@ -1792,9 +1869,86 @@ namespace vg {
         auto wire_and_emit = [&](ConstructedChunk& chunk) {
             // When each chunk comes back:
             
-            if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
+            // If we have a single head or tail with no outer edges or
+            // non-reference paths, we will fill in the ID here.
+            nid_t head_id = 0;
+            nid_t tail_id = 0;
+
+            if (last_node_buffer.id() != 0 && chunk.left_ends.size() == 1) {
+                // We have a single dangling node buffered that we can rewrite.
+                // So we also want to know if we have a head to combine it with.
+                // And it looks like we might.
+                head_id = *chunk.left_ends.begin();
+                #ifdef debug
+                cerr << "Node " << head_id << " might be mergable with buffered node " << last_node_buffer.id() << endl;
+                #endif
+            }
+
+            if (chunk.right_ends.size() == 1) {
+                // We always need to know if we can buffer the tail.
+                // Name this node a candidate tail.
+                tail_id = *chunk.right_ends.begin();
+                #ifdef debug
+                cerr << "Node " << tail_id << " might be a tail we can buffer" << endl;
+                #endif
+            }
+
+            for (auto& edge : chunk.graph.edge()) {            
+                // Go through all edges and kick out head and tail candidates if they have any on the outside.
+                if (head_id && ((edge.from() == head_id && edge.from_start()) || (edge.to() == head_id && !edge.to_end()))) {
+                    // Edge connects to the start of the head candidate, so it fails.
+                    #ifdef debug
+                    cerr << "Node " << head_id << " has an edge to its left and so can't merge" << endl;
+                    #endif
+                    head_id = 0;
+                }
+                if (tail_id && ((edge.from() == tail_id && !edge.from_start()) || (edge.to() == tail_id && edge.to_end()))) {
+                    // Edge connects to the end of the tail candidate, so it fails.
+                    #ifdef debug
+                    cerr << "Node " << tail_id << " has an edge to its right and so can't merge" << endl;
+                    #endif
+                    tail_id = 0;
+                }
+            }
+
+            for (size_t i = 1; (head_id != 0 || tail_id != 0) && i < chunk.graph.path_size(); i++) {
+                // Go through all paths other than the reference (which is 0)
+                auto& path = chunk.graph.path(i);
+                
+                // Check the first and last steps on the path to see if they
+                // touch our head/tail nodes. Other steps can't touch them
+                // because of the edge restrictions we already checked.
+                auto check_mapping = [&](size_t mapping_index) {
+                    nid_t touched_node = path.mapping(mapping_index).position().node_id();
+                    if (touched_node == head_id) {
+                        #ifdef debug
+                        cerr << "Node " << head_id << " is visited by path " << path.name() << " and so can't merge" << endl;
+                        #endif
+                        head_id = 0;
+                    }
+                    if (touched_node == tail_id) {
+                        #ifdef debug
+                        cerr << "Node " << tail_id << " is visited by path " << path.name() << " and so can't merge" << endl;
+                        #endif
+                        tail_id = 0;
+                    }
+                };
+
+                // Sometimes the first and last step are the same step!
+                if (path.mapping_size() > 0) {
+                    // We have a first step
+                    check_mapping(0);
+                    if (path.mapping_size() > 1) {
+                        // We have a distinct last step
+                        check_mapping(path.mapping_size() - 1);
+                    }
+                }
+            }
+
+
+            if (last_node_buffer.id() != 0 && head_id != 0) {
                 // We have a last node from the last chunk that we want to glom onto
-                // this chunk.
+                // this chunk, and we have a node to do it with.
 
                 // We want to merge it with the single source node for this
                 // chunk. But depending on the variant structure it may not be
@@ -1807,26 +1961,23 @@ namespace vg {
                 // graph size anyway, and we never have to scan through more
                 // than a variant's worth of nodes.
                 
-                // This is the node we want
-                auto wanted_id = *chunk.left_ends.begin();
-                
                 // We will fill this in
                 Node* mutable_first_node = nullptr;
                 for (size_t i = 0; i < chunk.graph.node_size(); i++) {
                     // Look at each node in turn
                     mutable_first_node = chunk.graph.mutable_node(i);
                     
-                    if (mutable_first_node->id() == wanted_id) {
+                    if (mutable_first_node->id() == head_id) {
                         // We found the left end we want
                         break;
                     }
                 }
                 
-                if (mutable_first_node == nullptr || mutable_first_node->id() != wanted_id) {
+                if (mutable_first_node == nullptr || mutable_first_node->id() != head_id) {
                     // Make sure we found it
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] On " << reference_contig
-                         << ", could not find node " << wanted_id << endl;
+                         << ", could not find node " << head_id << endl;
                     exit(1);
                 }
 
@@ -1894,8 +2045,9 @@ namespace vg {
                 edit->set_from_length(mutable_first_node->sequence().size());
                 edit->set_to_length(mutable_first_node->sequence().size());
             } else if (last_node_buffer.id() != 0) {
-                // There's no single leading node on this next chunk, but we still
-                // have a single trailing node to emit.
+                // There's no single leading node on this next chunk that we
+                // are free to rewrite, but we still have a single trailing
+                // node to emit.
 
                 // Emit it
                 emit_reference_node(last_node_buffer);
@@ -1903,14 +2055,14 @@ namespace vg {
                 last_node_buffer = Node();
             }
 
-            if (chunk.right_ends.size() == 1) {
+            if (tail_id != 0) {
                 // We need to pull out the last node in the chunk. Note that it may
                 // also be the first node in the chunk...
 
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
                 
-                if (!chunk.right_ends.count(last_node_buffer.id())) {
+                if (last_node_buffer.id() != tail_id) {
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] On " << reference_contig
                          << ", could not find right end for node " << last_node_buffer.id() << endl;
@@ -2057,6 +2209,9 @@ namespace vg {
                 
             // While we have variants we want to include
             auto vvar = variant_source.get();
+
+            // Fix the variant's canonical flag being uninitialized.
+            vvar->canonical = false;
 
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
@@ -2463,7 +2618,7 @@ namespace vg {
         }
 
     }
-    
+
     void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
         const vector<string>& insertion_filenames, const function<void(Graph&)>& callback) {
         

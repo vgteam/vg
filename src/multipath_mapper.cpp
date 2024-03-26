@@ -905,24 +905,6 @@ namespace vg {
         }
     }
 
-    void MultipathMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-                                               int8_t full_length_bonus) {
-        AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
-        splice_stats.update_scoring(*get_regular_aligner());
-        set_min_softclip_length_for_splice(min_softclip_length_for_splice);
-        set_log_odds_against_splice(no_splice_natural_log_odds);
-        set_max_merge_supression_length();
-    }
-
-    void MultipathMapper::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
-                                               int8_t full_length_bonus) {
-        AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus);
-        splice_stats.update_scoring(*get_regular_aligner());
-        set_min_softclip_length_for_splice(min_softclip_length_for_splice);
-        set_log_odds_against_splice(no_splice_natural_log_odds);
-        set_max_merge_supression_length();
-    }
-
     void MultipathMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend,
                                                int8_t full_length_bonus) {
         AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
