@@ -11,8 +11,8 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
-//#define debug_transition
+#define debug_chaining
+#define debug_transition
 
 namespace vg {
 namespace algorithms {
@@ -215,7 +215,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             auto& dest_anchor = to_chain[dest_anchor_index];
 
 #ifdef debug_transition
-            std::cerr << "Handle transition " << source_anchor << " to " << dest_anchor << std::endl;
+            std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
 #endif
 
             if (graph_distance == std::numeric_limits<size_t>::max()) {
@@ -299,28 +299,23 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
 
-#ifdef debug_transition
-            std::cerr << "Consider destination seed " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << std::endl;
-#endif
+
 
             // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
             std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
 
             if (found_dest_anchor == (dest_seed.is_reverse ? seed_to_ending.end() : seed_to_starting.end())) {
                 // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
-#ifdef debug_transition
-                std::cerr <<"\tDoes not correspond to an anchor in this cluster" << std::endl;
-#endif
                 continue;
             }
+
+#ifdef debug_transition
+            std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
+#endif
 
             for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
-
-#ifdef debug_transition
-                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << std::endl;
-#endif
 
                 if (!source_seed.is_reverse && !dest_seed.is_reverse) {
                     // Both of these are in the same orientation relative to
@@ -332,12 +327,12 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
-                    } else {
 #ifdef debug_transition
-                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+                        std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << " is anchor #" << found_source_anchor->second << std::endl;
+                        std::cerr << "\t\tFound transition from #" << found_source_anchor->second << " to #" << found_dest_anchor->second << std::endl;
 #endif
-                    }
+                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                    } 
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
                     // We need to find source as an anchor *started*, and thensave them flipped for later.
@@ -345,12 +340,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
-                    } else {
+                        
 #ifdef debug_transition
-                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+                        std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << " is anchor #" << found_source_anchor->second << std::endl;
+                        std::cerr << "\t\tFound backward transition from #" << found_dest_anchor->second << " to #" << found_source_anchor->second << std::endl;
 #endif
-                    }
+
+                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                    } 
                 } else {
                     // We have a transition between different orientations relative to the read. Don't show that.
                     continue;

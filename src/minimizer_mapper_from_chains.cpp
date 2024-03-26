@@ -1358,9 +1358,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     if (result < MANY_LIMIT) {
                         #pragma omp critical (cerr)
                         {
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from local fragments:";
+                            for (auto& f : chain_result.second) {
+                                std::cerr << " " << f;
+                            } 
+                            std::cerr << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from global fragments:";
                             for (auto& f : chain_fragment_nums_overall) {
                                 std::cerr << " " << f;
+                            } 
+                            std::cerr << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " contains seeds:";
+                            for (auto& s : chains.back()) {
+                                std::cerr << " " << s;
                             } 
                             std::cerr << std::endl;
                         }
