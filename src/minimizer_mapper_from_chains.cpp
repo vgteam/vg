@@ -712,7 +712,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
             return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
-        }, zipcode_tree_score_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
+        }, zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
@@ -1780,16 +1780,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }, discard_chain_by_score);
     
+    // We want to be able to feed in an unaligned alignment on the normal
+    // codepath, but we don't want it to really participate in the funnel
+    // filters anymore. So we set this flag if the funnle is really empty of
+    // items so we stop talking about filters.
+    bool funnle_depleted = false;
+
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
         multiplicity_by_alignment.emplace_back(0);
-        
-        if (track_provenance) {
-            // Say it came from nowhere
-            funnel.introduce();
-        }
+        // Stop telling the funnel about filters and items.
+        funnle_depleted = true;
     } else {
         //chain_count_by_alignment is currently the number of better or equal chains that were used
         // We really want the number of chains not including the ones that represent the same mapping
@@ -1841,7 +1844,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
-        if (track_provenance) {
+        if (track_provenance && !funnle_depleted) {
             // Tell the funnel
             funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
@@ -1855,7 +1858,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
         
-        if (track_provenance) {
+        if (track_provenance && !funnle_depleted) {
             funnel.fail("max-multimaps", alignment_num);
         }
     }, [&](size_t alignment_num) {
@@ -1963,7 +1966,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Remember the scores
-    set_annotation(mappings.front(),"secondary_scores", scores);
+    set_compressed_annotation(mappings.front(),"secondary_scores", scores);
 
     if (track_provenance) {
         funnel.substage_stop();
@@ -2003,15 +2006,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Special fragment and chain statistics
-    set_annotation(mappings[0], "fragment_scores", fragment_scores);
+    set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
     if (track_correctness) {
-        set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
+        set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
     }
-    set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
-    set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
-    set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
-    set_annotation(mappings[0], "best_chain_anchors", (double) best_chain_anchors);
-    set_annotation(mappings[0], "best_chain_anchor_length", (double) best_chain_anchor_length);
+    set_annotation(mappings[0], "best_chain.coverage", best_chain_coverage);
+    set_annotation(mappings[0], "best_chain.longest_jump", (double) best_chain_longest_jump);
+    set_annotation(mappings[0], "best_chain.average_jump", best_chain_average_jump);
+    set_annotation(mappings[0], "best_chain.anchors", (double) best_chain_anchors);
+    set_annotation(mappings[0], "best_chain.anchor_length", (double) best_chain_anchor_length);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
