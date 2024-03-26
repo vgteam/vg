@@ -219,7 +219,7 @@ int main_annotate(int argc, char** argv) {
             // We are computing a novelty table.
             // TODO: refactor this into novelty annotation and annotation-to-table conversion.
             if (add_positions || !bed_names.empty()) {
-                // We can't amke the TSV and also annotate the reads
+                // We can't make the TSV and also annotate the reads
                 cerr << "error [vg annotate]: Cannot annotate reads while computing novelty table" << endl;
                 return 1;
             }
