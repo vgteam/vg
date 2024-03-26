@@ -740,7 +740,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("score-fraction", 1.0)
         // Use a high hard hit cap to allow centromeres
         .add_entry<size_t>("hard-hit-cap", 16384)
-        // Parameter search results
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
@@ -749,6 +748,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<int>("max-lookback-bases", 24000)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
