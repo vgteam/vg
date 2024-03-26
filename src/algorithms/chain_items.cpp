@@ -369,11 +369,17 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     };
 }
 
-int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
+/// Compute a gap score like minimap2.
+///
+/// They say they use the average anchor length, but really we need to use the
+/// minimizer/base seed length here. Otherwise gaps cost more as your fragments
+/// that you are chaining get longer, and cost more at chaining than at
+/// fragmenting.
+int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         return 0;
     } else {
-        return 0.01 * average_anchor_length * distance_difference + 0.5 * log2(distance_difference);
+        return 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
     }
 }
 
@@ -405,13 +411,14 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    // Compute an average anchor length. Really, use the exclusion zone length,
-    // so we will be on the right scale for the item scores.
-    size_t average_anchor_length = 0;
+    // Compute a base seed average length.
+    // TODO: Weight anchors differently?
+    // TODO: Will this always be the same for all anchors in practice?
+    size_t base_seed_length = 0;
     for (auto& anchor : to_chain) {
-        average_anchor_length += (anchor.read_exclusion_end() - anchor.read_exclusion_start());
+        base_seed_length += anchor.base_seed_length();
     }
-    average_anchor_length /= to_chain.size();
+    base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
@@ -484,7 +491,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, average_anchor_length) * gap_scale;
+            jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
