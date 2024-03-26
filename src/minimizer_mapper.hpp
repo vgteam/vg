@@ -341,11 +341,6 @@ public:
     static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
 
-    /// How many long of a tail should we align in one go? If the tail is longer
-    /// than this, then align this much, then restart the alignment from the end
-    static constexpr size_t default_max_dp_align = 5000;
-    size_t max_dp_align = default_max_dp_align;
-
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;
