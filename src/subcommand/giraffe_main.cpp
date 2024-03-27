@@ -750,6 +750,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-max-min-score", 120)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
