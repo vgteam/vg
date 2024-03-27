@@ -587,9 +587,6 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!alignments_filename.empty()) {
-        // Read in the given GAM
-        ifstream alignment_stream(alignments_filename);
-
         // We need some allele parsing functions
 
         // This one gets the site name from an allele path name
@@ -909,9 +906,12 @@ int main_stats(int argc, char** argv) {
             }
 
         };
-
-        // Actually go through all the reads and count stuff up.
-        vg::io::for_each_parallel(alignment_stream, lambda);
+        
+        get_input_file(alignments_filename, [&](istream& alignment_stream) {
+            // Read in the given GAM
+            // Actually go through all the reads and count stuff up.
+            vg::io::for_each_parallel(alignment_stream, lambda);
+        });
         
         // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
         for (auto& per_thread : read_stats) {
