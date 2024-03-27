@@ -369,6 +369,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "minimum fraction of best fragment score to retain a fragment"
     );
     chaining_opts.add_range(
+        "fragment-max-min-score",
+        &MinimizerMapper::fragment_max_min_score,
+        MinimizerMapper::default_fragment_max_min_score,
+        "maximum for fragment score threshold based on the score of the best fragment"
+    );
+    chaining_opts.add_range(
         "fragment-min-score",
         &MinimizerMapper::fragment_min_score,
         MinimizerMapper::default_fragment_min_score,
