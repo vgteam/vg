@@ -780,7 +780,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        // we'll partition sequences that have the same samples (chunking the the VCFs
+        // we'll partition sequences that have the same samples (chunking the VCFs
         // ultimately requires that we do this)
         map<set<string>, vector<string>> sample_set_contigs;
         for (int i = 0; i < vcf_samples.size(); ++i) {

@@ -1633,7 +1633,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                 }
             }
             else if (!have_right_linker) {
-                // the splice segment on the right side is empty, make connection the the left side
+                // the splice segment on the right side is empty, make connection the left side
                 auto connection = left_mp_aln.mutable_subpath(right_subpaths_begin - 1)->add_connection();
                 connection->set_next(left_mp_aln.subpath_size());
                 connection->set_score(splice_score);
