@@ -219,7 +219,7 @@ int main_annotate(int argc, char** argv) {
         if (show_progress) {
             std::cerr << "Load snarls" << std::endl;
         }
-        get_input_file(snarls_name, [&](ifstream& snarl_stream) {
+        get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
         });
     }
