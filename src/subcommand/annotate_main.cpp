@@ -200,7 +200,13 @@ int main_annotate(int argc, char** argv) {
 
     if (!xg_name.empty()) {
         // Read in the XG index
+        if (show_progress) {
+            std::cerr << "Load graph" << std::endl;
+        }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        if (show_progress) {
+            std::cerr << "Apply overlay" << std::endl;
+        }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
@@ -210,13 +216,12 @@ int main_annotate(int argc, char** argv) {
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
-        ifstream snarl_stream;
-        snarl_stream.open(snarls_name);
-        if (!snarl_stream) {
-            cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
-            exit(1);
+        if (show_progress) {
+            std::cerr << "Load snarls" << std::endl;
         }
-        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
+        get_input_file(snarls_name, [&](ifstream& snarl_stream) {
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
+        });
     }
     
     Mapper mapper(xg_index, nullptr, nullptr);
