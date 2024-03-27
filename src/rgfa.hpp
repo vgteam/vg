@@ -101,6 +101,13 @@ protected:
     vector<pair<int64_t, int64_t>> get_uncovered_intervals(const vector<step_handle_t>& trav,
                                                            const unordered_map<nid_t, int64_t>& thread_node_to_interval);
 
+    // add a new interval into the rgfa_intervals veector and update the node_to_interval map
+    // if the interval can be merged into an existing, contiguous interval, do that instead
+    // returns true if a new interval was added, false if an existing interval was updated
+    bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_rgfa_intervals,
+                      unordered_map<nid_t, int64_t>& thread_node_to_interval,
+                      const pair<step_handle_t, step_handle_t>& new_interval);
+
     // get the total coverage of a traversal (sum of step lengths)
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 

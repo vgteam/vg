@@ -146,7 +146,9 @@ void RGFACover::compute(const PathHandleGraph* graph,
         vector<pair<step_handle_t, step_handle_t>>& thread_rgfa_intervals = rgfa_intervals_vector[omp_get_thread_num()];    
         unordered_map<nid_t, int64_t>& thread_node_to_interval = node_to_interval_vector[omp_get_thread_num()];
 
-        vector<const Snarl*> queue = {snarl}; 
+        vector<const Snarl*> queue = {snarl};
+
+        cerr << "top level snarl " << pb2json(*snarl) << endl;
 
         while(!queue.empty()) {
             const Snarl* cur_snarl = queue.back();
@@ -576,19 +578,13 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
             }
             continue;
         }
-
-        // add the interval to the local (thread safe) structures
-        step_handle_t step = trav[uncovered_interval.first];
-        int64_t interval_length = uncovered_interval.second - uncovered_interval.first;
+        pair<step_handle_t, step_handle_t> new_interval = make_pair(trav.at(uncovered_interval.first),
+                                                                    graph->get_next_step(trav.at(uncovered_interval.second - 1)));
 #ifdef debug
+        int64_t interval_length = uncovered_interval.second - uncovered_interval.first;
         cerr << "adding interval with length " << interval_length << endl;
 #endif
-        for (int64_t i = 0; i < interval_length; ++i) {
-            thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = thread_rgfa_intervals.size();
-            step = graph->get_next_step(step);
-        }
-        thread_rgfa_intervals.push_back(make_pair(trav.at(uncovered_interval.first),
-                                                  graph->get_next_step(trav.at(uncovered_interval.second - 1))));
+        add_interval(thread_rgfa_intervals, thread_node_to_interval, new_interval);
     }
 }
 
@@ -621,6 +617,54 @@ vector<pair<int64_t, int64_t>> RGFACover::get_uncovered_intervals(const vector<s
     return intervals;
 }
 
+bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_rgfa_intervals,
+                             unordered_map<nid_t, int64_t>& thread_node_to_interval,
+                             const pair<step_handle_t, step_handle_t>& new_interval) {
+
+    bool merged = false;
+    path_handle_t path_handle = graph->get_path_handle_of_step(new_interval.first);
+
+    // check the before-first step.  if it's in an interval then it must be immediately
+    // preceeding so we merge the new interval to the end of the found interval
+    step_handle_t before_first_step = graph->get_previous_step(new_interval.first);
+    if (before_first_step != graph->path_front_end(graph->get_path_handle_of_step(before_first_step))) {
+        nid_t prev_node_id = graph->get_id(graph->get_handle_of_step(before_first_step));
+        if (thread_node_to_interval.count(prev_node_id)) {
+            pair<step_handle_t, step_handle_t>& prev_interval = thread_rgfa_intervals[thread_node_to_interval[prev_node_id]];
+            if (graph->get_path_handle_of_step(prev_interval.first) == path_handle) {
+                assert(prev_interval.second == new_interval.first);
+                prev_interval.second = new_interval.second;
+                merged = true;
+            }
+        }
+    }
+    
+    // check the end step.  if it's in an interval then it must be immediately
+    // following  we merge the new interval to the front of the found interval
+    if (new_interval.second != graph->path_end(graph->get_path_handle_of_step(new_interval.second))) {
+        nid_t next_node_id = graph->get_id(graph->get_handle_of_step(new_interval.second));
+        if (thread_node_to_interval.count(next_node_id)) {
+            pair<step_handle_t, step_handle_t>& next_interval = thread_rgfa_intervals[thread_node_to_interval[next_node_id]];
+            path_handle_t next_path = graph->get_path_handle_of_step(next_interval.first);
+            if (graph->get_path_handle_of_step(next_interval.first) == path_handle) {
+                assert(next_interval.first == new_interval.second);
+                next_interval.first = new_interval.first;
+                merged = true;
+            }
+        }
+    }
+
+    // add the interval to the local (thread safe) structures
+    if (!merged) {
+        for (step_handle_t step = new_interval.first; step != new_interval.second; step = graph->get_next_step(step)) {
+            thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = thread_rgfa_intervals.size();
+        }
+        thread_rgfa_intervals.push_back(new_interval);
+    }
+    
+    return !merged;
+}
+
 int64_t RGFACover::get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval) {
     path_handle_t path_handle = graph->get_path_handle_of_step(trav.front());
     int64_t coverage = 0;
@@ -635,7 +679,9 @@ int64_t RGFACover::get_coverage(const vector<step_handle_t>& trav, const pair<in
 
     return coverage;
 }
-    
+
+
+
 // copied pretty much verbatem from
 // https://github.com/ComparativeGenomicsToolkit/hal2vg/blob/v1.1.2/clip-vg.cpp#L809-L880
 void RGFACover::forwardize_rgfa_paths(MutablePathMutableHandleGraph* mutable_graph) {
