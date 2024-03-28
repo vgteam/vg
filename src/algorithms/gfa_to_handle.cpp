@@ -303,7 +303,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             string rgfa_path_name;
             if (path_rank > 0) {
                 // Special logic for off-reference paths, which get loaded into special rGFA cover paths
-                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, true);
+                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, false);
             } else {
                 // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
                 rgfa_path_name = PathMetadata::create_path_name(PathSense::GENERIC,
@@ -1044,7 +1044,13 @@ void GFAParser::parse(istream& in) {
                             } else {
                                 // This path existed already. Make sure we aren't showing a conflicting rank
                                 if (rgfa_path_rank != get<0>(found->second)) {
-                                    throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
+                                  // vg paths can now write different fragments of the same sample/hap with different ranks
+                                  // (unlike minigraph where all fragments of teh same assembly share a rank)
+                                  // by consequence, this check needs to be disabled.
+                                  // TODO: we still want to check that each individual fragment has consisten ranks
+                                  //       so the check should be moved downstream
+                                  //
+                                  // throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
                                 }
                             }
                             auto& visit_queue = get<2>(found->second);
