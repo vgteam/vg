@@ -1159,7 +1159,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Decide on how good fragments have to be to keep.
-    double fragment_score_threshold = std::max(best_fragment_score * fragment_score_fraction, fragment_min_score);
+    double fragment_score_threshold = std::min(best_fragment_score * fragment_score_fraction, fragment_max_min_score);
+    double fragment_score_threshold_overall = std::max(fragment_score_threshold, fragment_min_score);
 
     // Filter down to just the good ones, sorted by read start
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
@@ -1167,7 +1168,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Keeping, of the " << kv.second.size() << " fragments in " << kv.first << ", those with score of at least "  << fragment_score_threshold << endl;
+                cerr << log_name() << "Keeping, of the " << kv.second.size() << " fragments in " << kv.first << ", those with score of at least "  << fragment_score_threshold_overall << endl;
             }
         }
         
@@ -1178,19 +1179,35 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // For each fragment
             auto fragment_score = fragment_scores.at(fragment_num);
             if (fragment_score >= fragment_score_threshold) {
-                // If its score is high enough
+                // If its score is high enough vs. the best
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.pass("fragment-score-fraction", fragment_num, fragment_score);
-                } 
-                // Keep it.
-                good_fragments_in[kv.first].push_back(fragment_num);
-                fragments_kept++;
+                    funnel.pass("fragment-score-fraction||fragment-max-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
+                }
+
+                if (fragment_score >= fragment_min_score) {
+                    // And its score is high enough overall
+
+                    if (track_provenance) {
+                        // Tell the funnel
+                        funnel.pass("fragment-min-score", fragment_num, fragment_score);
+                    }
+
+                    // Keep it.
+                    good_fragments_in[kv.first].push_back(fragment_num);
+                    fragments_kept++;
+                } else {
+                    // If its score is not high enough overall
+                    if (track_provenance) {
+                        // Tell the funnel
+                        funnel.fail("fragment-min-score", fragment_num, fragment_score);
+                    }
+                }
             } else {
-                // If its score is not high enough
+                // If its score is not high enough vs. the best
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.fail("fragment-score-fraction", fragment_num, fragment_score);
+                    funnel.fail("fragment-score-fraction||fragment-max-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
                 } 
             }
         }
@@ -1358,9 +1375,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     if (result < MANY_LIMIT) {
                         #pragma omp critical (cerr)
                         {
-                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from local fragments:";
+                            for (auto& f : chain_result.second) {
+                                std::cerr << " " << f;
+                            } 
+                            std::cerr << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from global fragments:";
                             for (auto& f : chain_fragment_nums_overall) {
                                 std::cerr << " " << f;
+                            } 
+                            std::cerr << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " contains seeds:";
+                            for (auto& s : chains.back()) {
+                                std::cerr << " " << s;
                             } 
                             std::cerr << std::endl;
                         }

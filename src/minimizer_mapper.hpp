@@ -269,6 +269,10 @@ public:
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
+    
+    /// How high should we get the score threshold based on the best fragment's score get?
+    static constexpr double default_fragment_max_min_score = std::numeric_limits<double>::max();
+    double fragment_max_min_score = default_fragment_max_min_score;
 
     /// What minimum score in points should a fragment have in order to keep
     /// it? Needs to be set to some kind of significance threshold.
