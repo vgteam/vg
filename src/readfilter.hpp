@@ -1465,6 +1465,10 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             } else {
                 out << "incorrect";
             }
+        } else if (field == "softclip_start") {
+            out << softclip_start(read);
+        } else if (field == "softclip_end") {
+            out << softclip_end(read);
         } else if (field == "mapping_quality") {
             out << get_mapq(read); 
         } else if (field == "sequence") {
