@@ -106,7 +106,8 @@ protected:
     // returns true if a new interval was added, false if an existing interval was updated
     bool add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_rgfa_intervals,
                       unordered_map<nid_t, int64_t>& thread_node_to_interval,
-                      const pair<step_handle_t, step_handle_t>& new_interval);
+                      const pair<step_handle_t, step_handle_t>& new_interval,
+                      bool global = false);
 
     // get the total coverage of a traversal (sum of step lengths)
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
