@@ -1472,7 +1472,9 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
         } else if (field == "mapping_quality") {
             out << get_mapq(read); 
         } else if (field == "sequence") {
-            out << read.sequence(); 
+            out << read.sequence();
+        } else if (field == "length") {
+            out << read.sequence().size(); 
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
