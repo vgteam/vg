@@ -6,6 +6,7 @@
 #include "../algorithms/find_gbwtgraph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gfa.hpp"
+#include "../rgfa.hpp"
 #include "../gbwt_helper.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include <vg/io/stream.hpp>
@@ -234,6 +235,13 @@ int main_convert(int argc, char** argv) {
     }
     if (output_format == "vg") {
           cerr << "[vg convert] warning: vg-protobuf output (-v / --vg-out) is deprecated. please use -p instead." << endl;
+    }
+
+    // we interpret the user path selections as reference path selections (consistent with vg paths)
+    // so we need to add the rgfa keyword to pick up the nonref paths
+    if ((!rgfa_paths.empty() || !rgfa_prefixes.empty()) &&
+        std::find(rgfa_prefixes.begin(), rgfa_prefixes.end(), RGFACover::rgfa_sample_name) == rgfa_prefixes.end()) {
+        rgfa_prefixes.push_back(RGFACover::rgfa_sample_name);
     }
 
     
