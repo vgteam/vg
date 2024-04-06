@@ -688,9 +688,7 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
             // otherwise, it is the distance from the seed to the start (or end) of the snarl
             size_t snarl_distance = to_snarl_end ? seed.zipcode_decoder->get_length(depth)
                                                  : SnarlDistanceIndex::sum (distance_to_chain_start,
-                                                    snarl_is_reversed
-                                                        ? seed.zipcode_decoder->get_distance_to_snarl_end(depth+1)
-                                                        : seed.zipcode_decoder->get_distance_to_snarl_start(depth+1));
+                                                   seed.zipcode_decoder->get_distance_to_snarl_bound(depth+1, !snarl_is_reversed, !child_is_reversed));
 
             //Add the edge
             trees[forest_state.active_tree_index].zip_code_tree.at(last_child_index - 1 - sibling_i) = 
@@ -714,8 +712,7 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
                 if (to_snarl_end && !is_cyclic_snarl) {
 
                     distance = SnarlDistanceIndex::sum(sibling.distances.second,
-                                          snarl_is_reversed ? sibling_seed.zipcode_decoder->get_distance_to_snarl_start(depth+1)
-                                                            : sibling_seed.zipcode_decoder->get_distance_to_snarl_end(depth+1));
+                                           sibling_seed.zipcode_decoder->get_distance_to_snarl_bound(depth+1, snarl_is_reversed, child_is_reversed));
                 } else {
 
                     //If to_snarl_end is true, then we want the distance to the end (or start if snarl_is_reversed)

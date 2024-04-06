@@ -148,7 +148,7 @@ class ZipCode {
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 5;
-        const static size_t IRREGULAR_SNARL_SIZE = 7;
+        const static size_t IRREGULAR_SNARL_SIZE = 9;
 
         //Both regular and irregular snarls have these
 
@@ -164,8 +164,11 @@ class ZipCode {
 
         //Only for irregular snarls
         const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 4;
-        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 5;
-        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 6;
+        //Distance from the left side of the child to the start of the snarl
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET = 5;
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET = 6;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET = 7;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET = 8;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -297,14 +300,8 @@ class ZipCodeDecoder {
     ///Use get_net_handle for getting the actual handle
     size_t get_distance_index_address(const size_t& depth) ;
 
-    ///Only for children of irregular snarls
-    /// The minimum distance from either side of the child to the start of the snarl
-    size_t get_distance_to_snarl_start(const size_t& depth);
-
-    ///Only for children of irregular snarls
-    /// The minimum distance from either side of the child to the end of the snarl
-    size_t get_distance_to_snarl_end(const size_t& depth);
-
+    /// The minimum distance from start or end of the snarl to the left or right side of the child
+    size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side);
 
     ///Are the two decoders pointing to the same snarl tree node at the given depth
     ///This only checks if the values in the zipcode are the same at the given depth, 
