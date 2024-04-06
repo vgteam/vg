@@ -552,6 +552,9 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 }
 
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
+
+    //Do gapless extension if the read length is less than the limit
+    bool do_gapless_extension = aln.sequence().size() > gapless_extension_limit;
     
     if (show_work) {
         #pragma omp critical (cerr)

@@ -239,9 +239,10 @@ public:
     static constexpr size_t default_max_to_fragment = 10;
     size_t max_to_fragment = default_max_to_fragment;
     
-    /// If true, do gapless extension to the seeds in each tree before fragmenting the tree.
-    static constexpr bool default_do_gapless_extension = false;
-    bool do_gapless_extension = default_do_gapless_extension;
+    /// Do gapless extension to the seeds in each tree before fragmenting the tree if the 
+    /// read length is less than the limit.
+    static constexpr size_t default_gapless_extension_limit = 0;
+    size_t gapless_extension_limit = default_gapless_extension_limit;
 
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;

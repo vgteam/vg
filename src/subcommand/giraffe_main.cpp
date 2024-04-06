@@ -350,11 +350,11 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_to_fragment,
         "maximum number of fragmenting problems to run"
     );
-    chaining_opts.add_flag(
-        "do-gapless-extension",
-        &MinimizerMapper::do_gapless_extension,
-        MinimizerMapper::default_do_gapless_extension,
-        "do gapless extension to seeds in a tree before fragmenting"
+    chaining_opts.add_range(
+        "gapless-extension-limit",
+        &MinimizerMapper::gapless_extension_limit,
+        MinimizerMapper::default_gapless_extension_limit,
+        "do gapless extension to seeds in a tree before fragmenting if the read length is less than this"
     );
     chaining_opts.add_range(
         "fragment-max-lookback-bases",
