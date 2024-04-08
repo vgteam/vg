@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['kff_5frecoding_5ft_6549',['kff_recoding_t',['../structvg_1_1kff__recoding__t.html',1,'vg']]],
-  ['kmer_5ft_6550',['kmer_t',['../structvg_1_1kmer__t.html',1,'vg::kmer_t'],['../structvg_1_1algorithms_1_1kmer__t.html',1,'vg::algorithms::kmer_t']]],
-  ['kmermatch_6551',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
-  ['kmerposition_6552',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]]
+  ['kff_5frecoding_5ft_6556',['kff_recoding_t',['../structvg_1_1kff__recoding__t.html',1,'vg']]],
+  ['kmer_5ft_6557',['kmer_t',['../structvg_1_1kmer__t.html',1,'vg::kmer_t'],['../structvg_1_1algorithms_1_1kmer__t.html',1,'vg::algorithms::kmer_t']]],
+  ['kmermatch_6558',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
+  ['kmerposition_6559',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]]
 ];
