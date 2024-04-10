@@ -66,7 +66,15 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
     };
 
     // Start with the top level snarls
-    snarl_manager.for_each_top_level_snarl_parallel(process_snarl);
+    // Queue them up since process_snarl is no longer a valid callback for the iterator snarl_manager.for_each_top_level_snarl()
+    vector<const Snarl*> top_level_snarls;
+    snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) {
+        top_level_snarls.push_back(snarl);
+    });
+#pragma omp parallel for schedule(dynamic, 1)
+    for (int64_t i = 0; i < top_level_snarls.size(); ++i) {
+        process_snarl(top_level_snarls[i], -1);
+    }
     if (show_progress) cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
 
     top_level = false;
