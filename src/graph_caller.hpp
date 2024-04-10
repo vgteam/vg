@@ -51,6 +51,9 @@ public:
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr) = 0;
 
+    /// toggle progress messages
+    void set_show_progress(bool show_progress);
+
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
@@ -67,6 +70,9 @@ protected:
 
     /// Our snarls
     SnarlManager& snarl_manager;
+
+    /// Toggle progress messages
+    bool show_progress;
 };
 
 /**
@@ -383,7 +389,7 @@ public:
                bool gaf_output,
                size_t trav_padding,
                bool genotype_snarls,
-               const pair<int64_t, int64_t>& ref_allele_length_range);
+               const pair<size_t, size_t>& allele_length_range);
    
     virtual ~FlowCaller();
 
@@ -428,8 +434,11 @@ protected:
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
 
-    /// clamp calling to reference alleles of a given length range
-    pair<int64_t, int64_t> ref_allele_length_range;
+    /// clamp calling to alleles of a given length range
+    /// more specifically, a snarl is only called if
+    /// 1) its largest allele is >= allele_length_range.first and
+    /// 2) all alleles are < allele_length_range.second
+    pair<size_t, size_t> allele_length_range;
 };
 
 class SnarlGraph;
