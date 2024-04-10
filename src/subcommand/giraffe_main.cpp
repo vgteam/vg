@@ -363,6 +363,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum indel length in a transition when making fragments"
     );
     chaining_opts.add_range(
+        "fragment-gap-scale",
+        &MinimizerMapper::fragment_gap_scale,
+        MinimizerMapper::default_fragment_gap_scale,
+        "scale for gap scores when fragmenting",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
         "fragment-score-fraction",
         &MinimizerMapper::fragment_score_fraction,
         MinimizerMapper::default_fragment_score_fraction,
@@ -430,7 +437,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
-        "scale for gap scores when fragmenting or chaining",
+        "scale for gap scores when chaining",
         double_is_nonnegative
     );
     
@@ -782,6 +789,7 @@ int main_giraffe(int argc, char** argv) {
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
+        .add_entry<double>("fragment-gap-scale", 4.0)
         .add_entry<double>("gap-scale", 4.0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)

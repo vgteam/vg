@@ -250,6 +250,10 @@ public:
     static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
     size_t max_fragments = default_max_fragments;
     
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// at fragmenting?
+    static constexpr double default_fragment_gap_scale = 1.0;
+    double fragment_gap_scale = default_fragment_gap_scale;
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
@@ -306,7 +310,7 @@ public:
     static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
-    /// in fragmenting/chaining?
+    /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
     /// How many bases of indel should we allow in chaining?

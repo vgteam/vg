@@ -989,7 +989,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 for_each_transition,
                 this->item_bonus,
                 this->item_scale,
-                this->gap_scale,
+                this->fragment_gap_scale,
                 this->fragment_max_indel_bases,
                 false
             );
