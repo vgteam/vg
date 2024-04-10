@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
+#include <limits>
 
 #include <structures/immutable_list.hpp>
 
@@ -584,14 +585,19 @@ protected:
     /// Callbacks to get supports
     function<double(handle_t)> node_weight_callback;
     function<double(edge_t)> edge_weight_callback;
+
+    /// Call off the search as soon as a traversal of this length (bp) is encountered
+    size_t max_traversal_length;
     
 public:
     
     // if path_names not empty, only those paths will be considered
+    // if a traversal is found that exceeds max_traversal_length, then the search is called off
     FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
-                        function<double(edge_t)> edge_weight_callback);
+                        function<double(edge_t)> edge_weight_callback,
+                        size_t max_traversal_length = numeric_limits<size_t>::max());
 
     /**
      * Return the K widest (most flow) traversals through the site
