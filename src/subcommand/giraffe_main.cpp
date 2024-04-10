@@ -739,8 +739,7 @@ int main_giraffe(int argc, char** argv) {
     presets["default"]
         // This is always on in the non-chaining codepath right now, but just to be sure...
         .add_entry<bool>("explored-cap", true);
-    // And a long read preset (TODO: make into PacBio and Nanopore)
-    presets["lr"]
+    presets["hifi"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
@@ -751,7 +750,32 @@ int main_giraffe(int argc, char** argv) {
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
-        // Use a high hard hit cap to allow centromeres
+        .add_entry<size_t>("hard-hit-cap", 500)
+        .add_entry<double>("mapq-score-scale", 0.001)
+        .add_entry<size_t>("min-to-fragment", 2)
+        .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-max-min-score", 120)
+        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
+        .add_entry<int>("min-chaining-problems", 1)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-lookback-bases", 24000)
+        .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
+        .add_entry<size_t>("max-alignments", 5);
+
+    presets["r10"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-min", 800)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 16384)
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<size_t>("min-to-fragment", 2)
