@@ -751,6 +751,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 500)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
@@ -778,6 +780,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 16384)
         .add_entry<double>("mapq-score-scale", 0.001)
+        //Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)
@@ -809,7 +813,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
         // And extend them
-        .add_entry<bool>("do-gapless-extension", true)
+        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
