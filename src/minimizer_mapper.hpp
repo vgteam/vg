@@ -246,6 +246,9 @@ public:
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
+    /// How many bases should we look back when making fragments, per base of read length?
+    static constexpr double default_fragment_max_lookback_bases_per_base = 0.03;
+    double fragment_max_lookback_bases_per_base = default_fragment_max_lookback_bases_per_base;
     /// How many fragments should we try and make when fragmenting something?
     static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
     size_t max_fragments = default_max_fragments;
@@ -257,6 +260,9 @@ public:
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
+    /// How many bases of indel should we allow in fragments per base of read length?
+    static constexpr double default_fragment_max_indel_bases_per_base = 0.2;
+    double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -300,6 +306,9 @@ public:
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
+    /// How many bases should we look back when chaining, per base of read length?
+    static constexpr double default_max_lookback_bases_per_base = 0.3;
+    double max_lookback_bases_per_base = default_max_lookback_bases_per_base;
 
     /// How much of a bonus should we give to each item in
     /// fragmenting/chaining?
@@ -316,6 +325,9 @@ public:
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
+    /// How many bases of indel should we allow in chaining, per base of read length?
+    static constexpr double default_max_indel_bases_per_base = 0.2;
+    double max_indel_bases_per_base = default_max_indel_bases_per_base;
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it

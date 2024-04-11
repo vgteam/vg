@@ -971,11 +971,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 #endif
             
+            // Compute lookback and indel limits based on read length.
+            // Important since seed density goes down on longer reads.
+            size_t lookback_limit = std::max(this->fragment_max_lookback_bases, (size_t)(this->fragment_max_lookback_bases_per_base * aln.sequence().size()));
+            size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
+
             // Find fragments over the seeds in the zip code tree
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
                 seeds,
                 zip_code_forest.trees[item_num],
-                this->fragment_max_lookback_bases
+                lookback_limit
             ); 
             // Make a view of the anchors we will fragment over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
@@ -990,7 +995,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->fragment_gap_scale,
-                this->fragment_max_indel_bases,
+                indel_limit,
                 false
             );
             if (show_work) {
@@ -1315,12 +1320,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 std::cerr << log_name() << "Chaining fragments from zip code tree " << tree_num << std::endl;
             } 
 
+            // Compute lookback and indel limits based on read length.
+            // Important since seed density goes down on longer reads.
+            size_t lookback_limit = std::max(this->max_lookback_bases, (size_t)(this->max_lookback_bases_per_base * aln.sequence().size()));
+            size_t indel_limit = std::max(this->max_indel_bases, (size_t)(this->max_indel_bases_per_base * aln.sequence().size()));
+
             // Chain up the fragments
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
                 seeds,
                 zip_code_forest.trees[tree_num],
-                this->max_lookback_bases
-            ); 
+                lookback_limit
+            );
             std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
                 fragment_view,
                 *distance_index,
@@ -1332,7 +1342,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->gap_scale,
-                this->max_indel_bases,
+                indel_limit,
                 false
             );
             
