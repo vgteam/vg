@@ -631,8 +631,10 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
 #ifdef debug
 #pragma omp critical(cerr)
     cerr << "adding interval " << graph->get_path_name(graph->get_path_handle_of_step(new_interval.first))
+         << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.first)) ? "<" : ">")
          << ":" << graph->get_id(graph->get_handle_of_step(new_interval.first))
-         << "-" << graph->get_id(graph->get_handle_of_step(new_interval.second)) << endl;
+         << "-" << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.second)) ? "<" : ">")
+         << graph->get_id(graph->get_handle_of_step(new_interval.second)) << endl;
 #endif
     bool merged = false;
     int64_t merged_interval_idx = -1;
@@ -645,18 +647,22 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
         nid_t prev_node_id = graph->get_id(graph->get_handle_of_step(before_first_step));
         if (thread_node_to_interval.count(prev_node_id)) {
             int64_t prev_idx = thread_node_to_interval[prev_node_id];
-            pair<step_handle_t, step_handle_t>& prev_interval = thread_rgfa_intervals[prev_idx];
+            pair<step_handle_t, step_handle_t>& prev_interval = thread_rgfa_intervals[prev_idx];            
             if (graph->get_path_handle_of_step(prev_interval.first) == path_handle) {
+                if (prev_interval.second == new_interval.first ||
+                    (global && graph->get_previous_step(prev_interval.second) == new_interval.first)) {
 #ifdef debug
 #pragma omp critical(cerr)
-                cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
-                     << ":" << graph->get_id(graph->get_handle_of_step(prev_interval.first))
-                     << "-" << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
-#endif                
-                assert(global || prev_interval.second == new_interval.first);
-                prev_interval.second = new_interval.second;
-                merged = true;
-                merged_interval_idx = prev_idx;
+                    cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
+                         << ":" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ? "<" : ">")
+                         << graph->get_id(graph->get_handle_of_step(prev_interval.first))
+                         << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
+                         << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
+#endif
+                    prev_interval.second = new_interval.second;
+                    merged = true;
+                    merged_interval_idx = prev_idx;
+                }
             }
         }
     }
@@ -670,16 +676,18 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
             pair<step_handle_t, step_handle_t>& next_interval = thread_rgfa_intervals[next_idx];
             path_handle_t next_path = graph->get_path_handle_of_step(next_interval.first);
             if (graph->get_path_handle_of_step(next_interval.first) == path_handle) {
+                if (next_interval.first == new_interval.second ||
+                    (global && next_interval.first == graph->get_previous_step(new_interval.second))) {
 #ifdef debug
 #pragma omp critical(cerr)
-                cerr << "next interval found" << graph->get_path_name(graph->get_path_handle_of_step(next_interval.first))
-                     << ":" << graph->get_id(graph->get_handle_of_step(next_interval.first))
-                     << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
-#endif                                
-                assert(global || next_interval.first == new_interval.second);
-                next_interval.first = new_interval.first;
-                merged = true;
-                merged_interval_idx = next_idx;
+                    cerr << "next interval found" << graph->get_path_name(graph->get_path_handle_of_step(next_interval.first))
+                         << ":" << graph->get_id(graph->get_handle_of_step(next_interval.first))
+                         << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
+#endif
+                    next_interval.first = new_interval.first;
+                    merged = true;
+                    merged_interval_idx = next_idx;
+                }
             }
         }
     }
