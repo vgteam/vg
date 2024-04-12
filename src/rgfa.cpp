@@ -689,8 +689,12 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
 #ifdef debug
 #pragma omp critical(cerr)
                     cerr << "next interval found" << graph->get_path_name(graph->get_path_handle_of_step(next_interval.first))
-                         << ":" << graph->get_id(graph->get_handle_of_step(next_interval.first))
-                         << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
+                         << ":" << graph->get_id(graph->get_handle_of_step(next_interval.first));
+                    if (next_interval.second == graph->path_end(graph->get_path_handle_of_step(next_interval.second))) {
+                        cerr << "PATH_END" << endl;
+                    } else {
+                         cerr << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
+                    }
 #endif
                     next_interval.first = new_interval.first;
                     merged = true;

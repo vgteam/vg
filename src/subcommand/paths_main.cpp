@@ -42,7 +42,7 @@ void help_paths(char** argv) {
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
          << "  rGFA cover" << endl
          << "    -f, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
-         << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover (-R)." << endl
+         << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover." << endl
          << "    -t, --threads N          use up to N threads when computing rGFA cover (default: all available)" << endl
          << "        --rgfa-vcf FILE      add rGFA cover tags to VCF (which must be called on rGFA cover in graph from -f)" << endl
          << "  output path data:" << endl
