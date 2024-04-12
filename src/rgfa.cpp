@@ -632,9 +632,13 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
 #pragma omp critical(cerr)
     cerr << "adding interval " << graph->get_path_name(graph->get_path_handle_of_step(new_interval.first))
          << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.first)) ? "<" : ">")
-         << ":" << graph->get_id(graph->get_handle_of_step(new_interval.first))
-         << "-" << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.second)) ? "<" : ">")
-         << graph->get_id(graph->get_handle_of_step(new_interval.second)) << endl;
+         << ":" << graph->get_id(graph->get_handle_of_step(new_interval.first));
+    if (new_interval.second == graph->path_end(graph->get_path_handle_of_step(new_interval.first))) {
+        cerr << "PATH_END" << endl;
+    }  else {
+        cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(new_interval.second)) ? "<" : ">")
+             << graph->get_id(graph->get_handle_of_step(new_interval.second)) << endl;
+    }
 #endif
     bool merged = false;
     int64_t merged_interval_idx = -1;
@@ -655,9 +659,13 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
 #pragma omp critical(cerr)
                     cerr << "prev interval found" << graph->get_path_name(graph->get_path_handle_of_step(prev_interval.first))
                          << ":" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.first)) ? "<" : ">")
-                         << graph->get_id(graph->get_handle_of_step(prev_interval.first))
-                         << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
-                         << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
+                         << graph->get_id(graph->get_handle_of_step(prev_interval.first));
+                    if (prev_interval.second == graph->path_end(graph->get_path_handle_of_step(prev_interval.first))) {
+                        cerr << "PATH_END" << endl;
+                    } else {
+                         cerr << "-" << (graph->get_is_reverse(graph->get_handle_of_step(prev_interval.second)) ? "<" : ">")
+                              << graph->get_id(graph->get_handle_of_step(prev_interval.second)) << endl;
+                    }
 #endif
                     prev_interval.second = new_interval.second;
                     merged = true;
