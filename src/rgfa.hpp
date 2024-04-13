@@ -109,6 +109,11 @@ protected:
                       const pair<step_handle_t, step_handle_t>& new_interval,
                       bool global = false);
 
+    // add_interval() can delete an existing interval. ex if ABC are contiguous intervals and B is added to A_C,
+    // then A gets extended out to the whole range and C is left dangling.  Since we're using a vector,
+    // this requires a full update of everything at the end. 
+    void defragment_intervals();
+
     // get the total coverage of a traversal (sum of step lengths)
     int64_t get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval);
 

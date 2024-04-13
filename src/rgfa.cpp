@@ -183,7 +183,9 @@ void RGFACover::compute(const PathHandleGraph* graph,
         rgfa_intervals_vector[t].clear();
         node_to_interval_vector[t].clear();
     }
-    
+
+    // remove any intervals that were made redundant by add_interval
+    defragment_intervals();    
 
     // todo: we could optionally go through uncovered nodes and try to greedily search
     // for rgfa intervals at this point, since it seems for some graphs there are
@@ -677,6 +679,7 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
     
     // check the end step.  if it's in an interval then it must be immediately
     // following  we merge the new interval to the front of the found interval
+    int64_t deleted_idx = -1;
     if (new_interval.second != graph->path_end(graph->get_path_handle_of_step(new_interval.second))) {
         nid_t next_node_id = graph->get_id(graph->get_handle_of_step(new_interval.second));
         if (thread_node_to_interval.count(next_node_id)) {
@@ -696,9 +699,19 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
                          cerr << "-" << graph->get_id(graph->get_handle_of_step(next_interval.second)) << endl;
                     }
 #endif
-                    next_interval.first = new_interval.first;
-                    merged = true;
-                    merged_interval_idx = next_idx;
+                    if (merged == true) {
+                        // decomission next_interval
+                        next_interval.first = graph->path_end(next_path);
+                        next_interval.second = graph->path_front_end(next_path);
+                        deleted_idx = next_idx;
+                        // extend the previous interval right
+                        thread_rgfa_intervals[merged_interval_idx].second = new_interval.second;
+                    } else {
+                        // extend next_interval left
+                        next_interval.first = new_interval.first;
+                        merged = true;
+                        merged_interval_idx = next_idx;
+                    }
                 }
             }
         }
@@ -712,7 +725,33 @@ bool RGFACover::add_interval(vector<pair<step_handle_t, step_handle_t>>& thread_
     for (step_handle_t step = new_interval.first; step != new_interval.second; step = graph->get_next_step(step)) {
         thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
     }
+    if (deleted_idx >= 0) {
+        // move the links to the deleted interval to the new interval
+        const pair<step_handle_t, step_handle_t>& deleted_interval = thread_rgfa_intervals[deleted_idx];
+        for (step_handle_t step = deleted_interval.first; step != deleted_interval.second; step = graph->get_next_step(step)) {
+            thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = merged_interval_idx;
+        }        
+    }
     return !merged;
+}
+
+void RGFACover::defragment_intervals() {    
+    vector<pair<step_handle_t, step_handle_t>> new_intervals;
+    this->node_to_interval.clear();
+    for (int64_t i = 0; i < this->rgfa_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->rgfa_intervals[i];
+        path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
+        if (interval.first != graph->path_end(path_handle)) {
+            new_intervals.push_back(interval);
+        }
+    }
+    this->rgfa_intervals = std::move(new_intervals);
+    for (int64_t i = 0; i < this->rgfa_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->rgfa_intervals[i];        
+        for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
+            this->node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = i;
+        }                
+    }                                
 }
 
 int64_t RGFACover::get_coverage(const vector<step_handle_t>& trav, const pair<int64_t, int64_t>& uncovered_interval) {
