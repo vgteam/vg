@@ -178,7 +178,10 @@ void RGFACover::compute(const PathHandleGraph* graph,
         for (int64_t j = 0; j < rgfa_intervals_vector[t].size(); ++j) {
             // the true flag at the end disables the overlap check.  since they were computed
             // in separate threads, snarls can overlap by a single node
-            add_interval(this->rgfa_intervals, this->node_to_interval, rgfa_intervals_vector[t][j], true);
+            const pair<step_handle_t, step_handle_t>& interval = rgfa_intervals_vector[t][j];
+            if (interval.first != graph->path_end(graph->get_path_handle_of_step(interval.first))) {
+                add_interval(this->rgfa_intervals, this->node_to_interval, rgfa_intervals_vector[t][j], true);
+            }
         }
         rgfa_intervals_vector[t].clear();
         node_to_interval_vector[t].clear();
