@@ -125,6 +125,8 @@ Functions</h2></td></tr>
 <tr class="separator:a1e43abd4f18210a8a4e131afbc8d182d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56be3686d2a011df59c271f092f6f40c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a56be3686d2a011df59c271f092f6f40c">extract_haplotypes</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
 <tr class="separator:a56be3686d2a011df59c271f092f6f40c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd40ce33a846ef256ca3b375d9cbb288"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#abd40ce33a846ef256ca3b375d9cbb288">classify_kmers</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
+<tr class="separator:abd40ce33a846ef256ca3b375d9cbb288"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8ab8ef2233eb016b7b7f0c2bd5c9411"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ae8ab8ef2233eb016b7b7f0c2bd5c9411">main_haplotypes</a> (int argc, char **argv)</td></tr>
 <tr class="separator:ae8ab8ef2233eb016b7b7f0c2bd5c9411"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06899318e624a0766060720e2403f380"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a06899318e624a0766060720e2403f380">help_haplotypes</a> (char **argv, bool developer_options)</td></tr>
@@ -180,9 +182,42 @@ Variables</h2></td></tr>
 <tr class="separator:a4feb086c4c9a39e22fdb5ada553d3ca3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines the "vg haplotypes" subcommand, which will ultimately sample haplotypes.</p>
-<p>This is currently highly experimental. </p>
+<div class="textblock"><p>Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="abd40ce33a846ef256ca3b375d9cbb288"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd40ce33a846ef256ca3b375d9cbb288">&#9670;&nbsp;</a></span>classify_kmers()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void classify_kmers </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
+          <td class="paramname"><em>haplotypes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
+          <td class="paramname"><em>config</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a1ffaf31343dd95074c3237bf89b38a33"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1ffaf31343dd95074c3237bf89b38a33">&#9670;&nbsp;</a></span>ends_with()</h2>
 

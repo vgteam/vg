@@ -115,6 +115,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af081161e7b2e1867d83aef6427082cd5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#af081161e7b2e1867d83aef6427082cd5">k</a> () const</td></tr>
 <tr class="memdesc:af081161e7b2e1867d83aef6427082cd5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the length of the kmers.  <a href="classvg_1_1Haplotypes.html#af081161e7b2e1867d83aef6427082cd5">More...</a><br /></td></tr>
 <tr class="separator:af081161e7b2e1867d83aef6427082cd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85b9a6d31a3485f0ccf925023543414b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a85b9a6d31a3485f0ccf925023543414b">kmers</a> () const</td></tr>
+<tr class="memdesc:a85b9a6d31a3485f0ccf925023543414b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of kmers in the subchains.  <a href="classvg_1_1Haplotypes.html#a85b9a6d31a3485f0ccf925023543414b">More...</a><br /></td></tr>
+<tr class="separator:a85b9a6d31a3485f0ccf925023543414b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Subchain::kmer_type</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a48ed72eff81d77df7a4159afd0c6d20e">kmer_counts</a> (const std::string &amp;kff_file, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
 <tr class="separator:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3a5a36c107109c893cf382064ad9ea69"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a3a5a36c107109c893cf382064ad9ea69">simple_sds_serialize</a> (std::ostream &amp;out) const</td></tr>
@@ -299,6 +302,33 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Returns a mapping from kmers to their counts in the given KFF file. The counts include both the kmer and the reverse complement.</p>
 <p>Reads the KFF file using OpenMP threads. Exits with <code>std::exit()</code> if the file cannot be opened and throws <code>std::runtime_error</code> if the kmer counts cannot be used. </p>
+
+</div>
+</div>
+<a id="a85b9a6d31a3485f0ccf925023543414b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85b9a6d31a3485f0ccf925023543414b">&#9670;&nbsp;</a></span>kmers()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Haplotypes::kmers </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the number of kmers in the subchains. </p>
 
 </div>
 </div>

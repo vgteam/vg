@@ -116,6 +116,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5abc10442215d1993a99d386b1d7ce5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ade8518b5efc745c39f97a6733cc84b00"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#ade8518b5efc745c39f97a6733cc84b00">generate_haplotypes</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
 <tr class="separator:ade8518b5efc745c39f97a6733cc84b00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59082a2dd541793528c2c816b23639dd"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a59082a2dd541793528c2c816b23639dd">classify_kmers</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
+<tr class="separator:a59082a2dd541793528c2c816b23639dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4de45e68a2ac4ca6e9dbbab948c14a92"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">LocalHaplotype</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a4de45e68a2ac4ca6e9dbbab948c14a92">extract_sequences</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, size_t chain_id, size_t subchain_id, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
 <tr class="separator:a4de45e68a2ac4ca6e9dbbab948c14a92"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -242,6 +244,42 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a59082a2dd541793528c2c816b23639dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59082a2dd541793528c2c816b23639dd">&#9670;&nbsp;</a></span>classify_kmers()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; char &gt; vg::Recombinator::classify_kmers </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
+          <td class="paramname"><em>haplotypes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>kff_file</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Classifies the kmers used for describing the haplotypes according to their frequency in the KFF file. Uses <code>A</code>, <code>H</code>, <code>P</code>, and <code>F</code> to represent absent, heterozygous, present, and frequent kmers, respectively.</p>
+<p>Throws <code>std::runtime_error</code> on error. </p>
+
+</div>
+</div>
 <a id="a4de45e68a2ac4ca6e9dbbab948c14a92"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4de45e68a2ac4ca6e9dbbab948c14a92">&#9670;&nbsp;</a></span>extract_sequences()</h2>
 

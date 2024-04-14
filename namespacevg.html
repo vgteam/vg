@@ -1307,8 +1307,8 @@ Functions</h2></td></tr>
 <tr class="separator:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a802baeeacfe4ee75781afabac562588b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::vector&lt; gbwt::size_type &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a802baeeacfe4ee75781afabac562588b">partition_gbwt_sequences</a> (const gbwt::GBWT &amp;gbwt_index, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;node_to_job, size_t num_jobs)</td></tr>
 <tr class="separator:a802baeeacfe4ee75781afabac562588b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec4970f98c4a004a1c07c1beaec524ae"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aec4970f98c4a004a1c07c1beaec524ae">rebuild_gbwt_job</a> (const gbwt::GBWT &amp;gbwt_index, const <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &amp;job, const std::vector&lt; gbwt::size_type &gt; &amp;sequences, const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;parameters)</td></tr>
-<tr class="separator:aec4970f98c4a004a1c07c1beaec524ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a16b175479dee254341d60fc037dae233"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a16b175479dee254341d60fc037dae233">rebuild_gbwt_job</a> (const gbwt::GBWT &amp;gbwt_index, const <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &amp;job, size_t job_id, const std::vector&lt; gbwt::size_type &gt; &amp;sequences, const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;parameters)</td></tr>
+<tr class="separator:a16b175479dee254341d60fc037dae233"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab2237df8adff809619083730f10d0e2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab2237df8adff809619083730f10d0e2e">copy_metadata</a> (const gbwt::GBWT &amp;source, gbwt::GBWT &amp;target, const std::vector&lt; std::vector&lt; gbwt::size_type &gt;&gt; &amp;jobs, const std::vector&lt; size_t &gt; &amp;job_order)</td></tr>
 <tr class="separator:ab2237df8adff809619083730f10d0e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95d54bf0a30125f9ded043bb099cb25f"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a95d54bf0a30125f9ded043bb099cb25f">rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &gt; &amp;jobs, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;node_to_job, const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;parameters)</td></tr>
@@ -20186,7 +20186,7 @@ template&lt;class Decoder &gt; </div>
 <p>NOTE: To avoid infinite loops, the cursor will proceed after a mapping of the type (a, Xa).</p>
 <p>The process can be partitioned into multiple non-overlapping jobs, each of them corresponding to one or more weakly connected components in the graph. Multiple jobs can be run in parallel using 2 threads each, and the jobs will be started from the largest to the smallest.</p>
 <p><code>node_to_job</code> maps each node identifier to the corresponding job identifier. Empty paths go to the first job, but this can be overridden by including <code>gbwt::ENDMARKER</code> in <code>node_to_job</code>.</p>
-<p>NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are no longer valid after rebuilding the GBWT.</p>
+<p>NOTE: <a class="el" href="classvg_1_1Paths.html">Paths</a> may be reordered if there are multiple jobs. Old path ids are no longer valid after rebuilding the GBWT.</p>
 <p>NOTE: This could use the ConstructionJob / MetadataBuilder scheme for parallelization, but it would change the interface. </p>
 
 </div>
@@ -20221,8 +20221,8 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="aec4970f98c4a004a1c07c1beaec524ae"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aec4970f98c4a004a1c07c1beaec524ae">&#9670;&nbsp;</a></span>rebuild_gbwt_job()</h2>
+<a id="a16b175479dee254341d60fc037dae233"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a16b175479dee254341d60fc037dae233">&#9670;&nbsp;</a></span>rebuild_gbwt_job()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20238,6 +20238,12 @@ template&lt;class Decoder &gt; </div>
           <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &amp;&#160;</td>
           <td class="paramname"><em>job</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>job_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
