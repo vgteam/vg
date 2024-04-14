@@ -188,6 +188,9 @@ public:
     /// Returns the length of the kmers.
     size_t k() const { return this->header.k; }
 
+    /// Returns the number of kmers in the subchains.
+    size_t kmers() const { return this->header.total_kmers; }
+
     Header header;
 
     // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
@@ -499,6 +502,15 @@ public:
 
     /// Kmer classification.
     enum kmer_presence { absent, heterozygous, present, frequent };
+
+    /**
+     * Classifies the kmers used for describing the haplotypes according to
+     * their frequency in the KFF file. Uses `A`, `H`, `P`, and `F` to represent
+     * absent, heterozygous, present, and frequent kmers, respectively.
+     *
+     * Throws `std::runtime_error` on error.
+     */
+    std::vector<char> classify_kmers(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 
     /**
      * Extracts the local haplotypes in the given subchain. In addition to the
