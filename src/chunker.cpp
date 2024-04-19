@@ -75,10 +75,8 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     if (!vg_subgraph->has_path(region.seq)) {
         map<size_t, path_handle_t> ref_subpaths;
         vg_subgraph->for_each_path_handle([&](path_handle_t path_handle) {
-                string path_name = vg_subgraph->get_path_name(path_handle);
-                subrange_t subrange;
-                path_name = Paths::strip_subrange(path_name, &subrange);
-                if (subrange != PathMetadata::NO_SUBRANGE && path_name == region.seq) {
+                subrange_t subrange = vg_subgraph->get_subrange(path_handle);
+                if (subrange != PathMetadata::NO_SUBRANGE && vg_subgraph->get_path_scaffold_name(path_handle) == region.seq) {
                     ref_subpaths[subrange.first] = path_handle;
                 }
             });

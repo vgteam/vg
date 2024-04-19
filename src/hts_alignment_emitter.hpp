@@ -89,14 +89,11 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
 
 /**
  * Given a list of path handles and size info (from get_sequence_dictionary), return two things:
- *  1) names and lengths of all of base paths in order.
+ *  1) names and lengths of all of scaffolds (base paths) in order.
  *  2) a mapping of path names to length (reflects paths in the graph including subpaths) 
- *
- * If subpath_support is set to false, there won't be a distinction. 
  */
 pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path_metadata(
-    const vector<tuple<path_handle_t, size_t, size_t>>& paths,  const PathPositionHandleGraph& graph,
-    bool subpath_support = false);
+    const vector<tuple<path_handle_t, size_t, size_t>>& paths,  const PathPositionHandleGraph& graph);
 
 /*
  * A class that can write SAM/BAM/CRAM files from parallel threads

@@ -113,14 +113,12 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         string sample;
         string locus;
         size_t haplotype;
-        size_t phase_block;
         subrange_t subrange;
         PathMetadata::parse_path_name(name,
                                       sense,
                                       sample,
                                       locus,
                                       haplotype,
-                                      phase_block,
                                       subrange);
                                       
         if (sense == PathSense::HAPLOTYPE && reference_samples->count(sample)) {
@@ -129,18 +127,13 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             sense = PathSense::REFERENCE;
         } else if (sense == PathSense::REFERENCE && haplotype != PathMetadata::NO_HAPLOTYPE && !reference_samples->count(sample)) {
             // Mimic the GBWTGraph behavior of parsing full PanSN names
-            // (sample, haplotype number, contig) as haplotypes by default,
-            // even though we use PanSN names in vg to indicate reference
-            // sense.
+            // (sample, haplotype number, contig) as haplotypes by default.
             // TODO: This is super ugly, can we just change the way the
             // metadata name format works, or use a dedicated PanSN parser here
             // instead?
             // TODO: Can we use GBWTGraph's regex priority system?
+            // TODO: Can we use the hacky sniffing of hap 0 = reference already in parse_path_name?
             sense = PathSense::HAPLOTYPE;
-            if (phase_block == PathMetadata::NO_PHASE_BLOCK) {
-                // Assign a phase block if none is specified, since haplotypes need one.
-                phase_block = 0;
-            }
         }
         
         if (ignore_sense && ignore_sense->count(sense)) {
@@ -153,7 +146,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                                   sample,
                                                                   locus,
                                                                   haplotype,
-                                                                  phase_block,
                                                                   subrange);
         if (graph->has_path(implied_path_name)) {
             // This is a duplicate.
@@ -165,7 +157,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               sample,
                                               locus,
                                               haplotype,
-                                              phase_block,
                                               subrange);
         
         // Overlaps are pre-checked in scan_p
@@ -197,9 +188,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         // By default this is interpreted as a haplotype
         PathSense sense;
         
-        // We need to determine a phase block
-        size_t phase_block;
-        // And a haplotype.
+        // We need to determine a haplotype.
         size_t assigned_haplotype = (size_t) haplotype;
         
         string assigned_sample_name;
@@ -214,19 +203,15 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                 throw GFAFormatError("Generic path on omitted (*) sample has nonzero haplotype");
             }
             assigned_haplotype = PathMetadata::NO_HAPLOTYPE;
-            phase_block = PathMetadata::NO_PHASE_BLOCK;
         } else {
             // This is probably a sample name we can use
             
             if (reference_samples->count(sample_name)) {
                 // This sample is supposed to be reference.
                 sense = PathSense::REFERENCE;
-                phase_block = PathMetadata::NO_PHASE_BLOCK;
             } else {
                 // We're a haplotype
                 sense = PathSense::HAPLOTYPE;
-                // GFA doesn't really encode phase blocks. Always use the 0th one.
-                phase_block = 0;
             }
             
             // Keep the sample name
@@ -245,7 +230,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                                   assigned_sample_name,
                                                                   contig_name,
                                                                   assigned_haplotype,
-                                                                  phase_block,
                                                                   assigned_subrange);
         if (graph->has_path(implied_path_name)) {
             // This is a duplicate.
@@ -257,7 +241,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                               assigned_sample_name,
                                               contig_name,
                                               assigned_haplotype,
-                                              phase_block,
                                               assigned_subrange);
         
         GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
@@ -306,7 +289,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                     PathMetadata::NO_SAMPLE_NAME,
                                                     path_name, 
                                                     PathMetadata::NO_HAPLOTYPE,
-                                                    PathMetadata::NO_PHASE_BLOCK,
                                                     subrange);
             // Then cache it
             found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));

@@ -1951,29 +1951,9 @@ void parse_bed_regions(istream& bedstream,
             // first look in our cached subpaths
             // if not there, look in the graph
             if(!base_path_to_subpaths.count(seq) && !absent_paths.count(seq)){
-                PathSense sense;
-                string sample;
-                string locus;
-                size_t haplotype;
-                size_t phase_block;
-                subrange_t subrange;
-                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
-                if (subrange == PathMetadata::NO_SUBRANGE) {
-                    // the path name souldn't describe a subpath
-                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
-                        if (graph->get_haplotype(match) != haplotype) {
-                            // Skip this haplotype
-                            return true;
-                        }
-                        if (graph->get_phase_block(match) != phase_block) {
-                            // Skip this phase block
-                            return true;
-                        }
-                        // we've found a subpath for that base name. save the handle
-                        base_path_to_subpaths[seq].push_back(match);
-                        return true;
-                    });
-                }
+                graph->for_each_path_on_scaffold(seq, [&](const path_handle_t& match) {
+                    base_path_to_subpaths[seq].push_back(match);
+                });
             }
             if(!base_path_to_subpaths.count(seq)){
                 // we've looked for subpaths and couldn't found anything
@@ -1985,19 +1965,11 @@ void parse_bed_regions(istream& bedstream,
                 // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
                 // look for the subpath containing the range [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
-                    subrange_t subrange = graph->get_subrange(path);
-                    // the two subrange formats are using different indexing
-                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
-                    // in path[offset] the offset is "1-based"
-                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
-                    if (subrange.second == PathMetadata::NO_END_POSITION){
-                        if (subrange.first == PathMetadata::NO_END_POSITION){
-                            subrange.first = 0;
-                        } else {
-                            subrange.first--;
-                        }
-                        subrange.second = subrange.first + graph->get_path_length(path);
-                    }
+                    // Get the scaffold and 0-based interval for the path, getting the length if needed.
+                    // TODO: We won't actually need the scaffold part of this; we already know it's seq.
+                    // Add just a filled-in region accessor to the API?
+                    region_t region = graph->get_path_region(path);
+                    const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
                         if(sbuf < subrange.first){
@@ -2048,30 +2020,9 @@ void parse_bed_regions(istream& bedstream,
             bool subpath_found = false;
             if(!base_path_to_subpaths.count(seq)){
                 // not in our subpath cache, so let's look for subpaths
-                PathSense sense;
-                string sample;
-                string locus;
-                size_t haplotype;
-                size_t phase_block;
-                subrange_t subrange;
-                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
-                
-                if (subrange == PathMetadata::NO_SUBRANGE) {
-                    // the path name souldn't describe a subpath
-                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
-                        if (graph->get_haplotype(match) != haplotype) {
-                            // Skip this haplotype
-                            return true;
-                        }
-                        if (graph->get_phase_block(match) != phase_block) {
-                            // Skip this phase block
-                            return true;
-                        }
-                        // we've found a subrange for this base path
-                        base_path_to_subpaths[seq].push_back(match);
-                        return true;
-                    });
-                }
+                graph->for_each_path_on_scaffold(seq, [&](const path_handle_t& match) {
+                    base_path_to_subpaths[seq].push_back(match);
+                });
             }
             if(!base_path_to_subpaths.count(seq)){
                 // Skip ends that are too late
@@ -2081,19 +2032,11 @@ void parse_bed_regions(istream& bedstream,
             } else {
                 // there are subpaths, let's look for the one containing [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
-                    subrange_t subrange = graph->get_subrange(path);
-                    // the two subrange formats are using different indexing
-                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
-                    // in path[offset] the offset is "1-based"
-                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
-                    if (subrange.second == PathMetadata::NO_END_POSITION){
-                        if (subrange.first == PathMetadata::NO_END_POSITION){
-                            subrange.first = 0;
-                        } else {
-                            subrange.first--;
-                        }
-                        subrange.second = subrange.first + graph->get_path_length(path);
-                    }
+                    // Get the scaffold and 0-based interval for the path, getting the length if needed.
+                    // TODO: We won't actually need the scaffold part of this; we already know it's seq.
+                    // Add just a filled-in region accessor to the API?
+                    region_t region = graph->get_path_region(path);
+                    const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
                         if(sbuf < subrange.first){
@@ -2255,29 +2198,9 @@ void parse_gff_regions(istream& gffstream,
             // first look in our cached subpaths
             // if not there, look in the graph
             if(!base_path_to_subpaths.count(seq) && !absent_paths.count(seq)){
-                PathSense sense;
-                string sample;
-                string locus;
-                size_t haplotype;
-                size_t phase_block;
-                subrange_t subrange;
-                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
-                if (subrange == PathMetadata::NO_SUBRANGE) {
-                    // the path name souldn't describe a subpath
-                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
-                        if (graph->get_haplotype(match) != haplotype) {
-                            // Skip this haplotype
-                            return true;
-                        }
-                        if (graph->get_phase_block(match) != phase_block) {
-                            // Skip this phase block
-                            return true;
-                        }
-                        // we've found a subpath for that base name. save the handle
-                        base_path_to_subpaths[seq].push_back(match);
-                        return true;
-                    });
-                }
+                graph->for_each_path_on_scaffold(seq, [&](const path_handle_t& match) {
+                    base_path_to_subpaths[seq].push_back(match);
+                });
             }
             if(!base_path_to_subpaths.count(seq)){
                 // we've looked for subpaths and couldn't found anything
@@ -2289,19 +2212,11 @@ void parse_gff_regions(istream& gffstream,
                 // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
                 // look for the subpath containing the range [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
-                    subrange_t subrange = graph->get_subrange(path);
-                    // the two subrange formats are using different indexing
-                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
-                    // in path[offset] the offset is "1-based"
-                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
-                    if (subrange.second == PathMetadata::NO_END_POSITION){
-                        if (subrange.first == PathMetadata::NO_END_POSITION){
-                            subrange.first = 0;
-                        } else {
-                            subrange.first--;
-                        }
-                        subrange.second = subrange.first + graph->get_path_length(path);
-                    }
+                    // Get the scaffold and 0-based interval for the path, getting the length if needed.
+                    // TODO: We won't actually need the scaffold part of this; we already know it's seq.
+                    // Add just a filled-in region accessor to the API?
+                    region_t region = graph->get_path_region(path);
+                    const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
                         if(sbuf < subrange.first){
@@ -2344,30 +2259,9 @@ void parse_gff_regions(istream& gffstream,
             bool subpath_found = false;
             if(!base_path_to_subpaths.count(seq)){
                 // not in our subpath cache, so let's look for subpaths
-                PathSense sense;
-                string sample;
-                string locus;
-                size_t haplotype;
-                size_t phase_block;
-                subrange_t subrange;
-                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
-                
-                if (subrange == PathMetadata::NO_SUBRANGE) {
-                    // the path name souldn't describe a subpath
-                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
-                        if (graph->get_haplotype(match) != haplotype) {
-                            // Skip this haplotype
-                            return true;
-                        }
-                        if (graph->get_phase_block(match) != phase_block) {
-                            // Skip this phase block
-                            return true;
-                        }
-                        // we've found a subrange for this base path
-                        base_path_to_subpaths[seq].push_back(match);
-                        return true;
-                    });
-                }
+                graph->for_each_path_on_scaffold(seq, [&](const path_handle_t& match) {
+                    base_path_to_subpaths[seq].push_back(match);
+                });
             }
             if(!base_path_to_subpaths.count(seq)){
                 // Skip ends that are too late
@@ -2377,19 +2271,11 @@ void parse_gff_regions(istream& gffstream,
             } else {
                 // there are subpaths, let's look for the one containing [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
-                    subrange_t subrange = graph->get_subrange(path);
-                    // the two subrange formats are using different indexing
-                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
-                    // in path[offset] the offset is "1-based"
-                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
-                    if (subrange.second == PathMetadata::NO_END_POSITION){
-                        if (subrange.first == PathMetadata::NO_END_POSITION){
-                            subrange.first = 0;
-                        } else {
-                            subrange.first--;
-                        }
-                        subrange.second = subrange.first + graph->get_path_length(path);
-                    }
+                    // Get the scaffold and 0-based interval for the path, getting the length if needed.
+                    // TODO: We won't actually need the scaffold part of this; we already know it's seq.
+                    // Add just a filled-in region accessor to the API?
+                    region_t region = graph->get_path_region(path);
+                    const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
                         if(sbuf < subrange.first){

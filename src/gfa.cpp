@@ -11,10 +11,8 @@ using namespace std;
 
 /// Determine if a path should be written as a GFA W line or a GFA P line.
 static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle);
-/// Write out a W line for a path. Uses a map to keep track of fake offset
-/// ranges used to distinguish multiple phase blocks without their own
-/// subranges on a haplotype, since GFA doesn't support them.
-static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end);
+/// Write out a W line for a path.
+static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
                   bool rgfa_pline, bool use_w_lines) {
@@ -138,11 +136,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     }
     
     // Paths as W-lines
-    {
-        unordered_map<tuple<string, int64_t, string>, size_t> fake_subrange_end;
-        for (const path_handle_t& h : w_line_paths) {
-            write_w_line(graph, out, h, fake_subrange_end);
-        }
+    for (const path_handle_t& h : w_line_paths) {
+        write_w_line(graph, out, h);
     }
 
     graph->for_each_edge([&](const edge_t& h) {
@@ -178,21 +173,14 @@ bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_han
         return false;
     }
 
-    auto phase_block = graph->get_phase_block(path_handle);
-    if (phase_block != 0 && phase_block != PathMetadata::NO_PHASE_BLOCK) {
-        // We can't represent nonzero phase blocks in W lines in a way that round-trips, so make them P lines.
-        return false;
-    }
-    
     return true;
 }
 
-void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end) {
+void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle) {
     // Extract the path metadata
     string sample = graph->get_sample_name(path_handle);
     string contig = graph->get_locus_name(path_handle);
     int64_t hap_index = graph->get_haplotype(path_handle);
-    int64_t phase_block = graph->get_phase_block(path_handle);
     auto subrange = graph->get_subrange(path_handle);
     size_t start_offset = 0;
     size_t end_offset = 0;
@@ -229,32 +217,6 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
              << ", using " << (start_offset + path_length) << " instead" << endl;
     }
 
-    auto key = std::tuple<string, int64_t, string>(sample, hap_index, contig);
-    auto found = fake_subrange_end.find(key);
-    if (found != fake_subrange_end.end() && subrange != PathMetadata::NO_SUBRANGE) {
-        // TODO: Work out a way to support phase blocks and subranges at the same time.
-        cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
-             << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
-        exit(1);
-    }
-
-    if (subrange == PathMetadata::NO_SUBRANGE && phase_block != PathMetadata::NO_PHASE_BLOCK) {
-        // If phase blocks are big numbers that came from coordinates, and we
-        // can, we want to just pass them through in the GFA offset position.
-        start_offset = phase_block;
-
-        if (found != fake_subrange_end.end()) {
-            // But also we might need to come after an existing allocation of space in the fake path coordinates
-            // Budge us to after the last thing and budge the cursor to after us.
-            // TODO: GBWTGraph algorithm just uses phase block number as start
-            // position so it can round trip. Settle on a way to round trip the
-            // small phase block numbers somehow?
-            // TODO: Are we sure we'll always visit the paths in order?
-            start_offset = std::max(start_offset, found->second);
-        }
-        
-    }
-
     out << "W\t" << sample << "\t" << hap_index << "\t" << contig << "\t" << start_offset << "\t" << (start_offset + path_length) << "\t";
 
     graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
@@ -262,15 +224,6 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
             out << (graph->get_is_reverse(handle) ? "<" : ">") << graph->get_id(handle);
         });
     out << "\n";
-
-    if (subrange == PathMetadata::NO_SUBRANGE && phase_block != PathMetadata::NO_PHASE_BLOCK) {
-        // Record back the space used in the fake coordinates
-        if (found == fake_subrange_end.end()) {
-            fake_subrange_end.emplace_hint(found, key, start_offset + path_length);
-        } else {
-            found->second = start_offset + path_length;
-        }
-    }
 }
 
 }

@@ -311,27 +311,35 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
             }
         });
 
-    function<path_handle_t(const string&, bool, size_t)> new_subpath =
-        [&subgraph](const string& path_name, bool is_circular, size_t subpath_offset) {
-        PathSense sense;
-        string sample;
-        string locus;
-        size_t haplotype;
-        size_t phase_block;
-        subrange_t subrange;
-        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
+    function<path_handle_t(const path_handle_t&, bool, size_t)> new_subpath =
+        [&source, &subgraph](const path_handle_t& source_path_handle, bool is_circular, size_t subpath_offset) {
+        
+        subrange_t subrange = source.get_subrange(source_path_handle);
+
+        // TODO: Are we really supposed to ignore the original path's start offset?
         if (subrange == PathMetadata::NO_SUBRANGE) {
             subrange.first = subpath_offset;
         } else {
             subrange.first += subpath_offset;
         }
-        subrange.first = subpath_offset;
+        // TODO: Are we really supposed to ignore the original path's start
+        // offset? We used to clobber it completely with subpath_offset.
         subrange.second = PathMetadata::NO_END_POSITION;
-        string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
+
+        PathSense sense = source.get_sense(source_handle);
+        std::string sample = source.get_sample_name(source_handle);
+        std::string locus = source.get_locus_name(source_handle);
+        size_t haplotype = source.get_haplotype(source_handle);
+
+        // TODO: We're supposed to clobber existing paths, so there might be an
+        // existing path like the one we're trying to make here. But we don't
+        // have a has_path or efficient get_path by full metadata. So we make
+        // the name twice.
+        string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
         if (subgraph.has_path(subpath_name)) {
             subgraph.destroy_path(subgraph.get_path_handle(subpath_name));
         }
-        return subgraph.create_path_handle(subpath_name, is_circular);
+        return subgraph.create_path(sense, sample, locus, haplotype, subrange, is_circular);
     };
 
     for (auto& subpath : subpaths) {
@@ -347,7 +355,7 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
             subpath.second.empty()) {
             path = subgraph.create_path_handle(path_name, source.get_is_circular(source_path_handle));
         } else {
-            path = new_subpath(path_name, source.get_is_circular(source_path_handle), subpath.second.begin()->first);
+            path = new_subpath(source_path_handle, source.get_is_circular(source_path_handle), subpath.second.begin()->first);
         }
         for (auto p = subpath.second.begin(); p != subpath.second.end(); ++p) {
             const handle_t& handle = p->second;
@@ -362,7 +370,7 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
                 if (delta != cont_delta) {
                     // we have a discontinuity!  we'll make a new path can continue from there
                     assert(subgraph.get_step_count(path) > 0);
-                    path = new_subpath(path_name, subgraph.get_is_circular(path), p->first);
+                    path = new_subpath(source_path_handle, subgraph.get_is_circular(path), p->first);
                 }
             }
             //fill in the path information

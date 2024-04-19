@@ -19,7 +19,7 @@ void parse_region(const string& target, string& name, int64_t& start, int64_t& e
             start = atoi(target.substr(foundLastColon + 1).c_str());
             end = start;
         } else {
-            start = atoi(target.substr(foundLastColon + 1, foundRangeDash - foundRangeDash - 1).c_str());
+            start = atoi(target.substr(foundLastColon + 1, foundLastColon - foundRangeDash - 1).c_str());
             end = atoi(target.substr(foundRangeDash + 1).c_str());
         }
     }

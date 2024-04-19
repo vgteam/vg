@@ -498,8 +498,8 @@ int main_surject(int argc, char** argv) {
         }
     } else if (input_format == "GAMP") {
         // Working on multipath alignments. We need to set the emitter up ourselves.
-        auto path_order_and_length = extract_path_metadata(sequence_dictionary, *xgidx).first;
-        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_order_and_length);
+        auto scaffold_names_and_lengths = extract_path_metadata(sequence_dictionary, *xgidx).first;
+        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &scaffold_names_and_lengths);
         mp_alignment_emitter.set_read_group(read_group);
         mp_alignment_emitter.set_sample_name(sample_name);
         mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());

@@ -619,9 +619,8 @@ int main_paths(int argc, char** argv) {
                         path_handle_t step_path_handle = graph->get_path_handle_of_step(step_handle);
                         auto it = path_to_name.find(step_path_handle);
                         if (it == path_to_name.end()) {
-                            string step_path_name = graph->get_path_name(step_path_handle);
                             // disregard subpath tags when counting (but not displaying)
-                            it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
+                            it = path_to_name.insert(make_pair(step_path_handle, graph->get_path_scaffold_name(step_path_handle))).first;
                         }
                         unique_names.insert(it->second);
                         unique_paths.insert(step_path_handle);
@@ -699,7 +698,6 @@ int main_paths(int argc, char** argv) {
                 cout << "\tSAMPLE";
                 cout << "\tHAPLOTYPE";
                 cout << "\tLOCUS";
-                cout << "\tPHASE_BLOCK";
                 cout << "\tSUBRANGE";
                 if (list_cyclicity) {
                     cout << "\tCYCLICITY";
@@ -725,8 +723,6 @@ int main_paths(int argc, char** argv) {
                         cout << "\t" << (haplotype == PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE" : std::to_string(haplotype));
                         auto locus = graph->get_locus_name(path_handle);
                         cout << "\t" << (locus == PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
-                        auto phase_block = graph->get_phase_block(path_handle);
-                        cout << "\t" << (phase_block == PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" : std::to_string(phase_block));
                         auto subrange = graph->get_subrange(path_handle);
                         cout << "\t";
                         if (subrange == PathMetadata::NO_SUBRANGE) {

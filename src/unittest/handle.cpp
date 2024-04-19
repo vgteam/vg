@@ -2529,7 +2529,6 @@ TEST_CASE("handlegraph PathMetadata name format preserves ranges on generic path
         PathMetadata::NO_SAMPLE_NAME,
         "randompath",
         PathMetadata::NO_HAPLOTYPE,
-        PathMetadata::NO_PHASE_BLOCK,
         {10, PathMetadata::NO_END_POSITION}
     );
     
@@ -2537,7 +2536,6 @@ TEST_CASE("handlegraph PathMetadata name format preserves ranges on generic path
     REQUIRE(PathMetadata::parse_sample_name(path_name) == PathMetadata::NO_SAMPLE_NAME);
     REQUIRE(PathMetadata::parse_locus_name(path_name) == "randompath");
     REQUIRE(PathMetadata::parse_haplotype(path_name) == PathMetadata::NO_HAPLOTYPE);
-    REQUIRE(PathMetadata::parse_phase_block(path_name) == PathMetadata::NO_PHASE_BLOCK);
     auto subrange = PathMetadata::parse_subrange(path_name);
     REQUIRE(subrange.first == 10);
     REQUIRE(subrange.second == PathMetadata::NO_END_POSITION);
@@ -2550,14 +2548,12 @@ TEST_CASE("handlegraph PathMetadata name format can parse two-part names", "[han
     string sample;
     string locus;
     size_t haplotype;
-    size_t phase_block;
     subrange_t subrange;
     PathMetadata::parse_path_name(path_name,
                                   sense,
                                   sample,
                                   locus,
                                   haplotype,
-                                  phase_block,
                                   subrange);
 
     REQUIRE(PathMetadata::parse_sample_name(path_name) == sample);
@@ -2566,7 +2562,6 @@ TEST_CASE("handlegraph PathMetadata name format can parse two-part names", "[han
     REQUIRE(sense == PathSense::REFERENCE); 
     REQUIRE(sample == "GRCh38");
     REQUIRE(locus == "chr1");
-    REQUIRE(phase_block == PathMetadata::NO_PHASE_BLOCK);
     REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
 }
 

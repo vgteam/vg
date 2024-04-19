@@ -48,6 +48,7 @@ public:
 
     // Use the path metadata api to strip a subrange from a path name.
     // If desired, the subrange can be stored in start and end
+    [[deprecated("Use get_subrange() and get_path_scaffold_name() on the graph instead!")]] 	
     static string strip_subrange(const string& path_name, subrange_t* subrange = nullptr);
 
     Paths(void);

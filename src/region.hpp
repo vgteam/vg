@@ -11,7 +11,7 @@ using namespace std;
 
 // Represent a parsed genomic region.
 // A -1 for start or end indicates that that coordinate is not used.
-// Generally regions parsed form user input will be 1-based.
+// Generally regions parsed from user input will be 1-based.
 struct Region {
     string seq;
     int64_t start = -1;

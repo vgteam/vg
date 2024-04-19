@@ -45,9 +45,8 @@ string Paths::strip_subrange(const string& path_name, subrange_t* out_subrange) 
         string sample;
         string locus;
         size_t haplotype;
-        size_t phase_block;
-        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
-        base_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, PathMetadata::NO_SUBRANGE);        
+        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, subrange);
+        base_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, PathMetadata::NO_SUBRANGE);        
     }
     if (out_subrange) {
         *out_subrange = subrange;
