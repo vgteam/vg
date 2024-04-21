@@ -23,7 +23,15 @@ string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, in
     PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
                                   path_haplotype, path_phase_block, path_subrange);
     if (path_subrange == PathMetadata::NO_SUBRANGE) {
-        path_subrange = make_pair(0, 0);
+        if (path_phase_block != PathMetadata::NO_PHASE_BLOCK && path_phase_block > 0) {
+            // gbz puts subranges into phase blocks
+            // so we interpret them as subranges here, which allows
+            // things like vg convert graph.gbz | vg paths -x - -f ... to make cover
+            path_subrange.first = path_phase_block;
+            path_subrange.second = PathMetadata::NO_END_POSITION;
+        } else {
+            path_subrange = make_pair(0, 0);
+        }
     }
 
     // we move the sample into the locus
