@@ -363,10 +363,29 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum distance to look back when making fragments"
     );
     chaining_opts.add_range(
+        "fragment-max-lookback-bases-per-base",
+        &MinimizerMapper::fragment_max_lookback_bases_per_base,
+        MinimizerMapper::default_fragment_max_lookback_bases_per_base,
+        "maximum distance to look back when making fragments, per base"
+    );
+    chaining_opts.add_range(
         "fragment-max-indel-bases",
         &MinimizerMapper::fragment_max_indel_bases,
         MinimizerMapper::default_fragment_max_indel_bases,
         "maximum indel length in a transition when making fragments"
+    );
+    chaining_opts.add_range(
+        "fragment-max-indel-bases-per-base",
+        &MinimizerMapper::fragment_max_indel_bases_per_base,
+        MinimizerMapper::default_fragment_max_indel_bases_per_base,
+        "maximum indel length in a transition when making fragments, per read base"
+    );
+    chaining_opts.add_range(
+        "fragment-gap-scale",
+        &MinimizerMapper::fragment_gap_scale,
+        MinimizerMapper::default_fragment_gap_scale,
+        "scale for gap scores when fragmenting",
+        double_is_nonnegative
     );
     chaining_opts.add_range(
         "fragment-score-fraction",
@@ -415,10 +434,22 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
+        "max-lookback-bases-per-base",
+        &MinimizerMapper::max_lookback_bases_per_base,
+        MinimizerMapper::default_max_lookback_bases_per_base,
+        "maximum distance to look back when chaining, per read base"
+    );
+    chaining_opts.add_range(
         "max-indel-bases",
         &MinimizerMapper::max_indel_bases,
         MinimizerMapper::default_max_indel_bases,
         "maximum indel length in a transition when chaining"
+    );
+    chaining_opts.add_range(
+        "max-indel-bases-per-base",
+        &MinimizerMapper::max_indel_bases_per_base,
+        MinimizerMapper::default_max_indel_bases_per_base,
+        "maximum indel length in a transition when chaining, per read base"
     );
     chaining_opts.add_range(
         "item-bonus",
@@ -436,7 +467,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
-        "scale for gap scores when fragmenting or chaining",
+        "scale for gap scores when chaining",
         double_is_nonnegative
     );
     
@@ -800,13 +831,20 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0.003)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
+        .add_entry<double>("fragment-gap-scale", 1.0)
         .add_entry<double>("fragment-score-fraction", 0.15)
         .add_entry<double>("fragment-max-min-score", 120)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-lookback-bases", 24000)
+        .add_entry<size_t>("max-lookback-bases", 3000)
+        .add_entry<double>("max-lookback-bases-per-base", 0.3)
+        .add_entry<size_t>("max-indel-bases", 2000)
+        .add_entry<double>("max-indel-bases-per-base", 0.2)
+        .add_entry<double>("gap-scale", 0.05)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -833,13 +871,18 @@ int main_giraffe(int argc, char** argv) {
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
+        .add_entry<double>("fragment-gap-scale", 4.0)
         .add_entry<double>("gap-scale", 4.0)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
@@ -860,11 +903,15 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("mapq-score-scale", 1.0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);

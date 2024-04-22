@@ -247,13 +247,23 @@ public:
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
+    /// How many bases should we look back when making fragments, per base of read length?
+    static constexpr double default_fragment_max_lookback_bases_per_base = 0.03;
+    double fragment_max_lookback_bases_per_base = default_fragment_max_lookback_bases_per_base;
     /// How many fragments should we try and make when fragmenting something?
     static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
     size_t max_fragments = default_max_fragments;
     
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// at fragmenting?
+    static constexpr double default_fragment_gap_scale = 1.0;
+    double fragment_gap_scale = default_fragment_gap_scale;
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
+    /// How many bases of indel should we allow in fragments per base of read length?
+    static constexpr double default_fragment_max_indel_bases_per_base = 0.2;
+    double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -297,6 +307,9 @@ public:
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
+    /// How many bases should we look back when chaining, per base of read length?
+    static constexpr double default_max_lookback_bases_per_base = 0.3;
+    double max_lookback_bases_per_base = default_max_lookback_bases_per_base;
 
     /// How much of a bonus should we give to each item in
     /// fragmenting/chaining?
@@ -307,12 +320,15 @@ public:
     static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
-    /// in fragmenting/chaining?
+    /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
+    /// How many bases of indel should we allow in chaining, per base of read length?
+    static constexpr double default_max_indel_bases_per_base = 0.2;
+    double max_indel_bases_per_base = default_max_indel_bases_per_base;
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
@@ -1143,8 +1159,9 @@ protected:
     /// Print information about a read pair to be aligned
     static void dump_debug_query(const Alignment& aln1, const Alignment& aln2);
 
-    /// Dump dotplot information for seeds, highlighting some of them.
-    static void dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph);
+    /// Dump dotplot information for seeds.
+    /// Displays one or more named collections of runs of seeds.
+    static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);
