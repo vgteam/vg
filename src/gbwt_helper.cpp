@@ -526,7 +526,6 @@ std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_typ
                                           gbwtgraph::get_path_sample_name(metadata, path, PathSense::REFERENCE),
                                           gbwtgraph::get_path_locus_name(metadata, path, PathSense::REFERENCE),
                                           gbwtgraph::get_path_haplotype(metadata, path, PathSense::REFERENCE),
-                                          PathMetadata::NO_PHASE_BLOCK,
                                           PathMetadata::NO_SUBRANGE);
 }
 

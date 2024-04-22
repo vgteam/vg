@@ -167,13 +167,12 @@ static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, 
     std::string sample;
     std::string locus;
     size_t haplotype;
-    size_t phase_block;
     subrange_t subrange;
-    PathMetadata::parse_path_name(base_name, sense, sample, locus, haplotype, phase_block, subrange);
+    PathMetadata::parse_path_name(base_name, sense, sample, locus, haplotype, subrange);
     assert(subrange == PathMetadata::NO_SUBRANGE);
     subrange.first = start_offset;
     subrange.second = end_offset;
-    string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
+    string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
 #ifdef debug
     cerr << "making fragment " << subpath_name << endl;
 #endif

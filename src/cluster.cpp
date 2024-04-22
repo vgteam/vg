@@ -736,10 +736,10 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
         cerr << strm.str();
 #endif
         // the the original component
-        components[component_idx] = move(new_components[0]);
+        components[component_idx] = std::move(new_components[0]);
         // add the remaining to the end
         for (size_t i = 1; i < new_components.size(); i++) {
-            components.emplace_back(move(new_components[i]));
+            components.emplace_back(std::move(new_components[i]));
         }
     }
 }

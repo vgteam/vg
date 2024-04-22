@@ -106,7 +106,6 @@ static string get_path_base_name(const PathPositionHandleGraph& graph, const pat
                                               graph.get_sample_name(path),
                                               graph.get_locus_name(path),
                                               graph.get_haplotype(path),
-                                              graph.get_phase_block(path),
                                               PathMetadata::NO_SUBRANGE);
     }
 }

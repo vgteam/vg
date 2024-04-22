@@ -383,7 +383,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
         // For each strongly connected component
         assert(!strong_component.empty());
         // Assign it to the weak component that some node in it belongs to
-        component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(move(strong_component));
+        component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(std::move(strong_component));
         strong_component_count++;
     }
 #ifdef debug

@@ -646,7 +646,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                     gbwtgraph::get_path_sample_name(gbwt_index, path_id, sense),
                     gbwtgraph::get_path_locus_name(gbwt_index, path_id, sense),
                     gbwtgraph::get_path_haplotype(gbwt_index, path_id, sense),
-                    gbwtgraph::get_path_phase_block(gbwt_index, path_id, sense),
                     gbwtgraph::get_path_subrange(gbwt_index, path_id, sense));
                 path_trav_names.push_back(path_name);
                 path_travs.first.push_back(thread_travs.first[i]);
@@ -808,7 +807,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                                                                  PathMetadata::parse_sample_name(ref_trav_name),
                                                                  contig_name,
                                                                  PathMetadata::parse_haplotype(ref_trav_name),
-                                                                 PathMetadata::NO_PHASE_BLOCK,
                                                                  PathMetadata::NO_SUBRANGE);
                 }
             }
@@ -966,7 +964,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                     gbwtgraph::get_path_sample_name(*gbwt, i, sense),
                     gbwtgraph::get_path_locus_name(*gbwt, i, sense),
                     gbwtgraph::get_path_haplotype(*gbwt, i, sense),
-                    gbwtgraph::get_path_phase_block(*gbwt, i, sense),
                     gbwtgraph::get_path_subrange(*gbwt, i, sense));
                 if (!this->ref_paths.count(path_name)) {
                     string sample_name = gbwtgraph::get_path_sample_name(*gbwt, i, sense);
@@ -1044,7 +1041,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                                                 graph->get_sample_name(path_handle),
                                                                 locus_name,
                                                                 graph->get_haplotype(path_handle),
-                                                                PathMetadata::NO_PHASE_BLOCK,
                                                                 PathMetadata::NO_SUBRANGE);
                 }
             }            

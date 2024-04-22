@@ -790,10 +790,14 @@ struct RecombinatorHaplotype {
     // Haplotype identifier in GBWT metadata.
     size_t id;
 
-    // Fragment identifier in GBWT metadata.
-    // If no original haplotype crosses a subchain, a new fragment will
-    // start after the subchain.
-    size_t fragment;
+    // Start and end positions of the currently growing haplotype.
+    // End will probably be discarded when written to the GBWT.
+    // If no original haplotype crosses a subchain, a new fragment on a new
+    // subrange will start after the subchain.
+    subrange_t subrange;
+
+    // How many total pieces have been made?
+    size_t total_fragments;
 
     // GBWT sequence indentifier in the previous subchain, or
     // `gbwt::invalid_sequence()` if there was no such sequence.
@@ -842,13 +846,13 @@ struct RecombinatorHaplotype {
 
 private:
     // Extends the haplotype over a unary path from a previous subchain.
-    void connect(gbwt::node_type until, const gbwtgraph::GBWTGraph& graph);
+    void connect(gbwt::node_type until, const Recombinator& recombinator);
 
     // Takes a prefix of a sequence.
-    void prefix(gbwt::size_type sequence_id, gbwt::node_type until, const gbwt::GBWT& index);
+    void prefix(gbwt::size_type sequence_id, gbwt::node_type until, const Recombinator& recombinator);
 
     // Extends the haplotype from the previous subchain until the end.
-    void suffix(const gbwt::GBWT& index);
+    void suffix(const Recombinator& recombinator);
 
     // Inserts the current fragment into the builder.
     void insert(gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata);
@@ -866,15 +870,15 @@ void RecombinatorHaplotype::extend(
         if (!this->path.empty())  {
             throw std::runtime_error("Haplotype::extend(): got a prefix subchain after the start of a fragment");
         }
-        this->prefix(sequence.first, subchain.end, recombinator.gbz.index);
+        this->prefix(sequence.first, subchain.end, recombinator);
         return;
     }
 
     // Suffixes and normal subchains have a start node, so we must reach it first.
     if (!this->path.empty()) {
-        this->connect(subchain.start, recombinator.gbz.graph);
+        this->connect(subchain.start, recombinator);
     } else {
-        this->prefix(sequence.first, subchain.start, recombinator.gbz.index);
+        this->prefix(sequence.first, subchain.start, recombinator);
     }
 
     gbwt::edge_type curr(subchain.start, sequence.second);
@@ -911,8 +915,15 @@ void RecombinatorHaplotype::take(
         throw std::runtime_error("Haplotype::take(): the GBWT index does not contain sequence " + std::to_string(sequence_id));
     }
     this->path = recombinator.gbz.index.extract(sequence_id);
+    for (auto& gbwt_node : this->path) {
+        // Add the node lengths to the subrange
+        this->subrange.second += recombinator.gbz.graph.get_length(recombinator.gbz.graph.get_handle(gbwt::Node::id(gbwt_node), gbwt::Node::is_reverse(gbwt_node)));
+    }
     this->insert(builder, metadata);
-    this->fragment++;
+    // Leave a gap in the scaffold
+    this->subrange.first = this->subrange.second + 1000;
+    this->subrange.second = this->subrange.first;
+    this->total_fragments++;
     this->sequence_id = gbwt::invalid_sequence();
     this->position = gbwt::invalid_edge();
     this->path.clear();
@@ -922,15 +933,18 @@ void RecombinatorHaplotype::finish(const Recombinator& recombinator, gbwt::GBWTB
     if (this->position == gbwt::invalid_edge()) {
         throw std::runtime_error("Haplotype::finish(): there is no current position");
     }
-    this->suffix(recombinator.gbz.index);
+    this->suffix(recombinator);
     this->insert(builder, metadata);
-    this->fragment++;
+    // Leave a gap in the scaffold
+    this->subrange.first = this->subrange.second + 1000;
+    this->subrange.second = this->subrange.first;
+    this->total_fragments++;
     this->sequence_id = gbwt::invalid_sequence();
     this->position = gbwt::invalid_edge();
     this->path.clear();
 }
 
-void RecombinatorHaplotype::connect(gbwt::node_type until, const gbwtgraph::GBWTGraph& graph) {
+void RecombinatorHaplotype::connect(gbwt::node_type until, const Recombinator& recombinator) {
     handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(this->position.first);
     handle_t end = gbwtgraph::GBWTGraph::node_to_handle(until);
     this->position = gbwt::invalid_edge();
@@ -942,26 +956,30 @@ void RecombinatorHaplotype::connect(gbwt::node_type until, const gbwtgraph::GBWT
         visited.insert(curr);
         handle_t successor = empty_gbwtgraph_handle();
         size_t successors = 0;
-        graph.follow_edges(curr, false, [&](const handle_t& next) {
+        recombinator.gbz.graph.follow_edges(curr, false, [&](const handle_t& next) {
             successor = next;
             successors++;
         });
         if (successors != 1) {
             throw std::runtime_error("Haplotype::connect(): the path is not unary");
         }
+        // Account for the length of the visited node
+        this->subrange.second += recombinator.gbz.graph.get_length(successor);
         this->path.push_back(gbwtgraph::GBWTGraph::handle_to_node(successor));
         curr = successor;
     }
 }
 
-void RecombinatorHaplotype::prefix(gbwt::size_type sequence_id, gbwt::node_type until, const gbwt::GBWT& index) {
+void RecombinatorHaplotype::prefix(gbwt::size_type sequence_id, gbwt::node_type until, const Recombinator& recombinator) {
     this->position = gbwt::invalid_edge();
-    if (sequence_id >= index.sequences()) {
+    if (sequence_id >= recombinator.gbz.index.sequences()) {
         throw std::runtime_error("Haplotype::prefix(): invalid GBWT sequence id " + std::to_string(sequence_id));
     }
     this->sequence_id = sequence_id;
-    for (gbwt::edge_type curr = index.start(sequence_id); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
+    for (gbwt::edge_type curr = recombinator.gbz.index.start(sequence_id); curr.first != gbwt::ENDMARKER; curr = recombinator.gbz.index.LF(curr)) {
         this->path.push_back(curr.first);
+        // Account for the length of the visited node
+        this->subrange.second += recombinator.gbz.graph.get_length(recombinator.gbz.graph.get_handle(gbwt::Node::id(curr.first), gbwt::Node::is_reverse(curr.first)));
         if (curr.first == until) {
             this->position = curr;
             return;
@@ -970,15 +988,17 @@ void RecombinatorHaplotype::prefix(gbwt::size_type sequence_id, gbwt::node_type 
     throw std::runtime_error("Haplotype::prefix(): GBWT sequence " + std::to_string(sequence_id) + " did not reach GBWT node " + std::to_string(until));
 }
 
-void RecombinatorHaplotype::suffix(const gbwt::GBWT& index) {
-    for (gbwt::edge_type curr = index.LF(this->position); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
+void RecombinatorHaplotype::suffix(const Recombinator& recombinator) {
+    for (gbwt::edge_type curr = recombinator.gbz.index.LF(this->position); curr.first != gbwt::ENDMARKER; curr = recombinator.gbz.index.LF(curr)) {
         this->path.push_back(curr.first);
+        // Account for the length of the visited node
+        this->subrange.second += recombinator.gbz.graph.get_length(recombinator.gbz.graph.get_handle(gbwt::Node::id(curr.first), gbwt::Node::is_reverse(curr.first)));
     }
 }
 
 void RecombinatorHaplotype::insert(gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) {
     std::string sample_name = "recombination";
-    metadata.add_haplotype(sample_name, this->contig_name, this->id, this->fragment);
+    metadata.add_haplotype(sample_name, this->contig_name, this->id, this->subrange);
     builder.insert(this->path, true);
 }
 
@@ -1031,7 +1051,8 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
         metadata.add_generic_path(contig_name);
     } else {
         // Reference samples will be copied later.
-        metadata.add_haplotype(sample_name, contig_name, path_name.phase, path_name.count);
+        // Copy across the "count" field as a subrange offset.
+        metadata.add_haplotype(sample_name, contig_name, path_name.phase, {path_name.count, PathMetadata::NO_END_POSITION});
     }
 
     gbwt::vector_type path = source.extract(gbwt::Path::encode(path_id, false));
@@ -1423,7 +1444,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
     std::vector<RecombinatorHaplotype> haplotypes;
     for (size_t i = 0; i < final_haplotypes; i++) {
-        haplotypes.push_back({ chain.contig_name, i + 1, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
+        haplotypes.push_back({ chain.contig_name, i + 1, {0, 0}, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
     }
 
     Statistics statistics;
@@ -1497,7 +1518,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 haplotypes[haplotype].finish(*this, builder, metadata);
             }
         }
-        statistics.fragments = haplotypes.front().fragment;
+        statistics.fragments = haplotypes.front().total_fragments;
     }
 
     return statistics;

@@ -1798,7 +1798,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = move(normalized);
+        *alignment.mutable_path() = std::move(normalized);
     }
 }
 
@@ -1968,7 +1968,7 @@ void parse_bed_regions(istream& bedstream,
                     // Get the scaffold and 0-based interval for the path, getting the length if needed.
                     // TODO: We won't actually need the scaffold part of this; we already know it's seq.
                     // Add just a filled-in region accessor to the API?
-                    region_t region = graph->get_path_region(path);
+                    handlegraph::region_t region = graph->get_path_region(path);
                     const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
@@ -2035,7 +2035,7 @@ void parse_bed_regions(istream& bedstream,
                     // Get the scaffold and 0-based interval for the path, getting the length if needed.
                     // TODO: We won't actually need the scaffold part of this; we already know it's seq.
                     // Add just a filled-in region accessor to the API?
-                    region_t region = graph->get_path_region(path);
+                    handlegraph::region_t region = graph->get_path_region(path);
                     const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
@@ -2215,7 +2215,7 @@ void parse_gff_regions(istream& gffstream,
                     // Get the scaffold and 0-based interval for the path, getting the length if needed.
                     // TODO: We won't actually need the scaffold part of this; we already know it's seq.
                     // Add just a filled-in region accessor to the API?
-                    region_t region = graph->get_path_region(path);
+                    handlegraph::region_t region = graph->get_path_region(path);
                     const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
@@ -2274,7 +2274,7 @@ void parse_gff_regions(istream& gffstream,
                     // Get the scaffold and 0-based interval for the path, getting the length if needed.
                     // TODO: We won't actually need the scaffold part of this; we already know it's seq.
                     // Add just a filled-in region accessor to the API?
-                    region_t region = graph->get_path_region(path);
+                    handlegraph::region_t region = graph->get_path_region(path);
                     const subrange_t& subrange = region.second;
                     // if the subpath overlap with the queried range, save it
                     if(ebuf >= subrange.first && sbuf < subrange.second ){
