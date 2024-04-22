@@ -326,10 +326,10 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
         // offset? We used to clobber it completely with subpath_offset.
         subrange.second = PathMetadata::NO_END_POSITION;
 
-        PathSense sense = source.get_sense(source_handle);
-        std::string sample = source.get_sample_name(source_handle);
-        std::string locus = source.get_locus_name(source_handle);
-        size_t haplotype = source.get_haplotype(source_handle);
+        PathSense sense = source.get_sense(source_path_handle);
+        std::string sample = source.get_sample_name(source_path_handle);
+        std::string locus = source.get_locus_name(source_path_handle);
+        size_t haplotype = source.get_haplotype(source_path_handle);
 
         // TODO: We're supposed to clobber existing paths, so there might be an
         // existing path like the one we're trying to make here. But we don't

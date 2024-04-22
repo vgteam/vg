@@ -531,60 +531,36 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
     };
 
     // Enumerate path steps.
-    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+    auto for_each_path_element = [&](const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                               const nid_t& node_id, const bool& is_rev,
                                                               const std::string& cigar, const bool& is_empty, const bool& is_circular)>& lambda) {
         
-        // Define a function to copy over a path.
-        // XG construction relies on name-encoded path metadata.
-        auto copy_path = [&](const path_handle_t& path, const std::string new_name) {
+        input->for_each_path_handle([&](const path_handle_t& path) {
+            PathSense sense = input->get_sense(path);
+            std::string sample = input->get_sample_name(path);
+            std::string locus = input->get_locus_name(path);
+            int64_t haplotype = input->get_haplotype(path);
+            auto subrange = input->get_subrange(path);
+
             bool is_circular = input->get_is_circular(path);
-            for (handle_t handle : input->scan_path(path)) {
-                lambda(new_name, input->get_id(handle), input->get_is_reverse(handle), "", false, is_circular);
+
+            if (sense == PathSense::HAPLOTYPE && ref_samples.count(sample)) {
+                // This path needs to be changed to reference.
+                sense = PathSense::REFERENCE;
             }
+
+            if (sense == PathSense::HAPLOTYPE && drop_haplotypes) {
+                // Unconverted haplotypes need to be skipped
+                return;
+            }
+            
+            // Copy out to the xg
+            for (handle_t handle : input->scan_path(path)) {
+                lambda(sense, sample, locus, haplotype, subrange, input->get_id(handle), input->get_is_reverse(handle), "", false, is_circular);
+            }
+
             // TODO: Should we preserve empty paths here?
-        };
-        
-        // Copy over the generic and existing reference paths
-        input->for_each_path_matching({PathSense::GENERIC, PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
-            copy_path(path, input->get_path_name(path));
         });
-        
-        if (!ref_samples.empty()) {
-            // Copy all haplotype paths matching the ref samples as reference
-            input->for_each_path_matching({PathSense::HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
-                
-                // Compose the new reference-ified metadata
-                std::string sample = input->get_sample_name(path);
-                std::string locus = input->get_locus_name(path);
-                // We should always preserve the haplotype phase number; we
-                // will need it if we ever want to go back to haplotype sense.
-                int64_t haplotype = input->get_haplotype(path);
-                auto subrange = input->get_subrange(path);
-                
-                // Make a new name with reference-ified metadata.
-                // Phase block is safe to discard because we checked for duplicates without it.
-                auto new_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                               sample,
-                                                               locus,
-                                                               haplotype,
-                                                               subrange);
-                
-                // Copy out to the xg
-                copy_path(path, new_name);
-            });
-        }
-        
-        if (!drop_haplotypes) {
-            // Copy across any other haplotypes.
-            input->for_each_path_matching({PathSense::HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
-                if (ref_samples.count(input->get_sample_name(path))) {
-                    // Skip those we already promoted to reference sense
-                    return;
-                }
-                copy_path(path, input->get_path_name(path));
-            });
-        }
     };
 
     // Build XG.

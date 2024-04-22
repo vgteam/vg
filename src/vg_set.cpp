@@ -135,7 +135,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
     // We no longer need to reconstitute paths ourselves; we require that each
     // input file has all the parts of its paths.
     
-    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+    auto for_each_path_element = [&](const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                      const nid_t& node_id, const bool& is_rev,
                                      const std::string& cigar,
                                      bool is_empty, bool is_circular)>& lambda) {
@@ -150,8 +150,15 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
                     // For each path
                     
                     // Get its metadata
-                    string path_name = path_graph->get_path_name(p);
+                    PathSense sense = path_graph->get_sense(p);
+                    std::string sample = path_graph->get_sample_name(p);
+                    std::string locus = path_graph->get_locus_name(p);
+                    size_t haplotype = path_graph->get_haplotype(p);
+                    subrange_t subrange = path_graph->get_subrange(p);
                     bool is_circular = path_graph->get_is_circular(p);
+
+                    // And also its name
+                    string path_name = path_graph->get_path_name(p);
                     
                     if(paths_to_remove(path_name)) {
                         // We want to filter out this path
@@ -187,7 +194,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
                             cerr << "Yield path " << path_name << " visit to "
                                 << path_graph->get_id(stepped_on) << " " << path_graph->get_is_reverse(stepped_on) << endl;
 #endif
-                            lambda(path_name, path_graph->get_id(stepped_on), path_graph->get_is_reverse(stepped_on), "", is_empty, is_circular); 
+                            lambda(sense, sample, locus, haplotype, subrange, path_graph->get_id(stepped_on), path_graph->get_is_reverse(stepped_on), "", is_empty, is_circular); 
                         });
                         
                         if (is_empty) {
@@ -198,7 +205,7 @@ void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_r
                             cerr << "Yield empty path " << path_name << endl;
 #endif
                             
-                            lambda(path_name, 0, false, "", is_empty, is_circular);
+                            lambda(sense, sample, locus, haplotype, subrange, 0, false, "", is_empty, is_circular);
                         }
                     }
                 });

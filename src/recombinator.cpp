@@ -1048,7 +1048,7 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
     std::string sample_name = source.metadata.sample(path_name.sample);
     std::string contig_name = source.metadata.contig(path_name.contig);
     if (sample_name == gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
-        metadata.add_generic_path(contig_name);
+        metadata.add_generic_path(contig_name, {path_name.count, PathMetadata::NO_END_POSITION});
     } else {
         // Reference samples will be copied later.
         // Copy across the "count" field as a subrange offset.
