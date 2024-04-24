@@ -260,10 +260,10 @@ public:
                          size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
-        reverse_iterator(const reverse_iterator& other) = default;
-        reverse_iterator(reverse_iterator&& other) = default;
-        reverse_iterator& operator=(const reverse_iterator& other) = default;
-        reverse_iterator& operator=(reverse_iterator&& other) = default;
+        reverse_iterator(const reverse_iterator& other);
+        reverse_iterator(reverse_iterator&& other);
+        reverse_iterator& operator=(const reverse_iterator& other);
+        reverse_iterator& operator=(reverse_iterator&& other);
 
         /// Move left
         reverse_iterator& operator++();
@@ -296,8 +296,17 @@ public:
         vector<tree_item_t>::const_reverse_iterator rend;
         /// Distance limit we will go up to
         size_t distance_limit;
-        /// Stack for computing distances
-        std::stack<size_t> stack;
+        /// Stack for computing distances.
+        /// Not allocated unless we actually go to use it, so rend() deosn't need to carry one.
+        std::unique_ptr<std::stack<size_t>> stack_data;
+
+        /// Accessor to lazily initialize a stack for the iterator.
+        inline std::stack<size_t>& stack() {
+            if (!stack_data) {
+                stack_data.reset(new std::stack<size_t>());
+            }
+            return *stack_data;
+        }
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.

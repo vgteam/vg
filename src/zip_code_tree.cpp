@@ -1466,7 +1466,7 @@ auto ZipCodeTree::end() const -> iterator {
     return iterator(zip_code_tree.end(), zip_code_tree.end());
 }
 
-ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(rbegin), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
+ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(rbegin), rend(rend), distance_limit(distance_limit), stack_data(nullptr), current_state(S_START) {
 #ifdef debug_parse
     if (this->it != rend) {
         std::cerr << "Able to do first initial tick." << std::endl;
@@ -1491,6 +1491,31 @@ ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_rever
         std::cerr << "Ran out of tree looking for first seed." << std::endl;
     }
 #endif
+}
+
+ZipCodeTree::reverse_iterator::reverse_iterator(const reverse_iterator& other) : it(other.it), rend(other.rend), distance_limit(other.distance_limit), stack_data(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr), current_state(other.current_state) {
+    // Nothing to do!
+}
+
+ZipCodeTree::reverse_iterator::reverse_iterator(reverse_iterator&& other) : it(std::move(other.it)), rend(std::move(other.rend)), distance_limit(std::move(other.distance_limit)), stack_data(std::move(other.stack_data)), current_state(std::move(other.current_state)) {
+    // Nothing to do!
+}
+
+auto ZipCodeTree::reverse_iterator::operator=(const reverse_iterator& other) -> reverse_iterator& {
+    it = other.it;
+    rend = other.rend;
+    distance_limit = other.distance_limit;
+    stack_data.reset(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr);
+    current_state = other.current_state;
+    return *this;
+}
+
+auto ZipCodeTree::reverse_iterator::operator=(reverse_iterator&& other) -> reverse_iterator& {
+    it = std::move(other.it);
+    rend = std::move(other.rend);
+    distance_limit = std::move(other.distance_limit);
+    stack_data = std::move(other.stack_data);
+    current_state = std::move(other.current_state);
 }
 
 auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
@@ -1524,23 +1549,23 @@ auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
 #ifdef check_parse
     crash_unless(it != rend);
     crash_unless(it->get_type() == SEED);
-    crash_unless(!stack.empty());
+    crash_unless(!stack().empty());
 #endif
     // We know the running distance to this seed will be at the top of the stack.
     seed_result_t to_return;
     to_return.seed = it->get_value();
     to_return.is_reverse = it->get_is_reversed();
-    to_return.distance = stack.top();
+    to_return.distance = stack().top();
     return to_return;
 }
 
 auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
-    stack.push(value);
+    stack().push(value);
 }
 
 auto ZipCodeTree::reverse_iterator::pop() -> size_t {
-    size_t value = stack.top();
-    stack.pop();
+    size_t value = stack().top();
+    stack().pop();
     return value;
 }
 
@@ -1548,25 +1573,29 @@ auto ZipCodeTree::reverse_iterator::top() -> size_t& {
 #ifdef check_parse
     crash_unless(depth() > 0);
 #endif
-    return stack.top();
+    return stack().top();
 }
 
 auto ZipCodeTree::reverse_iterator::dup() -> void {
-    push(stack.top());
+    push(stack().top());
 }
 
 auto ZipCodeTree::reverse_iterator::depth() const -> size_t {
-    return stack.size();
+    if (!stack_data) {
+        return 0;
+    } else {
+        return stack_data->size();
+    }
 }
 
 auto ZipCodeTree::reverse_iterator::swap() -> void {
     // Grab the top item
-    size_t temp = stack.top();
-    stack.pop();
+    size_t temp = stack().top();
+    stack().pop();
     // Swap it with what was under it
-    std::swap(temp, stack.top());
+    std::swap(temp, stack().top());
     // And put that back on top
-    stack.push(temp);
+    stack().push(temp);
 }
 
 auto ZipCodeTree::reverse_iterator::state(State new_state) -> void {
