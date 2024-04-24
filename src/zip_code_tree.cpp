@@ -7,8 +7,11 @@
 #include "crash.hpp"
 #include "minimizer_mapper.hpp"
 
-
+// Set for verbose logging from the zip code tree parsing logic
 //#define debug_parse
+
+// Set to compile in assertions to check the zipcode tree parsing logic
+//#define check_parse
 
 using namespace std;
 namespace vg {
@@ -1518,9 +1521,11 @@ auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) co
 
 auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
     // We are always at a seed, so show that seed
+#ifdef check_parse
     crash_unless(it != rend);
     crash_unless(it->get_type() == SEED);
     crash_unless(!stack.empty());
+#endif
     // We know the running distance to this seed will be at the top of the stack.
     seed_result_t to_return;
     to_return.seed = it->get_value();
@@ -1540,7 +1545,9 @@ auto ZipCodeTree::reverse_iterator::pop() -> size_t {
 }
 
 auto ZipCodeTree::reverse_iterator::top() -> size_t& {
+#ifdef check_parse
     crash_unless(depth() > 0);
+#endif
     return stack.top();
 }
 
@@ -1604,7 +1611,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         switch (it->get_type()) {
         case SEED:
             // Emit seed here with distance at top of stack.
+#ifdef check_parse
             crash_unless(depth() > 0);
+#endif
 #ifdef debug_parse
             std::cerr << "Yield seed " << it->get_value() << ", distance " << top() << std::endl;
 #endif
@@ -1806,7 +1815,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
 
                 // This is the start of the chain we were wanting to skip.
                 pop();
+#ifdef check_parse
                 crash_unless(depth() >= 1);
+#endif
                 // Discard the running distance along this chain, which no longer matters.
                 pop();
                 // Running distance for next chain, or running distance to cross the snarl, will be under it.

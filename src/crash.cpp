@@ -481,11 +481,7 @@ void report_exception(const std::exception& ex) {
     abort();
 }
 
-void crash_unless_impl(bool condition, const std::string& condition_string, const std::string& file, int line, const std::string& function) {
-    if (condition) {
-        // Nothing is wrong!
-        return;
-    }
+void crash_unless_failed(const char* condition_string, const char* file, int line, const char* function) {
     std::cerr << std::endl << std::endl;
     draw_br();
     std::cerr << "VG has crashed because " << condition_string << " is false." << std::endl;
