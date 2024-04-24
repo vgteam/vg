@@ -1516,6 +1516,7 @@ auto ZipCodeTree::reverse_iterator::operator=(reverse_iterator&& other) -> rever
     distance_limit = std::move(other.distance_limit);
     stack_data = std::move(other.stack_data);
     current_state = std::move(other.current_state);
+    return *this;
 }
 
 auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
@@ -1549,13 +1550,14 @@ auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
 #ifdef check_parse
     crash_unless(it != rend);
     crash_unless(it->get_type() == SEED);
-    crash_unless(!stack().empty());
+    crash_unless(stack_data);
+    crash_unless(!stack_data->empty());
 #endif
     // We know the running distance to this seed will be at the top of the stack.
     seed_result_t to_return;
     to_return.seed = it->get_value();
     to_return.is_reverse = it->get_is_reversed();
-    to_return.distance = stack().top();
+    to_return.distance = stack_data->top();
     return to_return;
 }
 

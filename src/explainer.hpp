@@ -39,6 +39,12 @@ public:
     /// Close out the files being explained to
     virtual ~Explainer();
 
+    /// Conversion to bool so you can use an explainer as a condition on code
+    /// to write to it.
+    inline operator bool() const {
+        return explaining();
+    }
+
 protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
@@ -52,12 +58,6 @@ protected:
     /// Function to check if we should be explaining.
     inline bool explaining() const {
         return this->enabled && Explainer::save_explanations;
-    }
-
-    /// Conversion to bool so you can use an explainer as a condition on code
-    /// to write to it.
-    inline operator bool() const {
-        return explaining();
     }
 };
 
