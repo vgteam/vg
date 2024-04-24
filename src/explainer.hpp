@@ -53,6 +53,12 @@ protected:
     inline bool explaining() const {
         return this->enabled && Explainer::save_explanations;
     }
+
+    /// Conversion to bool so you can use an explainer as a condition on code
+    /// to write to it.
+    inline operator bool() const {
+        return explaining();
+    }
 };
 
 /**

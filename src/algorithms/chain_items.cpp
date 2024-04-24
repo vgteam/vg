@@ -401,7 +401,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #else
     DiagramExplainer diagram(false);
 #endif
-    diagram.add_globals({{"rankdir", "LR"}});
+    if (diagram) {
+        diagram.add_globals({{"rankdir", "LR"}});
+    }
    
 #ifdef debug_chaining
     show_work = true;
@@ -438,7 +440,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // How many points is it worth to collect?
         auto item_points = here.score() * item_scale + item_bonus;
         
-        std::string here_gvnode = "i" + std::to_string(to_anchor);
+        std::string here_gvnode;
+        if (diagram) {
+            here_gvnode = "i" + std::to_string(to_anchor);
+        }
         
         // If we come from nowhere, we get those points.
         chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {item_points, TracedScore::nowhere()});
@@ -507,17 +512,19 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             if (show_work) {
                 cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
             }
+            
+            if (diagram) {
+                if (from_source_score.score > 0) {
+                    // Only explain edges that were actual candidates since we
+                    // won't let local score go negative
                     
-            if (from_source_score.score > 0) {
-                // Only explain edges that were actual candidates since we
-                // won't let local score go negative
-                
-                std::string source_gvnode = "i" + std::to_string(from_anchor);
-                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
-                    {"label", std::to_string(jump_points)},
-                    {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
-                });
+                    std::string source_gvnode = "i" + std::to_string(from_anchor);
+                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                        {"label", std::to_string(jump_points)},
+                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                    });
+                }
             }
         } else {
             if (show_work) {
@@ -545,29 +552,31 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
         }
         
-        // Draw the item in the diagram
-        std::string here_gvnode = "i" + std::to_string(to_anchor);
-        std::stringstream label_stream;
-        label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
-        diagram.add_node(here_gvnode, {
-            {"label", label_stream.str()}
-        });
-        auto graph_start = here.graph_start();
-        std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
-        diagram.ensure_node(graph_gvnode, {
-            {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
-            {"shape", "box"}
-        });
-        // Show the item as connected to its source graph node
-        diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
-        // Make the next graph node along the same strand
-        std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
-        diagram.ensure_node(graph_gvnode2, {
-            {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
-            {"shape", "box"}
-        });
-        // And show them as connected. 
-        diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        if (diagram) {
+            // Draw the item in the diagram
+            std::string here_gvnode = "i" + std::to_string(to_anchor);
+            std::stringstream label_stream;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
+            diagram.add_node(here_gvnode, {
+                {"label", label_stream.str()}
+            });
+            auto graph_start = here.graph_start();
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode, {
+                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // Show the item as connected to its source graph node
+            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+            // Make the next graph node along the same strand
+            std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode2, {
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // And show them as connected. 
+            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        }
         
         // See if this is the best overall
         best_score.max_in(chain_scores, to_anchor);
