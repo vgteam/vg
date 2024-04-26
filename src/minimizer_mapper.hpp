@@ -704,18 +704,35 @@ protected:
      * each assumed to be colinear in the read.
      */
     double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
-   
+    
     /// Struct to represent per-DP-method stats. 
     struct aligner_stats_t {
+
+        /// Collection of values you can +=
+        struct stat_collection_t {
+            std::vector<double> values;
+            inline stat_collection_t& operator+=(const double& value) {
+                values.push_back(value);
+                return *this;
+            }
+            inline stat_collection_t& operator+=(const stat_collection_t& other) {
+                std::copy(other.values.begin(), other.values.end(), std::back_inserter(values));
+                return *this;
+            }
+
+            inline double total() const {
+                return std::accumulate(values.begin(), values.end(), 0.0);
+            }
+        };
         
         /// Struct to represent counts of bases or seconds or invocations used by different aligners.
-        struct individual_stat_t {
-            double wfa_tail = 0;
-            double wfa_middle = 0;
-            double dozeu_tail = 0;
-            double bga_middle = 0;
+        struct stat_set_t {
+            stat_collection_t wfa_tail;
+            stat_collection_t wfa_middle;
+            stat_collection_t dozeu_tail;
+            stat_collection_t bga_middle;
 
-            inline individual_stat_t& operator+=(const individual_stat_t& other) {
+            inline stat_set_t& operator+=(const stat_set_t& other) {
                 this->wfa_tail += other.wfa_tail;
                 this->wfa_middle += other.wfa_middle;
                 this->dozeu_tail += other.dozeu_tail;
@@ -725,24 +742,30 @@ protected:
             }
 
             inline void add_annotations(Alignment& aln, const std::string& scope, const std::string& type) {
-                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail);
-                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail);
-                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail + dozeu_tail);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail.total());
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa_values", wfa_tail.values);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail.total());
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu_values", dozeu_tail.values);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail.total() + dozeu_tail.total());
 
-                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle);
-                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle);
-                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle + bga_middle);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle.total());
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa_values", wfa_middle.values);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle.total());
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga_values", bga_middle.values);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle.total() + bga_middle.total());
             }
         };
 
-        individual_stat_t bases;
-        individual_stat_t time;
-        individual_stat_t invocations;
+        stat_set_t bases;
+        stat_set_t time;
+        stat_set_t invocations;
+        stat_set_t fallbacks;
 
         inline aligner_stats_t& operator+=(const aligner_stats_t& other) {
             this->bases += other.bases;
             this->time += other.time;
             this->invocations += other.invocations;
+            this->fallbacks += other.fallbacks;
 
             return *this;
         }
@@ -751,6 +774,7 @@ protected:
             bases.add_annotations(aln, scope, "bases");
             time.add_annotations(aln, scope, "time");
             invocations.add_annotations(aln, scope, "invocations");
+            invocations.add_annotations(aln, scope, "fallbacks");
         }
     };
 

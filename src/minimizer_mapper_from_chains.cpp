@@ -2536,6 +2536,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stats->bases.wfa_middle += link_length;
                 stats->time.wfa_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
                 stats->invocations.wfa_middle += 1;
+                if (!link_alignment) {
+                    // Note that we had to fall back from WFA
+                    stats->fallbacks.wfa_middle += 1;
+                } else {
+                    stats->fallbacks.wfa_middle += 0;
+                }
             }
             link_alignment_source = "WFAExtender";
             
