@@ -1673,8 +1673,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track what read offset, graph node pairs were used in previously generated alignments, so we can fish out alignments to different placements.
     std::unordered_set<std::pair<size_t, pos_t>> used_matchings;
 
-    // Track statistics about how many bases were aligned by diffrent mathods, and how much time was used.
-    std::pair<base_processing_stats_t, base_processing_stats_t> stats; 
+    // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
+    aligner_stats_t stats; 
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1777,16 +1777,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // Do the DP between the items in the chain
 
                     // Collect stats into here
-                    std::pair<base_processing_stats_t, base_processing_stats_t> alignment_stats;
-
+                    aligner_stats_t alignment_stats;
                     best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
-                    
-                    alignment_stats.first.add_annotations(best_alignments[0], "alignment", "bases");
-                    alignment_stats.second.add_annotations(best_alignments[0], "alignment", "time");
+                    alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
-                    stats.first += alignment_stats.first;
-                    stats.second += alignment_stats.second;
+                    stats += alignment_stats;
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2124,8 +2120,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "best_chain.anchors", (double) best_chain_anchors);
     set_annotation(mappings[0], "best_chain.anchor_length", (double) best_chain_anchor_length);
 
-    stats.first.add_annotations(mappings[0], "read", "bases");
-    stats.second.add_annotations(mappings[0], "read", "time");
+    stats.add_annotations(mappings[0], "read");
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
@@ -2215,7 +2210,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
-    std::pair<base_processing_stats_t, base_processing_stats_t>* stats
+    aligner_stats_t* stats
 ) const {
     
     if (chain.empty()) {
@@ -2297,8 +2292,9 @@ Alignment MinimizerMapper::find_chain_alignment(
             left_alignment = extender.prefix(left_tail, right_anchor);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
-                stats->first.wfa_tail += left_tail_length;
-                stats->second.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->bases.wfa_tail += left_tail_length;
+                stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->invocations.wfa_tail += 1;
             }
             if (left_alignment && left_alignment.seq_offset != 0) {
                 // We didn't get all the way to the left end of the read without
@@ -2386,8 +2382,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
                         // Actually did the alignment
-                        stats->first.dozeu_tail += left_tail_length;
-                        stats->second.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                        stats->bases.dozeu_tail += left_tail_length;
+                        stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                        stats->invocations.dozeu_tail += 1;
                     }
                 }
 
@@ -2536,8 +2533,9 @@ Alignment MinimizerMapper::find_chain_alignment(
             link_alignment = extender.connect(linking_bases, left_anchor, (*next).graph_start());
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
-                stats->first.wfa_middle += link_length;
-                stats->second.wfa_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->bases.wfa_middle += link_length;
+                stats->time.wfa_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->invocations.wfa_middle += 1;
             }
             link_alignment_source = "WFAExtender";
             
@@ -2632,8 +2630,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (nodes_and_bases.first > 0) {
                     // Actually did the alignment
-                    stats->first.bga_middle += link_length;
-                    stats->second.bga_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                    stats->bases.bga_middle += link_length;
+                    stats->time.bga_middle += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                    stats->invocations.bga_middle += 1;
                 }
             }
             link_alignment_source = "align_sequence_between";
@@ -2710,8 +2709,9 @@ Alignment MinimizerMapper::find_chain_alignment(
             right_alignment = extender.suffix(right_tail, left_anchor_excluded);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
-                stats->first.wfa_tail += right_tail_length;
-                stats->second.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->bases.wfa_tail += right_tail_length;
+                stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                stats->invocations.wfa_tail += 1;
             }
         }
         
@@ -2803,8 +2803,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
                         // Actually did the alignment
-                        stats->first.dozeu_tail += right_tail_length;
-                        stats->second.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                        stats->bases.dozeu_tail += right_tail_length;
+                        stats->time.dozeu_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
+                        stats->invocations.dozeu_tail += 1;
                     }
                 }
 

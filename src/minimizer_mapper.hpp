@@ -705,32 +705,56 @@ protected:
      */
     double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
    
-    /// Struct to represent counts of bases or seconds used by different aligners.
-    struct base_processing_stats_t {
-        double wfa_tail = 0;
-        double wfa_middle = 0;
-        double dozeu_tail = 0;
-        double bga_middle = 0;
+    /// Struct to represent per-DP-method stats. 
+    struct aligner_stats_t {
+        
+        /// Struct to represent counts of bases or seconds or invocations used by different aligners.
+        struct individual_stat_t {
+            double wfa_tail = 0;
+            double wfa_middle = 0;
+            double dozeu_tail = 0;
+            double bga_middle = 0;
 
-        inline base_processing_stats_t& operator+=(const base_processing_stats_t& other) {
-            this->wfa_tail += other.wfa_tail;
-            this->wfa_middle += other.wfa_middle;
-            this->dozeu_tail += other.dozeu_tail;
-            this->bga_middle += other.bga_middle;
+            inline individual_stat_t& operator+=(const individual_stat_t& other) {
+                this->wfa_tail += other.wfa_tail;
+                this->wfa_middle += other.wfa_middle;
+                this->dozeu_tail += other.dozeu_tail;
+                this->bga_middle += other.bga_middle;
+
+                return *this;
+            }
+
+            inline void add_annotations(Alignment& aln, const std::string& scope, const std::string& type) {
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail + dozeu_tail);
+
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle + bga_middle);
+            }
+        };
+
+        individual_stat_t bases;
+        individual_stat_t time;
+        individual_stat_t invocations;
+
+        inline aligner_stats_t& operator+=(const aligner_stats_t& other) {
+            this->bases += other.bases;
+            this->time += other.time;
+            this->invocations += other.invocations;
 
             return *this;
         }
 
-        inline void add_annotations(Alignment& aln, const std::string& scope, const std::string& type) {
-            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail);
-            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail);
-            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail + dozeu_tail);
-
-            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle);
-            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle);
-            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle + bga_middle);
+        inline void add_annotations(Alignment& aln, const std::string& scope) {
+            bases.add_annotations(aln, scope, "bases");
+            time.add_annotations(aln, scope, "time");
+            invocations.add_annotations(aln, scope, "invocations");
         }
     };
+
+    
 
     /**
      * Turn a chain into an Alignment.
@@ -741,7 +765,7 @@ protected:
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, std::pair<base_processing_stats_t, base_processing_stats_t>* stats = nullptr) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
