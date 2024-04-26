@@ -809,7 +809,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-indel-bases-per-base", 0.2)
         .add_entry<int>("item-bonus", 0)
         .add_entry<int>("item-scale", 2.0)
-        .add_entry<double>("gap-scale", 1.0)
+        .add_entry<double>("gap-scale", 0.7)
         .add_entry<double>("chain-score-threshold", 200.0)
         .add_entry<int>("min-chains", 3.0)
         .add_entry<double>("min-chain-score-per-base", 0.25)
