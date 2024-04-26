@@ -704,15 +704,44 @@ protected:
      * each assumed to be colinear in the read.
      */
     double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
-    
+   
+    /// Struct to represent counts of bases or seconds used by different aligners.
+    struct base_processing_stats_t {
+        double wfa_tail = 0;
+        double wfa_middle = 0;
+        double dozeu_tail = 0;
+        double bga_middle = 0;
+
+        inline base_processing_stats_t& operator+=(const base_processing_stats_t& other) {
+            this->wfa_tail += other.wfa_tail;
+            this->wfa_middle += other.wfa_middle;
+            this->dozeu_tail += other.dozeu_tail;
+            this->bga_middle += other.bga_middle;
+
+            return *this;
+        }
+
+        inline void add_annotations(Alignment& aln, const std::string& scope, const std::string& type) {
+            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail);
+            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail);
+            set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail + dozeu_tail);
+
+            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle);
+            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle);
+            set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle + bga_middle);
+        }
+    };
+
     /**
      * Turn a chain into an Alignment.
      *
      * Operating on the given input alignment, align the tails and intervening
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
+     *
+     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, std::pair<base_processing_stats_t, base_processing_stats_t>* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -831,8 +860,10 @@ protected:
      *
      * For pinned alignment, restricts the alignment to have gaps no longer
      * than max_gap_length, and to use <= max_dp_cells cells.
+     *
+     * Returns the number of nodes and bases in the graph aligned against.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
     
     /**
      * Set pair partner references for paired mapping results.
