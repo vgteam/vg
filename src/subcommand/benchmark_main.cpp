@@ -93,33 +93,31 @@ int main_benchmark(int argc, char** argv) {
     vg::Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     vg::Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
     vg::Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    vg::Node* n5 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-    vg::Node* n6 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-    vg::Node* n7 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-    vg::Node* n8 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-    vg::Node* n9 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+   
     
     graph.create_edge(n0, n1);
     graph.create_edge(n0, n3);
     graph.create_edge(n1, n2);
     graph.create_edge(n3, n4);
-    graph.create_edge(n4, n5);
-    graph.create_edge(n5, n6);
-    graph.create_edge(n6, n7);
-    graph.create_edge(n7, n8);
-    graph.create_edge(n8, n9);
-    
+
+    vg::Node* last = n4;
+    for (size_t i = 0; i < 100; i++) {
+        vg::Node* next = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+        graph.create_edge(last, next);
+        last = next;
+    }
+
     string read = string("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     Alignment aln;
     aln.set_sequence(read);
     
     vector<BenchmarkResult> results;
         
-    results.push_back(run_benchmark("map against forking graph", 100, [&]() {
+    results.push_back(run_benchmark("map against forking graph", 1000, [&]() {
         aligner->align_pinned(aln, graph, true, true, false); 
     }));
 
-    results.push_back(run_benchmark("map against forking graph with node drop", 100, [&]() {
+    results.push_back(run_benchmark("map against forking graph with node drop", 1000, [&]() {
         aligner->align_pinned(aln, graph, true, true, true); 
     }));
         
