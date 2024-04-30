@@ -369,6 +369,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum distance to look back when making fragments, per base"
     );
     chaining_opts.add_range(
+        "max-fragments",
+        &MinimizerMapper::max_fragments,
+        MinimizerMapper::default_max_fragments,
+        "how many fragments should we try to make when fragmenting something"
+    );
+    chaining_opts.add_range(
         "fragment-max-indel-bases",
         &MinimizerMapper::fragment_max_indel_bases,
         MinimizerMapper::default_fragment_max_indel_bases,
