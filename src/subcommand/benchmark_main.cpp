@@ -14,8 +14,8 @@
 #include "../benchmark.hpp"
 #include "../version.hpp"
 
-#include "../gbwt_extender.hpp"
-#include "../gbwt_helper.hpp"
+#include "../unittest/test_aligner.hpp"
+#include "../vg.hpp"
 
 
 
@@ -32,10 +32,6 @@ void help_benchmark(char** argv) {
 int main_benchmark(int argc, char** argv) {
 
     bool show_progress = false;
-    
-    // Which experiments should we run?
-    bool sort_and_order_experiment = false;
-    bool get_sequence_experiment = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -87,91 +83,45 @@ int main_benchmark(int argc, char** argv) {
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
+    vg::unittest::TestAligner aligner_source;
+    Aligner* aligner = (Aligner*) aligner_source.get_regular_aligner();
+    
+    vg::VG graph;
+
+    vg::Node* n0 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    vg::Node* n1 = graph.create_node("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
+    vg::Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    vg::Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+    vg::Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    vg::Node* n5 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    vg::Node* n6 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    vg::Node* n7 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    vg::Node* n8 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    vg::Node* n9 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n3);
+    graph.create_edge(n1, n2);
+    graph.create_edge(n3, n4);
+    graph.create_edge(n4, n5);
+    graph.create_edge(n5, n6);
+    graph.create_edge(n6, n7);
+    graph.create_edge(n7, n8);
+    graph.create_edge(n8, n9);
+    
+    string read = string("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    Alignment aln;
+    aln.set_sequence(read);
+    
     vector<BenchmarkResult> results;
-    
-    // We're doing long alignments so we need to raise the WFA score caps
-    WFAExtender::ErrorModel error_model = WFAExtender::default_error_model;
-    error_model.mismatches.max = std::numeric_limits<int32_t>::max();
-    error_model.gaps.max = std::numeric_limits<int32_t>::max();
-    error_model.gap_length.max = std::numeric_limits<int32_t>::max();
-    
-    size_t node_length = 32;
-    
-    for (size_t node_count = 10; node_count <= 320; node_count *= 2) {
-    
-        // Prepare a GBWT of one long path
-        std::vector<gbwt::vector_type> paths;
-        paths.emplace_back();
-        for (size_t i = 0; i < node_count; i++) {
-            paths.back().push_back(gbwt::Node::encode(i + 1, false));
-        }
-        gbwt::GBWT index = get_gbwt(paths);
         
-        // Turn it into a GBWTGraph.
-        // Make a SequenceSource we will consult later for getting sequence.
-        gbwtgraph::SequenceSource source;
-        uint32_t bits = 0xcafebebe;
-        auto step_rng = [&bits]() {
-            // Try out <https://stackoverflow.com/a/69142783>
-            bits = (bits * 73 + 1375) % 477218579;
-        };
-        for (size_t i = 0; i < node_count; i++) {
-            std::stringstream ss;
-            for (size_t j = 0; j < node_length; j++) {
-                // Pick a deterministic character
-                ss << "ACGT"[bits & 0x3];
-                step_rng();
-            }
-            source.add_node(i + 1, ss.str());
-        }
-        // And then make the graph
-        gbwtgraph::GBWTGraph graph(index, source);
-        
-        // Decide what we are going to align
-        pos_t from_pos = make_pos_t(1, false, 3);
-        pos_t to_pos = make_pos_t(node_count, false, 11);
-        
-        // Synthesize a sequence
-        std::stringstream seq_stream;
-        seq_stream << source.get_sequence(get_id(from_pos)).substr(get_offset(from_pos) + 1);
-        for (nid_t i = get_id(from_pos) + 1; i < get_id(to_pos); i++) {
-            std::string seq = source.get_sequence(i);
-            // Add some errors
-            if (bits & 0x1) {
-                int offset = bits % seq.size();
-                step_rng();
-                char replacement = "ACGT"[bits & 0x3];
-                step_rng();
-                if (bits & 0x1) {
-                    seq[offset] = replacement;
-                } else {
-                    step_rng();
-                    if (bits & 0x1) {
-                        seq.insert(offset, 1, replacement);
-                    } else {
-                        seq.erase(offset);
-                    }
-                }
-            }
-            step_rng();
-            // And keep the sequence
-            seq_stream << seq;
-        }
-        seq_stream << source.get_sequence(get_id(to_pos)).substr(0, get_offset(to_pos)); 
-        
-        std::string to_connect = seq_stream.str();
-        
-        // Make the Aligner and Extender
-        Aligner aligner;
-        WFAExtender extender(graph, aligner, error_model);
-        
-        results.push_back(run_benchmark("connect() on " + std::to_string(node_count) + " node sequence", 1, [&]() {
-            // Do the alignment
-            WFAAlignment aligned = extender.connect(to_connect, from_pos, to_pos);
-            // Make sure it succeeded
-            assert(aligned);
-        }));
-    }
+    results.push_back(run_benchmark("map against forking graph", 100, [&]() {
+        aligner->align_pinned(aln, graph, true, true, false); 
+    }));
+
+    results.push_back(run_benchmark("map against forking graph with node drop", 100, [&]() {
+        aligner->align_pinned(aln, graph, true, true, true); 
+    }));
         
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));

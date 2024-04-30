@@ -1349,7 +1349,7 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g,
     gssw_graph_destroy(graph);
 }
 
-void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop, bool xdrop_nodes,
                            uint16_t xdrop_max_gap_length) const {
     
     if (xdrop) {
@@ -1392,7 +1392,7 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         }
         else {
             // do the alignment
-            xdrop.align_pinned(alignment, overlay, pin_left, full_length_bonus, xdrop_max_gap_length);
+            xdrop.align_pinned(alignment, overlay, pin_left, full_length_bonus, xdrop_max_gap_length, xdrop_nodes);
             
             if (overlay.performed_duplications()) {
                 // the overlay is not a strict subset of the underlying graph, so we may
@@ -2038,7 +2038,7 @@ void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool trac
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop, bool xdrop_nodes,
                                   uint16_t xdrop_max_gap_length) const {
     if (xdrop) {
         // QualAdjXdropAligner manages its own stack, so it can never be threadsafe without be recreated
@@ -2082,7 +2082,7 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
             // get the quality adjusted bonus
             int8_t bonus = qual_adj_full_length_bonuses[pin_left ? alignment.quality().back() : alignment.quality().front()];
             
-            xdrop.align_pinned(alignment, overlay, pin_left, bonus, xdrop_max_gap_length);
+            xdrop.align_pinned(alignment, overlay, pin_left, bonus, xdrop_max_gap_length, xdrop_nodes);
             
             if (overlay.performed_duplications()) {
                 // the overlay is not a strict subset of the underlying graph, so we may

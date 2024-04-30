@@ -4932,7 +4932,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 // X-drop align, accounting for full length bonus.
                 // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
                 // Make sure to pass through the gap length limit so we don't just get the default.
-                get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, longest_detectable_gap);
+                get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, false, longest_detectable_gap);
             }
             
             if (show_work) {

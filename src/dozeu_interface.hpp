@@ -91,7 +91,7 @@ public:
      */
     void align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
                bool reverse_complemented, int8_t full_length_bonus,
-               uint16_t max_gap_length = default_xdrop_max_gap_length);
+               uint16_t max_gap_length = default_xdrop_max_gap_length, bool xdrop_nodes = false);
     
     /**
      * Same as above except using a precomputed topological order, which
@@ -100,7 +100,7 @@ public:
      */
     void align(Alignment& alignment, const HandleGraph& graph, const vector<handle_t>& order,
                const vector<MaximalExactMatch>& mems, bool reverse_complemented,
-               int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length);
+               int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length, bool xdrop_nodes = false);
     
     /**
      * Compute a pinned alignment, where the start (pin_left=true) or end
@@ -112,7 +112,7 @@ public:
      * order; whichever comes first/last ends up being used for the pin.
      */
     void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left,
-                      int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length);
+                      int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length, bool xdrop_nodes = false);
     
     /**
      * Maximum number of bytes of Dozeu scratch space to retain permanently for each thread.
@@ -215,7 +215,7 @@ protected:
     /// safe to call dz_calc_max_qpos on the associated forefront!
     size_t do_poa(const OrderedGraph& graph, const dz_query_s* packed_query,
                   const vector<graph_pos_s>& seed_positions, bool right_to_left,
-                  vector<const dz_forefront_s*>& forefronts, uint16_t);
+                  vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length, bool xdrop_nodes);
     
     /**
      * After all the alignment work has been done, do the traceback and
@@ -242,7 +242,7 @@ protected:
     void align_downward(Alignment &alignment, const OrderedGraph& graph,
                         const vector<graph_pos_s>& head_positions,
                         bool left_to_right, vector<const dz_forefront_s*>& forefronts,
-                        int8_t full_length_bonus, uint16_t max_gap_length);
+                        int8_t full_length_bonus, uint16_t max_gap_length, bool xdrop_nodes);
     
     
     /// The core dozeu class, which does the alignments

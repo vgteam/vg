@@ -498,7 +498,7 @@ int main_find(int argc, char** argv) {
         // Load up the graph
         auto graph = vg::io::VPKG::load_one<PathHandleGraph>(to_graph_file);
 
-        if (gam_index.get() != nullptr | !sorted_gaf_name.empty()) {
+        if (gam_index.get() != nullptr || !sorted_gaf_name.empty()) {
             // Get the ID ranges from the graph
             auto ranges = vg::algorithms::sorted_id_ranges(graph.get());
             // Throw out the graph

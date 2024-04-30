@@ -396,6 +396,68 @@ TEST_CASE("XdropAligner can align pinned left across an insertion with extra gra
     REQUIRE(aln.score() == read.size() + 10 - 6 - 15 - 16);
 }
 
+TEST_CASE("XdropAligner can align pinned left to a forking graph", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    Node* n0 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    Node* n1 = graph.create_node("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
+    Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+    Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    Node* n5 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    Node* n6 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    Node* n7 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    Node* n8 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    Node* n9 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n3);
+    graph.create_edge(n1, n2);
+    graph.create_edge(n3, n4);
+    graph.create_edge(n4, n5);
+    graph.create_edge(n5, n6);
+    graph.create_edge(n6, n7);
+    graph.create_edge(n7, n8);
+    graph.create_edge(n8, n9);
+    
+    string read = string("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    aligner.align_pinned(aln, graph, true, true);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus.
+    REQUIRE(aln.score() == read.size() + 10);
+    
+    // Make sure we take the right path
+    REQUIRE(aln.path().mapping_size() == 3);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().offset() == 0);
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 32);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 32);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+    REQUIRE(aln.path().mapping(1).position().offset() == 0);
+    REQUIRE(aln.path().mapping(1).edit_size() == 1);
+    REQUIRE(aln.path().mapping(1).edit(0).from_length() == 32);
+    REQUIRE(aln.path().mapping(1).edit(0).to_length() == 32);
+    REQUIRE(aln.path().mapping(1).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(2).position().node_id() == n2->id());
+    REQUIRE(aln.path().mapping(2).position().offset() == 0);
+    REQUIRE(aln.path().mapping(2).edit_size() == 1);
+    REQUIRE(aln.path().mapping(2).edit(0).from_length() == 32);
+    REQUIRE(aln.path().mapping(2).edit(0).to_length() == 32);
+    REQUIRE(aln.path().mapping(2).edit(0).sequence() == "");
+}
+
 TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") {
     
     VG graph;
@@ -420,7 +482,7 @@ TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") 
     
     // Align pinned right, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, false, true, max_gap_length);
+    aligner.align_pinned(aln, graph, false, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus, loss of a match, and gain of a mismatch.
@@ -459,7 +521,7 @@ TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[x
     
     // Align pinned left, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln, graph, true, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus, two extends, and one open
@@ -493,7 +555,7 @@ TEST_CASE("XdropAligner can align pinned left with a leading insertion", "[xdrop
     
     // Align pinned left, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln, graph, true, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus and one open, and the lack of a match on
@@ -529,7 +591,7 @@ TEST_CASE("XdropAligner can align pinned left with a leading deletion", "[xdrop]
     
     // Align pinned left, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln, graph, true, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus and one open
@@ -564,7 +626,7 @@ TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdr
     
     // Align pinned right, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, false, true, max_gap_length);
+    aligner.align_pinned(aln, graph, false, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus and one open, and the lack of a match on
@@ -604,7 +666,7 @@ TEST_CASE("XdropAligner can align pinned left when the entire read is an inserti
     
     // Align pinned left, letting the graph compute a topological order
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln, graph, true, true, false, max_gap_length);
     
     // Make sure we got the right score.
     // The whole sequence should just softclip.
@@ -658,10 +720,10 @@ TEST_CASE("XdropAligner can select the best head and tail nodes automatically in
     const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln1, graph, true, true, max_gap_length);
-    aligner.align_pinned(aln2, graph, true, true, max_gap_length);
-    aligner.align_pinned(aln3, graph, false, true, max_gap_length);
-    aligner.align_pinned(aln4, graph, false, true, max_gap_length);
+    aligner.align_pinned(aln1, graph, true, true, false, max_gap_length);
+    aligner.align_pinned(aln2, graph, true, true, false, max_gap_length);
+    aligner.align_pinned(aln3, graph, false, true, false, max_gap_length);
+    aligner.align_pinned(aln4, graph, false, true, false, max_gap_length);
     
     REQUIRE(aln1.score() == 8);
     REQUIRE(aln2.score() == 8);
@@ -705,8 +767,8 @@ TEST_CASE("QualAdjXdropAligner can perform a quality-adjusted alignment without 
     const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
     
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln1, graph, true, true, max_gap_length);
-    aligner.align_pinned(aln2, graph, false, true, max_gap_length);
+    aligner.align_pinned(aln1, graph, true, true, false, max_gap_length);
+    aligner.align_pinned(aln2, graph, false, true, false, max_gap_length);
         
     REQUIRE(aln1.score() == 5 * 1 + 5);
     REQUIRE(aln1.path().mapping_size() == 1);
@@ -745,7 +807,7 @@ TEST_CASE("QualAdjXdropAligner will not penalize a low quality mismatch", "[xdro
     const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
     
     uint16_t max_gap_length = 40;
-    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln, graph, true, true, false, max_gap_length);
     
     REQUIRE(aln.score() == 4 * 1 + 5);
     REQUIRE(aln.path().mapping_size() == 1);
