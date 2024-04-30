@@ -8,6 +8,7 @@
  */
 
 #include <vector>
+#include <limits>
 
 #include "../position.hpp"
 #include "../handle.hpp"
@@ -33,11 +34,13 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
                                                bool greedy_avg = false);
 
 /// Find the k widest paths
+/// Search is aborted (and current list returned) if a path longer than max_path_length is added to the results
 vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g, handle_t source, handle_t sink,
                                                            size_t K,
                                                            function<double(const handle_t&)> node_weight_callback,
                                                            function<double(const edge_t&)> edge_weight_callback,
-                                                           bool greedy_avg = false);
+                                                           bool greedy_avg = false,
+                                                           size_t max_path_length = numeric_limits<size_t>::max());
 
 }
 }

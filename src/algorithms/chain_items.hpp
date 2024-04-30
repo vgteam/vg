@@ -129,19 +129,27 @@ public:
     inline size_t end_hint_offset() const {
         return end_offset;
     }
+
+    /// Get the length of the exclusion zone for a primary anchor, or the
+    /// average such length of the anchors this anchor is made from for a
+    /// composite anchor. This is used in gap scoring during chaining, to make
+    /// sure gap scores don't get enormous for long composite anchors.
+    inline size_t base_seed_length() const {
+        return seed_length; 
+    }
     
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset) {
+    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2) {
         // Nothing to do!
     }
 
@@ -166,6 +174,7 @@ protected:
     ZipCodeDecoder* end_decoder;
     size_t start_offset;
     size_t end_offset;
+    size_t seed_length;
 };
 
 /// Explain an Anchor to the given stream

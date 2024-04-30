@@ -39,6 +39,12 @@ public:
     /// Close out the files being explained to
     virtual ~Explainer();
 
+    /// Conversion to bool so you can use an explainer as a condition on code
+    /// to write to it.
+    inline operator bool() const {
+        return explaining();
+    }
+
 protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
@@ -246,6 +252,19 @@ DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explaine
     // And dump to it
     to_dump.to_dot(out);
 }
+
+/**
+ * Explainer that can dump a handle graph.
+ */
+class SubgraphExplainer: public Explainer {
+public:
+
+    /// Construct an explainer that will save a single graph.
+    SubgraphExplainer(bool enabled);
+
+    /// Write out a subgraph.
+    void subgraph(const HandleGraph& graph);
+};
 
 
 }

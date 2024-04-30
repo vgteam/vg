@@ -239,20 +239,31 @@ public:
     static constexpr size_t default_max_to_fragment = 10;
     size_t max_to_fragment = default_max_to_fragment;
     
-    /// If true, do gapless extension to the seeds in each tree before fragmenting the tree.
-    static constexpr bool default_do_gapless_extension = false;
-    bool do_gapless_extension = default_do_gapless_extension;
+    /// Do gapless extension to the seeds in each tree before fragmenting the tree if the 
+    /// read length is less than the limit.
+    static constexpr size_t default_gapless_extension_limit = 0;
+    size_t gapless_extension_limit = default_gapless_extension_limit;
 
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
+    /// How many bases should we look back when making fragments, per base of read length?
+    static constexpr double default_fragment_max_lookback_bases_per_base = 0.03;
+    double fragment_max_lookback_bases_per_base = default_fragment_max_lookback_bases_per_base;
     /// How many fragments should we try and make when fragmenting something?
     static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
     size_t max_fragments = default_max_fragments;
     
+    /// How much of a multiple should we apply to each transition's gap penalty
+    /// at fragmenting?
+    static constexpr double default_fragment_gap_scale = 1.0;
+    double fragment_gap_scale = default_fragment_gap_scale;
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
+    /// How many bases of indel should we allow in fragments per base of read length?
+    static constexpr double default_fragment_max_indel_bases_per_base = 0.2;
+    double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -269,6 +280,10 @@ public:
     /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
+    
+    /// How high should we get the score threshold based on the best fragment's score get?
+    static constexpr double default_fragment_max_min_score = std::numeric_limits<double>::max();
+    double fragment_max_min_score = default_fragment_max_min_score;
 
     /// What minimum score in points should a fragment have in order to keep
     /// it? Needs to be set to some kind of significance threshold.
@@ -292,6 +307,9 @@ public:
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
+    /// How many bases should we look back when chaining, per base of read length?
+    static constexpr double default_max_lookback_bases_per_base = 0.3;
+    double max_lookback_bases_per_base = default_max_lookback_bases_per_base;
 
     /// How much of a bonus should we give to each item in
     /// fragmenting/chaining?
@@ -302,12 +320,15 @@ public:
     static constexpr int default_item_scale = 1;
     int item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
-    /// in fragmenting/chaining?
+    /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
+    /// How many bases of indel should we allow in chaining, per base of read length?
+    static constexpr double default_max_indel_bases_per_base = 0.2;
+    double max_indel_bases_per_base = default_max_indel_bases_per_base;
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
@@ -683,15 +704,68 @@ protected:
      * each assumed to be colinear in the read.
      */
     double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
+   
+    /// Struct to represent per-DP-method stats. 
+    struct aligner_stats_t {
+        
+        /// Struct to represent counts of bases or seconds or invocations used by different aligners.
+        struct individual_stat_t {
+            double wfa_tail = 0;
+            double wfa_middle = 0;
+            double dozeu_tail = 0;
+            double bga_middle = 0;
+
+            inline individual_stat_t& operator+=(const individual_stat_t& other) {
+                this->wfa_tail += other.wfa_tail;
+                this->wfa_middle += other.wfa_middle;
+                this->dozeu_tail += other.dozeu_tail;
+                this->bga_middle += other.bga_middle;
+
+                return *this;
+            }
+
+            inline void add_annotations(Alignment& aln, const std::string& scope, const std::string& type) {
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".wfa", wfa_tail);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".dozeu", dozeu_tail);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".tail." + type + ".total", wfa_tail + dozeu_tail);
+
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".wfa", wfa_middle);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".bga", bga_middle);
+                set_annotation(aln, "aligner_stats.per_" + scope + ".middle." + type + ".total", wfa_middle + bga_middle);
+            }
+        };
+
+        individual_stat_t bases;
+        individual_stat_t time;
+        individual_stat_t invocations;
+
+        inline aligner_stats_t& operator+=(const aligner_stats_t& other) {
+            this->bases += other.bases;
+            this->time += other.time;
+            this->invocations += other.invocations;
+
+            return *this;
+        }
+
+        inline void add_annotations(Alignment& aln, const std::string& scope) {
+            bases.add_annotations(aln, scope, "bases");
+            time.add_annotations(aln, scope, "time");
+            invocations.add_annotations(aln, scope, "invocations");
+        }
+    };
+
     
+
     /**
      * Turn a chain into an Alignment.
      *
      * Operating on the given input alignment, align the tails and intervening
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
+     *
+     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -810,8 +884,10 @@ protected:
      *
      * For pinned alignment, restricts the alignment to have gaps no longer
      * than max_gap_length, and to use <= max_dp_cells cells.
+     *
+     * Returns the number of nodes and bases in the graph aligned against.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
     
     /**
      * Set pair partner references for paired mapping results.
@@ -1138,8 +1214,9 @@ protected:
     /// Print information about a read pair to be aligned
     static void dump_debug_query(const Alignment& aln1, const Alignment& aln2);
 
-    /// Dump dotplot information for seeds, highlighting some of them.
-    static void dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph);
+    /// Dump dotplot information for seeds.
+    /// Displays one or more named collections of runs of seeds.
+    static void dump_debug_dotplot(const std::string& name, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>>& seed_sets, const PathPositionHandleGraph* path_graph);
 
     /// Dump a graph
     static void dump_debug_graph(const HandleGraph& graph);

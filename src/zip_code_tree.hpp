@@ -58,8 +58,8 @@ class ZipCodeTree {
       The distances represent the number of nucleotides on the minimum-length path in the variation 
       graph between the structures that the zip code tree nodes represent.
       Seeds represent the first nucleotide of the alignment, so when the seed is traversed forwards
-      in the zip tree, the distance includes the position. If the seed is reversed in the zip tree,
-      then the distance doesn't include the position
+      in the zip tree, the distance starting from that seed includes the position. If the seed is 
+      reversed in the zip tree, then the distance doesn't include the position
       For two SEEDs on the same position, the distance between them would be 0.
       For chain distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner 
       edge (relative to the snarl) of the boundary node, so it includes the length of the boundary 
@@ -159,7 +159,7 @@ class ZipCodeTree {
     size_t get_tree_size() const {return zip_code_tree.size();}
 
     ///Access the values in the zip_code_tree
-    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};;
+    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 protected:
     //The actual tree structure
@@ -260,10 +260,10 @@ public:
                          size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
-        reverse_iterator(const reverse_iterator& other) = default;
-        reverse_iterator(reverse_iterator&& other) = default;
-        reverse_iterator& operator=(const reverse_iterator& other) = default;
-        reverse_iterator& operator=(reverse_iterator&& other) = default;
+        reverse_iterator(const reverse_iterator& other);
+        reverse_iterator(reverse_iterator&& other);
+        reverse_iterator& operator=(const reverse_iterator& other);
+        reverse_iterator& operator=(reverse_iterator&& other);
 
         /// Move left
         reverse_iterator& operator++();
@@ -296,8 +296,17 @@ public:
         vector<tree_item_t>::const_reverse_iterator rend;
         /// Distance limit we will go up to
         size_t distance_limit;
-        /// Stack for computing distances
-        std::stack<size_t> stack;
+        /// Stack for computing distances.
+        /// Not allocated unless we actually go to use it, so rend() deosn't need to carry one.
+        std::unique_ptr<std::stack<size_t>> stack_data;
+
+        /// Accessor to lazily initialize a stack for the iterator.
+        inline std::stack<size_t>& stack() {
+            if (!stack_data) {
+                stack_data.reset(new std::stack<size_t>());
+            }
+            return *stack_data;
+        }
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
@@ -538,9 +547,11 @@ class ZipCodeForest {
         // the vectors get shifted around in memory.
         size_t active_tree_index;
 
-        // Keep track of all open chains as an index into the current active_tree_index of the start 
-        // of the chain, and a boolean that is true if the start of the chain is farther than the 
-        // distance_limit from anything else in the snarl tree.
+        // If part of a chain is unreachable with the rest of the chain, then we want to split it 
+        // off into a separate zipcode tree.
+        // This keeps track of all open chains as an index to the start of the chain in the current
+        // active tree, and a boolean that is true if the start of the chain is farther
+        // than the distance_limit from anything else in the snarl tree.
         // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it 
         // points to a SEED, then it is a slice.
         // Any time something gets added to a chain or the chain is closed, check if the distance 

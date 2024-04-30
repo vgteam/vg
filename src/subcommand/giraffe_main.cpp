@@ -333,6 +333,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
+        "zipcode-tree-scale",
+        &MinimizerMapper::zipcode_tree_scale,
+        MinimizerMapper::default_zipcode_tree_scale,
+        "at what fraction of the read length should zipcode trees be split up"
+    );
+    chaining_opts.add_range(
         "min-to-fragment",
         &MinimizerMapper::min_to_fragment,
         MinimizerMapper::default_min_to_fragment,
@@ -344,11 +350,11 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_to_fragment,
         "maximum number of fragmenting problems to run"
     );
-    chaining_opts.add_flag(
-        "do-gapless-extension",
-        &MinimizerMapper::do_gapless_extension,
-        MinimizerMapper::default_do_gapless_extension,
-        "do gapless extension to seeds in a tree before fragmenting"
+    chaining_opts.add_range(
+        "gapless-extension-limit",
+        &MinimizerMapper::gapless_extension_limit,
+        MinimizerMapper::default_gapless_extension_limit,
+        "do gapless extension to seeds in a tree before fragmenting if the read length is less than this"
     );
     chaining_opts.add_range(
         "fragment-max-lookback-bases",
@@ -357,16 +363,41 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum distance to look back when making fragments"
     );
     chaining_opts.add_range(
+        "fragment-max-lookback-bases-per-base",
+        &MinimizerMapper::fragment_max_lookback_bases_per_base,
+        MinimizerMapper::default_fragment_max_lookback_bases_per_base,
+        "maximum distance to look back when making fragments, per base"
+    );
+    chaining_opts.add_range(
         "fragment-max-indel-bases",
         &MinimizerMapper::fragment_max_indel_bases,
         MinimizerMapper::default_fragment_max_indel_bases,
         "maximum indel length in a transition when making fragments"
     );
     chaining_opts.add_range(
+        "fragment-max-indel-bases-per-base",
+        &MinimizerMapper::fragment_max_indel_bases_per_base,
+        MinimizerMapper::default_fragment_max_indel_bases_per_base,
+        "maximum indel length in a transition when making fragments, per read base"
+    );
+    chaining_opts.add_range(
+        "fragment-gap-scale",
+        &MinimizerMapper::fragment_gap_scale,
+        MinimizerMapper::default_fragment_gap_scale,
+        "scale for gap scores when fragmenting",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
         "fragment-score-fraction",
         &MinimizerMapper::fragment_score_fraction,
         MinimizerMapper::default_fragment_score_fraction,
         "minimum fraction of best fragment score to retain a fragment"
+    );
+    chaining_opts.add_range(
+        "fragment-max-min-score",
+        &MinimizerMapper::fragment_max_min_score,
+        MinimizerMapper::default_fragment_max_min_score,
+        "maximum for fragment score threshold based on the score of the best fragment"
     );
     chaining_opts.add_range(
         "fragment-min-score",
@@ -403,10 +434,22 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
+        "max-lookback-bases-per-base",
+        &MinimizerMapper::max_lookback_bases_per_base,
+        MinimizerMapper::default_max_lookback_bases_per_base,
+        "maximum distance to look back when chaining, per read base"
+    );
+    chaining_opts.add_range(
         "max-indel-bases",
         &MinimizerMapper::max_indel_bases,
         MinimizerMapper::default_max_indel_bases,
         "maximum indel length in a transition when chaining"
+    );
+    chaining_opts.add_range(
+        "max-indel-bases-per-base",
+        &MinimizerMapper::max_indel_bases_per_base,
+        MinimizerMapper::default_max_indel_bases_per_base,
+        "maximum indel length in a transition when chaining, per read base"
     );
     chaining_opts.add_range(
         "item-bonus",
@@ -424,7 +467,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "gap-scale",
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
-        "scale for gap scores when fragmenting or chaining",
+        "scale for gap scores when chaining",
         double_is_nonnegative
     );
     
@@ -482,6 +525,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_dp_cells,
         "maximum number of alignment cells to allow in a tail"
     );
+
     return parser;
 }
 
@@ -726,29 +770,80 @@ int main_giraffe(int argc, char** argv) {
     presets["default"]
         // This is always on in the non-chaining codepath right now, but just to be sure...
         .add_entry<bool>("explored-cap", true);
-    // And a long read preset (TODO: make into PacBio and Nanopore)
-    presets["lr"]
+    presets["hifi"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 200)
+        .add_entry<size_t>("num-bp-per-min", 1000)
+        .add_entry<size_t>("downsample-min", 125)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
-        // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384)
-        // Parameter search results
+        .add_entry<size_t>("hard-hit-cap", 500)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<double>("mapq-score-scale", 0.001)
+        .add_entry<double>("zipcode-tree-score-threshold", 50.0)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 20.0)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        .add_entry<double>("zipcode-tree-scale", 2.0)
+        .add_entry<size_t>("min-to-fragment", 2)
+        .add_entry<size_t>("max-to-fragment", 5)
+        .add_entry<size_t>("fragment-max-lookback-bases", 500)
+        .add_entry<size_t>("fragment-max-indel-bases", 2000)
+        .add_entry<double>("fragment-score-fraction", 0.2)
+        .add_entry<double>("fragment-max-min-score", 50000.0)
+        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-set-score-threshold", 5000.0)
+        .add_entry<int>("min-chaining-problems", 3)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-lookback-bases", 10000)
+        .add_entry<size_t>("max-indel-bases", 10000)
+        .add_entry<int>("item-bonus", 0)
+        .add_entry<int>("item-scale", 1.0)
+        .add_entry<double>("gap-scale", 1.0)
+        .add_entry<double>("chain-score-threshold", 200.0)
+        .add_entry<int>("min-chains", 2.0)
+        .add_entry<double>("min-chain-score-per-base", 0.25)
+        .add_entry<int>("max-min-chain-score", 800.0)
+        .add_entry<size_t>("max-chains-per-tree", 2)
+        .add_entry<size_t>("max-chain-connection", 400)
+        .add_entry<size_t>("max-tail-length", 100)
+        .add_entry<size_t>("max-alignments", 5);
+
+    presets["r10"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-min", 800)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        .add_entry<size_t>("hard-hit-cap", 16384)
+        .add_entry<double>("mapq-score-scale", 0.001)
+        //Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0.003)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
+        .add_entry<double>("fragment-gap-scale", 1.0)
         .add_entry<double>("fragment-score-fraction", 0.15)
+        .add_entry<double>("fragment-max-min-score", 120)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-lookback-bases", 3000)
+        .add_entry<double>("max-lookback-bases-per-base", 0.3)
+        .add_entry<size_t>("max-indel-bases", 2000)
+        .add_entry<double>("max-indel-bases-per-base", 0.2)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
@@ -771,17 +866,22 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
         // And extend them
-        .add_entry<bool>("do-gapless-extension", true)
+        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
+        .add_entry<double>("fragment-gap-scale", 4.0)
         .add_entry<double>("gap-scale", 4.0)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.7)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5)
@@ -802,11 +902,15 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("mapq-score-scale", 1.0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
+        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);

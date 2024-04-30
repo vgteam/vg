@@ -618,51 +618,49 @@ size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
         }
     }
 }
-size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
+size_t ZipCodeDecoder::get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) {
 
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
     assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL || get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)); 
 #endif
-    
-    if (get_code_type(depth-1) == ZipCode::REGULAR_SNARL) {
-        //If the parent is a regular snarl return 0,
-        //since we only want the minimum distance from either side of the child
-        return 0;
-    } else {
+     size_t zip_value;
+     size_t zip_index = decoder[depth-1].second;
+     //zip_value is 1 if the parent is a regular snarl
+     for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+     }
+     if (zip_value == 1) {
+         //The parent is a regular snarl, which stores is_reversed for the child
+         for (size_t i = 0 ; i <= ZipCode::REGULAR_SNARL_IS_REVERSED_OFFSET -
+                                  ZipCode::SNARL_IS_REGULAR_OFFSET - 1 ; i++) {
+             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+         }
+         //Zip value is true if the child is reversed
+
+         if ((snarl_start && left_side) || (!snarl_start && !left_side)) {
+             return zip_value ? std::numeric_limits<size_t>::max() : 0;
+         } else {
+             assert((snarl_start && !left_side) || (!snarl_start && left_side));
+             return zip_value ? 0 : std::numeric_limits<size_t>::max();
+         }
+     } else {
         //If the parent is an irregular snarl (or cyclic, which is the same), get the saved value
-        size_t zip_value; 
-        size_t zip_index = decoder[depth-1].second;
-        for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_START_OFFSET ; i++) {
+        size_t distance_offset;
+        if (snarl_start && left_side) {
+            distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET;
+        } else if (snarl_start && !left_side) {
+            distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET;
+        } else if (!snarl_start && left_side) {
+            distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET;
+        } else {
+            distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET;
+        }
+        for (size_t i = 0 ; i <= distance_offset - ZipCode::SNARL_IS_REGULAR_OFFSET -1 ; i++) {
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
-        return zip_value;
-    }
-
-}
-
-size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
-
-#ifdef DEBUG_ZIPCODE
-    assert(depth > 0);
-    assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL || get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)); 
-#endif
-    
-
-    if (get_code_type(depth-1) == ZipCode::REGULAR_SNARL ) {
-        //If the parent is a regular snarl then the distance is 0
-        //because we are looking for the minimum distance from either side
-        return 0;
-    } else {
-        //If the parent is an irregular (or cyclic) snarl, then get the saved value
-        size_t zip_value; 
-        size_t zip_index = decoder[depth-1].second;
-        for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_END_OFFSET ; i++) {
-            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-        }
-        return zip_value;
-    }
-
+        return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value - 1;
+     }
 }
 
 const bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
@@ -808,10 +806,28 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
     //Record offset to look up distances in the index later
     snarl_code[IRREGULAR_SNARL_RECORD_OFFSET] = (distance_index.get_record_offset(snarl));
 
-    snarl_code[IRREGULAR_SNARL_DISTANCE_START_OFFSET] = std::min(distance_index.distance_to_parent_bound(snarl, true, snarl_child),
-                                        distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child)));
-    snarl_code[IRREGULAR_SNARL_DISTANCE_END_OFFSET] = std::min(distance_index.distance_to_parent_bound(snarl, false, snarl_child),
-                                        distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child)));;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child));
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child));
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
+
+    //Add 1 to values to store inf properly
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+        ? 0 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+        ? 0 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        ? 0 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        ? 0 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] + 1;
 
     return snarl_code;
 

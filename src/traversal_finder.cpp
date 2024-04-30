@@ -3309,12 +3309,14 @@ pair<step_handle_t, bool> VCFTraversalFinder::step_in_path(handle_t handle, path
 FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                                          size_t K,
                                          function<double(handle_t)> node_weight_callback,
-                                         function<double(edge_t)> edge_weight_callback) :
+                                         function<double(edge_t)> edge_weight_callback,
+                                         size_t max_traversal_length) :
     graph(graph),
     snarl_manager(snarl_manager),
     K(K),
     node_weight_callback(node_weight_callback),
-    edge_weight_callback(edge_weight_callback)  {
+    edge_weight_callback(edge_weight_callback),
+    max_traversal_length(max_traversal_length) {
     
 }
 
@@ -3334,11 +3336,19 @@ pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_
     
     handle_t start_handle = use_graph->get_handle(site.start().node_id(), site.start().backward());
     handle_t end_handle = use_graph->get_handle(site.end().node_id(), site.end().backward());
+
+    size_t max_path_length = max_traversal_length;
+    if (max_path_length != numeric_limits<size_t>::max()) {
+        // want to exclude snarl endpoints from path length clamp
+        max_path_length += use_graph->get_length(use_graph->get_handle(site.start().node_id())) +
+            use_graph->get_length(use_graph->get_handle(site.end().node_id()));
+    }
     
     vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(use_graph, start_handle, end_handle, K,
                                                                                           node_weight_callback,
                                                                                           edge_weight_callback,
-                                                                                          greedy_avg);
+                                                                                          greedy_avg,
+                                                                                          max_path_length);
 
     vector<SnarlTraversal> travs;
     travs.reserve(widest_paths.size());

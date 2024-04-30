@@ -291,9 +291,9 @@ private:
     void emit(Read& read1, Read& read2);
 
     /**
-     * Write a tsv line for a read to stdout
+     * Write a tsv line for a read to the given stream
      */
-     void emit_tsv(Read& read);
+    void emit_tsv(Read& read, std::ostream& out);
 
     
     
@@ -371,7 +371,12 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         counts_vec[omp_get_thread_num()] += read_counts;
         if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
             if (write_tsv) {
-                emit_tsv(read);
+                std::stringstream ss;
+                emit_tsv(read, ss);
+                #pragma omp critical (cout)
+                {
+                    std::cout << ss.str();
+                }
             } else {
                 emit(read);
             }
@@ -392,8 +397,13 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         counts_vec[omp_get_thread_num()] += read_counts;
         if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
             if (write_tsv) {
-                emit_tsv(read1);
-                emit_tsv(read2);
+                std::stringstream ss;
+                emit_tsv(read1, ss);
+                emit_tsv(read2, ss);
+                #pragma omp critical (cout)
+                {
+                    std::cout << ss.str();
+                }
             } else {
                 emit(read1, read2);
             }
@@ -1430,93 +1440,109 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
 }
 
 template<>
-inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read) {
-    return;
+inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read, std::ostream& out) {
+    std::cerr << "error[vg filter]: TSV output not implemented for MultipathAlignment" << std::endl;
+    exit(1);
 }
 template<>
-inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
-#pragma omp critical (cout)
-    {
-
-        cout << endl;
-        for (size_t i = 0 ; i < output_fields.size() ; i++) {
-            const string& field = output_fields[i];
-            if (field == "name") {
-                cout << read.name();
-            } else if (field == "correctly_mapped") {
-                if (is_correctly_mapped(read)) {
-                    cout << "True";
-                } else {
-                    cout << "False";
-                }
-            } else if (field == "correctness") {
-                if (is_correctly_mapped(read)) {
-                    cout << "correct";
-                } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
-                    cout << "off-reference";
-                } else {
-                    cout << "incorrect";
-                }
-            } else if (field == "mapping_quality") {
-                cout << get_mapq(read); 
-            } else if (field == "sequence") {
-                cout << read.sequence(); 
-            } else if (field == "time_used") {
-                cout << read.time_used();
-            } else if (field == "annotation") {
-                // Since annotation is a Protobuf Struct, it comes out as JSON
-                // describing the Struct and not what the Struct describes if
-                // we pb2json it.
-                //
-                // So make Protobuf serialize it for us the specail Struct way
-                std::string buffer;
-                google::protobuf::util::JsonPrintOptions opts;
-                auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
-                
-                if (!status.ok()) {
-                    throw std::runtime_error("Could not serialize annotations for " + read.name() + ": " + status.ToString());
-                }
-                cout << buffer;
-            } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
-                if (!has_annotation(read, field.substr(11, field.size()-11))) {
-                    throw runtime_error("error: Cannot find annotation "+ field);
-                } else {
-                    string annotation_key = field.substr(11, field.size()-11);
-                    google::protobuf::Value value = read.annotation().fields().at(annotation_key);
-
-                    if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
-                        cout << get_annotation<double>(read, annotation_key);
-                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
-                        cout << get_annotation<string>(read, annotation_key);
-                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
-                        cout << "[";
-                        for (size_t i = 0; i < value.list_value().values_size(); i++) {
-                            auto& item = value.list_value().values(i);
-                            if (i > 0) {
-                                cout << ",";
-                            }
-                            if (item.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
-                                cout << value_cast<double>(item);
-                            } else if (item.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
-                                cout << value_cast<string>(item);
-                            } else {
-                                cout << "?";
-                            }
-                        }
-                        cout << "]";
-                    } else {
-                        cout << "?";
-                    }
-                }
+inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) {
+    out << endl;
+    for (size_t i = 0 ; i < output_fields.size() ; i++) {
+        const string& field = output_fields[i];
+        if (field == "name") {
+            out << read.name();
+        } else if (field == "correctly_mapped") {
+            if (is_correctly_mapped(read)) {
+                out << "True";
             } else {
-                cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
-                throw runtime_error("error: Writing non-existent field to tsv: " + field);
+                out << "False";
             }
-            if (i != output_fields.size()-1) {
-                cout << "\t";
+        } else if (field == "correctness") {
+            if (is_correctly_mapped(read)) {
+                out << "correct";
+            } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
+                out << "off-reference";
+            } else {
+                out << "incorrect";
             }
-        }
+        } else if (field == "softclip_start") {
+            out << softclip_start(read);
+        } else if (field == "softclip_end") {
+            out << softclip_end(read);
+        } else if (field == "mapping_quality") {
+            out << get_mapq(read); 
+        } else if (field == "sequence") {
+            out << read.sequence();
+        } else if (field == "length") {
+            out << read.sequence().size(); 
+        } else if (field == "time_used") {
+            out << read.time_used();
+        } else if (field == "annotation") {
+            // Since annotation is a Protobuf Struct, it comes out as JSON
+            // describing the Struct and not what the Struct describes if
+            // we pb2json it.
+            //
+            // So make Protobuf serialize it for us the specail Struct way
+            std::string buffer;
+            google::protobuf::util::JsonPrintOptions opts;
+            auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
+            
+            if (!status.ok()) {
+                throw std::runtime_error("Could not serialize annotations for " + read.name() + ": " + status.ToString());
+            }
+            out << buffer;
+        } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
+            if (!has_annotation(read, field.substr(11, field.size()-11))) {
+                // We don't actually know what type this would be.
+                // TODO: Try and guess from previous reads?
+                out << "null";
+            } else {
+                string annotation_key = field.substr(11, field.size()-11);
+                // Get that value (possibly holding a child struct) recursively
+                const google::protobuf::Value* value = get_annotation<const google::protobuf::Value*>(read, annotation_key);
+                // We checked with has_annotation so this needs to be here.
+                assert(value != nullptr);
 
+                if (value->kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                    out << value_cast<double>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                    out << value_cast<string>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kListValue) {
+                    out << "[";
+                    for (size_t i = 0; i < value->list_value().values_size(); i++) {
+                        auto& item = value->list_value().values(i);
+                        if (i > 0) {
+                            out << ",";
+                        }
+                        if (item.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                            out << value_cast<double>(item);
+                        } else if (item.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                            out << value_cast<string>(item);
+                        } else {
+                            out << "?";
+                        }
+                    }
+                    out << "]";
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+                    std::string buffer;
+                    google::protobuf::util::JsonPrintOptions opts;
+                    auto status = google::protobuf::util::MessageToJsonString(value->struct_value(), &buffer, opts);
+                    
+                    if (!status.ok()) {
+                        throw std::runtime_error("Could not serialize " + field + " for " + read.name() + ": " + status.ToString());
+                    }
+                    out << buffer;
+                } else {
+                    out << "??" << value->kind_case() << "??";
+                }
+            }
+        } else {
+            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+            throw runtime_error("error: Writing non-existent field to tsv: " + field);
+        }
+        if (i != output_fields.size()-1) {
+            out << "\t";
+        }
     }
 }
 

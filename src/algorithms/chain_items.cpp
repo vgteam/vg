@@ -215,7 +215,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             auto& dest_anchor = to_chain[dest_anchor_index];
 
 #ifdef debug_transition
-            std::cerr << "Handle transition " << source_anchor << " to " << dest_anchor << std::endl;
+            std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
 #endif
 
             if (graph_distance == std::numeric_limits<size_t>::max()) {
@@ -299,28 +299,23 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
 
-#ifdef debug_transition
-            std::cerr << "Consider destination seed " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << std::endl;
-#endif
+
 
             // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
             std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
 
             if (found_dest_anchor == (dest_seed.is_reverse ? seed_to_ending.end() : seed_to_starting.end())) {
                 // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
-#ifdef debug_transition
-                std::cerr <<"\tDoes not correspond to an anchor in this cluster" << std::endl;
-#endif
                 continue;
             }
+
+#ifdef debug_transition
+            std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
+#endif
 
             for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
-
-#ifdef debug_transition
-                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << std::endl;
-#endif
 
                 if (!source_seed.is_reverse && !dest_seed.is_reverse) {
                     // Both of these are in the same orientation relative to
@@ -332,12 +327,12 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
-                    } else {
 #ifdef debug_transition
-                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+                        std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << " is anchor #" << found_source_anchor->second << std::endl;
+                        std::cerr << "\t\tFound transition from #" << found_source_anchor->second << " to #" << found_dest_anchor->second << std::endl;
 #endif
-                    }
+                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                    } 
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
                     // We need to find source as an anchor *started*, and thensave them flipped for later.
@@ -345,12 +340,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
-                    } else {
+                        
 #ifdef debug_transition
-                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+                        std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << " is anchor #" << found_source_anchor->second << std::endl;
+                        std::cerr << "\t\tFound backward transition from #" << found_dest_anchor->second << " to #" << found_source_anchor->second << std::endl;
 #endif
-                    }
+
+                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                    } 
                 } else {
                     // We have a transition between different orientations relative to the read. Don't show that.
                     continue;
@@ -372,11 +369,17 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     };
 }
 
-int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
+/// Compute a gap score like minimap2.
+///
+/// They say they use the average anchor length, but really we need to use the
+/// minimizer/base seed length here. Otherwise gaps cost more as your fragments
+/// that you are chaining get longer, and cost more at chaining than at
+/// fragmenting.
+int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         return 0;
     } else {
-        return 0.01 * average_anchor_length * distance_difference + 0.5 * log2(distance_difference);
+        return 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
     }
 }
 
@@ -398,7 +401,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #else
     DiagramExplainer diagram(false);
 #endif
-    diagram.add_globals({{"rankdir", "LR"}});
+    if (diagram) {
+        diagram.add_globals({{"rankdir", "LR"}});
+    }
    
 #ifdef debug_chaining
     show_work = true;
@@ -408,13 +413,14 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    // Compute an average anchor length. Really, use the exclusion zone length,
-    // so we will be on the right scale for the item scores.
-    size_t average_anchor_length = 0;
+    // Compute a base seed average length.
+    // TODO: Weight anchors differently?
+    // TODO: Will this always be the same for all anchors in practice?
+    size_t base_seed_length = 0;
     for (auto& anchor : to_chain) {
-        average_anchor_length += (anchor.read_exclusion_end() - anchor.read_exclusion_start());
+        base_seed_length += anchor.base_seed_length();
     }
-    average_anchor_length /= to_chain.size();
+    base_seed_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
@@ -434,7 +440,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // How many points is it worth to collect?
         auto item_points = here.score() * item_scale + item_bonus;
         
-        std::string here_gvnode = "i" + std::to_string(to_anchor);
+        std::string here_gvnode;
+        if (diagram) {
+            here_gvnode = "i" + std::to_string(to_anchor);
+        }
         
         // If we come from nowhere, we get those points.
         chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {item_points, TracedScore::nowhere()});
@@ -487,7 +496,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = -score_chain_gap(indel_length, average_anchor_length) * gap_scale;
+            jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
@@ -503,17 +512,19 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             if (show_work) {
                 cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
             }
+            
+            if (diagram) {
+                if (from_source_score.score > 0) {
+                    // Only explain edges that were actual candidates since we
+                    // won't let local score go negative
                     
-            if (from_source_score.score > 0) {
-                // Only explain edges that were actual candidates since we
-                // won't let local score go negative
-                
-                std::string source_gvnode = "i" + std::to_string(from_anchor);
-                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
-                    {"label", std::to_string(jump_points)},
-                    {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
-                });
+                    std::string source_gvnode = "i" + std::to_string(from_anchor);
+                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                        {"label", std::to_string(jump_points)},
+                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                    });
+                }
             }
         } else {
             if (show_work) {
@@ -541,29 +552,31 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
         }
         
-        // Draw the item in the diagram
-        std::string here_gvnode = "i" + std::to_string(to_anchor);
-        std::stringstream label_stream;
-        label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
-        diagram.add_node(here_gvnode, {
-            {"label", label_stream.str()}
-        });
-        auto graph_start = here.graph_start();
-        std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
-        diagram.ensure_node(graph_gvnode, {
-            {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
-            {"shape", "box"}
-        });
-        // Show the item as connected to its source graph node
-        diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
-        // Make the next graph node along the same strand
-        std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
-        diagram.ensure_node(graph_gvnode2, {
-            {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
-            {"shape", "box"}
-        });
-        // And show them as connected. 
-        diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        if (diagram) {
+            // Draw the item in the diagram
+            std::string here_gvnode = "i" + std::to_string(to_anchor);
+            std::stringstream label_stream;
+            label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
+            diagram.add_node(here_gvnode, {
+                {"label", label_stream.str()}
+            });
+            auto graph_start = here.graph_start();
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode, {
+                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // Show the item as connected to its source graph node
+            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+            // Make the next graph node along the same strand
+            std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode2, {
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // And show them as connected. 
+            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        }
         
         // See if this is the best overall
         best_score.max_in(chain_scores, to_anchor);
