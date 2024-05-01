@@ -1098,7 +1098,14 @@ void RGFACover::print_stats(ostream& os) {
         nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
         // interval is open ended, so we go back to last node
-        handle_t last_handle = graph->get_handle_of_step(graph->get_previous_step(interval.second));
+        step_handle_t last_step;
+        if (interval.second == graph->path_end(graph->get_path_handle_of_step(interval.second))) {
+            // can't get previous step of end in gbz, so we treat as special case here
+            last_step = graph->path_back(graph->get_path_handle_of_step(interval.second));
+        } else {
+            last_step = graph->get_previous_step(interval.second);
+        }                
+        handle_t last_handle = graph->get_handle_of_step(last_step);
         
         int64_t min_ref_pos = numeric_limits<int64_t>::max();
         int64_t max_ref_pos = -1;
