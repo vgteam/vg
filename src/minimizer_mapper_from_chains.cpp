@@ -2544,7 +2544,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
             }
             link_alignment_source = "WFAExtender";
-            
+
             longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
             
             if (!link_alignment) {

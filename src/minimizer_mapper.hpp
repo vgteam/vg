@@ -774,7 +774,7 @@ protected:
             bases.add_annotations(aln, scope, "bases");
             time.add_annotations(aln, scope, "time");
             invocations.add_annotations(aln, scope, "invocations");
-            invocations.add_annotations(aln, scope, "fallbacks");
+            fallbacks.add_annotations(aln, scope, "fallbacks");
         }
     };
 
