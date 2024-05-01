@@ -6115,7 +6115,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                         // we can speed things up by using the dozeu pinned alignment
                         alt_alignments.emplace_back(move(right_tail_sequence));
-                        aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, false, gap);
+                        aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
                     }
                     else {
                         
@@ -6236,7 +6236,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(left_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, false, gap);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
                         }
                         else {
 #ifdef debug_multipath_alignment

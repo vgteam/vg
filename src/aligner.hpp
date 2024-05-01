@@ -139,7 +139,7 @@ namespace vg {
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false, bool xdrop_nodes = false,
+        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
                                   uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const = 0;
         
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
@@ -307,7 +307,7 @@ namespace vg {
         int8_t gap_open;
         int8_t gap_extension;
         int8_t full_length_bonus;
-
+        
         // log of the base of the logarithm underlying the log-odds interpretation of the scores
         double log_base = 0.0;
     };
@@ -346,7 +346,7 @@ namespace vg {
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false, bool xdrop_nodes = false,
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
                           uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
                 
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
@@ -434,7 +434,7 @@ namespace vg {
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true,
                                  const unordered_map<handle_t, bool>* left_align_strand = nullptr) const;
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false, bool xdrop_nodes = false,
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
                           uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true,
