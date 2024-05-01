@@ -1099,9 +1099,9 @@ void RGFACover::print_stats(ostream& os) {
         vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
         // interval is open ended, so we go back to last node
         step_handle_t last_step;
-        if (interval.second == graph->path_end(graph->get_path_handle_of_step(interval.second))) {
+        if (interval.second == graph->path_end(graph->get_path_handle_of_step(interval.first))) {
             // can't get previous step of end in gbz, so we treat as special case here
-            last_step = graph->path_back(graph->get_path_handle_of_step(interval.second));
+            last_step = graph->path_back(graph->get_path_handle_of_step(interval.first));
         } else {
             last_step = graph->get_previous_step(interval.second);
         }                
@@ -1110,23 +1110,32 @@ void RGFACover::print_stats(ostream& os) {
         int64_t min_ref_pos = numeric_limits<int64_t>::max();
         int64_t max_ref_pos = -1;
         int64_t min_rank = numeric_limits<int64_t>::max();
-        string r_chrom;
+        string r_chrom; 
+        map<string, tuple<int64_t, int64_t, int64_t>> chrom_pos;
         for (const pair<int64_t, nid_t>& rank_node : ref_nodes) { 
             step_handle_t ref_step = this->rgfa_intervals.at(node_to_interval.at(rank_node.second)).first;
             path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
             string name = graph->get_path_name(ref_path);
             // we assume one reference contig (which is built into the whole structure)
             assert(r_chrom.empty() || r_chrom == name);
-            r_chrom = name;
             int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
-            // assume snarl is forward on both reference nodes
-            // todo: this won't be exact for some inversion cases, I don't think --
-            //       need to test these and either add check / or move to oriented search
-            min_ref_pos = min(min_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
-            max_ref_pos = max(max_ref_pos, ref_pos);
-            min_rank = min(min_rank, rank_node.first);
-        }
-
+            int64_t last_len = (int64_t)graph->get_length(graph->get_handle(rank_node.second));
+            if (chrom_pos.count(name)) {
+                tuple<int64_t, int64_t, int64_t>& pos = chrom_pos[name];
+                // assume snarl is forward on both reference nodes
+                // todo: this won't be exact for some inversion cases, I don't think --
+                //       need to test these and either add check / or move to oriented search
+                pos = make_tuple(min(get<0>(pos), ref_pos + last_len), max(get<1>(pos), ref_pos), min(get<2>(pos), rank_node.first));
+            } else {
+                chrom_pos[name] = make_tuple(ref_pos + last_len, ref_pos, rank_node.first);
+            }
+            if (rank_node.first < min_rank) {
+                // todo: is there a better heuristic to use when choosing a reference?
+                // also: need to fix vcf annotate maybe to just list them all...
+                min_rank = rank_node.first;
+                r_chrom = name;
+            }
+        }        
 
         os << sample_locus.first << "\t"
            << sample_locus.second << "\t"
@@ -1141,8 +1150,8 @@ void RGFACover::print_stats(ostream& os) {
            << std::fixed << std::setprecision(2) << (tot_depth / tot_steps) << "\t"
            << std::fixed << std::setprecision(2) << (tot_sample_depth / tot_steps) << "\t"                        
            << Paths::strip_subrange(r_chrom) << "\t"
-           << min_ref_pos << "\t"
-           << max_ref_pos << "\n";
+           << get<0>(chrom_pos[r_chrom]) << "\t"
+           << get<1>(chrom_pos[r_chrom]) << "\n";
     }
 }
 
