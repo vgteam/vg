@@ -855,14 +855,17 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-lookback-bases", 20000)
-        .add_entry<double>("max-lookback-bases-per-base", 0.2)
+        .add_entry<double>("max-lookback-bases-per-base", 0.15)
+        .add_entry<int>("item-bonus", 20)
+        .add_entry<int>("item-scale", 1)
+        .add_entry<double>("gap-scale", 2.75)
         .add_entry<size_t>("max-indel-bases", 5000)
-        .add_entry<double>("max-indel-bases-per-base", 0.3)
+        .add_entry<double>("max-indel-bases-per-base", 2.45)
+        .add_entry<double>("chain-score-threshold", 100.0)
+        .add_entry<int>("min-chains", 2)
+        .add_entry<size_t>("max-chains-per-tree", 3)
+        .add_entry<double>("min-chain-score-per-base", 0.06)
         .add_entry<int>("max-min-chain-score", 500.0)
-        .add_entry<double>("gap-scale", 0.7)
-        .add_entry<int>("item-scale", 1.0)
-        .add_entry<int>("min-chains", 4)
-        .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 3);
     // And a short reads with chaining preset
     presets["sr"]
