@@ -2,6 +2,8 @@
 #include <sstream>
 #include <algorithm>
 #include <queue>
+#include <iomanip>
+#include <set>
 
 //#define debug
 
@@ -126,7 +128,8 @@ void RGFACover::compute(const PathHandleGraph* graph,
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
             if (node_to_interval.count(node_id)) {
                 cerr << "[rgfa error]: node " << node_id << " covered by two reference paths,"
-                     << " including " << graph->get_path_name(ref_path_handle)
+                     << " including " << graph->get_path_name(ref_path_handle) << " and "
+                     << graph->get_path_name(graph->get_path_handle_of_step(rgfa_intervals.at(node_to_interval.at(node_id)).first))
                      << ". rGFA support current requires disjoint acyclic reference paths" << endl;
                 exit(1);
             }
@@ -930,6 +933,24 @@ vector<pair<int64_t, nid_t>> RGFACover::get_reference_nodes(nid_t node_id, bool 
     return output_reference_nodes;
 }
 
+pair<handle_t, handle_t> RGFACover::parse_variant_id(const string& variant_id) const {
+
+    if (variant_id[0] == '>' || variant_id[0] == '<') {
+        size_t p = variant_id.find_first_of("<>", 2);
+        if (p != string::npos) {
+            int64_t id1 = parse<int64_t>(variant_id.substr(1, p-1));
+            int64_t id2 = parse<int64_t>(variant_id.substr(p+1));
+            if (!graph->has_node(id1) || !graph->has_node(id2)) {
+                throw runtime_error("Unable to parse " + variant_id + ": node(s) not found in graph");
+            }
+            return make_pair(graph->get_handle(id1, variant_id[0] == '<'),
+                             graph->get_handle(id2, variant_id[p] == '<'));
+        }
+    }
+    throw runtime_error("Failed to parse " + variant_id);
+    return make_pair(handle_t(), handle_t());
+}
+
 void RGFACover::annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os) {
     vcflib::Variant var(vcf);
 
@@ -951,12 +972,6 @@ void RGFACover::annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os) {
         }
     }
     
-    // also want an rGFA path lookup
-    unordered_map<string, path_handle_t> name_to_rgfa_path;
-    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
-        name_to_rgfa_path[RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle))] = path_handle;
-    });
-
     // remove header lines we're going to add
     vcf.removeInfoHeaderLine("R_CHROM");
     vcf.removeInfoHeaderLine("R_START");
@@ -971,80 +986,156 @@ void RGFACover::annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os) {
 
     os << vcf.header << endl;
 
-    string prev_sequence_name;
-    string prev_r_chrom;
-    string prev_r_start;
-    string prev_r_end;
-    string prev_rank;
     while (vcf.getNextVariant(var)) {
-        if (name_to_rgfa_path.count(var.sequenceName)) {
-            string r_chrom;
-            string r_start;
-            string r_end;
-            string rank;
-            if (var.sequenceName == prev_sequence_name) {
-                // just use the previous values, which will be the same
-                r_chrom = prev_r_chrom;
-                r_start = prev_r_start;
-                r_end = prev_r_end;
-                rank = prev_rank;
-            } else {
-                // compute from the cover
-                path_handle_t path_handle = name_to_rgfa_path.at(var.sequenceName);
-                nid_t first_node = graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)));
-                vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
+        pair<handle_t, handle_t> id_handles = parse_variant_id(var.id);
+        string r_chrom;
+        string r_start;
+        string r_end;
+        string rank;
 
-                int64_t min_ref_pos = numeric_limits<int64_t>::max();
-                int64_t max_ref_pos = -1;
-                int64_t min_rank = numeric_limits<int64_t>::max();
-                for (const pair<int64_t, nid_t>& rank_node : ref_nodes) {
-                    step_handle_t ref_step = this->rgfa_intervals.at(node_to_interval.at(rank_node.second)).first;
-                    path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
-                    string name = graph->get_path_name(ref_path);
-                    // we assume one reference contig (which is built into the whole structure)
-                    assert(r_chrom.empty() || r_chrom == name);
-                    r_chrom = name;
-                    int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
-                    // assume snarl is forward on both reference nodes
-                    // todo: this won't be exact for some inversion cases, I don't think --
-                    //       need to test these and either add check / or move to oriented search
-                    min_ref_pos = min(min_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
-                    max_ref_pos = max(max_ref_pos, ref_pos);
-                    min_rank = min(min_rank, rank_node.first);
-                }
+       // compute from the cover
+        nid_t first_node = graph->get_id(id_handles.first);
+        vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
 
-                r_start = std::to_string(min_ref_pos);
-                r_end = std::to_string(max_ref_pos);
-                rank = std::to_string(min_rank);
-            }
-
-            if (!var.info.count("R_CHROM")) {
-                var.format.push_back("R_CHROM");
-            }
-            var.info["R_CHROM"] = {r_chrom};
-            if (!var.info.count("R_START")) {
-                var.format.push_back("R_START");
-            }
-            var.info["R_START"] = {r_start};
-            if (!var.info.count("R_END")) {
-                var.format.push_back("R_END");
-            }
-            var.info["R_END"] = {r_end};
-            if (!var.info.count("RANK")) {
-                var.format.push_back("RANK");
-            }
-            var.info["RANK"] = {rank};
-            
-            prev_sequence_name = var.sequenceName;
-            prev_r_chrom = r_chrom;
-            prev_r_start = r_start;
-            prev_r_end = r_end;
-            prev_rank = rank;
-            
-        } else {
-            //cerr << "rGFA [warning]: VCF reference " << var.sequenceName << " not found in graph" << endl;
+        int64_t min_ref_pos = numeric_limits<int64_t>::max();
+        int64_t max_ref_pos = -1;
+        int64_t min_rank = numeric_limits<int64_t>::max();
+        for (const pair<int64_t, nid_t>& rank_node : ref_nodes) {
+            step_handle_t ref_step = this->rgfa_intervals.at(node_to_interval.at(rank_node.second)).first;
+            path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
+            string name = graph->get_path_name(ref_path);
+            // we assume one reference contig (which is built into the whole structure)
+            assert(r_chrom.empty() || r_chrom == name);
+            r_chrom = name;
+            int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
+            // assume snarl is forward on both reference nodes
+            // todo: this won't be exact for some inversion cases, I don't think --
+            //       need to test these and either add check / or move to oriented search
+            min_ref_pos = min(min_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
+            max_ref_pos = max(max_ref_pos, ref_pos);
+            min_rank = min(min_rank, rank_node.first);
         }
+
+        r_start = std::to_string(min_ref_pos);
+        r_end = std::to_string(max_ref_pos);
+        rank = std::to_string(min_rank);
+        
+        var.info["R_CHROM"] = {r_chrom};
+        var.info["R_START"] = {r_start};
+        var.info["R_END"] = {r_end};
+        var.info["RANK"] = {rank};
+        
         os << var << endl;        
+    }
+}
+
+void RGFACover::print_stats(ostream& os) {
+
+    // todo: mostly copied from annotate function above.  should probably refactor common
+    // logic into its own, shared thing.y
+    unordered_map<nid_t, int64_t> node_to_ref_pos;
+    for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
+        const pair<step_handle_t, step_handle_t>& ref_interval = this->rgfa_intervals.at(i);
+        // assumption: ref intervals span entire path
+        assert(graph->path_begin(graph->get_path_handle_of_step(ref_interval.first)) == ref_interval.first);
+        int64_t pos = 0;
+        for (step_handle_t step_handle = ref_interval.first; step_handle != ref_interval.second;
+             step_handle = graph->get_next_step(step_handle)) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            nid_t node_id = graph->get_id(handle);
+            assert(!graph->get_is_reverse(handle));            
+            assert(!node_to_ref_pos.count(node_id));
+            node_to_ref_pos[node_id] = pos;
+            pos += graph->get_length(handle);
+        }
+    }
+
+    // the header
+    os << "#Sample" << "\t"
+       << "Haplotype" << "\t"
+       << "Locus" << "\t"
+       << "Start" << "\t"
+       << "End" << "\t"
+       << "NodeStart" << "\t"
+       << "NodeEnd" << "\t"
+       << "Rank" << "\t"
+       << "AvgDepth" << "\t"
+       << "AvgSampleDepth" << "\t"
+       << "RefSequence" << "\t"
+       << "RefStart" << "\t"
+       << "RefEnd" << endl;
+        
+    for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
+        const pair<step_handle_t, step_handle_t>& interval = this->rgfa_intervals[i];
+        path_handle_t path_handle = graph->get_path_handle_of_step(interval.first);
+        subrange_t rgfa_subrange = graph->get_subrange(path_handle);
+        assert(rgfa_subrange != PathMetadata::NO_SUBRANGE);
+        
+        int64_t path_length = 0;
+        int64_t tot_depth = 0;
+        int64_t tot_sample_depth = 0;
+        int64_t tot_steps = 0;
+        for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
+            path_length += graph->get_length(graph->get_handle_of_step(step));
+            set<string> sample_set;
+            vector<step_handle_t> steps = graph->steps_of_handle(graph->get_handle_of_step(step));
+            for (step_handle_t& other_step : steps) {
+                path_handle_t other_path = graph->get_path_handle_of_step(other_step);
+                sample_set.insert(graph->get_sample_name(other_path));                
+            }
+            tot_depth += steps.size();
+            tot_sample_depth += sample_set.size();
+            // we don't want to count the rgfa cover
+            // todo (can remove this when move away from path-based scheme)
+            assert(sample_set.count(RGFACover::rgfa_sample_name));
+            --tot_depth;
+            --tot_sample_depth;
+            ++tot_steps;
+        }
+        pair<string, string> sample_locus = RGFACover::parse_rgfa_locus_name(graph->get_locus_name(path_handle));
+        size_t haplotype = graph->get_haplotype(path_handle);
+
+        nid_t first_node = graph->get_id(graph->get_handle_of_step(interval.first));
+        vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
+        // interval is open ended, so we go back to last node
+        handle_t last_handle = graph->get_handle_of_step(graph->get_previous_step(interval.second));
+        
+        int64_t min_ref_pos = numeric_limits<int64_t>::max();
+        int64_t max_ref_pos = -1;
+        int64_t min_rank = numeric_limits<int64_t>::max();
+        string r_chrom;
+        for (const pair<int64_t, nid_t>& rank_node : ref_nodes) { 
+            step_handle_t ref_step = this->rgfa_intervals.at(node_to_interval.at(rank_node.second)).first;
+            path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
+            string name = graph->get_path_name(ref_path);
+            // we assume one reference contig (which is built into the whole structure)
+            assert(r_chrom.empty() || r_chrom == name);
+            r_chrom = name;
+            int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
+            // assume snarl is forward on both reference nodes
+            // todo: this won't be exact for some inversion cases, I don't think --
+            //       need to test these and either add check / or move to oriented search
+            min_ref_pos = min(min_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
+            max_ref_pos = max(max_ref_pos, ref_pos);
+            min_rank = min(min_rank, rank_node.first);
+        }
+
+
+        os << sample_locus.first << "\t"
+           << sample_locus.second << "\t"
+           << (haplotype != PathMetadata::NO_HAPLOTYPE ? (int64_t)haplotype : (int64_t)-1) << "\t"
+           << rgfa_subrange.first << "\t"
+           << (rgfa_subrange.first + path_length) << "\t"
+           << (graph->get_is_reverse(graph->get_handle_of_step(interval.first)) ? "<"  : ">")
+           << graph->get_id(graph->get_handle_of_step(interval.first)) << "\t"
+           << (graph->get_is_reverse(last_handle) ? "<"  : ">")
+           << graph->get_id(last_handle) << "\t"
+           << min_rank << "\t"
+           << std::fixed << std::setprecision(2) << (tot_depth / tot_steps) << "\t"
+           << std::fixed << std::setprecision(2) << (tot_sample_depth / tot_steps) << "\t"                        
+           << Paths::strip_subrange(r_chrom) << "\t"
+           << min_ref_pos << "\t"
+           << max_ref_pos << "\n";
     }
 }
 

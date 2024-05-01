@@ -85,8 +85,14 @@ public:
     // return nullptr if node not in an interval
     const pair<step_handle_t, step_handle_t>* get_interval(nid_t node_id) const;
 
+    // parse an id of the form >244>2334 and return the pair of handles
+    pair<handle_t, handle_t> parse_variant_id(const string& variant_id) const;
+    
     // add R_CHROM, R_START, R_END, F_LEN tags to a VCF using the cover
     void annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os);
+
+    // print out a table of statistics
+    void print_stats(ostream& os);
     
 protected:
 
