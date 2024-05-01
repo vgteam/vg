@@ -1117,7 +1117,6 @@ void RGFACover::print_stats(ostream& os) {
             path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
             string name = graph->get_path_name(ref_path);
             // we assume one reference contig (which is built into the whole structure)
-            assert(r_chrom.empty() || r_chrom == name);
             int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
             int64_t last_len = (int64_t)graph->get_length(graph->get_handle(rank_node.second));
             if (chrom_pos.count(name)) {
