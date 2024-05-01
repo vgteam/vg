@@ -362,6 +362,10 @@ public:
     static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
 
+    /// Should entire nodes be skipped in Dozeu x-drop?
+    static constexpr bool default_xdrop_nodes = false;
+    bool xdrop_nodes = default_xdrop_nodes;
+
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;
@@ -911,7 +915,7 @@ protected:
      *
      * Returns the number of nodes and bases in the graph aligned against.
      */
-    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk(), bool xdrop_nodes = false);
     
     /**
      * Set pair partner references for paired mapping results.

@@ -2377,7 +2377,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                auto nodes_and_bases = align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding, this->xdrop_nodes);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
@@ -2631,7 +2631,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            auto nodes_and_bases = MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            auto nodes_and_bases = MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding, this->xdrop_nodes);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (nodes_and_bases.first > 0) {
@@ -2804,7 +2804,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                auto nodes_and_bases = align_sequence_between(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding, this->xdrop_nodes);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
@@ -3117,7 +3117,7 @@ size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, co
     return aligner->longest_detectable_gap(aln, sequence_end);
 }
 
-std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding, bool xdrop_nodes) {
     
     std::pair<size_t, size_t> to_return;
 
@@ -3245,7 +3245,12 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 #pragma omp critical (cerr)
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
-                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
+                std::chrono::high_resolution_clock::time_point start_time;
+                std::chrono::high_resolution_clock::time_point stop_time;
+                start_time = std::chrono::high_resolution_clock::now();
+                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, xdrop_nodes, max_gap_length);
+                stop_time = std::chrono::high_resolution_clock::now();
+                std::cerr << "Did align_pinned call of " << alignment.sequence().size() << " bases and " << max_gap_length << " gap length in " << std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count() << " seconds" << std::endl;
                 to_return.first = dagified_graph.get_node_count();
                 to_return.second = dagified_graph.get_total_length();
             }

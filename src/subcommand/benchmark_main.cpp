@@ -15,7 +15,11 @@
 #include "../version.hpp"
 
 #include "../unittest/test_aligner.hpp"
-#include "../vg.hpp"
+
+#include <vg/io/json2pb.h>
+
+#include <bdsg/hash_graph.hpp>
+#include <vg/io/vpkg.hpp>
 
 
 
@@ -81,59 +85,42 @@ int main_benchmark(int argc, char** argv) {
     omp_set_num_threads(1);
     
     vg::unittest::TestAligner aligner_source;
-    Aligner* aligner = (Aligner*) aligner_source.get_regular_aligner();
+    const Aligner* aligner = aligner_source.get_regular_aligner();
     
-    auto make_useless_graph = [](vg::VG& graph, size_t count) {
+    // Read the whole graph
+    std::unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>("test/alignment/pinned.vg");\
+    assert(graph);
 
-        vg::Node* n0 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        vg::Node* n1 = graph.create_node("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
-        vg::Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        vg::Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
-        vg::Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-       
-        
-        graph.create_edge(n0, n1);
-        graph.create_edge(n0, n3);
-        graph.create_edge(n1, n2);
-        graph.create_edge(n3, n4);
-
-        vg::Node* last = n4;
-        for (size_t i = 0; i < count; i++) {
-            vg::Node* next = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-            graph.create_edge(last, next);
-            last = next;
-        }
-
-    };
-    
-    vg::VG graph_10;
-    vg::VG graph_100;
-
-    make_useless_graph(graph_10, 10);
-    make_useless_graph(graph_100, 100);
-
-    string read = string("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    Alignment aln;
-    aln.set_sequence(read);
+    // Read the whole read text.
+    // See <https://stackoverflow.com/a/2912614>
+    std::ifstream read_text_file("test/alignment/pinned.txt");
+    std::string read_text((std::istreambuf_iterator<char>(read_text_file)), (std::istreambuf_iterator<char>()));
+    while(!read_text.empty() && read_text.back() == '\n') {
+        read_text.pop_back();
+    }
+    assert(!read_text.empty());
     
     vector<BenchmarkResult> results;
-        
-    results.push_back(run_benchmark("map against graph_10", 100, [&]() {
-        aligner->align_pinned(aln, graph_10, true, true, false); 
+
+    Alignment aln;
+    aln.set_sequence(read_text);
+
+    /*results.push_back(run_benchmark("align to graph with node drop, 1k gap", 10, [&]() {
+        aligner->align_pinned(aln, *graph, false, true, true, 1000);
+    }));*/
+
+    results.push_back(run_benchmark("align to graph with node drop, 9437 gap", 1, [&]() {
+        aligner->align_pinned(aln, *graph, false, true, true, 9437);
     }));
 
-    results.push_back(run_benchmark("map against graph_10 with node drop", 100, [&]() {
-        aligner->align_pinned(aln, graph_10, true, true, true); 
+    results.push_back(run_benchmark("align to graph with node drop, 9437 gap, again", 1, [&]() {
+        aligner->align_pinned(aln, *graph, false, true, true, 9437);
     }));
 
-    results.push_back(run_benchmark("map against graph_100", 100, [&]() {
-        aligner->align_pinned(aln, graph_100, true, true, false); 
+    results.push_back(run_benchmark("align to graph with node drop, 9437 gap, repeatedly", 10, [&]() {
+        aligner->align_pinned(aln, *graph, false, true, true, 9437);
     }));
 
-    results.push_back(run_benchmark("map against graph_100 with node drop", 100, [&]() {
-        aligner->align_pinned(aln, graph_100, true, true, true); 
-    }));
-        
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
     

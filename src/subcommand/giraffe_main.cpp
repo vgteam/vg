@@ -525,6 +525,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_dp_cells,
         "maximum number of alignment cells to allow in a tail"
     );
+    chaining_opts.add_flag(
+        "xdrop-nodes",
+        &MinimizerMapper::xdrop_nodes,
+        MinimizerMapper::default_xdrop_nodes,
+        "drop entire nodes in Dozeu x-drop"
+    );
 
     return parser;
 }
