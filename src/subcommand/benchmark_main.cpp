@@ -80,32 +80,37 @@ int main_benchmark(int argc, char** argv) {
     // Do all benchmarking on one thread
     omp_set_num_threads(1);
     
-    // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
-    omp_set_nested(1);
-    
     vg::unittest::TestAligner aligner_source;
     Aligner* aligner = (Aligner*) aligner_source.get_regular_aligner();
     
-    vg::VG graph;
+    auto make_useless_graph = [](vg::VG& graph, size_t count) {
 
-    vg::Node* n0 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    vg::Node* n1 = graph.create_node("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
-    vg::Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    vg::Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
-    vg::Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-   
+        vg::Node* n0 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        vg::Node* n1 = graph.create_node("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
+        vg::Node* n2 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        vg::Node* n3 = graph.create_node("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+        vg::Node* n4 = graph.create_node("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+       
+        
+        graph.create_edge(n0, n1);
+        graph.create_edge(n0, n3);
+        graph.create_edge(n1, n2);
+        graph.create_edge(n3, n4);
+
+        vg::Node* last = n4;
+        for (size_t i = 0; i < count; i++) {
+            vg::Node* next = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+            graph.create_edge(last, next);
+            last = next;
+        }
+
+    };
     
-    graph.create_edge(n0, n1);
-    graph.create_edge(n0, n3);
-    graph.create_edge(n1, n2);
-    graph.create_edge(n3, n4);
+    vg::VG graph_10;
+    vg::VG graph_100;
 
-    vg::Node* last = n4;
-    for (size_t i = 0; i < 100; i++) {
-        vg::Node* next = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-        graph.create_edge(last, next);
-        last = next;
-    }
+    make_useless_graph(graph_10, 10);
+    make_useless_graph(graph_100, 100);
 
     string read = string("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     Alignment aln;
@@ -113,12 +118,20 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
         
-    results.push_back(run_benchmark("map against forking graph", 1000, [&]() {
-        aligner->align_pinned(aln, graph, true, true, false); 
+    results.push_back(run_benchmark("map against graph_10", 100, [&]() {
+        aligner->align_pinned(aln, graph_10, true, true, false); 
     }));
 
-    results.push_back(run_benchmark("map against forking graph with node drop", 1000, [&]() {
-        aligner->align_pinned(aln, graph, true, true, true); 
+    results.push_back(run_benchmark("map against graph_10 with node drop", 100, [&]() {
+        aligner->align_pinned(aln, graph_10, true, true, true); 
+    }));
+
+    results.push_back(run_benchmark("map against graph_100", 100, [&]() {
+        aligner->align_pinned(aln, graph_100, true, true, false); 
+    }));
+
+    results.push_back(run_benchmark("map against graph_100 with node drop", 100, [&]() {
+        aligner->align_pinned(aln, graph_100, true, true, true); 
     }));
         
     // Do the control against itself
