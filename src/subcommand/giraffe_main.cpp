@@ -836,6 +836,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 2)
         .add_entry<size_t>("max-chain-connection", 400)
         .add_entry<size_t>("max-tail-length", 100)
+        .add_entry<size_t>("max-tail-gap", 100)
         .add_entry<size_t>("max-alignments", 5);
 
     presets["r10"]
@@ -870,6 +871,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-indel-bases-per-base", 0.2)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
+        .add_entry<size_t>("max-tail-gap", 100)
         .add_entry<size_t>("max-alignments", 5);
     // And a short reads with chaining preset
     presets["sr"]
@@ -911,6 +913,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-alignments", 5)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
         .add_entry<size_t>("max-chain-connection", 0)
+        .add_entry<size_t>("max-tail-gap", 100)
         .add_entry<double>("mapq-score-scale", 1.0);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
