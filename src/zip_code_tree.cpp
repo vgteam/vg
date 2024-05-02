@@ -632,19 +632,23 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                 //Find the start of the previous child
                 size_t previous_index = trees[forest_state.active_tree_index].zip_code_tree.size() - 1;
                 bool found_sibling = false;
-                bool opened_snarl = false;
+                size_t opened_snarls = 0;
                 while (!found_sibling) {
-                    if (!opened_snarl && 
+                    if (opened_snarls == 0 && 
                         trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type() 
                                  == ZipCodeTree::SEED) {
                         found_sibling = true;
                     } else if (trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type() 
                                     == ZipCodeTree::SNARL_END) {
-                        opened_snarl = true;
+                        opened_snarls ++;
                         previous_index--;
+                    } else if (trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type()
+                                     == ZipCodeTree::SNARL_START && opened_snarls == 0) {
+                        found_sibling = true;
                     } else if ((trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type()
                                      == ZipCodeTree::SNARL_START)) {
-                        found_sibling = true;
+                        opened_snarls--;
+                        previous_index--;
                     } else {
                         previous_index--;
                     }
