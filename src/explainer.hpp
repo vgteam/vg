@@ -253,6 +253,19 @@ DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explaine
     to_dump.to_dot(out);
 }
 
+/**
+ * Explainer that can dump a handle graph.
+ */
+class SubgraphExplainer: public Explainer {
+public:
+
+    /// Construct an explainer that will save a single graph.
+    SubgraphExplainer(bool enabled);
+
+    /// Write out a subgraph.
+    void subgraph(const HandleGraph& graph);
+};
+
 
 }
  

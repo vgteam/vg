@@ -7,6 +7,9 @@
 
 #include <structures/union_find.hpp>
 
+#include <handlegraph/algorithms/copy_graph.hpp>
+#include <bdsg/hash_graph.hpp>
+
 #include <sstream>
 
 namespace vg {
@@ -415,6 +418,20 @@ void DiagramExplainer::write_connected_components() const {
         kv.second << "}" << std::endl;
         kv.second.close();
     }
+}
+
+SubgraphExplainer::SubgraphExplainer(bool enabled): Explainer(enabled) {
+    // Nothing to do!
+}
+
+void SubgraphExplainer::subgraph(const HandleGraph& graph) {
+    if (!explaining()) {
+        return;
+    }
+    std::string filename = "subgraph" + std::to_string(explanation_number) + ".vg";
+    bdsg::HashGraph to_save;
+    handlealgs::copy_handle_graph(&graph, &to_save);
+    to_save.serialize(filename);
 }
 
 }

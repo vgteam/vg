@@ -531,6 +531,30 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_dp_cells,
         "maximum number of alignment cells to allow in a tail"
     );
+    chaining_opts.add_range(
+        "max-tail-gap",
+        &MinimizerMapper::max_tail_gap,
+        MinimizerMapper::default_max_tail_gap,
+        "maximum number of gap bases to allow in a Dozeu tail"
+    );
+    chaining_opts.add_range(
+        "wfa-max-mismatches",
+        &MinimizerMapper::wfa_max_mismatches,
+        MinimizerMapper::default_wfa_max_mismatches,
+        "maximum mismatches (or equivalent-scoring gaps) to allow in the shortest WFA connection or tail"
+    );
+    chaining_opts.add_range(
+        "wfa-max-mismatches-per-base",
+        &MinimizerMapper::wfa_max_mismatches_per_base,
+        MinimizerMapper::default_wfa_max_mismatches_per_base,
+        "maximum additional mismatches (or equivalent-scoring gaps) to allow per involved read base in WFA connections or tails"
+    );
+    chaining_opts.add_range(
+        "wfa-max-max-mismatches",
+        &MinimizerMapper::wfa_max_max_mismatches,
+        MinimizerMapper::default_wfa_max_max_mismatches,
+        "maximum mismatches (or equivalent-scoring gaps) to allow in the longest WFA connection or tail"
+    );
 
     return parser;
 }
@@ -818,6 +842,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 2)
         .add_entry<size_t>("max-chain-connection", 400)
         .add_entry<size_t>("max-tail-length", 100)
+        .add_entry<size_t>("max-tail-gap", 100)
         .add_entry<size_t>("max-alignments", 5);
 
     presets["r10"]
@@ -867,6 +892,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.06)
         .add_entry<int>("max-min-chain-score", 500.0)
         .add_entry<size_t>("max-alignments", 3);
+        .add_entry<size_t>("max-tail-gap", 100)
     // And a short reads with chaining preset
     presets["sr"]
         .add_entry<bool>("align-from-chains", true)
@@ -907,6 +933,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-alignments", 5)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
         .add_entry<size_t>("max-chain-connection", 0)
+        .add_entry<size_t>("max-tail-gap", 100)
         .add_entry<double>("mapq-score-scale", 1.0);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
