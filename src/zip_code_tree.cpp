@@ -65,6 +65,15 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
         if (forest_state.active_tree_index == std::numeric_limits<size_t>::max() 
             || trees[forest_state.active_tree_index].zip_code_tree.size() != 0) {
             //Don't add a new tree if the current one is empty
+#ifdef DEBUG_ZIP_CODE_TREE
+                //If we're starting a new tree then the last one must be valid
+                if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
+                    cerr << "Last tree: " << endl;
+                    VectorView<MinimizerMapper::Minimizer> empty;
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+                }
+#endif
             trees.emplace_back();
             forest_state.active_tree_index = trees.size()-1;
         }
@@ -210,6 +219,10 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 #ifdef DEBUG_ZIP_CODE_TREE
                  assert((trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_END ||
                          trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::SNARL_START));
+                 cerr << "Validate the new slice" << endl;
+                VectorView<MinimizerMapper::Minimizer> empty;
+                trees.back().print_self(forest_state.seeds, &empty);
+                trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
                  // Since we took out the whole chain, we shouldn't add the distances later
                  add_distances = false;
@@ -254,6 +267,12 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
                 distance_to_chain_end = SnarlDistanceIndex::sum(distance_to_chain_end, 
                                         SnarlDistanceIndex::sum(last_edge,
                                                                 last_length));
+#ifdef DEBUG_ZIP_CODE_TRE
+                cerr << "Validate slice" << endl;
+                VectorView<MinimizerMapper::Minimizer> empty;
+                trees.back().print_self(forest_state.seeds, &empty);
+                trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);E
+#endif
             }
         }
         if (add_distances) {
@@ -355,6 +374,15 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             if (forest_state.active_tree_index == std::numeric_limits<size_t>::max() 
                 || trees[forest_state.active_tree_index].zip_code_tree.size() != 0) {
                 //Add a new tree and make sure it is the new active tree
+#ifdef DEBUG_ZIP_CODE_TREE
+                //If we're starting a new tree then the last one must be valid
+                if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
+                    cerr << "Last tree: " << endl;
+                    VectorView<MinimizerMapper::Minimizer> empty;
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+                }
+#endif
                 trees.emplace_back();
                 forest_state.active_tree_index = trees.size()-1;
             }
@@ -417,6 +445,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
 
                     //Don't need to update open_chains, since the next slice will also start at the chain start and be able to make 
                     //a new thing
+#ifdef DEBUG_ZIP_CODE_TREE
+                //Validate the slice
+                cerr << "Validate removed slice: " << endl;
+                VectorView<MinimizerMapper::Minimizer> empty;
+                trees.back().print_self(forest_state.seeds, &empty);
+                trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+#endif
 
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -457,6 +492,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
                     //Remember the next seed or snarl that gets added as the start of a new chain slice
                     forest_state.open_chains.pop_back();
                     forest_state.open_chains.emplace_back(trees[forest_state.active_tree_index].zip_code_tree.size(), true);
+#ifdef DEBUG_ZIP_CODE_TREE
+                //Validate the slice
+                cerr << "Validate removed slice: " << endl;
+                VectorView<MinimizerMapper::Minimizer> empty;
+                trees.back().print_self(forest_state.seeds, &empty);
+                trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+#endif
                 }
             } else {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -2453,6 +2495,15 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
             if (forest_state.active_tree_index == std::numeric_limits<size_t>::max() 
                 || trees[forest_state.active_tree_index].zip_code_tree.size() != 0) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                //If we're starting a new tree then the last one must be valid
+                if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
+                    cerr << "Last connected component: " << endl;
+                    VectorView<MinimizerMapper::Minimizer> empty;
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+                }
+#endif
                 trees.emplace_back();
                 forest_state.active_tree_index = trees.size()-1;
             }
