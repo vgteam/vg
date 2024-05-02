@@ -525,6 +525,30 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_dp_cells,
         "maximum number of alignment cells to allow in a tail"
     );
+    chaining_opts.add_range(
+        "max-tail-gap",
+        &MinimizerMapper::max_tail_gap,
+        MinimizerMapper::default_max_tail_gap,
+        "maximum number of gap bases to allow in a Dozeu tail"
+    );
+    chaining_opts.add_range(
+        "wfa-max-mismatches",
+        &MinimizerMapper::wfa_max_mismatches,
+        MinimizerMapper::default_wfa_max_mismatches,
+        "maximum mismatches (or equivalent-scoring gaps) to allow in the shortest WFA connection or tail"
+    );
+    chaining_opts.add_range(
+        "wfa-max-mismatches-per-base",
+        &MinimizerMapper::wfa_max_mismatches_per_base,
+        MinimizerMapper::default_wfa_max_mismatches_per_base,
+        "maximum additional mismatches (or equivalent-scoring gaps) to allow per involved read base in WFA connections or tails"
+    );
+    chaining_opts.add_range(
+        "wfa-max-max-mismatches",
+        &MinimizerMapper::wfa_max_max_mismatches,
+        MinimizerMapper::default_wfa_max_max_mismatches,
+        "maximum mismatches (or equivalent-scoring gaps) to allow in the longest WFA connection or tail"
+    );
 
     return parser;
 }

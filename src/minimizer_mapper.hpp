@@ -362,6 +362,20 @@ public:
     static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
 
+    /// How many gap bases should we allow in a Dozeu tail alignment, max?
+    static constexpr size_t default_max_tail_gap = std::numeric_limits<size_t>::max();
+    size_t max_tail_gap = default_max_tail_gap;
+
+    /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails?
+    static constexpr int default_wfa_max_mismatches = 2;
+    int wfa_max_mismatches = default_wfa_max_mismatches;
+    /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails per base of read sequence?
+    static constexpr double default_wfa_max_mismatches_per_base= 0.1;
+    double wfa_max_mismatches_per_base = default_wfa_max_mismatches_per_base;
+    /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails maximum, at any read length?
+    static constexpr int default_wfa_max_max_mismatches = 20;
+    int wfa_max_max_mismatches = default_wfa_max_max_mismatches;
+
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;

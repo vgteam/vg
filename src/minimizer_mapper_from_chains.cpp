@@ -2235,10 +2235,19 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // We need an Aligner for scoring.
     const Aligner& aligner = *get_regular_aligner();
+
+    // We need an ErrorModel to limit what our WFAExtender is allowed to do.
+    // The ErrorModel is in terms of mismatches, gaps, and gap extensions, but if you fill them all in then a problem is allowed to have that many of *all* of those.
+    // So we set a limit just in mismatches, and if fewer mismatches than that are used some gaps will be allowed.
+    WFAExtender::ErrorModel wfa_error_model {
+        {wfa_max_mismatches_per_base, wfa_max_mismatches, wfa_max_max_mismatches},
+        {0, 0, 0},
+        {0, 0, 0}
+    };
     
     // We need a WFAExtender to do tail and intervening alignments.
     // Note that the extender expects anchoring matches!!!
-    WFAExtender extender(gbwt_graph, aligner); 
+    WFAExtender extender(gbwt_graph, aligner, wfa_error_model); 
     
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
     auto here_it = chain.begin();
@@ -2363,7 +2372,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
                 
                 // Work out how far the tail can see
-                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + left_tail_length, this->get_regular_aligner());
+                size_t max_gap_length = std::min(this->max_tail_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin(), aln.sequence().begin() + left_tail_length, this->get_regular_aligner()));
                 size_t graph_horizon = left_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
@@ -2788,7 +2797,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
 
                 // Work out how far the tail can see
-                size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + (*here).read_end(), aln.sequence().end(), this->get_regular_aligner());
+                size_t max_gap_length = std::min(this->max_tail_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + (*here).read_end(), aln.sequence().end(), this->get_regular_aligner()));
                 size_t graph_horizon = right_tail_length + max_gap_length;
 
 #ifdef warn_on_fallback
