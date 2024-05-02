@@ -623,9 +623,18 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                     : ZipCodeTree::SNARL_START,
                 SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge)});
 
+
+            //At this point, the open_chain for the parent chain is either before the removed snarl, the snarl itself,
+            //or after the snarl.
+            //If the open_chain was before or at the snarl, then nothing has changed.
+            //If it is after the snarl, then the snarl wasn't the start of a new slice so we back it up to the previous 
+            //child and say that it was not the start of a new slice.
+            //TODO
+            //If it was the snarl itself, then the next child added to the chain will be the next open_chain, but I
+            //haven't implemented this yet- it won't change the correctness
             if (depth > 0 && forest_state.open_chains.size() > 0 
                 && forest_state.open_chains.back().first >= trees[forest_state.active_tree_index].zip_code_tree.size()) {
-                //If there was a chain slice that could have started at this snarl
+                //If there was a chain slice that could have started at or after this snarl
 #ifdef DEBUG_ZIP_CODE_TREE
                 assert(forest_state.open_chains.back().second);
 #endif
@@ -669,6 +678,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                 cerr << "New start of previous open chain: " << previous_index << endl;;
 #endif
                 forest_state.open_chains.back().first = previous_index;
+                forest_state.open_chains.back().second = false;
                 
             }
 #ifdef DEBUG_ZIP_CODE_TREE
