@@ -812,7 +812,7 @@ bool WFAAlignment::unlocalized_insertion() const {
     );
 }
 
-int64_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
+int64_t WFAAlignment::final_offset(const HandleGraph& graph) const {
     int64_t final_offset = this->node_offset;
     for (auto edit : this->edits) {
         if (edit.first != WFAAlignment::insertion) {
@@ -825,7 +825,7 @@ int64_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
     return final_offset;
 }
 
-void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
+void WFAAlignment::flip(const HandleGraph& graph, const std::string& sequence) {
     this->seq_offset = sequence.length() - this->seq_offset - this->length;
 
     if (this->path.empty()) {
@@ -1446,7 +1446,7 @@ struct WFANode {
     // Points on the wavefronts are indexed by score, diagonal.
     std::array<std::unordered_map<WFAPoint::key_type, WFAPoint::value_type>, 3> wavefronts;
 
-    WFANode(const vector<gbwt::SearchState>& states, uint32_t parent, const gbwtgraph::GBWTGraph& graph) :
+    WFANode(const vector<gbwt::SearchState>& states, uint32_t parent, const gbwtgraph::CachedGBWTGraph& graph) :
         states(states),
         starts_by_node(),
         states_by_start(),
@@ -1471,7 +1471,7 @@ struct WFANode {
 #endif
 
             // And up the start position
-            stored_length += graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->states[i].node));
+            stored_length += graph.get_length(gbwtgraph::CachedGBWTGraph::node_to_handle(this->states[i].node));
         }
     }
 
@@ -1542,7 +1542,7 @@ struct WFANode {
     }
 
     // Returns a position at the first non-match after the given position.
-    void match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
+    void match_forward(const std::string& sequence, const gbwtgraph::CachedGBWTGraph& graph, MatchPos& pos) const {
 
         // Get first graph node starting after our offset.
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.upper_bound(pos.node_offset);
@@ -1558,7 +1558,7 @@ struct WFANode {
             // Until we hit the end of the WFANode
 
             // Grab the handle for the graph node we are at
-            handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
+            handle_t handle = gbwtgraph::CachedGBWTGraph::node_to_handle(this->states[here->second].node);
 
             // And get a view of its sequence
             gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
@@ -1583,7 +1583,7 @@ struct WFANode {
     }
 
     // Returns a position at the start of the run of matches before the given position.
-    void match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
+    void match_backward(const std::string& sequence, const gbwtgraph::CachedGBWTGraph& graph, MatchPos& pos) const {
 
         // Get first graph node starting after our offset.
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.upper_bound(pos.node_offset);
@@ -1599,7 +1599,7 @@ struct WFANode {
             // Until we hit the start of the WFANode
 
             // Grab the handle for the graph node we are at
-            handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
+            handle_t handle = gbwtgraph::CachedGBWTGraph::node_to_handle(this->states[here->second].node);
             // And get a view of its sequence
             gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
             size_t graph_node_offset = pos.node_offset - here->first;
@@ -1627,7 +1627,7 @@ struct WFANode {
 
 class WFATree {
 public:
-    const gbwtgraph::GBWTGraph& graph;
+    const gbwtgraph::CachedGBWTGraph& graph;
     const std::string& sequence;
 
     /// Each WFANode represents a run of graph nodes, as traversed by a set of haplotypes.
@@ -1660,7 +1660,7 @@ public:
     // TODO: Remove when unnecessary.
     bool debug;
 
-    WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner, const WFAExtender::ErrorModel& error_model) :
+    WFATree(const gbwtgraph::CachedGBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner, const WFAExtender::ErrorModel& error_model) :
         graph(graph), sequence(sequence),
         nodes(),
         candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
@@ -1696,7 +1696,6 @@ public:
 
         std::unordered_set<gbwt::node_type> visited {start.node};
         gbwt::SearchState here = start;
-        gbwt::CachedGBWT cache = graph.get_cache(); // TODO: Take in cache? Is this even useful here?
         // How many bases have we grabbed?
         size_t coalesced_bases = 0;
         // How many places did we have to pick from?
@@ -1705,7 +1704,7 @@ public:
             // Until we find multiple next places we could go
 
             // See how far we have come
-            handle_t node_handle = gbwtgraph::GBWTGraph::node_to_handle(here.node);
+            handle_t node_handle = gbwtgraph::CachedGBWTGraph::node_to_handle(here.node);
             size_t node_length = graph.get_length(node_handle);
             coalesced_bases += node_length;
             if (coalesced_bases >= base_limit) {
@@ -1717,7 +1716,7 @@ public:
             // If we want to keep going, see where we could go
             options = 0;
             gbwt::SearchState next;
-            graph.follow_paths(cache, here, [&](const gbwt::SearchState& reachable) {
+            graph.follow_paths(here, [&](const gbwt::SearchState& reachable) {
                 options++;
                 if (options > 1) {
                     // We found bore than one place to go, so stop coalescing.
@@ -2122,14 +2121,24 @@ private:
 
 //------------------------------------------------------------------------------
 
-WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
+WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to, gbwtgraph::CachedGBWTGraph* cached_graph) const {
     if (this->graph == nullptr || this->aligner == nullptr) {
 #ifdef debug_connect
         std::cerr << "No graph or no aligner! Returning empty alignment!" << std::endl;
 #endif
         return WFAAlignment();
     }
-    gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
+    
+    std::unique_ptr<gbwtgraph::CachedGBWTGraph> cache_storage;
+    if (cached_graph == nullptr) {
+        // Make a cached graph for this operation. Cache is unlikely to help
+        // between different alignment problems so we usually use a fresh one
+        // every time.
+        cache_storage.reset(new gbwtgraph::CachedGBWTGraph(*this->graph));
+        cached_graph = cache_storage.get();
+    }
+
+    gbwt::SearchState root_state = cached_graph->get_state(cached_graph->get_handle(id(from), is_rev(from)));
     if (root_state.empty()) {
 #ifdef debug_connect
         std::cerr << "No root state! Returning empty alignment!" << std::endl;
@@ -2138,7 +2147,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
     this->mask(sequence);
 
-    WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner), *(this->error_model));
+    WFATree tree(*cached_graph, sequence, root_state, offset(from) + 1, *(this->aligner), *(this->error_model));
     tree.debug = this->debug;
 
     int32_t score = 0;
@@ -2198,7 +2207,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         // Go back up the tree and compose the path in reverse order
         for (auto it = tree.nodes[node].states.rbegin(); it != tree.nodes[node].states.rend(); ++it) {
             // Visit all the states in each WFANode and put their graph nodes on the path in reverse order.
-            result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(it->node));
+            result.path.push_back(gbwtgraph::CachedGBWTGraph::node_to_handle(it->node));
         }
         if (tree.is_root(node)) {
             // Stop when we reach the root
@@ -2272,7 +2281,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     // We used "from + 1" as the starting position for the alignment. That could have
     // been a past-the-end position in the initial node. Once we have an actual path
     // instead of a tree of potential paths, we can remove the unused node.
-    if (!result.path.empty() && result.node_offset >= this->graph->get_length(result.path.front())) {
+    if (!result.path.empty() && result.node_offset >= cached_graph->get_length(result.path.front())) {
         result.path.erase(result.path.begin());
         result.node_offset = 0;
     }
@@ -2281,14 +2290,14 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     // information in the leaves, and how we coalesce graph nodes into WFANode
     // objects, we sometimes do not use any bases in trailing graph nodes.
     // We deal with this now to avoid facing the issue later.
-    int64_t final_offset = result.final_offset(*(this->graph));
+    int64_t final_offset = result.final_offset(*cached_graph);
 
     while ((result.path.size() == 1 && final_offset == result.node_offset) || (result.path.size() > 1 && final_offset <= 0)) {
         // No bases actually used on the final node, so drop it and adjust the offset.
         result.path.pop_back();
         if (!result.path.empty()) {
             // Offset should now be relative to the start of this node, and not end of this node/start of node after
-            final_offset += this->graph->get_length(result.path.back());
+            final_offset += cached_graph->get_length(result.path.back());
 
         } else {
 
@@ -2317,10 +2326,14 @@ WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
         return WFAAlignment();
     }
 
+    // Make a cached graph for this operation. Cache is unlikely to help
+    // between different alignment problems so we use a fresh one every time.
+    gbwtgraph::CachedGBWTGraph cached_graph(*this->graph);
+
     // Flip the position, extend forward, and reverse the return value.
-    to = reverse_base_pos(to, this->graph->get_length(this->graph->get_handle(id(to), is_rev(to))));
-    WFAAlignment result = this->connect(reverse_complement(sequence), to, pos_t(0, false, 0));
-    result.flip(*(this->graph), sequence);
+    to = reverse_base_pos(to, cached_graph.get_length(cached_graph.get_handle(id(to), is_rev(to))));
+    WFAAlignment result = this->connect(reverse_complement(sequence), to, pos_t(0, false, 0), &cached_graph);
+    result.flip(cached_graph, sequence);
 
     if (!result.edits.empty() && result.length == sequence.length() && (result.edits.front().first == WFAAlignment::match || result.edits.front().first == WFAAlignment::mismatch)) {
         result.score += this->aligner->full_length_bonus; 

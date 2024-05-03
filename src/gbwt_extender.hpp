@@ -280,10 +280,10 @@ struct WFAAlignment {
 
     /// Computes the node offset after the alignment in the final node.
     /// Will be negative if the alignment's final node(s) are not actually used by edits.
-    int64_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
+    int64_t final_offset(const HandleGraph& graph) const;
 
     /// Transforms the alignment to the other strand.
-    void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
+    void flip(const HandleGraph& graph, const std::string& sequence);
 
     /// Appends an edit operation, merging it with the latest edit if possible.
     /// Ignores empty edits.
@@ -409,8 +409,11 @@ public:
      *
      * NOTE: The alignment is to a path after `from` and before `to`. If the
      * points are identical, such a path can only exist if there is a cycle.
+     *
+     * Should be called with a null cached_graph, unless the caller already has
+     * a CachedGBWTGraph relevant to this alignment.
      */
-    WFAAlignment connect(std::string sequence, pos_t from, pos_t to) const;
+    WFAAlignment connect(std::string sequence, pos_t from, pos_t to, gbwtgraph::CachedGBWTGraph* cached_graph = nullptr) const;
 
     /**
      * A special case of connect() for aligning the sequence to a haplotype
