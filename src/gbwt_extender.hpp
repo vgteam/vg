@@ -434,9 +434,6 @@ public:
     ReadMasker                  mask;
     const Aligner*              aligner;
     const ErrorModel*           error_model;
-    
-    /// TODO: Remove when unnecessary.
-    bool debug = false;
 };
 
 //------------------------------------------------------------------------------
