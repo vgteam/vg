@@ -217,7 +217,7 @@ ifeq ($(shell uname -s),Darwin)
     END_STATIC =
 
     # We need to use special flags to let us rename libraries
-    LD_RENAMEABLE_FLAGS = -headerpad -headerpad_max_install_names
+    LD_RENAMEABLE_FLAGS = -Wl,-headerpad -Wl,-headerpad_max_install_names
 else
     # We are not running on OS X
     $(info OS is Linux)
