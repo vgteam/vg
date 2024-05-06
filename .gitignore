@@ -24,6 +24,8 @@ test/**/*.index/
 trash
 src/*.gch
 .vscode
+# Temporary subcommand used for debugging something
+debug_main.cpp
 # Ignore a bunch of files people might dump in the root when testing
 /*.vg
 /*.gcsa

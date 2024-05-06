@@ -261,7 +261,7 @@ std::vector<std::vector<gbwt::size_type>> partition_gbwt_sequences(const gbwt::G
 }
 
 // Build a GBWT by inserting the specified sequences and applying the specified mappings.
-gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job, const std::vector<gbwt::size_type>& sequences, const RebuildParameters& parameters) {
+gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job, size_t job_id, const std::vector<gbwt::size_type>& sequences, const RebuildParameters& parameters) {
 
     // Partition the mappings by the first node and determine node width.
     gbwt::size_type node_width = sdsl::bits::length(gbwt_index.sigma() - 1);
@@ -314,7 +314,18 @@ gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job,
                 i++;
             }
         }
-        builder.insert(mapped, true);
+        if (parameters.dry_run) {
+            std::string msg =
+                "rebuild_gbwt(): Job " + std::to_string(job_id) +
+                ": Sequence " + std::to_string(sequence) + ": " +
+                std::to_string(path.size()) + " -> " + std::to_string(mapped.size()) + " nodes";
+            #pragma omp critical
+            {
+                std::cerr << msg << std::endl;
+            }
+        } else {
+            builder.insert(mapped, true);
+        }
     }
     builder.finish();
 
@@ -374,7 +385,7 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                 std::cerr << "rebuild_gbwt(): Starting job " << job << std::endl;
             }
         }
-        indexes[job] = rebuild_gbwt_job(gbwt_index, jobs[job], sequences_by_job[job], parameters);
+        indexes[job] = rebuild_gbwt_job(gbwt_index, jobs[job], job, sequences_by_job[job], parameters);
         if (parameters.show_progress) {
             #pragma omp critical
             {
