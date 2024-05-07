@@ -2284,7 +2284,14 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
 }
 
 WFAAlignment WFAExtender::suffix(const std::string& sequence, pos_t from) const {
-    return this->connect(sequence, from, pos_t(0, false, 0));
+    WFAAlignment result = this->connect(sequence, from, pos_t(0, false, 0));
+
+    if (!result.edits.empty() && result.length == sequence.length() && (result.edits.back().first == WFAAlignment::match || result.edits.back().first == WFAAlignment::mismatch)) {
+        // The alignment used all of the sequence and has a match/mismatch at the appropriate end
+        result.score += this->aligner->full_length_bonus; 
+    }
+
+    return result;
 }
 
 WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
@@ -2296,6 +2303,10 @@ WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
     to = reverse_base_pos(to, this->graph->get_length(this->graph->get_handle(id(to), is_rev(to))));
     WFAAlignment result = this->connect(reverse_complement(sequence), to, pos_t(0, false, 0));
     result.flip(*(this->graph), sequence);
+
+    if (!result.edits.empty() && result.length == sequence.length() && (result.edits.front().first == WFAAlignment::match || result.edits.front().first == WFAAlignment::mismatch)) {
+        result.score += this->aligner->full_length_bonus; 
+    }
 
     return result;
 }
