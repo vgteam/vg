@@ -247,7 +247,8 @@ Static Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>A special case of <a class="el" href="classvg_1_1WFAExtender.html#afa5938e94fc17adb3df680632ff97601">connect()</a> for aligning the sequence to a haplotype ending at the given position. If there is no alignment for the entire sequence with an acceptable score, returns the highest-scoring partial alignment, which may be empty.</p>
-<p>NOTE: This creates a prefix of the full alignment by aligning a suffix of the sequence. TODO: Should we use full-length bonuses? </p>
+<p>Applies the full-length bonus if the result begins with a match or mismatch. TODO: Use the full-length bonus to determine the optimal alignment.</p>
+<p>NOTE: This creates a prefix of the full alignment by aligning a suffix of the sequence. </p>
 
 </div>
 </div>
@@ -277,7 +278,8 @@ Static Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>A special case of <a class="el" href="classvg_1_1WFAExtender.html#afa5938e94fc17adb3df680632ff97601">connect()</a> for aligning the sequence to a haplotype starting at the given position. If there is no alignment for the entire sequence with an acceptable score, returns the highest-scoring partial alignment, which may be empty.</p>
-<p>NOTE: This creates a suffix of the full alignment by aligning a prefix of the sequence. TODO: Should we use full-length bonuses? </p>
+<p>Applies the full-length bonus if the result ends with a match or mismatch. TODO: Use the full-length bonus to determine the optimal alignment.</p>
+<p>NOTE: This creates a suffix of the full alignment by aligning a prefix of the sequence. </p>
 
 </div>
 </div>
