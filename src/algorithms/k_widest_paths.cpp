@@ -246,7 +246,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                 forgotten_nodes.insert(g->flip(prev_path[j]));
             }
 
-            // find our path from the the spur_node to the sink
+            // find our path from the spur_node to the sink
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
                                                                          [&](edge_t e) {return forgotten_edges.count(e);},
