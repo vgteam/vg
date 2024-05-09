@@ -103,6 +103,7 @@ int main_gamsort(int argc, char **argv)
             break;
         case 's':
             shuffle = true;
+            break;
         case 'p':
             show_progress = true;
             break;
