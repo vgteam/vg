@@ -21,6 +21,7 @@ void help_gamsort(char **argv)
          << "Options:" << endl
          << "  -i / --index FILE       produce an index of the sorted GAM file" << endl
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
+         << "  -s / --shuffle          Shuffle reads by hash (GAM only)" << endl
          << "  -p / --progress         Show progress." << endl
          << "  -G / --gaf-input        Input is a GAF file." << endl
          << "  -c / --chunk-size       Number of reads per chunk when sorting GAFs." << endl
@@ -61,6 +62,7 @@ int main_gamsort(int argc, char **argv)
 {
     string index_filename;
     bool easy_sort = false;
+    bool shuffle = false;
     bool show_progress = false;
     string input_format = "GAM";
     int chunk_size = 1000000; // maximum number reads held in memory
@@ -77,14 +79,14 @@ int main_gamsort(int argc, char **argv)
             {
                 {"index", required_argument, 0, 'i'},
                 {"dumb-sort", no_argument, 0, 'd'},
-                {"rocks", required_argument, 0, 'r'},
+                {"shuffle", no_argument, 0, 's'},
                 {"progress", no_argument, 0, 'p'},
                 {"gaf-input", no_argument, 0, 'g'},
                 {"chunk-size", required_argument, 0, 'c'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhpGt:c:",
+        c = getopt_long(argc, argv, "i:dshpGt:c:",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -99,6 +101,8 @@ int main_gamsort(int argc, char **argv)
         case 'd':
             easy_sort = true;
             break;
+        case 's':
+            shuffle = true;
         case 'p':
             show_progress = true;
             break;
@@ -127,9 +131,13 @@ int main_gamsort(int argc, char **argv)
     omp_set_num_threads(num_threads);
 
     if (input_format == "GAM") {
+        if (shuffle && !index_filename.empty()) {
+            cerr << "[vg gamsort] Indexing is not allowed when shuffling GAM files." << endl;
+            exit(1);
+        }
         get_input_file(optind, argc, argv, [&](istream& gam_in) {
 
-            GAMSorter gs(show_progress);
+            GAMSorter gs(shuffle ? GAMSorter::Order::RANDOM : GAMSorter::Order::BY_GRAPH_POSITION, show_progress);
 
             // Do a normal GAMSorter sort
             unique_ptr<GAMIndex> index;
@@ -154,6 +162,15 @@ int main_gamsort(int argc, char **argv)
             }
         });
     } else if (input_format == "GAF") {
+        if (shuffle) {
+            // TODO: Implement shuffling for GAF files by making the
+            // comparators switch modes and hashing the record strings.
+            // TODO: Is there a way to be less duplicative with the
+            // StreamSorter?
+            cerr << "[vg gamsort] Shuffling is not implemented for GAF files." << endl;
+            exit(1);
+        }
+
         std::string input_gaf_filename = get_input_file_name(optind, argc, argv);
 
         // where to store the chunk of GAF records that will be sorted, then written to disk,
@@ -166,7 +183,7 @@ int main_gamsort(int argc, char **argv)
         // read input GAF file
         htsFile* in = hts_open(input_gaf_filename.c_str(), "r");
         if (in == NULL) {
-            cerr << "[vg::alignment.cpp] couldn't open " << input_gaf_filename << endl; exit(1);
+            cerr << "[vg gamsort] couldn't open " << input_gaf_filename << endl; exit(1);
         }
         kstring_t s_buffer = KS_INITIALIZE;
         gafkluge::GafRecord gaf;
