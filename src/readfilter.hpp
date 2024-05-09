@@ -34,7 +34,7 @@ using namespace std;
 struct Counts;
 
 template<typename Read>
-class ReadFilter{
+class ReadFilter {
 public:
     
     // Filtering parameters
@@ -75,6 +75,9 @@ public:
     /// Samtools-compatible internal seed mask, for deciding which read pairs to keep.
     /// To be generated with rand() after srand() from the user-visible seed.
     uint32_t downsample_seed_mask = 0;
+
+    /// How many reads should we take total? Note that this filter is nondeterministic.
+    size_t max_reads = numeric_limits<size_t>::max();
     
     /// How far in from the end should we look for ambiguous end alignment to
     /// clip off?
@@ -295,9 +298,11 @@ private:
      */
     void emit_tsv(Read& read, std::ostream& out);
 
+    // To track total reads we need a counter
+    std::atomic<size_t> max_reads_used{};
     
     
-    /// The twp specializations have different writing infrastructure
+    /// The two specializations have different writing infrastructure
     unique_ptr<AlignmentEmitter> aln_emitter;
     unique_ptr<MultipathAlignmentEmitter> mp_aln_emitter;
     
@@ -307,11 +312,11 @@ private:
 
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
-    // note: "last" must be kept as the final value in this enum
+    // note: "last" must be kept as the final value in this enum. "filtered" should probably remain next-to-last.
 
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_length, max_overhang,
-        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, unmapped, annotation, incorrectly_mapped, last};
+        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence,
+        proper_pair, unmapped, annotation, incorrectly_mapped, max_reads, filtered, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -345,6 +350,51 @@ struct Counts {
     void reset() {
         std::fill(counts.begin(), counts.end(), 0);
     }
+
+    /// If currently kept, and the limit is not
+    /// std:numeric_limits<size_t>::max(), consume space in the counter. If
+    /// space cannot be consumed in the counter to fit the read (or pair),
+    /// become un-kept.
+    void apply_max_reads(std::atomic<size_t>& counter, const size_t& limit) {   
+        if (limit == std::numeric_limits<size_t>::max()) {
+            // Filter is off
+            return;
+        }
+        size_t passing = counts[FilterName::read] - counts[FilterName::filtered];
+        if (passing == 0) {
+            // No need to reserve space.
+            return;
+        }
+        bool fits = true;
+        size_t loaded = counter.load();
+        if (loaded >= limit) {
+            // Definitely already full
+            fits = false;
+        } else {
+            // Might fit
+            size_t before_added = counter.fetch_add(passing);
+            if (before_added + passing > limit) {
+                // We can't all fit.
+                fits = false;
+                // But we still consume space.
+            } 
+        }
+        if (!fits) {
+            // Record that we fail this.
+            counts[FilterName::max_reads] = passing;
+            counts[FilterName::filtered] += passing;
+        }
+    }
+
+    /// Invert whether we are kept or not.
+    void invert() {
+        if (keep()) {
+            counts[FilterName::filtered] = counts[FilterName::read];
+        } else {
+            counts[FilterName::filtered] = 0;
+        }
+    }
+
     bool keep() {
         return counts[FilterName::filtered] == 0;
     }
@@ -368,8 +418,13 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         << " bp sequence and " << read.quality().size() << " quality values" << endl;
 #endif
         Counts read_counts = filter_alignment(read);
+        if (complement_filter) {
+            // Invert filters *before* the max read limit.
+            read_counts.invert();
+        }
+        read_counts.apply_max_reads(max_reads_used, max_reads);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+        if (read_counts.keep() && (write_output || write_tsv)) {
             if (write_tsv) {
                 std::stringstream ss;
                 emit_tsv(read, ss);
@@ -394,8 +449,13 @@ void ReadFilter<Read>::filter_internal(istream* in) {
             // So if we filter out one end for any reason, we filter out the other as well.
             read_counts.set_paired_any();
         }
+        if (complement_filter) {
+            // Invert filters *before* the max read limit.
+            read_counts.invert();
+        }
+        read_counts.apply_max_reads(max_reads_used, max_reads);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+        if (read_counts.keep() && (write_output || write_tsv)) {
             if (write_tsv) {
                 std::stringstream ss;
                 emit_tsv(read1, ss);
