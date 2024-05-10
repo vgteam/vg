@@ -2242,7 +2242,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     WFAExtender::ErrorModel wfa_error_model {
         {wfa_max_mismatches_per_base, wfa_max_mismatches, wfa_max_max_mismatches},
         {0, 0, 0},
-        {0, 0, 0}
+        {0, 0, 0},
+        {wfa_distance_per_base, wfa_distance, wfa_max_distance}
     };
     
     // We need a WFAExtender to do tail and intervening alignments.
