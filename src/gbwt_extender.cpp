@@ -1209,12 +1209,10 @@ namespace vg {
 //------------------------------------------------------------------------------
 
 const WFAExtender::ErrorModel WFAExtender::default_error_model {
-    // Mismatches (per base, plus min, cap at max)
-    {0.03, 1, 6},
-    // Gaps
-    {0.05, 1, 10},
-    // Gap length
-    {0.1, 1, 20}
+    WFAExtender::ErrorModel::default_mismatches(),
+    WFAExtender::ErrorModel::default_gaps(),
+    WFAExtender::ErrorModel::default_gap_length(),
+    WFAExtender::ErrorModel::default_distance()
 };
 
 WFAExtender::WFAExtender() :
@@ -1258,6 +1256,8 @@ struct MatchPos {
         const static size_t NUM_INLINE = 4;
         size_t item_count = 0;
         uint32_t inline_items[NUM_INLINE];
+        // TODO: There are probably some obscure situations where we could have a bug
+        // because this is a shared pointer. Document them.
         std::shared_ptr<std::vector<uint32_t>> additional_items;
 
         void push(uint32_t value) {
@@ -1316,11 +1316,17 @@ struct MatchPos {
     uint32_t node() const { return this->path.top(); }
     void pop() { this->path.pop(); }
 
+    // Returns the distance from the start of the alignment as seq_offset + target_offset,
+    // assuming that we are on the given diagonal.
+    std::int32_t distance(std::int32_t diagonal) {
+        return 2 * std::int32_t(this->seq_offset) - diagonal;
+    }
+
     // Positions are ordered by sequence offsets. Empty positions are smaller than
     // non-empty ones.
     bool operator<(const MatchPos& another) {
         if (this->empty()) {
-            return true;
+            return !another.empty();
         }
         if (another.empty()) {
             return false;
@@ -1495,7 +1501,7 @@ struct WFANode {
     }
 
     // Advances the position to the first non-match at or after the current position.
-    void match_forward(const gbwtgraph::CachedGBWTGraph& graph, const std::string& sequence, MatchPos& pos) const {
+    void match_forward(const std::string& sequence, MatchPos& pos) const {
         while (
             pos.seq_offset < sequence.length() &&
             pos.node_offset < this->node_sequence.length() &&
@@ -1552,6 +1558,12 @@ public:
     // Stop if no alignment has been found with this score or less.
     std::int32_t score_bound;
 
+    // Furthest distance (seq_offset + target_offset) reached so far.
+    std::int32_t max_distance;
+
+    // Minimum distance we are still considering.
+    std::int32_t min_distance;
+
     struct ScoreProperties {
         std::int32_t min_diagonal;
         std::int32_t max_diagonal;
@@ -1564,9 +1576,6 @@ public:
     // be skipped.
     std::map<std::int32_t, ScoreProperties> possible_scores;
 
-    // The overall closed range of diagonals reached.
-    std::pair<std::int32_t, std::int32_t> max_diagonals;
-
     WFATree(
         const gbwtgraph::GBWTGraph& graph, const std::string& sequence,
         pos_t from, pos_t to,
@@ -1578,8 +1587,8 @@ public:
         mismatch(2 * (aligner.match + aligner.mismatch)),
         gap_open(2 * (aligner.gap_open - aligner.gap_extension)),
         gap_extend(2 * aligner.gap_extension + aligner.match),
-        score_bound(0),
-        possible_scores(), max_diagonals(0, 0)
+        score_bound(0), max_distance(0), min_distance(0),
+        possible_scores()
     {
         // Create the root node based on the starting position. Because the start
         // is outside the alignment, we may already have exhausted the node.
@@ -1616,7 +1625,12 @@ public:
     // If we reach the end of a node, we continue to the start of the next node even
     // if we do not use any characters in it.
     void extend(std::int32_t score) {
-        for (std::int32_t diagonal = this->max_diagonals.first; diagonal <= this->max_diagonals.second; diagonal++) {
+        auto iter = this->possible_scores.find(score);
+        if (iter == this->possible_scores.end()) {
+            // TODO: This should not happen. Should there be a warning/error?
+            return;
+        }
+        for (std::int32_t diagonal = iter->second.min_diagonal; diagonal <= iter->second.max_diagonal; diagonal++) {
             std::vector<std::uint32_t> leaves = this->get_leaves();
             this->extend_over(score, diagonal, leaves);
         }
@@ -1660,11 +1674,16 @@ public:
         return match_iter->first;
     }
 
-    // wf_next() in the paper.
+    // wf_next() in the paper, with a variant of wf_reduce().
     // If we reach the end of a node, we continue to the start of the next node even
     // if we do not use any characters in it.
     void next(std::int32_t score) {
+        // diagonal_range is the potential range of diagonals for this score, based on the
+        // diagonals of previous scores.
         std::pair<std::int32_t, std::int32_t> diagonal_range = this->get_diagonals(score);
+        // actual_range is the range of diagonals with points that reach far enough
+        // with this score.
+        std::pair<std::int32_t, std::int32_t> actual_range = empty_diagonal_range();
         for (std::int32_t diagonal = diagonal_range.first; diagonal <= diagonal_range.second; diagonal++) {
             std::vector<std::uint32_t> leaves = this->get_leaves();
             // NOTE: We may do the same updates from multiple leaves.
@@ -1672,13 +1691,19 @@ public:
                 MatchPos ins = this->ins_predecessor(leaf, score, diagonal).first;
                 if (!ins.empty()) {
                     ins.seq_offset++;
-                    this->nodes[ins.node()].update(WFANode::INSERTIONS, score, diagonal, ins);
+                    if (ins.distance(diagonal) >= this->min_distance) {
+                        this->nodes[ins.node()].update(WFANode::INSERTIONS, score, diagonal, ins);
+                        adjust_diagonal_range(actual_range, diagonal);
+                    }
                 }
 
                 MatchPos del = this->del_predecessor(leaf, score, diagonal).first;
                 if (!del.empty()) {
                     this->successor_offset(del);
-                    this->nodes[del.node()].update(WFANode::DELETIONS, score, diagonal, del);
+                    if (del.distance(diagonal) >= this->min_distance) {
+                        this->nodes[del.node()].update(WFANode::DELETIONS, score, diagonal, del);
+                        adjust_diagonal_range(actual_range, diagonal);
+                    }
                     this->expand_if_necessary(del);
                 }
 
@@ -1690,14 +1715,11 @@ public:
                 }
 
                 // Determine the edit that reaches furthest on the diagonal.
-                bool is_insertion = false;
                 if (subst < ins) {
                     subst = std::move(ins);
-                    is_insertion = true;
                 }
                 if (subst < del) {
                     subst = std::move(del);
-                    is_insertion = false;
                 }
 
                 if (!subst.empty()) {
@@ -1718,9 +1740,19 @@ public:
                             this->candidate_node = subst.node();
                         }
                     }
-                    node.update(WFANode::MATCHES, score, diagonal, subst);
+                    if (subst.distance(diagonal) >= this->min_distance) {
+                        node.update(WFANode::MATCHES, score, diagonal, subst);
+                        adjust_diagonal_range(actual_range, diagonal);
+                    }
                 }
             }
+        }
+
+        // Set the diagonal range for the score.
+        auto iter = this->possible_scores.find(score);
+        if (iter != this->possible_scores.end()) {
+            iter->second.min_diagonal = actual_range.first;
+            iter->second.max_diagonal = actual_range.second;
         }
     }
 
@@ -1814,7 +1846,6 @@ private:
         for (std::uint32_t leaf : leaves) {
             MatchPos pos = this->find_pos(WFANode::MATCHES, leaf, score, diagonal, false, false);
             if (pos.empty()) {
-
                 continue; // An impossible score / diagonal combination.
             }
             while (true) {
@@ -1824,7 +1855,7 @@ private:
                     // This node covers the target, and we have not matched the offset yet.
                     may_reach_target = true;
                 }
-                node.match_forward(this->graph, this->sequence, pos);
+                node.match_forward(this->sequence, pos);
 
                 // We got a match that reached the end or went past it.
                 // Alternatively there is no end position and we have aligned the entire sequence.
@@ -1851,6 +1882,7 @@ private:
                 }
 
                 // We may have matched some additional bases in the node.
+                this->max_distance = std::max(this->max_distance, pos.distance(diagonal));
                 node.update(WFANode::MATCHES, score, diagonal, pos);
                 if (pos.node_offset < node.length()) {
                     break;
@@ -1873,6 +1905,7 @@ private:
         }
     }
 
+    // TODO: Can we trim subtrees with no points far enough?
     std::vector<std::uint32_t> get_leaves() const {
         std::vector<std::uint32_t> leaves;
         for (std::uint32_t node = 0; node < this->size(); node++) {
@@ -1883,6 +1916,14 @@ private:
         return leaves;
     }
 
+    // Adjusts the diagonal range to include the given diagonal.
+    static void adjust_diagonal_range(std::pair<std::int32_t, std::int32_t>& range, std::int32_t diagonal) {
+        range.first = std::min(range.first, diagonal);
+        range.second = std::max(range.second, diagonal);
+    }
+
+    // Updates the given diagonal range to include all diagonals covered by the
+    // range for the given score.
     std::pair<std::int32_t, std::int32_t> update_diagonal_range(
         std::pair<std::int32_t, std::int32_t> range,
         std::int32_t score) const
@@ -1897,26 +1938,23 @@ private:
         return range;
     }
 
-    // Determines the diagonal range for the given score and stores it in possible_scores.
-    // Assumes that the score is valid. Updates max_diagonals.
+    static std::pair<int32_t, int32_t> empty_diagonal_range() {
+        return std::make_pair(std::numeric_limits<int32_t>::max(), std::numeric_limits<int32_t>::min());
+    }
+
+    // Determines the diagonal range for the given score.
+    // Assumes that the score is valid.
     // Returns an empty range if the score is impossible.
     std::pair<int32_t, int32_t> get_diagonals(int32_t score) {
         // Determine the diagonal range for the given score.
-        std::pair<int32_t, int32_t> range(1, -1);
+        std::pair<int32_t, int32_t> range = empty_diagonal_range();
         range = this->update_diagonal_range(range, score - this->mismatch); // Mismatch.
         range = this->update_diagonal_range(range, score - this->gap_open - this->gap_extend); // New gap.
         range = this->update_diagonal_range(range, score - this->gap_extend); // Extend an existing gap.
         if (range.first > range.second) {
             return range;
         }
-
         range.first--; range.second++;
-        this->max_diagonals.first = std::min(this->max_diagonals.first, range.first);
-        this->max_diagonals.second = std::max(this->max_diagonals.second, range.second);
-        auto iter = this->possible_scores.find(score);
-        iter->second.min_diagonal = range.first;
-        iter->second.max_diagonal = range.second;
-
         return range;
     }
 
@@ -2005,6 +2043,15 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         std::cerr << "Extend for score " << score << std::endl;
 #endif
         tree.extend(score);
+
+        // Update the minimum distance for points we will still consider.
+        std::int32_t distance_band = this->error_model->distance.evaluate(sequence.length());
+        if (distance_band < tree.max_distance) {
+            tree.min_distance = tree.max_distance - distance_band;
+        }
+#ifdef debug_connect
+        std::cerr << "Max distance is " << tree.max_distance << ", min distance is " << tree.min_distance << std::endl;
+#endif
 
         if (tree.candidate_point.score <= score) {
             break;
