@@ -842,7 +842,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 2)
         .add_entry<size_t>("max-chain-connection", 400)
         .add_entry<size_t>("max-tail-length", 100)
-        .add_entry<size_t>("max-tail-gap", 100)
+        .add_entry<size_t>("max-tail-gap", 300)
+        .add_entry<int>("wfa-max-mismatches", 2)
+        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
+        .add_entry<int>("wfa-max-max-mismatches", 10);
         .add_entry<size_t>("max-alignments", 5);
 
     presets["r10"]
@@ -891,8 +894,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<double>("min-chain-score-per-base", 0.06)
         .add_entry<int>("max-min-chain-score", 500.0)
-        .add_entry<size_t>("max-alignments", 3);
-        .add_entry<size_t>("max-tail-gap", 100)
+        .add_entry<size_t>("max-alignments", 3)
+        .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<int>("wfa-max-mismatches", 2)
+        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
+        .add_entry<int>("wfa-max-max-mismatches", 15);
     // And a short reads with chaining preset
     presets["sr"]
         .add_entry<bool>("align-from-chains", true)
