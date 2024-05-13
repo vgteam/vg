@@ -31,7 +31,7 @@
 .
 :Step
   rdf:type owl:Class ;
-  rdfs:comment "A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."^^xsd:string ;
+  rdfs:comment "A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."^^xsd:string ;
   rdfs:label "Step"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .

@@ -175,6 +175,9 @@ struct RebuildParameters {
     /// Print progress information to stderr.
     bool show_progress = false;
 
+    /// Rebuild the paths but do not insert them into a new GBWT.
+    bool dry_run = false;
+
     /// Size of the GBWT construction buffer in nodes.
     gbwt::size_type batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 
@@ -207,7 +210,7 @@ struct RebuildParameters {
 /// Empty paths go to the first job, but this can be overridden by including
 /// `gbwt::ENDMARKER` in `node_to_job`.
 ///
-/// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
+/// NOTE: Paths may be reordered if there are multiple jobs. Old path ids are
 /// no longer valid after rebuilding the GBWT.
 ///
 /// NOTE: This could use the ConstructionJob / MetadataBuilder scheme for

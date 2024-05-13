@@ -72,9 +72,9 @@ unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                                  const multipath_alignment_t& mp_aln,
                                  const std::function<bool(const path_handle_t&)>* path_filter) {
-    
+
     using path_positions_t = unordered_map<path_handle_t, vector<pair<size_t, bool>>>;
-    
+
     // collect the search results for each mapping on each subpath
     vector<vector<path_positions_t>> search_results(mp_aln.subpath_size());
     for (size_t i = 0; i < mp_aln.subpath_size(); ++i) {
@@ -91,23 +91,23 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
             }
 #ifdef debug_mpaln_offsets
             cerr << "subpath " << i << ", mapping " << j << " path locations" << endl;
-            for (const auto& pps : subpath_search_results[j]) {
-                cerr << graph.get_path_name(pps.first) << endl;
-                for (const auto& pp : pps.second) {
-                    cerr << "\t" << pp.first << " " << pp.second << endl;
-                }
-            }
+    for (const auto& pps : subpath_search_results[j]) {
+        cerr << graph.get_path_name(pps.first) << endl;
+        for (const auto& pp : pps.second) {
+            cerr << "\t" << pp.first << " " << pp.second << endl;
+        }
+    }
 #endif
         }
     }
-    
+
     path_positions_t return_val;
-    
+
     // to keep track of whether we've already chosen a position on each path
     // earlier in the multipath alignment in either the forward or reverse pass
     vector<set<path_handle_t>> covered_fwd(mp_aln.subpath_size());
     vector<set<path_handle_t>> covered_rev(mp_aln.subpath_size());
-    
+
     // forward pass looking for positions on the forward strand of paths
     for (size_t i = 0; i < mp_aln.subpath_size(); ++i) {
         const auto& subpath_search_results = search_results[i];
@@ -119,21 +119,21 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                         if (!path_offset.second) {
                             // there's a position on the forward strand of this path
                             return_val[path_pos.first].emplace_back(path_offset);
-                            
+
                             // we're now covering this path for future search results
                             covered_fwd[i].insert(path_pos.first);
-                            
+
 #ifdef debug_mpaln_offsets
                             cerr << "found fwd pass pos, subpath " << i << ", mapping " << j << ", path " << graph.get_path_name(path_pos.first) << ", pos " << path_offset.first << " " << path_offset.second << endl;
 #endif
-                            
+
                             break;
                         }
                     }
                 }
             }
         }
-        
+
         // the following subpaths will be covered for any path that this
         // one is covered for
         for (auto n : mp_aln.subpath(i).next()) {
@@ -149,7 +149,7 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
             }
         }
     }
-    
+
     // now do a backward pass for the reverse strand of paths
     for (int64_t i = mp_aln.subpath_size() - 1; i >= 0; --i) {
         // find which paths are already covered in the reverse
@@ -163,7 +163,7 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                 covered_rev[i].insert(path_handle);
             }
         }
-        
+
         const auto& subpath_search_results = search_results[i];
         for (int64_t j = subpath_search_results.size() - 1; j >= 0; --j) {
             for (const auto& path_pos : subpath_search_results[j]) {
@@ -175,13 +175,13 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                             auto mapping_len = mapping_from_length(mp_aln.subpath(i).path().mapping(j));
                             return_val[path_pos.first].emplace_back(path_offset.first - mapping_len,
                                                                     path_offset.second);
-                            
+
 #ifdef debug_mpaln_offsets
                             cerr << "found rev pass pos, subpath " << i << ", mapping " << j << ", path " << graph.get_path_name(path_pos.first) << ", pos " << path_offset.first - mapping_len << " " << path_offset.second << endl;
 #endif
                             // we're now covering this path for future search results
                             covered_rev[i].insert(path_pos.first);
-                            
+
                             break;
                         }
                     }
@@ -189,7 +189,7 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
             }
         }
     }
-    
+
     return return_val;
 }
 
@@ -212,9 +212,14 @@ void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignmen
         for (auto& path : ordered) {
             for (auto& p : positions[path]) {
                 // Add each determined refpos
+
                 Position* refpos = aln.add_refpos();
-                refpos->set_name(graph.get_path_name(path));
-                refpos->set_offset(p.first);
+                subrange_t subrange;
+                string path_name = graph.get_path_name(path);
+                path_name = Paths::strip_subrange(path_name, &subrange);
+                int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+                refpos->set_name(path_name);
+                refpos->set_offset(offset + p.first);
                 refpos->set_is_reverse(p.second);
             }
         }

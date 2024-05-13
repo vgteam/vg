@@ -56,6 +56,7 @@ void help_filter(char** argv) {
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
          << "    -d, --downsample S.P       drop all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
+         << "    -R, --max-reads N          drop all but N reads. Nondeterministic on multiple threads." << endl
          << "    -i, --interleaved          assume interleaved input. both ends will be dropped if either fails filter" << endl
          << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
@@ -105,6 +106,7 @@ int main_filter(int argc, char** argv) {
     int defray_count;
     bool set_downsample = false;
     uint64_t seed;
+    size_t max_reads = std::numeric_limits<size_t>::max();
     double downsample_probability;
     bool interleaved = false;
     bool filter_on_all = false;
@@ -155,6 +157,7 @@ int main_filter(int argc, char** argv) {
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"downsample", required_argument, 0, 'd'},
+                {"max-reads", required_argument, 0, 'R'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
@@ -167,7 +170,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:iIb:G:g:UB:t:",
+        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:g:UB:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -314,6 +317,9 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
+        case 'R':
+            max_reads = parse<size_t>(optarg);
+            break;
         case 'i':
             interleaved = true;
             break;
@@ -368,6 +374,10 @@ int main_filter(int argc, char** argv) {
     if (optind >= argc) {
         help_filter(argv);
         return 1;
+    }
+
+    if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
+        std::cerr << "warning [vg filter]: max read count is not divisible by 2, but reads are paired." << std::endl;
     }
 
     // What should our return code be?
@@ -450,6 +460,7 @@ int main_filter(int argc, char** argv) {
                 filter.downsample_seed_mask = rand();
             }
         }
+        filter.max_reads = max_reads;
         filter.only_proper_pairs = only_proper_pairs;
         filter.only_mapped = only_mapped;
         filter.interleaved = interleaved;

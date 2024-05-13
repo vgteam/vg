@@ -1280,6 +1280,46 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     return kmer_types;
 }
 
+std::vector<char> Recombinator::classify_kmers(
+    const Haplotypes& haplotypes,
+    const std::string& kff_file, const Recombinator::Parameters& parameters
+) const {
+    // Get kmer counts (may throw) and determine coverage.
+    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = haplotypes.kmer_counts(kff_file, this->verbosity);
+    double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
+
+    // Classify the kmers in each subchain.
+    std::vector<char> classifications;
+    classifications.reserve(haplotypes.kmers());
+    for (const auto& chain : haplotypes.chains) {
+        for (const auto& subchain : chain.subchains) {
+            std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = vg::classify_kmers(
+                subchain, counts, coverage, nullptr, parameters
+            );
+            for (const auto& type : kmer_types) {
+                switch (type.first) {
+                case Recombinator::absent:
+                    classifications.push_back('A');
+                    break;
+                case Recombinator::heterozygous:
+                    classifications.push_back('H');
+                    break;
+                case Recombinator::present:
+                    classifications.push_back('P');
+                    break;
+                case Recombinator::frequent:
+                    classifications.push_back('F');
+                    break;
+                }
+            }
+        }
+    }
+
+    return classifications;
+}
+
+//------------------------------------------------------------------------------
+
 // Select the best pair of haplotypes from the candidates. Each haplotype gets
 // +1 for getting a kmer right and -1 for getting it wrong.
 std::vector<std::pair<size_t, double>> select_diploid(

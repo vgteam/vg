@@ -281,7 +281,7 @@ class Transcriptome {
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
 
-        /// Returns the the mean node length of the graph
+        /// Returns the mean node length of the graph
         float mean_node_length() const;
 
         /// Adds the exon coordinates to a transcript.

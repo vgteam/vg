@@ -1631,7 +1631,6 @@ TEST_CASE("Exact matches in a linear graph with full length bonus", "[wfa_extend
 
 }
 
-
 //------------------------------------------------------------------------------
 
 TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {

@@ -217,6 +217,9 @@ ifeq ($(shell uname -s),Darwin)
     # We don't actually do any static linking on Mac, so we leave this empty.
     START_STATIC =
     END_STATIC =
+
+    # We need to use special flags to let us rename libraries
+    LD_RENAMEABLE_FLAGS = -Wl,-headerpad -Wl,-headerpad_max_install_names
 else
     # We are not running on OS X
     $(info OS is Linux)
@@ -254,7 +257,8 @@ else
     # Note that END_STATIC is only safe to use in a mostly-dynamic build, and has to appear or we will try to statically link secret trailing libraries.
     END_STATIC = -Wl,-Bdynamic
 
-
+    # We don't need any flags because we don't need to rename libraries with install_name_tool
+    LD_RENAMEABLE_FLAGS =
 endif
 
 # Set the C++ standard we are using
@@ -679,7 +683,7 @@ ifeq ($(shell uname -s),Darwin)
 endif
 
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
-	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 LDFLAGS="$(LDFLAGS) $(LD_RENAMEABLE_FLAGS)" $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 
 # We build htslib after libdeflate so it can use libdeflate.
 # We need to do some wizardry to get it to pick up the right build and target system types on modern autotools.

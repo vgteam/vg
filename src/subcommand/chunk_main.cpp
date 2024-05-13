@@ -715,11 +715,9 @@ int main_chunk(int argc, char** argv) {
         unique_ptr<MutablePathMutableHandleGraph> subgraph;
         map<string, int> trace_thread_frequencies;
         if (!component_ids.empty()) {
-            cout << "here?" << endl;
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
             chunker.extract_component(component_ids[i], *subgraph, false);
             output_regions[i] = region;
-            cout << "nope" << endl;
         }
         else if (id_range == false) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);

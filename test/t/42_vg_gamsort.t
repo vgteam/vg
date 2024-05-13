@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 2
+plan tests 4
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -22,5 +22,8 @@ is "$(md5sum <min_ids.gamsorted.txt)" "$(md5sum <min_ids.sorted.txt)" "Sorting a
 vg gamsort x.gam -i x.sorted.gam.gai >x.sorted.gam
 is "$?" "0" "sorted GAMs can be indexed during the sort"
 
+vg gamsort --shuffle x.sorted.gam >x.shuffled.gam
+is "$?" "0" "GAMs can be shuffled"
+is "$(vg stats -a x.shuffled.gam)" "$(vg stats -a x.sorted.gam)" "Shuffling preserves read data"
 
-rm -f x.vg x.xg x.gam x.sorted.gam x.sorted.2.gam min_ids.gamsorted.txt min_ids.sorted.txt x.sorted.gam.gai x.sorted.2.gam.gai
+rm -f x.vg x.xg x.gam x.sorted.gam x.sorted.2.gam x.shuffled.gam min_ids.gamsorted.txt min_ids.sorted.txt x.sorted.gam.gai x.sorted.2.gam.gai
