@@ -301,15 +301,15 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
         case SharedNodeUnreachable:
         case SharedNodeReverse:
         {
-            // make a new node that will preserve the edges on the righthand side
-            handle_t dup_node = duplicate_node(into_handle_1, false, true);
-            cut_handle_1 = into->truncate_handle(dup_node, true, offset(pos_1));
-            id_trans[into->get_id(cut_handle_1)] = id(pos_1);
-            
-            // cut the original node and preserve its lefthand side edges
-            cut_handle_2 = into->truncate_handle(into_handle_2, false, offset(pos_2));
-            id_trans.erase(id(pos_2));
+            // make a new node that will preserve the edges on the lefthand side
+            handle_t dup_node = duplicate_node(into_handle_2, true, false);
+            cut_handle_2 = into->truncate_handle(dup_node, false, offset(pos_2));
             id_trans[into->get_id(cut_handle_2)] = id(pos_2);
+
+            // cut the original node and preserve its righthand side edges
+            cut_handle_1 = into->truncate_handle(into_handle_1, true, offset(pos_1));
+            id_trans.erase(id(pos_1));
+            id_trans[into->get_id(cut_handle_1)] = id(pos_1);
             
             if (into->get_id(cut_handle_2) < into->get_id(cut_handle_1)) {
                 // We assume that cut_handle_1 will get the lower ID. Make sure that's always true.
