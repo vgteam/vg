@@ -1147,8 +1147,14 @@ std::ostream& WFAAlignment::print(std::ostream& out) const {
         out << " (" << as_integer(handle) << ")";
     }
     out << " ], edits = [ ";
-    for (auto edit : this->edits) {
+    // Print up to a manageable number of edits. Sometimes we can end up trying
+    // to print apparently infinite edits and make many GB of logs.
+    for (size_t i = 0; i < std::min(100, this->edits.size()); i++) {
+        auto edit = this->edits.at(i);
         out << edit.second << edit.first;
+    }
+    if (this->edits.size() > 100) {
+        out << "...";
     }
     out << " ], node offset = " << this->node_offset;
     out << ", sequence range = [" << this->seq_offset << ", " << (this->seq_offset + this->length) << ")";
