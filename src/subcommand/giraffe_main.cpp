@@ -863,7 +863,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 300)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 10);
+        .add_entry<int>("wfa-max-max-mismatches", 10)
         .add_entry<size_t>("max-alignments", 5);
 
     presets["r10"]
