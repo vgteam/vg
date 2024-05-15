@@ -376,6 +376,16 @@ public:
     static constexpr int default_wfa_max_max_mismatches = 20;
     int wfa_max_max_mismatches = default_wfa_max_max_mismatches;
 
+    /// How far behind the leader should the WFA be allowed to get?
+    static constexpr int default_wfa_distance = WFAExtender::ErrorModel::default_distance().min;
+    int wfa_distance = default_wfa_distance;
+    /// How far behind the leader should the WFA be allowed to get, per base of read sequence?
+    static constexpr double default_wfa_distance_per_base = WFAExtender::ErrorModel::default_distance().per_base;
+    double wfa_distance_per_base = default_wfa_distance_per_base;
+    /// How far behind the leader should the WFA be allowed to get, at any read length?
+    static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
+    int wfa_max_distance = default_wfa_max_distance;
+
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;

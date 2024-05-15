@@ -555,6 +555,24 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_wfa_max_max_mismatches,
         "maximum mismatches (or equivalent-scoring gaps) to allow in the longest WFA connection or tail"
     );
+    chaining_opts.add_range(
+        "wfa-distance",
+        &MinimizerMapper::wfa_distance,
+        MinimizerMapper::default_wfa_distance,
+        "band distance to allow in the shortest WFA connection or tail"
+    );
+    chaining_opts.add_range(
+        "wfa-distance-per-base",
+        &MinimizerMapper::wfa_distance_per_base,
+        MinimizerMapper::default_wfa_distance_per_base,
+        "band distance to allow per involved read base in WFA connections or tails"
+    );
+    chaining_opts.add_range(
+        "wfa-max-distance",
+        &MinimizerMapper::wfa_max_distance,
+        MinimizerMapper::default_wfa_max_distance,
+        "band distance to allow in the longest WFA connection or tail"
+    );
 
     return parser;
 }
