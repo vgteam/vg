@@ -1149,7 +1149,7 @@ std::ostream& WFAAlignment::print(std::ostream& out) const {
     out << " ], edits = [ ";
     // Print up to a manageable number of edits. Sometimes we can end up trying
     // to print apparently infinite edits and make many GB of logs.
-    for (size_t i = 0; i < std::min(100, this->edits.size()); i++) {
+    for (size_t i = 0; i < std::min((size_t) 100, this->edits.size()); i++) {
         auto edit = this->edits.at(i);
         out << edit.second << edit.first;
     }
