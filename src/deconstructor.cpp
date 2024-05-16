@@ -1104,8 +1104,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
-    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph,
-                                                                               *snarl_manager));
+    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
     
     if (!path_restricted && !gbwt) {
         trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,

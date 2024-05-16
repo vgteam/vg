@@ -815,9 +815,9 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
     return to_return;
 }
 
-PathTraversalFinder::PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+PathTraversalFinder::PathTraversalFinder(const PathHandleGraph& graph,
                                          const vector<string>& path_names)  :
-    graph(graph), snarl_manager(snarl_manager) {
+    graph(graph) {
     for (const string& path_name : path_names) {
         assert(graph.has_path(path_name));
         paths.insert(graph.get_path_handle(path_name));
@@ -828,15 +828,36 @@ vector<SnarlTraversal> PathTraversalFinder::find_traversals(const Snarl& site) {
     return find_path_traversals(site).first;
 }
 
-pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathTraversalFinder::find_path_traversals(const Snarl& site) {
+vector<Traversal> PathTraversalFinder::find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
+    return find_path_traversals(snarl_start, snarl_end).first;
+}
 
-    handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
-    handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
-    
-    vector<step_handle_t> start_steps = graph.steps_of_handle(start_handle);
-    vector<step_handle_t> end_steps = graph.steps_of_handle(end_handle);
+pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
 
-    pair<unordered_set<id_t>, unordered_set<edge_t> > snarl_contents = snarl_manager.deep_contents(&site, graph, true);
+pair<vector<SnarlTraversal>, vector<PathInterval>> PathTraversalFinder::find_path_traversals(const Snarl& site) {
+
+    pair<vector<Traversal>, vector<PathInterval>> path_travs = this->find_path_traversals(
+        graph.get_handle(site.start().node_id(), site.start().backward()),
+        graph.get_handle(site.end().node_id(), site.end().backward()));
+
+    vector<SnarlTraversal> travs(path_travs.first.size());
+
+    for (int64_t i = 0; i < path_travs.first.size(); ++i) {
+        SnarlTraversal& proto_trav = travs[i];
+        const Traversal& handle_trav = path_travs.first[i];
+        for (int64_t j = 0; j < handle_trav.size(); ++j) {
+            Visit* visit = proto_trav.add_visit();
+            visit->set_node_id(graph.get_id(handle_trav[j]));
+            visit->set_backward(graph.get_is_reverse(handle_trav[j]));
+        }
+    }
+    return make_pair(travs, path_travs.second);    
+}
+
+pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
+
+    vector<step_handle_t> start_steps = graph.steps_of_handle(snarl_start);
+    vector<step_handle_t> end_steps = graph.steps_of_handle(snarl_end);
     
     // use this to skip paths that don't reach the end node
     unordered_set<path_handle_t> end_path_handles;
@@ -845,40 +866,48 @@ pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathT
     }
 
 #ifdef debug
-    cerr << "Finding traversals of " << pb2json(site) << " using PathTraversalFinder" << endl
+    cerr << "Finding traversals of " << (graph->get_is_reverse(snarl_start) ? "<" : ">") << graph->get_id(snarl_start)
+         << (graph->get_is_reverse(snarl_end) ? "<" : ">") << graph->get_id(snarl_edn) << " using PathTraversalFinder" << endl
          << " - there are " << start_steps.size() << " start_steps, " << end_steps.size() << " end_steps"
          << " and " << end_path_handles.size() << " end_path_handles" << endl;
 #endif
 
-    vector<SnarlTraversal> out_travs;
+    vector<Traversal> out_travs;
     vector<pair<step_handle_t, step_handle_t> > out_steps;
+
+    // collect edges that lead out the snarl to make sure we don't search in the wrong direction
+    unordered_set<edge_t> block_edges;
+    graph.follow_edges(snarl_start, true, [&](handle_t prev) {
+        block_edges.insert(graph.edge_handle(prev, snarl_start));
+    });
+    graph.follow_edges(snarl_end, false, [&](handle_t next) {
+        block_edges.insert(graph.edge_handle(snarl_end, next));
+    });
 
     for (const step_handle_t& start_step : start_steps) {
         path_handle_t start_path_handle = graph.get_path_handle_of_step(start_step);
         // only crawl paths that have a chance of reaching the end
         if ((paths.empty() || paths.count(start_path_handle)) && end_path_handles.count(start_path_handle)) {
 
-            handle_t end_check = end_handle;
+            handle_t end_check = snarl_end;
 
 #ifdef debug
             cerr << " - considering path " << graph.get_path_name(start_path_handle) << endl;
 #endif
             // try to make a traversal by walking forward
-            SnarlTraversal trav;
+            Traversal trav;
             bool can_continue = true;
             step_handle_t step = start_step;
             while (can_continue) {
                 handle_t handle = graph.get_handle_of_step(step);
-                Visit* start_visit = trav.add_visit();
-                start_visit->set_node_id(graph.get_id(handle));
-                start_visit->set_backward(graph.get_is_reverse(handle));
+                trav.push_back(handle);
 
                 can_continue = false;
-                if (graph.has_next_step(step) && handle != end_handle) {
+                if (graph.has_next_step(step) && handle != snarl_end) {
                     step_handle_t next_step = graph.get_next_step(step);
                     handle_t next_handle = graph.get_handle_of_step(next_step);
-                    if (snarl_contents.first.count(graph.get_id(next_handle)) &&
-                        snarl_contents.second.count(graph.edge_handle(handle, next_handle))) {
+                    // todo: we only need this check once
+                    if (!block_edges.count(graph.edge_handle(handle, next_handle))) {
                         step = next_step;
                         can_continue = true;
                     } 
@@ -890,25 +919,21 @@ pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > PathT
                 cerr << "     - failed to find forward traversal of path " << graph.get_path_name(start_path_handle) << endl;
 #endif
                 // try to make a traversal by walking backward
-                end_check = graph.flip(end_handle);
+                end_check = graph.flip(snarl_end);
                 
-                trav.Clear();
+                trav.clear();
                 can_continue = true;
                 step = start_step;
                 while (can_continue) {
                     handle_t handle = graph.flip(graph.get_handle_of_step(step));
-                    
-                    Visit* start_visit = trav.add_visit();
-                    start_visit->set_node_id(graph.get_id(handle));
-                    start_visit->set_backward(graph.get_is_reverse(handle));
+                    trav.push_back(handle);
 
                     can_continue = false;
-                    if (graph.has_previous_step(step) && handle != end_handle) {
+                    if (graph.has_previous_step(step) && handle != snarl_end) {
                         step_handle_t prev_step = graph.get_previous_step(step);
                         handle_t prev_handle = graph.flip(graph.get_handle_of_step(prev_step));
-
-                        if (snarl_contents.first.count(graph.get_id(prev_handle)) &&
-                            snarl_contents.second.count(graph.edge_handle(handle, prev_handle))) {
+                        // todo: we only need this check once
+                        if (!block_edges.count(graph.edge_handle(prev_handle, handle))) {
                             step = prev_step;
                             can_continue = true;
                         } 
@@ -2556,7 +2581,7 @@ VCFTraversalFinder::VCFTraversalFinder(const PathHandleGraph& graph, SnarlManage
     snarl_manager(snarl_manager),
     skip_alt(skip_alt),
     max_traversal_cutoff(max_traversal_cutoff),
-    path_finder(graph, snarl_manager, ref_path_names) {
+    path_finder(graph, ref_path_names) {
 
     create_variant_index(vcf, ref_fasta, ins_fasta);
 }
@@ -3380,15 +3405,38 @@ GBWTTraversalFinder::~GBWTTraversalFinder() {
 
 pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>>
 GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) {
+    
+    pair<vector<Traversal>, vector<vector<gbwt::size_type>>> gbwt_travs = this->find_gbwt_traversals(
+        graph.get_handle(site.start().node_id(), site.start().backward()),
+        graph.get_handle(site.end().node_id(), site.end().backward()),
+        return_paths);
+
+    vector<SnarlTraversal> travs(gbwt_travs.first.size());
+
+    for (int64_t i = 0; i < gbwt_travs.first.size(); ++i) {
+        SnarlTraversal& proto_trav = travs[i];
+        const Traversal& handle_trav = gbwt_travs.first[i];
+        for (int64_t j = 0; j < handle_trav.size(); ++j) {
+            Visit* visit = proto_trav.add_visit();
+            visit->set_node_id(graph.get_id(handle_trav[j]));
+            visit->set_backward(graph.get_is_reverse(handle_trav[j]));
+        }
+    }
+
+    return make_pair(travs, gbwt_travs.second);    
+}
+
+pair<vector<Traversal>, vector<vector<gbwt::size_type>>>
+GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const handle_t& snarl_end, bool return_paths) {
 
     // follow all gbwt threads from start to end
     vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > forward_traversals = list_haplotypes(
         graph,
         gbwt,                                                                                                   
-        graph.get_handle(site.start().node_id(), site.start().backward()),
+        snarl_start,
         [&] (const vector<gbwt::node_type>& new_thread) {
-            return gbwt::Node::id(new_thread.back()) == site.end().node_id() &&
-            gbwt::Node::is_reverse(new_thread.back()) == site.end().backward();
+            return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_end) &&
+                gbwt::Node::is_reverse(new_thread.back()) == graph.get_is_reverse(snarl_end);
         });
 
     // follow all gbwt threads from end to start
@@ -3397,15 +3445,15 @@ GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) 
         backward_traversals = list_haplotypes(
             graph,
             gbwt,
-            graph.get_handle(site.end().node_id(), !site.end().backward()),
+            graph.flip(snarl_end),
             [&] (const vector<gbwt::node_type>& new_thread) {
-                return gbwt::Node::id(new_thread.back()) == site.start().node_id() &&
-                gbwt::Node::is_reverse(new_thread.back()) == !site.start().backward();
+                return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_start) &&
+                    gbwt::Node::is_reverse(new_thread.back()) == !graph.get_is_reverse(snarl_start);
             });
     }
 
     // store them all as snarltraversals
-    vector<SnarlTraversal> traversals;
+    vector<Traversal> traversals;
     vector<vector<gbwt::size_type>> gbwt_paths;
     traversals.reserve(forward_traversals.size() + backward_traversals.size());
 
@@ -3413,8 +3461,7 @@ GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) 
     for (int i = 0; i < forward_traversals.size(); ++i) {
         traversals.emplace_back();
         for (auto j = forward_traversals[i].first.begin(); j != forward_traversals[i].first.end(); ++j) {
-            Visit* visit = traversals.back().add_visit();
-            *visit = to_visit(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j));
+            traversals.back().push_back(graph.get_handle(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j)));
         }
         if (return_paths) {
             gbwt_paths.push_back(gbwt.locate(forward_traversals[i].second));
@@ -3458,8 +3505,7 @@ GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) 
                 // insert if not duplicate of existing forward traversal
                 traversals.emplace_back();
                 for (auto j = backward_traversals[i].first.begin(); j != backward_traversals[i].first.end(); ++j) {
-                    Visit* visit = traversals.back().add_visit();
-                    *visit = to_visit(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j));
+                    traversals.back().push_back(graph.get_handle(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j)));
                 }
                 if (return_paths) {
                     gbwt_paths.push_back(gbwt.locate(backward_traversals[i].second));
@@ -3472,6 +3518,10 @@ GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) 
 
 vector<SnarlTraversal> GBWTTraversalFinder::find_traversals(const Snarl& site) {
     return find_gbwt_traversals(site, false).first;
+}
+
+vector<Traversal> GBWTTraversalFinder::find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
+    return find_gbwt_traversals(snarl_start, snarl_end, false).first;
 }
 
 pair<vector<SnarlTraversal>, vector<gbwt::size_type>> GBWTTraversalFinder::find_path_traversals(const Snarl& site) {
@@ -3491,6 +3541,26 @@ pair<vector<SnarlTraversal>, vector<gbwt::size_type>> GBWTTraversalFinder::find_
     
     return path_traversals;
 }
+
+pair<vector<Traversal>, vector<gbwt::size_type>> GBWTTraversalFinder::find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
+    // get the unique traversals
+    pair<vector<Traversal>, vector<vector<gbwt::size_type>>> gbwt_traversals = this->find_gbwt_traversals(snarl_start, snarl_end, true);
+
+    // expand them out to one per path (this is to be consistent with PathTraversalFinder as used in deconstruct)
+    pair<vector<Traversal>, vector<gbwt::size_type>> path_traversals;
+    for (size_t i = 0; i < gbwt_traversals.first.size(); ++i) {
+        Traversal& trav = gbwt_traversals.first[i];
+        vector<gbwt::size_type>& paths = gbwt_traversals.second[i];
+        for (size_t j = 0; j < paths.size(); ++j) {
+            path_traversals.first.push_back(trav);
+            path_traversals.second.push_back(paths[j]);
+        }
+    }
+    
+    return path_traversals;
+}
+
+
 
 }
 
