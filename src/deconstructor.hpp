@@ -39,8 +39,6 @@ public:
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals,
-                     int ploidy,
                      bool include_nested,
                      int context_jaccard_window,
                      bool untangle_traversals,
@@ -74,13 +72,6 @@ private:
                                               const vector<string>& trav_to_name,
                                               const vector<int>& gbwt_phases) const;
 
-    // check to see if a snarl is too big to exhaustively traverse
-    bool check_max_nodes(const Snarl* snarl) const;
-
-    // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
-    // with node visits
-    vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl) const;
-
     // gets a sorted node id context for a given path
     vector<nid_t> get_context(
         const pair<vector<SnarlTraversal>,
@@ -101,12 +92,6 @@ private:
         const dac_vector<>& target,
         const vector<nid_t>& query) const;
     
-    // toggle between exhaustive and path restricted traversal finder
-    bool path_restricted = false;
-
-    // the max ploidy we expect.
-    int ploidy;
-
     // the graph
     const PathPositionHandleGraph* graph;
 
@@ -115,8 +100,6 @@ private:
 
     // the traversal finders. we always use a path traversal finder to get the reference path
     unique_ptr<PathTraversalFinder> path_trav_finder;
-    // we optionally use another (exhaustive for now) traversal finder if we don't want to rely on paths
-    unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
     // When using the gbwt we need some precomputed information to ask about stored paths.
@@ -143,9 +126,6 @@ private:
     // the sample ploidys given in the phases in our path names
     unordered_map<string, int> sample_ploidys;
 
-    // upper limit of degree-2+ nodes for exhaustive traversal
-    int max_nodes_for_exhaustive = 100;
-
     // target window size for determining the correct reference position for allele traversals with path jaccard
     int path_jaccard_window = 10000;
 
@@ -160,9 +140,6 @@ private:
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
-
-    // warn about context jaccard not working with exhaustive traversals
-    mutable atomic<bool> exhaustive_jaccard_warning;
 };
 
 // helpel for measuring set intersectiond and union size

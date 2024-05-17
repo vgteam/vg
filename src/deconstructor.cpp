@@ -8,8 +8,7 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor() : VCFOutputCaller(""),
-                                 exhaustive_jaccard_warning(false){
+Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
 }
@@ -293,7 +292,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
-    if (show_path_info && path_to_sample_phase && path_restricted) {
+    if (show_path_info && path_to_sample_phase) {
         v.format.push_back("PI");
     }
     
@@ -364,7 +363,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 }
             }
             v.samples[sample_name]["GT"] = {blank_gt};
-            if (show_path_info && path_to_sample_phase && path_restricted) {
+            if (show_path_info && path_to_sample_phase) {
                 v.samples[sample_name]["PI"] = {blank_gt};
             }
         }
@@ -422,9 +421,9 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
     //|| path_to_sample_phase;
     bool phasing_conflict = false;
-    int sample_ploidy = ploidy;
+    int sample_ploidy = 1;
     int min_phase = 1;
-    int max_phase = ploidy;
+    int max_phase = 1;
     if (has_phasing || path_to_sample_phase) {
         if (has_phasing) {
             // override ploidy with information about all phases found in input
@@ -691,36 +690,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #endif
         return false;
     }    
-
-    bool exhaustive = !path_restricted && gbwt_trav_finder.get() == nullptr;
-    if (exhaustive) {        
-        // add in the exhaustive traversals
-        vector<SnarlTraversal> additional_travs;
-                        
-        // exhaustive traversal can't do all snarls
-        if (snarl->type() != ULTRABUBBLE) {
-            return false;
-        }
-        if (!check_max_nodes(snarl)) {
-#pragma omp critical (cerr)
-            cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
-            return false;
-        }
-        additional_travs = explicit_exhaustive_traversals(snarl);
-         
-        // happens when there was a nested non-ultrabubble snarl
-        if (additional_travs.empty()) {
-            return false;
-        }
-        path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
-        for (int i = 0; i < additional_travs.size(); ++i) {
-            // dummy names so we can use the same code as the named path traversals above
-            path_trav_names.push_back(" >>" + std::to_string(i));
-            // dummy handles so we can use the same code as the named path traversals above
-            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-        }
-
-    }
     
     // there's not alt path through the snarl, so we can't make an interesting variant
     if (path_travs.first.size() < 2) {
@@ -742,12 +711,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     // map from each path_trav index to the ref_trav index it best maps to
     vector<int> path_trav_to_ref_trav;
 
-    if (ref_travs.size() > 1 && this->path_jaccard_window && exhaustive && !exhaustive_jaccard_warning) {
-#pragma omp critical (cerr)
-        cerr << "warning [vg deconstruct]: Conext Jaccard logic for multiple references disabled with exhaustive traversals. Use -e, -g or GBZ input to switch to path-based traversals only (recommended)." << endl;
-        exhaustive_jaccard_warning = true;
-    }
-    if (ref_travs.size() > 1 && this->path_jaccard_window && !exhaustive) {
+    if (ref_travs.size() > 1 && this->path_jaccard_window) {
         path_trav_to_ref_trav.resize(path_travs.first.size());
 #ifdef debug
 #pragma omp critical (cerr)
@@ -870,16 +834,12 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                                                      prev_char, use_start);
 
             // Fill in the genotypes
-            if (path_restricted || gbwt_trav_finder.get()) {
-                get_genotypes(v, path_trav_names, trav_to_allele);
-            }
+            get_genotypes(v, path_trav_names, trav_to_allele);
 
             // we only bother printing out sites with at least 1 non-reference allele
             if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
-                if (path_restricted || gbwt_trav_finder.get()) {
-                    // run vcffixup to add some basic INFO like AC
-                    vcf_fixup(v);
-                }
+                // run vcffixup to add some basic INFO like AC
+                vcf_fixup(v);
                 add_variant(v);
             }
         }
@@ -892,8 +852,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals,
-                                int ploidy,
                                 bool include_nested,
                                 int context_jaccard_window,
                                 bool untangle_traversals,
@@ -904,8 +862,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
-    this->path_restricted = path_restricted_traversals;
-    this->ploidy = ploidy;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
     this->path_jaccard_window = context_jaccard_window;
@@ -984,6 +940,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
     }
 
+    if (sample_to_haps.empty()) {
+        cerr << "Error [vg deconstruct]: No paths found for alt alleles in the graph. Note that "
+             << "exhaustive path-free traversal finding is no longer supported, and vg deconstruct "
+             << "now only works on embedded paths and GBWT threads" << endl;
+        exit(1);
+    }
+
     // find some stats about the haplotypes for each sample    
     gbwt_sample_to_phase_range.clear();
     sample_ploidys.clear();
@@ -995,10 +958,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     // print the VCF header
     stringstream stream;
     stream << "##fileformat=VCFv4.2" << endl;
-    if (path_restricted || gbwt) {
-        stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-    }
-    if (show_path_info && path_to_sample_phase && path_restricted) {
+    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+    if (show_path_info && path_to_sample_phase) {
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
     }
     if (path_to_sample_phase || gbwt) {
@@ -1008,12 +969,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
         stream << "\">" << endl;
     }
-    if (path_restricted || gbwt) {
-        stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
-        stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
-        stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
-        stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
-    }
+    stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
+    stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
+    stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
+    stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
     if (include_nested) {
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
@@ -1091,10 +1050,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     }
     
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-    if (path_restricted || gbwt) {
-        for (auto& sample_name : sample_names) {
-            stream << "\t" << sample_name;
-        }
+    for (auto& sample_name : sample_names) {
+        stream << "\t" << sample_name;
     }
     stream << endl;
     
@@ -1105,14 +1062,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
     path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
-    
-    if (!path_restricted && !gbwt) {
-        trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,
-                                                                                *snarl_manager,
-                                                                                true));
-
-    }
-    
+        
     if (gbwt != nullptr) {
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
@@ -1158,57 +1108,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     write_variants(cout, snarl_manager);
 }
 
-bool Deconstructor::check_max_nodes(const Snarl* snarl) const  {
-    unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
-    int node_count = 0;
-    for (auto node_id : nodeset) {
-        handle_t node = graph->get_handle(node_id);
-        if (graph->get_degree(node, true) > 1 || graph->get_degree(node, false) > 1) {
-            ++node_count;
-            if (node_count > max_nodes_for_exhaustive) {
-                return false;
-            }
-        }
-    }
-    return true;
-};
-
-vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl* snarl) const {
-    vector<SnarlTraversal> out_travs;
-    bool ultra_all_the_way_down = true;
-    function<void(const SnarlTraversal&, const Snarl&)> extend_trav =
-        [&](const SnarlTraversal& trav, const Snarl& nested_snarl) {
-        // exhaustive traversal finder is limited.  if we find something
-        // that's not an ultrabubble, not much we can do
-        if (nested_snarl.type() != ULTRABUBBLE) {
-            ultra_all_the_way_down = false;
-            return;
-        }
-        vector<SnarlTraversal> nested_travs = trav_finder->find_traversals(nested_snarl);
-        for (auto& nested_trav : nested_travs) {
-            SnarlTraversal extended_trav = trav;
-            bool is_explicit = true;
-            for (int i = 0; i < nested_trav.visit_size(); ++i) {
-                if (nested_trav.visit(i).node_id() != 0) {
-                    Visit* visit = extended_trav.add_visit();
-                    *visit = nested_trav.visit(i);
-                } else {
-                    extend_trav(extended_trav, nested_trav.visit(i).snarl());
-                    is_explicit = false;
-                }
-            }
-            if (is_explicit) {
-                out_travs.push_back(extended_trav);
-            }
-        }
-    };
-    SnarlTraversal trav;
-    extend_trav(trav, *snarl);
-    if (!ultra_all_the_way_down) {
-        out_travs.clear();
-    }        
-    return out_travs;
-}
 
 }
 
