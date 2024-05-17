@@ -55,10 +55,14 @@ The easiest way to get vg is to download one of our release builds for Linux. We
 
 If you don't want to or can't use a pre-built release of vg, or if you want to become a vg developer, you can build it from source instead.
 
+#### Linux: Clone VG
+
 First, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
+
+#### Linux: Install Dependencies
     
 Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need:
     * `jq`, `bc`, `rs`, and `parallel`
@@ -85,22 +89,47 @@ Other libraries may be required. Please report any build difficulties.
 
 Note that a 64-bit OS is required. Ubuntu 20.04 should work.
 
-When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
+#### Linux: Build
+
+When you are ready, build with `. ./source_me.sh && make`. You can use `make -j16` to run 16 build threads at a time, which greatly accelerates the process. If you have more CPU cores, you can use higher numbers.
 
 Note that vg can take anywhere from 10 minutes to more than an hour to compile depending on your machine and the number of threads used. 
 
 You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
+#### Linux: Run
+
+Once vg is built, the binary will be at `bin/vg` inside the vg repository directory. You can run it with:
+
+```
+./bin/vg
+```
+
+You can also add its directory to your `PATH` enviornment variable, so that you can invoke `vg` from any directory. To do that on Bash, use this command from the vg repository directory:
+
+```
+echo 'export PATH="${PATH}:'"$(pwd)"'/bin"' >>~/.bashrc
+```
+
+Then close your terminal and open a new one. Run `vg` to make sure it worked.
+
+If it did not work, make sure that you have a `.bash_profile` file in your home directory that will run your `.bashrc`:
+```
+if [ -f ~/.bashrc ]; then
+   source ~/.bashrc
+fi
+```
+
 ### Building on MacOS
 
-#### Clone VG
+#### Mac: Clone VG
 
 The first step is to clone the vg repository:
 
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
 
-#### Install Dependencies
+#### Mac: Install Dependencies
 
 VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
 
@@ -118,17 +147,35 @@ Homebrew provides another package management solution for OSX, and may be prefer
     # Install all the dependencies in the Brewfile
     brew bundle
     
-#### Build
+#### Mac: Build
 
 With dependencies installed, VG can now be built:
 
     . ./source_me.sh && make
+
+As with Linux, you can add `-j16` or other numbers at the end to run multiple build tasks at once, if your computer can handle them.
     
 **Note that static binaries cannot yet be built for Mac.**
 
 Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
 
-#### Migrating to ARM Macs
+#### Mac: Run
+
+Once vg is built, the binary will be at `bin/vg` inside the vg repository directory. You can run it with:
+
+```
+./bin/vg
+```
+
+You can also add its directory to your `PATH` enviornment variable, so that you can invoke `vg` from any directory. To do that on the default `zsh` Mac shell, use this command from the vg repository directory:
+
+```
+echo 'export PATH="${PATH}:'"$(pwd)"'/bin"' >>~/.zshrc
+```
+
+Then close your terminal and open a new one. Run `vg` to make sure it worked.
+
+##### Migrate a VG installation from x86 to ARM
 
 The Mac platform is moving to ARM, with Apple's M1, M1 Pro, M1 Max, and subsequent chip designs. The vg codebase supports ARM on Mac as well as on Linux. **The normal installation instructions work on a factory-fresh ARM Mac**.
 
