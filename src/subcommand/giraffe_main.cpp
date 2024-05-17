@@ -184,10 +184,16 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
     );
     comp_opts.add_range(
-        "downsample-min",
+        "downsample-window-count",
+        &MinimizerMapper::minimizer_downsampling_max_window_length,
+        MinimizerMapper::default_minimizer_downsampling_max_window_length,
+        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
+    );
+    comp_opts.add_range(
+        "downsample-window-length",
         &MinimizerMapper::minimizer_downsampling_window_count,
         MinimizerMapper::default_minimizer_downsampling_window_count,
-        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
+        "maximum window length for downsampling"
     );
     comp_opts.add_range(
         "distance-limit", 'D',
@@ -826,7 +832,8 @@ int main_giraffe(int argc, char** argv) {
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
         .add_entry<size_t>("num-bp-per-min", 1000)
-        .add_entry<size_t>("downsample-min", 125)
+        .add_entry<size_t>("downsample-window-count", 125)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
@@ -877,7 +884,8 @@ int main_giraffe(int argc, char** argv) {
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 100)
         .add_entry<size_t>("num-bp-per-min", 500)
-        .add_entry<size_t>("downsample-min", 500)
+        .add_entry<size_t>("downsample-window-count", 500)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
@@ -932,7 +940,8 @@ int main_giraffe(int argc, char** argv) {
         // Cap minimizers at a number we won't reach.
         .add_entry<size_t>("max-min", 500)
         // Don't downsample
-        .add_entry<size_t>("downsample-min", 0)
+        .add_entry<size_t>("downsample-window-count", 0)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
         // Use the hit-cap||score-fraction filter
         .add_entry<size_t>("hit-cap", 10)
         .add_entry<double>("score-fraction", 0.9)
@@ -972,7 +981,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("explored-cap", false)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 100)
+        .add_entry<size_t>("downsample-window-count", 100)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)

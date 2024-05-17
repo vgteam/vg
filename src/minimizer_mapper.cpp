@@ -3506,6 +3506,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                                            ? 0 
                                            : aln.sequence().size() / this->minimizer_downsampling_window_count;
 
+        //Cap the window length at the cap
+        minimizer_downsampling_window_size = std::min(minimizer_downsampling_window_size,
+                                                      this->minimizer_downsampling_max_window_length);
+
         if (minimizer_downsampling_window_size != 0) {
             for (auto& kv : minimizers_in_read_order_by_length) {
                 auto& length = kv.first;
