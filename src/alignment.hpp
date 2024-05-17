@@ -321,13 +321,19 @@ struct AlignmentValidity {
     enum Problem {
         OK,
         NODE_MISSING,
-        NODE_TOO_SHORT
+        NODE_TOO_SHORT,
+        READ_TOO_SHORT,
+        EDIT_SEQUENCE_WRONG
     };
     
     /// The kind of problem with the alignment.
     Problem problem = OK;
     /// The mapping in the alignment's path at which the problem was encountered.
     size_t bad_mapping_index = 0;
+    /// The edit within the mapping at which the problem was encountered.
+    size_t bad_edit_index = 0;
+    /// The position in the alignment's read sequence at which the problem was encountered.
+    size_t bad_read_position  = 0;
     /// An explanation for the problem.
     std::string message = "";
     
