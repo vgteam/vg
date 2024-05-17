@@ -1027,47 +1027,7 @@ string Deconstructor::get_vcf_header() {
     return stream.str();
 }
 
-/**
- * Convenience wrapper function for deconstruction of multiple paths.
- */
-void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool include_nested,
-                                int context_jaccard_window,
-                                bool untangle_traversals,
-                                bool keep_conflicted,
-                                bool strict_conflicts,
-                                bool long_ref_contig,
-                                gbwt::GBWT* gbwt) {
-
-    this->graph = graph;
-    this->snarl_manager = snarl_manager;
-    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
-    this->include_nested = include_nested;
-    this->path_jaccard_window = context_jaccard_window;
-    this->untangle_allele_traversals = untangle_traversals;
-    this->keep_conflicted_genotypes = keep_conflicted;
-    this->strict_conflict_checking = strict_conflicts;
-    if (gbwt) {
-        this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
-    }
-    this->gbwt = gbwt;
-
-    // the need to use nesting is due to a problem with omp tasks and shared state
-    // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
-    omp_set_nested(1);
-    omp_set_max_active_levels(3);
-    
-    string hstr = this->get_vcf_header();
-    assert(output_vcf.openForOutput(hstr));
-    cout << output_vcf.header << endl;
-
-    // create the traversal finder
-    map<string, const Alignment*> reads_by_name;
-    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
-        
-    if (gbwt != nullptr) {
-        gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
-    }
+void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
 
     vector<const Snarl*> snarls_todo;
     // Do the top-level snarls in parallel
@@ -1106,6 +1066,51 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
     }
 //#pragma omp taskwait
+    
+}
+
+/**
+ * Convenience wrapper function for deconstruction of multiple paths.
+ */
+void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                                bool include_nested,
+                                int context_jaccard_window,
+                                bool untangle_traversals,
+                                bool keep_conflicted,
+                                bool strict_conflicts,
+                                bool long_ref_contig,
+                                gbwt::GBWT* gbwt) {
+
+    this->graph = graph;
+    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
+    this->include_nested = include_nested;
+    this->path_jaccard_window = context_jaccard_window;
+    this->untangle_allele_traversals = untangle_traversals;
+    this->keep_conflicted_genotypes = keep_conflicted;
+    this->strict_conflict_checking = strict_conflicts;
+    if (gbwt) {
+        this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
+    }
+    this->gbwt = gbwt;
+
+    // the need to use nesting is due to a problem with omp tasks and shared state
+    // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
+    omp_set_nested(1);
+    omp_set_max_active_levels(3);
+    
+    string hstr = this->get_vcf_header();
+    assert(output_vcf.openForOutput(hstr));
+    cout << output_vcf.header << endl;
+
+    // create the traversal finder
+    map<string, const Alignment*> reads_by_name;
+    path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
+        
+    if (gbwt != nullptr) {
+        gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
+    }
+
+    deconstruct_graph(snarl_manager);
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);

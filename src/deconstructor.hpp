@@ -51,6 +51,8 @@ private:
 
     // initialize the vcf and get the header 
     string get_vcf_header();
+
+    void deconstruct_graph(SnarlManager* snarl_manager);
     
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
@@ -100,9 +102,6 @@ private:
     
     // the graph
     const PathPositionHandleGraph* graph;
-
-    // the snarl manager
-    SnarlManager* snarl_manager;
 
     // the gbwt
     gbwt::GBWT* gbwt;
