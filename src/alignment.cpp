@@ -2542,7 +2542,7 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
             };
         }
         // Make sure the Mapping stays inside the node
-        auto node_handle = hgraph->get_handle(mapping.position().node_id());
+        auto node_handle = hgraph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
         std::string node_sequence = hgraph->get_sequence(node_handle);
         size_t node_len = node_sequence.size();
         size_t node_total_from_length = mapping.position().offset();

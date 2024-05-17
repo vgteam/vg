@@ -45,7 +45,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-//#define debug_chain_alignment
+#define debug_chain_alignment
 
 namespace vg {
 
