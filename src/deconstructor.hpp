@@ -38,7 +38,7 @@ public:
 
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
-    void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
+    void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                      bool include_nested,
                      int context_jaccard_window,
                      bool untangle_traversals,
@@ -53,10 +53,19 @@ private:
     // (need to have a path going through the site)
     bool deconstruct_site(const Snarl* site) const;
 
+    // get the traversals for a given site
+    // this returns a combination of embedded path traversals and gbwt traversals
+    // the embedded paths come first, and only they get trav_steps.
+    // so you can use trav_steps.size() to find the index of the first gbwt traversal...
+    void get_traversals(const Snarl* site,
+                        vector<SnarlTraversal>& out_travs,
+                        vector<string>& out_trav_path_names,
+                        vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
+
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v,
-                            const pair<vector<SnarlTraversal>,
-                                       vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+                            const vector<SnarlTraversal>& travs,
+                            const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                             int ref_path_idx,
                             const vector<bool>& use_trav,
                             char prev_char, bool use_start) const;
@@ -71,12 +80,6 @@ private:
                                               const vector<int>& travs, const vector<int>& trav_to_allele,
                                               const vector<string>& trav_to_name,
                                               const vector<int>& gbwt_phases) const;
-
-    // gets a sorted node id context for a given path
-    vector<nid_t> get_context(
-        const pair<vector<SnarlTraversal>,
-                   vector<pair<step_handle_t, step_handle_t>>>& path_travs,
-        const int& trav_idx) const;
 
     // the underlying context-getter
     vector<nid_t> get_context(
