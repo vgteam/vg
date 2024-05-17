@@ -49,6 +49,9 @@ public:
     
 private:
 
+    // initialize the vcf and get the header 
+    string get_vcf_header();
+    
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
     bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const;
@@ -100,6 +103,9 @@ private:
 
     // the snarl manager
     SnarlManager* snarl_manager;
+
+    // the gbwt
+    gbwt::GBWT* gbwt;
 
     // the traversal finders. we always use a path traversal finder to get the reference path
     unique_ptr<PathTraversalFinder> path_trav_finder;

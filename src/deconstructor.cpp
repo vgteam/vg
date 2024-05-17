@@ -846,35 +846,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     return true;
 }
 
-/**
- * Convenience wrapper function for deconstruction of multiple paths.
- */
-void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool include_nested,
-                                int context_jaccard_window,
-                                bool untangle_traversals,
-                                bool keep_conflicted,
-                                bool strict_conflicts,
-                                bool long_ref_contig,
-                                gbwt::GBWT* gbwt) {
-
-    this->graph = graph;
-    this->snarl_manager = snarl_manager;
-    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
-    this->include_nested = include_nested;
-    this->path_jaccard_window = context_jaccard_window;
-    this->untangle_allele_traversals = untangle_traversals;
-    this->keep_conflicted_genotypes = keep_conflicted;
-    this->strict_conflict_checking = strict_conflicts;
-    if (gbwt) {
-        this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
-    }
-
-    // the need to use nesting is due to a problem with omp tasks and shared state
-    // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
-    omp_set_nested(1);
-    omp_set_max_active_levels(3);
-
+string Deconstructor::get_vcf_header() {
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     ref_samples.clear();
     set<size_t> ref_haplotypes;
@@ -1052,8 +1024,40 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "\t" << sample_name;
     }
     stream << endl;
+    return stream.str();
+}
+
+/**
+ * Convenience wrapper function for deconstruction of multiple paths.
+ */
+void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                                bool include_nested,
+                                int context_jaccard_window,
+                                bool untangle_traversals,
+                                bool keep_conflicted,
+                                bool strict_conflicts,
+                                bool long_ref_contig,
+                                gbwt::GBWT* gbwt) {
+
+    this->graph = graph;
+    this->snarl_manager = snarl_manager;
+    this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
+    this->include_nested = include_nested;
+    this->path_jaccard_window = context_jaccard_window;
+    this->untangle_allele_traversals = untangle_traversals;
+    this->keep_conflicted_genotypes = keep_conflicted;
+    this->strict_conflict_checking = strict_conflicts;
+    if (gbwt) {
+        this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
+    }
+    this->gbwt = gbwt;
+
+    // the need to use nesting is due to a problem with omp tasks and shared state
+    // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
+    omp_set_nested(1);
+    omp_set_max_active_levels(3);
     
-    string hstr = stream.str();
+    string hstr = this->get_vcf_header();
     assert(output_vcf.openForOutput(hstr));
     cout << output_vcf.header << endl;
 
