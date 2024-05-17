@@ -71,15 +71,24 @@ Then, install VG's dependencies. You'll need the protobuf and jansson developmen
 On Ubuntu, you should be able to do:
 
     make get-deps
+
+If you get complaints that `sudo` is not found, install it:
+
+    apt update
+    apt install sudo
+
+If you get a bunch of errors like `E: Unable to locate package build-essential`, make sure your package index files are up to date by running:
+
+    sudo apt update
     
-On other distros, you will need to perform the equivalent of:
+On other distros, or if you do not have root access, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
                          automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
                          npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev \
-                         libzstd-devel pybind11-dev python3-pybind11
+                         libzstd-dev pybind11-dev python3-pybind11
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
