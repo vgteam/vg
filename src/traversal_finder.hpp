@@ -36,8 +36,12 @@ using namespace std;
 
 class AugmentedGraph;
 
+// some Protobuf replacements
 using Traversal = vector<handle_t>;
 using PathInterval = pair<step_handle_t, step_handle_t>;
+string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, bool max_steps = 10);
+// replaces pb2json(snarl)
+string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic

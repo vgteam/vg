@@ -366,6 +366,17 @@ void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
 }
 
+void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
+                                              bool reversed, bool one_based) const {
+    SnarlTraversal proto_trav;
+    for (const handle_t& handle : trav) {
+        Visit* visit = proto_trav.add_visit();
+        visit->set_node_id(graph->get_id(handle));
+        visit->set_backward(graph->get_is_reverse(handle));
+    }
+    this->add_allele_path_to_info(v, allele, proto_trav, reversed, one_based);
+}
+
 void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
                                               bool reversed, bool one_based) const {
     auto& trav_info = v.info["AT"];
@@ -724,6 +735,18 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
             variant.alt[i - 1] = variant.alleles[i];
         }
     }
+}
+
+string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
+                                    const handle_t& snarl_end, bool in_brackets) const {
+    Snarl snarl;
+    Visit* start = snarl.mutable_start();
+    start->set_node_id(graph->get_id(snarl_start));
+    start->set_backward(graph->get_is_reverse(snarl_start));
+    Visit* end = snarl.mutable_end();
+    end->set_node_id(graph->get_id(snarl_end));
+    end->set_backward(graph->get_is_reverse(snarl_end));
+    return this->print_snarl(snarl, in_brackets);
 }
 
 string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const {

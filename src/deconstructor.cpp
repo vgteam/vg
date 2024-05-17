@@ -22,7 +22,7 @@ Deconstructor::~Deconstructor(){
  * ought to become in the VCF. If a traversal is flagged off, it gets a -1.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
-                                       const vector<SnarlTraversal>& travs,
+                                       const vector<Traversal>& travs,
                                        const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                                        int ref_path_idx,
                                        const vector<bool>& use_trav,
@@ -40,12 +40,11 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     vector<int> trav_to_allele(travs.size());
 
     // compute the allele as a string
-    auto trav_to_string = [&](const SnarlTraversal& trav) {
+    auto trav_to_string = [&](const Traversal& trav) {
         string allele;
         // we skip the snarl endpoints
-        for (int j = 1; j < trav.visit_size() - 1; ++j) {
-            const string& node_sequence = graph->get_sequence(graph->get_handle(trav.visit(j).node_id()));
-            allele += trav.visit(j).backward() ? reverse_complement(node_sequence) : node_sequence;
+        for (int j = 1; j < trav.size() - 1; ++j) {
+            allele += graph->get_sequence(trav[j]);
         }
         return toUppercase(allele);
     };
@@ -136,10 +135,10 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         unordered_map<nid_t, nid_t> ref_simple_pos;
         {
             auto& trav = travs.at(ref_path_idx);
-            for (size_t i = 0; i < trav.visit_size(); ++i) {
-                size_t j = !reversed ? i : trav.visit_size() - 1 - i;
-                const Visit& visit = trav.visit(j);
-                nid_t node_id = visit.node_id();
+            for (size_t i = 0; i < trav.size(); ++i) {
+                size_t j = !reversed ? i : trav.size() - 1 - i;
+                const handle_t& handle = trav[j];
+                nid_t node_id = graph->get_id(handle);
                 if (ref_simple_pos.find(node_id) != ref_simple_pos.end()) continue;
                 if (ref_dup_nodes.find(node_id) != ref_dup_nodes.end()) continue;
                 handle_t h = graph->get_handle(node_id);
@@ -271,7 +270,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_no = ai_pair.second.first;
             int allele_trav_no = ai_pair.second.second;
             // update the traversal info
-            add_allele_path_to_info(v, allele_no, travs[allele_trav_no], reversed, !substitution);
+            add_allele_path_to_info(graph, v, allele_no, travs[allele_trav_no], reversed, !substitution);
         }
     }
 
@@ -563,30 +562,30 @@ vector<nid_t> Deconstructor::get_context(
 }
 
 
-void Deconstructor::get_traversals(const Snarl* snarl,
-                                   vector<SnarlTraversal>& out_travs,
+void Deconstructor::get_traversals(const handle_t& snarl_start, const handle_t& snarl_end,
+                                   vector<Traversal>& out_travs,
                                    vector<string>& out_trav_path_names,
                                    vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const {
     // empty snarl check
     vector<handle_t> next_handles;
-    graph->follow_edges(graph->get_handle(snarl->start().node_id(), snarl->start().backward()), false, [&](handle_t handle) {
+    graph->follow_edges(snarl_start, false, [&](handle_t handle) {
             next_handles.push_back(handle);
         });
-    if (next_handles.size() == 1 && next_handles.back() == graph->get_handle(snarl->end().node_id(), snarl->end().backward())) {
+    if (next_handles.size() == 1 && next_handles.back() == snarl_end) {
 #ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Skipping empty site " << pb2json(*snarl) << endl;
+        cerr << "Skipping empty site " << graph_interval_to_string(graph, snarl_start, snarl_end) << endl;
 #endif        
         return;
     }
     
 #ifdef debug
 #pragma omp crtiical (cerr)
-    cerr << "Computing traversals of site " << pb2json(*snarl) << endl;
+    cerr << "Computing traversals of site " << graph_interval_to_string(graph, snarl_start, snarl_end) << endl;
 #endif
 
     // find every traversal that runs through a path in the graph
-    std::tie(out_travs, out_trav_steps) = path_trav_finder->find_path_traversals(*snarl);
+    std::tie(out_travs, out_trav_steps) = path_trav_finder->find_path_traversals(snarl_start, snarl_end);
     for (const pair<step_handle_t, step_handle_t>& trav_steps : out_trav_steps) {
         out_trav_path_names.push_back(graph->get_path_name(graph->get_path_handle_of_step(trav_steps.first)));
     }
@@ -595,7 +594,7 @@ void Deconstructor::get_traversals(const Snarl* snarl,
     // after this, all traversals are treated the same, with metadata embedded in their names
     if (gbwt_trav_finder.get() != nullptr) {
         const gbwt::GBWT& gbwt_index = gbwt_trav_finder->get_gbwt();
-        pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
+        pair<vector<Traversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(snarl_start, snarl_end);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
             // We need to get a bunch of metadata about the path, but the GBWT
             // we have might not even have structured path names stored.
@@ -624,15 +623,15 @@ void Deconstructor::get_traversals(const Snarl* snarl,
 }
 
 
-bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
+bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const {
 
-    vector<SnarlTraversal> travs;
+    vector<Traversal> travs;
     vector<string> trav_path_names;
     // note that this vector (unlike the above two) is for embedded paths only (not GBWT)
     vector<pair<step_handle_t, step_handle_t>> trav_steps;
 
     // compute all the traversals from embedded paths and gbwt
-    this->get_traversals(snarl, travs, trav_path_names, trav_steps);
+    this->get_traversals(snarl_start, snarl_end, travs, trav_path_names, trav_steps);
 
     if (travs.empty()) {
         return false;        
@@ -645,10 +644,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #ifdef debug
 #pragma omp critical (cerr)
         {
-            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << travs[i].visit_size()
+            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << travs[i].size()
                  << ", start=" << graph->get_position_of_step(trav_steps[i].first)
                  << ", end=" << graph->get_position_of_step(trav_steps[i].second) << endl
-                 << " trav=" << pb2json(travs[i]) << endl;
+                 << " trav=" << traversal_to_string(travs[i]) << endl;
         }
 #endif
         if (ref_paths.count(path_trav_name) &&
@@ -693,7 +692,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     if (ref_travs.empty()) {
 #ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Skipping site because no reference traversal was found " << pb2json(*snarl) << endl;
+        cerr << "Skipping site because no reference traversal was found " << graph_interval_to_string(graph, snarl_start, snarl_end) << endl;
 #endif
         return false;
     }    
@@ -702,7 +701,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     if (travs.size() < 2) {
 #ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Skipping site because to alt traversal was found " << pb2json(*snarl) << endl;
+        cerr << "Skipping site because to alt traversal was found " << graph_interval_to_string(graph, snarl_start, snarl_end) << endl;
 #endif
         return false;
     }
@@ -713,7 +712,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     // to compare with equivalent windows from the alternate allele paths
     // we will associate these 1:1 with reference traversals
 
-    // remember that path_travs := pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
+    // remember that path_travs := pair<vector<Traversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
 
     // map from each path_trav index to the ref_trav index it best maps to
     vector<int> path_trav_to_ref_trav;
@@ -756,7 +755,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
 
-        const SnarlTraversal& ref_trav = travs[ref_trav_idx];
+        const Traversal& ref_trav = travs[ref_trav_idx];
 
         vcflib::Variant v;
         v.quality = 60;
@@ -797,11 +796,11 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         first_path_pos = use_start ? start_pos : end_pos;
             
         // Get the first visit of our snarl traversal
-        const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
+        const handle_t& first_trav_handle = use_start ? ref_trav.front() : ref_trav.back();
 
         char prev_char;
-        if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
-            (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
+        if ((use_start && graph->get_is_reverse(first_trav_handle) == graph->get_is_reverse(first_path_handle)) ||
+            (!use_start && graph->get_is_reverse(first_trav_handle) != graph->get_is_reverse(first_path_handle))) {
             // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
             first_path_pos += graph->get_length(first_path_handle);
             prev_char = ::toupper(graph->get_sequence(first_path_handle)[graph->get_length(first_path_handle) - 1]);
@@ -815,7 +814,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
         v.position = first_path_pos + ref_trav_offset;
 
-        v.id = print_snarl(*snarl);
+        v.id = print_snarl(graph, snarl_start, snarl_end);
             
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(travs.size());
@@ -1097,7 +1096,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 //#pragma omp task firstprivate(i)
             {
                 auto& snarl = snarls_todo[i];
-                deconstruct_site(snarl);
+                deconstruct_site(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                 graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
             }
         }
     }

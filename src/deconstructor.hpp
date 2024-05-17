@@ -51,20 +51,20 @@ private:
 
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
-    bool deconstruct_site(const Snarl* site) const;
+    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const;
 
     // get the traversals for a given site
     // this returns a combination of embedded path traversals and gbwt traversals
     // the embedded paths come first, and only they get trav_steps.
     // so you can use trav_steps.size() to find the index of the first gbwt traversal...
-    void get_traversals(const Snarl* site,
-                        vector<SnarlTraversal>& out_travs,
+    void get_traversals(const handle_t& snarl_start, const handle_t& snarl_end,
+                        vector<Traversal>& out_travs,
                         vector<string>& out_trav_path_names,
                         vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v,
-                            const vector<SnarlTraversal>& travs,
+                            const vector<Traversal>& travs,
                             const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                             int ref_path_idx,
                             const vector<bool>& use_trav,

@@ -10,6 +10,36 @@ namespace vg {
 
 using namespace std;
 
+string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, bool max_steps) {
+    string s;
+    function<string(handle_t)> handle_to_string = [&](handle_t handle) {
+        string ss = graph->get_is_reverse(handle) ? "<" : ">";
+        return ss + std::to_string(graph->get_id(handle));
+    };
+    if (traversal.size() <= max_steps) {
+        for (const handle_t& handle : traversal) {
+            s += handle_to_string(handle);
+        }
+    } else {
+        for (int64_t i = 0; i < max_steps / 2; ++i) {
+            s += handle_to_string(traversal[i]);
+        }
+        s += "...";
+        for (int64_t i = 0; i < max_steps / 2; ++i) {
+            s += handle_to_string(traversal[traversal.size() - 1 - i]);
+        }
+    }
+    return s;
+}
+
+string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle) {
+    function<string(handle_t)> handle_to_string = [&](handle_t handle) {
+        string ss = graph->get_is_reverse(handle) ? "<" : ">";
+        return ss + std::to_string(graph->get_id(handle));
+    };
+    return handle_to_string(start_handle) + handle_to_string(end_handle);
+}
+
 PathBasedTraversalFinder::PathBasedTraversalFinder(const PathHandleGraph& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 
