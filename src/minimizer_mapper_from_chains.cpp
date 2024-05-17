@@ -45,7 +45,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-#define debug_chain_alignment
+//#define debug_chain_alignment
 
 namespace vg {
 
@@ -2420,7 +2420,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 
     }
-        
+
     size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
@@ -2473,12 +2473,12 @@ Alignment MinimizerMapper::find_chain_alignment(
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
         }
-    }
 #endif
 
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
@@ -2677,33 +2677,37 @@ Alignment MinimizerMapper::find_chain_alignment(
         ++next_it;
         here = next;
     }
+
+    if (next_it == chain.end()) {
+        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
     
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+            }
         }
-    }
 #endif
     
-    WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
         }
-    }
 #endif
+
+        here_alignment.check_lengths(gbwt_graph);
     
-    here_alignment.check_lengths(gbwt_graph);
-    
-    // Do the final GaplessExtension itself (may be the first)
-    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
-    composed_score += here_alignment.score;
-   
+        // Do the final GaplessExtension itself (may be the first)
+        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += here_alignment.score;
+    }
+
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - (*here).read_end();
     if (right_tail_length > 0) {
