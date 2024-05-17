@@ -39,6 +39,7 @@ void help_surject(char** argv) {
          << "  -t, --threads N          number of threads to use" << endl
          << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
          << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
+         << "  -n, --into-sample NAME   surject into pahts from this sample (multiple allowed)" << endl
          << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
@@ -84,6 +85,7 @@ int main_surject(int argc, char** argv) {
     
     string xg_name;
     vector<string> path_names;
+    vector<string> path_sample_names;
     string path_file;
     string output_format = "GAM";
     string input_format = "GAM";
@@ -113,6 +115,7 @@ int main_surject(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
+            {"into-sample", required_argument, 0, 'n'},
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
             {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
@@ -137,7 +140,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPa:ALMVw:",
+        c = getopt_long (argc, argv, "hx:p:F:n:liGmcbsN:R:f:C:t:SPa:ALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -158,6 +161,10 @@ int main_surject(int argc, char** argv) {
         case 'F':
             path_file = optarg;
             break;
+
+        case 'n':
+            path_sample_names.push_back(optarg);
+            break;            
         
         case 'l':
             subpath_global = false;
@@ -279,6 +286,11 @@ int main_surject(int argc, char** argv) {
     
     // Get the paths to surject into and their length information, either from
     // the given file, or from the provided list, or from sniffing the graph.
+    for (const string& sample_name : path_sample_names) {
+        path_handle_graph->for_each_path_of_sample(sample_name, [&](path_handle_t path_handle) {
+            path_names.push_back(path_handle_graph->get_path_name(path_handle));
+        });
+    }
     vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *xgidx);
     // Clear out path_names so we don't accidentally use it
     path_names.clear();

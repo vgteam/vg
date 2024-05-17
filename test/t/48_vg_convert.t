@@ -189,7 +189,7 @@ is "$?" 0 "converting gfa and equivalent rgfa produces same output"
 
 rm -f tiny.gfa.gfa tiny.rgfa.gfa
 
-is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg paths -M --paths-by y -x - | grep -v "^#" | cut -f1)" "y[35]" "rank-1 rgfa subpath found"
+is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg paths -M --paths-by _rGFA_ -x - | grep -v "^#" | cut -f1)" "_rGFA_#y[35-36]" "rank-1 rgfa subpath found"
 
 vg convert -g tiny/tiny.rgfa -T gfa-id-mapping.tsv > /dev/null
 grep ^S tiny/tiny.rgfa  | awk '{print $2}' | sort > rgfa_nodes
@@ -404,12 +404,13 @@ is "${?}" "0" "GFA -> HashGraph -> GFA conversion preserves path metadata"
 
 # We can't do rGFA to GBZ directly until the GBWTGraph GFA parser learns to read tags
 # rGFA to HashGraph to GBZ to GFA
-vg paths -M -x graphs/rgfa_with_reference.rgfa | sort >paths.truth.txt
+vg paths -M -x graphs/rgfa_with_reference.rgfa | sed -e 's/-2//g' -e 's/-8//g' |  sort >paths.truth.txt
 vg convert -a graphs/rgfa_with_reference.rgfa > rgfa_with_reference.hg
 vg gbwt -x rgfa_with_reference.hg -E --gbz-format -g rgfa_with_reference.gbz
 vg paths -M -x rgfa_with_reference.gbz | sort >paths.gbz.txt
 cmp paths.gbz.txt paths.truth.txt
 is "${?}" "0" "rGFA -> HashGraph -> GBZ conversion preserves path metadata"
+vg paths -M -x graphs/rgfa_with_reference.rgfa |  sort >paths.truth.txt
 vg convert -f rgfa_with_reference.gbz >extracted.gfa
 vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt

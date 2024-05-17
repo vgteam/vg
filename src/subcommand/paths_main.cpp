@@ -16,6 +16,9 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../rgfa.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -37,6 +40,12 @@ void help_paths(char** argv) {
          << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "  rGFA cover" << endl
+         << "    -f, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
+         << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover." << endl
+         << "    -t, --threads N          use up to N threads when computing rGFA cover (default: all available)" << endl
+         << "        --rgfa-vcf FILE      add rGFA cover tags to VCF (which must be called on rGFA cover in graph from -f)" << endl
+         << "        --rgfa-intervals     print out table of rgfa intervals and their ranks and positions" << endl
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -50,6 +59,7 @@ void help_paths(char** argv) {
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
          << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
+         << "        --rgfa-paths         select all rGFA fragments (must have been added with -R previously)" << endl
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
          << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
          << "    -R, --reference-paths    select the reference paths" << endl
@@ -87,6 +97,11 @@ unordered_map<PathSense, string> SENSE_TO_STRING {
     {PathSense::HAPLOTYPE, "HAPLOTYPE"}
 };
 
+// Long options with no corresponding short options.
+const int OPT_SELECT_RGFA_FRAGMENTS = 1000;
+const int OPT_ANNOTATE_RGFA_VCF = 1001;
+const int OPT_RGFA_INTERVALS = 1002;
+
 int main_paths(int argc, char** argv) {
 
     if (argc == 2) {
@@ -101,6 +116,10 @@ int main_paths(int argc, char** argv) {
     bool extract_as_fasta = false;
     bool drop_paths = false;
     bool retain_paths = false;
+    int64_t rgfa_min_len = -1;
+    string rgfa_vcf_filename;
+    bool rgfa_print_intervals = false;
+    string snarl_filename;
     string graph_file;
     string gbwt_file;
     string path_prefix;
@@ -130,6 +149,8 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
+            {"rgfa-min-length", required_argument, 0, 'f'},
+            {"snarls", required_argument, 0, 's'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
@@ -144,17 +165,19 @@ int main_paths(int argc, char** argv) {
             {"generic-paths", no_argument, 0, 'G'},
             {"reference-paths", no_argument, 0, 'R'},
             {"haplotype-paths", no_argument, 0, 'H'},
-            {"coverage", no_argument, 0, 'c'},            
-
+            {"coverage", no_argument, 0, 'c'},
+            {"rgfa-paths", no_argument, 0, OPT_SELECT_RGFA_FRAGMENTS},
+            {"rgfa-vcf", required_argument, 0, OPT_ANNOTATE_RGFA_VCF},
+            {"rgfa-intervals", no_argument, 0, OPT_RGFA_INTERVALS},
+            {"threads", required_argument, 0, 't'},
             // Hidden options for backward compatibility.
-            {"threads", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGRHp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drf:R:s:aGHp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -183,13 +206,22 @@ int main_paths(int argc, char** argv) {
         case 'd':
             drop_paths = true;
             output_formats++;
-            break;
+            break;            
             
         case 'r':
             retain_paths = true;
             output_formats++;
             break;
-                
+
+        case 'f':
+            rgfa_min_len = parse<int64_t>(optarg);            
+            output_formats++;
+            break;
+
+        case 's':
+            snarl_filename = optarg;
+            break;
+            
         case 'X':
             extract_as_gam = true;
             output_formats++;
@@ -265,9 +297,31 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
-        case 'T':
-            std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
+        case OPT_SELECT_RGFA_FRAGMENTS:
+            sample_name = RGFACover::rgfa_sample_name;
+            selection_criteria++;
             break;
+
+        case OPT_ANNOTATE_RGFA_VCF:
+            rgfa_vcf_filename = optarg;
+            output_formats++;
+            break;
+
+        case OPT_RGFA_INTERVALS:
+            rgfa_print_intervals = true;
+            output_formats++;
+            break;            
+            
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
 
         case 'q':
             std::cerr << "warning: [vg paths] option --threads-by is deprecated; please use --paths-by" << std::endl;
@@ -320,11 +374,11 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -R, -L, -F, -E, -C, -c, --rgfa-vcf, --rgfa-intervals) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p, --rgfa-paths) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (select_alt_paths && !gbwt_file.empty()) {
@@ -371,9 +425,23 @@ int main_paths(int argc, char** argv) {
           exit(1);
         }
     }
-    
-    
-    
+
+    // Load or compute the snarls
+    unique_ptr<SnarlManager> snarl_manager;
+    if (rgfa_min_len >= 0) {
+        if (!snarl_filename.empty()) {
+            ifstream snarl_file(snarl_filename.c_str());
+            if (!snarl_file) {
+                cerr << "Error [vg paths]: Unable to load snarls file: " << snarl_filename << endl;
+                return 1;
+            }
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+        } else {
+            IntegratedSnarlFinder finder(*graph);
+            snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+        }
+    }
+           
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);
@@ -469,7 +537,7 @@ int main_paths(int argc, char** argv) {
                 // Write as a Path in a VG
                 chunk_to_emitter(path, *graph_emitter);
             } else if (extract_as_fasta) {
-                write_fasta_sequence(name, path_sequence(*graph, path), cout);
+                write_fasta_sequence(RGFACover::revert_rgfa_path_name(name, false), path_sequence(*graph, path), cout);
             }
             if (list_lengths) {
                 cout << path.name() << "\t" << path_to_length(path) << endl;
@@ -566,7 +634,7 @@ int main_paths(int argc, char** argv) {
             
         };
         
-        if (drop_paths || retain_paths) {
+        if (drop_paths || retain_paths || rgfa_min_len >= 0) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
             if (!mutable_graph) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
@@ -578,26 +646,67 @@ int main_paths(int argc, char** argv) {
                 exit(1);
             }
 
-            vector<string> to_destroy;
-            if (drop_paths) {
+            set<string> reference_path_names;
+            if (drop_paths || retain_paths) {
+                vector<string> to_destroy;
+                if (drop_paths) {
+                    for_each_selected_path([&](const path_handle_t& path_handle) {
+                        string name = graph->get_path_name(path_handle);
+                        to_destroy.push_back(name);
+                    });
+                } else {
+                    for_each_unselected_path([&](const path_handle_t& path_handle) {
+                        string name = graph->get_path_name(path_handle);
+                        to_destroy.push_back(name);
+                    });
+                }
+                for (string& path_name : to_destroy) {
+                    mutable_graph->destroy_path(graph->get_path_handle(path_name));
+                }
+            } else {                
+                assert(rgfa_min_len >= 0);
+                RGFACover rgfa_cover;
+                // clean out existing cover
+                rgfa_cover.clear(mutable_graph);
+                // load up the rank-0 reference path selection
+                unordered_set<path_handle_t> reference_paths;
                 for_each_selected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
+                    reference_paths.insert(path_handle);
+                    reference_path_names.insert(graph->get_path_name(path_handle));
                 });
-            } else {
-                for_each_unselected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
-                });
-            }
-            for (string& path_name : to_destroy) {
-                mutable_graph->destroy_path(graph->get_path_handle(path_name));
+                // compute the new cover
+                rgfa_cover.compute(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len);
+                // and write it out to the graph
+                rgfa_cover.apply(mutable_graph);
             }
             
             // output the graph
-            serializable_graph->serialize(cout);
-        }
-        else if (coverage) {
+            vg::io::save_handle_graph(graph.get(), std::cout, reference_path_names);
+        } else if (!rgfa_vcf_filename.empty() || rgfa_print_intervals) {
+            RGFACover rgfa_cover;
+            // load up the rank-0 reference path selection
+            unordered_set<path_handle_t> reference_paths;
+            for_each_selected_path([&](const path_handle_t& path_handle) {
+                reference_paths.insert(path_handle);
+            });
+            // load up the cover (which must have been previously computed and serialized with -f)
+            rgfa_cover.load(graph.get(), reference_paths);
+            if (rgfa_cover.get_intervals().size() == 0) {
+                cerr << "error[vg paths]: no rGFA cover found in graph. Please compute one with -f before annotating a VCF" << endl;
+                exit(1);
+            }
+            if (!rgfa_vcf_filename.empty()) {
+                vcflib::VariantCallFile variant_file;
+                variant_file.open(rgfa_vcf_filename);
+                if (!variant_file.is_open()) {
+                    cerr << "error[vg paths]: unable to open VCF file: " << rgfa_vcf_filename << endl;
+                    exit(1);
+                }
+                rgfa_cover.annotate_vcf(variant_file, cout);
+            } else if (rgfa_print_intervals) {
+                rgfa_cover.print_stats(cout);
+            }
+        } else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
             // (we're doing the whole graph here, which could be inefficient in the case the user is selecting
             //  a small path)
@@ -763,7 +872,8 @@ int main_paths(int argc, char** argv) {
                     } else if (extract_as_vg) {
                         chunk_to_emitter(path, *graph_emitter); 
                     } else if (extract_as_fasta) {
-                        write_fasta_sequence(graph->get_path_name(path_handle), path_sequence(*graph, path), cout);
+                        write_fasta_sequence(RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle), false),
+                                             path_sequence(*graph, path), cout);
                     }
                 }
             });

@@ -49,7 +49,7 @@ public:
                                        RecurseType recurise_type = RecurseOnFail);
 
     /// Call a given snarl, and print the output to out_stream
-    virtual bool call_snarl(const Snarl& snarl) = 0;
+    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr) = 0;
 
     /// toggle progress messages
     void set_show_progress(bool show_progress);
@@ -58,6 +58,10 @@ protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
     vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
+
+    /// Compute the child ploidies baseds on the called genotype
+    void resolve_child_ploidies(const HandleGraph& graph, const Snarl* snarl, const vector<SnarlTraversal>& travs,
+                                const vector<int>& genotype, vector<int>& child_ploidies);
     
 protected:
 
@@ -141,6 +145,11 @@ protected:
 
     // update the PS and LV tags in the output buffer (called in write_variants if include_nested is true)
     void update_nesting_info_tags(const SnarlManager* snarl_manager);
+
+    // toggle write_full_names automatically depending on ref_paths
+    // (keeps backwards compatibility when it was always false whenever possible,
+    // but flips to full names when necessary)
+    void toggle_full_names_from_paths(const vector<string>& ref_paths);
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
@@ -160,6 +169,9 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
+
+    // toggle writing full name or just contig name 
+    bool write_full_names;
 };
 
 /**
@@ -227,7 +239,7 @@ public:
 
     virtual ~VCFGenotyper();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);    
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -280,7 +292,7 @@ public:
 
     virtual ~LegacyCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -381,7 +393,7 @@ public:
    
     virtual ~FlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -458,7 +470,7 @@ public:
    
     virtual ~NestedFlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy_override = -1, vector<int>* out_child_ploidies = nullptr);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;

@@ -45,6 +45,7 @@ void help_depth(char** argv) {
          << "    -P, --paths-by STR     select the paths with the given name prefix" << endl        
          << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -m, --min-coverage N   ignore nodes with less than N coverage depth [1]" << endl
+         << "    -i, --ignore-prefix P  ignore paths with given prefix when computing path coverage [_rGFA_]" << endl 
          << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
 
@@ -69,6 +70,7 @@ int main_depth(int argc, char** argv) {
     bool count_cycles = false;
 
     size_t min_coverage = 1;
+    vector<string> ignore_path_prefixes;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -87,13 +89,14 @@ int main_depth(int argc, char** argv) {
             {"min-mapq", required_argument, 0, 'Q'},
             {"min-coverage", required_argument, 0, 'm'},
             {"count-cycles", no_argument, 0, 'c'},
+            {"ignore-prefix", required_argument, 0, 'i'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:P:b:dg:a:n:s:m:ct:",
+        c = getopt_long (argc, argv, "hk:p:P:b:dg:a:n:s:m:ci:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -137,6 +140,9 @@ int main_depth(int argc, char** argv) {
             break;
         case 'c':
             count_cycles = true;
+            break;
+        case 'i':
+            ignore_path_prefixes.push_back(optarg);
             break;
         case 't':
         {
@@ -197,6 +203,7 @@ int main_depth(int argc, char** argv) {
         // we want our paths sorted by the subpath parse so the output is sorted
         map<pair<string, int64_t>, string> ref_paths;
         unordered_set<string> base_path_set;
+        unordered_set<path_handle_t> ignore_paths;
         
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
@@ -222,6 +229,14 @@ int main_depth(int argc, char** argv) {
                     assert(!ref_paths.count(coord));
                     ref_paths[coord] = path_name;
                 }
+                if (pack_filename.empty()) {
+                    for (const string& ignore_prefix : ignore_path_prefixes) {
+                        if (path_name.compare(0, ignore_prefix.length(), ignore_prefix) == 0) {
+                            ignore_paths.insert(path_handle);
+                            break;
+                        }
+                    }
+                }
             });
         
         for (const auto& ref_name : ref_paths_input_set) {
@@ -240,7 +255,8 @@ int main_depth(int argc, char** argv) {
                 if (!pack_filename.empty()) {
                     binned_depth = algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
                 } else {
-                    binned_depth = algorithms::binned_path_depth(*graph, ref_path, bin_size, min_coverage, count_cycles);
+                    binned_depth = algorithms::binned_path_depth(*graph, ref_path, bin_size, min_coverage, count_cycles,
+                                                                 ignore_paths);
                 }
                 for (auto& bin_cov : binned_depth) {
                     // bins can ben nan if min_coverage filters everything out.  just skip
@@ -253,7 +269,7 @@ int main_depth(int argc, char** argv) {
                 if (!pack_filename.empty()) {
                     algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
                 } else {
-                    algorithms::path_depths(*graph, ref_path, min_coverage, count_cycles, cout);
+                    algorithms::path_depths(*graph, ref_path, min_coverage, count_cycles, ignore_paths, cout);
                 }
             }
         }

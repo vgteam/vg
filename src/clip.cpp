@@ -481,7 +481,8 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
                                             function<void(function<void(handle_t, const Region*)>)> iterate_handles,
                                             function<void(function<void(edge_t, const Region*)>)> iterate_edges,                                            
                                             int64_t min_depth, const vector<string>& ref_prefixes,
-                                            int64_t min_fragment_len, bool verbose) {
+                                            int64_t min_fragment_len, const unordered_set<path_handle_t>& ignore_paths,
+                                            bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> to_delete;
@@ -502,6 +503,10 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
         bool on_ref = false;
         size_t depth = 0;
         graph->for_each_step_on_handle(handle, [&](step_handle_t step_handle) {
+                path_handle_t path_handle = graph->get_path_handle_of_step(step_handle);
+                if (ignore_paths.count(path_handle)) {
+                    return true;
+                }
                 ++depth;
                 if (depth > min_depth || on_ref) {
                     return false;
@@ -509,7 +514,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
                 if (!ref_prefixes.empty() || region) {
                     // if we have a region, do exact comparison to it.
                     // otherwise, do a prefix check against ref_prefix
-                    string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                    string path_name = graph->get_path_name(path_handle);
                     if ((region && region->seq == path_name) || (!region && check_prefixes(path_name))) {
                         on_ref = true;
                         return false;
@@ -540,6 +545,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
     edge_depths.resize(edge_count + 1);
     
     graph->for_each_path_handle([&](path_handle_t path_handle) {
+        if (!ignore_paths.count(path_handle)) {                
             bool is_ref_path = check_prefixes(graph->get_path_name(path_handle));
             handle_t prev_handle;
             bool first = true;
@@ -563,6 +569,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
                     }
                     prev_handle = handle;
                 });
+            }
         });
 
     unordered_set<edge_t> edges_to_delete;
@@ -622,7 +629,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
 }
 
 void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
-                          int64_t min_fragment_len, bool verbose) {
+                                    int64_t min_fragment_len, const unordered_set<path_handle_t>& ignore_paths, bool verbose) {
     
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
         graph->for_each_handle([&](handle_t handle) {
@@ -636,11 +643,13 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
             });        
     };
 
-    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_prefixes, min_fragment_len, verbose);
+    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_prefixes, min_fragment_len,
+                                           ignore_paths, verbose);
 }
 
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                                    SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose) {
+                                    SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
+                                              const unordered_set<path_handle_t>& ignore_paths, bool verbose) {
 
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
         
@@ -678,7 +687,7 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
     }
     vector<string> ref_paths_from_regions(ref_path_set.begin(), ref_path_set.end());
 
-    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_paths_from_regions, min_fragment_len, verbose);
+    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_paths_from_regions, min_fragment_len, ignore_paths, verbose);
     
 }
 

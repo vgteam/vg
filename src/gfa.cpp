@@ -1,6 +1,7 @@
 #include "gfa.hpp"
 #include "utility.hpp"
 #include "path.hpp"
+#include "rgfa.hpp"
 #include <sstream>
 
 #include <gbwtgraph/utils.h>
@@ -18,7 +19,16 @@ static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
                   bool rgfa_pline, bool use_w_lines) {
-    
+
+    RGFACover rgfa_cover;
+    if (!rgfa_paths.empty()) {
+        // index the rgfa cover in the graph (combination of rank-0 rgfa_paths and rank-1 paths with rgfa sample name)
+        unordered_set<path_handle_t> rgfa_path_handles;
+        for (const string& rgfa_path_name : rgfa_paths) {
+            rgfa_path_handles.insert(graph->get_path_handle(rgfa_path_name));
+        }
+        rgfa_cover.load(graph, rgfa_path_handles);
+    }
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
     
@@ -40,12 +50,18 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     }
     out << "\n";
 
-    //Compute the rGFA tags of given paths (todo: support non-zero ranks)
+    //Compute the rGFA tags of given paths.  These paths are the rank-0 reference paths (passed in rgfa_paths set)
+    //along with paths that have the special rgfa sample name (rank>0) paths.
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
-    for (const string& path_name : rgfa_paths) {
-        path_handle_t path_handle = graph->get_path_handle(path_name);
-        size_t offset = 0;
-        graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+        string path_name = graph->get_path_name(path_handle);
+        if (rgfa_paths.count(path_name) || (!rgfa_paths.empty() && RGFACover::is_rgfa_path_name(path_name))) {
+            size_t offset = 0;
+            subrange_t path_subrange = graph->get_subrange(path_handle);
+            if (path_subrange != PathMetadata::NO_SUBRANGE) {
+                offset = path_subrange.first;
+            }
+            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                 handle_t handle = graph->get_handle_of_step(step_handle);
                 nid_t node_id = graph->get_id(handle);
                 if (graph->get_is_reverse(handle)) {
@@ -62,7 +78,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 }
                 offset += graph->get_length(handle);
             });
-    }
+        }
+    });
   
     //Go through each node in the graph
     graph->for_each_handle([&](const handle_t& h) {
@@ -73,9 +90,20 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         auto it = node_offsets.find(node_id);
         if (it != node_offsets.end()) {
             // add rGFA tags
-            out << "\t" << "SN:Z:" << graph->get_path_name(it->second.first)
+            string sample_name = graph->get_sample_name(it->second.first);
+            string locus_name = graph->get_locus_name(it->second.first);
+            int64_t haplotype = graph->get_haplotype(it->second.first);
+            if (!rgfa_paths.empty() && RGFACover::is_rgfa_path_name(graph->get_path_name(it->second.first))) {
+                std::tie(sample_name, locus_name) = RGFACover::parse_rgfa_locus_name(locus_name);
+            }
+            string rgfa_sn = PathMetadata::create_path_name(sample_name.empty() ? PathSense::GENERIC : PathSense::REFERENCE,
+                                                            sample_name, locus_name,
+                                                            sample_name.empty() ? PathMetadata::NO_HAPLOTYPE : haplotype,
+                                                            PathMetadata::NO_PHASE_BLOCK,
+                                                            PathMetadata::NO_SUBRANGE);
+            out << "\t" << "SN:Z:" << rgfa_sn
                 << "\t" << "SO:i:" << it->second.second
-                << "\t" << "SR:i:0"; // todo: support non-zero ranks?
+                << "\t" << "SR:i:" << rgfa_cover.get_rank(node_id);
         }
         out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
@@ -106,7 +134,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
-        if (rgfa_pline || !rgfa_paths.count(path_name)) {
+        if (rgfa_pline || rgfa_paths.empty() ||
+            (!rgfa_paths.count(path_name) && !RGFACover::is_rgfa_path_name(path_name))) {
             if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
                 // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
                 cerr << "warning [gfa]: path " << path_name << " will be interpreted as reference sense "

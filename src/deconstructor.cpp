@@ -1,6 +1,7 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
+#include "rgfa.hpp"
 
 //#define debug
 
@@ -611,7 +612,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         }
 #endif
         if (ref_paths.count(path_trav_name) &&
-            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name ||
+             (RGFACover::is_rgfa_path_name(ref_trav_name) && !RGFACover::is_rgfa_path_name(path_trav_name)))) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)
@@ -792,22 +794,24 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
             const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
 
+            string fixed_trav_name = RGFACover::revert_rgfa_path_name(ref_trav_name, true);
+
             vcflib::Variant v;
             v.quality = 60;
 
             // in VCF we usually just want the contig
-            string contig_name = PathMetadata::parse_locus_name(ref_trav_name);
+            string contig_name = PathMetadata::parse_locus_name(fixed_trav_name);
             if (contig_name == PathMetadata::NO_LOCUS_NAME) {
-                contig_name = ref_trav_name;
+                contig_name = fixed_trav_name;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                if (PathMetadata::parse_sense(ref_trav_name) == PathSense::GENERIC) {
-                    contig_name = ref_trav_name;
+                if (PathMetadata::parse_sense(fixed_trav_name) == PathSense::GENERIC) {
+                    contig_name = fixed_trav_name;
                 } else {
                     contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                                 PathMetadata::parse_sample_name(ref_trav_name),
+                                                                 PathMetadata::parse_sample_name(fixed_trav_name),
                                                                  contig_name,
-                                                                 PathMetadata::parse_haplotype(ref_trav_name),
+                                                                 PathMetadata::parse_haplotype(fixed_trav_name),
                                                                  PathMetadata::NO_PHASE_BLOCK,
                                                                  PathMetadata::NO_SUBRANGE);
                 }
@@ -939,13 +943,14 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     graph->for_each_path_handle([&](const path_handle_t& path_handle) {
         string path_name = graph->get_path_name(path_handle);
         if (!this->ref_paths.count(path_name)) {
-            string sample_name = graph->get_sample_name(path_handle);
+            path_name = RGFACover::revert_rgfa_path_name(path_name, true);
+            string sample_name = PathMetadata::parse_sample_name(path_name);
             // for backward compatibility
             if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
                 sample_name = path_name;
             }
             if (!ref_samples.count(sample_name)) {
-                size_t haplotype = graph->get_haplotype(path_handle);
+                size_t haplotype = PathMetadata::parse_haplotype(path_name);
                 if (haplotype == PathMetadata::NO_HAPLOTYPE) {
                     haplotype = 0;
                 }
@@ -1032,18 +1037,19 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             for (handle_t handle : graph->scan_path(path_handle)) {
                 path_len += graph->get_length(handle);
             }
-            string locus_name = graph->get_locus_name(path_handle);
+            string fixed_refpath = RGFACover::revert_rgfa_path_name(refpath, true);
+            string locus_name = PathMetadata::parse_locus_name(fixed_refpath);
             if (locus_name == PathMetadata::NO_LOCUS_NAME) {
-                locus_name = refpath;
+                locus_name = fixed_refpath;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                if (graph->get_sense(path_handle) == PathSense::GENERIC) {
-                    locus_name = graph->get_path_name(path_handle);
+                if (PathMetadata::parse_sense(fixed_refpath) == PathSense::GENERIC) {
+                    locus_name = fixed_refpath;
                 } else {
                     locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                                graph->get_sample_name(path_handle),
+                                                                PathMetadata::parse_sample_name(fixed_refpath),
                                                                 locus_name,
-                                                                graph->get_haplotype(path_handle),
+                                                                PathMetadata::parse_haplotype(fixed_refpath),
                                                                 PathMetadata::NO_PHASE_BLOCK,
                                                                 PathMetadata::NO_SUBRANGE);
                 }

@@ -1,6 +1,6 @@
 #include "gfa_to_handle.hpp"
 #include "../path.hpp"
-
+#include "../rgfa.hpp"
 #include <gbwtgraph/utils.h>
 
 namespace vg {
@@ -291,7 +291,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         }
         if (found == rgfa_cache->end()) {
             // Need to make a new path, possibly with subrange start info.
-            
             std::pair<int64_t, int64_t> subrange;
             if (offset == 0) {
                 // Don't send a subrange
@@ -300,14 +299,22 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                 // Start later than 0
                 subrange = std::pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION);
             }
+
+            string rgfa_path_name;
+            if (path_rank > 0) {
+                // Special logic for off-reference paths, which get loaded into special rGFA cover paths
+                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, false);
+            } else {
+                // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
+                rgfa_path_name = PathMetadata::create_path_name(PathSense::GENERIC,
+                                                                PathMetadata::NO_SAMPLE_NAME,
+                                                                path_name, 
+                                                                PathMetadata::NO_HAPLOTYPE,
+                                                                PathMetadata::NO_PHASE_BLOCK,
+                                                                subrange);
+            }
+            path_handle_t path = graph->create_path_handle(rgfa_path_name);
             
-            // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
-            path_handle_t path = graph->create_path(PathSense::GENERIC,
-                                                    PathMetadata::NO_SAMPLE_NAME,
-                                                    path_name, 
-                                                    PathMetadata::NO_HAPLOTYPE,
-                                                    PathMetadata::NO_PHASE_BLOCK,
-                                                    subrange);
             // Then cache it
             found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
         }
@@ -667,10 +674,6 @@ tuple<string, size_t, string, pair<int64_t, int64_t>, GFAParser::chars_t, GFAPar
     
     // Grab the haplotype number
     int64_t haplotype_number = take_number(cursor, end, -1, "parsing haplotype number");
-    if (haplotype_number == -1) {
-        // This field is required
-        throw GFAFormatError("Missing haplotype number in W line", cursor);
-    }
     take_tab(cursor, end, "parsing end of haplotype number");
     
     // Grab the sequence/contig/locus name
@@ -1041,7 +1044,13 @@ void GFAParser::parse(istream& in) {
                             } else {
                                 // This path existed already. Make sure we aren't showing a conflicting rank
                                 if (rgfa_path_rank != get<0>(found->second)) {
-                                    throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
+                                  // vg paths can now write different fragments of the same sample/hap with different ranks
+                                  // (unlike minigraph where all fragments of teh same assembly share a rank)
+                                  // by consequence, this check needs to be disabled.
+                                  // TODO: we still want to check that each individual fragment has consisten ranks
+                                  //       so the check should be moved downstream
+                                  //
+                                  // throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
                                 }
                             }
                             auto& visit_queue = get<2>(found->second);
