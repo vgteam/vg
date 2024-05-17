@@ -65,9 +65,10 @@ First, obtain the repo and its submodules:
 #### Linux: Install Dependencies
     
 Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need:
-    * `jq`, `bc`, `rs`, and `parallel`
-    * `hexdump` and `column` from `bsdmainutils`
-    * [`npm` for testing documentation examples](https://github.com/anko/txm)).
+* `jq`, `bc`, `rs`, and `parallel`
+* `hexdump` and `column` from `bsdmainutils`
+* [`npm` for testing documentation examples](https://github.com/anko/txm)).
+
 On Ubuntu, you should be able to do:
 
     make get-deps
