@@ -52,8 +52,14 @@ private:
     // initialize the vcf and get the header 
     string get_vcf_header();
 
+    // deconstruct all snarls in parallel (ie nesting relationship ignored)
     void deconstruct_graph(SnarlManager* snarl_manager);
-    
+
+    // deconstruct all top-level snarls in parallel
+    // nested snarls are processed after their parents in the same thread
+    // (same logic as vg call)
+    void deconstruct_graph_top_down(SnarlManager* snarl_manager);
+
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
     bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const;

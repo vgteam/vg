@@ -1029,44 +1029,70 @@ string Deconstructor::get_vcf_header() {
 
 void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
 
-    vector<const Snarl*> snarls_todo;
-    // Do the top-level snarls in parallel
-    snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
-            vector<const Snarl*> todo(1, snarl);
-            vector<const Snarl*> next;
-            while (!todo.empty()) {
-                for (auto next_snarl : todo) {
-                    // if we can't make a variant from the snarl due to not finding
-                    // paths through it, we try again on the children
-                    // note: we may want to push the parallelism down a bit
-#pragma omp critical (snarls_todo)
-                    snarls_todo.push_back(next_snarl);
-                    if (include_nested) {
-                        // n.b. we no longer attempt to deconstruct the site to determine if we nest
-                        const vector<const Snarl*>& children = snarl_manager->children_of(next_snarl);
-                        next.insert(next.end(), children.begin(), children.end());
-                    }
-                }
-                swap(todo, next);
-                next.clear();
-            }
-        });
+    vector<const Snarl*> snarls;
+    vector<const Snarl*> queue;
 
-//#pragma omp parallel
-//#pragma omp single
-    {
+    // read all our snarls into a list
+    snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
+        queue.push_back(snarl);
+    });
+    if (include_nested) {
+        while (!queue.empty()) {
+            const Snarl* snarl = queue.back();
+            queue.pop_back();
+            snarls.push_back(snarl);
+            const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+            snarls.insert(snarls.end(), children.begin(), children.end());
+        }
+    } else {
+        swap(snarls, queue);
+    }
+
+    // process the whole shebang in parallel
 #pragma omp parallel for schedule(dynamic,1)
-        for (size_t i = 0; i < snarls_todo.size(); i++) {
-//#pragma omp task firstprivate(i)
-            {
-                auto& snarl = snarls_todo[i];
-                deconstruct_site(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
-                                 graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
-            }
+    for (size_t i = 0; i < snarls.size(); i++) {
+        deconstruct_site(graph->get_handle(snarls[i]->start().node_id(), snarls[i]->start().backward()),
+                         graph->get_handle(snarls[i]->end().node_id(), snarls[i]->end().backward()));
+    }
+}
+
+void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
+    // logic copied from vg call (graph_caller.cpp)
+    
+    // Used to recurse on children of parents that can't be called
+    size_t thread_count = get_thread_count();
+    vector<vector<const Snarl*>> snarl_queue(thread_count);
+
+    // Run the deconstructor on a snarl, and queue up the children if it fails
+    auto process_snarl = [&](const Snarl* snarl) {
+        if (!snarl_manager->is_trivial(snarl, *graph)) {
+            bool was_deconstructed = deconstruct_site(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+            if (include_nested || !was_deconstructed) {
+                const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+                vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
+                thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+            }            
+        }
+    };
+
+    // Start with the top level snarls
+    snarl_manager->for_each_top_level_snarl_parallel(process_snarl);
+
+    // Then recurse on any children the snarl caller failed to handle
+    while (!std::all_of(snarl_queue.begin(), snarl_queue.end(),
+                        [](const vector<const Snarl*>& snarl_vec) {return snarl_vec.empty();})) {
+        vector<const Snarl*> cur_queue;
+        for (vector<const Snarl*>& thread_queue : snarl_queue) {
+            cur_queue.reserve(cur_queue.size() + thread_queue.size());
+            std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
+            thread_queue.clear();
+        }
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int i = 0; i < cur_queue.size(); ++i) {
+            process_snarl(cur_queue[i]);
         }
     }
-//#pragma omp taskwait
-    
 }
 
 /**
@@ -1110,7 +1136,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
 
-    deconstruct_graph(snarl_manager);
+    if (include_nested) {
+        deconstruct_graph(snarl_manager);
+    } else {
+        deconstruct_graph_top_down(snarl_manager);
+    }
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);
