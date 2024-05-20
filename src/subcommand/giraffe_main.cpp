@@ -579,6 +579,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
     );
+    chaining_opts.add_range(
+        "min-unique-node-fraction",
+        &MinimizerMapper::min_unique_node_fraction,
+        MinimizerMapper::default_min_unique_node_fraction,
+        "minimum fraction of an alignment that must be from distinct oriented nodes for the alignment to be distinct",
+        double_is_fraction
+    );
 
     return parser;
 }

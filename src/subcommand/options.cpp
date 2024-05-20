@@ -106,6 +106,15 @@ const ValidatorFunction<double> double_is_nonnegative = [](const double& d) {
     }
 };
 
+const ValidatorFunction<double> double_is_fraction = [](const double& d) {
+    if (d < 0) {
+        throw std::domain_error("cannot be negative");
+    }
+    if (d > 1) {
+        throw std::domain_error("cannot be more than 1.0");
+    }
+};
+
 const ValidatorFunction<size_t> size_t_is_nonzero = [](const size_t& s) {
     if (s == 0) {
         throw std::domain_error("cannot be zero");
