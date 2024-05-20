@@ -1979,15 +1979,42 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Picked best alignment " << log_alignment(mappings[0]) << endl;
-            cerr << log_name() << "For scores";
-            for (auto& score : scores) cerr << " " << score << ":" << endl;
+            cerr << log_name() << "For scores:";
+            for (size_t i = 0; i < scores.size(); i++) {
+                cerr << " " << scores[i];
+                if (i + 1 < scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
         }
     }
 
     vector<double> scaled_scores;
     scaled_scores.reserve(scores.size());
     for (auto& score : scores) {
-        scaled_scores.push_back(score * mapq_score_scale);
+        double scaled_score = score;
+        if (mapq_score_window > 0) {
+            // Rescale to the size fo the score window
+            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
+        }
+        // Rescale by a constant factor
+        scaled_score *= mapq_score_scale;
+        scaled_scores.push_back(scaled_score);
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Scaled scores:";
+            for (size_t i = 0; i < scaled_scores.size(); i++) {
+                cerr << " " << scaled_scores[i];
+                if (i + 1 < scaled_scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
+        }
     }
 
     crash_unless(!mappings.empty());

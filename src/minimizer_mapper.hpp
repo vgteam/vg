@@ -390,6 +390,9 @@ public:
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;
     bool use_explored_cap = default_use_explored_cap;
+    /// What number of bp should we re-scale scores to for MAPQ, for calibration? 0 for off.
+    static constexpr size_t default_mapq_score_window = 0;
+    size_t mapq_score_window = default_mapq_score_window;
     /// How should we scale scores before mapq, for calibration
     static constexpr double default_mapq_score_scale = 1.0;
     double mapq_score_scale = default_mapq_score_scale;

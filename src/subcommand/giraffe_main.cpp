@@ -297,6 +297,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use explored minimizer layout cap on mapping quality"
     );
     comp_opts.add_range(
+        "mapq-score-window",
+        &MinimizerMapper::mapq_score_window,
+        MinimizerMapper::default_mapq_score_window,
+        "window to rescale score to for mapping quality, or 0 if not used"
+    );
+    comp_opts.add_range(
         "mapq-score-scale",
         &MinimizerMapper::mapq_score_scale,
         MinimizerMapper::default_mapq_score_scale,
@@ -882,7 +888,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         .add_entry<size_t>("hard-hit-cap", 20000)
-        .add_entry<double>("mapq-score-scale", 0.001)
+        .add_entry<double>("mapq-score-scale", 1)
+        .add_entry<size_t>("mapq-score-window", 150)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
