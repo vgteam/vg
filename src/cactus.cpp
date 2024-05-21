@@ -148,7 +148,7 @@ void getReachableBridges(stCactusEdgeEnd *edgeEnd1, stList *bridgeEnds) {
 }
 
 /**
- * Finds an arbitrary pair of telomeres in a Cactus graph, which are are either
+ * Finds an arbitrary pair of telomeres in a Cactus graph, which are either
  * a pair of bridge edge ends or a pair of chain edge ends, oriented such that
  * they form a pair of boundaries.
  *
