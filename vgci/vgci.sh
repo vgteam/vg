@@ -340,12 +340,14 @@ then
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn for
     # running toil-vg mapeval, and dateutils and reqests for
-    # ./mins_since_last_build.py. Make sure to get the giant buildable modules
-    # as binaries only to avoid wasting CI time building some slightly nicer
-    # version Pip prefers.
-    pip3 install pytest timeout_decorator requests dateutils
+    # ./mins_since_last_build.py. Need exactly the right version of requests
+    # for the Python Docker API to work (see
+    # <https://github.com/docker/docker-py/issues/3256>).
+    pip3 install pytest timeout_decorator 'requests==2.31.0' dateutils
     # TODO: To upgrade to Numpy 1.24+, we need to remove usages of `numpy.int`
     # AKA `np.int` from toil-vg. See <https://stackoverflow.com/a/74946903>
+    # Make sure to get the giant buildable modules as binaries only to avoid
+    # wasting CI time building some slightly nicer version Pip prefers.
     pip3 install 'numpy==1.23.5' scipy scikit-learn --only-binary :all:
 
     # Install Toil
