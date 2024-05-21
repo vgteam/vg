@@ -833,7 +833,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-min", 0)
         .add_entry<size_t>("num-bp-per-min", 1000)
         .add_entry<size_t>("downsample-window-count", 125)
-        .add_entry<size_t>("downsample-window-length", 140)
+        .add_entry<size_t>("downsample-window-length", 120)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
@@ -885,7 +885,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-min", 100)
         .add_entry<size_t>("num-bp-per-min", 500)
         .add_entry<size_t>("downsample-window-count", 500)
-        .add_entry<size_t>("downsample-window-length", 36)
+        .add_entry<size_t>("downsample-window-length", 20)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
