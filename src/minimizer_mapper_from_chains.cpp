@@ -305,18 +305,20 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
         if (show_work && track_correctness) {
             // We will have positions early, for all the seeds.
             auto tree_positions = funnel.get_positions(funnel.latest());
-            #pragma omp critical (cerr)
-            {
-                std::cerr << log_name() << "Positions for tree " << i << " score " << score << " coverage " << coverage << ":" << std::endl;
-                for (auto& handle_and_range : tree_positions) {
-                    // Log each range on a path associated with the tree.
-                    std::cerr << log_name() << "\t"
-                        << this->path_graph->get_path_name(handle_and_range.first)
-                        << ":" << handle_and_range.second.first
-                        << "-" << handle_and_range.second.second << std::endl;
-                }
-                if (track_correctness && funnel.is_correct(funnel.latest())) {
-                    cerr << log_name() << "\t\tCORRECT!" << endl;
+            if (!tree_positions.empty()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Positions for tree " << i << " score " << score << " coverage " << coverage << ":" << std::endl;
+                    for (auto& handle_and_range : tree_positions) {
+                        // Log each range on a path associated with the tree.
+                        std::cerr << log_name() << "\t"
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
+                        cerr << log_name() << "\t\tCORRECT!" << endl;
+                    }
                 }
             }
         }
