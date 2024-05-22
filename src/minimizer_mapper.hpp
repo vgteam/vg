@@ -389,10 +389,17 @@ public:
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
 
+    /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
+    static constexpr double default_min_unique_node_fraction = 0.5;
+    double min_unique_node_fraction = 0.5;
+
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;
     bool use_explored_cap = default_use_explored_cap;
+    /// What number of bp should we re-scale scores to for MAPQ, for calibration? 0 for off.
+    static constexpr size_t default_mapq_score_window = 0;
+    size_t mapq_score_window = default_mapq_score_window;
     /// How should we scale scores before mapq, for calibration
     static constexpr double default_mapq_score_scale = 1.0;
     double mapq_score_scale = default_mapq_score_scale;

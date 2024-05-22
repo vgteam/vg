@@ -1886,9 +1886,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // We want to be able to feed in an unaligned alignment on the normal
     // codepath, but we don't want it to really participate in the funnel
-    // filters anymore. So we set this flag if the funnle is really empty of
+    // filters anymore. So we set this flag if the funnel is really empty of
     // items so we stop talking about filters.
-    bool funnle_depleted = false;
+    bool funnel_depleted = false;
 
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
@@ -1896,7 +1896,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         alignments_to_source.push_back(numeric_limits<size_t>::max());
         multiplicity_by_alignment.emplace_back(0);
         // Stop telling the funnel about filters and items.
-        funnle_depleted = true;
+        funnel_depleted = true;
     } else {
         //chain_count_by_alignment is currently the number of better or equal chains that were used
         // We really want the number of chains not including the ones that represent the same mapping
@@ -1930,6 +1930,43 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Fill this in with the alignments we will output as mappings
     vector<Alignment> mappings;
     mappings.reserve(min(alignments.size(), max_multimaps));
+
+    // Look for duplicate alignments by using this collection of node IDs and orientations
+    std::unordered_set<std::pair<nid_t, bool>> used_nodes;
+    
+    // Compute the fraction of an alignment that is unique
+    auto get_fraction_unique = [&](size_t alignment_num) {
+        // Work out how much of this alignment is from nodes not claimed by previous alignments
+        size_t from_length_from_used = 0;
+        size_t from_length_total = 0;
+        for (size_t i = 0; i < alignments[alignment_num].path().mapping_size(); i++) {
+            // For every mapping
+            auto& mapping = alignments[alignment_num].path().mapping(i);
+            auto& position = mapping.position();
+            size_t from_length = mapping_from_length(mapping);
+            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
+            if (used_nodes.count(key)) {
+                // Count the from_length on already-used nodes
+                from_length_from_used += from_length;
+            }
+            // And the overall from length
+            from_length_total += from_length;
+        }
+        double unique_node_fraction = from_length_total > 0 ? ((double)(from_length_total - from_length_from_used) / from_length_total) : 1.0;
+        return unique_node_fraction;
+    };
+
+    // Mark the nodes visited by an alignment as used for uniqueness.
+    auto mark_nodes_used = [&](size_t alignment_num) {
+        for (size_t i = 0; i < alignments[alignment_num].path().mapping_size(); i++) {
+            // For every mapping
+            auto& mapping = alignments[alignment_num].path().mapping(i);
+            auto& position = mapping.position();
+            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
+            // Make sure we know we used the oriented node.
+            used_nodes.insert(key);
+        }
+    };
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -1942,15 +1979,53 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // This alignment makes it
         // Called in score order
         
+        // Do the unique node fraction filter
+        double unique_node_fraction = get_fraction_unique(alignment_num);
+        if (unique_node_fraction < min_unique_node_fraction) {
+            // If not enough of the alignment is from unique nodes, drop it.
+            if (track_provenance && !funnel_depleted) {
+                funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+            return false;
+        } else {
+            if (track_provenance && !funnel_depleted) {
+                funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+        }
+
+        if (track_provenance && !funnel_depleted) {
+            // Tell the funnel
+            funnel.pass("max-multimaps", alignment_num);
+        }
+
+        mark_nodes_used(alignment_num);
+
         // Remember the score at its rank
         scores.emplace_back(alignments[alignment_num].score());
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
-        if (track_provenance && !funnle_depleted) {
+        if (track_provenance && !funnel_depleted) {
             // Tell the funnel
-            funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
             funnel.score(funnel.latest(), scores.back());
         }
@@ -1958,11 +2033,45 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         return true;
     }, [&](size_t alignment_num) {
         // We already have enough alignments, although this one has a good score
-        
-        // Remember the score at its rank anyway
+       
+        // Go back and do the unique node fraction filter first.
+        // TODO: Deduplicate logging code
+        double unique_node_fraction = get_fraction_unique(alignment_num);
+        if (unique_node_fraction < min_unique_node_fraction) {
+            // If not enough of the alignment is from unique nodes, drop it.
+            if (track_provenance && !funnel_depleted) {
+                funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+            // If we fail the unique node fraction filter, we won't count as a secondary for MAPQ
+            return;
+        } else {
+            if (track_provenance && !funnel_depleted) {
+                funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && !funnel_depleted && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+        }
+
+        // Remember the score at its rank even if it won't be output as a multimapping
         scores.emplace_back(alignments[alignment_num].score());
         
-        if (track_provenance && !funnle_depleted) {
+        if (track_provenance && !funnel_depleted) {
             funnel.fail("max-multimaps", alignment_num);
         }
     }, [&](size_t alignment_num) {
@@ -1979,15 +2088,42 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Picked best alignment " << log_alignment(mappings[0]) << endl;
-            cerr << log_name() << "For scores";
-            for (auto& score : scores) cerr << " " << score << ":" << endl;
+            cerr << log_name() << "For scores:";
+            for (size_t i = 0; i < scores.size(); i++) {
+                cerr << " " << scores[i];
+                if (i + 1 < scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
         }
     }
 
     vector<double> scaled_scores;
     scaled_scores.reserve(scores.size());
     for (auto& score : scores) {
-        scaled_scores.push_back(score * mapq_score_scale);
+        double scaled_score = score;
+        if (mapq_score_window > 0) {
+            // Rescale to the size fo the score window
+            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
+        }
+        // Rescale by a constant factor
+        scaled_score *= mapq_score_scale;
+        scaled_scores.push_back(scaled_score);
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Scaled scores:";
+            for (size_t i = 0; i < scaled_scores.size(); i++) {
+                cerr << " " << scaled_scores[i];
+                if (i + 1 < scaled_scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
+        }
     }
 
     crash_unless(!mappings.empty());
@@ -2420,7 +2556,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 
     }
-        
+
     size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
@@ -2473,12 +2609,12 @@ Alignment MinimizerMapper::find_chain_alignment(
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
         }
-    }
 #endif
 
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
@@ -2677,33 +2813,37 @@ Alignment MinimizerMapper::find_chain_alignment(
         ++next_it;
         here = next;
     }
+
+    if (next_it == chain.end()) {
+        // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
     
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << endl;
+            }
         }
-    }
 #endif
     
-    WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
 
 #ifdef debug_chain_alignment
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "\tScore " << here_alignment.score << endl;
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tScore " << here_alignment.score << endl;
+            }
         }
-    }
 #endif
+
+        here_alignment.check_lengths(gbwt_graph);
     
-    here_alignment.check_lengths(gbwt_graph);
-    
-    // Do the final GaplessExtension itself (may be the first)
-    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
-    composed_score += here_alignment.score;
-   
+        // Do the final GaplessExtension itself (may be the first)
+        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += here_alignment.score;
+    }
+
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - (*here).read_end();
     if (right_tail_length > 0) {
