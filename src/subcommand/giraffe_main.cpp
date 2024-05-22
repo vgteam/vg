@@ -927,9 +927,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
-        .add_entry<int>("wfa-distance", 33)
+        .add_entry<size_t>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
-        .add_entry<int>("wfa-max-distance", 240)
+        .add_entry<size_t>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
@@ -939,43 +939,54 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("explored-cap", true)
         // Cap minimizers at a number we won't reach.
         .add_entry<size_t>("max-min", 500)
+        .add_entry<size_t>("num-bp-per-min", 500)
         // Don't downsample
         .add_entry<size_t>("downsample-window-count", 0)
         .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
         // Use the hit-cap||score-fraction filter
-        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<size_t>("hit-cap", 15)
         .add_entry<double>("score-fraction", 0.9)
-        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
+        .add_entry<size_t>("hard-hit-cap", 1000) // Default: 500
         // Grab the best trees
-        .add_entry<size_t>("min-to-fragment", 2)
-        .add_entry<size_t>("max-to-fragment", 800)
-        .add_entry<double>("zipcode-tree-score-threshold", 50)
-        .add_entry<double>("pad-zipcode-tree-score-threshold", 20)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        .add_entry<size_t>("min-to-fragment", 4)
+        .add_entry<size_t>("max-to-fragment", 1000)
+        .add_entry<double>("zipcode-tree-scale", 0.75)
+        .add_entry<double>("zipcode-tree-score-threshold", 20)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
         // And extend them
         .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
-        .add_entry<size_t>("max-extension-mismatches", 10)
+        .add_entry<size_t>("max-extension-mismatches", 15)
         // And fragment them
-        .add_entry<double>("fragment-gap-scale", 4.0)
-        .add_entry<double>("gap-scale", 4.0)
+        .add_entry<double>("fragment-gap-scale", 5.0)
+        .add_entry<double>("gap-scale", 5.0)
+        .add_entry<size_t>("fragment-max-lookback-bases", 275)
         .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<size_t>("fragment-max-indel-bases", 2500)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
-        .add_entry<double>("fragment-score-fraction", 0.7)
-        .add_entry<double>("fragment-min-score", 0)
+        .add_entry<double>("fragment-score-fraction", 0.5)
+        .add_entry<double>("fragment-min-score", 20)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
-        .add_entry<int>("min-chaining-problems", 5)
+        .add_entry<int>("min-chaining-problems", 10)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-lookback-bases", 3000)
         .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<size_t>("max-indel-bases", 2000)
         .add_entry<double>("max-indel-bases-per-base", 0)
+        .add_entry<double>("chain-score-threshold", 100.0)
+        .add_entry<double>("min-chain-score-per-base", 0.01)
+        .add_entry<int>("max-min-chain-score", 200.0)
+        .add_entry<int>("item-bonus", 0)
+        .add_entry<int>("item-scale", 1.0)
         .add_entry<int>("min-chains", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
-        .add_entry<size_t>("max-alignments", 5)
+        .add_entry<size_t>("max-alignments", 4)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
-        .add_entry<size_t>("max-chain-connection", 0)
-        .add_entry<size_t>("max-tail-gap", 100)
-        .add_entry<double>("mapq-score-scale", 1.0);
+        .add_entry<size_t>("max-chain-connection", 85)
+        .add_entry<size_t>("max-tail-gap", 115)
+        .add_entry<double>("mapq-score-scale", 1.5);
     presets["srold"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
