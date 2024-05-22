@@ -1,6 +1,7 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
+#include "traversal_clusters.hpp"
 
 //#define debug
 
@@ -248,7 +249,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                             for (auto& c : ref_contexts) {
                                 auto& ref_context = c.second;
                                 auto& ref_pos = c.first;
-                                double j = context_jaccard(ref_context, path_context);
+                                double j = jaccard_coefficient(ref_context, path_context);
                                 if (j > best_jaccard) {
                                     best_jaccard = j;
                                     best_pos = ref_pos;
@@ -487,38 +488,6 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     return make_pair(most_frequent_travs, conflict);
 }
 
-
-// todo refactor if we need to reuse elsewhere in vg
-// implemented inline for development
-// assumes sorted input
-double Deconstructor::context_jaccard(
-    const vector<nid_t>& target,
-    const vector<nid_t>& query) const {
-    size_t node_isec = 0;
-    std::set_intersection(target.begin(), target.end(),
-                          query.begin(), query.end(),
-                          count_back_inserter<nid_t>(node_isec));
-    size_t node_union = 0;
-    std::set_union(target.begin(), target.end(),
-                   query.begin(), query.end(),
-                   count_back_inserter<nid_t>(node_union));
-    return (double)node_isec / (double)node_union;
-}
-
-double Deconstructor::context_jaccard(
-    const dac_vector<>& target,
-    const vector<nid_t>& query) const {
-    size_t node_isec = 0;
-    std::set_intersection(target.begin(), target.end(),
-                          query.begin(), query.end(),
-                          count_back_inserter<nid_t>(node_isec));
-    size_t node_union = 0;
-    std::set_union(target.begin(), target.end(),
-                   query.begin(), query.end(),
-                   count_back_inserter<nid_t>(node_union));
-    return (double)node_isec / (double)node_union;
-}
-
 vector<nid_t> Deconstructor::get_context(
     step_handle_t start_step,
     step_handle_t end_step) const {
@@ -738,7 +707,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             vector<pair<double, int>> ref_mappings;
             for (uint64_t j = 0; j < ref_travs.size(); ++j) {
                 ref_mappings.push_back(make_pair(
-                                           context_jaccard(
+                                           jaccard_coefficient(
                                                ref_contexts[j],
                                                context),
                                            ref_travs[j]));

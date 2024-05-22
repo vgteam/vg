@@ -96,15 +96,6 @@ private:
     vector<nid_t> get_context(
         step_handle_t start_step,
         step_handle_t end_step) const;
-
-    // compares node contexts
-    double context_jaccard(const vector<nid_t>& target,
-                           const vector<nid_t>& query) const;
-
-    // specialization for enc_vectors
-    double context_jaccard(
-        const dac_vector<>& target,
-        const vector<nid_t>& query) const;
     
     // the graph
     const PathPositionHandleGraph* graph;
@@ -156,21 +147,6 @@ private:
     bool keep_conflicted_genotypes = false;
 };
 
-// helpel for measuring set intersectiond and union size
-template <typename T>
-class count_back_inserter {
-    size_t &count;
-public:
-    typedef void value_type;
-    typedef void difference_type;
-    typedef void pointer;
-    typedef void reference;
-    typedef std::output_iterator_tag iterator_category;
-    count_back_inserter(size_t &count) : count(count) {};
-    void operator=(const T &){ ++count; }
-    count_back_inserter &operator *(){ return *this; }
-    count_back_inserter &operator++(){ return *this; }
-};
 
 }
 #endif
