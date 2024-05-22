@@ -387,8 +387,8 @@ public:
     int wfa_max_distance = default_wfa_max_distance;
 
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
-    static constexpr double default_min_unique_node_fraction = 0.5;
-    double min_unique_node_fraction = 0.5;
+    static constexpr double default_min_unique_node_fraction = 0.0;
+    double min_unique_node_fraction = default_min_unique_node_fraction;
 
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
