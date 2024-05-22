@@ -396,14 +396,6 @@ vg index hla.vg -x hla.xg
 vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
 ```
 
-Variants can also be inferred strictly from topology by not using `-e`, though unlike the above example, cycles are not supported.  "Deconstruct" the VCF variants that were used to construct the graph. The output will be similar but identical to `small/x.vcf.gz` as `vg construct` can add edges between adjacent alts and/or do some normalization:
-
-<!-- !test check Deconstruct from construct -->
-```sh
-# using the same graph from the `map` example
-vg deconstruct x.xg -p x > x.vcf
-```
-
 Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g', respectively.
 
 As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.

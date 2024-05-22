@@ -42,12 +42,10 @@ void help_deconstruct(char** argv){
          << "    -P, --path-prefix NAME   All paths [excluding GBWT threads / non-reference GBZ paths] beginning with NAME used as reference (multiple allowed)." << endl
          << "                             Other non-ref paths not considered as samples. " << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
-         << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE (not needed for GBZ graph input)." << endl
+         << "    -g, --gbwt FILE          consider alt traversals that correspond to GBWT haplotypes in FILE (not needed for GBZ graph input)." << endl
          << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names and AT fields in output" << endl
          << "    -O, --gbz-translation    Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
-         << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
-         << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
          << "    -c, --context-jaccard N  Set context mapping size used to disambiguate alleles at sites with multiple reference traversals (default: 10000)." << endl
          << "    -u, --untangle-travs     Use context mapping to determine the reference-relative positions of each step in allele traversals (AP INFO field)." << endl
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
@@ -73,8 +71,6 @@ int main_deconstruct(int argc, char** argv){
     bool gbz_translation = false;
     bool path_restricted_traversals = false;
     bool show_progress = false;
-    int ploidy = 2;
-    bool set_ploidy = false;
     bool all_snarls = false;
     bool keep_conflicted = false;
     bool strict_conflicts = false;
@@ -96,7 +92,6 @@ int main_deconstruct(int argc, char** argv){
                 {"translation", required_argument, 0, 'T'},
                 {"gbz-translation", no_argument, 0, 'O'},                
                 {"path-traversals", no_argument, 0, 'e'},
-                {"ploidy", required_argument, 0, 'd'},
                 {"context-jaccard", required_argument, 0, 'c'},
                 {"untangle-travs", no_argument, 0, 'u'},
                 {"all-snarls", no_argument, 0, 'a'},
@@ -140,12 +135,12 @@ int main_deconstruct(int argc, char** argv){
             gbz_translation = true;
             break;                        
         case 'e':
-            path_restricted_traversals = true;
+            cerr << "Warning [vg deconstruct]: -e is deprecated as it's now on default" << endl;
             break;
         case 'd':
-            ploidy = parse<int>(optarg);
-            set_ploidy = true;
+            cerr << "Warning [vg deconstruct]: -d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
+            break;            
         case 'c':
             context_jaccard_window = parse<int>(optarg);
             break;
@@ -204,16 +199,6 @@ int main_deconstruct(int argc, char** argv){
 
     if (!gbz_graph && gbz_translation) {
         cerr << "Error [vg deconstruct]: -O can only be used when input graph is in GBZ format" << endl;
-    }
-
-    if (set_ploidy && !path_restricted_traversals && gbwt_file_name.empty() && !gbz_graph) {
-        cerr << "Error [vg deconstruct]: -d can only be used with -e or -g or GBZ input" << endl;
-        return 1;
-    }
-
-    if ((!gbwt_file_name.empty() || gbz_graph) && path_restricted_traversals && !gbz_graph) {
-        cerr << "Error [vg deconstruct]: -e cannot be used with -g or GBZ input" << endl;
-        return 1;
     }
 
     if (!gbwt_file_name.empty() || gbz_graph) {
@@ -352,7 +337,7 @@ int main_deconstruct(int argc, char** argv){
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls);
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
+    dd.deconstruct(refpaths, graph, snarl_manager.get(),
                    all_snarls,
                    context_jaccard_window,
                    untangle_traversals,
