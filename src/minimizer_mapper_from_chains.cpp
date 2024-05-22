@@ -232,10 +232,10 @@ void MinimizerMapper::dump_debug_dotplot(const std::string& name, const VectorVi
                             // Contig alone
                             exp.field(path_name);
                         }
-                        // Offset on contig
+                        // Offset on contig of the pin point
                         exp.field(position.first);
-                        // Offset in read
-                        exp.field(minimizers[seed.source].forward_offset());
+                        // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                        exp.field(minimizers[seed.source].pin_offset());
                     }
                 }
             }
@@ -850,7 +850,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     seed_positions.reserve(extension_seeds.size());
                     for (auto& seed_index : extension_seeds) {
                         if (!used_seeds.count(seed_index)) {
-                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].pin_offset());
                         }
                     }
 
@@ -888,11 +888,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
                         // Find the relevant seed range
                         std::vector<size_t> anchor_seeds;
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.first) {
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.first) {
                             // Move seed iterator to inside or past the interval (should really always be already inside).
                             ++seed_it;
                         }
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.second) {
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.second) {
                             // Take all the seeds into the vector of anchor seeds.
                             auto found = used_seeds.find(*seed_it);
                             if (found == used_seeds.end()) {
@@ -1709,7 +1709,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             for (auto& seed_num : chains[processed_num]) {
-                size_t read_pos = minimizers[seeds.at(seed_num).source].forward_offset();
+                // Look at the individual pin points and their associated read-node offset
+                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
                 pos_t graph_pos = seeds.at(seed_num).pos;
 
                 nid_t node_id = id(graph_pos);
@@ -3524,7 +3525,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         // And derive the graph start
         graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
         // And the read start
-        read_start = source.value.offset + 1 - length;
+        read_start = source.pin_offset() + 1 - length;
         // The seed is actually the last 1bp interval
         hint_start = length - 1;
     } else {
@@ -3540,14 +3541,14 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         // How much do we cut off the end?
         margin_right = (size_t)source.length - length;
         // And we store the read start position already in the item
-        read_start = source.value.offset;
+        read_start = source.pin_offset();
         // The seed is actually at the start
         hint_start = 0;
     }
 
 #ifdef debug
     std::cerr << "Minimizer at read " << source.forward_offset() << " length " << source.length
-              << " orientation " << source.value.is_reverse << " pinned at " << source.value.offset
+              << " orientation " << source.value.is_reverse << " pinned at " << source.pin_offset()
               << " is anchor of length " << length << " matching graph " << graph_start << " and read " << read_start
               << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
 #endif

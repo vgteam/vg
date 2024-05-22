@@ -539,6 +539,13 @@ public:
                 return this->value.offset;
             }
         }
+
+        /// Get the position on the read's sequence that corresponds to the
+        /// located graph positions. For reverse-strand minimizers this will be
+        /// at the end of the minimizer's interval in the read.
+        inline size_t pin_offset() const {
+            return this->value.offset;
+        }
         
         /// How many bases are in a window for which a minimizer is chosen?
         inline size_t window_size() const {
