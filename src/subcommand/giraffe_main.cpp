@@ -941,9 +941,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
-        .add_entry<size_t>("wfa-distance", 33)
+        .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
-        .add_entry<size_t>("wfa-max-distance", 240)
+        .add_entry<int>("wfa-max-distance", 240)
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
