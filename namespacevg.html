@@ -826,6 +826,10 @@ Typedefs</h2></td></tr>
 <tr class="separator:a8ae488d495e344881cbcf599ebdd2355"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5c7b3ebb9ad8d6c01a0c54668b102c26"><td class="memItemLeft" align="right" valign="top">typedef vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26">thread_ids_t</a></td></tr>
 <tr class="separator:a5c7b3ebb9ad8d6c01a0c54668b102c26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ea210eff71c5a1039378130f98de166"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> = vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;</td></tr>
+<tr class="separator:a4ea210eff71c5a1039378130f98de166"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8f438fe1484a4bcc51d06ad13058c9c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8f438fe1484a4bcc51d06ad13058c9c">PathInterval</a> = pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;</td></tr>
+<tr class="separator:ae8f438fe1484a4bcc51d06ad13058c9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afaa15fd8bdfd688d48561e1b12aee821"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">handlegraph::nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a></td></tr>
 <tr class="separator:afaa15fd8bdfd688d48561e1b12aee821"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8232142f432c4dd8e7cfe96e1f50e039"><td class="memItemLeft" align="right" valign="top">typedef std::tuple&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool, <a class="el" href="namespacevg.html#afe223f2c7890c76de5e00b43ceb37add">offset_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a></td></tr>
@@ -2407,6 +2411,12 @@ Functions</h2></td></tr>
 <tr class="separator:acdaa29c218d5d55e76fe4ab168f7a14b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af076103e443b2ae1a26011a772900230"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af076103e443b2ae1a26011a772900230">traversal_to_string</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;traversal, bool max_steps)</td></tr>
+<tr class="separator:af076103e443b2ae1a26011a772900230"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeade23d997b1899023cfe7f560cc6bc1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeade23d997b1899023cfe7f560cc6bc1">graph_interval_to_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;start_handle, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;end_handle)</td></tr>
+<tr class="separator:aeade23d997b1899023cfe7f560cc6bc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b97a34752ff7bf3c8c2c524c84796df"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3b97a34752ff7bf3c8c2c524c84796df">find_path_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
+<tr class="separator:a3b97a34752ff7bf3c8c2c524c84796df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1d85d380ba4b936ac8a715a72062866c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d85d380ba4b936ac8a715a72062866c">make_pos_t</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, <a class="el" href="namespacevg.html#afe223f2c7890c76de5e00b43ceb37add">offset_t</a> off)</td></tr>
 <tr class="memdesc:a1d85d380ba4b936ac8a715a72062866c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a pos_t from a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> ID, an orientation flag, and an offset along that strand of the node.  <a href="namespacevg.html#a1d85d380ba4b936ac8a715a72062866c">More...</a><br /></td></tr>
 <tr class="separator:a1d85d380ba4b936ac8a715a72062866c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3048,6 +3058,20 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a id="ae8f438fe1484a4bcc51d06ad13058c9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8f438fe1484a4bcc51d06ad13058c9c">&#9670;&nbsp;</a></span>PathInterval</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#ae8f438fe1484a4bcc51d06ad13058c9c">vg::PathInterval</a> = typedef pair&lt;<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ab5f7f6692a7600f1fa62428255c5bb61"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab5f7f6692a7600f1fa62428255c5bb61">&#9670;&nbsp;</a></span>PathMetadata</h2>
 
@@ -3227,6 +3251,20 @@ Variables</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">using <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">vg::thread_t</a> = typedef vector&lt;gbwt::node_type&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4ea210eff71c5a1039378130f98de166"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4ea210eff71c5a1039378130f98de166">&#9670;&nbsp;</a></span>Traversal</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">vg::Traversal</a> = typedef vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -9545,6 +9583,24 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="a3b97a34752ff7bf3c8c2c524c84796df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b97a34752ff7bf3c8c2c524c84796df">&#9670;&nbsp;</a></span>find_path_traversals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt;vector&lt;<a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&gt;, vector&lt;pair&lt;<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&gt; &gt; &gt; vg::find_path_traversals </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>site</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ac2fee40d55dfda86b1e0cc2f2500b280"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac2fee40d55dfda86b1e0cc2f2500b280">&#9670;&nbsp;</a></span>finish_gbwt_constuction()</h2>
 
@@ -11791,6 +11847,40 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns a local maximum of a function within an interval. </p>
+
+</div>
+</div>
+<a id="aeade23d997b1899023cfe7f560cc6bc1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeade23d997b1899023cfe7f560cc6bc1">&#9670;&nbsp;</a></span>graph_interval_to_string()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::graph_interval_to_string </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>start_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>end_handle</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -25564,8 +25654,42 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
 
 </div>
 </div>
+<a id="af076103e443b2ae1a26011a772900230"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af076103e443b2ae1a26011a772900230">&#9670;&nbsp;</a></span>traversal_to_string() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::traversal_to_string </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>traversal</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>max_steps</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a94385b32246fc81a0a44ea1b47d994ee"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a94385b32246fc81a0a44ea1b47d994ee">&#9670;&nbsp;</a></span>traversal_to_string()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a94385b32246fc81a0a44ea1b47d994ee">&#9670;&nbsp;</a></span>traversal_to_string() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
