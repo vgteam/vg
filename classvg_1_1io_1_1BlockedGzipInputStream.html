@@ -114,6 +114,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa221be19182d88b7caa36ead3e63c829"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a1eb2633e42ca1b50ab167497e581e6bd">IsBGZF</a> () const</td></tr>
 <tr class="separator:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05867f12652ebbcc5318f3d517b3dfd1"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a05867f12652ebbcc5318f3d517b3dfd1">EnableMultiThreading</a> (size_t thread_count)</td></tr>
+<tr class="separator:a05867f12652ebbcc5318f3d517b3dfd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -284,6 +286,33 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the number of bytes read since the stream was constructed. </p>
+
+</div>
+</div>
+<a id="a05867f12652ebbcc5318f3d517b3dfd1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a05867f12652ebbcc5318f3d517b3dfd1">&#9670;&nbsp;</a></span>EnableMultiThreading()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::BlockedGzipInputStream::EnableMultiThreading </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>thread_count</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Turn on multithreaded decompression. Return true if successful and false if the BGZF could not set up its thread pool. </p>
 
 </div>
 </div>

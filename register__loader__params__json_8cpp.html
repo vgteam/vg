@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/io/register_libvg_io.cpp File Reference</title>
+<title>vg: src/io/register_loader_params_json.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,26 +70,12 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">register_libvg_io.cpp File Reference</div>  </div>
+<div class="title">register_loader_params_json.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="register__loader__saver__distance__index_8hpp.html">register_loader_saver_distance_index.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gbwt_8hpp.html">register_loader_saver_gbwt.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__r__index_8hpp.html">register_loader_saver_r_index.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gbwtgraph_8hpp.html">register_loader_saver_gbwtgraph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gbz_8hpp.html">register_loader_saver_gbz.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gbzgraph_8hpp.html">register_loader_saver_gbzgraph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gcsa_8hpp.html">register_loader_saver_gcsa.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__lcp_8hpp.html">register_loader_saver_lcp.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__minimizer_8hpp.html">register_loader_saver_minimizer.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__snarl__manager_8hpp.html">register_loader_saver_snarl_manager.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__vg_8hpp.html">register_loader_saver_vg.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__xg_8hpp.html">register_loader_saver_xg.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__packed__graph_8hpp.html">register_loader_saver_packed_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__hash__graph_8hpp.html">register_loader_saver_hash_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__loader__saver__gfa_8hpp.html">register_loader_saver_gfa.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &lt;<a class="el" href="registry_8hpp.html">vg/io/registry.hpp</a>&gt;</code><br />
 <code>#include &quot;<a class="el" href="register__loader__params__json_8hpp.html">register_loader_params_json.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="register__libvg__io_8hpp.html">register_libvg_io.hpp</a>&quot;</code><br />
+<code>#include &lt;iterator&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -100,10 +86,12 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ad93f27be4f07ab9c6a91a1501b992f70"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ad93f27be4f07ab9c6a91a1501b992f70">vg::io::register_libvg_io</a> ()</td></tr>
-<tr class="separator:ad93f27be4f07ab9c6a91a1501b992f70"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a113c8011c25b00d36f77f49062726bbb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a113c8011c25b00d36f77f49062726bbb">vg::io::register_loader_params_json</a> ()</td></tr>
+<tr class="separator:a113c8011c25b00d36f77f49062726bbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Defines IO for a VG graph from stream files of Graph objects. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
