@@ -45,6 +45,7 @@ public:
                      bool keep_conflicted,
                      bool strict_conflicts,
                      bool long_ref_contig,
+                     double cluster_threshold = 1.0,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:
@@ -78,7 +79,7 @@ private:
                             const vector<Traversal>& travs,
                             const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                             int ref_path_idx,
-                            const vector<bool>& use_trav,
+                            const vector<vector<int>>& trav_clusters,
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
@@ -145,6 +146,11 @@ private:
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
+
+    // used to merge together similar traversals (to keep allele counts down)
+    // currently implemented as handle jaccard coefficient.  So 1 means only
+    // merge if identical (which is what deconstruct has always done)
+    double cluster_threshold = 1.0;
 };
 
 

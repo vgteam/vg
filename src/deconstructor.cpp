@@ -26,7 +26,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                                        const vector<Traversal>& travs,
                                        const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                                        int ref_path_idx,
-                                       const vector<bool>& use_trav,
+                                       const vector<vector<int>>& trav_clusters,
                                        char prev_char, bool use_start) const {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
@@ -57,10 +57,11 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     bool substitution = true;
         
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
-    for (int i = 0; i < travs.size(); ++i) {
-        if (i != ref_path_idx) {
-            if (use_trav[i]) {
-                string allele = trav_to_string(travs[i]);
+    // note that we have one (unique) allele per cluster, so we take advantage of that here
+    for (const vector<int>& cluster : trav_clusters) {
+        string allele = trav_to_string(travs[cluster.front()]);
+        for (const int& i : cluster) {
+            if (i != ref_path_idx) {
                 auto ai_it = allele_idx.find(allele);
                 if (ai_it == allele_idx.end()) {
                     // make a new allele for this string
@@ -797,9 +798,15 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             }
         }
 
+        // Sort the traversals for clustering
+        vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, use_trav);
+
+        // jaccard clustering (using handles for now) on traversals
+        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs, cluster_threshold);
+
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
                                                  ref_trav_idx,
-                                                 use_trav,
+                                                 trav_clusters,
                                                  prev_char, use_start);
 
         // Fill in the genotypes
@@ -1074,6 +1081,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool keep_conflicted,
                                 bool strict_conflicts,
                                 bool long_ref_contig,
+                                double cluster_threshold,
                                 gbwt::GBWT* gbwt) {
 
     this->graph = graph;

@@ -51,6 +51,7 @@ void help_deconstruct(char** argv){
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -C, --contig-only-ref    Only use the CONTIG name (and not SAMPLE#CONTIG#HAPLOTYPE etc) for the reference if possible (ie there is only one reference sample)." << endl
+         << "    -L, --cluster F          Cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -77,6 +78,7 @@ int main_deconstruct(int argc, char** argv){
     int context_jaccard_window = 10000;
     bool untangle_traversals = false;
     bool contig_only_ref = false;
+    double cluster_threshold = 1.0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -97,14 +99,15 @@ int main_deconstruct(int argc, char** argv){
                 {"all-snarls", no_argument, 0, 'a'},
                 {"keep-conflicted", no_argument, 0, 'K'},
                 {"strict-conflicts", no_argument, 0, 'S'},
-                {"contig-only-ref", no_argument, 0, 'C'},                
+                {"contig-only-ref", no_argument, 0, 'C'},
+                {"cluster", required_argument, 0, 'L'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uat:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:t:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -158,7 +161,10 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'C':
             contig_only_ref = true;
-            break;            
+            break;
+        case 'L':
+            cluster_threshold = min(0.0, max(1.0, parse<double>(optarg)));
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -344,6 +350,7 @@ int main_deconstruct(int argc, char** argv){
                    keep_conflicted,
                    strict_conflicts,
                    !contig_only_ref,
+                   cluster_threshold,
                    gbwt_index);
     return 0;
 }

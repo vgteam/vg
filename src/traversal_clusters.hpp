@@ -42,14 +42,36 @@ inline double jaccard_coefficient(const T& target, const U& query) {
 
 }
 
+// the information needed from the parent traversal in order to
+// genotype a child traversal
+struct ParentGenotypeInfo {
+    Traversal ref_traversal;
+    pair<step_handle_t, step_handle_t> ref_steps;
+    unordered_map<string, int64_t> sample_to_ploidy; // to check/enforce consistency
+};
+
+
+/// sort the traversals, putting the reference first then using names
+/// traversals masked out by use_traversal will be filrtered out entirely
+/// (so the output vector may be smaller than the input...)
+vector<int> get_traversal_order(const PathHandleGraph* graph,
+                                const vector<Traversal>& traversals,
+                                const vector<string>& trav_path_names,
+                                const vector<int>& ref_travs,
+                                const vector<bool>& use_traversal);
+
+
 /// cluster the traversals. The algorithm is:
 /// - visit traversals in provided order
 ///   - if the traversal is <= min_jaccard away from the reference traversal of cluster, add to cluster
 ///   - else start a new cluster, with the given traversal as a reference
+/// note that traversal_order can specify a subset of traversals
 vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
                                        const vector<Traversal>& traversals,
-                                       function<int64_t(int64_t)> traversal_order,
+                                       const vector<int>& traversal_order,                                       
                                        double min_jaccard);
 
-
+//int64_t find_parent_traversal(const PathHandleGraph* graph,
+//                              const vector<Traversal>& traversals,
+                              
 }
