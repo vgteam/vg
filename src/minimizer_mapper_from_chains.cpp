@@ -1348,7 +1348,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_scale,
                 this->gap_scale,
                 indel_limit,
-                false
+                show_work
             );
             
             for (size_t result = 0; result < chain_results.size(); result++) {
