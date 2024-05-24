@@ -83,7 +83,8 @@ private:
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele) const;
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
+                       const vector<pair<double, int64_t>>& trav_to_cluster_info) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen

@@ -66,10 +66,13 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
 ///   - if the traversal is <= min_jaccard away from the reference traversal of cluster, add to cluster
 ///   - else start a new cluster, with the given traversal as a reference
 /// note that traversal_order can specify a subset of traversals
+/// out_info are Simlarity/length-delta pairs comparing the traversal to its cluster reference
+/// (if the traversal wasn't in traversal_order, it'll get -1)
 vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
                                        const vector<Traversal>& traversals,
                                        const vector<int>& traversal_order,                                       
-                                       double min_jaccard);
+                                       double min_jaccard,
+                                       vector<pair<double, int64_t>>& out_info);
 
 //int64_t find_parent_traversal(const PathHandleGraph* graph,
 //                              const vector<Traversal>& traversals,

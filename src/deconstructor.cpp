@@ -288,12 +288,17 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
 }
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
-                                  const vector<int>& trav_to_allele) const {
+                                  const vector<int>& trav_to_allele,
+                                  const vector<pair<double, int64_t>>& trav_to_cluster_info) const {  
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
     if (show_path_info && path_to_sample_phase) {
         v.format.push_back("PI");
+    }
+    if (this->cluster_threshold < 1.0) {
+        v.format.push_back("TS");
+        v.format.push_back("TL");
     }
     
     // get a list of traversals for every vcf sample
@@ -344,6 +349,13 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 }
                 genotype += (chosen_travs[i] != -1 && (!conflict || keep_conflicted_genotypes))
                     ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
+                if (this->cluster_threshold < 1.0) {
+                    ostringstream ss;
+                    ss.precision(3);
+                    ss << trav_to_cluster_info[chosen_travs[i]].first;
+                    v.samples[sample_name]["TS"].push_back(ss.str());
+                    v.samples[sample_name]["TL"].push_back(std::to_string(trav_to_cluster_info[chosen_travs[i]].second));
+                }
             }
             v.samples[sample_name]["GT"] = {genotype};
             if (show_path_info && path_to_sample_phase) {
@@ -609,15 +621,17 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     
     // pick out the traversal corresponding to an embedded reference path, breaking ties consistently
     string ref_trav_name;
-    for (int i = 0; i < trav_steps.size(); ++i) {
+    for (int i = 0; i < travs.size(); ++i) {
         const string& path_trav_name = trav_path_names[i];
 #ifdef debug
 #pragma omp critical (cerr)
         {
-            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << travs[i].size()
-                 << ", start=" << graph->get_position_of_step(trav_steps[i].first)
-                 << ", end=" << graph->get_position_of_step(trav_steps[i].second) << endl
-                 << " trav=" << traversal_to_string(travs[i]) << endl;
+            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << travs[i].size();
+            if (i < trav_steps.size()) {
+                cerr << ", start=" << graph->get_position_of_step(trav_steps[i].first)
+                     << ", end=" << graph->get_position_of_step(trav_steps[i].second) << endl;
+            }
+            cerr << " trav=" << traversal_to_string(graph, travs[i]) << endl;
         }
 #endif
         if (ref_paths.count(path_trav_name) &&
@@ -802,7 +816,24 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, use_trav);
 
         // jaccard clustering (using handles for now) on traversals
-        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs, cluster_threshold);
+        vector<pair<double, int64_t>> trav_cluster_info;
+        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs, cluster_threshold,
+                                                               trav_cluster_info);
+
+#ifdef debug
+        cerr << "cluster priority";
+        for (const auto& t: sorted_travs) {
+            cerr << " " << t;
+        }
+        cerr << endl;
+        for (const auto& tc : trav_clusters) {
+            cerr << "traversal cluster:";
+            for (const auto& t: tc) {
+                cerr << t << "(" << trav_cluster_info[t].first << "," << trav_cluster_info[t].second << ") ";
+            }
+            cerr << endl;
+        }
+#endif
 
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
                                                  ref_trav_idx,
@@ -810,7 +841,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                  prev_char, use_start);
 
         // Fill in the genotypes
-        get_genotypes(v, trav_path_names, trav_to_allele);
+        get_genotypes(v, trav_path_names, trav_to_allele, trav_cluster_info);
 
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
@@ -914,6 +945,13 @@ string Deconstructor::get_vcf_header() {
             stream << " (details in PI field)";
         }
         stream << "\">" << endl;
+    }
+    if (path_to_sample_phase && cluster_threshold < 1) {
+        stream << "##FORMAT<ID=TS,Number=1,Type=Float,Descript=\"Similarity between the sample's actual path and its allele\">"
+               << endl;
+        stream << "##FORMAT<ID=TL,Number=1,Type=Integer,Descript=\"Length difference between the sample's actual path and its allele\">"
+               << endl;
+
     }
     stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
     stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
@@ -1094,6 +1132,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (gbwt) {
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
     }
+    this->cluster_threshold = cluster_threshold;
     this->gbwt = gbwt;
 
     // the need to use nesting is due to a problem with omp tasks and shared state
