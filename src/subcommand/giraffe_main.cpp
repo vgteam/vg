@@ -960,24 +960,24 @@ int main_giraffe(int argc, char** argv) {
         // Use the hit-cap||score-fraction filter
         .add_entry<size_t>("hit-cap", 15)
         .add_entry<double>("score-fraction", 0.9)
-        .add_entry<size_t>("hard-hit-cap", 1000) // Default: 500
+        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
         // Grab the best trees
         .add_entry<size_t>("min-to-fragment", 4)
-        .add_entry<size_t>("max-to-fragment", 1000)
-        .add_entry<double>("zipcode-tree-scale", 0.75)
+        .add_entry<size_t>("max-to-fragment", 500)
+        .add_entry<double>("zipcode-tree-scale", 1.5)
         .add_entry<double>("zipcode-tree-score-threshold", 20)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
         // And extend them
         .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 15)
         // And fragment them
-        .add_entry<double>("fragment-gap-scale", 5.0)
-        .add_entry<double>("gap-scale", 5.0)
-        .add_entry<size_t>("fragment-max-lookback-bases", 275)
+        .add_entry<double>("fragment-gap-scale", 4.0)
+        .add_entry<double>("gap-scale", 4.0)
+        .add_entry<size_t>("fragment-max-lookback-bases", 300)
         .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
-        .add_entry<size_t>("fragment-max-indel-bases", 2500)
+        .add_entry<size_t>("fragment-max-indel-bases", 2000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
         .add_entry<double>("fragment-score-fraction", 0.5)
@@ -985,9 +985,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 10)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-lookback-bases", 3000)
+        .add_entry<size_t>("max-lookback-bases", 1000)
         .add_entry<double>("max-lookback-bases-per-base", 0)
-        .add_entry<size_t>("max-indel-bases", 2000)
+        .add_entry<size_t>("max-indel-bases", 1600)
         .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<double>("chain-score-threshold", 100.0)
         .add_entry<double>("min-chain-score-per-base", 0.01)
@@ -998,7 +998,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
-        .add_entry<size_t>("max-chain-connection", 85)
+        .add_entry<size_t>("max-chain-connection", 65)
         .add_entry<size_t>("max-tail-gap", 115)
         .add_entry<double>("mapq-score-scale", 1.5);
     presets["srold"]
