@@ -39,8 +39,10 @@ inline double jaccard_coefficient(const T& target, const U& query) {
                    query.begin(), query.end(),
                    count_back_inserter<typename T::value_type>(union_size));
     return (double)isec_size / (double)union_size;
-
 }
+
+// specialized version that weights jaccard by node lenths. 
+double weighted_jaccard_coefficient(const PathHandleGraph* graph, const multiset<handle_t>& target, const multiset<handle_t>& query);
 
 // the information needed from the parent traversal in order to
 // genotype a child traversal

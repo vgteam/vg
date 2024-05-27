@@ -350,11 +350,16 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 genotype += (chosen_travs[i] != -1 && (!conflict || keep_conflicted_genotypes))
                     ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
                 if (this->cluster_threshold < 1.0) {
-                    ostringstream ss;
-                    ss.precision(3);
-                    ss << trav_to_cluster_info[chosen_travs[i]].first;
-                    v.samples[sample_name]["TS"].push_back(ss.str());
-                    v.samples[sample_name]["TL"].push_back(std::to_string(trav_to_cluster_info[chosen_travs[i]].second));
+                    if (*genotype.rbegin() == '.') {
+                        v.samples[sample_name]["TS"].push_back(".");
+                        v.samples[sample_name]["TL"].push_back(".");
+                    } else {
+                        ostringstream ss;
+                        ss.precision(3);
+                        ss << trav_to_cluster_info[chosen_travs[i]].first;
+                        v.samples[sample_name]["TS"].push_back(ss.str());
+                        v.samples[sample_name]["TL"].push_back(std::to_string(trav_to_cluster_info[chosen_travs[i]].second));
+                    }
                 }
             }
             v.samples[sample_name]["GT"] = {genotype};
@@ -920,7 +925,7 @@ string Deconstructor::get_vcf_header() {
     if (sample_to_haps.empty()) {
         cerr << "Error [vg deconstruct]: No paths found for alt alleles in the graph. Note that "
              << "exhaustive path-free traversal finding is no longer supported, and vg deconstruct "
-             << "now only works on embedded paths and GBWT threads" << endl;
+             << "now only works on embedded paths and GBWT threads." << endl;
         exit(1);
     }
 

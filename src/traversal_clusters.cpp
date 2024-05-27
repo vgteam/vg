@@ -5,6 +5,31 @@
 namespace vg {
 
 
+// specialized version of jaccard_coefficient() that weights jaccard by node lenths. 
+double weighted_jaccard_coefficient(const PathHandleGraph* graph,
+                                    const multiset<handle_t>& target,
+                                    const multiset<handle_t>& query) {
+    vector<handle_t> intersection_handles;
+    std::set_intersection(target.begin(), target.end(),
+                          query.begin(), query.end(),
+                          std::back_inserter(intersection_handles));
+    vector<handle_t> union_handles;
+    std::set_union(target.begin(), target.end(),
+                   query.begin(), query.end(),
+                   std::back_inserter(union_handles));
+
+    int64_t isec_size = 0;
+    for (const handle_t& handle : intersection_handles) {
+        isec_size += graph->get_length(handle);
+    }
+    int64_t union_size = 0;
+    for (const handle_t& handle : union_handles) {
+        union_size += graph->get_length(handle);
+    }    
+    return (double)isec_size / (double)union_size;
+}
+
+
 vector<int> get_traversal_order(const PathHandleGraph* graph,
                                 const vector<Traversal>& traversals,
                                 const vector<string>& trav_path_names,
@@ -89,7 +114,7 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
         int64_t max_cluster_idx = -1;
         for (int64_t j = 0; j < clusters.size(); ++j) {
             const auto& cluster_trav = sorted_traversals[clusters[j][0]];
-            double jac = jaccard_coefficient(trav, cluster_trav);
+            double jac = weighted_jaccard_coefficient(graph, trav, cluster_trav);
             if (jac > max_jaccard) {
                 max_jaccard = jac;
                 max_cluster_idx = j;

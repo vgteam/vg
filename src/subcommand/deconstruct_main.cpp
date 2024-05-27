@@ -260,13 +260,22 @@ int main_deconstruct(int argc, char** argv){
     }
     
     if (refpaths.empty() && refpath_prefixes.empty()) {
+        bool found_hap;
         // No paths specified: use them all
         graph->for_each_path_handle([&](path_handle_t path_handle) {
-                const string& name = graph->get_path_name(path_handle);
-                if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
-                    refpaths.push_back(name);
-                }
-            });
+            const string& name = graph->get_path_name(path_handle);
+            if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
+                refpaths.push_back(name);
+            } else {
+                found_hap = true;
+            }
+        });
+
+        if (!found_hap) {
+            cerr << "error [vg deconstruct]: All graph paths selected as references (leaving no alts). Please use -P/-p "
+                 << "to narrow down the reference to a subset of paths, or GBZ/GBWT input that contains haplotype paths" << endl;
+            return 1;
+        }        
     }
 
     // Read the translation
