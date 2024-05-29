@@ -1731,12 +1731,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     }
                     return false;
                 } else {
+#ifdef debug
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
                             cerr << log_name() << "Chain " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
                     }
+#endif
                 }
             }
             if (show_work) {
@@ -1843,12 +1845,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                             int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)graph_offset;
                             auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
 
+#ifdef debug
                             if (show_work) {
                                 #pragma omp critical (cerr)
                                 {
                                     cerr << log_name() << "Create matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                                 }
                             }
+#endif
 
                             used_matchings.emplace(std::move(matching));
                         }
