@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/traversal_finder.cpp File Reference</title>
+<title>vg: src/traversal_clusters.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,15 +70,10 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">traversal_finder.cpp File Reference</div>  </div>
+<div class="title">traversal_clusters.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">traversal_finder.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="genotypekit_8hpp.html">genotypekit.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="k__widest__paths_8hpp.html">algorithms/k_widest_paths.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="cactus_8hpp.html">cactus.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">gbwt_helper.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="haplotype__extracter_8hpp.html">haplotype_extracter.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="traversal__clusters_8hpp.html">traversal_clusters.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -87,12 +82,12 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a6a885124cc3018dc7cd6d2001b6b54f5"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6a885124cc3018dc7cd6d2001b6b54f5">vg::traversal_to_string</a> (const PathHandleGraph *graph, const Traversal &amp;traversal, int64_t max_steps)</td></tr>
-<tr class="separator:a6a885124cc3018dc7cd6d2001b6b54f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeade23d997b1899023cfe7f560cc6bc1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeade23d997b1899023cfe7f560cc6bc1">vg::graph_interval_to_string</a> (const HandleGraph *graph, const handle_t &amp;start_handle, const handle_t &amp;end_handle)</td></tr>
-<tr class="separator:aeade23d997b1899023cfe7f560cc6bc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b97a34752ff7bf3c8c2c524c84796df"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; SnarlTraversal &gt;, vector&lt; pair&lt; step_handle_t, step_handle_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3b97a34752ff7bf3c8c2c524c84796df">vg::find_path_traversals</a> (const Snarl &amp;site)</td></tr>
-<tr class="separator:a3b97a34752ff7bf3c8c2c524c84796df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0b9062cb7b053e7823169d589e113d1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa0b9062cb7b053e7823169d589e113d1">vg::weighted_jaccard_coefficient</a> (const PathHandleGraph *graph, const multiset&lt; handle_t &gt; &amp;target, const multiset&lt; handle_t &gt; &amp;query)</td></tr>
+<tr class="separator:aa0b9062cb7b053e7823169d589e113d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd9bc49f352c8a09d0c00c6ca7d0b5c2"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acd9bc49f352c8a09d0c00c6ca7d0b5c2">vg::get_traversal_order</a> (const PathHandleGraph *graph, const vector&lt; Traversal &gt; &amp;traversals, const vector&lt; string &gt; &amp;trav_path_names, const vector&lt; int &gt; &amp;ref_travs, const vector&lt; bool &gt; &amp;use_traversal)</td></tr>
+<tr class="separator:acd9bc49f352c8a09d0c00c6ca7d0b5c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f275e6acfcc74f204e61e56f7dbc903"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9f275e6acfcc74f204e61e56f7dbc903">vg::cluster_traversals</a> (const PathHandleGraph *graph, const vector&lt; Traversal &gt; &amp;traversals, const vector&lt; int &gt; &amp;traversal_order, double min_jaccard, vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;out_info)</td></tr>
+<tr class="separator:a9f275e6acfcc74f204e61e56f7dbc903"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

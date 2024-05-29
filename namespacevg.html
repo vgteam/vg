@@ -455,6 +455,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ParallelKFFReader.html">ParallelKFFReader</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ParentGenotypeInfo.html">ParentGenotypeInfo</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Path.html">Path</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1path__mapping__t.html">path_mapping_t</a></td></tr>
@@ -2411,8 +2413,17 @@ Functions</h2></td></tr>
 <tr class="separator:acdaa29c218d5d55e76fe4ab168f7a14b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af076103e443b2ae1a26011a772900230"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af076103e443b2ae1a26011a772900230">traversal_to_string</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;traversal, bool max_steps)</td></tr>
-<tr class="separator:af076103e443b2ae1a26011a772900230"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0b9062cb7b053e7823169d589e113d1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa0b9062cb7b053e7823169d589e113d1">weighted_jaccard_coefficient</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;target, const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;query)</td></tr>
+<tr class="separator:aa0b9062cb7b053e7823169d589e113d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd9bc49f352c8a09d0c00c6ca7d0b5c2"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acd9bc49f352c8a09d0c00c6ca7d0b5c2">get_traversal_order</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; string &gt; &amp;trav_path_names, const vector&lt; int &gt; &amp;ref_travs, const vector&lt; bool &gt; &amp;use_traversal)</td></tr>
+<tr class="separator:acd9bc49f352c8a09d0c00c6ca7d0b5c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f275e6acfcc74f204e61e56f7dbc903"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9f275e6acfcc74f204e61e56f7dbc903">cluster_traversals</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; int &gt; &amp;traversal_order, double min_jaccard, vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;out_info)</td></tr>
+<tr class="separator:a9f275e6acfcc74f204e61e56f7dbc903"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplParams" colspan="2">template&lt;typename T , typename U &gt; </td></tr>
+<tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff10785a6df2466c851785b406172e89">jaccard_coefficient</a> (const T &amp;target, const U &amp;query)</td></tr>
+<tr class="separator:aff10785a6df2466c851785b406172e89"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a885124cc3018dc7cd6d2001b6b54f5"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6a885124cc3018dc7cd6d2001b6b54f5">traversal_to_string</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &amp;traversal, int64_t max_steps)</td></tr>
+<tr class="separator:a6a885124cc3018dc7cd6d2001b6b54f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeade23d997b1899023cfe7f560cc6bc1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeade23d997b1899023cfe7f560cc6bc1">graph_interval_to_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;start_handle, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;end_handle)</td></tr>
 <tr class="separator:aeade23d997b1899023cfe7f560cc6bc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b97a34752ff7bf3c8c2c524c84796df"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3b97a34752ff7bf3c8c2c524c84796df">find_path_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
@@ -6825,6 +6836,59 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>return a subgraph for a cluster of MEMs from the given alignment use walking to get the hits </p>
+
+</div>
+</div>
+<a id="a9f275e6acfcc74f204e61e56f7dbc903"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f275e6acfcc74f204e61e56f7dbc903">&#9670;&nbsp;</a></span>cluster_traversals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; vector&lt; int &gt; &gt; vg::cluster_traversals </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversal_order</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>min_jaccard</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; double, int64_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>out_info</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>cluster the traversals. The algorithm is:</p><ul>
+<li>visit traversals in provided order<ul>
+<li>if the traversal is &lt;= min_jaccard away from the reference traversal of cluster, add to cluster</li>
+<li>else start a new cluster, with the given traversal as a reference note that traversal_order can specify a subset of traversals out_info are Simlarity/length-delta pairs comparing the traversal to its cluster reference (if the traversal wasn't in traversal_order, it'll get -1) </li>
+</ul>
+</li>
+</ul>
 
 </div>
 </div>
@@ -11744,6 +11808,53 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="acd9bc49f352c8a09d0c00c6ca7d0b5c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acd9bc49f352c8a09d0c00c6ca7d0b5c2">&#9670;&nbsp;</a></span>get_traversal_order()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; int &gt; vg::get_traversal_order </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>trav_path_names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_travs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; bool &gt; &amp;&#160;</td>
+          <td class="paramname"><em>use_traversal</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>sort the traversals, putting the reference first then using names traversals masked out by use_traversal will be filrtered out entirely (so the output vector may be smaller than the input...) </p>
+
+</div>
+</div>
 <a id="af601021f7ec2c0b0d7404030ee7271c9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af601021f7ec2c0b0d7404030ee7271c9">&#9670;&nbsp;</a></span>getReachableBridges()</h2>
 
@@ -12955,6 +13066,44 @@ template&lt;class Element &gt; </div>
 </div><div class="memdoc">
 
 <p>Return true if a character is an uppercase A, C, G, or T, and false otherwise. </p>
+
+</div>
+</div>
+<a id="aff10785a6df2466c851785b406172e89"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff10785a6df2466c851785b406172e89">&#9670;&nbsp;</a></span>jaccard_coefficient()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T , typename U &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::jaccard_coefficient </td>
+          <td>(</td>
+          <td class="paramtype">const T &amp;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const U &amp;&#160;</td>
+          <td class="paramname"><em>query</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -25654,8 +25803,8 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
 
 </div>
 </div>
-<a id="af076103e443b2ae1a26011a772900230"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af076103e443b2ae1a26011a772900230">&#9670;&nbsp;</a></span>traversal_to_string() <span class="overload">[1/2]</span></h2>
+<a id="a6a885124cc3018dc7cd6d2001b6b54f5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a885124cc3018dc7cd6d2001b6b54f5">&#9670;&nbsp;</a></span>traversal_to_string() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -25675,7 +25824,7 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>max_steps</em>&#160;</td>
         </tr>
         <tr>
@@ -26641,6 +26790,40 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns the log likelihood of some data generated by a Weibull distribution. </p>
+
+</div>
+</div>
+<a id="aa0b9062cb7b053e7823169d589e113d1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa0b9062cb7b053e7823169d589e113d1">&#9670;&nbsp;</a></span>weighted_jaccard_coefficient()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::weighted_jaccard_coefficient </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const multiset&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>query</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
