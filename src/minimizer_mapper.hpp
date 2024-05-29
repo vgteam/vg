@@ -261,6 +261,9 @@ public:
     /// at fragmenting?
     static constexpr double default_fragment_gap_scale = 1.0;
     double fragment_gap_scale = default_fragment_gap_scale;
+    // How many points should we treat a non-gap connection base as producing, at fragmenting?
+    static constexpr double default_fragment_points_per_possible_match = 0;
+    double fragment_points_per_possible_match = default_fragment_points_per_possible_match;
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
@@ -326,6 +329,9 @@ public:
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    // How many points should we treat a non-gap connection base as producing, at chaining?
+    static constexpr double default_points_per_possible_match = 0;
+    double points_per_possible_match = default_points_per_possible_match;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;

@@ -406,6 +406,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
+        "fragment-points-per-possible-match",
+        &MinimizerMapper::fragment_points_per_possible_match,
+        MinimizerMapper::default_fragment_points_per_possible_match,
+        "points to award non-indel connecting bases when fragmenting",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
         "fragment-score-fraction",
         &MinimizerMapper::fragment_score_fraction,
         MinimizerMapper::default_fragment_score_fraction,
@@ -486,6 +493,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::gap_scale,
         MinimizerMapper::default_gap_scale,
         "scale for gap scores when chaining",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "points-per-possible-match",
+        &MinimizerMapper::points_per_possible_match,
+        MinimizerMapper::default_points_per_possible_match,
+        "points to award non-indel connecting bases when chaining",
         double_is_nonnegative
     );
     

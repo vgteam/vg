@@ -1000,6 +1000,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->fragment_gap_scale,
+                this->fragment_points_per_possible_match,
                 indel_limit,
                 false
             );
@@ -1347,6 +1348,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->gap_scale,
+                this->points_per_possible_match,
                 indel_limit,
                 show_work
             );
