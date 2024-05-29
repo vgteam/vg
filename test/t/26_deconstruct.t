@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 25
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -140,5 +140,20 @@ diff x.decon.vcf x.gbz.decon.vcf
 is "$?" 0 "gbz deconstruction gives same output as gbwt deconstruction"
 
 rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi x.decon.vcf x.gbz.decon.vcf x.giraffe.gbz x.min x.dist small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
+
+# todo you could argue merging shouldn't happen here because there's no child snarl
+# this check should come into play with nesting support
+vg construct -r small/x.fa -v small/x.vcf.gz | vg view - > small_cluster.gfa
+printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster.gfa
+printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster.gfa
+printf "P\tz\t1+,9+\t*\n" >> small_cluster.gfa
+vg deconstruct small_cluster.gfa -p x > small_cluster_0.vcf
+vg deconstruct small_cluster.gfa -p x -L 0.3 > small_cluster_3.vcf
+is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free deconstruction finds all alt alleles"
+is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
+is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
+
+rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+
 
 

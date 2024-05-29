@@ -10,7 +10,7 @@ namespace vg {
 
 using namespace std;
 
-string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, bool max_steps) {
+string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, int64_t max_steps) {
     string s;
     function<string(handle_t)> handle_to_string = [&](handle_t handle) {
         string ss = graph->get_is_reverse(handle) ? "<" : ">";

@@ -45,6 +45,7 @@ public:
                      bool keep_conflicted,
                      bool strict_conflicts,
                      bool long_ref_contig,
+                     double cluster_threshold = 1.0,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:
@@ -78,11 +79,12 @@ private:
                             const vector<Traversal>& travs,
                             const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                             int ref_path_idx,
-                            const vector<bool>& use_trav,
+                            const vector<vector<int>>& trav_clusters,
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele) const;
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
+                       const vector<pair<double, int64_t>>& trav_to_cluster_info) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
@@ -96,15 +98,6 @@ private:
     vector<nid_t> get_context(
         step_handle_t start_step,
         step_handle_t end_step) const;
-
-    // compares node contexts
-    double context_jaccard(const vector<nid_t>& target,
-                           const vector<nid_t>& query) const;
-
-    // specialization for enc_vectors
-    double context_jaccard(
-        const dac_vector<>& target,
-        const vector<nid_t>& query) const;
     
     // the graph
     const PathPositionHandleGraph* graph;
@@ -154,23 +147,13 @@ private:
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
+
+    // used to merge together similar traversals (to keep allele counts down)
+    // currently implemented as handle jaccard coefficient.  So 1 means only
+    // merge if identical (which is what deconstruct has always done)
+    double cluster_threshold = 1.0;
 };
 
-// helpel for measuring set intersectiond and union size
-template <typename T>
-class count_back_inserter {
-    size_t &count;
-public:
-    typedef void value_type;
-    typedef void difference_type;
-    typedef void pointer;
-    typedef void reference;
-    typedef std::output_iterator_tag iterator_category;
-    count_back_inserter(size_t &count) : count(count) {};
-    void operator=(const T &){ ++count; }
-    count_back_inserter &operator *(){ return *this; }
-    count_back_inserter &operator++(){ return *this; }
-};
 
 }
 #endif
