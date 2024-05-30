@@ -52,6 +52,7 @@ void help_deconstruct(char** argv){
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -C, --contig-only-ref    Only use the CONTIG name (and not SAMPLE#CONTIG#HAPLOTYPE etc) for the reference if possible (ie there is only one reference sample)." << endl
          << "    -L, --cluster F          Cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0) [experimental]" << endl
+         << "    -n, --nested             Write a nested VCF, including *-alleles and special tags. [experimental]" << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -79,6 +80,7 @@ int main_deconstruct(int argc, char** argv){
     bool untangle_traversals = false;
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
+    bool nested = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -101,13 +103,14 @@ int main_deconstruct(int argc, char** argv){
                 {"strict-conflicts", no_argument, 0, 'S'},
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
+                {"nested", no_argument, 0, 'n'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:t:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -164,6 +167,9 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'L':
             cluster_threshold = max(0.0, min(1.0, parse<double>(optarg)));
+            break;
+        case 'n':
+            nested = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -271,7 +277,7 @@ int main_deconstruct(int argc, char** argv){
             }
         });
 
-        if (!found_hap) {
+        if (!found_hap && gbwt_index == nullptr) {
             cerr << "error [vg deconstruct]: All graph paths selected as references (leaving no alts). Please use -P/-p "
                  << "to narrow down the reference to a subset of paths, or GBZ/GBWT input that contains haplotype paths" << endl;
             return 1;
@@ -351,7 +357,7 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
-    dd.set_nested(all_snarls);
+    dd.set_nested(all_snarls || nested);
     dd.deconstruct(refpaths, graph, snarl_manager.get(),
                    all_snarls,
                    context_jaccard_window,
@@ -360,7 +366,8 @@ int main_deconstruct(int argc, char** argv){
                    strict_conflicts,
                    !contig_only_ref,
                    cluster_threshold,
-                   gbwt_index);
+                   gbwt_index,
+                   nested);
     return 0;
 }
 

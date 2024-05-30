@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 26
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -154,6 +154,15 @@ is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruc
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+
+vg deconstruct nesting/nested_snp_in_del.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
+printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
+printf "T\tA,*\t1|2\n" >> nested_snp_in_del_truth.tsv
+diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+is "$?" 0 "nested deconstruction gets correct star-allele for snp inside deletion"
+
+rm -f nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+
 
 
 

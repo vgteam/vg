@@ -79,8 +79,10 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
 vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
                                        const vector<Traversal>& traversals,
                                        const vector<int>& traversal_order,
+                                       const vector<pair<handle_t, handle_t>>& child_snarls,                                       
                                        double min_jaccard,
-                                       vector<pair<double, int64_t>>& out_info) {
+                                       vector<pair<double, int64_t>>& out_info,
+                                       vector<int>& out_child_snarl_to_trav) {
     
     assert(traversal_order.size() <= traversals.size());
     
@@ -90,6 +92,17 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
     vector<vector<int>> clusters;
 
     out_info.resize(traversals.size(), make_pair(-1., 0));
+    out_child_snarl_to_trav.resize(child_snarls.size(), -1);
+
+    // keep track of which traversals cover which child snarls
+    vector<vector<int>> trav_to_child_snarls = assign_child_snarls_to_traversals(graph, traversals, child_snarls);
+    // keep track of which child snarls are covered
+    unordered_set<int> uncovered_child_snarls;
+    for (const vector<int>& child_snarls : trav_to_child_snarls) {
+        for (int i : child_snarls) {
+            uncovered_child_snarls.insert(i);
+        }
+    }
     
     // need the clusters as sorted lists. we'll forget the endpoints while we're at
     // it since they're always shared.  note we work with multisets since we want to
@@ -131,8 +144,40 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
             // there's no cluster close enough, need to start a new one
             clusters.push_back({i});
             out_info[i] = make_pair(1.0, 0);
+            // check off all the child snarls it covers
+            for (const int& child_snarl_idx : trav_to_child_snarls[i]) {
+                if (uncovered_child_snarls.count(child_snarl_idx)) {
+                    uncovered_child_snarls.erase(child_snarl_idx);
+                    out_child_snarl_to_trav[child_snarl_idx] = i;
+                }
+            }
         }        
     }
+
+    // break up clusters until all child snarls are covered
+    // todo: can/should we factor child coverage into objective of original clustering??
+    // todo todo: is it simpler to relax things so that a traversal can be used as a reference
+    //            in a nested snarl, even if it doesn't have an exact allele (ie is a cluster reference)
+    //            in the parent? -- for now we keep things simple -- all reference alleles are explictly represented in vcf
+    vector<vector<int>> new_clusters;
+    for (int64_t i = clusters.size() - 1; i >= 0 && !uncovered_child_snarls.empty(); --i) {
+        for (int64_t j = clusters[i].size() -1 && !uncovered_child_snarls.empty(); j > 0; --j) {
+            const vector<int>& trav_childs = trav_to_child_snarls[clusters[i][j]];
+            bool uncovered = false;
+            for (int k : trav_childs) {                
+                if (uncovered_child_snarls.count(k)) {
+                    uncovered = true;
+                    uncovered_child_snarls.erase(k);
+                    out_child_snarl_to_trav[k] = clusters[i][j];
+                }
+            }
+            if (uncovered) {
+                new_clusters.push_back({clusters[i][j]});
+                clusters[i].erase(clusters[i].begin() + j);
+            }            
+        }
+    }
+    assert(uncovered_child_snarls.empty());
 
     // fill in the size deltas
     for (vector<int>& cluster : clusters) {
@@ -163,6 +208,63 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
 
     return clusters;
 }
+
+vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* graph,
+                                                      const vector<Traversal>& traversals,
+                                                      const vector<pair<handle_t, handle_t>>& child_snarls) {
+
+    // index the child snarls
+    unordered_map<handle_t, int> handle_to_child;
+    for (int64_t i = 0; i < child_snarls.size(); ++i) {
+        handle_to_child[child_snarls[i].first] = i;
+        handle_to_child[child_snarls[i].second] = i;
+    }
+
+    // use the index to find which snarls are fully contained in a given traversal
+    // this is a linear scan of the traversal, with above index checked (twice) for each handle
+    function<vector<int>(const Traversal&, bool)> get_contained_snarls = [&] (const Traversal& trav, bool fully_contained) {
+        map<int, int> fw_count;
+        map<int, int> rv_count;
+        for (const handle_t& handle : trav) {
+            if (handle_to_child.count(handle)) {
+                fw_count[handle_to_child[handle]] += 1;
+            }
+            handle_t rhandle = graph->flip(handle);
+            if (handle_to_child.count(rhandle)) {
+                rv_count[handle_to_child[rhandle]] += 1;
+            }
+        }
+        vector<int> contained_snarls;
+        for (const auto& cs_count : fw_count) {
+            assert(cs_count.second == 1 || cs_count.second == 2);
+            if (cs_count.second == 2 || (!fully_contained && cs_count.second == 1)) {
+                contained_snarls.push_back(cs_count.first);
+            }
+        }
+        for (const auto& cs_count : rv_count) {
+            assert(cs_count.second == 1 || cs_count.second == 2);
+            if (cs_count.second == 2 || (!fully_contained && cs_count.second == 1)) {            
+                contained_snarls.push_back(cs_count.first);
+            }
+        }        
+        return contained_snarls;
+    };
+
+    // fill in the output map
+    vector<vector<int>> trav_to_child_snarls(traversals.size());
+
+    if (!child_snarls.empty()) {
+        for (int64_t i = 0; i < traversals.size(); ++i) {
+            trav_to_child_snarls[i] = get_contained_snarls(traversals[i], true);
+        }        
+    }
+
+    return trav_to_child_snarls;
+}
+
+
+
+   
 
 
 }

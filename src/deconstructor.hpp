@@ -46,7 +46,8 @@ public:
                      bool strict_conflicts,
                      bool long_ref_contig,
                      double cluster_threshold = 1.0,
-                     gbwt::GBWT* gbwt = nullptr);
+                     gbwt::GBWT* gbwt = nullptr,
+                     bool nested_decomposition = false);
     
 private:
 
@@ -61,9 +62,22 @@ private:
     // (same logic as vg call)
     void deconstruct_graph_top_down(SnarlManager* snarl_manager);
 
+    // some information we pass from parent to child site when
+    // doing nested deconstruction
+    struct NestingInfo {
+        bool has_ref;
+        vector<pair<handle_t, handle_t>> child_snarls;
+        PathInterval ref_path_interval;
+        unordered_map<string, vector<int>> sample_to_haplotypes;
+    };
+    
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
-    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const;
+    // the nesting_info structs are optional and used to pass reference information through nested sites...
+    // the output nesting_info vector writes a record for each child snarl
+    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
+                          const NestingInfo* in_nesting_info = nullptr,
+                          vector<NestingInfo>* out_nesting_infos = nullptr) const;
 
     // get the traversals for a given site
     // this returns a combination of embedded path traversals and gbwt traversals
@@ -73,6 +87,19 @@ private:
                         vector<Traversal>& out_travs,
                         vector<string>& out_trav_path_names,
                         vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
+
+    // this is a hack to add in * alleles -- these are haplotypes that we genotyped in the
+    // parent but aren't represented in any of the traversals found in the current
+    // site. *-alleles are represented as empty traversals.
+    // todo: conflicts arising from alt-cycles will be able to lead to conflicting
+    // results -- need to overhaul code to pass more detailed traversal information
+    // from parent to child to have a chance at consistently resolving
+    // star traversals are appended onto travs and trav_names
+    // this funtion returns a map containing both parent and child haploty
+    unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,    
+                                                           vector<string>& trav_names,
+                                                           vector<vector<int>>& trav_clusters,
+                                                           const unordered_map<string, vector<int>>& parent_haplotypes) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v,
