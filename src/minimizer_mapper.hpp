@@ -362,10 +362,6 @@ public:
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
     
-    /// How long of a DP can we do before GSSW crashes due to 16-bit score
-    /// overflow?
-    static constexpr int MAX_DP_LENGTH = 30000;
-    
     /// How many DP cells should we be willing to do for an end-pinned
     /// alignment? If we want to do more than this, just leave tail unaligned.
     static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
