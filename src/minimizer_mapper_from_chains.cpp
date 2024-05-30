@@ -3371,37 +3371,47 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
             // Do pinned alignment off the anchor we actually have.
             // Work out how big it will be.
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
-            if (cell_count > max_dp_cells) {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop";
-                    if (alignment_name) {
-                        std::cerr << " for read " << *alignment_name;
-                    }
-                    std::cerr << std::endl;
-                }
-                // Fake a softclip right in input graph space
-                alignment.clear_path();
-                Mapping* m = alignment.mutable_path()->add_mapping();
-                // TODO: Is this fake position OK regardless of anchoring side?
-                m->mutable_position()->set_node_id(is_empty(left_anchor) ? id(right_anchor) : id(left_anchor));
-                m->mutable_position()->set_is_reverse(is_empty(left_anchor) ? is_rev(right_anchor) : is_rev(left_anchor));
-                m->mutable_position()->set_offset(is_empty(left_anchor) ? offset(right_anchor) : offset(left_anchor));
-                Edit* e = m->add_edit();
-                e->set_to_length(alignment.sequence().size());
-                e->set_sequence(alignment.sequence());
-                to_return.first = 0;
-                to_return.second = 0;
-                return;
-            } else {
+            try {
+                if (cell_count <= max_dp_cells) {
 #ifdef debug
-                #pragma omp critical (cerr)
-                std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
+                    #pragma omp critical (cerr)
+                    std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
-                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
-                to_return.first = dagified_graph.get_node_count();
-                to_return.second = dagified_graph.get_total_length();
+                    to_return.first = dagified_graph.get_node_count();
+                    to_return.second = dagified_graph.get_total_length();
+                    aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
+                    return;
+                } else {
+                    #pragma omp critical (cerr)
+                    {
+                        std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop";
+                        if (alignment_name) {
+                            std::cerr << " for read " << *alignment_name;
+                        }
+                        std::cerr << std::endl;
+                    }
+                    to_return.first = 0;
+                    to_return.second = 0;
+                }
+            } catch (vg::DozeuLostError& e) {
+                #pragma omp critical (cerr)
+                std::cerr << "error[MinimizerMapper::align_sequence_between]: Failed to align " << alignment.sequence().size() << " bp tail with Xdrop because Dozeu got lost; did the Dozeu score overflow?" << std::endl;
+                // Keep failing, don't try and recover.
+                throw e;
             }
+            
+            // There would be too many cells, or something went wrong with Dozeu that we think we can recover from.
+
+            // Fake a softclip right in input graph space
+            alignment.clear_path();
+            Mapping* m = alignment.mutable_path()->add_mapping();
+            // TODO: Is this fake position OK regardless of anchoring side?
+            m->mutable_position()->set_node_id(is_empty(left_anchor) ? id(right_anchor) : id(left_anchor));
+            m->mutable_position()->set_is_reverse(is_empty(left_anchor) ? is_rev(right_anchor) : is_rev(left_anchor));
+            m->mutable_position()->set_offset(is_empty(left_anchor) ? offset(right_anchor) : offset(left_anchor));
+            Edit* e = m->add_edit();
+            e->set_to_length(alignment.sequence().size());
+            e->set_sequence(alignment.sequence());
         }
         
         // And translate back into original graph space
