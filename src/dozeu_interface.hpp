@@ -28,6 +28,19 @@ struct dz_alignment_s;
 
 namespace vg {
 
+/**
+ * Class to represent the problem of Dozeu getting lost in its traceback
+ * matrix, which might be caused by an overflow in its 16-bit scores.
+ */
+class DozeuLostError : std::runtime_error {
+public:
+    inline DozeuLostError(const std::string& message) : std::runtime_error(message) {
+        // Nothing to do
+    };
+};
+
+#define dz_lost() {throw vg::DozeuLostError("Dozeu got lost in traceback matrix");}
+
 static constexpr uint16_t default_xdrop_max_gap_length = 40;
 
 /**
