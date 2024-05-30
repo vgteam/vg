@@ -2477,8 +2477,8 @@ Alignment MinimizerMapper::find_chain_alignment(
         string left_tail = aln.sequence().substr(0, left_tail_length);
         WFAAlignment left_alignment;
         pos_t right_anchor = (*here).graph_start();
-        if (left_tail.size() <= max_tail_length) {
-            // Tail is short so keep to the GBWT.
+        if (left_tail.size() <= max_tail_length || left_tail.size() > MAX_DOZEU_SIZE) {
+            // Tail is short enough to be fast or long enough to break Dozeu.
             // We align the left tail with prefix(), which creates a prefix of the alignment.
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
@@ -2875,7 +2875,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Pull back a base to get the outside-the-alignment anchoring position.
         pos_t left_anchor_excluded = left_anchor_included;
         get_offset(left_anchor_excluded)--;
-        if (right_tail_length <= max_tail_length) {
+        if (right_tail_length <= max_tail_length || right_tail.size() > MAX_DOZEU_SIZE) {
             // We align the right tail with suffix(), which creates a suffix of the alignment.
             // Make sure to use the anchor outside of the region to be aligned.
             if (stats) {
@@ -3395,7 +3395,13 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 }
             } catch (vg::DozeuLostError& e) {
                 #pragma omp critical (cerr)
-                std::cerr << "error[MinimizerMapper::align_sequence_between]: Failed to align " << alignment.sequence().size() << " bp tail with Xdrop because Dozeu got lost; did the Dozeu score overflow?" << std::endl;
+                {
+                    std::cerr << "error[MinimizerMapper::align_sequence_between]: Failed to align " << alignment.sequence().size() << " bp tail with Xdrop";
+                    if (alignment_name) {
+                        std::cerr << " for read " << *alignment_name;
+                    }
+                    std::cerr << " because Dozeu got lost; did the Dozeu score overflow?" << std::endl;
+                }
                 // Keep failing, don't try and recover.
                 throw e;
             }
