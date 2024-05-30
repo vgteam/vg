@@ -2490,6 +2490,16 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
                 stats->invocations.wfa_tail += 1;
             }
+            if (!left_alignment) {
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Left tail of length " << left_tail_length << " failed to align with the WFAExtender" << endl;
+                    }
+                }
+#endif
+            }
             if (left_alignment && left_alignment.seq_offset != 0) {
                 // We didn't get all the way to the left end of the read without
                 // running out of score.
@@ -2582,7 +2592,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned left tail length " << left_tail_length << std::endl;
+                cerr << log_name() << "Aligned left tail length " << left_tail_length << " with score " << composed_score << std::endl;
             }
         }
 
@@ -2887,6 +2897,16 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stats->bases.wfa_tail += right_tail_length;
                 stats->time.wfa_tail += std::chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count();
                 stats->invocations.wfa_tail += 1;
+            }
+            if (!right_alignment) {
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Right tail of length " << right_tail_length << " failed to align with the WFAExtender" << endl;
+                    }
+                }
+#endif
             }
         }
         
