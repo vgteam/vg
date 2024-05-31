@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 29
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -163,13 +163,20 @@ is "$?" 0 "nested deconstruction gets correct star-allele for snp inside deletio
 
 rm -f nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
-vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > nested_snp_in_ins.vcf
+grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
 printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
 printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 
-rm -f nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
+grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
+printf "##contig=<ID=x,length=2>\n" > nested_snp_in_ins_contigs_truth.tsv
+printf "##contig=<ID=y0,length=5>\n" >> nested_snp_in_ins_contigs_truth.tsv
+diff nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
+is "$?" 0 "nested deconstruction gets correct contigs in vcf header for snp inside insert"
+
+rm -f nested_snp_in_ins.tsv nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv  nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
 
 vg deconstruct nesting/nested_snp_in_ins2.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10 "\t" $11}' > nested_snp_in_ins2.tsv
 printf "C\tCAAG,CATG\t1|2\t1|0\n" > nested_snp_in_ins2._truth.tsv

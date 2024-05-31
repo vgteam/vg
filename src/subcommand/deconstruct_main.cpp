@@ -188,6 +188,11 @@ int main_deconstruct(int argc, char** argv){
 
     }
 
+    if (nested == true && contig_only_ref == true) {
+        cerr << "Error [vg deconstruct]: -C cannot be used with -n" << endl;
+        return 1;
+    }
+    
     // Read the graph
 
     unique_ptr<PathHandleGraph> path_handle_graph_up;

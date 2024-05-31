@@ -54,6 +54,11 @@ private:
     // initialize the vcf and get the header 
     string get_vcf_header();
 
+    // the header needs to be initialized *before* construction for vcflib
+    // but we don't know all the non-ref contigs (in nested mode) until *after*
+    // construction.  end result: this hacky function to patch them in before printing
+    string add_contigs_to_vcf_header(const string& vcf_header) const;
+    
     // deconstruct all snarls in parallel (ie nesting relationship ignored)
     void deconstruct_graph(SnarlManager* snarl_manager);
 
@@ -145,6 +150,10 @@ private:
 
     // the ref paths
     set<string> ref_paths;
+
+    // the off-ref paths that may be found during nested deconstruction
+    // (buffered by thread)
+    mutable vector<unordered_set<path_handle_t>> off_ref_paths;
 
     // keep track of reference samples
     set<string> ref_samples;

@@ -705,7 +705,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Using nesting information to set reference to " << parent_ref_trav_name << endl;
-#endif        
+#endif
+        // remember it for the vcf header
+        this->off_ref_paths[omp_get_thread_num()].insert(graph->get_path_handle_of_step(in_nesting_info->ref_path_interval.first));
     }
     for (int i = 0; i < travs.size(); ++i) {
         const string& path_trav_name = trav_path_names[i];
@@ -1127,72 +1129,6 @@ string Deconstructor::get_vcf_header() {
     } else {
         stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     }
-    set<string> gbwt_ref_paths;
-    map<string, int64_t> ref_path_to_length;
-    for(auto& refpath : ref_paths) {
-        if (graph->has_path(refpath)) {
-            int64_t path_len = 0;
-            path_handle_t path_handle = graph->get_path_handle(refpath);
-            for (handle_t handle : graph->scan_path(path_handle)) {
-                path_len += graph->get_length(handle);
-            }
-            string locus_name = graph->get_locus_name(path_handle);
-            if (locus_name == PathMetadata::NO_LOCUS_NAME) {
-                locus_name = refpath;
-            } else if (long_ref_contig) {
-                // the sample name isn't unique enough, so put a full ugly name in the vcf
-                if (graph->get_sense(path_handle) == PathSense::GENERIC) {
-                    locus_name = graph->get_path_name(path_handle);
-                } else {
-                    locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                                graph->get_sample_name(path_handle),
-                                                                locus_name,
-                                                                graph->get_haplotype(path_handle),
-                                                                PathMetadata::NO_PHASE_BLOCK,
-                                                                PathMetadata::NO_SUBRANGE);
-                }
-            }            
-
-            subrange_t subrange = graph->get_subrange(path_handle);
-            int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-            ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
-        } else {
-            gbwt_ref_paths.insert(refpath);
-        }       
-    }
-    for (auto& ref_path_len : ref_path_to_length) {
-        stream << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
-    }
-    if (!gbwt_ref_paths.empty()) {
-        unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
-        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
-            // Collect all the GBWT path IDs for each sample and contig.
-            gbwt_name_to_ids[compose_short_path_name(*gbwt, i)].push_back(i);
-        }
-        for (const string& refpath : gbwt_ref_paths) {
-            // For each sample and contig name that is a GBWT ref path
-            vector<gbwt::size_type>& thread_ids = gbwt_name_to_ids.at(refpath);
-            size_t path_len = 0;
-            for (gbwt::size_type thread_id : thread_ids) {
-                // For each actual path in the GBWT for that sample-and-contig,
-                // we need to see how long it extends the space of the sample
-                // and contig.
-                
-                // TODO: These are probably all guaranteed to be haplotype sense?
-                PathSense sense = gbwtgraph::get_path_sense(*gbwt, thread_id, gbwt_reference_samples);
-                subrange_t subrange = gbwtgraph::get_path_subrange(*gbwt, thread_id, sense);
-                
-                // TODO: when importing GFAs we might cram the start of a walk
-                // into the GBWT count field. But we don't ever guarantee that
-                // we've done that so it might not be visible as a subrange
-                // here. Fix that somehow???
-                size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                size_t len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
-                path_len = std::max(path_len, offset + len);
-            }
-            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
-        }
-    }
     
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
     for (auto& sample_name : sample_names) {
@@ -1200,6 +1136,62 @@ string Deconstructor::get_vcf_header() {
     }
     stream << endl;
     return stream.str();
+}
+
+string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const {
+
+    vector<string> header_lines = split_delims(vcf_header, "\n");
+
+    stringstream patched_header;
+    for (int64_t i = 0; i < header_lines.size() - 1; ++i) {
+        patched_header << header_lines[i] << "\n";
+    }
+
+    set<string> all_ref_paths = this->ref_paths;
+    
+    // add in the off-ref paths that nested deconstruction may have found
+    for (const unordered_set<path_handle_t>& off_ref_path_set : this->off_ref_paths) {
+        for (const path_handle_t& off_ref_path : off_ref_path_set) {
+            all_ref_paths.insert(graph->get_path_name(off_ref_path));
+        }
+    }
+    
+    map<string, int64_t> ref_path_to_length;
+    for(auto& refpath : all_ref_paths) {
+        assert(graph->has_path(refpath));
+        int64_t path_len = 0;
+        path_handle_t path_handle = graph->get_path_handle(refpath);
+        for (handle_t handle : graph->scan_path(path_handle)) {
+            path_len += graph->get_length(handle);
+        }
+        string locus_name = graph->get_locus_name(path_handle);
+        if (locus_name == PathMetadata::NO_LOCUS_NAME) {
+            locus_name = refpath;
+        } else if (long_ref_contig) {
+            // the sample name isn't unique enough, so put a full ugly name in the vcf
+            if (graph->get_sense(path_handle) == PathSense::GENERIC) {
+                locus_name = graph->get_path_name(path_handle);
+            } else {
+                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                            graph->get_sample_name(path_handle),
+                                                            locus_name,
+                                                            graph->get_haplotype(path_handle),
+                                                            PathMetadata::NO_PHASE_BLOCK,
+                                                            PathMetadata::NO_SUBRANGE);
+            }
+        }            
+
+        subrange_t subrange = graph->get_subrange(path_handle);
+        int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+        ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
+    }
+    for (auto& ref_path_len : ref_path_to_length) {
+        patched_header << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
+    }
+
+    assert(header_lines.back().substr(0, 6) == "#CHROM");
+    patched_header << header_lines.back();
+    return patched_header.str();
 }
 
 void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
@@ -1234,8 +1226,10 @@ void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
 void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
     // logic copied from vg call (graph_caller.cpp)
     
-    // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
+    this->off_ref_paths.clear();
+    this->off_ref_paths.resize(get_thread_count());
+    // Used to recurse on children of parents that can't be called
     vector<vector<pair<const Snarl*, NestingInfo>>> snarl_queue(thread_count);
 
     // Run the deconstructor on a snarl, and queue up the children if it fails
@@ -1324,10 +1318,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     omp_set_nested(1);
     omp_set_max_active_levels(3);
     
-    string hstr = this->get_vcf_header();
-    assert(output_vcf.openForOutput(hstr));
-    cout << output_vcf.header << endl;
-
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
     path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
@@ -1336,11 +1326,17 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
 
+    string hstr = this->get_vcf_header();
+    assert(output_vcf.openForOutput(hstr));
+
     if (nested_decomposition) {
         deconstruct_graph_top_down(snarl_manager);
     } else {
         deconstruct_graph(snarl_manager);
     }
+
+    string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
+    cout << patched_header << endl;
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);
