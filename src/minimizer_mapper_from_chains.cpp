@@ -238,6 +238,21 @@ void MinimizerMapper::dump_debug_dotplot(const std::string& name, const VectorVi
                         exp.field(minimizers[seed.source].pin_offset());
                     }
                 }
+                if (offsets.empty()) {
+                    // Note that we don't actually have a position
+                    exp.line();
+                    if (!marker.empty()) {
+                        // Sentinel and a marker and a subscript
+                        exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
+                    } else {
+                        // Sentinel alone
+                        exp.field("NO_PATH");
+                    }
+                    // Put it at 0 on no path
+                    exp.field(0);
+                    // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                    exp.field(minimizers[seed.source].pin_offset());
+                }
             }
 
         }
