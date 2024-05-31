@@ -966,6 +966,14 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             // the current allele, and are treated as *'s in VCF.
             sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
                                                  in_nesting_info->sample_to_haplotypes);
+            
+        }
+        if (this->nested_decomposition) {
+            int64_t parent_allele = 0;
+            if (in_nesting_info != nullptr && in_nesting_info->has_ref == true) {
+                parent_allele = in_nesting_info->ref_path_allele;
+            }
+            v.info["PA"].push_back(std::to_string(parent_allele));
         }
 
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
@@ -1001,6 +1009,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                         out_nesting_infos->at(j).has_ref = true;
                         out_nesting_infos->at(j).ref_path_interval = trav_steps[child_snarl_to_trav[j]];
                         out_nesting_infos->at(j).sample_to_haplotypes = sample_to_haps;
+                        out_nesting_infos->at(j).ref_path_allele = trav_to_allele[child_snarl_to_trav[j]] >= 0 ?
+                            trav_to_allele[child_snarl_to_trav[j]] : 0;
                     }
                 }
             }
@@ -1123,6 +1133,9 @@ string Deconstructor::get_vcf_header() {
     if (include_nested) {
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+    }
+    if (this->nested_decomposition) {
+        stream << "##INFO=<ID=PA,Number=1,Type=Integer,Description=\"Allele number of the reference allele in Parent Snarl\">" << endl;        
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
@@ -1312,6 +1325,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     }
     this->cluster_threshold = cluster_threshold;
     this->gbwt = gbwt;
+    this->nested_decomposition = nested_decomposition;
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)

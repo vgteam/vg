@@ -74,6 +74,7 @@ private:
         vector<pair<handle_t, handle_t>> child_snarls;
         PathInterval ref_path_interval;
         unordered_map<string, vector<int>> sample_to_haplotypes;
+        int ref_path_allele;
     };
     
     // write a vcf record for the given site.  returns true if a record was written
@@ -189,6 +190,11 @@ private:
     // currently implemented as handle jaccard coefficient.  So 1 means only
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
+
+    // activate the new nested decomposition mode, which is like the old include_nested
+    // (which lives in vcfoutputcaller) but with more of an effort to link
+    // the parent and child snarls, as well as better support for nested insertions
+    bool nested_decomposition = false;
 };
 
 

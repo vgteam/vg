@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 29
+plan tests 32
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -155,13 +155,16 @@ is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered d
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
 
-vg deconstruct nesting/nested_snp_in_del.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
+vg deconstruct nesting/nested_snp_in_del.gfa -p x -n > nested_snp_in_del.vcf
+grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
 printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
 printf "T\tA,*\t1|2\n" >> nested_snp_in_del_truth.tsv
 diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 is "$?" 0 "nested deconstruction gets correct star-allele for snp inside deletion"
 
-rm -f nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+is $(grep PA=0 nested_snp_in_del.vcf | wc -l) 2 "PA=0 correctly set at both sites of neseted deletion"
+
+rm -f nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
 vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > nested_snp_in_ins.vcf
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
@@ -169,6 +172,9 @@ printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
 printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
+
+is $(grep PA= nested_snp_in_ins.vcf | head -1 | grep PA=0 | wc -l) 1 "PA=0 set for base allele of nested insertion"
+is $(grep PA= nested_snp_in_ins.vcf | tail -1 | grep PA=1 | wc -l) 1 "PA=1 set for nested allele of nested insertion"
 
 grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
 printf "##contig=<ID=x,length=2>\n" > nested_snp_in_ins_contigs_truth.tsv
