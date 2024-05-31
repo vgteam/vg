@@ -617,6 +617,7 @@ void Deconstructor::get_traversals(const handle_t& snarl_start, const handle_t& 
 unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Traversal>& travs,
                                                                       vector<string>& names,
                                                                       vector<vector<int>>& trav_clusters,
+                                                                      vector<pair<double, int64_t>>& trav_cluster_info,
                                                                       const unordered_map<string, vector<int>>& parent_haplotypes) const {
     
     // todo: refactor this into general genotyping code
@@ -641,6 +642,14 @@ unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Tra
     // find everything that's in parent_haplotyes but not the travefsals,
     // and add in dummy start-alleles for them
     for (const auto& parent_sample_haps : parent_haplotypes) {
+        string parent_sample_name = PathMetadata::parse_sample_name(parent_sample_haps.first);
+        if (parent_sample_name.empty()) {
+            parent_sample_name = parent_sample_haps.first;
+        }
+        if (!this->sample_names.count(parent_sample_name)) {
+            // dont' bother for purely reference samples -- we don't need to force and allele for them.
+            continue;
+        }
         for (int parent_hap : parent_sample_haps.second) {
             bool found = false;
             if (sample_to_haps.count(parent_sample_haps.first)) {
@@ -662,9 +671,11 @@ unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Tra
                                                                PathMetadata::NO_SUBRANGE));
                 sample_to_haps[parent_sample_haps.first].push_back(parent_hap);
                 trav_clusters.push_back({(int)travs.size() - 1});
+                trav_cluster_info.push_back(make_pair(0, 0));
             }
         }
     }
+    
     return sample_to_haps;
 }
 
@@ -689,8 +700,12 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     // pick out the traversal corresponding to an embedded reference path, breaking ties consistently
     string ref_trav_name;
     string parent_ref_trav_name;
-    if (in_nesting_info != nullptr) {
+    if (in_nesting_info != nullptr && in_nesting_info->has_ref) {
         parent_ref_trav_name = graph->get_path_name(graph->get_path_handle_of_step(in_nesting_info->ref_path_interval.first));
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Using nesting information to set reference to " << parent_ref_trav_name << endl;
+#endif        
     }
     for (int i = 0; i < travs.size(); ++i) {
         const string& path_trav_name = trav_path_names[i];
@@ -743,7 +758,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 ref_offsets.push_back(sub_offset);
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Adding ref_tav idx=" << i << " offset=" << sub_offset << " because " << path_trav_name << " == " << ref_trav_name << endl;
+                cerr << "Adding ref_trav idx=" << i << " offset=" << sub_offset << " because " << path_trav_name << " == " << ref_trav_name << endl;
 #endif                
             }
         }
@@ -910,25 +925,61 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         }
         cerr << endl;
         for (const auto& tc : trav_clusters) {
-            cerr << "traversal cluster:";
+            cerr << "traversal cluster: { ";
             for (const auto& t: tc) {
                 cerr << t << "(" << trav_cluster_info[t].first << "," << trav_cluster_info[t].second << ") ";
             }
-            cerr << endl;
+            cerr << " }" << endl;
         }
 #endif
 
         unordered_map<string, vector<int>> sample_to_haps;                     
         if (i == 0 && in_nesting_info != nullptr) {
+            // if the reference traversal is also an alt traversal, we pop out an extra copy
+            // todo: this is a hack add add off-reference support while keeping the current
+            // logic where the reference traversal is always distinct from the alts. this step
+            // could be avoided, but it would come at the cost of some detailed refactoring of the
+            // allele getting code...
+            string ref_sample_name = PathMetadata::parse_sample_name(trav_path_names[ref_trav_idx]);
+            if (this->sample_names.count(ref_sample_name)) {
+                int alt_trav_copy = travs.size();
+                travs.push_back(travs[ref_trav_idx]);
+                trav_path_names.push_back(trav_path_names[ref_trav_idx]);
+                trav_cluster_info.push_back(make_pair(0, 0));
+                if (trav_steps.size() == travs.size()) {
+                    trav_steps.push_back(trav_steps[ref_trav_idx]);
+                }
+                bool found_cluster = false;
+                for (vector<int>& cluster : trav_clusters) {
+                    if (cluster[0] == ref_trav_idx) {
+                        found_cluster =true;
+                        cluster.push_back(alt_trav_copy);
+                        break;
+                    }
+                }
+                assert(found_cluster == true);
+            }
+            
             // add in the star alleles -- these are alleles that were genotyped in the parent but not
             // the current allele, and are treated as *'s in VCF.
-            sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, in_nesting_info->sample_to_haplotypes); 
+            sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
+                                                 in_nesting_info->sample_to_haplotypes);
         }
 
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
                                                  ref_trav_idx,
                                                  trav_clusters,
                                                  prev_char, use_start);
+
+      
+#ifdef debug
+        assert(trav_to_allele.size() == travs.size());
+        cerr << "trav_to_allele =";
+        for (const auto& tta : trav_to_allele) {
+            cerr << " " << tta;
+        }
+        cerr << endl;
+#endif           
 
         // Fill in the genotypes
         get_genotypes(v, trav_path_names, trav_to_allele, trav_cluster_info);
@@ -1216,7 +1267,9 @@ void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
     // (note, can't do for_each_top_level_snarl_parallel() because interface wont take nesting info)
     vector<pair<const Snarl*, NestingInfo>> top_level_snarls;
     snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
-        top_level_snarls.push_back(make_pair(snarl, NestingInfo()));
+        NestingInfo nesting_info;
+        nesting_info.has_ref = false;
+        top_level_snarls.push_back(make_pair(snarl, nesting_info));
     });
 #pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < top_level_snarls.size(); ++i) {

@@ -99,6 +99,7 @@ private:
     unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,    
                                                            vector<string>& trav_names,
                                                            vector<vector<int>>& trav_clusters,
+                                                           vector<pair<double, int64_t>>& trav_cluster_info,
                                                            const unordered_map<string, vector<int>>& parent_haplotypes) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
