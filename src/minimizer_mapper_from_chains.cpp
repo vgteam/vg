@@ -733,7 +733,26 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
-            return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
+            auto equalish = [&] (const size_t x, const size_t y) {
+                if (x == y) {
+                    return true;
+                } else if (x > y) {
+                    return x - y < 0.00001;
+                } else {
+                    return y - x < 0.00001;
+                }
+            };
+            auto greater_than = [&] (const size_t x, const size_t y) {
+                if (equalish(x, y)) {
+                    return false;
+                } else {
+                    return x > y;
+                }
+            };
+
+            return greater_than(tree_coverages[a], tree_coverages[b])
+                || (equalish(tree_coverages[a], tree_coverages[b]) && greater_than(tree_scores[a], tree_scores[b]));
+
         }, zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
