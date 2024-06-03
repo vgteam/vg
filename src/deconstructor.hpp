@@ -72,9 +72,15 @@ private:
     struct NestingInfo {
         bool has_ref;
         vector<pair<handle_t, handle_t>> child_snarls;
-        PathInterval ref_path_interval;
+        PathInterval parent_path_interval;
         unordered_map<string, vector<int>> sample_to_haplotypes;
-        int ref_path_allele;
+        int parent_allele;
+        int64_t parent_len;
+        int64_t parent_ref_len;
+        string lv0_ref_name;
+        int64_t lv0_ref_start;
+        int64_t lv0_ref_len;
+        int64_t lv0_alt_len;
     };
     
     // write a vcf record for the given site.  returns true if a record was written

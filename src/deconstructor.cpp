@@ -701,13 +701,13 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     string ref_trav_name;
     string parent_ref_trav_name;
     if (in_nesting_info != nullptr && in_nesting_info->has_ref) {
-        parent_ref_trav_name = graph->get_path_name(graph->get_path_handle_of_step(in_nesting_info->ref_path_interval.first));
+        parent_ref_trav_name = graph->get_path_name(graph->get_path_handle_of_step(in_nesting_info->parent_path_interval.first));
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "Using nesting information to set reference to " << parent_ref_trav_name << endl;
 #endif
         // remember it for the vcf header
-        this->off_ref_paths[omp_get_thread_num()].insert(graph->get_path_handle_of_step(in_nesting_info->ref_path_interval.first));
+        this->off_ref_paths[omp_get_thread_num()].insert(graph->get_path_handle_of_step(in_nesting_info->parent_path_interval.first));
     }
     for (int i = 0; i < travs.size(); ++i) {
         const string& path_trav_name = trav_path_names[i];
@@ -968,13 +968,6 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                  in_nesting_info->sample_to_haplotypes);
             
         }
-        if (this->nested_decomposition) {
-            int64_t parent_allele = 0;
-            if (in_nesting_info != nullptr && in_nesting_info->has_ref == true) {
-                parent_allele = in_nesting_info->ref_path_allele;
-            }
-            v.info["PA"].push_back(std::to_string(parent_allele));
-        }
 
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
                                                  ref_trav_idx,
@@ -994,6 +987,38 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // Fill in the genotypes
         get_genotypes(v, trav_path_names, trav_to_allele, trav_cluster_info);
 
+        // Fill in some nesting-specific (site-level) tags
+        NestingInfo ref_info; // since in_nesting_info is const, we put top-level stuff here       
+        if (this->nested_decomposition) {
+            if (in_nesting_info != nullptr && in_nesting_info->has_ref == true) {
+                // if we're a child, just take what's passed in
+                ref_info.parent_allele = in_nesting_info->parent_allele;
+                ref_info.parent_len = in_nesting_info->parent_len;
+                ref_info.parent_ref_len = in_nesting_info->parent_ref_len;
+                ref_info.lv0_ref_name = in_nesting_info->lv0_ref_name;
+                ref_info.lv0_ref_start = in_nesting_info->lv0_ref_start;
+                ref_info.lv0_ref_len = in_nesting_info->lv0_ref_len;
+                ref_info.lv0_alt_len = in_nesting_info->lv0_alt_len;
+            } else {
+                // if we're a root, compute values from the prsent site
+                // todo: should they just be left undefined?
+                ref_info.parent_allele = 0;
+                ref_info.parent_len = v.alleles[0].length();
+                ref_info.parent_ref_len = v.alleles[0].length();
+                ref_info.lv0_ref_name = v.sequenceName;
+                ref_info.lv0_ref_start = v.position;
+                ref_info.lv0_ref_len = v.alleles[0].length();
+                ref_info.lv0_alt_len = v.alleles[ref_info.parent_allele].length();
+            }            
+            v.info["PA"].push_back(std::to_string(ref_info.parent_allele));
+            v.info["PL"].push_back(std::to_string(ref_info.parent_len));
+            v.info["PR"].push_back(std::to_string(ref_info.parent_ref_len));            
+            v.info["RC"].push_back(ref_info.lv0_ref_name);
+            v.info["RS"].push_back(std::to_string(ref_info.lv0_ref_start));
+            v.info["RE"].push_back(std::to_string(ref_info.lv0_ref_len));
+            v.info["RL"].push_back(std::to_string(ref_info.lv0_alt_len));
+        }
+
         if (i == 0 && out_nesting_infos != nullptr) {
             // we pass some information down to the children
             // todo: do/can we consider all the diferent reference intervals?
@@ -1006,11 +1031,23 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 out_nesting_infos->at(j).has_ref = false;
                 if (child_snarl_to_trav[j] >= 0) {
                     if (child_snarl_to_trav[j] < trav_steps.size()) {
-                        out_nesting_infos->at(j).has_ref = true;
-                        out_nesting_infos->at(j).ref_path_interval = trav_steps[child_snarl_to_trav[j]];
-                        out_nesting_infos->at(j).sample_to_haplotypes = sample_to_haps;
-                        out_nesting_infos->at(j).ref_path_allele = trav_to_allele[child_snarl_to_trav[j]] >= 0 ?
+                        NestingInfo& child_info = out_nesting_infos->at(j);
+                        child_info.has_ref = true;
+                        child_info.parent_path_interval = trav_steps[child_snarl_to_trav[j]];
+                        child_info.sample_to_haplotypes = sample_to_haps;
+                        child_info.parent_allele = trav_to_allele[child_snarl_to_trav[j]] >= 0 ?
                             trav_to_allele[child_snarl_to_trav[j]] : 0;
+                        child_info.parent_len = v.alleles[child_info.parent_allele].length();
+                        child_info.parent_ref_len = v.alleles[0].length();
+                        child_info.lv0_ref_name = ref_info.lv0_ref_name;
+                        child_info.lv0_ref_start = ref_info.lv0_ref_start;
+                        child_info.lv0_ref_len = ref_info.lv0_ref_len;
+                        if (in_nesting_info == nullptr || in_nesting_info->has_ref == false) {
+                            // we're the parent of root, so we want to set this here
+                            child_info.lv0_alt_len = child_info.parent_len;
+                        } else {
+                            child_info.lv0_alt_len = ref_info.lv0_alt_len;
+                        }
                     }
                 }
             }
@@ -1135,7 +1172,13 @@ string Deconstructor::get_vcf_header() {
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
     if (this->nested_decomposition) {
-        stream << "##INFO=<ID=PA,Number=1,Type=Integer,Description=\"Allele number of the reference allele in Parent Snarl\">" << endl;        
+        stream << "##INFO=<ID=PA,Number=1,Type=Integer,Description=\"Allele number of the reference allele in Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=PL,Number=1,Type=Integer,Description=\"Length of the reference allele in Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=PR,Number=1,Type=Integer,Description=\"Length of 0th allele in the Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference chromosome name of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RE,Number=1,Type=Integer,Description=\"Reference end position name of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RL,Number=1,Type=Integer,Description=\"Length of the top-level allele in which this site nests\">" << endl;
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;

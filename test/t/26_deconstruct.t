@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 35
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -192,6 +192,15 @@ is "$?" 0 "nested deconstruction gets correct star allele for snp ins2.ide ins2.
 
 rm -f nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
 
+# todo: the integrated snarl finder doesnt anchor to the reference
+#       probably not an issue on most real graphs from vg construct / minigraph cacuts
+#       but seems like something that needs reviewing
+vg snarls nesting/nested_snp_in_nested_ins.gfa -A cactus > nested_snp_in_nested_ins.snarls
+vg deconstruct nesting/nested_snp_in_nested_ins.gfa -r nested_snp_in_nested_ins.snarls -P x -n > nested_snp_in_nested_ins.vcf
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | head -1 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RE=1;RL=1;RS=1;LV=0" "INFO tags correct for first site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | head -2 | tail -1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RE=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for second site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | tail -1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RE=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for second site of double-nested SNP"
 
+rm -f nested_snp_in_nested_ins.snarls nested_snp_in_nested_ins.vcf
 
 

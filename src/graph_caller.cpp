@@ -419,6 +419,10 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
         }
         prev_visit = &visit;
     }
+    if (trav_info[allele].empty()) {
+        // note: * alleles get empty traversals
+        trav_info[allele] = ".";
+    }
 }
 
 string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
