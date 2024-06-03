@@ -362,6 +362,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_to_fragment,
         "maximum number of fragmenting problems to run"
     );
+    chaining_opts.add_flag(
+        "skip-chaining",
+        &MinimizerMapper::skip_chaining,
+        MinimizerMapper::default_skip_chaining,
+        "don't do the second round of chaining to combine fragments into chains"
+    );
     chaining_opts.add_range(
         "gapless-extension-limit",
         &MinimizerMapper::gapless_extension_limit,
@@ -994,6 +1000,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("fragment-max-indel-bases", 2500)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
+        .add_entry<bool>("skip-chaining", true)
         .add_entry<double>("fragment-score-fraction", 0.5)
         .add_entry<double>("fragment-min-score", 20)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())

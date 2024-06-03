@@ -310,6 +310,11 @@ public:
     static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
     int max_chaining_problems = default_max_chaining_problems;
 
+    /// Don't do chaining but instead turn fragments directly into chains
+    /// If this is true, take all fragments from fragments sets that pass the filters
+    static constexpr bool default_skip_chaining = false;
+    bool skip_chaining = default_skip_chaining;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
