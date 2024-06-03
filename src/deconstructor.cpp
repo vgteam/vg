@@ -1072,7 +1072,7 @@ string Deconstructor::get_vcf_header() {
         ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
     if (!long_ref_contig) {
-        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1 || nested_decomposition;
     }
     this->long_ref_contig = long_ref_contig;
     sample_names.clear();
@@ -1363,6 +1363,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->untangle_allele_traversals = untangle_traversals;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;
+    this->long_ref_contig = long_ref_contig;
     if (gbwt) {
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
     }

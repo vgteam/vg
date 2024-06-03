@@ -168,25 +168,25 @@ rm -f nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
 vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > nested_snp_in_ins.vcf
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
-printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
-printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
+printf "A\tT\t0|1\n" > nested_snp_in_ins_truth.tsv
+printf "C\tCAAG,CATG\t1|2\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 
-is $(grep PA= nested_snp_in_ins.vcf | head -1 | grep PA=0 | wc -l) 1 "PA=0 set for base allele of nested insertion"
-is $(grep PA= nested_snp_in_ins.vcf | tail -1 | grep PA=1 | wc -l) 1 "PA=1 set for nested allele of nested insertion"
+is $(grep LV=0 nested_snp_in_ins.vcf | head -1 | grep PA=0 | wc -l) 1 "PA=0 set for base allele of nested insertion"
+is $(grep LV=1 nested_snp_in_ins.vcf | tail -1 | grep PA=1 | wc -l) 1 "PA=1 set for nested allele of nested insertion"
 
 grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
-printf "##contig=<ID=x,length=2>\n" > nested_snp_in_ins_contigs_truth.tsv
-printf "##contig=<ID=y0,length=5>\n" >> nested_snp_in_ins_contigs_truth.tsv
+printf "##contig=<ID=a#1#y0,length=5>\n" > nested_snp_in_ins_contigs_truth.tsv
+printf "##contig=<ID=x,length=2>\n" >> nested_snp_in_ins_contigs_truth.tsv
 diff nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
 is "$?" 0 "nested deconstruction gets correct contigs in vcf header for snp inside insert"
 
 rm -f nested_snp_in_ins.tsv nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv  nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
 
 vg deconstruct nesting/nested_snp_in_ins2.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10 "\t" $11}' > nested_snp_in_ins2.tsv
-printf "C\tCAAG,CATG\t1|2\t1|0\n" > nested_snp_in_ins2._truth.tsv
-printf "A\tT,*\t0|1\t0|2\n" >> nested_snp_in_ins2._truth.tsv
+printf "A\tT,*\t0|1\t0|2\n" > nested_snp_in_ins2._truth.tsv
+printf "C\tCAAG,CATG\t1|2\t1|0\n" >> nested_snp_in_ins2._truth.tsv
 diff nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
 is "$?" 0 "nested deconstruction gets correct star allele for snp ins2.ide ins2.ert"
 
@@ -197,9 +197,10 @@ rm -f nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
 #       but seems like something that needs reviewing
 vg snarls nesting/nested_snp_in_nested_ins.gfa -A cactus > nested_snp_in_nested_ins.snarls
 vg deconstruct nesting/nested_snp_in_nested_ins.gfa -r nested_snp_in_nested_ins.snarls -P x -n > nested_snp_in_nested_ins.vcf
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | head -1 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RE=1;RL=1;RS=1;LV=0" "INFO tags correct for first site of double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | head -2 | tail -1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RE=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for second site of double-nested SNP"
-is $(grep -v ^# nested_snp_in_nested_ins.vcf | tail -1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RE=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for second site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RE=1;RL=1;RS=1;LV=0" "INFO tags correct for level-0 site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RE=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for level-1 site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RE=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for level-2 site of double-nested SNP"
+
 
 rm -f nested_snp_in_nested_ins.snarls nested_snp_in_nested_ins.vcf
 
