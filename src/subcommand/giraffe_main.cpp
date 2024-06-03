@@ -184,16 +184,16 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
     );
     comp_opts.add_range(
-        "downsample-window-count",
+        "downsample-window-length",
         &MinimizerMapper::minimizer_downsampling_max_window_length,
         MinimizerMapper::default_minimizer_downsampling_max_window_length,
-        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
+        "maximum window length for downsampling"
     );
     comp_opts.add_range(
-        "downsample-window-length",
+        "downsample-window-count",
         &MinimizerMapper::minimizer_downsampling_window_count,
         MinimizerMapper::default_minimizer_downsampling_window_count,
-        "maximum window length for downsampling"
+        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
     );
     comp_opts.add_range(
         "distance-limit", 'D',
