@@ -733,16 +733,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
-            auto equalish = [&] (const size_t x, const size_t y) {
+            auto equalish = [&] (const double x, const double y) {
                 if (x == y) {
                     return true;
                 } else if (x > y) {
-                    return x - y < 0.00001;
+                    return x - y <= std::numeric_limits<double>::round_error();
                 } else {
-                    return y - x < 0.00001;
+                    return y - x <= std::numeric_limits<double>::round_error();
                 }
             };
-            auto greater_than = [&] (const size_t x, const size_t y) {
+            auto greater_than = [&] (const double x, const double y) {
                 if (equalish(x, y)) {
                     return false;
                 } else {
