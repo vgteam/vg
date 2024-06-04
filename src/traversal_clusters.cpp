@@ -161,7 +161,7 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
     //            in the parent? -- for now we keep things simple -- all reference alleles are explictly represented in vcf
     vector<vector<int>> new_clusters;
     for (int64_t i = clusters.size() - 1; i >= 0 && !uncovered_child_snarls.empty(); --i) {
-        for (int64_t j = clusters[i].size() -1 && !uncovered_child_snarls.empty(); j > 0; --j) {
+        for (int64_t j = clusters[i].size() -1; j > 0 && !uncovered_child_snarls.empty(); --j) {
             const vector<int>& trav_childs = trav_to_child_snarls[clusters[i][j]];
             bool uncovered = false;
             for (int k : trav_childs) {                
