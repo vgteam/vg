@@ -1330,10 +1330,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             //If we are not doing chaining, then just turn the best max_direct_to_chain_per_tree fragments into chains
-            if (skip_chaining) {
+            if (max_direct_to_chain > 0) {
                 process_until_threshold_a(tree_fragments.size(),(std::function<double(size_t)>) [&](size_t i) -> double {
                     return fragment_scores[tree_fragments[i]];
-                }, 0, 1, std::numeric_limits<size_t>::max(), rng, 
+                }, 0, 1, max_direct_to_chain, rng, 
                 [&](size_t fragment_num, size_t fragment_count) {
                     // This alignment makes it
                     // Called in score order
@@ -1372,6 +1372,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     
                     
                     if (track_provenance) {
+                        funnel.pass("max-direct-chain",tree_fragments.at(fragment_num));
                         // Say that this fragment became a chain
                         funnel.project(fragment_num_overall);
                         // With the same score
@@ -1411,7 +1412,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // We already have enough fragments, although this one has a good score
                     // We take all fragments to chains
                     //TODO: Do I need to fail the funnel here? I don't think there's a funnel item yet
-                    crash_unless(false);
+                    if (track_provenance){
+                        funnel.fail("max-direct-chain",tree_fragments.at(fragment_num));
+                    }
+                    return;
        
                 }, [&](size_t fragment_num) {
                     // This fragment does not have a sufficiently good score
