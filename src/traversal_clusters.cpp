@@ -34,6 +34,7 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
                                 const vector<Traversal>& traversals,
                                 const vector<string>& trav_path_names,
                                 const vector<int>& ref_travs,
+                                int64_t ref_trav_idx, 
                                 const vector<bool>& use_traversal) {
     set<int> ref_set(ref_travs.begin(), ref_travs.end());
     
@@ -54,7 +55,7 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
     vector<int> sorted_travs;
     sorted_travs.reserve(traversals.size());
     for (int64_t i = 0; i < traversals.size(); ++i) {
-        if (use_traversal[i]) {
+        if (use_traversal[i] && (i == ref_trav_idx || !ref_set.count(i))) {
             sorted_travs.push_back(i);
         }
     }
@@ -107,9 +108,10 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
     // need the clusters as sorted lists. we'll forget the endpoints while we're at
     // it since they're always shared.  note we work with multisets since we want to
     // count differences between, say, cycle copy numbers. 
-    vector<multiset<handle_t>> sorted_traversals;
-    for (const Traversal& trav : traversals) {
-        assert(trav.size() >=2 );
+    vector<multiset<handle_t>> sorted_traversals(traversals.size());
+    for (const int& i : traversal_order) {
+        const auto& trav = traversals[i];
+        assert(trav.size() >=2);
         // prune snarl nodes as they're always the same
         // todo: does jaccard properly handle empty sets?
         int64_t first = trav.size() == 2 ? 0 : 1;
@@ -118,7 +120,7 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
         for (int64_t i = first; i < last; ++i) {
             sorted_trav.insert(trav[i]);
         }
-        sorted_traversals.push_back(sorted_trav);
+        sorted_traversals[i] = sorted_trav;
     } 
 
     for (const int& i : traversal_order) {
@@ -177,7 +179,7 @@ vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
             }            
         }
     }
-    assert(uncovered_child_snarls.empty());
+    assert(uncovered_child_snarls.empty() || traversal_order.size() < traversals.size());
 
     // fill in the size deltas
     for (vector<int>& cluster : clusters) {

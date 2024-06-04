@@ -60,6 +60,7 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
                                 const vector<Traversal>& traversals,
                                 const vector<string>& trav_path_names,
                                 const vector<int>& ref_travs,
+                                int64_t ref_trav_idx,
                                 const vector<bool>& use_traversal);
 
 

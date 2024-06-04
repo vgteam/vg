@@ -618,8 +618,7 @@ unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Tra
                                                                       vector<string>& names,
                                                                       vector<vector<int>>& trav_clusters,
                                                                       vector<pair<double, int64_t>>& trav_cluster_info,
-                                                                      const unordered_map<string, vector<int>>& parent_haplotypes) const {
-    
+                                                                      const unordered_map<string, vector<int>>& parent_haplotypes) const {    
     // todo: refactor this into general genotyping code
     unordered_map<string, vector<int>> sample_to_haps;
 
@@ -692,6 +691,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 
     // compute all the traversals from embedded paths and gbwt
     this->get_traversals(snarl_start, snarl_end, travs, trav_path_names, trav_steps);
+    int64_t trav_count = travs.size();
+    int64_t trav_step_count = trav_steps.size();
 
     if (travs.empty()) {
         return false;        
@@ -745,7 +746,6 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 
     // in case of cycles, we need our allele traversals to be associated to the correct reference position
     // this is done with the path jaccard metric over all overlapping reference paths the given path_jaccard_window size
-    
     vector<int> ref_travs;
     // hacky subpath support -- gets added to variant on output
     vector<int64_t> ref_offsets;
@@ -831,6 +831,11 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
     for (size_t i = 0; i < ref_travs.size(); ++i) {
+        // we zap these to their original size, as the nesting logic can add
+        // dummy traversals and these are reference-specific (and so need to be cleaned each iteration here)
+        travs.resize(trav_count);
+        trav_path_names.resize(trav_count);
+        trav_steps.resize(trav_step_count);
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
 
@@ -907,8 +912,13 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             }
         }
 
+        if (std::none_of(use_trav.begin(), use_trav.end(), [](bool b) {return b;})) {
+            // no alts were jaccard-assigned to this reference, so abort before an assertion gets tripped
+            continue;
+        }
+
         // Sort the traversals for clustering
-        vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, use_trav);
+        vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, ref_trav_idx, use_trav);
 
         // jaccard clustering (using handles for now) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
@@ -936,7 +946,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 #endif
 
         unordered_map<string, vector<int>> sample_to_haps;                     
-        if (i == 0 && in_nesting_info != nullptr) {
+        if (in_nesting_info != nullptr) {
             // if the reference traversal is also an alt traversal, we pop out an extra copy
             // todo: this is a hack add add off-reference support while keeping the current
             // logic where the reference traversal is always distinct from the alts. this step
