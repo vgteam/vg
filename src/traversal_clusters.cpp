@@ -236,14 +236,14 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
         }
         vector<int> contained_snarls;
         for (const auto& cs_count : fw_count) {
-            assert(cs_count.second == 1 || cs_count.second == 2);
-            if (cs_count.second == 2 || (!fully_contained && cs_count.second == 1)) {
+            assert(cs_count.second == 1 || cs_count.second >= 2);
+            if (cs_count.second >= 2 || (!fully_contained && cs_count.second == 1)) {
                 contained_snarls.push_back(cs_count.first);
             }
         }
         for (const auto& cs_count : rv_count) {
-            assert(cs_count.second == 1 || cs_count.second == 2);
-            if (cs_count.second == 2 || (!fully_contained && cs_count.second == 1)) {            
+            assert(cs_count.second == 1 || cs_count.second >= 2);
+            if (cs_count.second >= 2 || (!fully_contained && cs_count.second == 1)) {            
                 contained_snarls.push_back(cs_count.first);
             }
         }        
