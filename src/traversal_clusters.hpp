@@ -60,6 +60,7 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
                                 const vector<Traversal>& traversals,
                                 const vector<string>& trav_path_names,
                                 const vector<int>& ref_travs,
+                                int64_t ref_trav_idx,
                                 const vector<bool>& use_traversal);
 
 
@@ -70,13 +71,23 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
 /// note that traversal_order can specify a subset of traversals
 /// out_info are Simlarity/length-delta pairs comparing the traversal to its cluster reference
 /// (if the traversal wasn't in traversal_order, it'll get -1)
+/// if child snarls are given, then we make sure that every child snarl is contained in a reference
+/// traversal (this guarantees the snarl nesting structure is exactly represented in the vcf alleles!)
+/// if child snarls are given, then we also fill in the mapping of each child snarl to its
+/// "reference" traversals -- ie first traversal in a cluster that contains both its endpoints
 vector<vector<int>> cluster_traversals(const PathHandleGraph* graph,
                                        const vector<Traversal>& traversals,
-                                       const vector<int>& traversal_order,                                       
+                                       const vector<int>& traversal_order,
+                                       const vector<pair<handle_t, handle_t>>& child_snarls,
                                        double min_jaccard,
-                                       vector<pair<double, int64_t>>& out_info);
+                                       vector<pair<double, int64_t>>& out_info,
+                                       vector<int>& out_child_snarl_to_trav);
 
-//int64_t find_parent_traversal(const PathHandleGraph* graph,
-//                              const vector<Traversal>& traversals,
-                              
+/// assign a list of child snarls to traversals that fully conrtain them
+/// the output is a list (for each traversal) of each child snarl that's contained in it
+/// so otuput[i] = {x,y,z} means that child_snarls[x],[y],[z] are in traversals[i]
+vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* graph,
+                                                      const vector<Traversal>& traversals,
+                                                      const vector<pair<handle_t, handle_t>>& child_snarls);
+
 }

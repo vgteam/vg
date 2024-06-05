@@ -43,11 +43,16 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // compute the allele as a string
     auto trav_to_string = [&](const Traversal& trav) {
         string allele;
-        // we skip the snarl endpoints
-        for (int j = 1; j < trav.size() - 1; ++j) {
-            allele += graph->get_sequence(trav[j]);
+        // hack to support star alleles
+        if (trav.size() == 0) {
+            allele = "*";
+        } else {
+            // we skip the snarl endpoints
+            for (int j = 1; j < trav.size() - 1; ++j) {
+                allele += toUppercase(graph->get_sequence(trav[j]));
+            }
         }
-        return toUppercase(allele);
+        return allele;
     };
 
     // set the reference allele
@@ -609,8 +614,75 @@ void Deconstructor::get_traversals(const handle_t& snarl_start, const handle_t& 
     }
 }
 
+unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Traversal>& travs,
+                                                                      vector<string>& names,
+                                                                      vector<vector<int>>& trav_clusters,
+                                                                      vector<pair<double, int64_t>>& trav_cluster_info,
+                                                                      const unordered_map<string, vector<int>>& parent_haplotypes) const {    
+    // todo: refactor this into general genotyping code
+    unordered_map<string, vector<int>> sample_to_haps;
 
-bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const {
+    // find out what's in the traversals
+    assert(names.size() == travs.size());
+    for (int64_t i = 0; i < names.size(); ++i) {
+        string sample_name = PathMetadata::parse_sample_name(names[i]);
+        // for backward compatibility
+        if (sample_name.empty()) {
+            sample_name = names[i];
+        }
+        auto phase = PathMetadata::parse_haplotype(names[i]);
+        if (!sample_name.empty() && phase == PathMetadata::NO_HAPLOTYPE) {
+            // THis probably won't fit in an int. Use 0 instead.
+            phase = 0;
+        }
+        sample_to_haps[sample_name].push_back(phase);
+    }
+
+    // find everything that's in parent_haplotyes but not the travefsals,
+    // and add in dummy start-alleles for them
+    for (const auto& parent_sample_haps : parent_haplotypes) {
+        string parent_sample_name = PathMetadata::parse_sample_name(parent_sample_haps.first);
+        if (parent_sample_name.empty()) {
+            parent_sample_name = parent_sample_haps.first;
+        }
+        if (!this->sample_names.count(parent_sample_name)) {
+            // dont' bother for purely reference samples -- we don't need to force and allele for them.
+            continue;
+        }
+        for (int parent_hap : parent_sample_haps.second) {
+            bool found = false;
+            if (sample_to_haps.count(parent_sample_haps.first)) {
+                // note: this is brute-force search, but number of haplotypes usually tiny.
+                for (int hap : sample_to_haps[parent_sample_haps.first]) {
+                    if (parent_hap == hap) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                travs.push_back(Traversal());
+                names.push_back(PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                               parent_sample_haps.first,
+                                                               "star",
+                                                               parent_hap,
+                                                               PathMetadata::NO_PHASE_BLOCK,
+                                                               PathMetadata::NO_SUBRANGE));
+                sample_to_haps[parent_sample_haps.first].push_back(parent_hap);
+                trav_clusters.push_back({(int)travs.size() - 1});
+                trav_cluster_info.push_back(make_pair(0, 0));
+            }
+        }
+    }
+    
+    return sample_to_haps;
+}
+
+
+bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
+                                     const NestingInfo* in_nesting_info,
+                                     vector<NestingInfo>* out_nesting_infos) const {
+
 
     vector<Traversal> travs;
     vector<string> trav_path_names;
@@ -619,6 +691,8 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 
     // compute all the traversals from embedded paths and gbwt
     this->get_traversals(snarl_start, snarl_end, travs, trav_path_names, trav_steps);
+    int64_t trav_count = travs.size();
+    int64_t trav_step_count = trav_steps.size();
 
     if (travs.empty()) {
         return false;        
@@ -626,6 +700,16 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     
     // pick out the traversal corresponding to an embedded reference path, breaking ties consistently
     string ref_trav_name;
+    string parent_ref_trav_name;
+    if (in_nesting_info != nullptr && in_nesting_info->has_ref) {
+        parent_ref_trav_name = graph->get_path_name(graph->get_path_handle_of_step(in_nesting_info->parent_path_interval.first));
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Using nesting information to set reference to " << parent_ref_trav_name << endl;
+#endif
+        // remember it for the vcf header
+        this->off_ref_paths[omp_get_thread_num()].insert(graph->get_path_handle_of_step(in_nesting_info->parent_path_interval.first));
+    }
     for (int i = 0; i < travs.size(); ++i) {
         const string& path_trav_name = trav_path_names[i];
 #ifdef debug
@@ -639,23 +723,29 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             cerr << " trav=" << traversal_to_string(graph, travs[i]) << endl;
         }
 #endif
-        if (ref_paths.count(path_trav_name) &&
+        bool ref_path_check;
+        if (!parent_ref_trav_name.empty()) {
+            // the reference was specified by the parent
+            ref_path_check = path_trav_name == parent_ref_trav_name;
+        } else {
+            // the reference comes from the global options
+            ref_path_check = ref_paths.count(path_trav_name);
+        }
+        if (ref_path_check &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "Setting ref_trav_name " << ref_trav_name << endl;
+            cerr << "Setting ref_trav_name " << ref_trav_name << (in_nesting_info ? " using nesting info" : "") << endl;
 #endif
         }
     }
-    
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
 
     // in case of cycles, we need our allele traversals to be associated to the correct reference position
     // this is done with the path jaccard metric over all overlapping reference paths the given path_jaccard_window size
-    
     vector<int> ref_travs;
     // hacky subpath support -- gets added to variant on output
     vector<int64_t> ref_offsets;
@@ -670,7 +760,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 ref_offsets.push_back(sub_offset);
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Adding ref_tav idx=" << i << " offset=" << sub_offset << " because " << path_trav_name << " == " << ref_trav_name << endl;
+                cerr << "Adding ref_trav idx=" << i << " offset=" << sub_offset << " because " << path_trav_name << " == " << ref_trav_name << endl;
 #endif                
             }
         }
@@ -732,7 +822,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                context),
                                            ref_travs[j]));
             }
-            std::sort(ref_mappings.begin(), ref_mappings.end());
+            std::stable_sort(ref_mappings.begin(), ref_mappings.end());
             // the best is the last, which has the highest jaccard
             path_trav_to_ref_trav[i] = ref_mappings.back().second;
         }
@@ -741,6 +831,11 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
     for (size_t i = 0; i < ref_travs.size(); ++i) {
+        // we zap these to their original size, as the nesting logic can add
+        // dummy traversals and these are reference-specific (and so need to be cleaned each iteration here)
+        travs.resize(trav_count);
+        trav_path_names.resize(trav_count);
+        trav_steps.resize(trav_step_count);
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
 
@@ -817,13 +912,23 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             }
         }
 
+        if (std::none_of(use_trav.begin(), use_trav.end(), [](bool b) {return b;})) {
+            // no alts were jaccard-assigned to this reference, so abort before an assertion gets tripped
+            continue;
+        }
+
         // Sort the traversals for clustering
-        vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, use_trav);
+        vector<int> sorted_travs = get_traversal_order(graph, travs, trav_path_names, ref_travs, ref_trav_idx, use_trav);
 
         // jaccard clustering (using handles for now) on traversals
         vector<pair<double, int64_t>> trav_cluster_info;
-        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs, cluster_threshold,
-                                                               trav_cluster_info);
+        vector<int> child_snarl_to_trav;
+        vector<vector<int>> trav_clusters = cluster_traversals(graph, travs, sorted_travs,
+                                                               (in_nesting_info ? in_nesting_info->child_snarls :
+                                                                vector<pair<handle_t, handle_t>>()),
+                                                               cluster_threshold,
+                                                               trav_cluster_info,
+                                                               child_snarl_to_trav);
 
 #ifdef debug
         cerr << "cluster priority";
@@ -832,21 +937,131 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         }
         cerr << endl;
         for (const auto& tc : trav_clusters) {
-            cerr << "traversal cluster:";
+            cerr << "traversal cluster: { ";
             for (const auto& t: tc) {
                 cerr << t << "(" << trav_cluster_info[t].first << "," << trav_cluster_info[t].second << ") ";
             }
-            cerr << endl;
+            cerr << " }" << endl;
         }
 #endif
+
+        unordered_map<string, vector<int>> sample_to_haps;                     
+        if (in_nesting_info != nullptr) {
+            // if the reference traversal is also an alt traversal, we pop out an extra copy
+            // todo: this is a hack add add off-reference support while keeping the current
+            // logic where the reference traversal is always distinct from the alts. this step
+            // could be avoided, but it would come at the cost of some detailed refactoring of the
+            // allele getting code...
+            string ref_sample_name = PathMetadata::parse_sample_name(trav_path_names[ref_trav_idx]);
+            if (this->sample_names.count(ref_sample_name)) {
+                int alt_trav_copy = travs.size();
+                travs.push_back(travs[ref_trav_idx]);
+                trav_path_names.push_back(trav_path_names[ref_trav_idx]);
+                trav_cluster_info.push_back(make_pair(0, 0));
+                if (trav_steps.size() == travs.size()) {
+                    trav_steps.push_back(trav_steps[ref_trav_idx]);
+                }
+                bool found_cluster = false;
+                for (vector<int>& cluster : trav_clusters) {
+                    if (cluster[0] == ref_trav_idx) {
+                        found_cluster =true;
+                        cluster.push_back(alt_trav_copy);
+                        break;
+                    }
+                }
+                assert(found_cluster == true);
+            }
+            
+            // add in the star alleles -- these are alleles that were genotyped in the parent but not
+            // the current allele, and are treated as *'s in VCF.
+            sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
+                                                 in_nesting_info->sample_to_haplotypes);
+            
+        }
 
         vector<int> trav_to_allele = get_alleles(v, travs, trav_steps,
                                                  ref_trav_idx,
                                                  trav_clusters,
                                                  prev_char, use_start);
 
+      
+#ifdef debug
+        assert(trav_to_allele.size() == travs.size());
+        cerr << "trav_to_allele =";
+        for (const auto& tta : trav_to_allele) {
+            cerr << " " << tta;
+        }
+        cerr << endl;
+#endif           
+
         // Fill in the genotypes
         get_genotypes(v, trav_path_names, trav_to_allele, trav_cluster_info);
+
+        // Fill in some nesting-specific (site-level) tags
+        NestingInfo ref_info; // since in_nesting_info is const, we put top-level stuff here       
+        if (this->nested_decomposition) {
+            if (in_nesting_info != nullptr && in_nesting_info->has_ref == true) {
+                // if we're a child, just take what's passed in
+                ref_info.parent_allele = in_nesting_info->parent_allele;
+                ref_info.parent_len = in_nesting_info->parent_len;
+                ref_info.parent_ref_len = in_nesting_info->parent_ref_len;
+                ref_info.lv0_ref_name = in_nesting_info->lv0_ref_name;
+                ref_info.lv0_ref_start = in_nesting_info->lv0_ref_start;
+                ref_info.lv0_ref_len = in_nesting_info->lv0_ref_len;
+                ref_info.lv0_alt_len = in_nesting_info->lv0_alt_len;
+            } else {
+                // if we're a root, compute values from the prsent site
+                // todo: should they just be left undefined?
+                ref_info.parent_allele = 0;
+                ref_info.parent_len = v.alleles[0].length();
+                ref_info.parent_ref_len = v.alleles[0].length();
+                ref_info.lv0_ref_name = v.sequenceName;
+                ref_info.lv0_ref_start = v.position;
+                ref_info.lv0_ref_len = v.alleles[0].length();
+                ref_info.lv0_alt_len = v.alleles[ref_info.parent_allele].length();
+            }            
+            v.info["PA"].push_back(std::to_string(ref_info.parent_allele));
+            v.info["PL"].push_back(std::to_string(ref_info.parent_len));
+            v.info["PR"].push_back(std::to_string(ref_info.parent_ref_len));            
+            v.info["RC"].push_back(ref_info.lv0_ref_name);
+            v.info["RS"].push_back(std::to_string(ref_info.lv0_ref_start));
+            v.info["RE"].push_back(std::to_string(ref_info.lv0_ref_len));
+            v.info["RL"].push_back(std::to_string(ref_info.lv0_alt_len));
+        }
+
+        if (i == 0 && out_nesting_infos != nullptr) {
+            // we pass some information down to the children
+            // todo: do/can we consider all the diferent reference intervals?
+            //       right now, the info passed is hopefully coarse-grained enough not to matter?
+            assert(in_nesting_info != nullptr &&
+                   in_nesting_info->child_snarls.size() == out_nesting_infos->size());
+
+            for (int64_t j = 0; j < out_nesting_infos->size(); ++j) {
+                out_nesting_infos->at(j).child_snarls.clear();
+                out_nesting_infos->at(j).has_ref = false;
+                if (child_snarl_to_trav[j] >= 0) {
+                    if (child_snarl_to_trav[j] < trav_steps.size()) {
+                        NestingInfo& child_info = out_nesting_infos->at(j);
+                        child_info.has_ref = true;
+                        child_info.parent_path_interval = trav_steps[child_snarl_to_trav[j]];
+                        child_info.sample_to_haplotypes = sample_to_haps;
+                        child_info.parent_allele = trav_to_allele[child_snarl_to_trav[j]] >= 0 ?
+                            trav_to_allele[child_snarl_to_trav[j]] : 0;
+                        child_info.parent_len = v.alleles[child_info.parent_allele].length();
+                        child_info.parent_ref_len = v.alleles[0].length();
+                        child_info.lv0_ref_name = ref_info.lv0_ref_name;
+                        child_info.lv0_ref_start = ref_info.lv0_ref_start;
+                        child_info.lv0_ref_len = ref_info.lv0_ref_len;
+                        if (in_nesting_info == nullptr || in_nesting_info->has_ref == false) {
+                            // we're the parent of root, so we want to set this here
+                            child_info.lv0_alt_len = child_info.parent_len;
+                        } else {
+                            child_info.lv0_alt_len = ref_info.lv0_alt_len;
+                        }
+                    }
+                }
+            }
+        }
 
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
@@ -867,7 +1082,7 @@ string Deconstructor::get_vcf_header() {
         ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
     if (!long_ref_contig) {
-        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1 || nested_decomposition;
     }
     this->long_ref_contig = long_ref_contig;
     sample_names.clear();
@@ -966,76 +1181,19 @@ string Deconstructor::get_vcf_header() {
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
+    if (this->nested_decomposition) {
+        stream << "##INFO=<ID=PA,Number=1,Type=Integer,Description=\"Allele number of the reference allele in Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=PL,Number=1,Type=Integer,Description=\"Length of the reference allele in Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=PR,Number=1,Type=Integer,Description=\"Length of 0th allele in the Parent Snarl\">" << endl;
+        stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference chromosome name of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RE,Number=1,Type=Integer,Description=\"Reference end position name of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RL,Number=1,Type=Integer,Description=\"Length of the top-level allele in which this site nests\">" << endl;
+    }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
     } else {
         stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    }
-    set<string> gbwt_ref_paths;
-    map<string, int64_t> ref_path_to_length;
-    for(auto& refpath : ref_paths) {
-        if (graph->has_path(refpath)) {
-            int64_t path_len = 0;
-            path_handle_t path_handle = graph->get_path_handle(refpath);
-            for (handle_t handle : graph->scan_path(path_handle)) {
-                path_len += graph->get_length(handle);
-            }
-            string locus_name = graph->get_locus_name(path_handle);
-            if (locus_name == PathMetadata::NO_LOCUS_NAME) {
-                locus_name = refpath;
-            } else if (long_ref_contig) {
-                // the sample name isn't unique enough, so put a full ugly name in the vcf
-                if (graph->get_sense(path_handle) == PathSense::GENERIC) {
-                    locus_name = graph->get_path_name(path_handle);
-                } else {
-                    locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                                graph->get_sample_name(path_handle),
-                                                                locus_name,
-                                                                graph->get_haplotype(path_handle),
-                                                                PathMetadata::NO_PHASE_BLOCK,
-                                                                PathMetadata::NO_SUBRANGE);
-                }
-            }            
-
-            subrange_t subrange = graph->get_subrange(path_handle);
-            int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-            ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
-        } else {
-            gbwt_ref_paths.insert(refpath);
-        }       
-    }
-    for (auto& ref_path_len : ref_path_to_length) {
-        stream << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
-    }
-    if (!gbwt_ref_paths.empty()) {
-        unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
-        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
-            // Collect all the GBWT path IDs for each sample and contig.
-            gbwt_name_to_ids[compose_short_path_name(*gbwt, i)].push_back(i);
-        }
-        for (const string& refpath : gbwt_ref_paths) {
-            // For each sample and contig name that is a GBWT ref path
-            vector<gbwt::size_type>& thread_ids = gbwt_name_to_ids.at(refpath);
-            size_t path_len = 0;
-            for (gbwt::size_type thread_id : thread_ids) {
-                // For each actual path in the GBWT for that sample-and-contig,
-                // we need to see how long it extends the space of the sample
-                // and contig.
-                
-                // TODO: These are probably all guaranteed to be haplotype sense?
-                PathSense sense = gbwtgraph::get_path_sense(*gbwt, thread_id, gbwt_reference_samples);
-                subrange_t subrange = gbwtgraph::get_path_subrange(*gbwt, thread_id, sense);
-                
-                // TODO: when importing GFAs we might cram the start of a walk
-                // into the GBWT count field. But we don't ever guarantee that
-                // we've done that so it might not be visible as a subrange
-                // here. Fix that somehow???
-                size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                size_t len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
-                path_len = std::max(path_len, offset + len);
-            }
-            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
-        }
     }
     
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
@@ -1044,6 +1202,62 @@ string Deconstructor::get_vcf_header() {
     }
     stream << endl;
     return stream.str();
+}
+
+string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const {
+
+    vector<string> header_lines = split_delims(vcf_header, "\n");
+
+    stringstream patched_header;
+    for (int64_t i = 0; i < header_lines.size() - 1; ++i) {
+        patched_header << header_lines[i] << "\n";
+    }
+
+    set<string> all_ref_paths = this->ref_paths;
+    
+    // add in the off-ref paths that nested deconstruction may have found
+    for (const unordered_set<path_handle_t>& off_ref_path_set : this->off_ref_paths) {
+        for (const path_handle_t& off_ref_path : off_ref_path_set) {
+            all_ref_paths.insert(graph->get_path_name(off_ref_path));
+        }
+    }
+    
+    map<string, int64_t> ref_path_to_length;
+    for(auto& refpath : all_ref_paths) {
+        assert(graph->has_path(refpath));
+        int64_t path_len = 0;
+        path_handle_t path_handle = graph->get_path_handle(refpath);
+        for (handle_t handle : graph->scan_path(path_handle)) {
+            path_len += graph->get_length(handle);
+        }
+        string locus_name = graph->get_locus_name(path_handle);
+        if (locus_name == PathMetadata::NO_LOCUS_NAME) {
+            locus_name = refpath;
+        } else if (long_ref_contig) {
+            // the sample name isn't unique enough, so put a full ugly name in the vcf
+            if (graph->get_sense(path_handle) == PathSense::GENERIC) {
+                locus_name = graph->get_path_name(path_handle);
+            } else {
+                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                            graph->get_sample_name(path_handle),
+                                                            locus_name,
+                                                            graph->get_haplotype(path_handle),
+                                                            PathMetadata::NO_PHASE_BLOCK,
+                                                            PathMetadata::NO_SUBRANGE);
+            }
+        }            
+
+        subrange_t subrange = graph->get_subrange(path_handle);
+        int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+        ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
+    }
+    for (auto& ref_path_len : ref_path_to_length) {
+        patched_header << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
+    }
+
+    assert(header_lines.back().substr(0, 6) == "#CHROM");
+    patched_header << header_lines.back();
+    return patched_header.str();
 }
 
 void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
@@ -1078,38 +1292,62 @@ void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
 void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
     // logic copied from vg call (graph_caller.cpp)
     
-    // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
-    vector<vector<const Snarl*>> snarl_queue(thread_count);
+    this->off_ref_paths.clear();
+    this->off_ref_paths.resize(get_thread_count());
+    // Used to recurse on children of parents that can't be called
+    vector<vector<pair<const Snarl*, NestingInfo>>> snarl_queue(thread_count);
 
     // Run the deconstructor on a snarl, and queue up the children if it fails
-    auto process_snarl = [&](const Snarl* snarl) {
+    auto process_snarl = [&](const Snarl* snarl, NestingInfo nesting_info) {
         if (!snarl_manager->is_trivial(snarl, *graph)) {
+            const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+            assert(nesting_info.child_snarls.empty());
+            for (const Snarl* child : children) {
+                nesting_info.child_snarls.push_back(make_pair(graph->get_handle(child->start().node_id(), child->start().backward()),
+                                                              graph->get_handle(child->end().node_id(), child->end().backward())));
+                                                    
+            }
+            vector<NestingInfo> out_nesting_infos(children.size());
             bool was_deconstructed = deconstruct_site(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
-                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()),
+                                                      include_nested ? &nesting_info : nullptr,
+                                                      include_nested ? &out_nesting_infos : nullptr);
             if (include_nested || !was_deconstructed) {
-                const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
-                vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
-                thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+                vector<pair<const Snarl*, NestingInfo>>& thread_queue = snarl_queue[omp_get_thread_num()];
+                for (int64_t i = 0; i < children.size(); ++i) {
+                    thread_queue.push_back(make_pair(children[i], out_nesting_infos[i]));
+                }
+
             }            
         }
     };
 
     // Start with the top level snarls
-    snarl_manager->for_each_top_level_snarl_parallel(process_snarl);
+    // (note, can't do for_each_top_level_snarl_parallel() because interface wont take nesting info)
+    vector<pair<const Snarl*, NestingInfo>> top_level_snarls;
+    snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
+        NestingInfo nesting_info;
+        nesting_info.has_ref = false;
+        top_level_snarls.push_back(make_pair(snarl, nesting_info));
+    });
+#pragma omp parallel for schedule(dynamic, 1)
+    for (int i = 0; i < top_level_snarls.size(); ++i) {
+        process_snarl(top_level_snarls[i].first, top_level_snarls[i].second);
+    }
 
     // Then recurse on any children the snarl caller failed to handle
     while (!std::all_of(snarl_queue.begin(), snarl_queue.end(),
-                        [](const vector<const Snarl*>& snarl_vec) {return snarl_vec.empty();})) {
-        vector<const Snarl*> cur_queue;
-        for (vector<const Snarl*>& thread_queue : snarl_queue) {
+                        [](const vector<pair<const Snarl*, NestingInfo>>& snarl_vec) {return snarl_vec.empty();})) {
+        vector<pair<const Snarl*, NestingInfo>> cur_queue;
+        for (vector<pair<const Snarl*, NestingInfo>>& thread_queue : snarl_queue) {
             cur_queue.reserve(cur_queue.size() + thread_queue.size());
             std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
             thread_queue.clear();
         }
 #pragma omp parallel for schedule(dynamic, 1)
         for (int i = 0; i < cur_queue.size(); ++i) {
-            process_snarl(cur_queue[i]);
+            process_snarl(cur_queue[i].first, cur_queue[i].second);
         }
     }
 }
@@ -1125,30 +1363,29 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool strict_conflicts,
                                 bool long_ref_contig,
                                 double cluster_threshold,
-                                gbwt::GBWT* gbwt) {
+                                gbwt::GBWT* gbwt,
+                                bool nested_decomposition) {
 
     this->graph = graph;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
-    this->include_nested = include_nested;
+    this->include_nested = include_nested || nested_decomposition;
     this->path_jaccard_window = context_jaccard_window;
     this->untangle_allele_traversals = untangle_traversals;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;
+    this->long_ref_contig = long_ref_contig;
     if (gbwt) {
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
     }
     this->cluster_threshold = cluster_threshold;
     this->gbwt = gbwt;
+    this->nested_decomposition = nested_decomposition;
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
     omp_set_nested(1);
     omp_set_max_active_levels(3);
     
-    string hstr = this->get_vcf_header();
-    assert(output_vcf.openForOutput(hstr));
-    cout << output_vcf.header << endl;
-
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
     path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph));
@@ -1157,11 +1394,17 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
 
-    if (include_nested) {
-        deconstruct_graph(snarl_manager);
-    } else {
+    string hstr = this->get_vcf_header();
+    assert(output_vcf.openForOutput(hstr));
+
+    if (nested_decomposition) {
         deconstruct_graph_top_down(snarl_manager);
+    } else {
+        deconstruct_graph(snarl_manager);
     }
+
+    string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
+    cout << patched_header << endl;
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);

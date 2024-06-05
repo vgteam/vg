@@ -887,6 +887,8 @@ pair<vector<SnarlTraversal>, vector<PathInterval>> PathTraversalFinder::find_pat
 pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
 
     vector<step_handle_t> start_steps = graph.steps_of_handle(snarl_start);
+    // try to make this stable across different systems
+    std::sort(start_steps.begin(), start_steps.end());
     vector<step_handle_t> end_steps = graph.steps_of_handle(snarl_end);
     
     // use this to skip paths that don't reach the end node

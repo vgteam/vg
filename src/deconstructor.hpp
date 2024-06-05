@@ -46,13 +46,19 @@ public:
                      bool strict_conflicts,
                      bool long_ref_contig,
                      double cluster_threshold = 1.0,
-                     gbwt::GBWT* gbwt = nullptr);
+                     gbwt::GBWT* gbwt = nullptr,
+                     bool nested_decomposition = false);
     
 private:
 
     // initialize the vcf and get the header 
     string get_vcf_header();
 
+    // the header needs to be initialized *before* construction for vcflib
+    // but we don't know all the non-ref contigs (in nested mode) until *after*
+    // construction.  end result: this hacky function to patch them in before printing
+    string add_contigs_to_vcf_header(const string& vcf_header) const;
+    
     // deconstruct all snarls in parallel (ie nesting relationship ignored)
     void deconstruct_graph(SnarlManager* snarl_manager);
 
@@ -61,9 +67,29 @@ private:
     // (same logic as vg call)
     void deconstruct_graph_top_down(SnarlManager* snarl_manager);
 
+    // some information we pass from parent to child site when
+    // doing nested deconstruction
+    struct NestingInfo {
+        bool has_ref;
+        vector<pair<handle_t, handle_t>> child_snarls;
+        PathInterval parent_path_interval;
+        unordered_map<string, vector<int>> sample_to_haplotypes;
+        int parent_allele;
+        int64_t parent_len;
+        int64_t parent_ref_len;
+        string lv0_ref_name;
+        int64_t lv0_ref_start;
+        int64_t lv0_ref_len;
+        int64_t lv0_alt_len;
+    };
+    
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
-    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end) const;
+    // the nesting_info structs are optional and used to pass reference information through nested sites...
+    // the output nesting_info vector writes a record for each child snarl
+    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
+                          const NestingInfo* in_nesting_info = nullptr,
+                          vector<NestingInfo>* out_nesting_infos = nullptr) const;
 
     // get the traversals for a given site
     // this returns a combination of embedded path traversals and gbwt traversals
@@ -73,6 +99,20 @@ private:
                         vector<Traversal>& out_travs,
                         vector<string>& out_trav_path_names,
                         vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
+
+    // this is a hack to add in * alleles -- these are haplotypes that we genotyped in the
+    // parent but aren't represented in any of the traversals found in the current
+    // site. *-alleles are represented as empty traversals.
+    // todo: conflicts arising from alt-cycles will be able to lead to conflicting
+    // results -- need to overhaul code to pass more detailed traversal information
+    // from parent to child to have a chance at consistently resolving
+    // star traversals are appended onto travs and trav_names
+    // this funtion returns a map containing both parent and child haploty
+    unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,    
+                                                           vector<string>& trav_names,
+                                                           vector<vector<int>>& trav_clusters,
+                                                           vector<pair<double, int64_t>>& trav_cluster_info,
+                                                           const unordered_map<string, vector<int>>& parent_haplotypes) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v,
@@ -118,6 +158,10 @@ private:
     // the ref paths
     set<string> ref_paths;
 
+    // the off-ref paths that may be found during nested deconstruction
+    // (buffered by thread)
+    mutable vector<unordered_set<path_handle_t>> off_ref_paths;
+
     // keep track of reference samples
     set<string> ref_samples;
 
@@ -152,6 +196,11 @@ private:
     // currently implemented as handle jaccard coefficient.  So 1 means only
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
+
+    // activate the new nested decomposition mode, which is like the old include_nested
+    // (which lives in vcfoutputcaller) but with more of an effort to link
+    // the parent and child snarls, as well as better support for nested insertions
+    bool nested_decomposition = false;
 };
 
 
