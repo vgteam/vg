@@ -135,7 +135,7 @@ void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<R
     }
     path_name_set.clear();
     graph_path_name_set.clear();
-    PathTraversalFinder trav_finder(*graph, snarl_manager, path_names);
+    PathTraversalFinder trav_finder(*graph, path_names);
     
     // Do the top-level snarls, the recurse as needed (framework copied from deconstructor.cpp)
     snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) {

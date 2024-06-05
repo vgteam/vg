@@ -5,22 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
-
-vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
-vg index tiny.vg -x tiny.xg
-vg deconstruct tiny.xg -p x -t 1 > tiny_decon.vcf
-# we pop out that GC allele because it gets invented by the adjacent snps in the graph
-gzip -dc tiny/tiny.vcf.gz | tail -3 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' > tiny_orig.tsv
-cat tiny_decon.vcf | grep -v "#" | grep -v GC | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' > tiny_dec.tsv
-diff tiny_orig.tsv tiny_dec.tsv
-is "$?" 0 "deconstruct retrieved original VCF (modulo adjacent snp allele)"
-grep '>1>6' tiny_decon.vcf | awk '{print $8}' > allele_travs
-printf "AT=>1>3>5>6,>1>3>4>6,>1>2>5>6,>1>2>4>6\n" > expected_allele_travs
-diff allele_travs expected_allele_travs
-is "$?" 0 "deconstruct produced expected AT field"
-
-rm -f tiny.vg tiny.xg tiny_decon.vcf tiny_orig.tsv tiny_dec.tsv allele_travs expected_allele_travs
+plan tests 36
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
@@ -155,5 +140,77 @@ diff x.decon.vcf x.gbz.decon.vcf
 is "$?" 0 "gbz deconstruction gives same output as gbwt deconstruction"
 
 rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi x.decon.vcf x.gbz.decon.vcf x.giraffe.gbz x.min x.dist small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
+
+# todo you could argue merging shouldn't happen here because there's no child snarl
+# this check should come into play with nesting support
+vg construct -r small/x.fa -v small/x.vcf.gz | vg view - > small_cluster.gfa
+printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster.gfa
+printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster.gfa
+printf "P\tz\t1+,9+\t*\n" >> small_cluster.gfa
+vg deconstruct small_cluster.gfa -p x > small_cluster_0.vcf
+vg deconstruct small_cluster.gfa -p x -L 0.3 > small_cluster_3.vcf
+is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free deconstruction finds all alt alleles"
+is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
+is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
+
+rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+
+vg deconstruct nesting/nested_snp_in_del.gfa -p x -n > nested_snp_in_del.vcf
+grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
+printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
+printf "T\tA,*\t1|2\n" >> nested_snp_in_del_truth.tsv
+diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+is "$?" 0 "nested deconstruction gets correct star-allele for snp inside deletion"
+
+is $(grep PA=0 nested_snp_in_del.vcf | wc -l) 2 "PA=0 correctly set at both sites of neseted deletion"
+
+rm -f nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
+
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -n > nested_snp_in_ins.vcf
+grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
+printf "A\tT\t0|1\n" > nested_snp_in_ins_truth.tsv
+printf "C\tCAAG,CATG\t1|2\n" >> nested_snp_in_ins_truth.tsv
+diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
+is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
+
+is $(grep LV=0 nested_snp_in_ins.vcf | head -1 | grep PA=0 | wc -l) 1 "PA=0 set for base allele of nested insertion"
+is $(grep LV=1 nested_snp_in_ins.vcf | tail -1 | grep PA=1 | wc -l) 1 "PA=1 set for nested allele of nested insertion"
+
+grep ^##contig nested_snp_in_ins.vcf > nested_snp_in_ins_contigs.tsv
+printf "##contig=<ID=a#1#y0,length=5>\n" > nested_snp_in_ins_contigs_truth.tsv
+printf "##contig=<ID=x,length=2>\n" >> nested_snp_in_ins_contigs_truth.tsv
+diff nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
+is "$?" 0 "nested deconstruction gets correct contigs in vcf header for snp inside insert"
+
+rm -f nested_snp_in_ins.tsv nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv  nested_snp_in_ins_contigs.tsv nested_snp_in_ins_contigs_truth.tsv
+
+vg deconstruct nesting/nested_snp_in_ins2.gfa -p x -n | grep -v ^# | awk '{print $4 "\t" $5 "\t" $10 "\t" $11}' > nested_snp_in_ins2.tsv
+printf "A\tT,*\t0|1\t0|2\n" > nested_snp_in_ins2._truth.tsv
+printf "C\tCAAG,CATG\t1|2\t1|0\n" >> nested_snp_in_ins2._truth.tsv
+diff nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
+is "$?" 0 "nested deconstruction gets correct star allele for snp ins2.ide ins2.ert"
+
+rm -f nested_snp_in_ins2.tsv nested_snp_in_ins2._truth.tsv
+
+# todo: the integrated snarl finder doesnt anchor to the reference
+#       probably not an issue on most real graphs from vg construct / minigraph cacuts
+#       but seems like something that needs reviewing
+vg snarls nesting/nested_snp_in_nested_ins.gfa -A cactus > nested_snp_in_nested_ins.snarls
+vg deconstruct nesting/nested_snp_in_nested_ins.gfa -r nested_snp_in_nested_ins.snarls -P x -n > nested_snp_in_nested_ins.vcf
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | awk '{print $8}') "AC=1,1;AF=0.5,0.5;AN=2;AT=>1>6,>1>2>3>31>33>34>35>5>6,>1>2>3>31>32>34>35>5>6;NS=1;PA=0;PL=1;PR=1;RC=x;RE=1;RL=1;RS=1;LV=0" "INFO tags correct for level-0 site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=1 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>2>3>31>33>34>35>5,>2>3>31>32>34>35>5;NS=1;PA=1;PL=8;PR=1;RC=x;RE=1;RL=8;RS=1;LV=1;PS=>1>6" "INFO tags correct for level-1 site of double-nested SNP"
+is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | awk '{print $8}') "AC=1;AF=0.5;AN=2;AT=>31>33>34,>31>32>34;NS=1;PA=0;PL=5;PR=5;RC=x;RE=1;RL=8;RS=1;LV=2;PS=>2>5" "INFO tags correct for level-2 site of double-nested SNP"
+
+rm -f nested_snp_in_nested_ins.snarls nested_snp_in_nested_ins.vcf
+
+vg deconstruct nesting/nested_snp_in_ins_cycle.gfa -P x -n > nested_snp_in_ins_cycle.vcf
+printf "A#1#y0\t6\t>2>5\tA\tT\tAC=2;AF=0.5;AN=4;AT=>2>4>5,>2>3>5;NS=2;PA=1;PL=7;PR=1;RC=x;RE=1;RL=7;RS=1;LV=1;PS=>1>6\t0|1\t0|1\n" >  nested_snp_in_ins_cycle_truth.tsv
+printf "x\t1\t>1>6\tC\tCAAGAAG,CATG,CAAG\tAC=1,2,1;AF=0.25,0.5,0.25;AN=4;AT=>1>6,>1>2>4>5>2>4>5>6,>1>2>3>5>6,>1>2>4>5>6;NS=2;PA=0;PL=1;PR=1;RC=x;RE=1;RL=1;RS=1;LV=0\t1|2\t3|2\n" >> nested_snp_in_ins_cycle_truth.tsv
+grep -v ^#  nested_snp_in_ins_cycle.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $8 "\t" $10 "\t" $11}' > nested_snp_in_ins_cycle.tsv
+diff nested_snp_in_ins_cycle.tsv nested_snp_in_ins_cycle_truth.tsv
+is "$?" 0 "nested deconstruction handles cycle"
+
+rm -f nested_snp_in_ins_cycle.vcf nested_snp_in_ins_cycle_truth.tsv nested_snp_in_ins_cycle_truth.tsv
+
 
 
