@@ -822,7 +822,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                                                context),
                                            ref_travs[j]));
             }
-            std::sort(ref_mappings.begin(), ref_mappings.end());
+            std::stable_sort(ref_mappings.begin(), ref_mappings.end());
             // the best is the last, which has the highest jaccard
             path_trav_to_ref_trav[i] = ref_mappings.back().second;
         }
