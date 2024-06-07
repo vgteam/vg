@@ -855,6 +855,21 @@ protected:
                                   std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
                                   LazyRNG& rng, Funnel& funnel) const;
 
+    /**
+     * Collect stats about the best chains for annotating the final alignment
+     */
+    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                               const std::vector<std::vector<size_t>>& fragments,
+                               const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                               const std::vector<std::vector<size_t>>& chains,
+                               const std::vector<size_t>& chain_source_tree,
+                               const vector<algorithms::Anchor>& seed_anchors,
+                               const std::vector<int>& chain_score_estimates,
+                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
+                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length, 
+                               Funnel& funnel) const ;
+
     
 
     /**

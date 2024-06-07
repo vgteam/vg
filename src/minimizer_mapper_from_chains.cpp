@@ -701,107 +701,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                              chains, chain_source_tree, chain_score_estimates, minimizer_kept_chain_count, multiplicity_by_chain, 
                              multiplicity_by_tree,
                              good_fragments_in, rng, funnel); 
-       
-    // Find the best chain
-    size_t best_chain = std::numeric_limits<size_t>::max();
-    int best_chain_score = 0;
-    for (size_t i = 0; i < chains.size(); i++) {
-        if (best_chain == std::numeric_limits<size_t>::max() || chain_score_estimates.at(i) > best_chain_score) {
-            // Friendship ended with old chain
-            best_chain = i;
-            best_chain_score = chain_score_estimates[i];
-        }
-    }
+
+    //Fill in chain stats for annotating the final alignment
     bool best_chain_correct = false;
-    if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
-        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
-        if (funnel.is_correct(best_chain)) {
-            best_chain_correct = true;
-        }
-    }
-
-    if (show_work && best_chain != std::numeric_limits<size_t>::max()) {
-        // Dump the best chain
-
-        auto& tree_num = chain_source_tree.at(best_chain);
-        
-        // Find all the seeds in its zip tree
-        vector<size_t> involved_seeds;
-        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
-            involved_seeds.push_back(found.seed);   
-        }
-
-        // Start making a list of things to show. 
-        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
-        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
-        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(best_chain)});
-
-        // Find all the fragments we passed for this tree
-        std::vector<std::vector<size_t>> relevant_fragments;
-        auto& tree_fragments = good_fragments_in[tree_num];
-        for (auto& fragment_num : tree_fragments) {
-            // Get all the seeds in each fragment
-            const std::vector<size_t>& fragment = fragments.at(fragment_num);
-            relevant_fragments.push_back(fragment);
-        }
-        seed_sets.emplace_back("frag", std::move(relevant_fragments));
-
-        // Sort everything in read order
-        for (auto& seed_set : seed_sets) {
-            for (auto& run : seed_set.second) {
-                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
-                    auto& seed_a = seeds.at(seed_index_a);
-                    auto& seed_b = seeds.at(seed_index_b);
-                    
-                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
-    
-                });
-            }
-        }
-
-
-        dump_debug_dotplot("best-chain", minimizers, seeds, seed_sets, this->path_graph);
-
-    }
-    
-    // Find its coverage
     double best_chain_coverage = 0;
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
-    }
-    
-    // Find out how gappy it is. We can get the longest and the average distance maybe.
     size_t best_chain_longest_jump = 0;
-    size_t best_chain_total_jump = 0;
     double best_chain_average_jump = 0;
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
-            // Find the pair of anchors we go between
-            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
-            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
-            // And get the distance between them in the read
-            size_t jump = right_anchor.read_start() - left_anchor.read_end();
-            // Max and add it in
-            best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
-            best_chain_total_jump += jump;
-        }
-        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
-    }
-
-    // Also count anchors in the chain
     size_t best_chain_anchors = 0;
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        best_chain_anchors = chains.at(best_chain).size();
-    }
-
-    // And total length of anchors in the chain
     size_t best_chain_anchor_length = 0;
-    if (best_chain != std::numeric_limits<size_t>::max()) {
-        for (auto& item : chains.at(best_chain)) {
-            best_chain_anchor_length += seed_anchors.at(item).length();
-        }
-    }
-    
+
+    get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
+                         chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
+                         best_chain_anchors, best_chain_anchor_length, funnel);
+          
     if (track_provenance) {
         funnel.stage("align");
     }
@@ -2561,6 +2473,113 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 }
             }
         });
+
+}
+
+void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+                                           const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                           const std::vector<std::vector<size_t>>& fragments,
+                                           const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                           const std::vector<std::vector<size_t>>& chains,
+                                           const std::vector<size_t>& chain_source_tree,
+                                           const vector<algorithms::Anchor>& seed_anchors,
+                                           const std::vector<int>& chain_score_estimates,
+                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
+                                           double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
+                                           Funnel& funnel) const {
+    // Find the best chain
+    size_t best_chain = std::numeric_limits<size_t>::max();
+    int best_chain_score = 0;
+    for (size_t i = 0; i < chains.size(); i++) {
+        if (best_chain == std::numeric_limits<size_t>::max() || chain_score_estimates.at(i) > best_chain_score) {
+            // Friendship ended with old chain
+            best_chain = i;
+            best_chain_score = chain_score_estimates[i];
+        }
+    }
+    if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
+        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
+        if (funnel.is_correct(best_chain)) {
+            best_chain_correct = true;
+        }
+    }
+
+    if (show_work && best_chain != std::numeric_limits<size_t>::max()) {
+        // Dump the best chain
+
+        auto& tree_num = chain_source_tree.at(best_chain);
+        
+        // Find all the seeds in its zip tree
+        vector<size_t> involved_seeds;
+        for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(tree_num)) {
+            involved_seeds.push_back(found.seed);   
+        }
+
+        // Start making a list of things to show. 
+        std::vector<std::pair<std::string, std::vector<std::vector<size_t>>>> seed_sets;
+        seed_sets.emplace_back("", std::vector<std::vector<size_t>>{std::move(involved_seeds)});
+        seed_sets.emplace_back("chain", std::vector<std::vector<size_t>>{chains.at(best_chain)});
+
+        // Find all the fragments we passed for this tree
+        std::vector<std::vector<size_t>> relevant_fragments;
+        const auto& tree_fragments = good_fragments_in.at(tree_num);
+        for (const auto& fragment_num : tree_fragments) {
+            // Get all the seeds in each fragment
+            const std::vector<size_t>& fragment = fragments.at(fragment_num);
+            relevant_fragments.push_back(fragment);
+        }
+        seed_sets.emplace_back("frag", std::move(relevant_fragments));
+
+        // Sort everything in read order
+        for (auto& seed_set : seed_sets) {
+            for (auto& run : seed_set.second) {
+                std::sort(run.begin(), run.end(), [&](const size_t& seed_index_a, const size_t& seed_index_b) {
+                    auto& seed_a = seeds.at(seed_index_a);
+                    auto& seed_b = seeds.at(seed_index_b);
+                    
+                    return minimizers[seed_a.source].forward_offset() < minimizers[seed_b.source].forward_offset();
+    
+                });
+            }
+        }
+
+
+        dump_debug_dotplot("best-chain", minimizers, seeds, seed_sets, this->path_graph);
+
+    }
+    
+    // Find its coverage
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
+    }
+    
+    // Find out how gappy it is. We can get the longest and the average distance maybe.
+    size_t best_chain_total_jump = 0;
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
+            // Find the pair of anchors we go between
+            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
+            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
+            // And get the distance between them in the read
+            size_t jump = right_anchor.read_start() - left_anchor.read_end();
+            // Max and add it in
+            best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
+            best_chain_total_jump += jump;
+        }
+        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+    }
+
+    // Also count anchors in the chain
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        best_chain_anchors = chains.at(best_chain).size();
+    }
+
+    // And total length of anchors in the chain
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        for (auto& item : chains.at(best_chain)) {
+            best_chain_anchor_length += seed_anchors.at(item).length();
+        }
+    }
 
 }
 
