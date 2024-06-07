@@ -3933,7 +3933,7 @@ namespace vg {
 
                 CactusSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
-                PathTraversalFinder trav_finder(graph, snarl_manager);
+                PathTraversalFinder trav_finder(graph);
 
                 Snarl snarl;
                 snarl.mutable_start()->set_node_id(2);
@@ -3972,7 +3972,7 @@ namespace vg {
 
                 CactusSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
-                PathTraversalFinder trav_finder(graph, snarl_manager);
+                PathTraversalFinder trav_finder(graph);
 
                 Snarl snarl;
                 snarl.mutable_start()->set_node_id(7);
@@ -4013,7 +4013,7 @@ namespace vg {
 
                 CactusSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
-                PathTraversalFinder trav_finder(graph, snarl_manager);
+                PathTraversalFinder trav_finder(graph);
 
                 Snarl snarl;
                 snarl.mutable_start()->set_node_id(8);
@@ -4053,7 +4053,7 @@ namespace vg {
 
                 CactusSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
-                PathTraversalFinder trav_finder(graph, snarl_manager);
+                PathTraversalFinder trav_finder(graph);
 
                 Snarl snarl;
                 snarl.mutable_start()->set_node_id(11);

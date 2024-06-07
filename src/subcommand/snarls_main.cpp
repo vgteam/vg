@@ -299,7 +299,7 @@ int main_snarl(int argc, char** argv) {
 
     if (path_traversals) {
         // Limit traversals to embedded paths
-        trav_finder.reset(new PathTraversalFinder(*graph, snarl_manager));
+        trav_finder.reset(new PathTraversalFinder(*graph));
     } else if (vcf_filename.empty()) {
         // This finder works with any backing graph
         trav_finder.reset(new ExhaustiveTraversalFinder(*graph, snarl_manager));

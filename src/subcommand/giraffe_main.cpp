@@ -184,16 +184,16 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
     );
     comp_opts.add_range(
-        "downsample-window-count",
+        "downsample-window-length",
         &MinimizerMapper::minimizer_downsampling_max_window_length,
         MinimizerMapper::default_minimizer_downsampling_max_window_length,
-        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
+        "maximum window length for downsampling"
     );
     comp_opts.add_range(
-        "downsample-window-length",
+        "downsample-window-count",
         &MinimizerMapper::minimizer_downsampling_window_count,
         MinimizerMapper::default_minimizer_downsampling_window_count,
-        "maximum window length for downsampling"
+        "downsample minimizers with windows of length read_length/INT, 0 for no downsampling"
     );
     comp_opts.add_range(
         "distance-limit", 'D',
@@ -865,8 +865,8 @@ int main_giraffe(int argc, char** argv) {
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
         .add_entry<size_t>("num-bp-per-min", 1000)
-        .add_entry<size_t>("downsample-window-count", 125)
-        .add_entry<size_t>("downsample-window-length", 120)
+        .add_entry<size_t>("downsample-window-count", 120)
+        .add_entry<size_t>("downsample-window-length", 125)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
@@ -915,14 +915,14 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 100)
-        .add_entry<size_t>("num-bp-per-min", 500)
-        .add_entry<size_t>("downsample-window-count", 500)
-        .add_entry<size_t>("downsample-window-length", 20)
+        .add_entry<size_t>("max-min", 79)
+        .add_entry<size_t>("num-bp-per-min", 152)
+        .add_entry<size_t>("downsample-window-count", 15)
+        .add_entry<size_t>("downsample-window-length", 227)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
-        .add_entry<size_t>("hard-hit-cap", 20000)
+        .add_entry<size_t>("hard-hit-cap", 13614)
         .add_entry<double>("mapq-score-scale", 1)
         .add_entry<size_t>("mapq-score-window", 150)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
@@ -938,18 +938,18 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-fragments", 15000)
         .add_entry<size_t>("fragment-max-indel-bases", 15000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0.1)
-        .add_entry<double>("fragment-gap-scale", 2.75)
-        .add_entry<double>("fragment-score-fraction", 0.07)
+        .add_entry<double>("fragment-gap-scale", 1.449515477929178)
+        .add_entry<double>("fragment-score-fraction", 0.0)
         .add_entry<double>("fragment-max-min-score", std::numeric_limits<double>::max())
         .add_entry<double>("fragment-min-score", 2)
         .add_entry<double>("fragment-set-score-threshold", 70)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-lookback-bases", 20000)
-        .add_entry<double>("max-lookback-bases-per-base", 0.15)
+        .add_entry<double>("max-lookback-bases-per-base", 0.10501002120802233)
         .add_entry<int>("item-bonus", 20)
         .add_entry<int>("item-scale", 1)
-        .add_entry<double>("gap-scale", 2.75)
+        .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<double>("chain-score-threshold", 100.0)
