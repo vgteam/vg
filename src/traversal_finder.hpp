@@ -36,6 +36,13 @@ using namespace std;
 
 class AugmentedGraph;
 
+// some Protobuf replacements
+using Traversal = vector<handle_t>;
+using PathInterval = pair<step_handle_t, step_handle_t>;
+string traversal_to_string(const PathHandleGraph* graph, const Traversal& traversal, int64_t max_steps = 10);
+// replaces pb2json(snarl)
+string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
+
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
  * base class/interface.
@@ -44,7 +51,12 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;        
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
+
+    // new, protobuf-free interface. hope is to eventually deprecate the old one.  for now it is only supported in a few places
+    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
+        assert(false); return{};
+    }
 };
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
@@ -201,25 +213,25 @@ protected:
     // our graph with indexed path positions
     const PathHandleGraph& graph;
     
-    SnarlManager& snarl_manager;
-
     // restrict to these paths
     unordered_set<path_handle_t> paths;
     
 public:
     // if path_names not empty, only those paths will be considered
-    PathTraversalFinder(const PathHandleGraph& graph, SnarlManager& snarl_manager,
+    PathTraversalFinder(const PathHandleGraph& graph,
                         const vector<string>& path_names = {});
 
     /**
      * Return all traversals through the site that are sub-paths of embedded paths in the graph
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
 
     /**
     * Like above, but return the path steps for the for the traversal endpoints
     */
-    virtual pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > find_path_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<PathInterval>> find_path_traversals(const Snarl& site);
+    virtual pair<vector<Traversal>, vector<PathInterval>> find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
 
 };    
     
@@ -636,18 +648,22 @@ public:
     /* Return a traversal for every gbwt thread through the snarl 
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
 
     /** Return the traversals, paired with their path identifiers in the gbwt.  The traversals are 
      *  unique, but there can be more than one path along each one (hence the vector)
      */
     virtual pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>>
     find_gbwt_traversals(const Snarl& site, bool return_paths = true);
+    virtual pair<vector<Traversal>, vector<vector<gbwt::size_type>>>
+    find_gbwt_traversals(const handle_t& snarl_start, const handle_t& snarl_end, bool return_paths = true);
 
     /** Return traversals paired with path identifiers from the GBWT.  The traversals are *not* unique
      * (which is consistent with PathTraversalFinder)
      * To get the sample name from the path identifier id, use gbwtgraph::get_path_sample_name();
      */
     virtual pair<vector<SnarlTraversal>, vector<gbwt::size_type>> find_path_traversals(const Snarl& site);
+    virtual pair<vector<Traversal>, vector<gbwt::size_type>> find_path_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
 
     const gbwt::GBWT& get_gbwt() { return gbwt; }
     

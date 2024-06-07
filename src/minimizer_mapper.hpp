@@ -261,6 +261,9 @@ public:
     /// at fragmenting?
     static constexpr double default_fragment_gap_scale = 1.0;
     double fragment_gap_scale = default_fragment_gap_scale;
+    // How many points should we treat a non-gap connection base as producing, at fragmenting?
+    static constexpr double default_fragment_points_per_possible_match = 0;
+    double fragment_points_per_possible_match = default_fragment_points_per_possible_match;
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
@@ -326,6 +329,9 @@ public:
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    // How many points should we treat a non-gap connection base as producing, at chaining?
+    static constexpr double default_points_per_possible_match = 0;
+    double points_per_possible_match = default_points_per_possible_match;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
@@ -390,8 +396,8 @@ public:
     int wfa_max_distance = default_wfa_max_distance;
 
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
-    static constexpr double default_min_unique_node_fraction = 0.5;
-    double min_unique_node_fraction = 0.5;
+    static constexpr double default_min_unique_node_fraction = 0.0;
+    double min_unique_node_fraction = default_min_unique_node_fraction;
 
     /// If set, cap mapping quality based on minimizer layout in the read. Only
     /// really likely to help for short reads.
@@ -541,6 +547,13 @@ public:
                 // We already have the position of the first base.
                 return this->value.offset;
             }
+        }
+
+        /// Get the position on the read's sequence that corresponds to the
+        /// located graph positions. For reverse-strand minimizers this will be
+        /// at the end of the minimizer's interval in the read.
+        inline size_t pin_offset() const {
+            return this->value.offset;
         }
         
         /// How many bases are in a window for which a minimizer is chosen?

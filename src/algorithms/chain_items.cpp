@@ -393,6 +393,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int item_bonus,
                            int item_scale,
                            double gap_scale,
+                           double points_per_possible_match,
                            size_t max_indel_bases,
                            bool show_work) {
     
@@ -464,6 +465,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+        // And how much could be matches/mismatches
+        size_t possible_match_length = std::min(read_distance, graph_distance);
         
         if (show_work) {
             cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
@@ -497,6 +500,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // But we account for anchor length in the item points, so don't use it
             // here.
             jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
+
+            // We can also account for the non-indel material, which we assume will have some identity in it.
+            jump_points += possible_match_length * points_per_possible_match;
         }
             
         if (jump_points != numeric_limits<int>::min()) {
@@ -677,6 +683,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int item_bonus,
                                                    int item_scale,
                                                    double gap_scale,
+                                                   double points_per_possible_match,
                                                    size_t max_indel_bases,
                                                    bool show_work) {
                                                                          
@@ -696,6 +703,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              item_bonus,
                                                              item_scale,
                                                              gap_scale,
+                                                             points_per_possible_match,
                                                              max_indel_bases,
                                                              show_work);
     // Then do the tracebacks
@@ -727,6 +735,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int item_bonus,
                                           int item_scale,
                                           double gap_scale,
+                                          double points_per_possible_match,
                                           size_t max_indel_bases) {
                                                                  
     return find_best_chains(
@@ -740,6 +749,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         item_bonus,
         item_scale,
         gap_scale,
+        points_per_possible_match,
         max_indel_bases
     ).front();
 }

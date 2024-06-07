@@ -38,33 +38,93 @@ public:
 
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
-    void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals,
-                     int ploidy,
+    void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                      bool include_nested,
                      int context_jaccard_window,
                      bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
                      bool long_ref_contig,
-                     gbwt::GBWT* gbwt = nullptr);
+                     double cluster_threshold = 1.0,
+                     gbwt::GBWT* gbwt = nullptr,
+                     bool nested_decomposition = false);
     
 private:
 
+    // initialize the vcf and get the header 
+    string get_vcf_header();
+
+    // the header needs to be initialized *before* construction for vcflib
+    // but we don't know all the non-ref contigs (in nested mode) until *after*
+    // construction.  end result: this hacky function to patch them in before printing
+    string add_contigs_to_vcf_header(const string& vcf_header) const;
+    
+    // deconstruct all snarls in parallel (ie nesting relationship ignored)
+    void deconstruct_graph(SnarlManager* snarl_manager);
+
+    // deconstruct all top-level snarls in parallel
+    // nested snarls are processed after their parents in the same thread
+    // (same logic as vg call)
+    void deconstruct_graph_top_down(SnarlManager* snarl_manager);
+
+    // some information we pass from parent to child site when
+    // doing nested deconstruction
+    struct NestingInfo {
+        bool has_ref;
+        vector<pair<handle_t, handle_t>> child_snarls;
+        PathInterval parent_path_interval;
+        unordered_map<string, vector<int>> sample_to_haplotypes;
+        int parent_allele;
+        int64_t parent_len;
+        int64_t parent_ref_len;
+        string lv0_ref_name;
+        int64_t lv0_ref_start;
+        int64_t lv0_ref_len;
+        int64_t lv0_alt_len;
+    };
+    
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
-    bool deconstruct_site(const Snarl* site) const;
+    // the nesting_info structs are optional and used to pass reference information through nested sites...
+    // the output nesting_info vector writes a record for each child snarl
+    bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
+                          const NestingInfo* in_nesting_info = nullptr,
+                          vector<NestingInfo>* out_nesting_infos = nullptr) const;
+
+    // get the traversals for a given site
+    // this returns a combination of embedded path traversals and gbwt traversals
+    // the embedded paths come first, and only they get trav_steps.
+    // so you can use trav_steps.size() to find the index of the first gbwt traversal...
+    void get_traversals(const handle_t& snarl_start, const handle_t& snarl_end,
+                        vector<Traversal>& out_travs,
+                        vector<string>& out_trav_path_names,
+                        vector<pair<step_handle_t, step_handle_t>>& out_trav_steps) const;
+
+    // this is a hack to add in * alleles -- these are haplotypes that we genotyped in the
+    // parent but aren't represented in any of the traversals found in the current
+    // site. *-alleles are represented as empty traversals.
+    // todo: conflicts arising from alt-cycles will be able to lead to conflicting
+    // results -- need to overhaul code to pass more detailed traversal information
+    // from parent to child to have a chance at consistently resolving
+    // star traversals are appended onto travs and trav_names
+    // this funtion returns a map containing both parent and child haploty
+    unordered_map<string, vector<int>> add_star_traversals(vector<Traversal>& travs,    
+                                                           vector<string>& trav_names,
+                                                           vector<vector<int>>& trav_clusters,
+                                                           vector<pair<double, int64_t>>& trav_cluster_info,
+                                                           const unordered_map<string, vector<int>>& parent_haplotypes) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v,
-                            const pair<vector<SnarlTraversal>,
-                                       vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+                            const vector<Traversal>& travs,
+                            const vector<pair<step_handle_t, step_handle_t>>& trav_steps,
                             int ref_path_idx,
-                            const vector<bool>& use_trav,
+                            const vector<vector<int>>& trav_clusters,
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele) const;
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
+                       const vector<pair<double, int64_t>>& trav_to_cluster_info) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
@@ -74,49 +134,19 @@ private:
                                               const vector<string>& trav_to_name,
                                               const vector<int>& gbwt_phases) const;
 
-    // check to see if a snarl is too big to exhaustively traverse
-    bool check_max_nodes(const Snarl* snarl) const;
-
-    // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
-    // with node visits
-    vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl) const;
-
-    // gets a sorted node id context for a given path
-    vector<nid_t> get_context(
-        const pair<vector<SnarlTraversal>,
-                   vector<pair<step_handle_t, step_handle_t>>>& path_travs,
-        const int& trav_idx) const;
-
     // the underlying context-getter
     vector<nid_t> get_context(
         step_handle_t start_step,
         step_handle_t end_step) const;
-
-    // compares node contexts
-    double context_jaccard(const vector<nid_t>& target,
-                           const vector<nid_t>& query) const;
-
-    // specialization for enc_vectors
-    double context_jaccard(
-        const dac_vector<>& target,
-        const vector<nid_t>& query) const;
     
-    // toggle between exhaustive and path restricted traversal finder
-    bool path_restricted = false;
-
-    // the max ploidy we expect.
-    int ploidy;
-
     // the graph
     const PathPositionHandleGraph* graph;
 
-    // the snarl manager
-    SnarlManager* snarl_manager;
+    // the gbwt
+    gbwt::GBWT* gbwt;
 
     // the traversal finders. we always use a path traversal finder to get the reference path
     unique_ptr<PathTraversalFinder> path_trav_finder;
-    // we optionally use another (exhaustive for now) traversal finder if we don't want to rely on paths
-    unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
     // When using the gbwt we need some precomputed information to ask about stored paths.
@@ -127,6 +157,10 @@ private:
 
     // the ref paths
     set<string> ref_paths;
+
+    // the off-ref paths that may be found during nested deconstruction
+    // (buffered by thread)
+    mutable vector<unordered_set<path_handle_t>> off_ref_paths;
 
     // keep track of reference samples
     set<string> ref_samples;
@@ -143,9 +177,6 @@ private:
     // the sample ploidys given in the phases in our path names
     unordered_map<string, int> sample_ploidys;
 
-    // upper limit of degree-2+ nodes for exhaustive traversal
-    int max_nodes_for_exhaustive = 100;
-
     // target window size for determining the correct reference position for allele traversals with path jaccard
     int path_jaccard_window = 10000;
 
@@ -161,25 +192,17 @@ private:
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
 
-    // warn about context jaccard not working with exhaustive traversals
-    mutable atomic<bool> exhaustive_jaccard_warning;
+    // used to merge together similar traversals (to keep allele counts down)
+    // currently implemented as handle jaccard coefficient.  So 1 means only
+    // merge if identical (which is what deconstruct has always done)
+    double cluster_threshold = 1.0;
+
+    // activate the new nested decomposition mode, which is like the old include_nested
+    // (which lives in vcfoutputcaller) but with more of an effort to link
+    // the parent and child snarls, as well as better support for nested insertions
+    bool nested_decomposition = false;
 };
 
-// helpel for measuring set intersectiond and union size
-template <typename T>
-class count_back_inserter {
-    size_t &count;
-public:
-    typedef void value_type;
-    typedef void difference_type;
-    typedef void pointer;
-    typedef void reference;
-    typedef std::output_iterator_tag iterator_category;
-    count_back_inserter(size_t &count) : count(count) {};
-    void operator=(const T &){ ++count; }
-    count_back_inserter &operator *(){ return *this; }
-    count_back_inserter &operator++(){ return *this; }
-};
 
 }
 #endif

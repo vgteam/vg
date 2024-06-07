@@ -335,6 +335,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int item_bonus = 0,
                            int item_scale = 1,
                            double gap_scale = 1.0,
+                           double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
                            bool show_work = false);
 
@@ -379,6 +380,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int item_bonus = 0,
                                                    int item_scale = 1,
                                                    double gap_scale = 1.0,
+                                                   double points_per_possible_match = 0,
                                                    size_t max_indel_bases = 100,
                                                    bool show_work = false);
 
@@ -400,6 +402,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int item_bonus = 0,
                                           int item_scale = 1,
                                           double gap_scale = 1.0,
+                                          double points_per_possible_match = 0,
                                           size_t max_indel_bases = 100);
                                           
 /**

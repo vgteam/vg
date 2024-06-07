@@ -232,11 +232,26 @@ void MinimizerMapper::dump_debug_dotplot(const std::string& name, const VectorVi
                             // Contig alone
                             exp.field(path_name);
                         }
-                        // Offset on contig
+                        // Offset on contig of the pin point
                         exp.field(position.first);
-                        // Offset in read
-                        exp.field(minimizers[seed.source].forward_offset());
+                        // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                        exp.field(minimizers[seed.source].pin_offset());
                     }
+                }
+                if (offsets.empty()) {
+                    // Note that we don't actually have a position
+                    exp.line();
+                    if (!marker.empty()) {
+                        // Sentinel and a marker and a subscript
+                        exp.field("NO_PATH-" + marker + "-" + std::to_string(run_number));
+                    } else {
+                        // Sentinel alone
+                        exp.field("NO_PATH");
+                    }
+                    // Put it at 0 on no path
+                    exp.field(0);
+                    // Offset in read *of the pin point* (not of the forward-strand start of the minimizer)
+                    exp.field(minimizers[seed.source].pin_offset());
                 }
             }
 
@@ -305,18 +320,20 @@ std::pair<double, double> MinimizerMapper::score_tree(const ZipCodeForest& zip_c
         if (show_work && track_correctness) {
             // We will have positions early, for all the seeds.
             auto tree_positions = funnel.get_positions(funnel.latest());
-            #pragma omp critical (cerr)
-            {
-                std::cerr << log_name() << "Positions for tree " << i << " score " << score << " coverage " << coverage << ":" << std::endl;
-                for (auto& handle_and_range : tree_positions) {
-                    // Log each range on a path associated with the tree.
-                    std::cerr << log_name() << "\t"
-                        << this->path_graph->get_path_name(handle_and_range.first)
-                        << ":" << handle_and_range.second.first
-                        << "-" << handle_and_range.second.second << std::endl;
-                }
-                if (track_correctness && funnel.is_correct(funnel.latest())) {
-                    cerr << log_name() << "\t\tCORRECT!" << endl;
+            if (!tree_positions.empty()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Positions for tree " << i << " score " << score << " coverage " << coverage << ":" << std::endl;
+                    for (auto& handle_and_range : tree_positions) {
+                        // Log each range on a path associated with the tree.
+                        std::cerr << log_name() << "\t"
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
+                        cerr << log_name() << "\t\tCORRECT!" << endl;
+                    }
                 }
             }
         }
@@ -867,7 +884,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     seed_positions.reserve(extension_seeds.size());
                     for (auto& seed_index : extension_seeds) {
                         if (!used_seeds.count(seed_index)) {
-                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].value.offset);
+                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].pin_offset());
                         }
                     }
 
@@ -905,11 +922,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
                         // Find the relevant seed range
                         std::vector<size_t> anchor_seeds;
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.first) {
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.first) {
                             // Move seed iterator to inside or past the interval (should really always be already inside).
                             ++seed_it;
                         }
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].value.offset < anchor_interval.second) {
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.second) {
                             // Take all the seeds into the vector of anchor seeds.
                             auto found = used_seeds.find(*seed_it);
                             if (found == used_seeds.end()) {
@@ -1017,6 +1034,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->fragment_gap_scale,
+                this->fragment_points_per_possible_match,
                 indel_limit,
                 false
             );
@@ -1364,8 +1382,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->item_bonus,
                 this->item_scale,
                 this->gap_scale,
+                this->points_per_possible_match,
                 indel_limit,
-                false
+                show_work
             );
             
             for (size_t result = 0; result < chain_results.size(); result++) {
@@ -1689,8 +1708,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
-    // Track what read offset, graph node pairs were used in previously generated alignments, so we can fish out alignments to different placements.
-    std::unordered_set<std::pair<size_t, pos_t>> used_matchings;
+    // Track what node ID, orientation, read-minus-node offset tuples were used
+    // in previously generated alignments, so we can fish out alignments to
+    // different placements.
+    // Use pairs since we can't hash tuples.
+    std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
 
     // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
     aligner_stats_t stats; 
@@ -1723,7 +1745,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             for (auto& seed_num : chains[processed_num]) {
-                auto matching = std::make_pair(minimizers[seeds.at(seed_num).source].forward_offset(), seeds.at(seed_num).pos);
+                // Look at the individual pin points and their associated read-node offset
+                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
+                pos_t graph_pos = seeds.at(seed_num).pos;
+
+                nid_t node_id = id(graph_pos);
+                bool orientation = is_rev(graph_pos);
+                int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
+                auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
                 if (used_matchings.count(matching)) {
                     if (track_provenance) {
                         funnel.fail("no-chain-overlap", processed_num);
@@ -1731,10 +1760,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read position " << matching.first << " and graph position " << matching.second << endl;
+                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
                     }
                     return false;
+                } else {
+#ifdef debug
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Chain " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        }
+                    }
+#endif
                 }
             }
             if (show_work) {
@@ -1829,8 +1867,33 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 size_t read_pos = 0;
                 for (auto& mapping : alignments.back().path().mapping()) {
                     // Mark all the read-node matches it visits used.
-                    used_matchings.emplace(read_pos, make_pos_t(mapping.position()));
-                    read_pos += mapping_to_length(mapping);
+                    pos_t graph_pos = make_pos_t(mapping.position());
+
+                    nid_t node_id = id(graph_pos);
+                    bool orientation = is_rev(graph_pos);
+                    size_t graph_offset = offset(graph_pos);
+
+                    for (auto& edit : mapping.edit()) {
+                        if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
+                            // It's an actual match so make a matching
+                            int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)graph_offset;
+                            auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
+
+#ifdef debug
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Create matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                                }
+                            }
+#endif
+
+                            used_matchings.emplace(std::move(matching));
+                        }
+                        read_pos += edit.to_length();
+                        graph_offset += edit.from_length();
+                    }
+                    
                 }
 
                 if (track_provenance) {
@@ -3502,7 +3565,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         // And derive the graph start
         graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
         // And the read start
-        read_start = source.value.offset + 1 - length;
+        read_start = source.pin_offset() + 1 - length;
         // The seed is actually the last 1bp interval
         hint_start = length - 1;
     } else {
@@ -3518,14 +3581,14 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         // How much do we cut off the end?
         margin_right = (size_t)source.length - length;
         // And we store the read start position already in the item
-        read_start = source.value.offset;
+        read_start = source.pin_offset();
         // The seed is actually at the start
         hint_start = 0;
     }
 
 #ifdef debug
     std::cerr << "Minimizer at read " << source.forward_offset() << " length " << source.length
-              << " orientation " << source.value.is_reverse << " pinned at " << source.value.offset
+              << " orientation " << source.value.is_reverse << " pinned at " << source.pin_offset()
               << " is anchor of length " << length << " matching graph " << graph_start << " and read " << read_start
               << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
 #endif
