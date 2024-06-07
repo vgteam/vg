@@ -870,6 +870,18 @@ protected:
                                double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length, 
                                Funnel& funnel) const ;
 
+    void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+                               const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                               const vector<algorithms::Anchor>& seed_anchors,
+                               const std::vector<std::vector<size_t>>& chains, 
+                               const std::vector<size_t>& chain_source_tree,
+                               const std::vector<double>& multiplicity_by_chain,
+                               const std::vector<int>& chain_score_estimates,
+                               const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                vector<Alignment>& alignments, vector<size_t>& alignments_to_source,
+                                vector<size_t>& chain_count_by_alignment, vector<double>& multiplicity_by_alignment,
+                                SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
+
     
 
     /**
