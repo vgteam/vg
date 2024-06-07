@@ -363,6 +363,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum number of fragmenting problems to run"
     );
     chaining_opts.add_range(
+        "max-direct-chain",
+        &MinimizerMapper::max_direct_to_chain,
+        MinimizerMapper::default_max_direct_to_chain,
+        "take up to this many fragments per zipcode tree and turn them into chains instead of chaining. If this is 0, do chaining."
+    );
+    chaining_opts.add_range(
         "gapless-extension-limit",
         &MinimizerMapper::gapless_extension_limit,
         MinimizerMapper::default_gapless_extension_limit,
@@ -987,17 +993,18 @@ int main_giraffe(int argc, char** argv) {
         // Allowing a lot of mismatches because we chop later
         .add_entry<size_t>("max-extension-mismatches", 15)
         // And fragment them
-        .add_entry<double>("fragment-gap-scale", 4.0)
-        .add_entry<double>("gap-scale", 4.0)
-        .add_entry<size_t>("fragment-max-lookback-bases", 300)
+        .add_entry<double>("fragment-gap-scale", 3.6)
+        .add_entry<double>("gap-scale", 2.2)
+        .add_entry<size_t>("fragment-max-lookback-bases", 450)
         .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
-        .add_entry<size_t>("fragment-max-indel-bases", 2000)
+        .add_entry<size_t>("fragment-max-indel-bases", 3000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
-        .add_entry<double>("fragment-score-fraction", 0.5)
-        .add_entry<double>("fragment-min-score", 20)
+        .add_entry<size_t>("max-direct-chain", 6)
+        .add_entry<double>("fragment-score-fraction", 0.38)
+        .add_entry<double>("fragment-min-score", 8)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
-        .add_entry<int>("min-chaining-problems", 10)
+        .add_entry<int>("min-chaining-problems", 7)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-lookback-bases", 1000)
         .add_entry<double>("max-lookback-bases-per-base", 0)

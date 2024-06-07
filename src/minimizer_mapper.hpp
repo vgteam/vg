@@ -310,6 +310,11 @@ public:
     static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
     int max_chaining_problems = default_max_chaining_problems;
 
+    /// Sometimes we don't do chaining but instead turn fragments directly into chains
+    /// If this is 0, then do chaining. Otherwise take up to this many fragments and turn them into chains
+    static constexpr size_t default_max_direct_to_chain = 0;
+    size_t max_direct_to_chain = default_max_direct_to_chain;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
@@ -824,6 +829,18 @@ protected:
             fallbacks.add_annotations(aln, scope, "fallbacks");
         }
     };
+
+    /**
+     * Given a collection of zipcode trees, score the trees and do fragmenting on the best trees.
+     * 
+     * This will fill in the given vectors of fragments, fragment scores, etc.
+     */
+    void do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                  const vector<algorithms::Anchor>& seed_anchors,
+                                  std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
+                                  std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
+                                  std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
+                                  LazyRNG& rng, Funnel& funnel) const;
 
     
 

@@ -588,8 +588,6 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
-    //Do gapless extension if the read length is less than the limit
-    bool do_gapless_extension = aln.sequence().size() <= gapless_extension_limit;
 
     
     if (show_work) {
@@ -642,91 +640,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 #endif
-
-    // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
-    vector<double> tree_scores;
-    double best_tree_score = 0;
-    double second_best_tree_score = 0;
-    tree_scores.reserve(zip_code_forest.trees.size());
-
-    vector<double> tree_coverages;
-    double best_tree_coverage = 0;
-    double second_best_tree_coverage = 0;
-    tree_coverages.reserve(zip_code_forest.trees.size());
-
-    for (size_t i = 0; i < zip_code_forest.trees.size(); i++) {
-        // For each zip code tree
-        
-        // Score it
-        std::pair<double, double> metrics = this->score_tree(zip_code_forest, i, minimizers, seeds, aln.sequence().size(), funnel);
-        auto& score = metrics.first;
-        auto& coverage = metrics.second;
-
-        tree_scores.push_back(score);
-        tree_coverages.push_back(coverage);
-
-        if (score > best_tree_score) {
-            second_best_tree_score = best_tree_score;
-            best_tree_score = score;
-        } else if (score > second_best_tree_score) {
-            second_best_tree_score = score;
-        }
-
-        if (coverage > best_tree_coverage) {
-            second_best_tree_coverage = best_tree_coverage;
-            best_tree_coverage = coverage;
-        } else if (coverage > second_best_tree_coverage) {
-            second_best_tree_coverage = coverage;
-        }
-    }
-
-    // We will set a score cutoff based on the best, but move it down to the
-    // second best if it does not include the second best and the second best
-    // is within pad_zipcode_tree_score_threshold of where the cutoff would
-    // otherwise be. This ensures that we won't throw away all but one 
-    // based on score alone, unless it is really bad.
-    double tree_score_cutoff = best_tree_score - zipcode_tree_score_threshold;
-    if (tree_score_cutoff - pad_zipcode_tree_score_threshold < second_best_tree_score) {
-        tree_score_cutoff = std::min(tree_score_cutoff, second_best_tree_score);
-    }
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best, coverages " << best_tree_coverage << " best, " << second_best_tree_coverage << " second best" << std::endl;
-        }
-    }
-
     // Turn all the seeds into anchors. Either we'll fragment them directly or
     // use them to make gapless extension anchors over them.
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
-    // If we don't do gapless extension, we need one-item vectors for all the
-    // seeds of their own numbers, to show what seed each anchor represents.
-    // TODO: Can we only do this for the seeds that are in trees we keep?
-    std::vector<std::vector<size_t>> seed_seed_sequences;
-    if (!do_gapless_extension) {
-        seed_seed_sequences.reserve(seed_anchors.size());
-        for (size_t i = 0; i < seed_anchors.size(); ++i) {
-            seed_seed_sequences.push_back({i});
-        }
-    }
+
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
     // coverage float on the read, for downstream
     // processing.
-    if (track_provenance) {
-        funnel.stage("fragment");
-        funnel.substage("fragment");
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "=====Creating fragments=====" << endl;
-        }
-    }
 
     // Now compute fragments into these variables.
     // What seeds are visited in what order in the fragment?
@@ -742,439 +665,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
     // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
     // here with the multiplicity of the trees for each fragment
-    // For now, this just stores how many trees had equal or better score. After going through all
-    // trees and counting how many are kept, each value will be divided by the number of trees kept
     std::vector<double> multiplicity_by_fragment;
-    size_t kept_tree_count = 0;
 
-    process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
-            return tree_coverages[i];
-        }, [&](size_t a, size_t b) -> bool {
-            auto equalish = [&] (const double x, const double y) {
-                if (x == y) {
-                    return true;
-                } else if (x > y) {
-                    return x - y <= std::numeric_limits<double>::round_error();
-                } else {
-                    return y - x <= std::numeric_limits<double>::round_error();
-                }
-            };
-            auto greater_than = [&] (const double x, const double y) {
-                if (equalish(x, y)) {
-                    return false;
-                } else {
-                    return x > y;
-                }
-            };
+    do_fragmenting_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
+                             fragments, fragment_scores, fragment_anchors, fragment_source_tree,
+                             minimizer_kept_fragment_count, multiplicity_by_fragment, rng, funnel);
 
-            return greater_than(tree_coverages[a], tree_coverages[b])
-                || (equalish(tree_coverages[a], tree_coverages[b]) && greater_than(tree_scores[a], tree_scores[b]));
-
-        }, zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
-            // Handle sufficiently good fragmenting problems in descending score order
-            
-            if (track_provenance) {
-                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
-                funnel.pass("max-to-fragment", item_num);
-            }
-
-            // First check against the additional score filter
-            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff 
-                && kept_tree_count >= min_to_fragment) {
-                // If the score isn't good enough and we already kept at least min_to_fragment trees,
-                // ignore this tree
-                if (track_provenance) {
-                    funnel.fail("zipcode-tree-score-threshold", item_num, tree_scores[item_num]);
-                }
-                return false;
-            }
-            
-            if (track_provenance) {
-                funnel.pass("zipcode-tree-score-threshold", item_num, tree_scores[item_num]); 
-            }
-
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Making fragments for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
-                }
-            }
-            
-            kept_tree_count++;
-
-            if (track_provenance) {
-                // Say we're working on this 
-                funnel.processing_input(item_num);
-            }
-          
-            // Also make a list of all the seeds in the problem.
-            // This lets us select the single-seed anchors to use.
-
-            //Make sure that each seed gets added only once
-            vector<bool> added_seed (seeds.size(), false);
-            vector<size_t> selected_seeds;
-            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
-                if (!added_seed[found.seed]) {
-                    selected_seeds.push_back(found.seed);
-                    added_seed[found.seed] = true;
-                }
-            }
-            
-            if (show_work) {
-                dump_debug_seeds(minimizers, seeds, selected_seeds);
-            }
-
-            // If we do gapless extension, we will use these anchors to fragment instead of the seed ones.
-            std::vector<algorithms::Anchor> extension_anchors;
-            // And each of them (or of the seed anchors, if we use those) represents this run of seed numbers to put into the final chain.
-            std::vector<std::vector<size_t>> extension_seed_sequences;
-            // Extensions use a distinct list of included seeds vs. seeds we actually paste in, so we can glom up overlapping seeds.
-            std::vector<std::vector<size_t>> extension_represented_seeds;
-            // We need a list of all extension anchor indexes that we can sort.
-            std::vector<size_t> extension_anchor_indexes;
-
-            if (do_gapless_extension) {
-                // Instead of fragmenting directly on the seeds, fragment on gapless extensions of the seeds.
-
-                if (track_provenance) {
-                    funnel.substage("gapless_extension");
-                }
-
-                // Extend the seeds and keep track of the seeds that went into each extension.
-                // We'll use this to make anchors later.
-                std::vector<std::vector<size_t>> seeds_for_extension;
-                std::vector<GaplessExtension> tree_extensions = this->extend_seed_group(
-                    selected_seeds,
-                    item_num,
-                    minimizers,
-                    seeds,
-                    aln.sequence(),
-                    this->max_extension_mismatches,
-                    nullptr,
-                    nullptr,
-                    &seeds_for_extension);
-                // Note that we don't use the funnel here; we don't actually
-                // track a gapless extension stage.
-                
-                // We can't actually handle the same seed being used as the
-                // endpoint of multiple anchors in the chaining. So we need to
-                // go through the gapless extensions in score order and make
-                // them into anchors using the seeds not yet used by previous
-                // ones.
-                auto extension_score_order = sort_permutation(tree_extensions.begin(), tree_extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) {
-                    // Return true if the first gapless extension needs to be first.
-                    // TODO: use real scores from the aligner.
-                    int a_score = (a.read_interval.second - a.read_interval.first) - a.mismatch_positions.size() * 5;
-                    int b_score = (b.read_interval.second - b.read_interval.first) - b.mismatch_positions.size() * 5;
-                    // We want to sort descending so larger scores come first.
-                    return a_score > b_score;
-                });
-
-                // This holds the seeds used to make previous anchors.
-                std::unordered_set<size_t> used_seeds;
-
-                for (auto& extension_index : extension_score_order) {
-                    // For each extension
-                    const GaplessExtension& extension = tree_extensions[extension_index];
-                    // And the seeds that made it, sorted by stapled base
-                    const std::vector<size_t>& extension_seeds = seeds_for_extension[extension_index];
-
-                    // Make a list of all the seed positions still available
-                    std::vector<size_t> seed_positions;
-                    seed_positions.reserve(extension_seeds.size());
-                    for (auto& seed_index : extension_seeds) {
-                        if (!used_seeds.count(seed_index)) {
-                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].pin_offset());
-                        }
-                    }
-
-                    if (seed_positions.empty()) {
-                        if (show_work) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " has no distinct seeds left to use for anchors" << endl;
-                            }
-                        }
-                        continue;
-                    }
-
-
-                    // We want to break up the extension into read intervals
-                    // and the seeds that go with them. Each of those will
-                    // become an anchor.
-                    std::vector<std::pair<size_t, size_t>> anchor_intervals = find_anchor_intervals(extension.read_interval, extension.mismatch_positions, seed_positions);
-
-                    // Then convert those intervals into anchors.
-                    auto mismatch_it = extension.mismatch_positions.begin();
-                    auto seed_it = extension_seeds.begin();
-                    for (auto& anchor_interval : anchor_intervals) {
-                        // Find the relevant mismatch range
-                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.first) {
-                            // Move mismatch iterator to inside or past the interval
-                            ++mismatch_it;
-                        }
-                        auto internal_mismatch_begin = mismatch_it;
-                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.second) {
-                            // Move mismatch iterator to past the interval
-                            ++mismatch_it;
-                        }
-                        auto internal_mismatch_end = mismatch_it;
-
-                        // Find the relevant seed range
-                        std::vector<size_t> anchor_seeds;
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.first) {
-                            // Move seed iterator to inside or past the interval (should really always be already inside).
-                            ++seed_it;
-                        }
-                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.second) {
-                            // Take all the seeds into the vector of anchor seeds.
-                            auto found = used_seeds.find(*seed_it);
-                            if (found == used_seeds.end()) {
-                                // As long as they haven't been used
-                                anchor_seeds.push_back(*seed_it);
-                                // And mark them used
-                                used_seeds.insert(found, *seed_it);
-                            }
-                            ++seed_it;
-                        }
-
-                        if (anchor_seeds.empty()) {
-                            // All the seeds we wanted for this piece specifically are already represented by pieces of previous extensions
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " would produce anchor " << anchor_interval.first << "-" << anchor_interval.second << " but all seeds in the interval were used already" << endl;
-                                }
-                            }
-                            // Go on to the next anchor interval
-                        } else {
-                            // We have seeds here and can make an anchor
-
-                            // Note the index of the new anchor
-                            extension_anchor_indexes.push_back(extension_anchors.size());
-                            // Make the actual anchor out of this range of seeds and this read range.
-                            extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches, score " << extension_anchors.back().score() << endl;
-                                }
-                            }
-
-                            // And if we take that anchor, we'll grab these underlying
-                            // seeds into the elaborating chain. Just use the bounding
-                            // seeds and connect between them where it is easy.
-                            extension_seed_sequences.push_back({anchor_seeds.front()});
-                            if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
-                                // There are multiple seeds in the extension and the last
-                                // one doesn't overlap the first, so take the last one too.
-                                extension_seed_sequences.back().push_back(anchor_seeds.back());
-                            }
-
-                            // Keep all the seeds that this anchor counts as using.
-                            extension_represented_seeds.emplace_back(std::move(anchor_seeds));
-                        }
-                    }
-                }
-            }
-            
-            // Figure out what anchors we want to view.
-            const std::vector<algorithms::Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
-            // And what seeds each represents
-            const std::vector<std::vector<size_t>>& anchor_seed_sequences = do_gapless_extension ? extension_seed_sequences : seed_seed_sequences;
-            // And what subset/in what order
-            std::vector<size_t>& anchor_indexes = do_gapless_extension ? extension_anchor_indexes : selected_seeds;
-            // Sort anchors by read start of seeded region
-            algorithms::sort_anchor_indexes(anchors_to_fragment, anchor_indexes);
-
-            // And what seeds should count as explored when we take an anchor
-            const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
-            
-            
-
-            if (track_provenance) {
-                funnel.substage("fragment");
-            }
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Computing fragments over " << anchor_indexes.size() << " anchors" << endl;
-                }
-            }
-
-#ifdef debug
-            if (show_work) {
-                // Log the chaining problem so we can try it again elsewhere.
-                this->dump_chaining_problem(anchors_to_fragment, anchor_indexes, gbwt_graph);
-            }
-#endif
-            
-            // Compute lookback and indel limits based on read length.
-            // Important since seed density goes down on longer reads.
-            size_t lookback_limit = std::max(this->fragment_max_lookback_bases, (size_t)(this->fragment_max_lookback_bases_per_base * aln.sequence().size()));
-            size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
-
-            // Find fragments over the seeds in the zip code tree
-            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
-                zip_code_forest.trees[item_num],
-                lookback_limit
-            ); 
-            // Make a view of the anchors we will fragment over
-            VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
-            std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
-                anchor_view,
-                *distance_index,
-                gbwt_graph,
-                get_regular_aligner()->gap_open,
-                get_regular_aligner()->gap_extension,
-                this->max_fragments,
-                for_each_transition,
-                this->item_bonus,
-                this->item_scale,
-                this->fragment_gap_scale,
-                this->fragment_points_per_possible_match,
-                indel_limit,
-                false
-            );
-            if (show_work) {
-                #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
-                    << " running " << anchors_to_fragment[anchor_indexes.front()] << " to " << anchors_to_fragment[anchor_indexes.back()] << std::endl;
-            }
-            for (size_t result = 0; result < results.size(); result++) {
-                // For each result
-                auto& scored_fragment = results[result];
-                if (show_work) {
-#ifdef debug
-                    if(true)
-#else
-                    if (result < MANY_LIMIT)
-#endif
-                    {
-                        if (!scored_fragment.second.empty()) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "\tFragment with score " << scored_fragment.first
-                                    << " and length " << scored_fragment.second.size()
-                                    << " running " << anchor_view[scored_fragment.second.front()]
-                                    << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
-#ifdef debug
-                                
-                                for (auto& anchor_number : scored_fragment.second) {
-                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
-                                }
-#endif
-
-                            }
-                        }
-                    } else if (result == MANY_LIMIT) {
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more fragments>" << std::endl;
-                    }
-                }
-
-                // Count how many of each minimizer is in each fragment produced
-                minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
-
-                // Translate fragments into seed numbers and not local anchor numbers.
-                fragments.emplace_back();
-                fragments.back().reserve(scored_fragment.second.size() * 2);
-                for (auto& selected_number : scored_fragment.second) {
-                    // For each anchor in the chain, get its number in the whole group of anchors.
-                    size_t anchor_number = anchor_indexes.at(selected_number);
-                    for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
-                        // And get all the seeds it actually uses in sequence and put them in the fragment.
-                        fragments.back().push_back(seed_number);
-                    }
-                    for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
-                        // And get all the seeds it represents exploring and mark their minimizers explored.
-                        // TODO: Can we get the gapless extension logic to count this for us for that codepath?
-                        minimizer_kept_fragment_count.back()[seeds[seed_number].source]++;
-                    }
-                }
-                // Remember the score
-                fragment_scores.push_back(scored_fragment.first);
-                // And make an anchor of it right now, for chaining later.
-                // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
-                // Remember how we got it
-                fragment_source_tree.push_back(item_num);
-                //Remember the number of better or equal-scoring trees
-                multiplicity_by_fragment.emplace_back((float)item_count);
-
-                if (track_provenance) {
-                    // Tell the funnel
-                    funnel.introduce();
-                    funnel.score(funnel.latest(), scored_fragment.first);
-                    // We come from all the seeds directly
-                    // TODO: Include all the middle seeds when gapless extending!
-                    funnel.also_merge_group(2, fragments.back().begin(), fragments.back().end());
-                    // And are related to the problem
-                    funnel.also_relevant(1, item_num);
-                }
-
-                if (track_position && result < MANY_LIMIT) {
-                    // Add position annotations for the good-looking fragments.
-                    // Should be much faster than full correctness tracking from every seed.
-                    crash_unless(this->path_graph);
-                    for (auto& boundary : {anchor_view[scored_fragment.second.front()].graph_start(), anchor_view[scored_fragment.second.back()].graph_end()}) {
-                        // For each end of the fragment
-                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
-                        for (auto& handle_and_positions : offsets) {
-                            for (auto& position : handle_and_positions.second) {
-                                // Tell the funnel all the effective positions, ignoring orientation
-                                funnel.position(funnel.latest(), handle_and_positions.first, position.first);
-                            }
-                        }
-
-                    }
-                }
-                if (track_provenance && show_work && result < MANY_LIMIT) {
-                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                        // Log each range on a path associated with the fragment.
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\t\tAt linear reference "
-                            << this->path_graph->get_path_name(handle_and_range.first)
-                            << ":" << handle_and_range.second.first
-                            << "-" << handle_and_range.second.second << std::endl;
-                    }
-                    if (track_correctness && funnel.is_correct(funnel.latest())) {
-                        #pragma omp critical (cerr)
-                        cerr << log_name() << "\t\tCORRECT!" << endl;
-                    }
-                }
-            }
-
-            
-            if (track_provenance) {
-                // Say we're done with this 
-                funnel.processed_input();
-            }
-            
-            return true;
-            
-        }, [&](size_t item_num) -> void {
-            // There are too many sufficiently good problems to do
-            if (track_provenance) {
-                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
-                funnel.fail("max-to-fragment", item_num);
-            }
-            
-        }, [&](size_t item_num) -> void {
-            // This item is not sufficiently good.
-            if (track_provenance) {
-                funnel.fail("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
-            }
-        });
-
-    //Get the actual multiplicity from the counts
-    for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
-                                    ?  multiplicity_by_fragment[i] - (float)kept_tree_count
-                                    : 0.0;
-    }
     // Now glom the fragments together into chains 
     if (track_provenance) {
         funnel.stage("chain");
@@ -1346,6 +842,104 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
                     funnel.pass("max-chaining-problems", fragment_num);
                 }
+            }
+
+            //If we are not doing chaining, then just turn the best max_direct_to_chain_per_tree fragments into chains
+            if (max_direct_to_chain > 0) {
+                process_until_threshold_a(tree_fragments.size(),(std::function<double(size_t)>) [&](size_t i) -> double {
+                    return fragment_scores[tree_fragments[i]];
+                }, 0, 1, max_direct_to_chain, rng, 
+                [&](size_t fragment_num, size_t fragment_count) {
+                    // This alignment makes it
+                    // Called in score order
+
+                    // Get its fragment number out of all fragments
+                    size_t fragment_num_overall = tree_fragments.at(fragment_num);
+                    
+                    // Go get that fragment
+                    auto& fragment = fragments.at(fragment_num_overall);
+                        
+                    // Each fragment becomes a chain of seeds
+                    chains.emplace_back();
+                    auto& chain = chains.back();
+                    // Append all the seed numbers to the chain
+                    std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
+
+                    // The chain has a source
+                    chain_source_tree.push_back(tree_num);
+                    // And a score
+                    chain_score_estimates.emplace_back(fragment_scores.at(fragment_num_overall));
+
+                    // And counts of each minimizer kept
+                    minimizer_kept_chain_count.emplace_back();
+                    auto& minimizer_kept = minimizer_kept_chain_count.back();
+                    auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
+                    if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
+                        minimizer_kept.resize(fragment_minimizer_kept.size());
+                    }
+                    for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
+                        minimizer_kept[i] += fragment_minimizer_kept[i];
+                    }
+
+                    //Remember the multiplicity from the fragments. For now, it is just based on
+                    //the trees so it doesn't matter which fragment this comes from
+                    multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
+                    
+                    
+                    if (track_provenance) {
+                        funnel.pass("max-direct-chain",tree_fragments.at(fragment_num));
+                        // Say that this fragment became a chain
+                        funnel.project(fragment_num_overall);
+                        // With the same score
+                        funnel.score(funnel.latest(), chain_score_estimates.back());
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single local fragment: " 
+                                      << fragment_num << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single global fragment: "
+                                      << fragment_num_overall << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " contains seeds:";
+                            for (auto& s : chains.back()) {
+                                std::cerr << " " << s;
+                            } 
+                            std::cerr << std::endl;
+                        }
+                        if (track_provenance) {
+                            for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                                // Log each range on a path associated with the chain.
+                                #pragma omp critical (cerr)
+                                std::cerr << log_name() << "\tAt linear reference "
+                                    << this->path_graph->get_path_name(handle_and_range.first)
+                                    << ":" << handle_and_range.second.first
+                                    << "-" << handle_and_range.second.second << std::endl;
+                            }
+                        }
+                        if (track_correctness && funnel.is_correct(funnel.latest())) {
+                            #pragma omp critical (cerr)
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    } 
+                    return true;
+
+                }, [&](size_t fragment_num) {
+                    // We already have enough fragments, although this one has a good score
+                    // We take all fragments to chains
+                    //TODO: Do I need to fail the funnel here? I don't think there's a funnel item yet
+                    if (track_provenance){
+                        funnel.fail("max-direct-chain",tree_fragments.at(fragment_num));
+                    }
+                    return;
+       
+                }, [&](size_t fragment_num) {
+                    // This fragment does not have a sufficiently good score
+                    // Score threshold is 0; this should never happen
+                    crash_unless(false);
+                    return;
+                });
+
+                return true;
             }
 
             // Get a view of all the good fragments.
@@ -2422,6 +2016,532 @@ double MinimizerMapper::get_read_coverage(
     
     // And return the fraction covered.
     return get_fraction_covered(covered);
+}
+
+void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
+        const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+        const vector<algorithms::Anchor>& seed_anchors,
+        std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
+        std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
+        std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
+        LazyRNG& rng, Funnel& funnel) const{
+
+    // For now, multiplicity_by_fragment just stores how many trees had equal or better score. After going through all
+    // trees and counting how many are kept, each value will be divided by the number of trees kept
+    size_t kept_tree_count = 0;
+
+    //Do gapless extension if the read length is less than the limit
+    bool do_gapless_extension = aln.sequence().size() <= gapless_extension_limit;
+
+    // First score all the zip code trees in the forest by summing the scores of their involved minimizers.
+    vector<double> tree_scores;
+    double best_tree_score = 0;
+    double second_best_tree_score = 0;
+    tree_scores.reserve(zip_code_forest.trees.size());
+
+    vector<double> tree_coverages;
+    double best_tree_coverage = 0;
+    double second_best_tree_coverage = 0;
+    tree_coverages.reserve(zip_code_forest.trees.size());
+
+    for (size_t i = 0; i < zip_code_forest.trees.size(); i++) {
+        // For each zip code tree
+        
+        // Score it
+        std::pair<double, double> metrics = this->score_tree(zip_code_forest, i, minimizers, seeds, aln.sequence().size(), funnel);
+        auto& score = metrics.first;
+        auto& coverage = metrics.second;
+
+        tree_scores.push_back(score);
+        tree_coverages.push_back(coverage);
+
+        if (score > best_tree_score) {
+            second_best_tree_score = best_tree_score;
+            best_tree_score = score;
+        } else if (score > second_best_tree_score) {
+            second_best_tree_score = score;
+        }
+
+        if (coverage > best_tree_coverage) {
+            second_best_tree_coverage = best_tree_coverage;
+            best_tree_coverage = coverage;
+        } else if (coverage > second_best_tree_coverage) {
+            second_best_tree_coverage = coverage;
+        }
+    }
+
+    // We will set a score cutoff based on the best, but move it down to the
+    // second best if it does not include the second best and the second best
+    // is within pad_zipcode_tree_score_threshold of where the cutoff would
+    // otherwise be. This ensures that we won't throw away all but one 
+    // based on score alone, unless it is really bad.
+    double tree_score_cutoff = best_tree_score - zipcode_tree_score_threshold;
+    if (tree_score_cutoff - pad_zipcode_tree_score_threshold < second_best_tree_score) {
+        tree_score_cutoff = std::min(tree_score_cutoff, second_best_tree_score);
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best, coverages " << best_tree_coverage << " best, " << second_best_tree_coverage << " second best" << std::endl;
+        }
+    }
+
+
+
+
+    if (track_provenance) {
+        funnel.stage("fragment");
+        funnel.substage("fragment");
+    }
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating fragments=====" << endl;
+        }
+    }
+
+    // If we don't do gapless extension, we need one-item vectors for all the
+    // seeds of their own numbers, to show what seed each anchor represents.
+    // TODO: Can we only do this for the seeds that are in trees we keep?
+    std::vector<std::vector<size_t>> seed_seed_sequences;
+    if (!do_gapless_extension) {
+        seed_seed_sequences.reserve(seed_anchors.size());
+        for (size_t i = 0; i < seed_anchors.size(); ++i) {
+            seed_seed_sequences.push_back({i});
+        }
+    }
+
+    process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
+            return tree_coverages[i];
+        }, [&](size_t a, size_t b) -> bool {
+            auto equalish = [&] (const double x, const double y) {
+                if (x == y) {
+                    return true;
+                } else if (x > y) {
+                    return x - y <= std::numeric_limits<double>::round_error();
+                } else {
+                    return y - x <= std::numeric_limits<double>::round_error();
+                }
+            };
+            auto greater_than = [&] (const double x, const double y) {
+                if (equalish(x, y)) {
+                    return false;
+                } else {
+                    return x > y;
+                }
+            };
+
+            return greater_than(tree_coverages[a], tree_coverages[b])
+                || (equalish(tree_coverages[a], tree_coverages[b]) && greater_than(tree_scores[a], tree_scores[b]));
+
+        }, this->zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
+            // Handle sufficiently good fragmenting problems in descending score order
+            
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
+                funnel.pass("max-to-fragment", item_num);
+            }
+
+            // First check against the additional score filter
+            if (zipcode_tree_score_threshold != 0 && tree_scores[item_num] < tree_score_cutoff 
+                && kept_tree_count >= min_to_fragment) {
+                // If the score isn't good enough and we already kept at least min_to_fragment trees,
+                // ignore this tree
+                if (track_provenance) {
+                    funnel.fail("zipcode-tree-score-threshold", item_num, tree_scores[item_num]);
+                }
+                return false;
+            }
+            
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-score-threshold", item_num, tree_scores[item_num]); 
+            }
+
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Making fragments for zip code tree " << item_num << " with score " << tree_scores[item_num] << " and coverage " << tree_coverages[item_num] << endl;
+                }
+            }
+            
+            kept_tree_count++;
+
+            if (track_provenance) {
+                // Say we're working on this 
+                funnel.processing_input(item_num);
+            }
+          
+            // Also make a list of all the seeds in the problem.
+            // This lets us select the single-seed anchors to use.
+
+            //Make sure that each seed gets added only once
+            vector<bool> added_seed (seeds.size(), false);
+            vector<size_t> selected_seeds;
+            for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
+                if (!added_seed[found.seed]) {
+                    selected_seeds.push_back(found.seed);
+                    added_seed[found.seed] = true;
+                }
+            }
+            
+            if (show_work) {
+                dump_debug_seeds(minimizers, seeds, selected_seeds);
+            }
+
+            // If we do gapless extension, we will use these anchors to fragment instead of the seed ones.
+            std::vector<algorithms::Anchor> extension_anchors;
+            // And each of them (or of the seed anchors, if we use those) represents this run of seed numbers to put into the final chain.
+            std::vector<std::vector<size_t>> extension_seed_sequences;
+            // Extensions use a distinct list of included seeds vs. seeds we actually paste in, so we can glom up overlapping seeds.
+            std::vector<std::vector<size_t>> extension_represented_seeds;
+            // We need a list of all extension anchor indexes that we can sort.
+            std::vector<size_t> extension_anchor_indexes;
+
+            if (do_gapless_extension) {
+                // Instead of fragmenting directly on the seeds, fragment on gapless extensions of the seeds.
+
+                if (track_provenance) {
+                    funnel.substage("gapless_extension");
+                }
+
+                // Extend the seeds and keep track of the seeds that went into each extension.
+                // We'll use this to make anchors later.
+                std::vector<std::vector<size_t>> seeds_for_extension;
+                std::vector<GaplessExtension> tree_extensions = this->extend_seed_group(
+                    selected_seeds,
+                    item_num,
+                    minimizers,
+                    seeds,
+                    aln.sequence(),
+                    this->max_extension_mismatches,
+                    nullptr,
+                    nullptr,
+                    &seeds_for_extension);
+                // Note that we don't use the funnel here; we don't actually
+                // track a gapless extension stage.
+                
+                // We can't actually handle the same seed being used as the
+                // endpoint of multiple anchors in the chaining. So we need to
+                // go through the gapless extensions in score order and make
+                // them into anchors using the seeds not yet used by previous
+                // ones.
+                auto extension_score_order = sort_permutation(tree_extensions.begin(), tree_extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) {
+                    // Return true if the first gapless extension needs to be first.
+                    // TODO: use real scores from the aligner.
+                    int a_score = (a.read_interval.second - a.read_interval.first) - a.mismatch_positions.size() * 5;
+                    int b_score = (b.read_interval.second - b.read_interval.first) - b.mismatch_positions.size() * 5;
+                    // We want to sort descending so larger scores come first.
+                    return a_score > b_score;
+                });
+
+                // This holds the seeds used to make previous anchors.
+                std::unordered_set<size_t> used_seeds;
+
+                for (auto& extension_index : extension_score_order) {
+                    // For each extension
+                    const GaplessExtension& extension = tree_extensions[extension_index];
+                    // And the seeds that made it, sorted by stapled base
+                    const std::vector<size_t>& extension_seeds = seeds_for_extension[extension_index];
+
+                    // Make a list of all the seed positions still available
+                    std::vector<size_t> seed_positions;
+                    seed_positions.reserve(extension_seeds.size());
+                    for (auto& seed_index : extension_seeds) {
+                        if (!used_seeds.count(seed_index)) {
+                            seed_positions.push_back(minimizers[seeds.at(seed_index).source].pin_offset());
+                        }
+                    }
+
+                    if (seed_positions.empty()) {
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " has no distinct seeds left to use for anchors" << endl;
+                            }
+                        }
+                        continue;
+                    }
+
+
+                    // We want to break up the extension into read intervals
+                    // and the seeds that go with them. Each of those will
+                    // become an anchor.
+                    std::vector<std::pair<size_t, size_t>> anchor_intervals = find_anchor_intervals(extension.read_interval, extension.mismatch_positions, seed_positions);
+
+                    // Then convert those intervals into anchors.
+                    auto mismatch_it = extension.mismatch_positions.begin();
+                    auto seed_it = extension_seeds.begin();
+                    for (auto& anchor_interval : anchor_intervals) {
+                        // Find the relevant mismatch range
+                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.first) {
+                            // Move mismatch iterator to inside or past the interval
+                            ++mismatch_it;
+                        }
+                        auto internal_mismatch_begin = mismatch_it;
+                        while (mismatch_it != extension.mismatch_positions.end() && *mismatch_it < anchor_interval.second) {
+                            // Move mismatch iterator to past the interval
+                            ++mismatch_it;
+                        }
+                        auto internal_mismatch_end = mismatch_it;
+
+                        // Find the relevant seed range
+                        std::vector<size_t> anchor_seeds;
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.first) {
+                            // Move seed iterator to inside or past the interval (should really always be already inside).
+                            ++seed_it;
+                        }
+                        while (seed_it != extension_seeds.end() && minimizers[seeds.at(*seed_it).source].pin_offset() < anchor_interval.second) {
+                            // Take all the seeds into the vector of anchor seeds.
+                            auto found = used_seeds.find(*seed_it);
+                            if (found == used_seeds.end()) {
+                                // As long as they haven't been used
+                                anchor_seeds.push_back(*seed_it);
+                                // And mark them used
+                                used_seeds.insert(found, *seed_it);
+                            }
+                            ++seed_it;
+                        }
+
+                        if (anchor_seeds.empty()) {
+                            // All the seeds we wanted for this piece specifically are already represented by pieces of previous extensions
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " would produce anchor " << anchor_interval.first << "-" << anchor_interval.second << " but all seeds in the interval were used already" << endl;
+                                }
+                            }
+                            // Go on to the next anchor interval
+                        } else {
+                            // We have seeds here and can make an anchor
+
+                            // Note the index of the new anchor
+                            extension_anchor_indexes.push_back(extension_anchors.size());
+                            // Make the actual anchor out of this range of seeds and this read range.
+                            extension_anchors.push_back(to_anchor(aln, anchor_interval.first, anchor_interval.second, anchor_seeds, seed_anchors, internal_mismatch_begin, internal_mismatch_end, gbwt_graph, this->get_regular_aligner()));
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Extension on read " << extension.read_interval.first << "-" << extension.read_interval.second << " produces anchor " << anchor_interval.first << "-" << anchor_interval.second << " with " << anchor_seeds.size() << " seeds involved and " << (internal_mismatch_end - internal_mismatch_begin) << " internal mismatches, score " << extension_anchors.back().score() << endl;
+                                }
+                            }
+
+                            // And if we take that anchor, we'll grab these underlying
+                            // seeds into the elaborating chain. Just use the bounding
+                            // seeds and connect between them where it is easy.
+                            extension_seed_sequences.push_back({anchor_seeds.front()});
+                            if (seed_anchors.at(anchor_seeds.front()).read_end() <= seed_anchors.at(anchor_seeds.back()).read_start()) {
+                                // There are multiple seeds in the extension and the last
+                                // one doesn't overlap the first, so take the last one too.
+                                extension_seed_sequences.back().push_back(anchor_seeds.back());
+                            }
+
+                            // Keep all the seeds that this anchor counts as using.
+                            extension_represented_seeds.emplace_back(std::move(anchor_seeds));
+                        }
+                    }
+                }
+            }
+            
+            // Figure out what anchors we want to view.
+            const std::vector<algorithms::Anchor>& anchors_to_fragment = do_gapless_extension ? extension_anchors : seed_anchors;
+            // And what seeds each represents
+            const std::vector<std::vector<size_t>>& anchor_seed_sequences = do_gapless_extension ? extension_seed_sequences : seed_seed_sequences;
+            // And what subset/in what order
+            std::vector<size_t>& anchor_indexes = do_gapless_extension ? extension_anchor_indexes : selected_seeds;
+            // Sort anchors by read start of seeded region
+            algorithms::sort_anchor_indexes(anchors_to_fragment, anchor_indexes);
+
+            // And what seeds should count as explored when we take an anchor
+            const std::vector<std::vector<size_t>>& anchor_represented_seeds = do_gapless_extension ? extension_represented_seeds : anchor_seed_sequences;
+            
+            
+
+            if (track_provenance) {
+                funnel.substage("fragment");
+            }
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Computing fragments over " << anchor_indexes.size() << " anchors" << endl;
+                }
+            }
+
+#ifdef debug
+            if (show_work) {
+                // Log the chaining problem so we can try it again elsewhere.
+                this->dump_chaining_problem(anchors_to_fragment, anchor_indexes, gbwt_graph);
+            }
+#endif
+            
+            // Compute lookback and indel limits based on read length.
+            // Important since seed density goes down on longer reads.
+            size_t lookback_limit = std::max(this->fragment_max_lookback_bases, (size_t)(this->fragment_max_lookback_bases_per_base * aln.sequence().size()));
+            size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
+
+            // Find fragments over the seeds in the zip code tree
+            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                seeds,
+                zip_code_forest.trees[item_num],
+                lookback_limit
+            ); 
+            // Make a view of the anchors we will fragment over
+            VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
+            std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
+                anchor_view,
+                *distance_index,
+                gbwt_graph,
+                get_regular_aligner()->gap_open,
+                get_regular_aligner()->gap_extension,
+                this->max_fragments,
+                for_each_transition,
+                this->item_bonus,
+                this->item_scale,
+                this->fragment_gap_scale,
+                this->fragment_points_per_possible_match,
+                indel_limit,
+                false
+            );
+            if (show_work) {
+                #pragma omp critical (cerr)
+                cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
+                    << " running " << anchors_to_fragment[anchor_indexes.front()] << " to " << anchors_to_fragment[anchor_indexes.back()] << std::endl;
+            }
+            for (size_t result = 0; result < results.size(); result++) {
+                // For each result
+                auto& scored_fragment = results[result];
+                if (show_work) {
+#ifdef debug
+                    if(true)
+#else
+                    if (result < MANY_LIMIT)
+#endif
+                    {
+                        if (!scored_fragment.second.empty()) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "\tFragment with score " << scored_fragment.first
+                                    << " and length " << scored_fragment.second.size()
+                                    << " running " << anchor_view[scored_fragment.second.front()]
+                                    << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+#ifdef debug
+                                
+                                for (auto& anchor_number : scored_fragment.second) {
+                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+                                }
+#endif
+
+                            }
+                        }
+                    } else if (result == MANY_LIMIT) {
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more fragments>" << std::endl;
+                    }
+                }
+
+                // Count how many of each minimizer is in each fragment produced
+                minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
+
+                // Translate fragments into seed numbers and not local anchor numbers.
+                fragments.emplace_back();
+                fragments.back().reserve(scored_fragment.second.size() * 2);
+                for (auto& selected_number : scored_fragment.second) {
+                    // For each anchor in the chain, get its number in the whole group of anchors.
+                    size_t anchor_number = anchor_indexes.at(selected_number);
+                    for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
+                        // And get all the seeds it actually uses in sequence and put them in the fragment.
+                        fragments.back().push_back(seed_number);
+                    }
+                    for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
+                        // And get all the seeds it represents exploring and mark their minimizers explored.
+                        // TODO: Can we get the gapless extension logic to count this for us for that codepath?
+                        minimizer_kept_fragment_count.back()[seeds[seed_number].source]++;
+                    }
+                }
+                // Remember the score
+                fragment_scores.push_back(scored_fragment.first);
+                // And make an anchor of it right now, for chaining later.
+                // Make sure to do it by combining the gapless extension anchors if applicable.
+                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
+                // Remember how we got it
+                fragment_source_tree.push_back(item_num);
+                //Remember the number of better or equal-scoring trees
+                multiplicity_by_fragment.emplace_back((float)item_count);
+
+                if (track_provenance) {
+                    // Tell the funnel
+                    funnel.introduce();
+                    funnel.score(funnel.latest(), scored_fragment.first);
+                    // We come from all the seeds directly
+                    // TODO: Include all the middle seeds when gapless extending!
+                    funnel.also_merge_group(2, fragments.back().begin(), fragments.back().end());
+                    // And are related to the problem
+                    funnel.also_relevant(1, item_num);
+                }
+
+                if (track_position && result < MANY_LIMIT) {
+                    // Add position annotations for the good-looking fragments.
+                    // Should be much faster than full correctness tracking from every seed.
+                    crash_unless(this->path_graph);
+                    for (auto& boundary : {anchor_view[scored_fragment.second.front()].graph_start(), anchor_view[scored_fragment.second.back()].graph_end()}) {
+                        // For each end of the fragment
+                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
+                        for (auto& handle_and_positions : offsets) {
+                            for (auto& position : handle_and_positions.second) {
+                                // Tell the funnel all the effective positions, ignoring orientation
+                                funnel.position(funnel.latest(), handle_and_positions.first, position.first);
+                            }
+                        }
+
+                    }
+                }
+                if (track_provenance && show_work && result < MANY_LIMIT) {
+                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                        // Log each range on a path associated with the fragment.
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\t\tAt linear reference "
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                    if (track_correctness && funnel.is_correct(funnel.latest())) {
+                        #pragma omp critical (cerr)
+                        cerr << log_name() << "\t\tCORRECT!" << endl;
+                    }
+                }
+            }
+
+            
+            if (track_provenance) {
+                // Say we're done with this 
+                funnel.processed_input();
+            }
+            
+            return true;
+            
+        }, [&](size_t item_num) -> void {
+            // There are too many sufficiently good problems to do
+            if (track_provenance) {
+                funnel.pass("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
+                funnel.fail("max-to-fragment", item_num);
+            }
+            
+        }, [&](size_t item_num) -> void {
+            // This item is not sufficiently good.
+            if (track_provenance) {
+                funnel.fail("zipcode-tree-coverage-threshold", item_num, tree_coverages[item_num]);
+            }
+        });
+
+    //Get the actual multiplicity from the counts
+    for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
+        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
+                                    ?  multiplicity_by_fragment[i] - (float)kept_tree_count
+                                    : 0.0;
+    }
+
 }
 
 Alignment MinimizerMapper::find_chain_alignment(
