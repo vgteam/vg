@@ -1511,6 +1511,8 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
         const string& field = output_fields[i];
         if (field == "name") {
             out << read.name();
+        } else if (field == "score") {
+            out << read.score();
         } else if (field == "correctly_mapped") {
             if (is_correctly_mapped(read)) {
                 out << "True";
