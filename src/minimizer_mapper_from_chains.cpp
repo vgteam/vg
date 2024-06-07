@@ -1821,6 +1821,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
                     // Remember the stats' usages
                     stats += alignment_stats;
+
+                    // Mark the alignment with its chain score
+                    set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2030,6 +2033,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             used_nodes.insert(key);
         }
     };
+
+    // Have a way to get the score to use to sort alignments, which is configurable
+    auto get_sorting_score = [&](size_t alignment_number) -> double {
+        if (this->sort_by_chain_score) {
+            // Use the chain's score to rank the alignments
+            size_t chain_number = alignments_to_source.at(alignment_number);
+            if (chain_number == std::numeric_limits<size_t>::max()) {
+                // This is an unaligned alignment, score 0.
+                return 0;
+            }
+            return chain_score_estimates.at(chain_number);
+        } else {
+            // Use base-level alignment score to rank alignments
+            return alignments.at(alignment_number).score();
+        }
+    };
     
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
@@ -2037,7 +2056,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Go through the alignments in descending score order, with ties at the top end shuffled.
     process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        return alignments.at(i).score();
+        return get_sorting_score(i);
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
@@ -2147,6 +2166,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.substage("mapq");
     }
 
+    // Note that it is possible for the top base-level alignment score *not* to be the winning alignment!
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2167,7 +2188,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (auto& score : scores) {
         double scaled_score = score;
         if (mapq_score_window > 0) {
-            // Rescale to the size fo the score window
+            // Rescale to the size of the score window
             scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
         }
         // Rescale by a constant factor
@@ -2191,9 +2212,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-    // Use exact mapping quality 
+    // Use exact mapping quality.
+    // Because the winning alignment won't necessarily *always* have the
+    // maximum score, we need to use compute_first_mapping_quality and not
+    // compute_max_mapping_quality.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
+        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
 
 #ifdef debug_write_minimizers
 #pragma omp critical
@@ -2540,7 +2564,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         } else {
             // We need to fall back on alignment against the graph
             
-            if (left_tail_length > MAX_DP_LENGTH) {
+            if (left_tail_length > max_tail_dp_length) {
                 // Left tail is too long to align.
                 
 #ifdef debug_chain_alignment
@@ -2808,14 +2832,12 @@ Alignment MinimizerMapper::find_chain_alignment(
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
             
-            if (linking_bases.size() > MAX_DP_LENGTH) {
-                // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
-#ifdef debug_chain_alignment
+            if (linking_bases.size() > max_middle_dp_length) {
+                // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
                 }
-#endif
                 // Just jump to right tail
                 break;
             }
@@ -2978,7 +3000,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
 #endif
 
-            if (right_tail.size() > MAX_DP_LENGTH) {
+            if (right_tail.size() > max_tail_dp_length) {
                 // Right tail is too long to align.
                
 #ifdef debug_chain_alignment
