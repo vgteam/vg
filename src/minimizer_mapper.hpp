@@ -841,6 +841,19 @@ protected:
                                   std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
                                   std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
                                   LazyRNG& rng, Funnel& funnel) const;
+    
+    /**
+     * Given a collection of fragments, filter down to the good ones and do chaining on them
+     */
+    void do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                                  const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
+                                  const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
+                                  const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
+                                  std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, 
+                                  std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count, 
+                                  std::vector<double>& multiplicity_by_chain, vector<double>& multiplicity_by_tree,
+                                  std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                  LazyRNG& rng, Funnel& funnel) const;
 
     
 
