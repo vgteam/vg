@@ -843,7 +843,8 @@ protected:
                                   std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
                                   std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
                                   std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-                                  std::vector<Alignment>& alignments, LazyRNG& rng, Funnel& funnel) const;
+                                  std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
+                                  LazyRNG& rng, Funnel& funnel) const;
     
     /**
      * Given a collection of fragments, filter down to the good ones and do chaining on them
@@ -881,8 +882,7 @@ protected:
                                const std::vector<double>& multiplicity_by_chain,
                                const std::vector<int>& chain_score_estimates,
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                                vector<Alignment>& alignments, vector<size_t>& alignments_to_source,
-                                vector<size_t>& chain_count_by_alignment, vector<double>& multiplicity_by_alignment,
+                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                 SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
 
     void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 

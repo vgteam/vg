@@ -666,14 +666,30 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
     // here with the multiplicity of the trees for each fragment
     std::vector<double> multiplicity_by_fragment;
+
     // If we do gapless extension, then it is possible to find full-length gapless extensions at this stage
     // If we have at least two good gapless extensions, then we will turn them directly into alignments
     // and skip the later stages. Store alignments from gapless extensions here
+
+    // We will fill this with all computed alignments in estimated score order
     std::vector<Alignment> alignments;
+    //The multiplicity for each alignment, projected from previous stages
+    vector<double> multiplicity_by_alignment;
+    // Track if minimizers were explored by alignments
+    SmallBitset minimizer_explored(minimizers.size());
 
     do_fragmenting_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
                              fragments, fragment_scores, fragment_anchors, fragment_source_tree,
-                             minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, rng, funnel);
+                             minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
+                             minimizer_explored, multiplicity_by_alignment, rng, funnel);
+
+    //If we have at least two alignments, then we will skip chaining and aligning stages and just return the alignments
+    // If we have only one, forget it
+    if (alignments.size() == 1) {
+        alignments.clear();
+        multiplicity_by_alignment.clear();
+        minimizer_explored = SmallBitset(minimizers.size());
+    }
 
     // Now glom the fragments together into chains 
     if (track_provenance) {
@@ -699,12 +715,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Filter down to just the good fragments, sorted by read start
     std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
 
-    do_chaining_on_fragments(aln, zip_code_forest, seeds, minimizers, 
-                             fragments, fragment_scores, fragment_anchors, fragment_source_tree, minimizer_kept_fragment_count,
-                             multiplicity_by_fragment,
-                             chains, chain_source_tree, chain_score_estimates, minimizer_kept_chain_count, multiplicity_by_chain, 
-                             multiplicity_by_tree,
-                             good_fragments_in, rng, funnel); 
+    if (alignments.size() == 0) {
+        do_chaining_on_fragments(aln, zip_code_forest, seeds, minimizers, 
+                                 fragments, fragment_scores, fragment_anchors, fragment_source_tree, minimizer_kept_fragment_count,
+                                 multiplicity_by_fragment,
+                                 chains, chain_source_tree, chain_score_estimates, minimizer_kept_chain_count, multiplicity_by_chain, 
+                                 multiplicity_by_tree,
+                                 good_fragments_in, rng, funnel); 
+    }
 
     //Fill in chain stats for annotating the final alignment
     bool best_chain_correct = false;
@@ -714,9 +732,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     size_t best_chain_anchors = 0;
     size_t best_chain_anchor_length = 0;
 
-    get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
-                         chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
-                         best_chain_anchors, best_chain_anchor_length, funnel);
+    if (alignments.size() == 0) {
+        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
+                             chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
+                             best_chain_anchors, best_chain_anchor_length, funnel);
+    }
           
     if (track_provenance) {
         funnel.stage("align");
@@ -734,28 +754,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // We will fill this with all computed alignments in estimated score order.
 //TODO    vector<Alignment> alignments;
-    alignments.reserve(chain_score_estimates.size());
-    // This maps from alignment index back to chain index, for
-    // tracing back to minimizers for MAPQ. Can hold
-    // numeric_limits<size_t>::max() for an unaligned alignment.
-    vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(chain_score_estimates.size());
-    //For finding the multiplicity of each alignment, first get the count
-    // of equal scoring chains
-    vector<size_t> chain_count_by_alignment (alignments.size(), 0);
-    //The multiplicity for each alignment, projected from previous stages
-    vector<double> multiplicity_by_alignment;
-
-    // Track if minimizers were explored by alignments
-    SmallBitset minimizer_explored(minimizers.size());
+//    alignments.reserve(chain_score_estimates.size());
+//    //The multiplicity for each alignment, projected from previous stages
+//    vector<double> multiplicity_by_alignment;
+//    // Track if minimizers were explored by alignments
+//    SmallBitset minimizer_explored(minimizers.size());
 
     // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
     aligner_stats_t stats; 
 
     bool funnel_depleted = false;
 
-    do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
-                           minimizer_kept_chain_count, alignments, alignments_to_source, chain_count_by_alignment, multiplicity_by_alignment, minimizer_explored, stats, funnel_depleted, rng, funnel);
+    if (alignments.size() == 0) {
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
+                               minimizer_kept_chain_count, alignments, 
+                               multiplicity_by_alignment, minimizer_explored, stats, funnel_depleted, rng, funnel);
+    }
     
     
     if (track_provenance) {
@@ -1041,7 +1055,8 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
         std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
         std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
         std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-        std::vector<Alignment>& alignments, LazyRNG& rng, Funnel& funnel) const{
+        std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment, 
+        LazyRNG& rng, Funnel& funnel) const{
 
     // For now, multiplicity_by_fragment just stores how many trees had equal or better score. After going through all
     // trees and counting how many are kept, each value will be divided by the number of trees kept
@@ -1239,34 +1254,42 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 // Note that we don't use the funnel here; we don't actually
                 // track a gapless extension stage.
 
-                ////If there are full-length extensions that are good enough, then just turn them into alignments.
-                //if (GaplessExtender::full_length_extensions(tree_extensions)) {
-                //    for (auto next_ext_it = tree_extensions.begin() + 1; next_ext_it != tree_extensions.end() && next_ext_it->full() && next_ext_it->mismatches() <= this->default_max_extension_mismatches; ++next_ext_it) {
+                //If there are full-length extensions that are good enough, then just turn them into alignments.
+                if (GaplessExtender::full_length_extensions(tree_extensions)) {
+                    for (size_t extension_i = 0 ; extension_i < tree_extensions.size() ; extension_i++) {
+                        if (tree_extensions[extension_i].full() && 
+                            tree_extensions[extension_i].mismatches() <= this->default_max_extension_mismatches) {
 
-                //        // For all full length extensions, make them into alignments
-                //        // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
+                            // For all good-scoring full-length extensions, make them into alignments
+                            // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
 
-                //        alignments.emplace_back(aln);
-                //        this->extension_to_alignment(*next_ext_it, alignments.back());
-                //        //TODO: Do a better job of tracking stuff with the funnel
+                            alignments.emplace_back(aln);
+                            this->extension_to_alignment(tree_extensions[extension_i], alignments.back());
+                            //TODO: Do a better job of tracking stuff with the funnel
 
-                //        if (show_work) {
-                //            #pragma omp critical (cerr)
-                //            {
-                //                cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - tree_extensions.begin()) << endl;
-                //            }
-                //        }
-                //    }
-                //    // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
-                //    // Then skip fragmenting for this tree
-                //    if (alignments.size() > 1) {
-                //        return true;
-                //    }
-                //}
-                ////If we have at least two alignments, don't do fragmenting anymore
-                //if (alignments.size() > 1) {
-                //    return true;
-                //}
+                            multiplicity_by_alignment.emplace_back(item_count);
+                            for (seed_i : seeds_for_extension[extension_i]) {
+                                minimizer_explored.insert(seeds.at(seed_i).source);
+                            }
+
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << extension_i << endl;
+                                }
+                            }
+                        }
+                    }
+                    // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
+                    // Then skip fragmenting for this tree
+                    if (alignments.size() > 1) {
+                        return true;
+                    }
+                }
+                //If we have at least two alignments, don't do fragmenting anymore
+                if (alignments.size() > 1) {
+                    return true;
+                }
 
                 
                 // We can't actually handle the same seed being used as the
@@ -2149,12 +2172,19 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                                             const std::vector<double>& multiplicity_by_chain,
                                             const std::vector<int>& chain_score_estimates, 
                                             const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                                            vector<Alignment>& alignments, 
-                                            vector<size_t>& alignments_to_source,
-                                            vector<size_t>& chain_count_by_alignment, vector<double>& multiplicity_by_alignment,
+                                            vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
                                             bool& funnel_depleted,
                                             LazyRNG& rng, Funnel& funnel) const {
+
+    // This maps from alignment index back to chain index, for
+    // tracing back to minimizers for MAPQ. Can hold
+    // numeric_limits<size_t>::max() for an unaligned alignment.
+    vector<size_t> alignments_to_source;
+    alignments_to_source.reserve(chain_score_estimates.size());
+    //For finding the multiplicity of each alignment, first get the count
+    // of equal scoring chains
+    vector<size_t> chain_count_by_alignment (alignments.size(), 0);
 
 #ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
