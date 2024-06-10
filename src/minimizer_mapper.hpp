@@ -834,13 +834,16 @@ protected:
      * Given a collection of zipcode trees, score the trees and do fragmenting on the best trees.
      * 
      * This will fill in the given vectors of fragments, fragment scores, etc.
+     *
+     * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
+     * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
     void do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                   const vector<algorithms::Anchor>& seed_anchors,
                                   std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
                                   std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
                                   std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
-                                  LazyRNG& rng, Funnel& funnel) const;
+                                  std::vector<Alignment>& alignments, LazyRNG& rng, Funnel& funnel) const;
     
     /**
      * Given a collection of fragments, filter down to the good ones and do chaining on them
@@ -880,7 +883,12 @@ protected:
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                 vector<Alignment>& alignments, vector<size_t>& alignments_to_source,
                                 vector<size_t>& chain_count_by_alignment, vector<double>& multiplicity_by_alignment,
-                                SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
+                                SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+
+    void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+                                       const std::vector<double>& multiplicity_by_alignment, std::vector<Alignment>& mappings,
+                                       std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
+                                       bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
 
     
 
