@@ -691,14 +691,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         minimizer_explored = SmallBitset(minimizers.size());
     }
 
-    // Now glom the fragments together into chains 
-    if (track_provenance) {
-        funnel.stage("chain");
-    }
-    
-    if (track_provenance) {
-        funnel.substage("chain");
-    }
     
     // For each chain, we need:
     // The chain itself, pointing into seeds
@@ -737,10 +729,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                              chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
                              best_chain_anchors, best_chain_anchor_length, funnel);
     }
-          
-    if (track_provenance) {
-        funnel.stage("align");
-    }
+        
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -1058,6 +1047,9 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
         std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment, 
         LazyRNG& rng, Funnel& funnel) const{
 
+    // Keep track of which fragment each alignment comes from for the funnel
+    std::vector<size_t> alignment_source_fragment;
+
     // For now, multiplicity_by_fragment just stores how many trees had equal or better score. After going through all
     // trees and counting how many are kept, each value will be divided by the number of trees kept
     size_t kept_tree_count = 0;
@@ -1265,10 +1257,14 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
                             alignments.emplace_back(aln);
                             this->extension_to_alignment(tree_extensions[extension_i], alignments.back());
-                            //TODO: Do a better job of tracking stuff with the funnel
+
+                            if (track_provenance) {
+                                //We want to know which "fragment" this came from
+                                alignment_source_fragment.emplace_back(fragments.size());
+                            }
 
                             multiplicity_by_alignment.emplace_back(item_count);
-                            for (seed_i : seeds_for_extension[extension_i]) {
+                            for (size_t seed_i : seeds_for_extension[extension_i]) {
                                 minimizer_explored.insert(seeds.at(seed_i).source);
                             }
 
@@ -1283,12 +1279,23 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
                     // Then skip fragmenting for this tree
                     if (alignments.size() > 1) {
+                        if (track_provenance) {
+                            //We might have already done some fragmenting so the funnel might already have started on that stage
+                            //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
+                            //stage for these too
+                            // Tell the funnel
+                            funnel.introduce();
+
+                            //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);
+
+                            funnel.processed_input();
+
+                            //Add an entry to the list of fragments so we know which fragment num to give the alignments
+                            fragments.emplace_back();
+
+                        }
                         return true;
                     }
-                }
-                //If we have at least two alignments, don't do fragmenting anymore
-                if (alignments.size() > 1) {
-                    return true;
                 }
 
                 
@@ -1605,6 +1612,14 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             }
         });
 
+    if (alignments.size() >= 2) {
+        //If we did get alignments from fragmenting, boot them through the funnel all at once
+        funnel.stage("extension_to_alignment");
+        for (size_t fragment_num : alignment_source_fragment) {
+            funnel.project(fragment_num);
+        }
+    }
+
     //Get the actual multiplicity from the counts
     for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
         multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
@@ -1625,6 +1640,14 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
         std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
         LazyRNG& rng, Funnel& funnel) const {
  
+    // Now glom the fragments together into chains 
+    if (track_provenance) {
+        funnel.stage("chain");
+    }
+    
+    if (track_provenance) {
+        funnel.substage("chain");
+    }
     // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
     // TODO: Stop reswizzling so much.
     std::unordered_map<size_t, std::vector<size_t>> tree_to_fragments;
@@ -2176,7 +2199,10 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
                                             bool& funnel_depleted,
                                             LazyRNG& rng, Funnel& funnel) const {
-
+  
+    if (track_provenance) {
+        funnel.stage("align");
+    }
     // This maps from alignment index back to chain index, for
     // tracing back to minimizers for MAPQ. Can hold
     // numeric_limits<size_t>::max() for an unaligned alignment.
