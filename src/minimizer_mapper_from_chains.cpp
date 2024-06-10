@@ -2646,6 +2646,7 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
 
         // Remember the score at its rank even if it won't be output as a multimapping
         scores.emplace_back(alignments[alignment_num].score());
+        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance && !funnel_depleted) {
             funnel.fail("max-multimaps", alignment_num);
