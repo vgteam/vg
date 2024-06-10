@@ -1268,7 +1268,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             //TODO: Do a better job of tracking stuff with the funnel
 
                             multiplicity_by_alignment.emplace_back(item_count);
-                            for (seed_i : seeds_for_extension[extension_i]) {
+                            for (size_t seed_i : seeds_for_extension[extension_i]) {
                                 minimizer_explored.insert(seeds.at(seed_i).source);
                             }
 
