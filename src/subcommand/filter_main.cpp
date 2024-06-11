@@ -126,7 +126,7 @@ int main_filter(int argc, char** argv) {
                 {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
-                {"exact-name", no_argument, 0, 'c'},
+                {"exact-name", no_argument, 0, 'e'},
                 {"subsequence", required_argument, 0, 'a'},
                 {"subsequences", required_argument, 0, 'A'},
                 {"proper-pairs", no_argument, 0, 'p'},
@@ -153,14 +153,14 @@ int main_filter(int argc, char** argv) {
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
                 {"annotation", required_argument, 0, 'B'},
-                {"correctly-mapped", no_argument, 0, 'g'},
+                {"correctly-mapped", no_argument, 0, 'c'},
                 {"complement", no_argument, 0, 'U'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:gUt:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:Od:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:cUt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -188,7 +188,7 @@ int main_filter(int argc, char** argv) {
                 }
             });
             break;
-        case 'c':
+        case 'e':
             exact_name = true;
             break;
         case 'a':
@@ -330,7 +330,7 @@ int main_filter(int argc, char** argv) {
         case 'B':
             annotation = optarg;
             break;
-        case 'g':
+        case 'c':
             correctly_mapped = true;
             break;
         case 'U':
