@@ -31,7 +31,7 @@ void help_filter(char** argv) {
          << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
-         << "    -c, --exact-name           match read names exactly instead of by prefix" << endl
+         << "    -e, --exact-name           match read names exactly instead of by prefix" << endl
          << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
          << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
