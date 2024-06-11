@@ -1169,9 +1169,9 @@ string Deconstructor::get_vcf_header() {
         stream << "\">" << endl;
     }
     if (path_to_sample_phase && cluster_threshold < 1) {
-        stream << "##FORMAT=<ID=TS,Number=1,Type=Float,Descript=\"Similarity between the sample's actual path and its allele\">"
+        stream << "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's actual path and its allele\">"
                << endl;
-        stream << "##FORMAT=<ID=TL,Number=1,Type=Integer,Descript=\"Length difference between the sample's actual path and its allele\">"
+        stream << "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the sample's actual path and its allele\">"
                << endl;
 
     }
