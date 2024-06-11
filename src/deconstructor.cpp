@@ -974,8 +974,10 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             
             // add in the star alleles -- these are alleles that were genotyped in the parent but not
             // the current allele, and are treated as *'s in VCF.
-            sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
-                                                 in_nesting_info->sample_to_haplotypes);
+            if (this->star_allele) {
+                sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
+                                                     in_nesting_info->sample_to_haplotypes);
+            }
             
         }
 
@@ -1364,7 +1366,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool long_ref_contig,
                                 double cluster_threshold,
                                 gbwt::GBWT* gbwt,
-                                bool nested_decomposition) {
+                                bool nested_decomposition,
+                                bool star_allele) {
 
     this->graph = graph;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
@@ -1380,6 +1383,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->cluster_threshold = cluster_threshold;
     this->gbwt = gbwt;
     this->nested_decomposition = nested_decomposition;
+    this->star_allele = star_allele;
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
