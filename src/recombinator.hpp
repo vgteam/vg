@@ -269,6 +269,14 @@ public:
         /// End node.
         handle_t end;
 
+        /// Shortest distance from the last base of `start` to the first base of `end`,
+        /// if both are present.
+        std::uint32_t length;
+
+        /// Number of additional snarls included in the subchain to keep reversals
+        /// within the subchain.
+        std::uint32_t extra_snarls;
+
         /// Returns `true` if the subchain has a start node.
         bool has_start() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::suffix); }
 
@@ -302,9 +310,13 @@ public:
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
      * minimum distance over the subchain is at most the target length and there
-     * are GBWT haplotypes that cross the subchain. If there are no snarls in a
-     * top-level chain, it is represented as a single subchain without boundary
-     * nodes.
+     * are GBWT haplotypes that cross the subchain. We also keep extending the
+     * subchain if a haplotype would cross the end in both directions. By doing
+     * this, we can avoid sequence loss with haplotypes reversing their direction,
+     * while keeping kmers specific to each subchain.
+     *
+     * If there are no snarls in a top-level chain, it is represented as a single
+     * subchain without boundary nodes.
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
      * single occurrence in the graph.
@@ -324,6 +336,9 @@ public:
 private:
     // Return the minimum distance from the last base of `from` to the first base of `to`.
     size_t get_distance(handle_t from, handle_t to) const;
+
+    // Returns true if a haplotype visits the node in both orientations.
+    bool contains_reversals(handle_t handle) const;
 
     // Partition the top-level chain into subchains.
     std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const;

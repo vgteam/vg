@@ -430,6 +430,29 @@ size_t HaplotypePartitioner::get_distance(handle_t from, handle_t to) const {
     );
 }
 
+bool HaplotypePartitioner::contains_reversals(handle_t handle) const {
+    gbwt::node_type forward = gbwtgraph::GBWTGraph::handle_to_node(handle);
+    std::vector<gbwt::size_type> forward_da = this->r_index.decompressDA(forward);
+    std::sort(forward_da.begin(), forward_da.end());
+
+    gbwt::node_type reverse = gbwt::Node::reverse(forward);
+    std::vector<gbwt::size_type> reverse_da = this->r_index.decompressDA(reverse);
+    std::sort(reverse_da.begin(), reverse_da.end());
+
+    auto fw_iter = forward_da.begin();
+    auto rv_iter = reverse_da.begin();
+    while (fw_iter != forward_da.end() && rv_iter != reverse_da.end()) {
+        if (*fw_iter == *rv_iter) {
+            return true;
+        } else if (*fw_iter < *rv_iter) {
+            ++fw_iter;
+        } else {
+            ++rv_iter;
+        }
+    }
+    return false;
+}
+
 std::vector<HaplotypePartitioner::Subchain>
 HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const {
     std::vector<Subchain> result;
@@ -447,16 +470,16 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             if (was_snarl) {
                 if (!has_start) {
                     // If the chain starts with a snarl, we take it as a prefix.
-                    snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle });
+                    snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle, 0, 0 });
                 } else {
                     size_t distance = this->get_distance(snarl_start, handle);
                     if (distance < std::numeric_limits<size_t>::max()) {
                         // Normal snarl with two boundary nodes.
-                        snarls.push_back({ Haplotypes::Subchain::normal, snarl_start, handle });
+                        snarls.push_back({ Haplotypes::Subchain::normal, snarl_start, handle, 0, 0 });
                     } else {
                         // The snarl is not connected, so we break it into two.
-                        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle() });
-                        snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle });
+                        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle(), 0, 0 });
+                        snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle, 0, 0 });
                     }
                 }
             }
@@ -479,7 +502,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
     }
     if (was_snarl && has_start) {
         // If the chain ends with a snarl, we take it as a suffix.
-        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle() });
+        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle(), 0, 0 });
     }
 
     // Second pass: Combine snarls into subchains.
@@ -492,18 +515,35 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             continue;
         }
         size_t tail = head;
+        std::uint32_t distance = this->get_distance(snarls[head].start, snarls[tail].end);
+        std::uint32_t extra_snarls = 0;
         while (tail + 1 < snarls.size()) {
             if (snarls[tail + 1].type != Haplotypes::Subchain::normal) {
                 break;
             }
             size_t candidate = this->get_distance(snarls[head].start, snarls[tail + 1].end);
-            if (candidate <= parameters.subchain_length) {
-                tail++;
-            } else {
-                break;
+            if (candidate > parameters.subchain_length) {
+                // Including the next snarl would exceed target length. But if a haplotype visits
+                // the tail in both orientations, it flips the orientation in a subsequent subchain,
+                // returns back, flips again, and eventually continues forward. In such situations,
+                // sampling minimal haplotypes within this subchain would lead to sequence loss,
+                // while sampling maximal haplotypes could make some kmers specific to the next
+                // subchain shared with haplotypes in this subchain. We therefore move forward until
+                // we can make the subchain contain the reversals.
+                if (this->contains_reversals(snarls[tail].end)) {
+                    extra_snarls++;
+                } else {
+                    break;
+                }
             }
+            tail++;
+            distance = candidate;
         }
-        result.push_back({ Haplotypes::Subchain::normal, snarls[head].start, snarls[tail].end });
+        result.push_back({
+            Haplotypes::Subchain::normal,
+            snarls[head].start, snarls[tail].end,
+            distance, extra_snarls
+        });
         head = tail + 1;
     }
 
@@ -715,15 +755,42 @@ void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type
 }
 
 void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const {
+
+    // Determine subchains and calculate some statistics.
     std::vector<Subchain> subchains = this->get_subchains(chain, parameters);
+    if (this->verbosity >= Haplotypes::verbosity_debug) {
+        size_t long_subchains = 0, with_extra_snarls = 0, extra_snarls = 0;
+        for (const Subchain& subchain : subchains) {
+            if (subchain.length > parameters.subchain_length) {
+                long_subchains++;
+            }
+            if (subchain.extra_snarls > 0) {
+                with_extra_snarls++;
+                extra_snarls += subchain.extra_snarls;
+            }
+        }
+        #pragma omp critical
+        {
+            std::cerr << "Chain " << chain.offset << ": " << long_subchains << " long subchains ("
+                << with_extra_snarls << " with " << extra_snarls << " extra snarls)" << std::endl;
+        }
+    }
+
+    // Convert the subchains to actual subchains.
     for (const Subchain& subchain : subchains) {
         std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
         auto sequences = this->get_sequences(subchain);
         if (sequences.empty()) {
             // There are no haplotypes crossing the subchain, so we break it into
             // a suffix and a prefix.
-            to_process.push_back({ { Haplotypes::Subchain::suffix, subchain.start, empty_gbwtgraph_handle() }, this->get_sequences(subchain.start) });
-            to_process.push_back({ { Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), subchain.end }, this->get_sequences(subchain.end) });
+            to_process.push_back({
+                { Haplotypes::Subchain::suffix, subchain.start, empty_gbwtgraph_handle(), 0, 0 },
+                this->get_sequences(subchain.start)
+            });
+            to_process.push_back({
+                { Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), subchain.end, 0, 0 },
+                this->get_sequences(subchain.end)
+            });
         } else {
             to_process.push_back({ subchain, std::move(sequences) });
         }
