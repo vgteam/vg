@@ -1256,6 +1256,11 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
 
                             alignments.emplace_back(aln);
+                            alignments.back().clear_refpos();
+                            alignments.back().clear_path();
+                            alignments.back().set_score(0);
+                            alignments.back().set_identity(0);
+                            alignments.back().set_mapping_quality(0);
                             this->extension_to_alignment(tree_extensions[extension_i], alignments.back());
 
                             if (track_provenance) {
