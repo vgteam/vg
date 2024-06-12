@@ -21,7 +21,7 @@ var searchData=
   ['decompose_5fgenotype_5ffast_985',['decompose_genotype_fast',['../classvg_1_1WindowedVcfBuffer.html#ae05d4861f68f92b5c11e293f1a34618b',1,'vg::WindowedVcfBuffer']]],
   ['decomposition_5fsource_5ft_986',['decomposition_source_t',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a5e521833234f94ccd3d4874d361a858b',1,'handlegraph::BuildableSnarlDecomposition']]],
   ['decompressstring_987',['DecompressString',['../namespacezstdutil.html#a96bc1e7d01552bb8397ffd2a8dbc0167',1,'zstdutil']]],
-  ['deconstruct_988',['deconstruct',['../classvg_1_1Deconstructor.html#ac9e42a0b80a8d73e6606036c42fbaeb7',1,'vg::Deconstructor']]],
+  ['deconstruct_988',['deconstruct',['../classvg_1_1Deconstructor.html#a65c57f3f6e3b4504ceb8bb6b3a96925c',1,'vg::Deconstructor']]],
   ['deconstruct_5fgraph_989',['deconstruct_graph',['../classvg_1_1Deconstructor.html#a2b35a006fe649bbd6e2ee8c7ca0fefd8',1,'vg::Deconstructor']]],
   ['deconstruct_5fgraph_5ftop_5fdown_990',['deconstruct_graph_top_down',['../classvg_1_1Deconstructor.html#a1ec4ade6a850ee9e5b6debfe07e2b31a',1,'vg::Deconstructor']]],
   ['deconstruct_5fmain_2ecpp_991',['deconstruct_main.cpp',['../deconstruct__main_8cpp.html',1,'']]],
