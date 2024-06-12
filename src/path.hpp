@@ -1,4 +1,4 @@
-    #ifndef VG_PATH_HPP_INCLUDED
+#ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -403,12 +403,12 @@ private:
 // the mapping_t name is already taken
 class path_mapping_t {
 public:
-    path_mapping_t() = default;
-    path_mapping_t(const path_mapping_t&) = default;
-    path_mapping_t(path_mapping_t&&) = default;
+    path_mapping_t() noexcept = default;
+    path_mapping_t(const path_mapping_t&) noexcept = default;
+    path_mapping_t(path_mapping_t&&) noexcept = default;
     ~path_mapping_t() = default;
-    path_mapping_t& operator=(const path_mapping_t&) = default;
-    path_mapping_t& operator=(path_mapping_t&&) = default;
+    path_mapping_t& operator=(const path_mapping_t&) noexcept = default;
+    path_mapping_t& operator=(path_mapping_t&&) noexcept = default;
     inline const position_t& position() const;
     inline position_t* mutable_position();
     inline const vector<edit_t>& edit() const;
@@ -426,12 +426,12 @@ private:
 
 class path_t {
 public:
-    path_t() = default;
-    path_t(const path_t&) = default;
-    path_t(path_t&&) = default;
+    path_t() noexcept = default;
+    path_t(const path_t&) noexcept = default;
+    path_t(path_t&&) noexcept = default;
     ~path_t() = default;
-    path_t& operator=(const path_t&) = default;
-    path_t& operator=(path_t&&) = default;
+    path_t& operator=(const path_t&) noexcept = default;
+    path_t& operator=(path_t&&) noexcept = default;
     inline const vector<path_mapping_t>& mapping() const;
     inline const path_mapping_t& mapping(size_t i) const;
     inline vector<path_mapping_t>* mutable_mapping();

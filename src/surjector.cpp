@@ -1687,15 +1687,14 @@ using namespace std;
                             final_position.offset() + mapping_from_length(*final_mapping) == first_position.offset()) {
                             
                             for (const auto& edit : first_mapping.edit()) {
-                                *final_mapping->add_edit() = edit;
+                                from_proto_edit(edit, *final_mapping->add_edit());
                             }
                             ++k;
                         }
                         // copy over the rest of the mappings
                         for (; k < n; ++k) {
                             auto mapping = path_chunks[i].second.add_mapping();
-                            *mapping = aln.path().mapping(k);
-                            mapping->set_rank(path_chunks[i].second.mapping_size());
+                            from_proto_mapping(aln.path().mapping(k), *mapping);
                         }
                         
 #ifdef debug_constrictions
@@ -1735,11 +1734,10 @@ using namespace std;
 #endif
                         
                         // copy the repair alignment
-                        Path concat_path;
+                        path_t concat_path;
                         for (size_t k = n; k < aln.path().mapping_size(); ++k) {
                             auto mapping = concat_path.add_mapping();
-                            *mapping = aln.path().mapping(k);
-                            mapping->set_rank(concat_path.mapping_size());
+                            from_proto_mapping(aln.path().mapping(k), *mapping);
                         }
                         
                         // check if we need to merge the first and last mappings
@@ -1761,11 +1759,10 @@ using namespace std;
                         for (; k < path_chunks[i].second.mapping_size(); ++k) {
                             auto mapping = concat_path.add_mapping();
                             *mapping = path_chunks[i].second.mapping(k);
-                            mapping->set_rank(concat_path.mapping_size());
                         }
                         
                         // replace the original path
-                        path_chunks[i].second = concat_path;
+                        path_chunks[i].second = std::move(concat_path);
                         
 #ifdef debug_constrictions
                         cerr << "extended right path " << i << " to " << pb2json(path_chunks[i].second) << endl;
@@ -1932,7 +1929,6 @@ using namespace std;
                         for (size_t l = begin_idx; l < end_idx; ++l) {
                             auto mapping = path_chunk.second.add_mapping();
                             *mapping = path_chunks[i].second.mapping(l);
-                            mapping->set_rank(l - begin_idx + 1);
                         }
                         // identify the read interval
                         path_chunk.first.first = read_begin;
@@ -2187,12 +2183,12 @@ using namespace std;
             surjected.set_mapping_quality(src_mapping_quality);
             
             auto surj_subpath = surjected.add_subpath();
-            from_proto_path(path_chunks.front().second, *surj_subpath->mutable_path());
+            *surj_subpath->mutable_path() = move(path_chunks.front().second);
             
             Alignment aln;
             aln.set_sequence(src_sequence);
             aln.set_quality(src_quality);
-            *aln.mutable_path() = move(path_chunks.front().second);
+            to_proto_path(surj_subpath->path(), *aln.mutable_path());
             surj_subpath->set_score(get_aligner(!src_quality.empty())->score_contiguous_alignment(aln));
             
             surjected.add_start(0);
@@ -2968,7 +2964,7 @@ using namespace std;
             // just copy it over
             surjected.set_sequence(source.sequence());
             surjected.set_quality(source.quality());
-            *surjected.mutable_path() = path_chunks.front().second;
+            to_proto_path(path_chunks.front().second, *surjected.mutable_path());
             surjected.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected));
             
         }
@@ -3377,10 +3373,10 @@ using namespace std;
                                                 prev_edit->set_sequence(prev_edit->sequence() + next_edit.sequence());
                                             }
                                             else {
-                                                to_proto_edit(next_edit, *prev_mapping->add_edit());
+                                                *prev_mapping->add_edit() = next_edit;
                                             }
                                             for (size_t k = 1; k < next_mapping.edit_size(); ++k) {
-                                                to_proto_edit(next_mapping.edit(k), *prev_mapping->add_edit());
+                                                *prev_mapping->add_edit() = next_mapping.edit(k);
                                             }
                                             
                                             merged_mapping = true;
@@ -3388,7 +3384,7 @@ using namespace std;
                                     }
                                     if (!merged_mapping) {
                                         // make a new mapping
-                                        to_proto_mapping(next_mapping, *path_chunk.add_mapping());
+                                        *path_chunk.add_mapping() = next_mapping;
                                     }
                                 }
                                 
@@ -3643,10 +3639,9 @@ using namespace std;
                     
                     // move the end of the sequence out
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    Mapping* mapping = aln_chunk.second.add_mapping();
+                    auto mapping = aln_chunk.second.add_mapping();
                     // add this mapping
-                    *mapping = path.mapping(i);
-                    mapping->set_rank(aln_chunk.second.mapping(aln_chunk.second.mapping_size() - 2).rank() + 1);
+                    from_proto_mapping(path.mapping(i), *mapping);
                     
                     // in the next iteration, this step should point into the chunk it just extended
                     next_extending_steps[make_pair(step, path_strand)] = extending_steps[make_pair(prev_step, path_strand)];
@@ -3668,9 +3663,8 @@ using namespace std;
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
                     
                     // and with the first mapping
-                    Mapping* mapping = aln_chunk.second.add_mapping();
-                    *mapping = path.mapping(i);
-                    mapping->set_rank(1);
+                    auto mapping = aln_chunk.second.add_mapping();
+                    from_proto_mapping(path.mapping(i), *mapping);
                     
                     // keep track of where this chunk is in the vector and which step it came from
                     // for the next iteration
@@ -4092,7 +4086,7 @@ using namespace std;
             size_t right_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
                                                               + (source.sequence().end() - path_chunk.first.second));
                         
-            const Position& first_pos = path_chunk.second.mapping(0).position();
+            const auto& first_pos = path_chunk.second.mapping(0).position();
             if (rev_strand) {
                 size_t path_offset = (graph->get_position_of_step(ref_chunk.first)
                                       + graph->get_length(graph->get_handle_of_step(ref_chunk.first))
@@ -4111,8 +4105,8 @@ using namespace std;
                 }
             }
             
-            const Mapping& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
-            const Position& final_pos = final_mapping.position();
+            const auto& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
+            const auto& final_pos = final_mapping.position();
             if (rev_strand) {
                 size_t path_offset = (graph->get_position_of_step(ref_chunk.second)
                                       + graph->get_length(graph->get_handle_of_step(ref_chunk.second))

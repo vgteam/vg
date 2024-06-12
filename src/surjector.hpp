@@ -14,6 +14,7 @@
 
 #include "aligner.hpp"
 #include "handle.hpp"
+#include "path.hpp"
 #include <vg/vg.pb.h>
 #include "multipath_alignment.hpp"
 
@@ -97,7 +98,7 @@ using namespace std;
                                                     bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
-        using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
+        using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
         
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
         int64_t min_splice_length = 20;
