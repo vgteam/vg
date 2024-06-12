@@ -3016,7 +3016,8 @@ using namespace std;
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()
                         << "; suppressing further warnings." << endl;
                 }
-                return move(make_null_alignment(source)); 
+                surjected = move(make_null_alignment(source));
+                return surjected;
             }
             
             // compute the connectivity between the path chunks
@@ -3034,7 +3035,8 @@ using namespace std;
 
             // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
             if (mp_aln_graph.empty()) {
-                return move(make_null_alignment(source));
+                surjected = move(make_null_alignment(source));
+                return surjected;
             }
             
             // TODO: is this necessary in a linear graph?
@@ -3137,22 +3139,24 @@ using namespace std;
 #ifdef debug_anchored_surject
             cerr << "looking for path range on " << (rev_strand ? "reverse" : "forward") << " strand, for " << surj_path.mapping_size() << " mappings" << endl;
 #endif
-            step_handle_t step = rev_strand ? graph->get_step_at_position(path_handle, ref_path_interval.second)
-                                            : graph->get_step_at_position(path_handle, ref_path_interval.first);
-            step_handle_t end = rev_strand ? graph->get_previous_step(graph->get_step_at_position(path_handle, ref_path_interval.first))
-                                           : graph->get_next_step(graph->get_step_at_position(path_handle, ref_path_interval.second));
+            
+            step_handle_t step = graph->get_step_at_position(path_handle, ref_path_interval.first);
+            step_handle_t end = graph->get_next_step(graph->get_step_at_position(path_handle, ref_path_interval.second));
             
             // walk the identified interval
-            for (; step != end; step = rev_strand ? graph->get_previous_step(step) : graph->get_next_step(step)) {
-                const auto& pos = surj_path.mapping(mappings_matched).position();
+            for (; step != end; step = graph->get_next_step(step)) {
+                size_t idx = rev_strand ? surj_path.mapping_size() - mappings_matched - 1 : mappings_matched;
+                const auto& pos = surj_path.mapping(idx).position();
                 handle_t handle = graph->get_handle_of_step(step);
                 if (graph->get_id(handle) == pos.node_id() &&
                     ((graph->get_is_reverse(handle) != pos.is_reverse()) == rev_strand)) {
                     // we found the next position we were expecting to
-                    if (mappings_matched == 0) {
+                    if (mappings_matched == 0 || rev_strand) {
                         path_range_out.first = step;
                     }
-                    path_range_out.second = step;
+                    if (mappings_matched == 0 || !rev_strand) {
+                        path_range_out.second = step;
+                    }
                     ++mappings_matched;
 #ifdef debug_anchored_surject
                     cerr << "\tmatch at node " << graph->get_id(handle) << " " << graph->get_is_reverse(handle) << " at position " << graph->get_position_of_step(step) << endl;
@@ -3172,7 +3176,7 @@ using namespace std;
                             mappings_matched = 0;
                             // and go back to where we started on the path
                             // TODO: this is potentially quadratic, there are faster algorithms
-                            step = path_range_out.first;
+                            step = rev_strand ? path_range_out.second : path_range_out.first;
                         }
                     }
                 }
@@ -3183,7 +3187,7 @@ using namespace std;
                         mappings_matched = 0;
                         // and go back to where we started on the path
                         // TODO: this is potentially quadratic, there are faster algorithms
-                        step = path_range_out.first;
+                        step = rev_strand ? path_range_out.second : path_range_out.first;
                     }
 #ifdef debug_anchored_surject
                     cerr << "\tmismatch at node " << graph->get_id(handle) << " " << graph->get_is_reverse(handle) << " at position " << graph->get_position_of_step(step) << endl;
@@ -3205,6 +3209,10 @@ using namespace std;
                 cerr << "Surjected read dump: " << pb2json(surjected) << endl;
                 exit(1);
             }
+#ifdef debug_anchored_surject
+            // TODO: dump out path_range_out
+            cerr << "identified path range between steps on " << graph->get_id(graph->get_handle_of_step(path_range_out.first)) << " " << graph->get_position_of_step(path_range_out.first) << ", " << graph->get_id(graph->get_handle_of_step(path_range_out.second)) << " " << graph->get_position_of_step(path_range_out.second) << '\n';
+#endif
         }
         else {
             // sentinel to indicate that surjection is unmapped
