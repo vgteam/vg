@@ -3561,7 +3561,9 @@ using namespace std;
         
         // for each path that we're extending, the previous step and the strand we were at on it
         // mapped to the index of that path chunk in the path's vector
-        unordered_map<step_handle_t, size_t> fwd_extending_steps, rev_extending_steps;
+        // note: we also keep the path_handle_t instead of extracting it from the step because this operation
+        // is slow on GBZ
+        unordered_map<step_handle_t, pair<size_t, path_handle_t>> fwd_extending_steps, rev_extending_steps;
         int64_t through_to_length = 0;
         
         for (size_t i = 0; i < path.mapping_size(); i++) {
@@ -3576,7 +3578,7 @@ using namespace std;
             cerr << "looking for paths on mapping " << i << " at position " << make_pos_t(pos) << endl;
 #endif
             
-            unordered_map<step_handle_t, size_t> next_fwd_extending_steps, next_rev_extending_steps;
+            unordered_map<step_handle_t, pair<size_t, path_handle_t>> next_fwd_extending_steps, next_rev_extending_steps;
             
             for (const step_handle_t& step : graph->steps_of_handle(handle)) {
                 
@@ -3607,7 +3609,7 @@ using namespace std;
                 
                 auto& next_extending_steps = path_strand ? next_rev_extending_steps : next_fwd_extending_steps;
                 
-                next_extending_steps[step] = numeric_limits<size_t>::max();
+                next_extending_steps[step] = make_pair(numeric_limits<size_t>::max(), path_handle);
             }
             
             // TODO: forward and reverse code is repetitive
@@ -3617,10 +3619,10 @@ using namespace std;
                 auto next_step = graph->get_next_step(extending_step.first);
                 auto it = next_fwd_extending_steps.find(next_step);
                 if (it != next_fwd_extending_steps.end()) {
-                    it->second = extending_step.second;
-                    auto& path_chunks = to_return[make_pair(graph->get_path_handle_of_step(extending_step.first), false)];
-                    auto& aln_chunk = path_chunks.first[extending_step.second];
-                    auto& ref_chunk = path_chunks.second[extending_step.second];
+                    it->second.first = extending_step.second.first;
+                    auto& path_chunks = to_return[make_pair(it->second.second, false)];
+                    auto& aln_chunk = path_chunks.first[extending_step.second.first];
+                    auto& ref_chunk = path_chunks.second[extending_step.second.first];
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = it->first;
@@ -3635,12 +3637,12 @@ using namespace std;
                 }
             }
             // initialize new chunks for steps that did not extend
-            for (pair<const step_handle_t, size_t>& extended_step : next_fwd_extending_steps) {
-                if (extended_step.second == numeric_limits<size_t>::max()) {
+            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_fwd_extending_steps) {
+                if (extended_step.second.first == numeric_limits<size_t>::max()) {
                     
-                    auto& path_chunks = to_return[make_pair(graph->get_path_handle_of_step(extended_step.first), false)];
+                    auto& path_chunks = to_return[make_pair(extended_step.second.second, false)];
                     
-                    extended_step.second = path_chunks.first.size();
+                    extended_step.second.first = path_chunks.first.size();
                     
                     path_chunks.first.emplace_back();
                     path_chunks.second.emplace_back();
@@ -3660,16 +3662,16 @@ using namespace std;
 #endif
                 }
             }
-            for (pair<const step_handle_t, size_t>& extended_step : next_rev_extending_steps) {
+            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_rev_extending_steps) {
                 
-                auto& path_chunks = to_return[make_pair(graph->get_path_handle_of_step(extended_step.first), true)];
+                auto& path_chunks = to_return[make_pair(extended_step.second.second, true)];
                 
                 auto prev_step = graph->get_next_step(extended_step.first);
                 auto it = rev_extending_steps.find(prev_step);
                 if (it != rev_extending_steps.end()) {
-                    extended_step.second = it->second;
-                    auto& aln_chunk = path_chunks.first[extended_step.second];
-                    auto& ref_chunk = path_chunks.second[extended_step.second];
+                    extended_step.second.first = it->second.first;
+                    auto& aln_chunk = path_chunks.first[extended_step.second.first];
+                    auto& ref_chunk = path_chunks.second[extended_step.second.first];
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = extended_step.first;
@@ -3683,7 +3685,7 @@ using namespace std;
 #endif
                 }
                 else {
-                    extended_step.second = path_chunks.first.size();
+                    extended_step.second.first = path_chunks.first.size();
                     
                     path_chunks.first.emplace_back();
                     path_chunks.second.emplace_back();
