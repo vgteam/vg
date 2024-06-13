@@ -103,6 +103,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab7e72e4f3440fdc2a846de1e81fe2230"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a59dd97c0eadf3aebd852ae3b0aabe31d"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a59dd97c0eadf3aebd852ae3b0aabe31d">name_prefixes</a></td></tr>
 <tr class="separator:a59dd97c0eadf3aebd852ae3b0aabe31d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3165602af2a80ad642c9f900f9bf723e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3165602af2a80ad642c9f900f9bf723e">exact_name</a> = false</td></tr>
+<tr class="memdesc:a3165602af2a80ad642c9f900f9bf723e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read name must not have anything in it besides the prefix.  <a href="classvg_1_1ReadFilter.html#a3165602af2a80ad642c9f900f9bf723e">More...</a><br /></td></tr>
+<tr class="separator:a3165602af2a80ad642c9f900f9bf723e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a019f6eab0ba08ab063f2f9b1226a0cf0"><td class="memItemLeft" align="right" valign="top">vector&lt; regex &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a019f6eab0ba08ab063f2f9b1226a0cf0">excluded_refpos_contigs</a></td></tr>
 <tr class="memdesc:a019f6eab0ba08ab063f2f9b1226a0cf0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read must not have a refpos set with a contig name containing a match to any of these.  <a href="classvg_1_1ReadFilter.html#a019f6eab0ba08ab063f2f9b1226a0cf0">More...</a><br /></td></tr>
 <tr class="separator:a019f6eab0ba08ab063f2f9b1226a0cf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1719,7 +1722,7 @@ template&lt;typename Read &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Does the read name have one of the indicated prefixes? </p>
+<p>Does the read name have one of the indicated prefixes? If exact_name is set, only finds complete matches of a "prefix" to the whole read name. </p>
 
 </div>
 </div>
@@ -2091,6 +2094,24 @@ template&lt;typename Read &gt; </div>
 </div><div class="memdoc">
 
 <p>Should we drop split reads that follow edges not in the graph? </p>
+
+</div>
+</div>
+<a id="a3165602af2a80ad642c9f900f9bf723e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3165602af2a80ad642c9f900f9bf723e">&#9670;&nbsp;</a></span>exact_name</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::exact_name = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Read name must not have anything in it besides the prefix. </p>
 
 </div>
 </div>
