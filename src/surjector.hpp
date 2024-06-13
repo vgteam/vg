@@ -195,11 +195,6 @@ using namespace std;
                               const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                               bool no_left_expansion, bool no_right_expansion) const;
         
-        /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
-        unordered_map<id_t, pair<id_t, bool>>
-        extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
-                                      path_handle_t path_handle, size_t first, size_t last) const;
-        
         /// use the graph position bounds and the path range bounds to assign a path position to a surjected read
         void set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos,
                                const pos_t& final_surj_pos,

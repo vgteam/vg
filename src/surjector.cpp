@@ -12,6 +12,8 @@
 #include "memoizing_graph.hpp"
 #include "multipath_alignment_graph.hpp"
 #include "reverse_graph.hpp"
+#include "subpath_overlay.hpp"
+#include "identity_overlay.hpp"
 
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
@@ -2980,22 +2982,23 @@ using namespace std;
             assert(ref_path_interval.first <= ref_path_interval.second);
             
             // get the path graph corresponding to this interval
-            bdsg::HashGraph path_graph;
-            unordered_map<id_t, pair<id_t, bool>> node_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
-                                                                                             ref_path_interval.first, ref_path_interval.second);
+            step_handle_t begin = graph->get_step_at_position(path_handle, ref_path_interval.first);
+            step_handle_t end = graph->get_step_at_position(path_handle, ref_path_interval.second);
+            if (graph->get_position_of_step(end) <= ref_path_interval.second && end != graph->path_end(path_handle)) {
+                // we actually want part of this step too, so we use the next one as the end iterator
+                end = graph->get_next_step(end);
+            }
+            SubpathOverlay path_graph(path_position_graph, begin, end);
             
             // choose an orientation for the path graph
             ReverseGraph rev_comp_path_graph(&path_graph, true);
-            HandleGraph* aln_graph;
+            IdentityOverlay identity_path_graph(&path_graph);
+            ExpandingOverlayGraph* aln_graph;
             if (rev_strand) {
-                // we align to the reverse strand of the path graph, and the translation chages accordingly
                 aln_graph = &rev_comp_path_graph;
-                for (pair<const id_t, pair<id_t, bool>>& translation : node_trans) {
-                    translation.second.second = !translation.second.second;
-                }
             }
             else {
-                aln_graph = &path_graph;
+                aln_graph = &identity_path_graph;
             }
             
 #ifdef debug_anchored_surject
@@ -3016,12 +3019,17 @@ using namespace std;
                 return surjected;
             }
             
+            std::function<pair<id_t, bool>(id_t)> projection_trans = [&](id_t node_id) {
+                handle_t handle = path_graph.get_underlying_handle(aln_graph->get_underlying_handle(aln_graph->get_handle(node_id)));
+                return pair<id_t, bool>(path_position_graph->get_id(handle), path_position_graph->get_is_reverse(handle));
+            };
+            
             // compute the connectivity between the path chunks
             // TODO: i'm not sure if we actually need to preserve all indel anchors in either case, but i don't
             // want to change too much about the anchoring logic at once while i'm switching from blanket preservation
             // to a more targeted method
             bool preserve_tail_indel_anchors = (sinks_are_anchors || sources_are_anchors);
-            MultipathAlignmentGraph mp_aln_graph(*aln_graph, path_chunks, source, node_trans, !preserve_N_alignments,
+            MultipathAlignmentGraph mp_aln_graph(*aln_graph, path_chunks, source, projection_trans, !preserve_N_alignments,
                                                  preserve_tail_indel_anchors);
             
 #ifdef debug_anchored_surject
@@ -3070,7 +3078,7 @@ using namespace std;
             unordered_map<handle_t, bool> left_align_strand;
             left_align_strand.reserve(aln_graph->get_node_count());
             aln_graph->for_each_handle([&](const handle_t& handle) {
-                left_align_strand[handle] = node_trans.at(aln_graph->get_id(handle)).second;
+                left_align_strand[handle] = projection_trans(aln_graph->get_id(handle)).second;
             });
             
             // align the intervening segments and store the result in a multipath alignment
@@ -3101,7 +3109,7 @@ using namespace std;
             
             for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
                 // translate back into the original ID space
-                translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), node_trans);
+                translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), projection_trans);
             }
             
             // identify the source subpaths (necessary for subpath-global optimal alignment algorithm)
@@ -4161,47 +4169,6 @@ using namespace std;
         }
         
         return interval;
-    }
-    
-    unordered_map<id_t, pair<id_t, bool>>
-    Surjector::extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
-                                             path_handle_t path_handle, size_t first, size_t last) const {
-        
-        // TODO: we need better semantics than an unsigned interval for surjecting to circular paths
-        
-#ifdef debug_anchored_surject
-        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << graph->get_path_length(path_handle) << endl;
-#endif
-        
-        unordered_map<id_t, pair<id_t, bool>> node_trans;
-        
-        step_handle_t begin = graph->get_step_at_position(path_handle, first);
-        step_handle_t end = graph->get_step_at_position(path_handle, last);
-        
-        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
-            // we actually want part of this step too, so we use the next one as the end iterator
-            end = graph->get_next_step(end);
-        }
-        
-        handle_t prev_node;
-        for (step_handle_t step = begin; step != end; step = graph->get_next_step(step)) {
-            // copy the node with the local orientation now forward
-            handle_t copying = graph->get_handle_of_step(step);
-            handle_t node_here = into->create_handle(graph->get_sequence(copying));
-            
-            if (step != begin) {
-                // add an edge from the previous node
-                into->create_edge(prev_node, node_here);
-            }
-            
-            // record the translation
-            node_trans[into->get_id(node_here)] = pair<id_t, bool>(graph->get_id(copying),
-                                                                   graph->get_is_reverse(copying));
-            
-            prev_node = node_here;
-        }
-        
-        return node_trans;
     }
 
     void Surjector::set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos, const pos_t& final_surj_pos,
