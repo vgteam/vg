@@ -1289,9 +1289,9 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
                             //stage for these too
                             // Tell the funnel
-                            funnel.introduce();
+                            //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);!
 
-                            //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);
+                            funnel.project(item_num);
 
                             funnel.processed_input();
 
