@@ -47,6 +47,7 @@ struct Operations {
     int mismatches;
     int opens;
     int extends;
+    int unknowns;
 
     /// Allow default construction as zero
     inline Operations(): matches(0), mismatches(0), opens(0), extends(0) {
@@ -54,7 +55,7 @@ struct Operations {
     }
 
     /// Allow construction from a bunch of counts
-    inline Operations(int matches, int mismatches, int opens, int extends): matches(matches), mismatches(mismatches), opens(opens), extends(extends) {
+    inline Operations(int matches, int mismatches, int opens, int extends, int unknowns): matches(matches), mismatches(mismatches), opens(opens), extends(extends), unknowns(unknowns) {
         // Nothing to do
     }
 
@@ -70,6 +71,7 @@ struct Operations {
         mismatches += other.mismatches;
         opens += other.opens;
         extends += other.extends;
+        unknowns += other.unknowns;
         return *this;
     }
     
@@ -87,6 +89,7 @@ struct Operations {
         copy.mismatches = -copy.mismatches;
         copy.opens = -copy.opens;
         copy.extends = -copy.extends;
+        copy.unknowns = -copy.unknowns;
         return copy;
     }
 
@@ -104,34 +107,40 @@ struct Operations {
 
     /// Make a match operation
     inline static Operations match(int count) {
-        return {count, 0, 0, 0};
+        return {count, 0, 0, 0, 0};
     }
 
     /// Make a mismatch operation
     inline static Operations mismatch(int count) {
-        return {0, count, 0, 0};
+        return {0, count, 0, 0, 0};
     }
 
     /// Make a gap open operation
     inline static Operations open(int count) {
-        return {0, 0, count, 0};
+        return {0, 0, count, 0, 0};
     }
 
     /// Make a gap extend operation
     inline static Operations extend(int count) {
-        return {0, 0, 0, count};
+        return {0, 0, 0, count, 0};
     }
 
     /// Make an unknown/not yet determined operation
     inline static Operations unknown(int count) {
-        // TODO: count is unused.
-        return Operations();
+        return {0, 0, 0, 0, count};
     }
 
     /// Rescore according to the given operation scores, with penalties
     /// negative. Returns the computed score and leaves the object unmodified.
     inline int score_under(int match, int mismatch, int open, int extend) const {
         return match * matches + mismatch * mismatches + open * opens + extend * extends;
+    }
+
+    /// Rescore according to the given operation scores, with penalties
+    /// negative, and assuming all unknown read bases are matches. Returns the
+    /// computed score and leaves the object unmodified.
+    inline int max_score_under(int match, int mismatch, int open, int extend) const {
+        return match * (matches + unknowns) + mismatch * mismatches + open * opens + extend * extends;
     }
 };
 
@@ -145,7 +154,7 @@ struct ScoredOperations: public Operations {
     }
 
     /// Allow construction from a score and a bunch of counts
-    inline ScoredOperations(int score, int matches, int mismatches, int opens, int extends): Operations(matches, mismatches, opens, extends), score(score) {
+    inline ScoredOperations(int score, int matches, int mismatches, int opens, int extends, int unknowns): Operations(matches, mismatches, opens, extends, unknowns), score(score) {
         // Nothing to do
     }
 

@@ -389,7 +389,7 @@ ScoredOperations score_chain_gap(size_t distance_difference, size_t base_seed_le
         // Compute the penalty and round to an int
         int gap_penalty = 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
         // Make that into a structured score for this gap
-        return ScoredOperations(-gap_penalty, 0, 0, distance_difference > 0 ? 1 : 0, distance_difference > 1 ? (distance_difference - 1) : 0);
+        return ScoredOperations(-gap_penalty, 0, 0, distance_difference > 0 ? 1 : 0, distance_difference > 1 ? (distance_difference - 1) : 0, 0);
     }
 }
 
