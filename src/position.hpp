@@ -23,21 +23,11 @@ using namespace std;
 class position_t {
 public:
     position_t() noexcept : _node_id(0), _offset(0), _is_reverse(false) {}
-    position_t(const position_t& other) noexcept : _node_id(other._node_id), _offset(other._offset), _is_reverse(other._is_reverse) {}
-    position_t(position_t&& other) noexcept : _node_id(other._node_id), _offset(other._offset), _is_reverse(other._is_reverse) {}
-    ~position_t() = default;
-    position_t& operator=(const position_t& other) noexcept {
-        _node_id = other._node_id;
-        _offset = other._offset;
-        _offset = other._offset;
-        return *this;
-    }
-    position_t& operator=(position_t&& other) noexcept {
-        _node_id = other._node_id;
-        _offset = other._offset;
-        _offset = other._offset;
-        return *this;
-    }
+    position_t(const position_t& other) noexcept = default;
+    position_t(position_t&& other) noexcept = default;
+    ~position_t() noexcept = default;
+    position_t& operator=(const position_t& other) noexcept = default;
+    position_t& operator=(position_t&& other) noexcept = default;
     inline int64_t node_id() const;
     inline void set_node_id(int64_t i);
     inline int64_t offset() const;
