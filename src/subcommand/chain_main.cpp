@@ -241,7 +241,7 @@ int main_chain(int argc, char** argv) {
                     size_t margin_right = vg::parse<size_t>(read_exclusion_start) - (start + length);
                     
                     // Pack up into an item
-                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
+                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, vg::algorithms::ScoredOperations::unknown(score, 0));
                 } else {
                     std::cerr << "warning:[vg chain] Unreadable item object at index " << i << ": " << json_error.text << std::endl;
                 }

@@ -1004,7 +1004,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             ); 
             // Make a view of the anchors we will fragment over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
-            std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
+            std::vector<std::pair<algorithms::ScoredOperations, std::vector<size_t>>> results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1079,7 +1079,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragment_scores.push_back(scored_fragment.first);
                 // And make an anchor of it right now, for chaining later.
                 // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
+                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, scored_fragment.first));
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
@@ -1352,7 +1352,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 zip_code_forest.trees[tree_num],
                 lookback_limit
             );
-            std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
+            std::vector<std::pair<algorithms::ScoredOperations, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
                 fragment_view,
                 *distance_index,
                 gbwt_graph,
@@ -3600,7 +3600,9 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
+    // Also how many matches it has. It always has 0 mismatches.
+    int total_matches = (length + margin_right) - (read_start - margin_left);
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, algorithms::ScoredOperations::match(score, total_matches), seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {
@@ -3625,6 +3627,10 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     // Score the perfect match from where we are to the end.
     score += aligner->score_exact_match(aln, scored_until, read_end - scored_until);
     
+    // Compute numbers of matches and mismatches to track with the anchor.
+    size_t total_mismatches = mismatch_end - mismatch_begin;
+    size_t total_matches = read_end - read_start - total_mismatches;
+    
     // Get the anchors we are going to weld together. These may be the same one.
     const algorithms::Anchor& left_anchor = seed_anchors.at(sorted_seeds.front());
     const algorithms::Anchor& right_anchor = seed_anchors.at(sorted_seeds.back());
@@ -3638,7 +3644,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     // Now make an anchor with the score of the range, with the anchors of
     // the first and last seeds, and enough margin to cover the distance out
     // from the outer seeds that we managed to extend.
-    algorithms::Anchor result(left_anchor, right_anchor, extra_left_margin, extra_right_margin, score);
+    algorithms::Anchor result(left_anchor, right_anchor, extra_left_margin, extra_right_margin, algorithms::ScoredOperations(score, total_matches, total_mismatches, 0, 0));
 
     assert(result.read_exclusion_start() == read_start);
     assert(result.read_exclusion_end() == read_end);

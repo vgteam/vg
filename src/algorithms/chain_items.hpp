@@ -40,6 +40,242 @@ using vg::operator<<;
 
 //#define debug_chaining
 
+/// Represents a vount of alignment operations, some of which may be unspecified.
+/// Supports addition and score finding under a scoring regime.
+struct Operations {
+    int matches;
+    int mismatches;
+    int opens;
+    int extends;
+
+    /// Allow default construction as zero
+    inline Operations(): matches(0), mismatches(0), opens(0), extends(0) {
+        // Nothing to do
+    }
+
+    /// Allow construction from a bunch of counts
+    inline Operations(int matches, int mismatches, int opens, int extends): matches(matches), mismatches(mismatches), opens(opens), extends(extends) {
+        // Nothing to do
+    }
+
+    /// Allow copy and move
+    inline Operations(const Operations& other) = default;
+    inline Operations(Operations&& other) = default;
+    inline Operations& operator=(const Operations& other) = default;
+    inline Operations& operator=(Operations&& other) = default;
+    
+    /// Add one collection of operations into another
+    inline Operations& operator+=(const Operations& other) {
+        matches += other.matches;
+        mismatches += other.mismatches;
+        opens += other.opens;
+        extends += other.extends;
+        return *this;
+    }
+    
+    /// Add one collection of operations to another
+    inline Operations operator+(const Operations& other) const {
+        Operations added(*this);
+        added += other;
+        return added;
+    }
+
+    /// Allow negating a collection of operations
+    inline Operations operator-() const {
+        Operations copy(*this);
+        copy.matches = -copy.matches;
+        copy.mismatches = -copy.mismatches;
+        copy.opens = -copy.opens;
+        copy.extends = -copy.extends;
+        return copy;
+    }
+
+    /// Allow subtracting a collection of operations from this one
+    inline Operations& operator-=(const Operations& other) {
+        return (*this) += -other;
+    }
+
+    /// Allow subtracting two collections of operations to get a difference
+    inline Operations operator-(const Operations& other) const {
+        Operations copy = -other;
+        copy += *this;
+        return copy;
+    }
+
+    /// Make a match operation
+    inline static Operations match(int count) {
+        return {count, 0, 0, 0};
+    }
+
+    /// Make a mismatch operation
+    inline static Operations mismatch(int count) {
+        return {0, count, 0, 0};
+    }
+
+    /// Make a gap open operation
+    inline static Operations open(int count) {
+        return {0, 0, count, 0};
+    }
+
+    /// Make a gap extend operation
+    inline static Operations extend(int count) {
+        return {0, 0, 0, count};
+    }
+
+    /// Make an unknown/not yet determined operation
+    inline static Operations unknown(int count) {
+        // TODO: count is unused.
+        return Operations();
+    }
+
+    /// Rescore according to the given operation scores, with penalties
+    /// negative. Returns the computed score and leaves the object unmodified.
+    inline int score_under(int match, int mismatch, int open, int extend) const {
+        return match * matches + mismatch * mismatches + open * opens + extend * extends;
+    }
+};
+
+/// Represents a set of alignment operations together with a precomputed score.
+struct ScoredOperations: public Operations {
+    int score;
+
+    /// Allow default construction as zero
+    inline ScoredOperations(): Operations(), score(0) {
+        // Nothing to do
+    }
+
+    /// Allow construction from a score and a bunch of counts
+    inline ScoredOperations(int score, int matches, int mismatches, int opens, int extends): Operations(matches, mismatches, opens, extends), score(score) {
+        // Nothing to do
+    }
+
+    /// Allow construction from a score and Operations
+    inline ScoredOperations(int score, const Operations& operations): Operations(operations), score(score) {
+        // Nothing to do
+    }
+
+    /// Allow copy and move
+    inline ScoredOperations(const ScoredOperations& other) = default;
+    inline ScoredOperations(ScoredOperations&& other) = default;
+    inline ScoredOperations& operator=(const ScoredOperations& other) = default;
+    inline ScoredOperations& operator=(ScoredOperations&& other) = default;
+
+    /// Add one collection of scored operations into another
+    inline ScoredOperations& operator+=(const ScoredOperations& other) {
+        Operations::operator+=(other);
+        score += other.score;
+        return *this;
+    }
+
+    /// Allow adding points
+    inline ScoredOperations& operator+=(int points) {
+        score += points;
+        return *this;
+    }
+    
+    /// Add one collection of scored operations to another
+    inline ScoredOperations operator+(const ScoredOperations& other) const {
+        ScoredOperations added(*this);
+        added += other;
+        return added;
+    }
+
+    /// Allow adding points to us
+    inline ScoredOperations operator+(int points) const {
+        ScoredOperations added(*this);
+        added += points;
+        return added;
+    }
+
+    /// Allow negating a collection of operations
+    inline ScoredOperations operator-() const {
+        ScoredOperations copy(-score, -*(const Operations*)this);
+        return copy;
+    }
+
+    /// Allow subtracting a collection of operations from this one
+    inline ScoredOperations& operator-=(const ScoredOperations& other) {
+        Operations::operator-=(other);
+        score -= other.score;
+        return *this;
+    }
+
+    /// Allow subtracting two collections of operations to get a difference
+    inline ScoredOperations operator-(const ScoredOperations& other) const {
+        ScoredOperations copy = -other;
+        copy += *this;
+        return copy;
+    }
+
+    /// Allow multiplying a scale into the points
+    inline ScoredOperations& operator*=(double scale) {
+        score *= scale;
+        return *this;
+    }
+
+    /// Allow multiplying the points by a scale
+    inline ScoredOperations operator*(double scale) const {
+        ScoredOperations multiplied(*this);
+        multiplied *= scale;
+        return multiplied;
+    }
+
+    /// Compare equality based only on score
+    inline bool operator==(const ScoredOperations& other) const {
+        return score == other.score;
+    }
+
+    /// Compare inequality based only on score
+    inline bool operator!=(const ScoredOperations& other) const {
+        return score != other.score;
+    }
+
+    /// Compare less than based only on score
+    inline bool operator<(const ScoredOperations& other) const {
+        return score < other.score;
+    }
+
+    /// Compare greater than based only on score
+    inline bool operator>(const ScoredOperations& other) const {
+        return score > other.score;
+    }
+    
+    /// Make a match operation
+    inline static ScoredOperations match(int score, int count) {
+        return ScoredOperations(score, Operations::match(count));
+    }
+
+    /// Make a mismatch operation
+    inline static ScoredOperations mismatch(int score, int count) {
+        return ScoredOperations(score, Operations::mismatch(count));
+    }
+
+    /// Make a gap open operation
+    inline static ScoredOperations open(int score, int count) {
+        return ScoredOperations(score, Operations::open(count));
+    }
+
+    /// Make a gap extend operation
+    inline static ScoredOperations extend(int score, int count) {
+        return ScoredOperations(score, Operations::extend(count));
+    }
+
+    /// Make an unknown/not yet determined operation
+    inline static ScoredOperations unknown(int score, int count) {
+        return ScoredOperations(score, Operations::unknown(count));
+    }
+
+    /// Make a sentinel impossible value
+    inline static ScoredOperations impossible() {
+        return ScoredOperations(std::numeric_limits<int>::min(), Operations());
+    }
+
+    /// Allow conversion to an integer
+    inline operator int() const {
+        return score;
+    }
+};
+
 /**
  * Represents a piece fo a graph node matching to a piece of a read. Can be
  * chained together.
@@ -71,8 +307,8 @@ public:
     inline size_t length() const {
         return size;
     }
-    /// Get the alignment score of the anchor
-    inline int score() const {
+    /// Get the alignment score of the anchor (and the operations involved) 
+    inline const ScoredOperations& score() const {
         return points;
     }
     
@@ -137,19 +373,19 @@ public:
     inline size_t base_seed_length() const {
         return seed_length; 
     }
-    
+
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, const ScoredOperations& score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2) {
+    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, const ScoredOperations& score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2) {
         // Nothing to do!
     }
 
@@ -167,7 +403,7 @@ protected:
     size_t margin_after;
     pos_t start_pos;
     pos_t end_pos;
-    int points;
+    ScoredOperations points;
     size_t start_seed;
     size_t end_seed;
     ZipCodeDecoder* start_decoder;
@@ -189,11 +425,29 @@ public:
     inline static size_t nowhere() {
         return numeric_limits<size_t>::max();
     }
+
+
+    /// Construct a default, unset TracedScore
+    inline TracedScore(): _score(ScoredOperations()), _source(nowhere()) {
+        // Nothing to do!
+    }
+
+    /// Construct a TracedScore from a score and a source
+    inline TracedScore(const ScoredOperations& score, size_t source): _score(score), _source(source) {
+        // Nothing to do
+    }
+
+    // Make movable and copyable
+    TracedScore(const TracedScore& other) = default;
+    TracedScore(TracedScore&& other) = default;
+    TracedScore& operator=(const TracedScore& other) = default;
+    TracedScore& operator=(TracedScore&& other) = default;
+
     
-    /// What's the default value for an empty table cell?
-    /// Use a function instead of a constant because that's easier when we're just a header.
+    /// What's the default value for an empty table cell? Syntactic sugar to
+    /// make it clearer when we mean an unset value.
     inline static TracedScore unset() {
-        return {0, nowhere()};
+        return TracedScore();
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
@@ -202,12 +456,14 @@ public:
     /// Get a score from a table of scores and record provenance in it.
     static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
     
-    /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    TracedScore add_points(int adjustment) const;
+    /// Add (or remove) points along a route to somewhere, as part of an operation. Return a modified copy.
+    TracedScore add(const ScoredOperations& adjustment) const;
     
-    /// Compare for equality
+    /// Compare for equality.
+    /// Only score and source matter for equality and comparison; the oprtation
+    /// totals just ride along.
     inline bool operator==(const TracedScore& other) const {
-        return score == other.score && source == other.source;
+        return score() == other.score() && source() == other.source();
     }
     
     /// Compare for inequality
@@ -217,23 +473,37 @@ public:
     
     /// Compare for less-than
     inline bool operator<(const TracedScore& other) const {
-        return score < other.score || (score == other.score && source < other.source);
+        return score() < other.score() || (score() == other.score() && source() < other.source());
     }
     
     /// Compare for greater-than
     inline bool operator>(const TracedScore& other) const {
-        return score > other.score || (score == other.score && source > other.source);
+        return score() > other.score() || (score() == other.score() && source() > other.source());
     }
     
-    /// Subtraction to yield a difference in points
-    inline int operator-(const TracedScore& other) const {
-        return score - other.score;
+    /// Subtraction to yield a difference in points and operations
+    inline ScoredOperations operator-(const TracedScore& other) const {
+        return score() - other.score();
     }
     
-    // Number of points
-    int score;
-    // Index of source score among possibilities/traceback pointer
-    size_t source;
+    /// Get the score value and associated operations
+    inline const ScoredOperations& score() const {
+        return _score;
+    }
+
+    /// Get the source index
+    inline size_t source() const {
+        return _source;
+    }
+
+    
+
+private:
+
+    /// Number of points and the operations they came from
+    ScoredOperations _score;
+    /// Index of source score among possibilities/traceback pointer
+    size_t _source;
 };
 
 }
@@ -333,7 +603,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int gap_extension,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            int item_bonus = 0,
-                           int item_scale = 1,
+                           double item_scale = 1.0,
                            double gap_scale = 1.0,
                            double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
@@ -343,22 +613,23 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their penalties from the optimal score. The best_past_ending_score_ever
- * is *not* always the source of the first traceback, if there is a tie.
+ * with their penalties from the optimal score (and the operation count
+ * deltas). The best_past_ending_score_ever is *not* always the source of the
+ * first traceback, if there is a tie.
  *
- *  Tracebacks are constrained to be nonoverlapping by stopping each traceback
- *  when the optimum place to come from has already been used. The second-best
- *  place to come from is *not* considered. It might be possible that two
- *  returned tracebacks could be pasted together to get a higher score, but it
- *  won't be possible to recombine two tracebacks to get a higher score; no
- *  edges followed between items will ever need to be cut.
+ * Tracebacks are constrained to be nonoverlapping by stopping each traceback
+ * when the optimum place to come from has already been used. The second-best
+ * place to come from is *not* considered. It might be possible that two
+ * returned tracebacks could be pasted together to get a higher score, but it
+ * won't be possible to recombine two tracebacks to get a higher score; no
+ * edges followed between items will ever need to be cut.
  */
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const TracedScore& best_past_ending_score_ever,
-                                                        int item_bonus = 0,
-                                                        int item_scale = 1,
-                                                        size_t max_tracebacks = 1);
+vector<pair<vector<size_t>, ScoredOperations>> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                                     const VectorView<Anchor>& to_chain,
+                                                                     const TracedScore& best_past_ending_score_ever,
+                                                                     int item_bonus = 0,
+                                                                     double item_scale = 1.0,
+                                                                     size_t max_tracebacks = 1);
 
 
 /**
@@ -370,19 +641,19 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * Returns the scores and the list of indexes of items visited to achieve
  * that score, in order, with multiple tracebacks in descending score order.
  */
-vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
-                                                   size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   int item_bonus = 0,
-                                                   int item_scale = 1,
-                                                   double gap_scale = 1.0,
-                                                   double points_per_possible_match = 0,
-                                                   size_t max_indel_bases = 100,
-                                                   bool show_work = false);
+vector<pair<ScoredOperations, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_chain,
+                                                                const SnarlDistanceIndex& distance_index,
+                                                                const HandleGraph& graph,
+                                                                int gap_open,
+                                                                int gap_extension,
+                                                                size_t max_chains = 1,
+                                                                const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
+                                                                int item_bonus = 0,
+                                                                double item_scale = 1.0,
+                                                                double gap_scale = 1.0,
+                                                                double points_per_possible_match = 0,
+                                                                size_t max_indel_bases = 100,
+                                                                bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -393,17 +664,17 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          int gap_open,
-                                          int gap_extension,
-                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
-                                          int item_bonus = 0,
-                                          int item_scale = 1,
-                                          double gap_scale = 1.0,
-                                          double points_per_possible_match = 0,
-                                          size_t max_indel_bases = 100);
+pair<ScoredOperations, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
+                                                       const SnarlDistanceIndex& distance_index,
+                                                       const HandleGraph& graph,
+                                                       int gap_open,
+                                                       int gap_extension,
+                                                       const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
+                                                       int item_bonus = 0,
+                                                       double item_scale = 1.0,
+                                                       double gap_scale = 1.0,
+                                                       double points_per_possible_match = 0,
+                                                       size_t max_indel_bases = 100);
                                           
 /**
  * Score the given group of items. Determines the best score that can be
@@ -416,7 +687,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
-int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
+ScoredOperations score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
