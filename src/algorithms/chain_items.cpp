@@ -11,13 +11,18 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
-//#define debug_transition
+#define debug_chaining
+#define debug_transition
 
 namespace vg {
 namespace algorithms {
 
 using namespace std;
+
+ostream& operator<<(ostream& out, const ScoredOperations& operations) {
+    return out << operations.score << " (" << operations.matches << "M" << operations.mismatches << "X" << operations.opens << "O" << operations.extends << "E" << operations.unknowns << "U)";
+}
+
 
 ostream& operator<<(ostream& out, const Anchor& anchor) {
     // TODO: Just friend class to get these?
@@ -381,15 +386,13 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 /// fragmenting.
 ///
 /// Returns a negative value (gap score).
-ScoredOperations score_chain_gap(size_t distance_difference, size_t base_seed_length) {
+int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
         // Do nothing and score 0
-        return ScoredOperations();
+        return 0;
     } else {
-        // Compute the penalty and round to an int
-        int gap_penalty = 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
-        // Make that into a structured score for this gap
-        return ScoredOperations(-gap_penalty, 0, 0, distance_difference > 0 ? 1 : 0, distance_difference > 1 ? (distance_difference - 1) : 0, 0);
+        // Compute the penalty
+        return 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
     }
 }
 
@@ -475,11 +478,13 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-        // And how much could be matches/mismatches
+        // And how much could be matches, including those in exclusion zones?
+        // This is a completely different notion of possible than is used for the upper-bound scoring.
+        // TODO: remove this!
         size_t possible_match_length = std::min(read_distance, graph_distance);
         
         if (show_work) {
-            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
+            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << ((read_distance > graph_distance) ? " seems plausible" : " would be required") << endl;
         }
 
         if (indel_length > max_indel_bases) {
@@ -509,10 +514,20 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             //
             // But we account for anchor length in the item points, so don't use it
             // here.
-            jump_points = score_chain_gap(indel_length, base_seed_length) * gap_scale;
+            int penalty = score_chain_gap(indel_length, base_seed_length) * gap_scale;
+            
+            // Make operations that are *required*, given that graph distance
+            // is a minimum distance and the read may be able to have more
+            // bases than the graph without incuring an indel.
+            jump_points = ScoredOperations(-penalty, 0, 0, graph_distance > read_distance ? 1 : 0, graph_distance > read_distance + 1 ? graph_distance - read_distance - 1 : 0, 0);  
+            
+            size_t bases_already_matched_in_exclusion_zones = source.read_exclusion_end() - source.read_end() + here.read_start() - here.read_exclusion_start();
+            crash_unless(bases_already_matched_in_exclusion_zones <= read_distance);
+            size_t remaining_read_bases = read_distance - bases_already_matched_in_exclusion_zones;
 
             // We can also account for the non-indel material, which we assume will have some identity in it.
-            jump_points += ScoredOperations::unknown(possible_match_length * points_per_possible_match, possible_match_length);
+            // We add all possible unknown bases matching what we maybe didn't actually require to be an insert.
+            jump_points += ScoredOperations::unknown(possible_match_length * points_per_possible_match, graph_distance >= read_distance ? remaining_read_bases - indel_length : remaining_read_bases);
         }
             
         if (jump_points != ScoredOperations::impossible()) {

@@ -3670,8 +3670,9 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
     // Also how many matches it has. It always has 0 mismatches.
-    int total_matches = (length + margin_right) - (read_start - margin_left);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, algorithms::ScoredOperations::match(score, total_matches), seed_number, seed.zipcode_decoder.get(), hint_start); 
+    int total_matches = margin_left + length + margin_right;
+    auto anchor_score = algorithms::ScoredOperations::match(score, total_matches);
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, anchor_score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {
