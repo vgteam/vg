@@ -26,8 +26,8 @@ public:
     position_t(const position_t& other) noexcept = default;
     position_t(position_t&& other) noexcept = default;
     ~position_t() noexcept = default;
-    position_t& operator=(const position_t& other) noexcept = default;
-    position_t& operator=(position_t&& other) noexcept = default;
+    position_t& operator=(const position_t& other) = default;
+    position_t& operator=(position_t&& other) = default;
     inline int64_t node_id() const;
     inline void set_node_id(int64_t i);
     inline int64_t offset() const;

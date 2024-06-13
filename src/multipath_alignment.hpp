@@ -31,9 +31,9 @@ namespace vg {
         connection_t() noexcept = default;
         connection_t(const connection_t&) noexcept = default;
         connection_t(connection_t&&) noexcept = default;
-        ~connection_t() = default;
-        connection_t& operator=(const connection_t&) noexcept = default;
-        connection_t& operator=(connection_t&&) noexcept = default;
+        ~connection_t() noexcept = default;
+        connection_t& operator=(const connection_t&) = default;
+        connection_t& operator=(connection_t&&) = default;
         inline int32_t next() const;
         inline void set_next(int32_t n);
         inline int32_t score() const;
@@ -51,9 +51,9 @@ namespace vg {
         subpath_t() noexcept = default;
         subpath_t(const subpath_t&) noexcept = default;
         subpath_t(subpath_t&&) noexcept = default;
-        ~subpath_t() = default;
-        subpath_t& operator=(const subpath_t&) noexcept = default;
-        subpath_t& operator=(subpath_t&&) noexcept = default;
+        ~subpath_t() noexcept = default;
+        subpath_t& operator=(const subpath_t&) = default;
+        subpath_t& operator=(subpath_t&&) = default;
         inline const path_t& path() const;
         inline path_t* mutable_path();
         inline bool has_path() const;
@@ -89,9 +89,9 @@ namespace vg {
         multipath_alignment_t() noexcept;
         multipath_alignment_t(const multipath_alignment_t& other) noexcept;
         multipath_alignment_t(multipath_alignment_t&& other) noexcept;
-        ~multipath_alignment_t();
-        multipath_alignment_t& operator=(const multipath_alignment_t& other) noexcept;
-        multipath_alignment_t& operator=(multipath_alignment_t&& other) noexcept;
+        ~multipath_alignment_t() noexcept;
+        multipath_alignment_t& operator=(const multipath_alignment_t& other);
+        multipath_alignment_t& operator=(multipath_alignment_t&& other);
         inline const string& sequence() const;
         inline string* mutable_sequence();
         inline void set_sequence(const string& s);
