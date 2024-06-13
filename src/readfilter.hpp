@@ -43,6 +43,8 @@ public:
     /// TODO: This should be a trie but I don't have one handy.
     /// Must be sorted for vaguely efficient search.
     vector<string> name_prefixes;
+    /// Read name must not have anything in it besides the prefix
+    bool exact_name = false;
     /// Read must not have a refpos set with a contig name containing a match to any of these
     vector<regex> excluded_refpos_contigs;
     /// Read must contain at least one of these strings as a subsequence
@@ -192,7 +194,8 @@ private:
     double get_score(const Read& read) const;
     
     /**
-     * Does the read name have one of the indicated prefixes?
+     * Does the read name have one of the indicated prefixes? If exact_name is
+     * set, only finds complete matches of a "prefix" to the whole read name.
      */
     bool matches_name(const Read& read) const;
     
@@ -712,7 +715,8 @@ bool ReadFilter<Read>::matches_name(const Read& aln) const {
             right_match++;
         }
         
-        if (left_match == name_prefixes[left_bound].size() || right_match == name_prefixes[right_bound].size()) {
+        if ((left_match == name_prefixes[left_bound].size() && (!exact_name || left_match == aln.name().size())) ||
+            (right_match == name_prefixes[right_bound].size() && (!exact_name || right_match == aln.name().size()))) {
             // We found a match already
             found = true;
         } else {
@@ -729,7 +733,7 @@ bool ReadFilter<Read>::matches_name(const Read& aln) const {
                     center_match++;
                 }
                 
-                if (center_match == name_prefixes[center].size()) {
+                if (center_match == name_prefixes[center].size() && (!exact_name || center_match == aln.name().size())) {
                     // We found a hit!
                     found = true;
                     break;
