@@ -429,8 +429,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
-        // Set up DP table so we can start anywhere with that item's score.
-        chain_scores[i] = {to_chain[i].score(), TracedScore::nowhere()};
+        // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
+        chain_scores[i] = {to_chain[i].score() * item_scale + item_bonus, TracedScore::nowhere()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -557,7 +557,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
         // For each destination anchor, now that it is finished, see if it is the winner.
         auto& here = to_chain[to_anchor];
-        auto item_points = here.score() * item_scale + item_bonus;
 
         if (show_work) {
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
@@ -565,6 +564,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         if (diagram) {
             // Draw the item in the diagram
+            auto item_points = here.score() * item_scale + item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
             label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
