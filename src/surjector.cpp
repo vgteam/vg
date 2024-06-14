@@ -12,6 +12,8 @@
 #include "memoizing_graph.hpp"
 #include "multipath_alignment_graph.hpp"
 #include "reverse_graph.hpp"
+#include "subpath_overlay.hpp"
+#include "identity_overlay.hpp"
 
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
@@ -239,7 +241,7 @@ using namespace std;
                 }
                 cerr << endl;
                 cerr << "\tpath interval " << graph->get_position_of_step(surjection_record.second.second[i].first) << " - " << graph->get_position_of_step(surjection_record.second.second[i].second) << endl;
-                cerr << "\t" << pb2json(anchor.second) << endl;
+                cerr << "\t" << debug_string(anchor.second) << endl;
             }
             if (connections.count(surjection_record.first)) {
                 cerr << "\tconnections" << endl;
@@ -1687,19 +1689,18 @@ using namespace std;
                             final_position.offset() + mapping_from_length(*final_mapping) == first_position.offset()) {
                             
                             for (const auto& edit : first_mapping.edit()) {
-                                *final_mapping->add_edit() = edit;
+                                from_proto_edit(edit, *final_mapping->add_edit());
                             }
                             ++k;
                         }
                         // copy over the rest of the mappings
                         for (; k < n; ++k) {
                             auto mapping = path_chunks[i].second.add_mapping();
-                            *mapping = aln.path().mapping(k);
-                            mapping->set_rank(path_chunks[i].second.mapping_size());
+                            from_proto_mapping(aln.path().mapping(k), *mapping);
                         }
                         
 #ifdef debug_constrictions
-                        cerr << "extended left path " << i << " to " << pb2json(path_chunks[i].second) << endl;
+                        cerr << "extended left path " << i << " to " << debug_string(path_chunks[i].second) << endl;
 #endif
                         ++left;
                     }
@@ -1735,11 +1736,10 @@ using namespace std;
 #endif
                         
                         // copy the repair alignment
-                        Path concat_path;
+                        path_t concat_path;
                         for (size_t k = n; k < aln.path().mapping_size(); ++k) {
                             auto mapping = concat_path.add_mapping();
-                            *mapping = aln.path().mapping(k);
-                            mapping->set_rank(concat_path.mapping_size());
+                            from_proto_mapping(aln.path().mapping(k), *mapping);
                         }
                         
                         // check if we need to merge the first and last mappings
@@ -1761,14 +1761,13 @@ using namespace std;
                         for (; k < path_chunks[i].second.mapping_size(); ++k) {
                             auto mapping = concat_path.add_mapping();
                             *mapping = path_chunks[i].second.mapping(k);
-                            mapping->set_rank(concat_path.mapping_size());
                         }
                         
                         // replace the original path
-                        path_chunks[i].second = concat_path;
+                        path_chunks[i].second = std::move(concat_path);
                         
 #ifdef debug_constrictions
-                        cerr << "extended right path " << i << " to " << pb2json(path_chunks[i].second) << endl;
+                        cerr << "extended right path " << i << " to " << debug_string(path_chunks[i].second) << endl;
 #endif
                         ++right;
                     }
@@ -1878,7 +1877,7 @@ using namespace std;
                         // so we record an overlap
                         overlaps.emplace_back(j, k);
 #ifdef debug_spliced_surject
-                        cerr << "path chunk " << i << " overlaps " << j << " by " << to_walk << " on read, marking an overlap to split before mapping " << k << " at " << pb2json(path_chunks[j].second.mapping(k)) << endl;
+                        cerr << "path chunk " << i << " overlaps " << j << " by " << to_walk << " on read, marking an overlap to split before mapping " << k << " at " << debug_string(path_chunks[j].second.mapping(k)) << endl;
 #endif
                     }
                 }
@@ -1932,7 +1931,6 @@ using namespace std;
                         for (size_t l = begin_idx; l < end_idx; ++l) {
                             auto mapping = path_chunk.second.add_mapping();
                             *mapping = path_chunks[i].second.mapping(l);
-                            mapping->set_rank(l - begin_idx + 1);
                         }
                         // identify the read interval
                         path_chunk.first.first = read_begin;
@@ -1952,7 +1950,7 @@ using namespace std;
 #ifdef debug_spliced_surject
                         cerr << "next split for chunk " << i << " as " << split_path_chunks.size() - 1 << ", consisting of " << endl;
                         cerr << "\t" << string(path_chunk.first.first, path_chunk.first.second) << endl;
-                        cerr << "\t" << pb2json(path_chunk.second) << endl;
+                        cerr << "\t" << debug_string(path_chunk.second) << endl;
                         cerr << "\t" << graph->get_position_of_step(ref_chunk.first) << " : " << graph->get_position_of_step(ref_chunk.second) << endl;
 #endif
                     }
@@ -1963,7 +1961,7 @@ using namespace std;
 #ifdef debug_spliced_surject
                     cerr << "no splits on chunk " << i << ", add as " << split_path_chunks.size() << endl;
                     cerr << "\t" << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
-                    cerr << "\t" << pb2json(path_chunks[i].second) << endl;
+                    cerr << "\t" << debug_string(path_chunks[i].second) << endl;
                     cerr << "\t" << graph->get_position_of_step(ref_chunks[i].first) << " : " << graph->get_position_of_step(ref_chunks[i].second) << endl;
 #endif
                     split_path_chunks.emplace_back(move(path_chunks[i]));
@@ -2187,12 +2185,12 @@ using namespace std;
             surjected.set_mapping_quality(src_mapping_quality);
             
             auto surj_subpath = surjected.add_subpath();
-            from_proto_path(path_chunks.front().second, *surj_subpath->mutable_path());
+            *surj_subpath->mutable_path() = move(path_chunks.front().second);
             
             Alignment aln;
             aln.set_sequence(src_sequence);
             aln.set_quality(src_quality);
-            *aln.mutable_path() = move(path_chunks.front().second);
+            to_proto_path(surj_subpath->path(), *aln.mutable_path());
             surj_subpath->set_score(get_aligner(!src_quality.empty())->score_contiguous_alignment(aln));
             
             surjected.add_start(0);
@@ -2927,7 +2925,7 @@ using namespace std;
         cerr << "using overlap chunks on path " << graph->get_path_name(path_handle) << " strand " << rev_strand << ", performing realigning surjection" << endl;
         cerr << "chunks:" << endl;
         for (size_t i = 0; i < path_chunks.size(); ++i) {
-            cerr << "\t" << string(path_chunks[i].first.first, path_chunks[i].first.second) << ", " << pb2json(path_chunks[i].second) << endl;
+            cerr << "\t" << string(path_chunks[i].first.first, path_chunks[i].first.second) << ", " << debug_string(path_chunks[i].second) << endl;
         }
 #endif
         
@@ -2968,7 +2966,7 @@ using namespace std;
             // just copy it over
             surjected.set_sequence(source.sequence());
             surjected.set_quality(source.quality());
-            *surjected.mutable_path() = path_chunks.front().second;
+            to_proto_path(path_chunks.front().second, *surjected.mutable_path());
             surjected.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected));
             
         }
@@ -2984,22 +2982,23 @@ using namespace std;
             assert(ref_path_interval.first <= ref_path_interval.second);
             
             // get the path graph corresponding to this interval
-            bdsg::HashGraph path_graph;
-            unordered_map<id_t, pair<id_t, bool>> node_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
-                                                                                             ref_path_interval.first, ref_path_interval.second);
+            step_handle_t begin = graph->get_step_at_position(path_handle, ref_path_interval.first);
+            step_handle_t end = graph->get_step_at_position(path_handle, ref_path_interval.second);
+            if (graph->get_position_of_step(end) <= ref_path_interval.second && end != graph->path_end(path_handle)) {
+                // we actually want part of this step too, so we use the next one as the end iterator
+                end = graph->get_next_step(end);
+            }
+            SubpathOverlay path_graph(path_position_graph, begin, end);
             
             // choose an orientation for the path graph
             ReverseGraph rev_comp_path_graph(&path_graph, true);
-            HandleGraph* aln_graph;
+            IdentityOverlay identity_path_graph(&path_graph);
+            ExpandingOverlayGraph* aln_graph;
             if (rev_strand) {
-                // we align to the reverse strand of the path graph, and the translation chages accordingly
                 aln_graph = &rev_comp_path_graph;
-                for (pair<const id_t, pair<id_t, bool>>& translation : node_trans) {
-                    translation.second.second = !translation.second.second;
-                }
             }
             else {
-                aln_graph = &path_graph;
+                aln_graph = &identity_path_graph;
             }
             
 #ifdef debug_anchored_surject
@@ -3016,15 +3015,21 @@ using namespace std;
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()
                         << "; suppressing further warnings." << endl;
                 }
-                return move(make_null_alignment(source)); 
+                surjected = move(make_null_alignment(source));
+                return surjected;
             }
+            
+            std::function<pair<id_t, bool>(id_t)> projection_trans = [&](id_t node_id) {
+                handle_t handle = path_graph.get_underlying_handle(aln_graph->get_underlying_handle(aln_graph->get_handle(node_id)));
+                return pair<id_t, bool>(path_position_graph->get_id(handle), path_position_graph->get_is_reverse(handle));
+            };
             
             // compute the connectivity between the path chunks
             // TODO: i'm not sure if we actually need to preserve all indel anchors in either case, but i don't
             // want to change too much about the anchoring logic at once while i'm switching from blanket preservation
             // to a more targeted method
             bool preserve_tail_indel_anchors = (sinks_are_anchors || sources_are_anchors);
-            MultipathAlignmentGraph mp_aln_graph(*aln_graph, path_chunks, source, node_trans, !preserve_N_alignments,
+            MultipathAlignmentGraph mp_aln_graph(*aln_graph, path_chunks, source, projection_trans, !preserve_N_alignments,
                                                  preserve_tail_indel_anchors);
             
 #ifdef debug_anchored_surject
@@ -3034,7 +3039,8 @@ using namespace std;
 
             // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
             if (mp_aln_graph.empty()) {
-                return move(make_null_alignment(source));
+                surjected = move(make_null_alignment(source));
+                return surjected;
             }
             
             // TODO: is this necessary in a linear graph?
@@ -3072,7 +3078,7 @@ using namespace std;
             unordered_map<handle_t, bool> left_align_strand;
             left_align_strand.reserve(aln_graph->get_node_count());
             aln_graph->for_each_handle([&](const handle_t& handle) {
-                left_align_strand[handle] = node_trans.at(aln_graph->get_id(handle)).second;
+                left_align_strand[handle] = projection_trans(aln_graph->get_id(handle)).second;
             });
             
             // align the intervening segments and store the result in a multipath alignment
@@ -3103,7 +3109,7 @@ using namespace std;
             
             for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
                 // translate back into the original ID space
-                translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), node_trans);
+                translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), projection_trans);
             }
             
             // identify the source subpaths (necessary for subpath-global optimal alignment algorithm)
@@ -3137,22 +3143,24 @@ using namespace std;
 #ifdef debug_anchored_surject
             cerr << "looking for path range on " << (rev_strand ? "reverse" : "forward") << " strand, for " << surj_path.mapping_size() << " mappings" << endl;
 #endif
-            step_handle_t step = rev_strand ? graph->get_step_at_position(path_handle, ref_path_interval.second)
-                                            : graph->get_step_at_position(path_handle, ref_path_interval.first);
-            step_handle_t end = rev_strand ? graph->get_previous_step(graph->get_step_at_position(path_handle, ref_path_interval.first))
-                                           : graph->get_next_step(graph->get_step_at_position(path_handle, ref_path_interval.second));
+            
+            step_handle_t step = graph->get_step_at_position(path_handle, ref_path_interval.first);
+            step_handle_t end = graph->get_next_step(graph->get_step_at_position(path_handle, ref_path_interval.second));
             
             // walk the identified interval
-            for (; step != end; step = rev_strand ? graph->get_previous_step(step) : graph->get_next_step(step)) {
-                const auto& pos = surj_path.mapping(mappings_matched).position();
+            for (; step != end; step = graph->get_next_step(step)) {
+                size_t idx = rev_strand ? surj_path.mapping_size() - mappings_matched - 1 : mappings_matched;
+                const auto& pos = surj_path.mapping(idx).position();
                 handle_t handle = graph->get_handle_of_step(step);
                 if (graph->get_id(handle) == pos.node_id() &&
                     ((graph->get_is_reverse(handle) != pos.is_reverse()) == rev_strand)) {
                     // we found the next position we were expecting to
-                    if (mappings_matched == 0) {
+                    if (mappings_matched == 0 || rev_strand) {
                         path_range_out.first = step;
                     }
-                    path_range_out.second = step;
+                    if (mappings_matched == 0 || !rev_strand) {
+                        path_range_out.second = step;
+                    }
                     ++mappings_matched;
 #ifdef debug_anchored_surject
                     cerr << "\tmatch at node " << graph->get_id(handle) << " " << graph->get_is_reverse(handle) << " at position " << graph->get_position_of_step(step) << endl;
@@ -3172,7 +3180,7 @@ using namespace std;
                             mappings_matched = 0;
                             // and go back to where we started on the path
                             // TODO: this is potentially quadratic, there are faster algorithms
-                            step = path_range_out.first;
+                            step = rev_strand ? path_range_out.second : path_range_out.first;
                         }
                     }
                 }
@@ -3183,7 +3191,7 @@ using namespace std;
                         mappings_matched = 0;
                         // and go back to where we started on the path
                         // TODO: this is potentially quadratic, there are faster algorithms
-                        step = path_range_out.first;
+                        step = rev_strand ? path_range_out.second : path_range_out.first;
                     }
 #ifdef debug_anchored_surject
                     cerr << "\tmismatch at node " << graph->get_id(handle) << " " << graph->get_is_reverse(handle) << " at position " << graph->get_position_of_step(step) << endl;
@@ -3205,6 +3213,10 @@ using namespace std;
                 cerr << "Surjected read dump: " << pb2json(surjected) << endl;
                 exit(1);
             }
+#ifdef debug_anchored_surject
+            // TODO: dump out path_range_out
+            cerr << "identified path range between steps on " << graph->get_id(graph->get_handle_of_step(path_range_out.first)) << " " << graph->get_position_of_step(path_range_out.first) << ", " << graph->get_id(graph->get_handle_of_step(path_range_out.second)) << " " << graph->get_position_of_step(path_range_out.second) << '\n';
+#endif
         }
         else {
             // sentinel to indicate that surjection is unmapped
@@ -3369,10 +3381,10 @@ using namespace std;
                                                 prev_edit->set_sequence(prev_edit->sequence() + next_edit.sequence());
                                             }
                                             else {
-                                                to_proto_edit(next_edit, *prev_mapping->add_edit());
+                                                *prev_mapping->add_edit() = next_edit;
                                             }
                                             for (size_t k = 1; k < next_mapping.edit_size(); ++k) {
-                                                to_proto_edit(next_mapping.edit(k), *prev_mapping->add_edit());
+                                                *prev_mapping->add_edit() = next_mapping.edit(k);
                                             }
                                             
                                             merged_mapping = true;
@@ -3380,7 +3392,7 @@ using namespace std;
                                     }
                                     if (!merged_mapping) {
                                         // make a new mapping
-                                        to_proto_mapping(next_mapping, *path_chunk.add_mapping());
+                                        *path_chunk.add_mapping() = next_mapping;
                                     }
                                 }
                                 
@@ -3429,7 +3441,7 @@ using namespace std;
                                 // remember that we've already emitted all the mappings currently on the stack
                                 added_new_mappings = false;
 #ifdef debug_multipath_surject
-                                cerr << "converted stack into path " << pb2json(path_chunk) << endl;
+                                cerr << "converted stack into path " << debug_string(path_chunk) << endl;
                                 cerr << "read interval is " << (chunk.first.first - source.sequence().begin()) << ":" << (chunk.first.second - source.sequence().begin()) << " " << string(chunk.first.first, chunk.first.second) << endl;
 #endif
                             }
@@ -3557,7 +3569,9 @@ using namespace std;
         
         // for each path that we're extending, the previous step and the strand we were at on it
         // mapped to the index of that path chunk in the path's vector
-        unordered_map<pair<step_handle_t, bool>, size_t> extending_steps;
+        // note: we also keep the path_handle_t instead of extracting it from the step because this operation
+        // is slow on GBZ
+        unordered_map<step_handle_t, pair<size_t, path_handle_t>> fwd_extending_steps, rev_extending_steps;
         int64_t through_to_length = 0;
         
         for (size_t i = 0; i < path.mapping_size(); i++) {
@@ -3572,7 +3586,7 @@ using namespace std;
             cerr << "looking for paths on mapping " << i << " at position " << make_pos_t(pos) << endl;
 #endif
             
-            unordered_map<pair<step_handle_t, bool>, size_t> next_extending_steps;
+            unordered_map<step_handle_t, pair<size_t, path_handle_t>> next_fwd_extending_steps, next_rev_extending_steps;
             
             for (const step_handle_t& step : graph->steps_of_handle(handle)) {
                 
@@ -3597,86 +3611,114 @@ using namespace std;
                 // the path does, then the read runs along the path in reverse.
                 bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
                 
-                step_handle_t prev_step = path_strand ? graph->get_next_step(step) : graph->get_previous_step(step);
-                
 #ifdef debug_anchored_surject
-                cerr << "path strand is " << (path_strand ? "rev" : "fwd") << ", prev step is ";
-                if (prev_step == graph->path_end(path_handle)) {
-                    cerr << " path end";
-                }
-                else if (prev_step == graph->path_front_end(path_handle)) {
-                    cerr << " path front end";
-                }
-                else {
-                    cerr << graph->get_id(graph->get_handle_of_step(prev_step)) << (graph->get_is_reverse(graph->get_handle_of_step(prev_step)) ? "-" : "+");
-                }
-                cerr << endl;
-                cerr << "possible extensions from: " << endl;
-                for (const auto& record : extending_steps) {
-                    cerr << "\t" << "chunk " << record.second << " at " << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
-                }
+                cerr << "path strand is rev? " << path_strand << endl;
 #endif
                 
-                auto& path_chunks = to_return[make_pair(path_handle, path_strand)];
+                auto& next_extending_steps = path_strand ? next_rev_extending_steps : next_fwd_extending_steps;
                 
-                if (extending_steps.count(make_pair(prev_step, path_strand))) {
-                    // we are extending from the previous step, so we continue with the extension
-                    
-                    size_t chunk_idx = extending_steps[make_pair(prev_step, path_strand)];
-                    auto& aln_chunk = path_chunks.first[chunk_idx];
-                    auto& ref_chunk = path_chunks.second[chunk_idx];
-                    
-#ifdef debug_anchored_surject
-                    cerr << "comes after chunk " << chunk_idx << endl;
-#endif
+                next_extending_steps[step] = make_pair(numeric_limits<size_t>::max(), path_handle);
+            }
+            
+            // TODO: forward and reverse code is repetitive
+            
+            // extend forward strand steps
+            for (const auto& extending_step : fwd_extending_steps) {
+                auto next_step = graph->get_next_step(extending_step.first);
+                auto it = next_fwd_extending_steps.find(next_step);
+                if (it != next_fwd_extending_steps.end()) {
+                    it->second.first = extending_step.second.first;
+                    auto& path_chunks = to_return[make_pair(it->second.second, false)];
+                    auto& aln_chunk = path_chunks.first[extending_step.second.first];
+                    auto& ref_chunk = path_chunks.second[extending_step.second.first];
                     
                     // extend the range of the path on the reference
-                    ref_chunk.second = step;
-                    
+                    ref_chunk.second = it->first;
                     // move the end of the sequence out
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    Mapping* mapping = aln_chunk.second.add_mapping();
                     // add this mapping
-                    *mapping = path.mapping(i);
-                    mapping->set_rank(aln_chunk.second.mapping(aln_chunk.second.mapping_size() - 2).rank() + 1);
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                     
-                    // in the next iteration, this step should point into the chunk it just extended
-                    next_extending_steps[make_pair(step, path_strand)] = extending_steps[make_pair(prev_step, path_strand)];
+#ifdef debug_anchored_surject
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(it->first)) << ", pos " << graph->get_position_of_step(it->first) << " comes after forward chunk " << it->second << endl;
+#endif
                 }
-                else {
+            }
+            // initialize new chunks for steps that did not extend
+            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_fwd_extending_steps) {
+                if (extended_step.second.first == numeric_limits<size_t>::max()) {
                     
-                    // this step does not extend a previous step, so we start a new chunk
+                    auto& path_chunks = to_return[make_pair(extended_step.second.second, false)];
+                    
+                    extended_step.second.first = path_chunks.first.size();
+                    
                     path_chunks.first.emplace_back();
                     path_chunks.second.emplace_back();
                     auto& aln_chunk = path_chunks.first.back();
                     auto& ref_chunk = path_chunks.second.back();
-                    
                     // init the ref interval with the interval along the embedded path
-                    ref_chunk.first = step;
-                    ref_chunk.second = step;
-                    
+                    ref_chunk.first = extended_step.first;
+                    ref_chunk.second = extended_step.first;
                     // init the new chunk with the sequence interval
                     aln_chunk.first.first = source.sequence().begin() + before_to_length;
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
-                    
                     // and with the first mapping
-                    Mapping* mapping = aln_chunk.second.add_mapping();
-                    *mapping = path.mapping(i);
-                    mapping->set_rank(1);
-                    
-                    // keep track of where this chunk is in the vector and which step it came from
-                    // for the next iteration
-                    next_extending_steps[make_pair(step, path_strand)] = path_chunks.first.size() - 1;
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
                     
 #ifdef debug_anchored_surject
-                    cerr << "no preceeding chunk so start new chunk " << path_chunks.first.size() - 1 << endl;
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding forward chunk, so start new chunk " << path_chunks.first.size() - 1 << endl;
 #endif
+                }
+            }
+            for (pair<const step_handle_t, pair<size_t, path_handle_t>>& extended_step : next_rev_extending_steps) {
+                
+                auto& path_chunks = to_return[make_pair(extended_step.second.second, true)];
+                
+                auto prev_step = graph->get_next_step(extended_step.first);
+                auto it = rev_extending_steps.find(prev_step);
+                if (it != rev_extending_steps.end()) {
+                    extended_step.second.first = it->second.first;
+                    auto& aln_chunk = path_chunks.first[extended_step.second.first];
+                    auto& ref_chunk = path_chunks.second[extended_step.second.first];
+                    
+                    // extend the range of the path on the reference
+                    ref_chunk.second = extended_step.first;
+                    // move the end of the sequence out
+                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
+                    // add this mapping
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
+                    
+#ifdef debug_anchored_surject
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " comes after reverse chunk " << it->second << endl;
+#endif
+                }
+                else {
+                    extended_step.second.first = path_chunks.first.size();
+                    
+                    path_chunks.first.emplace_back();
+                    path_chunks.second.emplace_back();
+                    auto& aln_chunk = path_chunks.first.back();
+                    auto& ref_chunk = path_chunks.second.back();
+                    // init the ref interval with the interval along the embedded path
+                    ref_chunk.first = extended_step.first;
+                    ref_chunk.second = extended_step.first;
+                    // init the new chunk with the sequence interval
+                    aln_chunk.first.first = source.sequence().begin() + before_to_length;
+                    aln_chunk.first.second = source.sequence().begin() + through_to_length;
+                    // and with the first mapping
+                    from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
+                    
+#ifdef debug_anchored_surject
+                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " has no preceeding reverse chunk, so start new chunk " << path_chunks.first.size() - 1 << endl;
+#endif
+
                 }
             }
             
             // we've finished extending the steps from the previous mapping, so we replace them
             // with the steps we found in this iteration that we want to extend on the next one
-            extending_steps = next_extending_steps;
+            fwd_extending_steps = std::move(next_fwd_extending_steps);
+            rev_extending_steps = std::move(next_rev_extending_steps);
         }
         
         return to_return;
@@ -3715,7 +3757,7 @@ using namespace std;
 #ifdef debug_filter_paths
         cerr << "original order for chunks" << endl;
         for (size_t i = 0; i < path_chunks.size(); ++i) {
-            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << debug_string(path_chunks[i].second) << endl;
         }
         cerr << "connections" << endl;
         for (size_t i = 0; i < outward_connections.size(); ++i) {
@@ -3760,7 +3802,7 @@ using namespace std;
 #ifdef debug_filter_paths
         cerr << "sort order for chunks" << endl;
         for (auto i : order) {
-            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << debug_string(path_chunks[i].second) << endl;
         }
 #endif
         
@@ -3776,7 +3818,7 @@ using namespace std;
             auto& chunk_here = path_chunks[order[i]];
 #ifdef debug_filter_paths
             cerr << "looking for overlapping chunks for " << order[i] << endl;
-            cerr << string(chunk_here.first.first, chunk_here.first.second) << " " << pb2json(chunk_here.second) << endl;
+            cerr << string(chunk_here.first.first, chunk_here.first.second) << " " << debug_string(chunk_here.second) << endl;
 #endif
             
             // remove items from the heap if they are outside the window of this read interval
@@ -3809,7 +3851,7 @@ using namespace std;
                 auto remaining = chunk_here.first.first - chunk_over.first.first;
 #ifdef debug_filter_paths
                 cerr << "overlap candidate " << j << endl;
-                cerr << string(chunk_over.first.first, chunk_over.first.second) << " " << pb2json(chunk_over.second) << endl;
+                cerr << string(chunk_over.first.first, chunk_over.first.second) << " " << debug_string(chunk_over.second) << endl;
                 cerr << "at relative read offset " << remaining << endl;
 #endif
                 
@@ -3986,7 +4028,7 @@ using namespace std;
         for (size_t i = 0; i < path_chunks.size(); ++i) {
             if (redundant[i]) {
 #ifdef debug_filter_paths
-                cerr << "filtering path chunk " << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+                cerr << "filtering path chunk " << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << debug_string(path_chunks[i].second) << endl;
 #endif
                 ++removed_before[i];
             }
@@ -4084,7 +4126,7 @@ using namespace std;
             size_t right_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
                                                               + (source.sequence().end() - path_chunk.first.second));
                         
-            const Position& first_pos = path_chunk.second.mapping(0).position();
+            const auto& first_pos = path_chunk.second.mapping(0).position();
             if (rev_strand) {
                 size_t path_offset = (graph->get_position_of_step(ref_chunk.first)
                                       + graph->get_length(graph->get_handle_of_step(ref_chunk.first))
@@ -4103,8 +4145,8 @@ using namespace std;
                 }
             }
             
-            const Mapping& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
-            const Position& final_pos = final_mapping.position();
+            const auto& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
+            const auto& final_pos = final_mapping.position();
             if (rev_strand) {
                 size_t path_offset = (graph->get_position_of_step(ref_chunk.second)
                                       + graph->get_length(graph->get_handle_of_step(ref_chunk.second))
@@ -4127,47 +4169,6 @@ using namespace std;
         }
         
         return interval;
-    }
-    
-    unordered_map<id_t, pair<id_t, bool>>
-    Surjector::extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
-                                             path_handle_t path_handle, size_t first, size_t last) const {
-        
-        // TODO: we need better semantics than an unsigned interval for surjecting to circular paths
-        
-#ifdef debug_anchored_surject
-        cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << graph->get_path_length(path_handle) << endl;
-#endif
-        
-        unordered_map<id_t, pair<id_t, bool>> node_trans;
-        
-        step_handle_t begin = graph->get_step_at_position(path_handle, first);
-        step_handle_t end = graph->get_step_at_position(path_handle, last);
-        
-        if (graph->get_position_of_step(end) <= last && end != graph->path_end(path_handle)) {
-            // we actually want part of this step too, so we use the next one as the end iterator
-            end = graph->get_next_step(end);
-        }
-        
-        handle_t prev_node;
-        for (step_handle_t step = begin; step != end; step = graph->get_next_step(step)) {
-            // copy the node with the local orientation now forward
-            handle_t copying = graph->get_handle_of_step(step);
-            handle_t node_here = into->create_handle(graph->get_sequence(copying));
-            
-            if (step != begin) {
-                // add an edge from the previous node
-                into->create_edge(prev_node, node_here);
-            }
-            
-            // record the translation
-            node_trans[into->get_id(node_here)] = pair<id_t, bool>(graph->get_id(copying),
-                                                                   graph->get_is_reverse(copying));
-            
-            prev_node = node_here;
-        }
-        
-        return node_trans;
     }
 
     void Surjector::set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos, const pos_t& final_surj_pos,
