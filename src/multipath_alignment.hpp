@@ -28,10 +28,10 @@ namespace vg {
 
     class connection_t {
     public:
-        connection_t() noexcept = default;
-        connection_t(const connection_t&) noexcept = default;
-        connection_t(connection_t&&) noexcept = default;
-        ~connection_t() noexcept = default;
+        connection_t() = default;
+        connection_t(const connection_t&) = default;
+        connection_t(connection_t&&) = default;
+        ~connection_t() = default;
         connection_t& operator=(const connection_t&) = default;
         connection_t& operator=(connection_t&&) = default;
         inline int32_t next() const;
@@ -48,10 +48,10 @@ namespace vg {
      */
     class subpath_t {
     public:
-        subpath_t() noexcept = default;
-        subpath_t(const subpath_t&) noexcept = default;
-        subpath_t(subpath_t&&) noexcept = default;
-        ~subpath_t() noexcept = default;
+        subpath_t() = default;
+        subpath_t(const subpath_t&) = default;
+        subpath_t(subpath_t&&) = default;
+        ~subpath_t() = default;
         subpath_t& operator=(const subpath_t&) = default;
         subpath_t& operator=(subpath_t&&) = default;
         inline const path_t& path() const;
@@ -86,10 +86,10 @@ namespace vg {
     // TODO: the metadata could be removed and only added to the protobuf at serialization time
     class multipath_alignment_t {
     public:
-        multipath_alignment_t() noexcept;
-        multipath_alignment_t(const multipath_alignment_t& other) noexcept;
-        multipath_alignment_t(multipath_alignment_t&& other) noexcept;
-        ~multipath_alignment_t() noexcept;
+        multipath_alignment_t();
+        multipath_alignment_t(const multipath_alignment_t& other);
+        multipath_alignment_t(multipath_alignment_t&& other);
+        ~multipath_alignment_t();
         multipath_alignment_t& operator=(const multipath_alignment_t& other);
         multipath_alignment_t& operator=(multipath_alignment_t&& other);
         inline const string& sequence() const;

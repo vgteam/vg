@@ -380,9 +380,9 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 class edit_t {
 public:
     edit_t() noexcept : _from_length(0), _to_length(0), _sequence() {}
-    edit_t(const edit_t& other) noexcept = default;
-    edit_t(edit_t&& other) noexcept = default;
-    ~edit_t() noexcept = default;
+    edit_t(const edit_t& other) = default;
+    edit_t(edit_t&& other) = default;
+    ~edit_t() = default;
     edit_t& operator=(const edit_t& other) = default;
     edit_t& operator=(edit_t&& other) = default;
     inline int32_t from_length() const;
@@ -403,10 +403,10 @@ private:
 // the mapping_t name is already taken
 class path_mapping_t {
 public:
-    path_mapping_t() noexcept = default;
-    path_mapping_t(const path_mapping_t& other) noexcept = default;
-    path_mapping_t(path_mapping_t&& other) noexcept = default;
-    ~path_mapping_t() noexcept = default;
+    path_mapping_t() = default;
+    path_mapping_t(const path_mapping_t& other) = default;
+    path_mapping_t(path_mapping_t&& other) = default;
+    ~path_mapping_t() = default;
     path_mapping_t& operator=(const path_mapping_t& other) = default;
     path_mapping_t& operator=(path_mapping_t&& other) = default;
     inline const position_t& position() const;
@@ -426,10 +426,10 @@ private:
 
 class path_t {
 public:
-    path_t() noexcept = default;
-    path_t(const path_t& other) noexcept = default;
-    path_t(path_t&& other) noexcept = default;
-    ~path_t() noexcept = default;
+    path_t() = default;
+    path_t(const path_t& other) = default;
+    path_t(path_t&& other) = default;
+    ~path_t() = default;
     path_t& operator=(const path_t& other) = default;
     path_t& operator=(path_t&& other) = default;
     inline const vector<path_mapping_t>& mapping() const;

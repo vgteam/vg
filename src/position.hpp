@@ -22,10 +22,10 @@ using namespace std;
 // to refactor -- can always eliminate later
 class position_t {
 public:
-    position_t() noexcept : _node_id(0), _offset(0), _is_reverse(false) {}
-    position_t(const position_t& other) noexcept = default;
-    position_t(position_t&& other) noexcept = default;
-    ~position_t() noexcept = default;
+    position_t() : _node_id(0), _offset(0), _is_reverse(false) {}
+    position_t(const position_t& other) = default;
+    position_t(position_t&& other) = default;
+    ~position_t() = default;
     position_t& operator=(const position_t& other) = default;
     position_t& operator=(position_t&& other) = default;
     inline int64_t node_id() const;
