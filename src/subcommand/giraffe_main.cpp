@@ -570,6 +570,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum number of gap bases to allow in a Dozeu tail"
     );
     chaining_opts.add_range(
+        "max-tail-dp-length",
+        &MinimizerMapper::max_tail_dp_length,
+        MinimizerMapper::default_max_tail_dp_length,
+        "maximum number of bases in a tail to do DP for, to avoid score overflow"
+    );
+    chaining_opts.add_range(
+        "max-middle-dp-length",
+        &MinimizerMapper::max_middle_dp_length,
+        MinimizerMapper::default_max_middle_dp_length,
+        "maximum number of bases in a middle connection to do DP for, before making it a tail"
+    );
+    chaining_opts.add_range(
         "wfa-max-mismatches",
         &MinimizerMapper::wfa_max_mismatches,
         MinimizerMapper::default_wfa_max_mismatches,
@@ -604,6 +616,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::wfa_max_distance,
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
+    );
+    chaining_opts.add_flag(
+        "sort-by-chain-score",
+        &MinimizerMapper::sort_by_chain_score,
+        MinimizerMapper::default_sort_by_chain_score,
+        "order alignment candidates by chain score instead of base-level score"
     );
     chaining_opts.add_range(
         "min-unique-node-fraction",

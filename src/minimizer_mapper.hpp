@@ -272,12 +272,12 @@ public:
     double fragment_max_indel_bases_per_base = default_fragment_max_indel_bases_per_base;
     
     /// When converting chains to alignments, what's the longest gap between
-    /// items we will actually try to align? Passing strings longer than ~100bp
+    /// items we will try to WFA align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
     static constexpr size_t default_max_chain_connection = 100;
     size_t max_chain_connection = default_max_chain_connection;
-    /// Similarly, what is the maximum tail length we will try to align?
+    /// Similarly, what is the maximum tail length we will try to WFA align?
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
@@ -367,9 +367,13 @@ public:
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
     
-    /// How long of a DP can we do before GSSW crashes due to 16-bit score
-    /// overflow?
-    static constexpr int MAX_DP_LENGTH = 30000;
+    /// How long of a DP can we do before Dozeu gets lost at traceback due to
+    /// 16-bit score overflow?
+    static constexpr size_t default_max_tail_dp_length = 30000;
+    size_t max_tail_dp_length = default_max_tail_dp_length;
+    /// How long of a DP can we do before something might go wrong with BandedGlobalAligner or the GBWT-based WFA?
+    static constexpr size_t default_max_middle_dp_length = std::numeric_limits<int32_t>::max();
+    size_t max_middle_dp_length = default_max_middle_dp_length;
     
     /// How many DP cells should we be willing to do for an end-pinned
     /// alignment? If we want to do more than this, just leave tail unaligned.
@@ -399,6 +403,10 @@ public:
     /// How far behind the leader should the WFA be allowed to get, at any read length?
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
+
+    /// Should alignments be ranked by chain score instead of base-level score?
+    static constexpr bool default_sort_by_chain_score = false;
+    bool sort_by_chain_score = default_sort_by_chain_score;
 
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
     static constexpr double default_min_unique_node_fraction = 0.0;
