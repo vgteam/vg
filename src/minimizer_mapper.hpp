@@ -890,11 +890,14 @@ protected:
                                const std::vector<double>& multiplicity_by_chain,
                                const std::vector<int>& chain_score_estimates,
                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                                vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
-                                SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+                               vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                               vector<size_t>& alignments_to_source,
+                               SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
 
     void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
-                                       const std::vector<double>& multiplicity_by_alignment, std::vector<Alignment>& mappings,
+                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
+                                       const std::vector<int>& chain_score_estimates,
+                                       std::vector<Alignment>& mappings,
                                        std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
                                        bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
 

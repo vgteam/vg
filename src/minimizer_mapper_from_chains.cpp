@@ -754,10 +754,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     bool funnel_depleted = false;
 
+    // This maps from alignment index back to chain index, for
+    // tracing back to minimizers for MAPQ. Can hold
+    // numeric_limits<size_t>::max() for an unaligned alignment.
+    vector<size_t> alignments_to_source;
+    alignments_to_source.reserve(chain_score_estimates.size());
+
     if (alignments.size() == 0) {
         do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
-                               minimizer_kept_chain_count, alignments, 
-                               multiplicity_by_alignment, minimizer_explored, stats, funnel_depleted, rng, funnel);
+                               minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
+                               alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
     }
     
     
@@ -774,7 +780,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     //The multiplicities of mappings
     vector<double> multiplicity_by_mapping;
     
-    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, mappings, scores, multiplicity_by_mapping, funnel_depleted, rng, funnel);
+    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates, 
+                                  mappings, scores, multiplicity_by_mapping, funnel_depleted, rng, funnel);
     
     if (track_provenance) {
         funnel.substage("mapq");
@@ -1004,43 +1011,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     return mappings;
-}
-
-double MinimizerMapper::get_read_coverage(
-    const Alignment& aln,
-    const VectorView<std::vector<size_t>>& seed_sets,
-    const std::vector<Seed>& seeds,
-    const VectorView<Minimizer>& minimizers) const {
-    
-    std::vector<bool> covered(aln.sequence().size(), false);
-    
-    for (auto& list : seed_sets) {
-        // We will fill in the range it occupies in the read
-        std::pair<size_t, size_t> read_range {std::numeric_limits<size_t>::max(), 0};
-        
-        for (auto& seed_index : list) {
-            // Which means we look at the minimizer for each seed
-            auto& seed = seeds.at(seed_index);
-            crash_unless(seed.source < minimizers.size());
-            auto& minimizer = minimizers[seed.source];
-            
-            if (minimizer.forward_offset() < read_range.first) {
-                // Min all their starts to get the start
-                read_range.first = minimizer.forward_offset();
-            }
-            
-            if (minimizer.forward_offset() + minimizer.length > read_range.second) {
-                // Max all their past-ends to get the past-end
-                read_range.second = minimizer.forward_offset() + minimizer.length;
-            }
-        }
-        
-        // Then mark its coverage
-        set_coverage_flags(covered, read_range.first, read_range.second);
-    }
-    
-    // And return the fraction covered.
-    return get_fraction_covered(covered);
 }
 
 void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
@@ -2208,6 +2178,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                                             const std::vector<int>& chain_score_estimates, 
                                             const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                             vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                                            vector<size_t>& alignments_to_source,
                                             SmallBitset& minimizer_explored, aligner_stats_t& stats,
                                             bool& funnel_depleted,
                                             LazyRNG& rng, Funnel& funnel) const {
@@ -2215,11 +2186,6 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     if (track_provenance) {
         funnel.stage("align");
     }
-    // This maps from alignment index back to chain index, for
-    // tracing back to minimizers for MAPQ. Can hold
-    // numeric_limits<size_t>::max() for an unaligned alignment.
-    vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(chain_score_estimates.size());
     //For finding the multiplicity of each alignment, first get the count
     // of equal scoring chains
     vector<size_t> chain_count_by_alignment (alignments.size(), 0);
@@ -2570,6 +2536,8 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
 
 void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
                                                     const std::vector<double>& multiplicity_by_alignment,
+                                                    const std::vector<size_t>& alignments_to_source,
+                                                    const std::vector<int>& chain_score_estimates,
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,
                                                     std::vector<double>& multiplicity_by_mapping,
