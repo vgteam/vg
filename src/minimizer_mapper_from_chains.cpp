@@ -1004,7 +1004,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             ); 
             // Make a view of the anchors we will fragment over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
-            std::vector<std::pair<algorithms::ScoredOperations, std::vector<size_t>>> results = algorithms::find_best_chains(
+            std::vector<std::pair<int, std::vector<size_t>>> results = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
@@ -1079,7 +1079,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 fragment_scores.push_back(scored_fragment.first);
                 // And make an anchor of it right now, for chaining later.
                 // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, scored_fragment.first));
+                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
@@ -1172,8 +1172,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<size_t> chain_source_tree;
     // An estimated alignment score
     std::vector<int> chain_score_estimates;
-    // A maximum possible alignment score
-    std::vector<int> chain_score_upper_bounds;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
     std::vector<std::vector<size_t>> minimizer_kept_chain_count;
     // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
@@ -1354,7 +1352,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 zip_code_forest.trees[tree_num],
                 lookback_limit
             );
-            std::vector<std::pair<algorithms::ScoredOperations, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
+            std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
                 fragment_view,
                 *distance_index,
                 gbwt_graph,
@@ -1380,16 +1378,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // With a score
                 chain_score_estimates.emplace_back(0);
                 int& score = chain_score_estimates.back();
-                // And a score bound
-                auto& aligner = *get_regular_aligner();
-                // To compute the score bound we need to add unknown bases for all the tails
-                algorithms::ScoredOperations chain_scored_ops = chain_result.first;
-                // So say we don't know what happened to the sequence before the first anchor's exclusion
-                chain_scored_ops += algorithms::ScoredOperations::unknown(0, fragment_anchors.at(tree_fragments.at(chain_result.second.front())).read_exclusion_start());
-                // Or after the last anchor's exclusion
-                chain_scored_ops += algorithms::ScoredOperations::unknown(0, aln.sequence().size() - fragment_anchors.at(tree_fragments.at(chain_result.second.front())).read_exclusion_end());
-                // And then score it with that, assuming it could get 2 full-length ends
-                chain_score_upper_bounds.emplace_back(chain_scored_ops.max_score_under(aligner.match, -aligner.mismatch, -aligner.gap_open, -aligner.gap_extension) + aligner.full_length_bonus * 2);
                 // And counts of each minimizer kept
                 minimizer_kept_chain_count.emplace_back();
                 auto& minimizer_kept = minimizer_kept_chain_count.back();
@@ -1672,18 +1660,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
-
-    // We need to know how scores will be scaled for MAPQ early, so we can use not affecting the MAPQ as a filter.
-    auto rescale_score_for_mapq = [&](double score) -> double {
-        double scaled_score = score;
-        if (mapq_score_window > 0) {
-            // Rescale to the size of the score window
-            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
-        }
-        // Rescale by a constant factor
-        scaled_score *= mapq_score_scale;
-        return scaled_score;
-    };
     
     // We need to be able to discard a chain because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
@@ -1720,10 +1696,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
 
     // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
-    aligner_stats_t stats;
-
-    // And track the best alignment score so far
-    int best_alignment_score_so_far = 0;
+    aligner_stats_t stats; 
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1750,49 +1723,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (track_provenance) {
                 funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.pass("max-alignments", processed_num);
-            }
-            
-
-            // See if the chain's upper-bound score is good enough
-            const int& chain_score_upper_bound = chain_score_upper_bounds[processed_num];
-            
-            if (best_alignment_score_so_far > 0 && chain_score_upper_bound < best_alignment_score_so_far) {
-                // We might have a score bound too low to affect MAPQ.
-                // See what the MAPQ would be if the best alignment so far was up against what this one might be.
-                std::vector<double> score_pair(2);
-                score_pair[0] = rescale_score_for_mapq(best_alignment_score_so_far);
-                score_pair[1] = rescale_score_for_mapq(chain_score_upper_bound);
-                double mapq_estimate = get_regular_aligner()->compute_first_mapping_quality(score_pair, false);
-                if (mapq_estimate < 60) {
-                    // If we're as good as we could be, we might affect MAPQ.
-                    funnel.pass("score-bound-might-affect-mapq", processed_num, chain_score_upper_bound);
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " has score bound " << chain_score_upper_bound << "/" << best_alignment_score_so_far << " and if that good would produce MAPQ " << mapq_estimate << endl;
-                        }
-                    }
-                } else {
-                    // We know this alignment is too terrible to affect MAPQ.
-                    funnel.fail("score-bound-might-affect-mapq", processed_num, chain_score_upper_bound);
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " has score bound " << chain_score_upper_bound << "/" << best_alignment_score_so_far << " but even if that good would only lower MAPQ to " << mapq_estimate << endl;
-                        }
-                    }
-                    return false;
-                }
-            } else {
-                // Either there's no alignment already or the score bound for this alignment meets or beats the best one.
-                // We automatically pass the filter for whether we might affect MAPQ.
-                funnel.pass("score-bound-might-affect-mapq", processed_num, chain_score_upper_bound);
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Chain " << processed_num << " has score bound " << chain_score_upper_bound << "/" << best_alignment_score_so_far << " and can definitely affect MAPQ" << endl;
-                    }
-                }
             }
 
             for (auto& seed_num : chains[processed_num]) {
@@ -1894,20 +1824,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
                     // Mark the alignment with its chain score
                     set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
-                    set_annotation(best_alignments[0], "chain_score_upper_bound", chain_score_upper_bound);
-
-                    // The actual score needs to be bounded by our upper bound, or something is wrong with our math.
-                    if (best_alignments[0].score() > chain_score_upper_bound) {
-                        #pragma omp critical (cerr)
-                        cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: score bound of " << chain_score_upper_bound << " was exceeded with final score of " << best_alignments[0].score() << " for alignment " << aln.name() << endl;
-                    }
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
                     cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
                     // Leave the read unmapped.
                 }
-                
+
                 if (track_provenance) {
                     funnel.substage_stop();
                 }
@@ -1924,8 +1847,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 alignments_to_source.push_back(processed_num);
                 multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
                 chain_count_by_alignment.emplace_back(item_count);
-
-                best_alignment_score_so_far = std::max(best_alignment_score_so_far, alignments.back().score());
                 
                 size_t read_pos = 0;
                 for (auto& mapping : alignments.back().path().mapping()) {
@@ -2261,11 +2182,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             cerr << endl;
         }
     }
-    
+
     vector<double> scaled_scores;
     scaled_scores.reserve(scores.size());
     for (auto& score : scores) {
-        scaled_scores.push_back(rescale_score_for_mapq(score));
+        double scaled_score = score;
+        if (mapq_score_window > 0) {
+            // Rescale to the size of the score window
+            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
+        }
+        // Rescale by a constant factor
+        scaled_score *= mapq_score_scale;
+        scaled_scores.push_back(scaled_score);
     }
 
     if (show_work) {
@@ -2289,7 +2217,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // maximum score, we need to use compute_first_mapping_quality and not
     // compute_max_mapping_quality.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment);
+        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
 
 #ifdef debug_write_minimizers
 #pragma omp critical
@@ -3672,10 +3600,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
-    // Also how many matches it has. It always has 0 mismatches.
-    int total_matches = margin_left + length + margin_right;
-    auto anchor_score = algorithms::ScoredOperations::match(score, total_matches);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, anchor_score, seed_number, seed.zipcode_decoder.get(), hint_start); 
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {
@@ -3700,10 +3625,6 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     // Score the perfect match from where we are to the end.
     score += aligner->score_exact_match(aln, scored_until, read_end - scored_until);
     
-    // Compute numbers of matches and mismatches to track with the anchor.
-    size_t total_mismatches = mismatch_end - mismatch_begin;
-    size_t total_matches = read_end - read_start - total_mismatches;
-    
     // Get the anchors we are going to weld together. These may be the same one.
     const algorithms::Anchor& left_anchor = seed_anchors.at(sorted_seeds.front());
     const algorithms::Anchor& right_anchor = seed_anchors.at(sorted_seeds.back());
@@ -3717,7 +3638,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_
     // Now make an anchor with the score of the range, with the anchors of
     // the first and last seeds, and enough margin to cover the distance out
     // from the outer seeds that we managed to extend.
-    algorithms::Anchor result(left_anchor, right_anchor, extra_left_margin, extra_right_margin, algorithms::ScoredOperations(score, total_matches, total_mismatches, 0, 0, 0));
+    algorithms::Anchor result(left_anchor, right_anchor, extra_left_margin, extra_right_margin, score);
 
     assert(result.read_exclusion_start() == read_start);
     assert(result.read_exclusion_end() == read_end);
