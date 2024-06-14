@@ -1253,6 +1253,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             tree_extensions[extension_i].mismatches() <= this->default_max_extension_mismatches) {
 
                             // For all good-scoring full-length extensions, make them into alignments
+                            // TODO When we pair:
                             // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
 
                             alignments.emplace_back(aln);
@@ -1281,26 +1282,27 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                             }
                         }
                     }
-                    // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
-                    // Then skip fragmenting for this tree
-                    if (alignments.size() > 1) {
-                        if (track_provenance) {
-                            //We might have already done some fragmenting so the funnel might already have started on that stage
-                            //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
-                            //stage for these too
-                            // Tell the funnel
-                            //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);!
+                }
+                // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
+                // Then skip fragmenting for this tree
+                if (alignments.size() > 1) {
+                    if (track_provenance) {
+                        //We might have already done some fragmenting so the funnel might already have started on that stage
+                        //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
+                        //stage for these too
+                        // Tell the funnel
+                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);!
 
-                            funnel.project(item_num);
+                        funnel.project(item_num);
 
-                            funnel.processed_input();
+                        funnel.processed_input();
 
-                            //Add an entry to the list of fragments so we know which fragment num to give the alignments
-                            fragments.emplace_back();
+                        //Add an entry to the list of fragments so we know which fragment num to give the alignments
+                        //This is just so the funnel can track everything
+                        fragments.emplace_back();
 
-                        }
-                        return true;
                     }
+                    return true;
                 }
 
                 
