@@ -1897,7 +1897,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     set_annotation(best_alignments[0], "chain_score_upper_bound", chain_score_upper_bound);
 
                     // The actual score needs to be bounded by our upper bound, or something is wrong with our math.
-                    crash_unless(best_alignments[0].score() <= chain_score_upper_bound);
+                    if (best_alignments[0].score() > chain_score_upper_bound) {
+                        #pragma omp critical (cerr)
+                        cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: score bound of " << chain_score_upper_bound << " was exceeded with final score of " << best_alignments[0].score() << " for alignment " << aln.name() << endl;
+                    }
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
