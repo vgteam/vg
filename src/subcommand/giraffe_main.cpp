@@ -1005,11 +1005,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("zipcode-tree-scale", 1.5)
         .add_entry<double>("zipcode-tree-score-threshold", 20)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.3)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.15)
         // And extend them
         .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
-        .add_entry<size_t>("max-extension-mismatches", 15)
+        .add_entry<size_t>("max-extension-mismatches", 10)
         // And fragment them
         .add_entry<double>("fragment-gap-scale", 3.6)
         .add_entry<double>("gap-scale", 2.2)
@@ -1018,7 +1018,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("fragment-max-indel-bases", 3000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
-        .add_entry<size_t>("max-direct-chain", 6)
+        .add_entry<size_t>("max-direct-chain", 10)
         .add_entry<double>("fragment-score-fraction", 0.38)
         .add_entry<double>("fragment-min-score", 8)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
