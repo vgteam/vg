@@ -302,10 +302,15 @@ namespace vg {
         DeletionAligner deletion_aligner;
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;
+        /// Points scored for a match
         int8_t match;
+        /// Points scored for a mismatch (probably negative)
         int8_t mismatch;
+        /// Points scored for a gap open (probably negative)
         int8_t gap_open;
+        /// Points scored for a gap extension (probably negative)
         int8_t gap_extension;
+        /// Points scored for a full-length end
         int8_t full_length_bonus;
         
         // log of the base of the logarithm underlying the log-odds interpretation of the scores

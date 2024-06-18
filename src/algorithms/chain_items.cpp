@@ -375,10 +375,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 /// minimizer/base seed length here. Otherwise gaps cost more as your fragments
 /// that you are chaining get longer, and cost more at chaining than at
 /// fragmenting.
+///
+/// Returns a negative value (gap score).
 int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     if (distance_difference == 0) {
+        // Do nothing and score 0
         return 0;
     } else {
+        // Compute the penalty
         return 0.01 * base_seed_length * distance_difference + 0.5 * log2(distance_difference);
     }
 }
@@ -391,7 +395,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int gap_extension,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
-                           int item_scale,
+                           double item_scale,
                            double gap_scale,
                            double points_per_possible_match,
                            size_t max_indel_bases,
@@ -425,8 +429,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
-        // Set up DP table so we can start anywhere with that item's score.
-        chain_scores[i] = {to_chain[i].score(), TracedScore::nowhere()};
+        // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
+        chain_scores[i] = {to_chain[i].score() * item_scale + item_bonus, TracedScore::nowhere()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -465,11 +469,12 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-        // And how much could be matches/mismatches
+        // TODO: remove this!
+        // How much could be matches/mismatches, double-counting with bases in the exclusion zones?
         size_t possible_match_length = std::min(read_distance, graph_distance);
         
         if (show_work) {
-            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
+            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << ((read_distance > graph_distance) ? " seems plausible" : " would be required") << endl;
         }
 
         if (indel_length > max_indel_bases) {
@@ -552,7 +557,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
         // For each destination anchor, now that it is finished, see if it is the winner.
         auto& here = to_chain[to_anchor];
-        auto item_points = here.score() * item_scale + item_bonus;
 
         if (show_work) {
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
@@ -560,6 +564,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         
         if (diagram) {
             // Draw the item in the diagram
+            auto item_points = here.score() * item_scale + item_bonus;
             std::string here_gvnode = "i" + std::to_string(to_anchor);
             std::stringstream label_stream;
             label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
@@ -600,7 +605,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus,
-                                                        int item_scale,
+                                                        double item_scale,
                                                         size_t max_tracebacks) {
     
     // We will fill this in with all the tracebacks, and then sort and truncate.
@@ -679,9 +684,9 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int gap_open,
                                                    int gap_extension,
                                                    size_t max_chains,
-                                                   const transition_iterator& for_each_transition, 
+                                                   const transition_iterator& for_each_transition,
                                                    int item_bonus,
-                                                   int item_scale,
+                                                   double item_scale,
                                                    double gap_scale,
                                                    double points_per_possible_match,
                                                    size_t max_indel_bases,
@@ -733,7 +738,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_extension,
                                           const transition_iterator& for_each_transition,
                                           int item_bonus,
-                                          int item_scale,
+                                          double item_scale,
                                           double gap_scale,
                                           double points_per_possible_match,
                                           size_t max_indel_bases) {

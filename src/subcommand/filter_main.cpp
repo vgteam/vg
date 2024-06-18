@@ -31,7 +31,7 @@ void help_filter(char** argv) {
          << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
-         << "    -c, --exact-name           match read names exactly instead of by prefix" << endl
+         << "    -e, --exact-name           match read names exactly instead of by prefix" << endl
          << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
          << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
@@ -62,7 +62,7 @@ void help_filter(char** argv) {
          << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
          << "    -G, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the values are equal" << endl
          << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
-         << "    -g, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
+         << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
          << "    -t, --threads N            number of threads [1]" << endl;
@@ -133,7 +133,7 @@ int main_filter(int argc, char** argv) {
                 {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
-                {"exact-name", no_argument, 0, 'c'},
+                {"exact-name", no_argument, 0, 'e'},
                 {"subsequence", required_argument, 0, 'a'},
                 {"subsequences", required_argument, 0, 'A'},
                 {"proper-pairs", no_argument, 0, 'p'},
@@ -162,7 +162,7 @@ int main_filter(int argc, char** argv) {
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
                 {"annotation", required_argument, 0, 'G'},
-                {"correctly-mapped", no_argument, 0, 'g'},
+                {"correctly-mapped", no_argument, 0, 'c'},
                 {"complement", no_argument, 0, 'U'},
                 {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
@@ -170,7 +170,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:g:UB:t:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:cUB:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -198,7 +198,7 @@ int main_filter(int argc, char** argv) {
                 }
             });
             break;
-        case 'c':
+        case 'e':
             exact_name = true;
             break;
         case 'a':
@@ -346,7 +346,7 @@ int main_filter(int argc, char** argv) {
         case 'G':
             annotation = optarg;
             break;
-        case 'g':
+        case 'c':
             correctly_mapped = true;
             break;
         case 'U':

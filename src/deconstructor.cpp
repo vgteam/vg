@@ -974,8 +974,10 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             
             // add in the star alleles -- these are alleles that were genotyped in the parent but not
             // the current allele, and are treated as *'s in VCF.
-            sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
-                                                 in_nesting_info->sample_to_haplotypes);
+            if (this->star_allele) {
+                sample_to_haps = add_star_traversals(travs, trav_path_names, trav_clusters, trav_cluster_info,
+                                                     in_nesting_info->sample_to_haplotypes);
+            }
             
         }
 
@@ -1025,7 +1027,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             v.info["PR"].push_back(std::to_string(ref_info.parent_ref_len));            
             v.info["RC"].push_back(ref_info.lv0_ref_name);
             v.info["RS"].push_back(std::to_string(ref_info.lv0_ref_start));
-            v.info["RE"].push_back(std::to_string(ref_info.lv0_ref_len));
+            v.info["RD"].push_back(std::to_string(ref_info.lv0_ref_len));
             v.info["RL"].push_back(std::to_string(ref_info.lv0_alt_len));
         }
 
@@ -1167,9 +1169,9 @@ string Deconstructor::get_vcf_header() {
         stream << "\">" << endl;
     }
     if (path_to_sample_phase && cluster_threshold < 1) {
-        stream << "##FORMAT<ID=TS,Number=1,Type=Float,Descript=\"Similarity between the sample's actual path and its allele\">"
+        stream << "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's actual path and its allele\">"
                << endl;
-        stream << "##FORMAT<ID=TL,Number=1,Type=Integer,Descript=\"Length difference between the sample's actual path and its allele\">"
+        stream << "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the sample's actual path and its allele\">"
                << endl;
 
     }
@@ -1187,7 +1189,7 @@ string Deconstructor::get_vcf_header() {
         stream << "##INFO=<ID=PR,Number=1,Type=Integer,Description=\"Length of 0th allele in the Parent Snarl\">" << endl;
         stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference chromosome name of top-level containing site\">" << endl;
         stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        stream << "##INFO=<ID=RE,Number=1,Type=Integer,Description=\"Reference end position name of top-level containing site\">" << endl;
+        stream << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position name of top-level containing site\">" << endl;
         stream << "##INFO=<ID=RL,Number=1,Type=Integer,Description=\"Length of the top-level allele in which this site nests\">" << endl;
     }
     if (untangle_allele_traversals) {
@@ -1364,7 +1366,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool long_ref_contig,
                                 double cluster_threshold,
                                 gbwt::GBWT* gbwt,
-                                bool nested_decomposition) {
+                                bool nested_decomposition,
+                                bool star_allele) {
 
     this->graph = graph;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
@@ -1380,6 +1383,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->cluster_threshold = cluster_threshold;
     this->gbwt = gbwt;
     this->nested_decomposition = nested_decomposition;
+    this->star_allele = star_allele;
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)

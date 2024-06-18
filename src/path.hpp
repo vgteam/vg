@@ -1,4 +1,4 @@
-    #ifndef VG_PATH_HPP_INCLUDED
+#ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -379,12 +379,12 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
  */
 class edit_t {
 public:
-    edit_t() = default;
-    edit_t(const edit_t&) = default;
-    edit_t(edit_t&&) = default;
+    edit_t() noexcept : _from_length(0), _to_length(0), _sequence() {}
+    edit_t(const edit_t& other) = default;
+    edit_t(edit_t&& other) = default;
     ~edit_t() = default;
-    edit_t& operator=(const edit_t&) = default;
-    edit_t& operator=(edit_t&&) = default;
+    edit_t& operator=(const edit_t& other) = default;
+    edit_t& operator=(edit_t&& other) = default;
     inline int32_t from_length() const;
     inline void set_from_length(int32_t l);
     inline int32_t to_length() const;
@@ -404,11 +404,11 @@ private:
 class path_mapping_t {
 public:
     path_mapping_t() = default;
-    path_mapping_t(const path_mapping_t&) = default;
-    path_mapping_t(path_mapping_t&&) = default;
+    path_mapping_t(const path_mapping_t& other) = default;
+    path_mapping_t(path_mapping_t&& other) = default;
     ~path_mapping_t() = default;
-    path_mapping_t& operator=(const path_mapping_t&) = default;
-    path_mapping_t& operator=(path_mapping_t&&) = default;
+    path_mapping_t& operator=(const path_mapping_t& other) = default;
+    path_mapping_t& operator=(path_mapping_t&& other) = default;
     inline const position_t& position() const;
     inline position_t* mutable_position();
     inline const vector<edit_t>& edit() const;
@@ -427,11 +427,11 @@ private:
 class path_t {
 public:
     path_t() = default;
-    path_t(const path_t&) = default;
-    path_t(path_t&&) = default;
+    path_t(const path_t& other) = default;
+    path_t(path_t&& other) = default;
     ~path_t() = default;
-    path_t& operator=(const path_t&) = default;
-    path_t& operator=(path_t&&) = default;
+    path_t& operator=(const path_t& other) = default;
+    path_t& operator=(path_t&& other) = default;
     inline const vector<path_mapping_t>& mapping() const;
     inline const path_mapping_t& mapping(size_t i) const;
     inline vector<path_mapping_t>* mutable_mapping();

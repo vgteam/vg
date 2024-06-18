@@ -59,7 +59,7 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
-                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) {
@@ -76,7 +76,7 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
-                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, project,
@@ -87,7 +87,7 @@ namespace vg {
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
-                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                                      const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns,
                                                      bool preserve_tail_anchors, vector<size_t>* path_node_provenance) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, create_projector(projection_trans),
@@ -173,8 +173,9 @@ namespace vg {
         }
         
         // shim the aligned path into the path chunks constructor to make a node for it
-        vector<pair<pair<string::const_iterator, string::const_iterator>, Path>> path_holder;
-        path_holder.emplace_back(make_pair(alignment.sequence().begin(), alignment.sequence().end()), alignment.path());
+        vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>> path_holder;
+        path_holder.emplace_back(make_pair(alignment.sequence().begin(), alignment.sequence().end()), path_t());
+        from_proto_path(alignment.path(), path_holder.front().second);
         create_path_chunk_nodes(graph, path_holder, alignment, project, injection_trans);
         
         // cut the snarls out of the aligned path so we can realign through them
@@ -206,7 +207,7 @@ namespace vg {
         // Nothing to do
     }
     
-    void MultipathAlignmentGraph::create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+    void MultipathAlignmentGraph::create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                                           const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                                           const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                           vector<size_t>* path_node_provenance) {
@@ -217,7 +218,7 @@ namespace vg {
             cerr << "performing DFS to walk out path " << pb2json(path_chunk.second) << endl;
 #endif
             
-            const Path& path = path_chunk.second;
+            const auto& path = path_chunk.second;
             
             auto range = injection_trans.equal_range(path.mapping(0).position().node_id());
             for (auto iter = range.first; iter != range.second; iter++) {
@@ -249,7 +250,7 @@ namespace vg {
 #endif
                     pair<id_t, bool> projected_trav = project(graph.get_id(trav));
                     
-                    const Position& pos = path.mapping(stack.size() - 1).position();
+                    const auto& pos = path.mapping(stack.size() - 1).position();
                     if (projected_trav.first == pos.node_id() &&
                         projected_trav.second == (projected_trav.second != graph.get_is_reverse(trav))) {
                         
@@ -292,8 +293,8 @@ namespace vg {
                 
                 // move over the path
                 for (size_t i = 0; i < path.mapping_size(); i++) {
-                    const Mapping& mapping = path.mapping(i);
-                    const Position& position = mapping.position();
+                    const auto& mapping = path.mapping(i);
+                    const auto& position = mapping.position();
                     
                     auto& stack_record = stack[i];
                     handle_t& trav = stack_record.second[stack_record.first - 1];
@@ -308,7 +309,7 @@ namespace vg {
                     new_position->set_offset(position.offset());
                     
                     for (int64_t j = 0; j < mapping.edit_size(); j++) {
-                        from_proto_edit(mapping.edit(j), *new_mapping->add_edit());
+                        *new_mapping->add_edit() = mapping.edit(j);
                     }
                 }
                 

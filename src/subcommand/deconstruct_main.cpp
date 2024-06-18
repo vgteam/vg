@@ -52,7 +52,8 @@ void help_deconstruct(char** argv){
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -C, --contig-only-ref    Only use the CONTIG name (and not SAMPLE#CONTIG#HAPLOTYPE etc) for the reference if possible (ie there is only one reference sample)." << endl
          << "    -L, --cluster F          Cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0) [experimental]" << endl
-         << "    -n, --nested             Write a nested VCF, including *-alleles and special tags. [experimental]" << endl
+         << "    -n, --nested             Write a nested VCF, including special tags. [experimental]" << endl
+         << "    -R, --star-allele        Use *-alleles to denote alleles that span but do not cross the site. Only works with -n" << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -81,6 +82,7 @@ int main_deconstruct(int argc, char** argv){
     bool contig_only_ref = false;
     double cluster_threshold = 1.0;
     bool nested = false;
+    bool star_allele = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -104,13 +106,14 @@ int main_deconstruct(int argc, char** argv){
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
+                {"start-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nt:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -171,6 +174,9 @@ int main_deconstruct(int argc, char** argv){
         case 'n':
             nested = true;
             break;
+        case 'R':
+            star_allele = true;
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -192,9 +198,12 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Error [vg deconstruct]: -C cannot be used with -n" << endl;
         return 1;
     }
+    if (star_allele == true && nested == false) {
+        cerr << "Error [vg deconstruct]: -R can only be used with -n" << endl;
+        return 1;
+    }
     
     // Read the graph
-
     unique_ptr<PathHandleGraph> path_handle_graph_up;
     unique_ptr<GBZGraph> gbz_graph;
     gbwt::GBWT* gbwt_index = nullptr;
@@ -372,7 +381,8 @@ int main_deconstruct(int argc, char** argv){
                    !contig_only_ref,
                    cluster_threshold,
                    gbwt_index,
-                   nested);
+                   nested,
+                   star_allele);
     return 0;
 }
 

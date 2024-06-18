@@ -333,7 +333,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int gap_extension,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            int item_bonus = 0,
-                           int item_scale = 1,
+                           double item_scale = 1.0,
                            double gap_scale = 1.0,
                            double points_per_possible_match = 0,
                            size_t max_indel_bases = 100,
@@ -357,7 +357,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus = 0,
-                                                        int item_scale = 1,
+                                                        double item_scale = 1.0,
                                                         size_t max_tracebacks = 1);
 
 
@@ -378,7 +378,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    size_t max_chains = 1,
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                                    int item_bonus = 0,
-                                                   int item_scale = 1,
+                                                   double item_scale = 1.0,
                                                    double gap_scale = 1.0,
                                                    double points_per_possible_match = 0,
                                                    size_t max_indel_bases = 100,
@@ -400,7 +400,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_extension,
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           int item_bonus = 0,
-                                          int item_scale = 1,
+                                          double item_scale = 1.0,
                                           double gap_scale = 1.0,
                                           double points_per_possible_match = 0,
                                           size_t max_indel_bases = 100);
@@ -416,6 +416,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
+/// This produces a penalty (positive number).
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.

@@ -328,8 +328,8 @@ public:
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
     /// in fragmenting/chaining?
-    static constexpr int default_item_scale = 1;
-    int item_scale = default_item_scale;
+    static constexpr double default_item_scale = 1.0;
+    double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;

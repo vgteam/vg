@@ -14,6 +14,7 @@
 
 #include "aligner.hpp"
 #include "handle.hpp"
+#include "path.hpp"
 #include <vg/vg.pb.h>
 #include "multipath_alignment.hpp"
 
@@ -97,7 +98,7 @@ using namespace std;
                                                     bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
-        using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
+        using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
         
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
         int64_t min_splice_length = 20;
@@ -193,11 +194,6 @@ using namespace std;
                               bool rev_strand, const vector<path_chunk_t>& path_chunks,
                               const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                               bool no_left_expansion, bool no_right_expansion) const;
-        
-        /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
-        unordered_map<id_t, pair<id_t, bool>>
-        extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
-                                      path_handle_t path_handle, size_t first, size_t last) const;
         
         /// use the graph position bounds and the path range bounds to assign a path position to a surjected read
         void set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos,
