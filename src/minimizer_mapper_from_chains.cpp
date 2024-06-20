@@ -1587,19 +1587,27 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             }
         });
 
-    if (alignments.size() >= 2) {
+    if (alignments.size() >= 1) {
         //If we did get alignments from fragmenting, boot them through the funnel all at once
         funnel.stage("extension_to_alignment");
         for (size_t fragment_num : alignment_source_fragment) {
             funnel.project(fragment_num);
         }
-    }
+        //Get the actual multiplicity from the counts
+        for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; i++) {
+            multiplicity_by_alignment[i] = multiplicity_by_alignment[i] >= kept_tree_count
+                                        ?  multiplicity_by_alignment[i] - (float)kept_tree_count
+                                        : 0.0;
+        }
 
-    //Get the actual multiplicity from the counts
-    for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
-                                    ?  multiplicity_by_fragment[i] - (float)kept_tree_count
-                                    : 0.0;
+    } else {
+
+        //Get the actual multiplicity from the counts
+        for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
+            multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
+                                        ?  multiplicity_by_fragment[i] - (float)kept_tree_count
+                                        : 0.0;
+        }
     }
 
 }
