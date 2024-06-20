@@ -1253,7 +1253,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 }
                 // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
                 // Then skip fragmenting for this tree
-                if (alignments.size() > 1) {
+                if (alignments.size() >= 1) {
                     if (track_provenance) {
                         //We might have already done some fragmenting so the funnel might already have started on that stage
                         //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
