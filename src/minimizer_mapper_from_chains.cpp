@@ -683,13 +683,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                              minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
                              minimizer_explored, multiplicity_by_alignment, rng, funnel);
 
-    //If we have at least two alignments, then we will skip chaining and aligning stages and just return the alignments
-    // If we have only one, forget it
-    if (alignments.size() == 1) {
-        alignments.clear();
-        multiplicity_by_alignment.clear();
-        minimizer_explored = SmallBitset(minimizers.size());
-    }
 
     
     // For each chain, we need:
