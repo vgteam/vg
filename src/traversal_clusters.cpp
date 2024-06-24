@@ -37,7 +37,21 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
                                 int64_t ref_trav_idx, 
                                 const vector<bool>& use_traversal) {
     set<int> ref_set(ref_travs.begin(), ref_travs.end());
-    
+
+    // we want to avoid cyclic references whenever possible, so we downweight in ranking
+    vector<int> trav_to_occurrences(traversals.size(), 1);
+    unordered_map<string, int> sample_to_occurrence;
+    for (int i = 0; i < traversals.size(); ++i) {
+        if (use_traversal[i] && !trav_path_names[i].empty()) {
+            sample_to_occurrence[PathMetadata::parse_sample_name(trav_path_names[i])] += 1;
+        }
+    }
+    for (int i = 0; i < traversals.size(); ++i) {
+        if (use_traversal[i] && !trav_path_names[i].empty()) {
+            trav_to_occurrences[i] = sample_to_occurrence[trav_path_names[i]];
+        }
+    }
+
     function<bool(int, int)> trav_less = [&](int i, int j) {
         // give reference set preference priority
         bool iref = ref_set.count(i);
@@ -45,8 +59,9 @@ vector<int> get_traversal_order(const PathHandleGraph* graph,
         if (iref != jref) {
             return iref;
         }
-        // fall back to name comparison 
-        if (!trav_path_names[i].empty() && (trav_path_names[j].empty() || trav_path_names[i] < trav_path_names[j])) {
+        // fall back to occurrences then name comparison 
+        if (trav_to_occurrences[i] < trav_to_occurrences[j] ||
+            (trav_to_occurrences[i] == trav_to_occurrences[j] && !trav_path_names[i].empty() && (trav_path_names[j].empty() || trav_path_names[i] < trav_path_names[j]))) {
             return true;
         }
         return false;

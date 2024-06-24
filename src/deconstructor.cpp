@@ -785,6 +785,14 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         return false;
     }
 
+    if (ref_travs.size() > 1 && this->nested_decomposition) {
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Multiple ref traversals not yet supported with nested decomposition: removing all but first" << endl;
+        ref_travs.resize(1);
+#endif
+    }
+
     // XXX CHECKME this assumes there is only one reference path here, and that multiple traversals are due to cycles
     
     // we collect windows around the reference traversals
