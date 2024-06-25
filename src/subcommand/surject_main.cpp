@@ -117,7 +117,7 @@ int main_surject(int argc, char** argv) {
             {"into-paths", required_argument, 0, 'F'},
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
             {"subpath-local", no_argument, 0, 'l'},
-            {"max-tail-len", no_argument, 0, 'T'},
+            {"max-tail-len", required_argument, 0, 'T'},
             {"interleaved", no_argument, 0, 'i'},
             {"multimap", no_argument, 0, 'M'},
             {"gaf-input", no_argument, 0, 'G'},
