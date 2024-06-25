@@ -6061,17 +6061,19 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
                 int64_t target_length = tail_length + gap;
                 
-                
-                
                 pos_t end_pos = final_position(path_node.path);
                 
                 bdsg::HashGraph tail_graph;
-                unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                           &tail_graph,
-                                                                                           target_length,
-                                                                                           end_pos,
-                                                                                           false,         // search forward
-                                                                                           false);        // no need to preserve cycles (in a DAG)
+                unordered_map<id_t, id_t> tail_trans;
+                if (tail_length <= max_tail_length || dynamic_alt_alns) {
+                    // We need to pull out the tail graph
+                    tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                     &tail_graph,
+                                                                     target_length,
+                                                                     end_pos,
+                                                                     false,         // search forward
+                                                                     false);        // no need to preserve cycles (in a DAG)
+                }
                 
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
@@ -6084,47 +6086,42 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 else {
                     num_alt_alns = max_alt_alns;
                 }
+
+                if (num_alt_alns == 0) {
+                    // Don't do any alignments
+                    continue;
+                }
+
+                // Otherwise we need an alignment to fill.
+                // get the sequence remaining in the right tail
+                Alignment right_tail_sequence;
+                right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
+                                                                             alignment.sequence().end() - path_node.end));
+                if (!alignment.quality().empty()) {
+                    right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
+                                                                               alignment.sequence().end() - path_node.end));
+                }
+
+                // And the place to put it
+                auto& alt_alignments = right_alignments[j];
                 
-                if (num_alt_alns > 0) {
-                    
-                    // get the sequence remaining in the right tail
-                    Alignment right_tail_sequence;
-                    right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
-                                                                                 alignment.sequence().end() - path_node.end));
-                    if (!alignment.quality().empty()) {
-                        right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
-                                                                                   alignment.sequence().end() - path_node.end));
-                    }
-                    
 #ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
-                    tail_graph.for_each_handle([&](const handle_t& handle) {
-                        cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                        tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                            cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
-                        });
-                        tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                            cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                        });
+                cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                tail_graph.for_each_handle([&](const handle_t& handle) {
+                    cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                    tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                        cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
                     });
+                    tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                        cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                    });
+                });
 #endif
-                    
+
+                if (tail_length <= max_tail_length) {
                     // align against the graph
-                    auto& alt_alignments = right_alignments[j];
-                    if (right_tail_sequence.sequence().size() > max_tail_length) {
-#ifdef debug_multipath_alignment
-                        cerr << "softclip long right" << endl;
-#endif
-                        alt_alignments.emplace_back(std::move(right_tail_sequence));
-                        Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
-                        m->mutable_position()->set_node_id(id(end_pos));
-                        m->mutable_position()->set_is_reverse(is_rev(end_pos));
-                        m->mutable_position()->set_offset(offset(end_pos));
-                        Edit* e = m->add_edit();
-                        e->set_to_length(alt_alignments.back().sequence().size());
-                        e->set_sequence(alt_alignments.back().sequence());
-                    }
-                    else if (num_alt_alns == 1) {
+                    
+                    if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
                         cerr << "align right with dozeu with gap " << gap << endl;
 #endif
@@ -6170,6 +6167,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                     }
 #endif
+                } else {
+                    // Tail is too long. Just make a softclip directly in the base graph ID space.
+                    // TODO: What if we just don't produce this? Do we get softclips for free?
+#ifdef debug_multipath_alignment
+                    cerr << "softclip long right" << endl;
+#endif
+                    alt_alignments.emplace_back(std::move(right_tail_sequence));
+                    Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
+                    m->mutable_position()->set_node_id(id(end_pos));
+                    m->mutable_position()->set_is_reverse(is_rev(end_pos));
+                    m->mutable_position()->set_offset(offset(end_pos));
+                    Edit* e = m->add_edit();
+                    e->set_to_length(alt_alignments.back().sequence().size());
+                    e->set_sequence(alt_alignments.back().sequence());
                 }
             }
         }
@@ -6201,14 +6212,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     
                     pos_t begin_pos = initial_position(path_node.path);
                     
-                    
                     bdsg::HashGraph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph,
-                                                                                               target_length,
-                                                                                               begin_pos,
-                                                                                               true,          // search backward
-                                                                                               false);        // no need to preserve cycles (in a DAG)
+                    unordered_map<id_t, id_t> tail_trans;
+                    if (tail_length <= max_tail_length || dynamic_alt_alns) {
+                        // We need to pull out the tail graph
+                        tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                         &tail_graph,
+                                                                         target_length,
+                                                                         begin_pos,
+                                                                         true,          // search backward
+                                                                         false);        // no need to preserve cycles (in a DAG)
+                    }
                     
                     size_t num_alt_alns;
                     if (dynamic_alt_alns) {
@@ -6221,44 +6235,40 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     else {
                         num_alt_alns = max_alt_alns;
                     }
-                            
-                    if (num_alt_alns > 0) {
-                        
-                        Alignment left_tail_sequence;
-                        left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
-                        if (!alignment.quality().empty()) {
-                            left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
-                        }
+
+                    if (num_alt_alns == 0) {
+                        // Don't do any alignments
+                        continue;
+                    }
+                    
+                    // Otherwise we need an alignment to fill.
+                    // get the sequence remaining in the left tail
+                    Alignment left_tail_sequence;
+                    left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
+                    if (!alignment.quality().empty()) {
+                        left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
+                    }
+
+                    // And the place to put it
+                    auto& alt_alignments = left_alignments[j];
                         
 #ifdef debug_multipath_alignment
-                        cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
-                        tail_graph.for_each_handle([&](const handle_t& handle) {
-                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                            });
-                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
-                            });
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                    tail_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                        tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << tail_graph.get_id(next) << endl;
                         });
+                        tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                            cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                        });
+                    });
 #endif
                         
+                    if (tail_length <= max_tail_length) {
                         // align against the graph
-                        auto& alt_alignments = left_alignments[j];
-                        if (left_tail_sequence.sequence().size() > max_tail_length) {
-#ifdef debug_multipath_alignment
-                            cerr << "softclip long left" << endl;
-#endif
-                            alt_alignments.emplace_back(std::move(left_tail_sequence));
-                            Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
-                            m->mutable_position()->set_node_id(id(begin_pos));
-                            m->mutable_position()->set_is_reverse(is_rev(begin_pos));
-                            m->mutable_position()->set_offset(offset(begin_pos));
-                            Edit* e = m->add_edit();
-                            e->set_to_length(alt_alignments.back().sequence().size());
-                            e->set_sequence(alt_alignments.back().sequence());
-                        }
-                        else if (num_alt_alns == 1) {
+                        
+                        if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
                             cerr << "align left with dozeu using gap " << gap << endl;
 #endif
@@ -6302,6 +6312,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
                         }
 #endif
+                    } else {
+                        // Tail is too long. Just make a softclip directly in the base graph ID space.
+                        // TODO: What if we just don't produce this? Do we get softclips for free?
+#ifdef debug_multipath_alignment
+                        cerr << "softclip long left" << endl;
+#endif
+                        alt_alignments.emplace_back(std::move(left_tail_sequence));
+                        Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
+                        m->mutable_position()->set_node_id(id(begin_pos));
+                        m->mutable_position()->set_is_reverse(is_rev(begin_pos));
+                        m->mutable_position()->set_offset(offset(begin_pos));
+                        Edit* e = m->add_edit();
+                        e->set_to_length(alt_alignments.back().sequence().size());
+                        e->set_sequence(alt_alignments.back().sequence());
                     }
                 }
             }
