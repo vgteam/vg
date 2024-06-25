@@ -2290,7 +2290,7 @@ namespace vg {
         // Align the tails, not collecting a set of source subpaths.
         // TODO: factor of 1/2 is arbitray, but i do think it should be fewer than the max
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max<size_t>(1, max_alt_alns / 2),
-                                           dynamic_alt_alns, max_gap, pessimistic_tail_gap_multiplier, max_alt_alns, nullptr);
+                                           dynamic_alt_alns, max_gap, pessimistic_tail_gap_multiplier, max_alt_alns, std::numeric_limits<size_t>::max(), nullptr);
         
         
         for (bool handling_right_tail : {false, true}) {
@@ -4226,8 +4226,9 @@ namespace vg {
     
 void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                     bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                    double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
-                                    size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
+                                    double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies,
+                                    size_t unmergeable_len, size_t band_padding,
+                                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
 
                                     bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
@@ -4244,6 +4245,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               dynamic_alt_alns,
               max_gap,
               pessimistic_tail_gap_multiplier,
+              max_tail_length,
               simplify_topologies,
               unmergeable_len,
               algorithms::pad_band_constant(band_padding),
@@ -5184,7 +5186,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                        double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
+                                        double pessimistic_tail_gap_multiplier, size_t max_tail_length,
+                                        bool simplify_topologies, size_t unmergeable_len,
                                         const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
@@ -5450,7 +5453,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         
         // Actually align the tails
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
-                                           max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
+                                           max_gap, pessimistic_tail_gap_multiplier, 0, max_tail_length, &sources);
                 
         // TODO: merge and simplify the tail alignments? rescoring would be kind of a pain...
         
@@ -5994,7 +5997,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                          size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
-                                         size_t min_paths, unordered_set<size_t>* sources) {
+                                         size_t min_paths, size_t max_tail_length, unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
         cerr << "doing tail alignments to:" << endl;
@@ -6110,7 +6113,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     
                     // align against the graph
                     auto& alt_alignments = right_alignments[j];
-                    if (num_alt_alns == 1) {
+                    if (right_tail_sequence.sequence().size() > max_tail_length) {
+#ifdef debug_multipath_alignment
+                        cerr << "softclip long right" << endl;
+#endif
+                        alt_alignments.emplace_back(std::move(right_tail_sequence));
+                        Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
+                        m->mutable_position()->set_node_id(id(end_pos));
+                        m->mutable_position()->set_is_reverse(is_rev(end_pos));
+                        m->mutable_position()->set_offset(offset(end_pos));
+                        Edit* e = m->add_edit();
+                        e->set_to_length(alt_alignments.back().sequence().size());
+                        e->set_sequence(alt_alignments.back().sequence());
+                    }
+                    else if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
                         cerr << "align right with dozeu with gap " << gap << endl;
 #endif
@@ -6231,7 +6247,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         
                         // align against the graph
                         auto& alt_alignments = left_alignments[j];
-                        if (num_alt_alns == 1) {
+                        if (left_tail_sequence.sequence().size() > max_tail_length) {
+#ifdef debug_multipath_alignment
+                            cerr << "softclip long left" << endl;
+#endif
+                            alt_alignments.emplace_back(std::move(left_tail_sequence));
+                            Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
+                            m->mutable_position()->set_node_id(id(begin_pos));
+                            m->mutable_position()->set_is_reverse(is_rev(begin_pos));
+                            m->mutable_position()->set_offset(offset(begin_pos));
+                            Edit* e = m->add_edit();
+                            e->set_to_length(alt_alignments.back().sequence().size());
+                            e->set_sequence(alt_alignments.back().sequence());
+                        }
+                        else if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
                             cerr << "align left with dozeu using gap " << gap << endl;
 #endif
