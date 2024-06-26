@@ -243,7 +243,8 @@ void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     stringstream ss;
     ss << var;
     string dest;
-    zstdutil::CompressString(ss.str(), dest);
+    int ret = zstdutil::CompressString(ss.str(), dest);
+    assert(ret == 0);
     // the Variant object is too big to keep in memory when there are many genotypes, so we
     // store it in a zstd-compressed string
     output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), dest));
@@ -265,7 +266,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         });
     for (auto v : all_variants) {
         string dest;
-        zstdutil::DecompressString(v.second, dest);
+        int ret = zstdutil::DecompressString(v.second, dest);
+        assert(ret == 0);
         out_stream << dest << endl;
     }
 }
@@ -1013,7 +1015,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
-            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            assert(ret == 0);
             vector<string> toks = split_delims(output_variant_string, "\t", 4);
             names_in_vcf.insert(toks[2]);
         }
@@ -1046,7 +1049,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         auto& thread_buf = output_variants[i];
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
-            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            assert(ret == 0);
             //string& output_variant_string = output_variant_record.second;
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
@@ -1070,7 +1074,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 }
             }
             output_variant_record.second.clear();
-            zstdutil::CompressString(output_variant_string, output_variant_record.second);
+            int ret = zstdutil::CompressString(output_variant_string, output_variant_record.second);
+            assert(ret == 0);
         }
     }
 }
