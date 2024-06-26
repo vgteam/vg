@@ -790,7 +790,19 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
 #pragma omp critical (cerr)
         cerr << "Multiple ref traversals not yet supported with nested decomposition: removing all but first" << endl;
 #endif
-        ref_travs.resize(1);
+        size_t min_start_pos = numeric_limits<size_t>::max();
+        int64_t first_ref_trav;
+        for (int64_t i = 0; i < ref_travs.size(); ++i) {            
+            auto& ref_trav_idx = ref_travs[i];
+            step_handle_t start_step = trav_steps[ref_trav_idx].first;
+            step_handle_t end_step = trav_steps[ref_trav_idx].second;
+            size_t ref_trav_pos = min(graph->get_position_of_step(start_step), graph->get_position_of_step(end_step));
+            if (ref_trav_pos < min_start_pos) {
+                min_start_pos = ref_trav_pos;
+                first_ref_trav = i;
+            }
+        }
+        ref_travs = {ref_travs[first_ref_trav]};        
     }
 
     // XXX CHECKME this assumes there is only one reference path here, and that multiple traversals are due to cycles
