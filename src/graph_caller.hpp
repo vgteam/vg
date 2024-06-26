@@ -85,7 +85,8 @@ public:
                               const vector<size_t>& contig_length_overrides) const;
 
     /// Add a variant to our buffer
-    void add_variant(vcflib::Variant& var) const;
+    /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
+    bool add_variant(vcflib::Variant& var) const;
 
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
@@ -113,7 +114,8 @@ protected:
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
     
     /// print a vcf variant
-    void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+    /// return value is taken from add_variant (see above)
+    bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                       const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
@@ -166,6 +168,9 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
+
+    // prevent giant variants
+    static const int64_t max_vcf_line_length = 2000000000;
 };
 
 /**
