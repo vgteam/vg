@@ -892,7 +892,6 @@ int main_giraffe(int argc, char** argv) {
         // Don't do gapless extension
         .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<double>("mapq-score-scale", 0.001)
-        .add_entry<size_t>("mapq-score-window", 150)
         .add_entry<double>("zipcode-tree-score-threshold", 100.0)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
