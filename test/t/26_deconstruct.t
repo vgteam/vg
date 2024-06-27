@@ -213,7 +213,7 @@ is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | awk '{print $8}') "AC
 rm -f nested_snp_in_nested_ins.snarls nested_snp_in_nested_ins.vcf
 
 vg deconstruct nesting/nested_snp_in_ins_cycle.gfa -P x -n > nested_snp_in_ins_cycle.vcf
-printf "A#1#y0\t6\t>2>5\tA\tT\tAC=2;AF=0.5;AN=4;AT=>2>4>5,>2>3>5;NS=2;PA=1;PL=7;PR=1;RC=x;RD=1;RL=7;RS=1;LV=1;PS=>1>6\t0|1\t0|1\n" >  nested_snp_in_ins_cycle_truth.tsv
+printf "A#1#y0\t3\t>2>5\tA\tT\tAC=2;AF=0.5;AN=4;AT=>2>4>5,>2>3>5;NS=2;PA=1;PL=7;PR=1;RC=x;RD=1;RL=7;RS=1;LV=1;PS=>1>6\t0|1\t0|1\n" >  nested_snp_in_ins_cycle_truth.tsv
 printf "x\t1\t>1>6\tC\tCAAGAAG,CATG,CAAG\tAC=1,2,1;AF=0.25,0.5,0.25;AN=4;AT=>1>6,>1>2>4>5>2>4>5>6,>1>2>3>5>6,>1>2>4>5>6;NS=2;PA=0;PL=1;PR=1;RC=x;RD=1;RL=1;RS=1;LV=0\t1|2\t3|2\n" >> nested_snp_in_ins_cycle_truth.tsv
 grep -v ^#  nested_snp_in_ins_cycle.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $8 "\t" $10 "\t" $11}' > nested_snp_in_ins_cycle.tsv
 diff nested_snp_in_ins_cycle.tsv nested_snp_in_ins_cycle_truth.tsv
