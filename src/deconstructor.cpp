@@ -1285,7 +1285,7 @@ void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
             queue.pop_back();
             snarls.push_back(snarl);
             const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
-            snarls.insert(snarls.end(), children.begin(), children.end());
+            queue.insert(queue.end(), children.begin(), children.end());
         }
     } else {
         swap(snarls, queue);
