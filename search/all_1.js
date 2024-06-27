@@ -71,7 +71,7 @@ var searchData=
   ['add_5ftranscripts_5fto_5fgbwt_103',['add_transcripts_to_gbwt',['../classvg_1_1Transcriptome.html#ab7fbe9d1f6688cc06381ff863a345dc4',1,'vg::Transcriptome']]],
   ['add_5ftraversals_104',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],
   ['add_5funary_5fchild_105',['add_unary_child',['../classvg_1_1NetGraph.html#a3780b053c5632c4425b7057d34bffe3a',1,'vg::NetGraph']]],
-  ['add_5fvariant_106',['add_variant',['../classvg_1_1VCFOutputCaller.html#a7200c6586a6e4f2ceb8271c9e9635fa6',1,'vg::VCFOutputCaller']]],
+  ['add_5fvariant_106',['add_variant',['../classvg_1_1VCFOutputCaller.html#a2cc880b6121547ff0cdd5ac9a7b1b505',1,'vg::VCFOutputCaller']]],
   ['add_5fvariants_107',['add_variants',['../classvg_1_1VariantAdder.html#a4cf25deb4e0e2270c76e2fcd0f3dbf99',1,'vg::VariantAdder']]],
   ['addarbitrarytelomerepair_108',['addArbitraryTelomerePair',['../namespacevg.html#a948a49f6716e35c8da05e84497dc01e4',1,'vg']]],
   ['added_5ffwd_109',['added_fwd',['../classvg_1_1ExtraNodeGraph.html#a0c76a41ba36fe38013e9003c7e98943c',1,'vg::ExtraNodeGraph']]],
