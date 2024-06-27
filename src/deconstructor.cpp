@@ -1069,7 +1069,15 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             // run vcffixup to add some basic INFO like AC
             vcf_fixup(v);
-            add_variant(v);
+            bool added = add_variant(v);
+            if (!added) {
+                stringstream ss;
+                ss << v;
+                cerr << "Warning [vg deconstruct]: Skipping variant at " << v.sequenceName << ":" << v.position
+                     << " with ID=" << v.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
+                     << VCFOutputCaller::max_vcf_line_length << endl;
+                return false;            
+            }
         }
     }
     return true;
@@ -1277,7 +1285,7 @@ void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
             queue.pop_back();
             snarls.push_back(snarl);
             const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
-            snarls.insert(snarls.end(), children.begin(), children.end());
+            queue.insert(queue.end(), children.begin(), children.end());
         }
     } else {
         swap(snarls, queue);

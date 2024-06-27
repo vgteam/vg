@@ -238,15 +238,20 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     return ss.str();
 }
 
-void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
+bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
     ss << var;
     string dest;
-    zstdutil::CompressString(ss.str(), dest);
+    if (ss.str().length() > VCFOutputCaller::max_vcf_line_length) {
+        return false;
+    }         
+    int ret = zstdutil::CompressString(ss.str(), dest);
+    assert(ret == 0);
     // the Variant object is too big to keep in memory when there are many genotypes, so we
     // store it in a zstd-compressed string
     output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), dest));
+    return true;
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
@@ -265,7 +270,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         });
     for (auto v : all_variants) {
         string dest;
-        zstdutil::DecompressString(v.second, dest);
+        int ret = zstdutil::DecompressString(v.second, dest);
+        assert(ret == 0);
         out_stream << dest << endl;
     }
 }
@@ -438,7 +444,7 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
     return seq;    
 }
 
-void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                    const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
@@ -597,8 +603,17 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 #endif
 
     if (genotype_snarls || !out_variant.alt.empty()) {
-        add_variant(out_variant);
+        bool added = add_variant(out_variant);
+        if (!added) {
+            stringstream ss;
+            ss << out_variant;
+            cerr << "Warning [vg call]: Skipping variant at " << out_variant.sequenceName << ":" << out_variant.position
+                 << " with ID=" << out_variant.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
+                 << VCFOutputCaller::max_vcf_line_length << endl;
+        }
+        return added;
     }
+    return true;
 }
 
 tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
@@ -1013,7 +1028,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
-            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            assert(ret == 0);
             vector<string> toks = split_delims(output_variant_string, "\t", 4);
             names_in_vcf.insert(toks[2]);
         }
@@ -1046,7 +1062,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         auto& thread_buf = output_variants[i];
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
-            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            assert(ret == 0);
             //string& output_variant_string = output_variant_record.second;
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
@@ -1070,7 +1087,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 }
             }
             output_variant_record.second.clear();
-            zstdutil::CompressString(output_variant_string, output_variant_record.second);
+            ret = zstdutil::CompressString(output_variant_string, output_variant_record.second);
+            assert(ret == 0);
         }
     }
 }
@@ -1458,10 +1476,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second, false,
+            was_called = emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second, false,
                          ploidy);
 
-            was_called = true;
         }
     }        
     if (!is_vg) {
@@ -1871,15 +1888,16 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
+        bool added = true;
         if (!gaf_output) {
-            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                         ref_offsets[ref_path_name], genotype_snarls, ploidy);
+            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                                 ref_offsets[ref_path_name], genotype_snarls, ploidy);
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
 
-        ret_val = trav_genotype.size() == ploidy;
+        ret_val = trav_genotype.size() == ploidy && added;
     }
         
     return ret_val;
@@ -2262,10 +2280,13 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
                 return flatten_alt_allele(allele_string, std::min(allele_ploidy-1, genotype_allele), allele_ploidy, call_table);
             }
         };
-                
+
         if (!gaf_output) {
-            emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
-                         ref_offsets[record.ref_path_name], genotype_snarls, ploidy, trav_to_flat_string);
+            bool added = emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
+                                 ref_offsets[record.ref_path_name], genotype_snarls, ploidy, trav_to_flat_string);
+            if (!added) {
+                return false;
+            }
         } else {
             // todo:
             //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
