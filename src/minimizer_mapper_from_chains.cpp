@@ -2763,7 +2763,7 @@ static void check_path(const Path& path, const std::string step_name) {
             bool is_delete = (edit.from_length() > 0 && edit.to_length() == 0);
         
             if ((prev_was_insert && is_delete) || (prev_was_delete && is_insert)) {
-                throw std::runtime_error("Insert and delete operations are adjacent at mapping " + std::to_string(mapping_index) + " edit " + std::to_string(edit_index) + " during " + step_name);
+                throw std::runtime_error("Insert and delete operations are adjacent at mapping " + std::to_string(mapping_index) + "/" + std::to_string(path.mapping_size()) + " edit " + std::to_string(edit_index) + "/" + std::to_string(mapping.edit_size()) + " during " + step_name);
             }
 
             // Save for the next iteration
@@ -3850,7 +3850,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                         exp.value(dagified_graph);
                         exp.key("pin_left");
                         exp.value(!is_empty(left_anchor));
-                        exp.key("max_graph_length");
+                        exp.key("max_gap_length");
                         exp.value(max_gap_length);
                         exp.object_end();
                     }
