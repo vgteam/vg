@@ -2557,6 +2557,1573 @@ namespace vg {
             REQUIRE(aln1.score() == 3);
             REQUIRE(aln2.score() == 3);
         }
+
+        TEST_CASE("Pinned alignment doesn't produce invalid alignments",
+                  "[alignment][pinned][mapping]" ) {
+            
+            std::string read_string = "AAGTGGACTGCATTAGAGGGAGCAGATTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAGAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTCTCAGAAACTGCTGCGTGATGTGCGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTGCATGTAAGGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTTGAAAGTGTAGATTTCAAGCGCTTTAAGGTCAGTGGCAGAAAAGGAAATATCATCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCTGACATCTAGTGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTATTTCCTTGTTTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAACGGTAGAAAAGGAAATATCTTCGTAATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTGAGTCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATAGTAGAAAAGGAAATATCTTCGTAGAAAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGTGTTCAACTCACAGAGTTTAACCTTACTTTTCATAGAGCAGTTAGTAAACACTCTGTTTATAAAGTCTGCAAGTGGATATTCAGACCCCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGGGAGCAGATTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAAGATTCTCAGAAACTGCTGCGTGATGTGCGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCTAAGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTGCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTTGCAAGTGTAGATTTCAAGCGCTTTAAGGTCAGTGGCAGAAAAGGATATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCTGACATCTTGTGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACAATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAAAAGGAAATATCTTCGTATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTATTCATAGACCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAGGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACACACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATAGTAGAAAAGGGAATATCTTCGTAGAAAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGTGTTCAACTTACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGTAAACACTCTGTTTATAAAGTCTGCAAGTGGATATTCAGACCCCTTTGAGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGGGAGCAGATTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTCTCAGAAACTGCTGCGTGATGTGCGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTGCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTTGCAAGTGTAGATTTCAAGCGCTTTAAGGTCAGTGGCAGAAAAGGATATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCCGACATCTTGTGGCCTTCGTTGGAAACGGGATTTCTTCATATCTGGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACAATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTGAATGGTAGAAAAGGAAATATCTTCGTATAAAGATAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAGCTTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAGGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGACACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACACACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGAGGAGATTTAGCCGCTTTGAGGTCAATAGTAGAAAAGGGAATATCTTCGTAGAAAAACTAGACAGAATGATTCTCAGAAACTCTTTGTGATGTGTGTGTTCAACTTACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGTAAACACTCTGTTTATAAAGTCTGCAAGTGGATATTCAGACCCCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGGGAGCAGATTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTCTCAGAAACTGCTGCGTGATGTGCGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTGCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTTGTGCAATTTGCAAGTGTAGATTTCAAGCGCTTTAAGGTCAGTGGCAGAAAAGGAAATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGATATTCTGACATCTTGTGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTGTGTGTATTCAACTCACAGAGTTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAAAAGGAAATATCTTCGTATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTTTTCATAAAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGTAACTGACAGAATGATCTCAGAAGACTCCTTTGGTGATGGTGGCGTTCAACTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAAACACCCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATAGTAGAAAAGGAAATATCTTCGTAGAAAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGTGTTCAACTCACAGAGTTTAACCTGCTTTTCATAGAGCAGTTAGTAAACACTCTGTTTATAAAGTCTGCAAGTGGATATTTAGACCCCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGACGTTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGAGAGCAGATTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCATTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTACACAGAATCATTCTCAGAAACTGCTGCGTGATGTGTGCGTTCAACTCTCTGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTAGATATTTTGACCACTTAGAGGCCTCGTTGGAAACGGGTTTTTTTCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAAGAGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTGGCAAGTGTAGATTTCAAACGCTTTAAGGTCAAAGGCAGAAAAGGAAATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCTGACATCTTGTGGCCTTCGTTGGAAACGGAATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTCGAGGTCAATGGTAGAATAGGT";
+            std::string graph_json = R"(
+
+{
+  "node": [
+    {
+      "id": "56",
+      "sequence": "C"
+    },
+    {
+      "id": "35",
+      "sequence": "AAAAACTAGACAGAATCATTCTCAGAAACTGCTGCGTGATGTGTGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTTCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTGGCAAGTGTAGATTTCAAGCGCTTTAA"
+    },
+    {
+      "id": "60",
+      "sequence": "AGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAAAAGGAAATATCTTCGTATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGTATATCCAGATCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGC"
+    },
+    {
+      "id": "67",
+      "sequence": "TCT"
+    },
+    {
+      "id": "73",
+      "sequence": "AAACACTCTGTTT"
+    },
+    {
+      "id": "115",
+      "sequence": "C"
+    },
+    {
+      "id": "112",
+      "sequence": "GA"
+    },
+    {
+      "id": "86",
+      "sequence": "CCTTCGTTGGAAAC"
+    },
+    {
+      "id": "168",
+      "sequence": "A"
+    },
+    {
+      "id": "12",
+      "sequence": "G"
+    },
+    {
+      "id": "75",
+      "sequence": "TAAAGTCTGCA"
+    },
+    {
+      "id": "23",
+      "sequence": "CTTTCTTTTCATAGAGCAGTTAGGAGACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGAGAGCAGATTGCAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTCTCAGAAACTGCAGCGTGATGTGTGCATTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCTGTTTGGAAACACTCTGTTTGTAAAGTCTGCACGTGGATATTTTGACCACTTAGAG"
+    },
+    {
+      "id": "111",
+      "sequence": "A"
+    },
+    {
+      "id": "41",
+      "sequence": "CTTCGT"
+    },
+    {
+      "id": "68",
+      "sequence": "T"
+    },
+    {
+      "id": "82",
+      "sequence": "CTT"
+    },
+    {
+      "id": "130",
+      "sequence": "GGCAGAAAAGGAAATATCTTCGT"
+    },
+    {
+      "id": "125",
+      "sequence": "AA"
+    },
+    {
+      "id": "77",
+      "sequence": "GTGGATATT"
+    },
+    {
+      "id": "172",
+      "sequence": "T"
+    },
+    {
+      "id": "71",
+      "sequence": "G"
+    },
+    {
+      "id": "66",
+      "sequence": "GCTAGACAGAAGAATTC"
+    },
+    {
+      "id": "103",
+      "sequence": "C"
+    },
+    {
+      "id": "59",
+      "sequence": "G"
+    },
+    {
+      "id": "26",
+      "sequence": "A"
+    },
+    {
+      "id": "127",
+      "sequence": "T"
+    },
+    {
+      "id": "116",
+      "sequence": "T"
+    },
+    {
+      "id": "100",
+      "sequence": "GCTAGACAGAAGAATTC"
+    },
+    {
+      "id": "79",
+      "sequence": "GAC"
+    },
+    {
+      "id": "141",
+      "sequence": "T"
+    },
+    {
+      "id": "135",
+      "sequence": "C"
+    },
+    {
+      "id": "138",
+      "sequence": "AAACTGC"
+    },
+    {
+      "id": "107",
+      "sequence": "G"
+    },
+    {
+      "id": "46",
+      "sequence": "C"
+    },
+    {
+      "id": "57",
+      "sequence": "GTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTCGAGGTCAATGGTAGAATAGGTAATATCTTCCTATAGAAACTAGACAGAATAATTCTCAGAAACTC"
+    },
+    {
+      "id": "152",
+      "sequence": "AGC"
+    },
+    {
+      "id": "170",
+      "sequence": "C"
+    },
+    {
+      "id": "129",
+      "sequence": "T"
+    },
+    {
+      "id": "78",
+      "sequence": "TT"
+    },
+    {
+      "id": "133",
+      "sequence": "C"
+    },
+    {
+      "id": "72",
+      "sequence": "G"
+    },
+    {
+      "id": "1",
+      "sequence": ""
+    },
+    {
+      "id": "137",
+      "sequence": "C"
+    },
+    {
+      "id": "22",
+      "sequence": "G"
+    },
+    {
+      "id": "154",
+      "sequence": "GTT"
+    },
+    {
+      "id": "33",
+      "sequence": "GTCAATGGCAGAAAAGGAAATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTGAACCTTTCTGTTCATAGAGCAGTTAGGAAACATTCTGTTTGTAAAGTCTGTAAGTGGATATTCTCACATCTTGTGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTCACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACA"
+    },
+    {
+      "id": "40",
+      "sequence": "G"
+    },
+    {
+      "id": "113",
+      "sequence": "C"
+    },
+    {
+      "id": "165",
+      "sequence": "G"
+    },
+    {
+      "id": "142",
+      "sequence": "C"
+    },
+    {
+      "id": "5",
+      "sequence": "TTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTT"
+    },
+    {
+      "id": "55",
+      "sequence": "TTTGTGATGTGTGCGTTCAACTCACAAAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGG"
+    },
+    {
+      "id": "114",
+      "sequence": "AGAGCAGATTTGAAACACT"
+    },
+    {
+      "id": "136",
+      "sequence": "CA"
+    },
+    {
+      "id": "117",
+      "sequence": "A"
+    },
+    {
+      "id": "45",
+      "sequence": "AAATATCTTCCTATAGAAACTAGACAGAAAGATTCTCATAAACTCCTTTGTGATGTGTGTGTTCAACTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAGACACTCTGTTTGTAAAGTCTGCAAGT"
+    },
+    {
+      "id": "145",
+      "sequence": "A"
+    },
+    {
+      "id": "158",
+      "sequence": "A"
+    },
+    {
+      "id": "28",
+      "sequence": "C"
+    },
+    {
+      "id": "148",
+      "sequence": "TTTCT"
+    },
+    {
+      "id": "92",
+      "sequence": "T"
+    },
+    {
+      "id": "36",
+      "sequence": "A"
+    },
+    {
+      "id": "118",
+      "sequence": "TTTGTG"
+    },
+    {
+      "id": "162",
+      "sequence": "TGAC"
+    },
+    {
+      "id": "84",
+      "sequence": "GA"
+    },
+    {
+      "id": "7",
+      "sequence": "AGAGCAG"
+    },
+    {
+      "id": "25",
+      "sequence": "TTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGAAACTAGACAGAATGATTCTCATAAACTCCTTTGTGATGAGTGCGTTCAACTCACAGAGTTTAA"
+    },
+    {
+      "id": "95",
+      "sequence": "G"
+    },
+    {
+      "id": "93",
+      "sequence": "G"
+    },
+    {
+      "id": "18",
+      "sequence": "G"
+    },
+    {
+      "id": "147",
+      "sequence": "C"
+    },
+    {
+      "id": "157",
+      "sequence": "T"
+    },
+    {
+      "id": "16",
+      "sequence": "A"
+    },
+    {
+      "id": "19",
+      "sequence": "TGTGTATTCAACTCACAGAGTTGAACGATCCTTTACTGAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCATGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACCTTTCTTTTCA"
+    },
+    {
+      "id": "44",
+      "sequence": "A"
+    },
+    {
+      "id": "31",
+      "sequence": "AGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAAAAGGAAATATCTTCGTATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTTTTCATAGAGCAGTTAGGAAATGCTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGAAACTAGACAGAATGATTCTCATAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAAAGACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCCTTG"
+    },
+    {
+      "id": "146",
+      "sequence": "CAGAGTTTAAC"
+    },
+    {
+      "id": "74",
+      "sequence": "G"
+    },
+    {
+      "id": "61",
+      "sequence": "G"
+    },
+    {
+      "id": "29",
+      "sequence": "CGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAAAAGGAAATATCTTCGTATAAAGACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCAACTCACAGAGTTTAACTTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAATAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGCGTTCACCTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCTTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTC"
+    },
+    {
+      "id": "159",
+      "sequence": "A"
+    },
+    {
+      "id": "101",
+      "sequence": "C"
+    },
+    {
+      "id": "105",
+      "sequence": "C"
+    },
+    {
+      "id": "17",
+      "sequence": "AGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCTCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATACTATGATAGACAGAATAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAGCAGACTTGATATACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAGGAAATATCTTCCTATAGAAACTAGACAGAATGATTCTCATAAACTCCATTGTGATGTGTGCGTTCAACTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGGAGACACTCTGTTTGTAAAGTCTGCAAGTGGATATTCAGACCCCTTTGAGGCCTTCGATGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGAGAGCAGATTTG"
+    },
+    {
+      "id": "166",
+      "sequence": "T"
+    },
+    {
+      "id": "89",
+      "sequence": "T"
+    },
+    {
+      "id": "80",
+      "sequence": "G"
+    },
+    {
+      "id": "51",
+      "sequence": "TTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTCACAGAGTTGAACGATC"
+    },
+    {
+      "id": "143",
+      "sequence": "C"
+    },
+    {
+      "id": "48",
+      "sequence": "C"
+    },
+    {
+      "id": "15",
+      "sequence": "AACACTGTTTTTGTGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTGTCAGAAACTGCTGCGTGATGTGTGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACAGTCTGTTTGTAAATTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGATTTTTTCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACAGTCTATTTGTGCAATTTGCAAGTGTAGATTTCAAGCGCTTTAAGGTCAATGGCAGAAAAGGAAATATCTTCGTTTCAAAACTAGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCT"
+    },
+    {
+      "id": "97",
+      "sequence": "A"
+    },
+    {
+      "id": "134",
+      "sequence": "AAAACTAGACAGAATCATTC"
+    },
+    {
+      "id": "110",
+      "sequence": "TT"
+    },
+    {
+      "id": "30",
+      "sequence": "AGGCCTTCGTTGGAAACGGGCTTTCTTCATATTCTCCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACGATCCTTTACAGAGAGCAGACTTGAAACACTCTTTCTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATAGTAGAAAAGGAAATATCTTCGTAGAAAAACTAGACAGAATGATTCTCAGAAACTCCTTTGTGATGTGTGTGTTCAACTCACAGAGTTTAACCTTTCTTTTCATAGAGCAGTTAGTAAACACTCTGTTTATAAAGTCTGCAAGTGGATATTCAGACCCCTTTGAGGCCTTCGTTGGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGAGAGCAGATTTGAAACACTGTTTTTGTGGAATTTCCAAGGGAGATTTCAAGCGCTTTGTGGCCAAAGGCAGAAAAGGAAATATCTTCGTATAAAAACTAGACAGAATCATTCTCAGAAACTGCTGCGTGATGTGTGCGTTCAACTCTCAGAGTTTAACTTTTCTTTTCATTCAGCGGTTTGGAAACACTCTGTTTGTAAGTCTGCACGTGGATATTTTGACCACTTAGAGGCCTTCGTTGGAAACGGGTTTTTTTCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTTGTGTGCATTCAACTCACAGAGTTGAACGTTCCCTTAGACAGAGCAGATTTGAAACACTCTATTTGTGCAATTGGCAAGTGTAGATTTCAAGCGCTTTAAGGTCAATGGCAGAAAAGGAAATATCTTCGTTTCAAAACTTGACAGAATCATTCCCACAAACTGCGTTGTGATGTGTTCGTTCAACTCACAGAGTTTAACCTTTCTGTTCATAGAGCAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCTGACATCTTGTGGCCTT"
+    },
+    {
+      "id": "6",
+      "sequence": "ACTTGAAACACTCTTT"
+    },
+    {
+      "id": "164",
+      "sequence": "CTT"
+    },
+    {
+      "id": "153",
+      "sequence": "A"
+    },
+    {
+      "id": "64",
+      "sequence": "CA"
+    },
+    {
+      "id": "90",
+      "sequence": "TTT"
+    },
+    {
+      "id": "139",
+      "sequence": "GTT"
+    },
+    {
+      "id": "4",
+      "sequence": "C"
+    },
+    {
+      "id": "13",
+      "sequence": "TTCATAGA"
+    },
+    {
+      "id": "104",
+      "sequence": "ATTCAACT"
+    },
+    {
+      "id": "52",
+      "sequence": "G"
+    },
+    {
+      "id": "43",
+      "sequence": "GATATTCAGACCTCTTTGAGG"
+    },
+    {
+      "id": "11",
+      "sequence": "CAGTTAGGAAACACTCTGTTTGTAAAGTCTGTAAGTGGATATTCTGACATCTTGTGGCCTTCGTTGGAAACGGGATTTCTTCATATTCTGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTG"
+    },
+    {
+      "id": "69",
+      "sequence": "GTT"
+    },
+    {
+      "id": "171",
+      "sequence": "T"
+    },
+    {
+      "id": "85",
+      "sequence": "GG"
+    },
+    {
+      "id": "119",
+      "sequence": "C"
+    },
+    {
+      "id": "39",
+      "sequence": "GGAAACGGGATTTCTTCATATTATGCTAGACAGAAGAATTCTCAGTAACTTCCTTGTGTTGTGTGTATTCAACTGACAGAGTTGAACTTTCATTTAGAGAGAGCAGATTTGAAACACTGTTTTT"
+    },
+    {
+      "id": "126",
+      "sequence": "GG"
+    },
+    {
+      "id": "108",
+      "sequence": "TTC"
+    },
+    {
+      "id": "156",
+      "sequence": "GGAAACACTCTGTTTGTAAAGTCTG"
+    },
+    {
+      "id": "2",
+      "sequence": "T"
+    },
+    {
+      "id": "10",
+      "sequence": "T"
+    },
+    {
+      "id": "27",
+      "sequence": "GTAA"
+    },
+    {
+      "id": "124",
+      "sequence": "AGATTTCAAGCGCTTT"
+    },
+    {
+      "id": "144",
+      "sequence": "TTCAACTC"
+    },
+    {
+      "id": "20",
+      "sequence": "G"
+    },
+    {
+      "id": "81",
+      "sequence": "A"
+    },
+    {
+      "id": "9",
+      "sequence": "GTGTATTCAACTCACAGAGTTGAACGATCCTTTACA"
+    },
+    {
+      "id": "109",
+      "sequence": "CC"
+    },
+    {
+      "id": "161",
+      "sequence": "C"
+    },
+    {
+      "id": "88",
+      "sequence": "GG"
+    },
+    {
+      "id": "120",
+      "sequence": "AATT"
+    },
+    {
+      "id": "24",
+      "sequence": "G"
+    },
+    {
+      "id": "8",
+      "sequence": "G"
+    },
+    {
+      "id": "37",
+      "sequence": "TGGAATTTGCAAGTGGAGATTTCAAGCGCTTTGGGGCCAAAGGCAGAAAAGGAAATATCTTCGTA"
+    },
+    {
+      "id": "83",
+      "sequence": "A"
+    },
+    {
+      "id": "99",
+      "sequence": "G"
+    },
+    {
+      "id": "121",
+      "sequence": "T"
+    },
+    {
+      "id": "14",
+      "sequence": "G"
+    },
+    {
+      "id": "174",
+      "sequence": "AT"
+    },
+    {
+      "id": "123",
+      "sequence": "T"
+    },
+    {
+      "id": "32",
+      "sequence": "C"
+    },
+    {
+      "id": "151",
+      "sequence": "AG"
+    },
+    {
+      "id": "54",
+      "sequence": "A"
+    },
+    {
+      "id": "63",
+      "sequence": "GTAACTTCCTTGTGTT"
+    },
+    {
+      "id": "91",
+      "sequence": "T"
+    },
+    {
+      "id": "62",
+      "sequence": "GTGTGTATTCAACTCACAGAGTTGAACGATCCTTTACACAGAG"
+    },
+    {
+      "id": "150",
+      "sequence": "TTCAT"
+    },
+    {
+      "id": "122",
+      "sequence": "GCAAGTG"
+    },
+    {
+      "id": "58",
+      "sequence": "AGACAGAATAATTCTCA"
+    },
+    {
+      "id": "173",
+      "sequence": "C"
+    },
+    {
+      "id": "98",
+      "sequence": "A"
+    },
+    {
+      "id": "76",
+      "sequence": "C"
+    },
+    {
+      "id": "34",
+      "sequence": "G"
+    },
+    {
+      "id": "50",
+      "sequence": "C"
+    },
+    {
+      "id": "167",
+      "sequence": "GGCCTTCGTTGGAAACGGG"
+    },
+    {
+      "id": "42",
+      "sequence": "T"
+    },
+    {
+      "id": "87",
+      "sequence": "T"
+    },
+    {
+      "id": "132",
+      "sequence": "T"
+    },
+    {
+      "id": "140",
+      "sequence": "GTGATGTGT"
+    },
+    {
+      "id": "169",
+      "sequence": "TTT"
+    },
+    {
+      "id": "160",
+      "sequence": "GTGGATATT"
+    },
+    {
+      "id": "49",
+      "sequence": "TTTACACAGAGCAGACTT"
+    },
+    {
+      "id": "106",
+      "sequence": "ACAGAGTTGAAC"
+    },
+    {
+      "id": "94",
+      "sequence": "CAT"
+    },
+    {
+      "id": "102",
+      "sequence": "CAGTAACTTCCTTGTGTTGTGTG"
+    },
+    {
+      "id": "128",
+      "sequence": "CAA"
+    },
+    {
+      "id": "70",
+      "sequence": "T"
+    },
+    {
+      "id": "21",
+      "sequence": "CCTTCTTTGGAAACGGGTTTTTTTCATGTAAGGCTAGACAGAAGAATTCCCAGTAACTTCCTTGTGTT"
+    },
+    {
+      "id": "38",
+      "sequence": "G"
+    },
+    {
+      "id": "163",
+      "sequence": "AT"
+    },
+    {
+      "id": "131",
+      "sequence": "T"
+    },
+    {
+      "id": "53",
+      "sequence": "TATTCAGACCTCTTTGAGGCCTTC"
+    },
+    {
+      "id": "47",
+      "sequence": "AAACACTCTTTTTGTGGAATTTGCAAGTGGAGATTTCAGCCGCTTTGAGGTCAATGGTAGAATAG"
+    },
+    {
+      "id": "175",
+      "sequence": "A"
+    },
+    {
+      "id": "3",
+      "sequence": "GAGGTCAATGGTAGAATAGG"
+    },
+    {
+      "id": "96",
+      "sequence": "T"
+    },
+    {
+      "id": "149",
+      "sequence": "G"
+    },
+    {
+      "id": "155",
+      "sequence": "A"
+    },
+    {
+      "id": "65",
+      "sequence": "T"
+    }
+  ],
+  "edge": [
+    {
+      "from": "56",
+      "from_start": true,
+      "to": "57",
+      "to_end": true
+    },
+    {
+      "from": "35",
+      "from_start": true,
+      "to": "36",
+      "to_end": true
+    },
+    {
+      "from": "60",
+      "from_start": true,
+      "to": "61",
+      "to_end": true
+    },
+    {
+      "from": "67",
+      "from_start": true,
+      "to": "68",
+      "to_end": true
+    },
+    {
+      "from": "73",
+      "to": "74"
+    },
+    {
+      "from": "115",
+      "to": "116"
+    },
+    {
+      "from": "112",
+      "to": "113"
+    },
+    {
+      "from": "86",
+      "to": "87"
+    },
+    {
+      "from": "168",
+      "to": "169"
+    },
+    {
+      "from": "12",
+      "from_start": true,
+      "to": "13",
+      "to_end": true
+    },
+    {
+      "from": "75",
+      "to": "76"
+    },
+    {
+      "from": "23",
+      "from_start": true,
+      "to": "24",
+      "to_end": true
+    },
+    {
+      "from": "111",
+      "to": "112"
+    },
+    {
+      "from": "41",
+      "from_start": true,
+      "to": "42",
+      "to_end": true
+    },
+    {
+      "from": "68",
+      "from_start": true,
+      "to": "175",
+      "to_end": true
+    },
+    {
+      "from": "82",
+      "to": "83"
+    },
+    {
+      "from": "130",
+      "to": "131"
+    },
+    {
+      "from": "125",
+      "to": "126"
+    },
+    {
+      "from": "77",
+      "to": "78"
+    },
+    {
+      "from": "172",
+      "to": "173"
+    },
+    {
+      "from": "71",
+      "to": "72"
+    },
+    {
+      "from": "66",
+      "from_start": true,
+      "to": "67",
+      "to_end": true
+    },
+    {
+      "from": "103",
+      "to": "104"
+    },
+    {
+      "from": "59",
+      "from_start": true,
+      "to": "60",
+      "to_end": true
+    },
+    {
+      "from": "26",
+      "from_start": true,
+      "to": "27",
+      "to_end": true
+    },
+    {
+      "from": "127",
+      "to": "128"
+    },
+    {
+      "from": "116",
+      "to": "117"
+    },
+    {
+      "from": "100",
+      "to": "101"
+    },
+    {
+      "from": "79",
+      "to": "80"
+    },
+    {
+      "from": "141",
+      "to": "142"
+    },
+    {
+      "from": "135",
+      "to": "136"
+    },
+    {
+      "from": "138",
+      "to": "139"
+    },
+    {
+      "from": "107",
+      "to": "108"
+    },
+    {
+      "from": "46",
+      "from_start": true,
+      "to": "47",
+      "to_end": true
+    },
+    {
+      "from": "57",
+      "from_start": true,
+      "to": "58",
+      "to_end": true
+    },
+    {
+      "from": "152",
+      "to": "153"
+    },
+    {
+      "from": "170",
+      "to": "171"
+    },
+    {
+      "from": "129",
+      "to": "130"
+    },
+    {
+      "from": "78",
+      "to": "79"
+    },
+    {
+      "from": "133",
+      "to": "134"
+    },
+    {
+      "from": "72",
+      "to": "73"
+    },
+    {
+      "from": "1",
+      "from_start": true,
+      "to": "2",
+      "to_end": true
+    },
+    {
+      "from": "137",
+      "to": "138"
+    },
+    {
+      "from": "22",
+      "from_start": true,
+      "to": "23",
+      "to_end": true
+    },
+    {
+      "from": "154",
+      "to": "155"
+    },
+    {
+      "from": "33",
+      "from_start": true,
+      "to": "34",
+      "to_end": true
+    },
+    {
+      "from": "40",
+      "from_start": true,
+      "to": "41",
+      "to_end": true
+    },
+    {
+      "from": "113",
+      "to": "114"
+    },
+    {
+      "from": "165",
+      "to": "166"
+    },
+    {
+      "from": "142",
+      "to": "143"
+    },
+    {
+      "from": "5",
+      "from_start": true,
+      "to": "6",
+      "to_end": true
+    },
+    {
+      "from": "55",
+      "from_start": true,
+      "to": "56",
+      "to_end": true
+    },
+    {
+      "from": "114",
+      "to": "115"
+    },
+    {
+      "from": "136",
+      "to": "137"
+    },
+    {
+      "from": "117",
+      "to": "118"
+    },
+    {
+      "from": "45",
+      "from_start": true,
+      "to": "46",
+      "to_end": true
+    },
+    {
+      "from": "145",
+      "to": "146"
+    },
+    {
+      "from": "158",
+      "to": "159"
+    },
+    {
+      "from": "28",
+      "from_start": true,
+      "to": "29",
+      "to_end": true
+    },
+    {
+      "from": "148",
+      "to": "149"
+    },
+    {
+      "from": "92",
+      "to": "93"
+    },
+    {
+      "from": "36",
+      "from_start": true,
+      "to": "37",
+      "to_end": true
+    },
+    {
+      "from": "118",
+      "to": "119"
+    },
+    {
+      "from": "162",
+      "to": "163"
+    },
+    {
+      "from": "84",
+      "to": "85"
+    },
+    {
+      "from": "7",
+      "from_start": true,
+      "to": "8",
+      "to_end": true
+    },
+    {
+      "from": "25",
+      "from_start": true,
+      "to": "26",
+      "to_end": true
+    },
+    {
+      "from": "95",
+      "to": "96"
+    },
+    {
+      "from": "93",
+      "to": "94"
+    },
+    {
+      "from": "18",
+      "from_start": true,
+      "to": "19",
+      "to_end": true
+    },
+    {
+      "from": "147",
+      "to": "148"
+    },
+    {
+      "from": "157",
+      "to": "158"
+    },
+    {
+      "from": "16",
+      "from_start": true,
+      "to": "17",
+      "to_end": true
+    },
+    {
+      "from": "19",
+      "from_start": true,
+      "to": "20",
+      "to_end": true
+    },
+    {
+      "from": "44",
+      "from_start": true,
+      "to": "45",
+      "to_end": true
+    },
+    {
+      "from": "31",
+      "from_start": true,
+      "to": "32",
+      "to_end": true
+    },
+    {
+      "from": "146",
+      "to": "147"
+    },
+    {
+      "from": "74",
+      "to": "75"
+    },
+    {
+      "from": "61",
+      "from_start": true,
+      "to": "62",
+      "to_end": true
+    },
+    {
+      "from": "29",
+      "from_start": true,
+      "to": "30",
+      "to_end": true
+    },
+    {
+      "from": "159",
+      "to": "160"
+    },
+    {
+      "from": "101",
+      "to": "102"
+    },
+    {
+      "from": "105",
+      "to": "106"
+    },
+    {
+      "from": "17",
+      "from_start": true,
+      "to": "18",
+      "to_end": true
+    },
+    {
+      "from": "166",
+      "to": "167"
+    },
+    {
+      "from": "89",
+      "to": "90"
+    },
+    {
+      "from": "80",
+      "to": "81"
+    },
+    {
+      "from": "51",
+      "from_start": true,
+      "to": "52",
+      "to_end": true
+    },
+    {
+      "from": "143",
+      "to": "144"
+    },
+    {
+      "from": "48",
+      "from_start": true,
+      "to": "49",
+      "to_end": true
+    },
+    {
+      "from": "15",
+      "from_start": true,
+      "to": "16",
+      "to_end": true
+    },
+    {
+      "from": "97",
+      "to": "98"
+    },
+    {
+      "from": "134",
+      "to": "135"
+    },
+    {
+      "from": "110",
+      "to": "111"
+    },
+    {
+      "from": "30",
+      "from_start": true,
+      "to": "31",
+      "to_end": true
+    },
+    {
+      "from": "6",
+      "from_start": true,
+      "to": "7",
+      "to_end": true
+    },
+    {
+      "from": "164",
+      "to": "165"
+    },
+    {
+      "from": "153",
+      "to": "154"
+    },
+    {
+      "from": "64",
+      "from_start": true,
+      "to": "65",
+      "to_end": true
+    },
+    {
+      "from": "90",
+      "to": "91"
+    },
+    {
+      "from": "139",
+      "to": "140"
+    },
+    {
+      "from": "4",
+      "from_start": true,
+      "to": "5",
+      "to_end": true
+    },
+    {
+      "from": "13",
+      "from_start": true,
+      "to": "14",
+      "to_end": true
+    },
+    {
+      "from": "104",
+      "to": "105"
+    },
+    {
+      "from": "52",
+      "from_start": true,
+      "to": "53",
+      "to_end": true
+    },
+    {
+      "from": "43",
+      "from_start": true,
+      "to": "44",
+      "to_end": true
+    },
+    {
+      "from": "11",
+      "from_start": true,
+      "to": "12",
+      "to_end": true
+    },
+    {
+      "from": "69",
+      "to": "70"
+    },
+    {
+      "from": "171",
+      "to": "172"
+    },
+    {
+      "from": "85",
+      "to": "86"
+    },
+    {
+      "from": "119",
+      "to": "120"
+    },
+    {
+      "from": "39",
+      "from_start": true,
+      "to": "40",
+      "to_end": true
+    },
+    {
+      "from": "126",
+      "to": "127"
+    },
+    {
+      "from": "108",
+      "to": "109"
+    },
+    {
+      "from": "156",
+      "to": "157"
+    },
+    {
+      "from": "2",
+      "from_start": true,
+      "to": "3",
+      "to_end": true
+    },
+    {
+      "from": "10",
+      "from_start": true,
+      "to": "11",
+      "to_end": true
+    },
+    {
+      "from": "27",
+      "from_start": true,
+      "to": "28",
+      "to_end": true
+    },
+    {
+      "from": "124",
+      "to": "125"
+    },
+    {
+      "from": "144",
+      "to": "145"
+    },
+    {
+      "from": "20",
+      "from_start": true,
+      "to": "21",
+      "to_end": true
+    },
+    {
+      "from": "81",
+      "to": "82"
+    },
+    {
+      "from": "9",
+      "from_start": true,
+      "to": "10",
+      "to_end": true
+    },
+    {
+      "from": "109",
+      "to": "110"
+    },
+    {
+      "from": "161",
+      "to": "162"
+    },
+    {
+      "from": "88",
+      "to": "89"
+    },
+    {
+      "from": "120",
+      "to": "121"
+    },
+    {
+      "from": "24",
+      "from_start": true,
+      "to": "25",
+      "to_end": true
+    },
+    {
+      "from": "8",
+      "from_start": true,
+      "to": "9",
+      "to_end": true
+    },
+    {
+      "from": "37",
+      "from_start": true,
+      "to": "38",
+      "to_end": true
+    },
+    {
+      "from": "83",
+      "to": "84"
+    },
+    {
+      "from": "99",
+      "to": "100"
+    },
+    {
+      "from": "121",
+      "to": "122"
+    },
+    {
+      "from": "14",
+      "from_start": true,
+      "to": "15",
+      "to_end": true
+    },
+    {
+      "from": "174",
+      "to": "175"
+    },
+    {
+      "from": "123",
+      "to": "124"
+    },
+    {
+      "from": "32",
+      "from_start": true,
+      "to": "33",
+      "to_end": true
+    },
+    {
+      "from": "151",
+      "to": "152"
+    },
+    {
+      "from": "54",
+      "from_start": true,
+      "to": "55",
+      "to_end": true
+    },
+    {
+      "from": "63",
+      "from_start": true,
+      "to": "64",
+      "to_end": true
+    },
+    {
+      "from": "91",
+      "to": "92"
+    },
+    {
+      "from": "62",
+      "from_start": true,
+      "to": "63",
+      "to_end": true
+    },
+    {
+      "from": "150",
+      "to": "151"
+    },
+    {
+      "from": "122",
+      "to": "123"
+    },
+    {
+      "from": "58",
+      "from_start": true,
+      "to": "59",
+      "to_end": true
+    },
+    {
+      "from": "173",
+      "to": "174"
+    },
+    {
+      "from": "98",
+      "to": "99"
+    },
+    {
+      "from": "76",
+      "to": "77"
+    },
+    {
+      "from": "34",
+      "from_start": true,
+      "to": "35",
+      "to_end": true
+    },
+    {
+      "from": "50",
+      "from_start": true,
+      "to": "51",
+      "to_end": true
+    },
+    {
+      "from": "167",
+      "to": "168"
+    },
+    {
+      "from": "42",
+      "from_start": true,
+      "to": "43",
+      "to_end": true
+    },
+    {
+      "from": "87",
+      "to": "88"
+    },
+    {
+      "from": "132",
+      "to": "133"
+    },
+    {
+      "from": "140",
+      "to": "141"
+    },
+    {
+      "from": "169",
+      "to": "170"
+    },
+    {
+      "from": "160",
+      "to": "161"
+    },
+    {
+      "from": "49",
+      "from_start": true,
+      "to": "50",
+      "to_end": true
+    },
+    {
+      "from": "106",
+      "to": "107"
+    },
+    {
+      "from": "94",
+      "to": "95"
+    },
+    {
+      "from": "102",
+      "to": "103"
+    },
+    {
+      "from": "128",
+      "to": "129"
+    },
+    {
+      "from": "70",
+      "to": "71"
+    },
+    {
+      "from": "21",
+      "from_start": true,
+      "to": "22",
+      "to_end": true
+    },
+    {
+      "from": "38",
+      "from_start": true,
+      "to": "39",
+      "to_end": true
+    },
+    {
+      "from": "163",
+      "to": "164"
+    },
+    {
+      "from": "131",
+      "to": "132"
+    },
+    {
+      "from": "53",
+      "from_start": true,
+      "to": "54",
+      "to_end": true
+    },
+    {
+      "from": "47",
+      "from_start": true,
+      "to": "48",
+      "to_end": true
+    },
+    {
+      "from": "3",
+      "from_start": true,
+      "to": "4",
+      "to_end": true
+    },
+    {
+      "from": "96",
+      "to": "97"
+    },
+    {
+      "from": "149",
+      "to": "150"
+    },
+    {
+      "from": "155",
+      "to": "156"
+    },
+    {
+      "from": "65",
+      "from_start": true,
+      "to": "66",
+      "to_end": true
+    }
+  ]
+}
+
+            )";
+
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            vg::VG graph(chunk);
+
+            Alignment aln;
+            aln.set_sequence(read_string);
+            
+            TestAligner aligner_source;
+            const Aligner& aligner = *aligner_source.get_regular_aligner();
+            aligner.align_pinned(aln, graph, false, true, 150);
+
+            // Check before simplification
+            REQUIRE(alignment_is_valid(aln, &graph));
+
+            *(aln.mutable_path()) = simplify(aln.path());
+            
+            // Check after simplification
+            REQUIRE(alignment_is_valid(aln, &graph));
+        }
     }
 }
 
