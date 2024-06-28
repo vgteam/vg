@@ -343,9 +343,6 @@ double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
-/// Scan a path for adjacent inserts and deletions of opposite polarity and throw if they are detected.
-void check_path_for_adjacent_indels(const Path& path, const std::string step_name);
-
 /// Switches the node ids in the path to the ones indicated by the translator
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
 /// Replaces the node IDs in the path with the ones indicated by the

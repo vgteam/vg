@@ -3409,10 +3409,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Simplify the path but keep internal deletions; we want to assert the
     // read deleted relative to some graph, and avoid jumps along nonexistent
     // edges.
-    *result.mutable_path() = std::move(composed_path);
-    crash_unless(alignment_is_valid(result, &this->gbwt_graph));
-    *result.mutable_path() = simplify(std::move(*result.mutable_path()), false);
-    crash_unless(alignment_is_valid(result, &this->gbwt_graph));
+    *result.mutable_path() = std::move(simplify(composed_path, false));
     result.set_score(composed_score);
     if (!result.sequence().empty()) {
         result.set_identity(identity(result.path()));
@@ -3805,7 +3802,6 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
                 aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
-                crash_unless(alignment_is_valid(alignment, &dagified_graph));
                 to_return.first = dagified_graph.get_node_count();
                 to_return.second = dagified_graph.get_total_length();
             }

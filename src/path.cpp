@@ -2308,28 +2308,6 @@ decompose(const Path& path,
     }
 }
 
-void check_path_for_adjacent_indels(const Path& path, const std::string step_name) {
-    bool prev_was_insert = false;
-    bool prev_was_delete = false;
-    for (size_t mapping_index = 0; mapping_index < path.mapping_size(); mapping_index++) {
-        auto& mapping = path.mapping(mapping_index);
-        for (size_t edit_index = 0; edit_index < mapping.edit_size(); edit_index++) {
-            auto& edit = mapping.edit(edit_index);
-            // See if each edit is an indel
-            bool is_insert = (edit.from_length() == 0 && edit.to_length() > 0);
-            bool is_delete = (edit.from_length() > 0 && edit.to_length() == 0);
-        
-            if ((prev_was_insert && is_delete) || (prev_was_delete && is_insert)) {
-                throw std::runtime_error("Insert and delete operations are adjacent at mapping " + std::to_string(mapping_index) + "/" + std::to_string(path.mapping_size()) + " edit " + std::to_string(edit_index) + "/" + std::to_string(mapping.edit_size()) + " during " + step_name);
-            }
-
-            // Save for the next iteration
-            prev_was_insert = is_insert;
-            prev_was_delete = is_delete;
-        }
-    }
-}
-
 double overlap(const Path& p1, const Path& p2) {
     if (p1.mapping_size() == 0 || p2.mapping_size() == 0) return 0;
     map<pos_t, int> ref1, ref2;
