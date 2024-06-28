@@ -33,8 +33,6 @@ TEST_CASE("Path simplification tolerates adjacent insertions and deletions", "[p
     // Simplify without replacing deletions with skips
     auto simple = simplify(path, false);
     
-    std::cerr << pb2json(simple) << std::endl;
-
     // We need to still touch all the nodes after simplification.
     REQUIRE(simple.mapping_size() == 3);
     REQUIRE(simple.mapping(0).position().node_id() == 68);

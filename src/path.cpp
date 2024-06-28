@@ -3,6 +3,8 @@
 #include "region.hpp"
 #include <sstream>
 
+// #define debug_simplify
+
 using namespace vg::io;
 
 namespace vg {
@@ -1286,7 +1288,6 @@ Path concat_paths(const Path& path1, const Path& path2) {
     return simplify(res);
 }
 
-#define debug_simplify
 Path simplify(const Path& p, bool trim_internal_deletions) {
     Path s;
     s.set_name(p.name());
@@ -1299,7 +1300,9 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i), trim_internal_deletions);
+#ifdef debug_simplify
         std::cerr << "Simplify mapping " << pb2json(p.mapping(i)) << " to " << pb2json(m) << std::endl;
+#endif
         // remove empty mappings as these are redundant
         if (trim_internal_deletions) {
             // remove wholly-deleted or empty mappings as these are redundant
