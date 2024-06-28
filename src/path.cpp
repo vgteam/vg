@@ -1286,16 +1286,20 @@ Path concat_paths(const Path& path1, const Path& path2) {
     return simplify(res);
 }
 
+#define debug_simplify
 Path simplify(const Path& p, bool trim_internal_deletions) {
     Path s;
     s.set_name(p.name());
-    //cerr << "simplifying " << pb2json(p) << endl;
+#ifdef debug_simplify
+    cerr << "simplifying " << pb2json(p) << endl;
+#endif
     // loop over the mappings in the path, doing a few things
     // exclude mappings that are total deletions
     // when possible, merge a mapping with the previous mapping
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i), trim_internal_deletions);
+        std::cerr << "Simplify mapping " << pb2json(p.mapping(i)) << " to " << pb2json(m) << std::endl;
         // remove empty mappings as these are redundant
         if (trim_internal_deletions) {
             // remove wholly-deleted or empty mappings as these are redundant
@@ -1306,39 +1310,45 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
             if (m.edit_size() == 0) continue;
         }
         if (s.mapping_size()) {
-            //&& m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
-            // split off any insertions from the start
-            // and push them to the last mapping
-            size_t ins_at_start = 0;
-            for (size_t j = 0; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                if (!edit_is_insertion(e)) break;
-                ins_at_start += e.to_length();
+
+            // Move any insertion edits at the start of m to be in l instead.
+            //
+            // We don't use cut_mapping() here because it is too powerful and
+            // also will bring along any adjacent deletions.
+            size_t edits_moved = 0;
+            while (edits_moved < m.edit_size() && edit_is_insertion(m.edit(edits_moved))) {
+                // Copy insertions to the end of l
+                *l->add_edit() = std::move(*m.mutable_edit(edits_moved));
+                edits_moved++;
             }
-            // if there are insertions at the start, move them left
-            if (ins_at_start) {
-                auto p = cut_mapping(m, ins_at_start);
-                auto& ins = p.first;
-                // cerr << "insertion " << pb2json(ins) << endl;
-                // take the position from the original mapping
-                m = p.second;
-                *m.mutable_position() = ins.position();
-                // cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
-                for (size_t j = 0; j < ins.edit_size(); ++j) {
-                    auto& e = ins.edit(j);
-                    *l->add_edit() = e;
-                }
+            // Splice them out of m
+            m.mutable_edit()->DeleteSubrange(0, edits_moved);
+
+#ifdef debug_simplify
+            if (edits_moved > 0) {
+                cerr << "Moved " << edits_moved << "insertion edits left so previous mapping is now " << pb2json(*l) << endl;
             }
+#endif
             // if our last mapping has no position, but we do, merge
             if ((!l->has_position() || l->position().node_id() == 0)
                 && (m.has_position() && m.position().node_id() != 0)) {
+
+#ifdef debug_simplify
+                std::cerr << "Push position to previous mapping" << std::endl;
+#endif
+
                 *l->mutable_position() = m.position();
                 // if our last mapping has a position, and we don't, merge
             } else if ((!m.has_position() || m.position().node_id() == 0)
                        && (l->has_position() && l->position().node_id() != 0)) {
+
+#ifdef debug_simplify
+                std::cerr << "Get position from previous mapping" << std::endl;
+#endif
+
                 *m.mutable_position() = *l->mutable_position();
                 m.mutable_position()->set_offset(from_length(*l));
             }
@@ -1350,10 +1360,19 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                  && l->position().node_id() == m.position().node_id()
                  && l->position().offset() + mapping_from_length(*l) == m.position().offset())) {
                 // we can merge the current mapping onto the old one
+                
+#ifdef debug_simplify
+                std::cerr << "Combine with previous mapping" << std::endl;
+#endif
+                
                 *l = concat_mappings(*l, m, trim_internal_deletions);
             } else {
                 if (from_length(m) || to_length(m)) {
                     *s.add_mapping() = m;
+                } else {
+#ifdef debug_simplify
+                    std::cerr << "Drop empty mapping" << std::endl;
+#endif
                 }
             }
         } else {

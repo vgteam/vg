@@ -30,7 +30,8 @@ TEST_CASE("Path simplification tolerates adjacent insertions and deletions", "[p
     Path path;
     json2pb(path, path_string.c_str(), path_string.size());
 
-    auto simple = simplify(path);
+    // Simplify without replacing deletions with skips
+    auto simple = simplify(path, false);
     
     std::cerr << pb2json(simple) << std::endl;
 
