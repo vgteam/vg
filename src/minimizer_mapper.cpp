@@ -1369,7 +1369,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         // we got.
         for (size_t index = 0; index < 2; index++) {
             while (mapped_pair[index].size() < mapped_pair[1 - index].size()) {
-                mapped_pair[index].push_back(mapped_pair[index].first());
+                mapped_pair[index].push_back(mapped_pair[index].front());
             }
         }
         pair_all(mapped_pair);
