@@ -2750,6 +2750,29 @@ double MinimizerMapper::get_read_coverage(
     return get_fraction_covered(covered);
 }
 
+/// Every once in a while we check the path and throw if it looks suspicious.
+static void check_path(const Path& path, const std::string step_name) {
+    bool prev_was_insert = false;
+    bool prev_was_delete = false;
+    for (size_t mapping_index = 0; mapping_index < path.mapping_size(); mapping_index++) {
+        auto& mapping = path.mapping(mapping_index);
+        for (size_t edit_index = 0; edit_index < mapping.edit_size(); edit_index++) {
+            auto& edit = mapping.edit(edit_index);
+            // See if each edit is an indel
+            bool is_insert = (edit.from_length() == 0 && edit.to_length() > 0);
+            bool is_delete = (edit.from_length() > 0 && edit.to_length() == 0);
+        
+            if ((prev_was_insert && is_delete) || (prev_was_delete && is_insert)) {
+                throw std::runtime_error("Insert and delete operations are adjacent at mapping " + std::to_string(mapping_index) + " edit " + std::to_string(edit_index) + " during " + step_name);
+            }
+
+            // Save for the next iteration
+            prev_was_insert = is_insert;
+            prev_was_delete = is_delete;
+        }
+    }
+}
+
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -2881,6 +2904,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
             
             composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+            check_path(composed_path, "left tail WFA");
             composed_score = left_alignment.score;
         } else {
             // We need to fall back on alignment against the graph
@@ -2898,6 +2922,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Make a softclip for it.
                 left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
                 composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+                check_path(composed_path, "left tail softclip");
                 composed_score = left_alignment.score;
             } else {
             
@@ -2952,6 +2977,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
                 // Since it's the left tail we can just clobber the path
                 composed_path = tail_aln.path();
+                check_path(composed_path, "left tail Dozeu");
                 composed_score = tail_aln.score();
             }
         }
@@ -3026,6 +3052,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
 
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        check_path(composed_path, "anchor");
         composed_score += here_alignment.score;
         
 #ifdef debug_chain_alignment
@@ -3148,6 +3175,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             // Then the link (possibly empty)
             append_path(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            check_path(composed_path, "link WFA");
             composed_score += link_alignment.score;
         } else {
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
@@ -3204,6 +3232,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             // Then tack that path and score on
             append_path(composed_path, link_aln.path());
+            check_path(composed_path, "link BGA");
             composed_score += link_aln.score();
         }
 
@@ -3247,6 +3276,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
         // Do the final GaplessExtension itself (may be the first)
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        check_path(composed_path, "final anchor");
         composed_score += here_alignment.score;
     }
 
@@ -3308,6 +3338,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             right_alignment.check_lengths(gbwt_graph);
             
             append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            check_path(composed_path, "right tail WFA");
             composed_score += right_alignment.score;
         } else {
             // We need to fall back on alignment against the graph
@@ -3334,6 +3365,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Make a softclip for it.
                 right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
                 append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+                check_path(composed_path, "right tail softclip");
                 composed_score += right_alignment.score;
             } else {
 
@@ -3380,6 +3412,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
                 // Since it's the right tail we have to add it on
                 append_path(composed_path, tail_aln.path());
+                check_path(composed_path, "right tail Dozeu");
                 composed_score += tail_aln.score();
             }
         } 
@@ -3410,6 +3443,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     // read deleted relative to some graph, and avoid jumps along nonexistent
     // edges.
     *result.mutable_path() = std::move(simplify(composed_path, false));
+    check_path(result.path(), "simplify");
     result.set_score(composed_score);
     if (!result.sequence().empty()) {
         result.set_identity(identity(result.path()));
@@ -3802,11 +3836,31 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
                 aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
+                try {
+                    check_path(alignment.path(), "pinned alignment");
+                } catch(const std::runtime_error& e) {
+                    std::cerr << "Alignment problem: " << e.what() << std::endl;
+                    {
+                        // Log the whole alignment to a file
+                        ProblemDumpExplainer exp(true, "badalignment");
+                        exp.object_start();
+                        exp.key("sequence");
+                        exp.value(alignment.sequence());
+                        exp.key("graph");
+                        exp.value(dagified_graph);
+                        exp.key("pin_left");
+                        exp.value(!is_empty(left_anchor));
+                        exp.key("max_graph_length");
+                        exp.value(max_gap_length);
+                        exp.object_end();
+                    }
+                    throw e;
+                }
                 to_return.first = dagified_graph.get_node_count();
                 to_return.second = dagified_graph.get_total_length();
             }
         }
-        
+
         // And translate back into original graph space
         for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
             // Translate each mapping's ID and orientation down to the base graph
