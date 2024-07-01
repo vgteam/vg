@@ -430,7 +430,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {to_chain[i].score() * item_scale + item_bonus, TracedScore::nowhere()};
+        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -451,7 +451,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {item_points, TracedScore::nowhere()});
+        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {(int)item_points, TracedScore::nowhere()});
         
         // For each source we could come from
         auto& source = to_chain[from_anchor];
