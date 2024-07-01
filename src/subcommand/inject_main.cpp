@@ -27,6 +27,7 @@ void help_inject(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)" << endl
+         << "    -r, --rescore            re-score alignments" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -37,6 +38,7 @@ int main_inject(int argc, char** argv) {
     }
 
     string xg_name;
+    bool rescore = false;
     int threads = get_thread_count();
 
     int c;
@@ -46,12 +48,13 @@ int main_inject(int argc, char** argv) {
         {
           {"help", no_argument, 0, 'h'},
           {"xg-name", required_argument, 0, 'x'},
+          {"rescore", no_argument, 0, 'r'},
           {"threads", required_argument, 0, 't'},
           {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:t:",
+        c = getopt_long (argc, argv, "hx:rt:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -62,6 +65,10 @@ int main_inject(int argc, char** argv) {
 
         case 'x':
             xg_name = optarg;
+            break;
+
+        case 'r':
+            rescore = true;
             break;
 
         case 't':
@@ -85,15 +92,22 @@ int main_inject(int argc, char** argv) {
 
     // We require an XG index
     if (xg_name.empty()) {
-        cerr << "error[vg inject]: XG index (-x) is required" << endl;
+        cerr << "error[vg inject]: Graph (-x) is required" << endl;
         exit(1);
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());    
 
+    Aligner aligner;
+
     vg::io::ProtobufEmitter<Alignment> buf(cout);
-    function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
+    function<void(Alignment&)> lambda = [&](Alignment& aln) {
+        if (rescore) {
+            // Rescore the alignment
+            aln.set_score(aligner.score_contiguous_alignment(aln));
+        }
+
 #pragma omp critical (buf)
         {
             buf.write(std::move(aln));

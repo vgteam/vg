@@ -47,7 +47,8 @@ public:
                      bool long_ref_contig,
                      double cluster_threshold = 1.0,
                      gbwt::GBWT* gbwt = nullptr,
-                     bool nested_decomposition = false);
+                     bool nested_decomposition = false,
+                     bool star_allele = false);
     
 private:
 
@@ -201,6 +202,11 @@ private:
     // (which lives in vcfoutputcaller) but with more of an effort to link
     // the parent and child snarls, as well as better support for nested insertions
     bool nested_decomposition = false;
+
+    // use *-alleles to represent spanning alleles that do not cross site but do go around it
+    // ex: a big containing deletion
+    // only works with nested_decomposition
+    bool star_allele = false;
 };
 
 

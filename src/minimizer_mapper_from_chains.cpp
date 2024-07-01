@@ -588,8 +588,6 @@ std::vector<std::pair<size_t, size_t>> find_anchor_intervals(
 
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
-    //Do gapless extension if the read length is less than the limit
-    bool do_gapless_extension = aln.sequence().size() <= gapless_extension_limit;
 
     
     if (show_work) {
@@ -642,8 +640,399 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 #endif
+    // Turn all the seeds into anchors. Either we'll fragment them directly or
+    // use them to make gapless extension anchors over them.
+    // TODO: Can we only use the seeds that are in trees we keep?
+    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
-    // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
+
+    // Now we need to chain into fragments.
+    // Each fragment needs to end up with a seeds array of seed numbers, and a
+    // coverage float on the read, for downstream
+    // processing.
+
+    // Now compute fragments into these variables.
+    // What seeds are visited in what order in the fragment?
+    std::vector<std::vector<size_t>> fragments;
+    // What score does each fragment have?
+    std::vector<double> fragment_scores;
+    // What are the fragments themselves as combined anchors, for chaining later?
+    std::vector<algorithms::Anchor> fragment_anchors;
+    // Which zip code tree did each fragment come from, so we know how to chain them?
+    std::vector<size_t> fragment_source_tree;
+    // How many of each minimizer ought to be considered explored by each fragment?
+    // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
+    std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
+    // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
+    // here with the multiplicity of the trees for each fragment
+    std::vector<double> multiplicity_by_fragment;
+
+    // If we do gapless extension, then it is possible to find full-length gapless extensions at this stage
+    // If we have at least two good gapless extensions, then we will turn them directly into alignments
+    // and skip the later stages. Store alignments from gapless extensions here
+
+    // We will fill this with all computed alignments in estimated score order
+    std::vector<Alignment> alignments;
+    //The multiplicity for each alignment, projected from previous stages
+    vector<double> multiplicity_by_alignment;
+    // Track if minimizers were explored by alignments
+    SmallBitset minimizer_explored(minimizers.size());
+
+    do_fragmenting_on_trees(aln, zip_code_forest, seeds, minimizers, seed_anchors,
+                             fragments, fragment_scores, fragment_anchors, fragment_source_tree,
+                             minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
+                             minimizer_explored, multiplicity_by_alignment, rng, funnel);
+
+    //If we have at least two alignments, then we will skip chaining and aligning stages and just return the alignments
+    // If we have only one, forget it
+    if (alignments.size() == 1) {
+        alignments.clear();
+        multiplicity_by_alignment.clear();
+        minimizer_explored = SmallBitset(minimizers.size());
+    }
+
+    
+    // For each chain, we need:
+    // The chain itself, pointing into seeds
+    std::vector<std::vector<size_t>> chains;
+    // The zip code tree it came from
+    std::vector<size_t> chain_source_tree;
+    // An estimated alignment score
+    std::vector<int> chain_score_estimates;
+    // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
+    std::vector<std::vector<size_t>> minimizer_kept_chain_count;
+    // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
+    std::vector<double> multiplicity_by_chain;
+    vector<double> multiplicity_by_tree(zip_code_forest.trees.size(), 0);
+    // Filter down to just the good fragments, sorted by read start
+    std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
+
+    if (alignments.size() == 0) {
+        do_chaining_on_fragments(aln, zip_code_forest, seeds, minimizers, 
+                                 fragments, fragment_scores, fragment_anchors, fragment_source_tree, minimizer_kept_fragment_count,
+                                 multiplicity_by_fragment,
+                                 chains, chain_source_tree, chain_score_estimates, minimizer_kept_chain_count, multiplicity_by_chain, 
+                                 multiplicity_by_tree,
+                                 good_fragments_in, rng, funnel); 
+    }
+
+    //Fill in chain stats for annotating the final alignment
+    bool best_chain_correct = false;
+    double best_chain_coverage = 0;
+    size_t best_chain_longest_jump = 0;
+    double best_chain_average_jump = 0;
+    size_t best_chain_anchors = 0;
+    size_t best_chain_anchor_length = 0;
+
+    if (alignments.size() == 0) {
+        get_best_chain_stats(aln, zip_code_forest, seeds, minimizers, fragments, good_fragments_in, chains, chain_source_tree, seed_anchors, 
+                             chain_score_estimates, best_chain_correct, best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
+                             best_chain_anchors, best_chain_anchor_length, funnel);
+    }
+        
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating alignments=====" << endl;
+        }
+    }
+
+    
+    // Now start the alignment step. Everything has to become an alignment.
+
+    // We will fill this with all computed alignments in estimated score order.
+//TODO    vector<Alignment> alignments;
+//    alignments.reserve(chain_score_estimates.size());
+//    //The multiplicity for each alignment, projected from previous stages
+//    vector<double> multiplicity_by_alignment;
+//    // Track if minimizers were explored by alignments
+//    SmallBitset minimizer_explored(minimizers.size());
+
+    // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
+    aligner_stats_t stats; 
+
+    bool funnel_depleted = false;
+
+    // This maps from alignment index back to chain index, for
+    // tracing back to minimizers for MAPQ. Can hold
+    // numeric_limits<size_t>::max() for an unaligned alignment.
+    vector<size_t> alignments_to_source;
+    alignments_to_source.reserve(chain_score_estimates.size());
+
+    if (alignments.size() == 0) {
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
+                               minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
+                               alignments_to_source, minimizer_explored, stats, funnel_depleted, rng, funnel);
+    }
+    
+    
+    if (track_provenance) {
+        // Now say we are finding the winner(s)
+        funnel.stage("winner");
+    }
+    
+    // Fill this in with the alignments we will output as mappings
+    vector<Alignment> mappings;
+    mappings.reserve(min(alignments.size(), max_multimaps));
+    //The scores of the mappings
+    vector<double> scores;
+    //The multiplicities of mappings
+    vector<double> multiplicity_by_mapping;
+    
+    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source, chain_score_estimates, 
+                                  mappings, scores, multiplicity_by_mapping, funnel_depleted, rng, funnel);
+    
+    if (track_provenance) {
+        funnel.substage("mapq");
+    }
+
+    // Note that it is possible for the top base-level alignment score *not* to be the winning alignment!
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Picked best alignment " << log_alignment(mappings[0]) << endl;
+            cerr << log_name() << "For scores:";
+            for (size_t i = 0; i < scores.size(); i++) {
+                cerr << " " << scores[i];
+                if (i + 1 < scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
+        }
+    }
+
+    vector<double> scaled_scores;
+    scaled_scores.reserve(scores.size());
+    for (auto& score : scores) {
+        double scaled_score = score;
+        if (mapq_score_window > 0) {
+            // Rescale to the size of the score window
+            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
+        }
+        // Rescale by a constant factor
+        scaled_score *= mapq_score_scale;
+        scaled_scores.push_back(scaled_score);
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Scaled scores:";
+            for (size_t i = 0; i < scaled_scores.size(); i++) {
+                cerr << " " << scaled_scores[i];
+                if (i + 1 < scaled_scores.size()) {
+                    cerr << ",";
+                }
+            }
+            cerr << endl;
+        }
+    }
+
+    crash_unless(!mappings.empty());
+    // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+    // Use exact mapping quality.
+    // Because the winning alignment won't necessarily *always* have the
+    // maximum score, we need to use compute_first_mapping_quality and not
+    // compute_max_mapping_quality.
+    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
+        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
+
+#ifdef debug_write_minimizers
+#pragma omp critical
+    {
+        std::ofstream out;
+        out.open("minimizers.tsv", std::ios::app);
+        out << aln.name() << "\t" << mapq << "\t" << aln.sequence().size();
+        for (size_t i = 0 ; i < minimizers.size() ; i++) {
+            out << "\t";
+            out << minimizer_kept[i]
+                << "," << passed_downsampling[minimizer_score_order[i]]
+                << "," << minimizers[i].hits 
+                << "," << minimizers[i].score
+                << "," << minimizers[i].forward_offset()
+                << "," << minimizers[i].length;
+        }
+        out << endl;
+        out.close(); 
+    }
+#endif
+    
+#ifdef print_minimizer_table
+    double uncapped_mapq = mapq;
+#endif
+
+    set_annotation(mappings.front(), "mapq_uncapped", mapq);
+
+    if (use_explored_cap) {
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
+            }
+        }
+    
+        // TODO: give SmallBitset iterators so we can use it instead of an index vector.
+        vector<size_t> explored_minimizers;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (minimizer_explored.contains(i)) {
+                explored_minimizers.push_back(i);
+            }
+        }
+        // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
+        double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
+        double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+
+        set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
+
+        // Apply the caps and transformations
+        mapq = round(min(mapq_explored_cap, mapq));
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
+            }
+        }
+    }
+
+
+    // Make sure to clamp 0-60.
+    mapq = max(mapq, 0.0);
+    mapq = min(mapq, 60.0);
+    // And save the MAPQ
+    mappings.front().set_mapping_quality(mapq);
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "MAPQ is " << mapq << endl;
+        }
+    }
+
+    // Remember the scores
+    set_compressed_annotation(mappings.front(),"secondary_scores", scores);
+
+    if (track_provenance) {
+        funnel.substage_stop();
+    }
+    
+    for (size_t i = 0; i < mappings.size(); i++) {
+        // For each output alignment in score order
+        auto& out = mappings[i];
+        
+        // Assign primary and secondary status
+        out.set_is_secondary(i > 0);
+    }
+
+    if (this->set_refpos) {
+        if (track_provenance) {
+            // Time how long setting reference positions takes
+            funnel.substage("refpos");
+        }
+
+        crash_unless(path_graph != nullptr);
+        for (auto& m : mappings) {
+            // Annotate the reads with the positions of the nodes they are actually on (fast)
+            vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
+        }
+    }
+    
+    // Stop this alignment
+    funnel.stop();
+
+    // Annotate with whatever's in the funnel
+    funnel.annotate_mapped_alignment(mappings[0], track_correctness);
+    
+    if (track_provenance) {
+        if (track_correctness) {
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), fragments.size(), funnel);
+        }
+    }
+    
+    // Special fragment and chain statistics
+    set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
+    if (track_correctness) {
+        set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
+    }
+    set_annotation(mappings[0], "best_chain.coverage", best_chain_coverage);
+    set_annotation(mappings[0], "best_chain.longest_jump", (double) best_chain_longest_jump);
+    set_annotation(mappings[0], "best_chain.average_jump", best_chain_average_jump);
+    set_annotation(mappings[0], "best_chain.anchors", (double) best_chain_anchors);
+    set_annotation(mappings[0], "best_chain.anchor_length", (double) best_chain_anchor_length);
+
+    stats.add_annotations(mappings[0], "read");
+    
+#ifdef print_minimizer_table
+    cerr << aln.sequence() << "\t";
+    for (char c : aln.quality()) {
+        cerr << (char)(c+33);
+    }
+    cerr << "\t" << zip_code_forest.trees.size();
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
+        auto& minimizer = minimizers[i];
+        cerr << "\t"
+             << minimizer.value.key.decode(minimizer.length) << "\t"
+             << minimizer.forward_offset() << "\t"
+             << minimizer.agglomeration_start << "\t"
+             << minimizer.agglomeration_length << "\t"
+             << minimizer.hits << "\t"
+             << minimizer_kept_count[i];
+         if (minimizer_kept_count[i]>0) {
+             assert(minimizer.hits<=hard_hit_cap) ;
+         }
+    }
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t"  << mappings.front().mapping_quality() << "\t";
+    cerr << "\t";
+    for (auto& score : scores) {
+        cerr << score << ",";
+    }
+    if (track_correctness) {
+        cerr << "\t" << funnel.last_correct_stage() << endl;
+    } else {
+        cerr << "\t" << "?" << endl;
+    }
+#endif
+
+    if (track_provenance) {
+        if (show_work && aln.sequence().size() < LONG_LIMIT) {
+            // Dump the funnel info graph to standard error
+            #pragma omp critical (cerr)
+            {
+                funnel.to_dot(cerr);
+            }
+        }
+        
+        // Otherwise/also, if we are dumping explanations, dump it to a file
+        DotDumpExplainer<Funnel> explainer(true, funnel);
+    }
+
+    return mappings;
+}
+
+void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
+        const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+        const vector<algorithms::Anchor>& seed_anchors,
+        std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
+        std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
+        std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
+        std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment, 
+        LazyRNG& rng, Funnel& funnel) const{
+
+    // Keep track of which fragment each alignment comes from for the funnel
+    std::vector<size_t> alignment_source_fragment;
+
+    // For now, multiplicity_by_fragment just stores how many trees had equal or better score. After going through all
+    // trees and counting how many are kept, each value will be divided by the number of trees kept
+    size_t kept_tree_count = 0;
+
+    //Do gapless extension if the read length is less than the limit
+    bool do_gapless_extension = aln.sequence().size() <= gapless_extension_limit;
+
+    // First score all the zip code trees in the forest by summing the scores of their involved minimizers.
     vector<double> tree_scores;
     double best_tree_score = 0;
     double second_best_tree_score = 0;
@@ -697,25 +1086,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    // Turn all the seeds into anchors. Either we'll fragment them directly or
-    // use them to make gapless extension anchors over them.
-    // TODO: Can we only use the seeds that are in trees we keep?
-    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
-    // If we don't do gapless extension, we need one-item vectors for all the
-    // seeds of their own numbers, to show what seed each anchor represents.
-    // TODO: Can we only do this for the seeds that are in trees we keep?
-    std::vector<std::vector<size_t>> seed_seed_sequences;
-    if (!do_gapless_extension) {
-        seed_seed_sequences.reserve(seed_anchors.size());
-        for (size_t i = 0; i < seed_anchors.size(); ++i) {
-            seed_seed_sequences.push_back({i});
-        }
-    }
-    // Now we need to chain into fragments.
-    // Each fragment needs to end up with a seeds array of seed numbers, and a
-    // coverage float on the read, for downstream
-    // processing.
+
+
     if (track_provenance) {
         funnel.stage("fragment");
         funnel.substage("fragment");
@@ -728,30 +1101,41 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    // Now compute fragments into these variables.
-    // What seeds are visited in what order in the fragment?
-    std::vector<std::vector<size_t>> fragments;
-    // What score does each fragment have?
-    std::vector<double> fragment_scores;
-    // What are the fragments themselves as combined anchors, for chaining later?
-    std::vector<algorithms::Anchor> fragment_anchors;
-    // Which zip code tree did each fragment come from, so we know how to chain them?
-    std::vector<size_t> fragment_source_tree;
-    // How many of each minimizer ought to be considered explored by each fragment?
-    // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
-    std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
-    // For capping mapq, we want the multiplicity of each alignment. Start keeping track of this
-    // here with the multiplicity of the trees for each fragment
-    // For now, this just stores how many trees had equal or better score. After going through all
-    // trees and counting how many are kept, each value will be divided by the number of trees kept
-    std::vector<double> multiplicity_by_fragment;
-    size_t kept_tree_count = 0;
+    // If we don't do gapless extension, we need one-item vectors for all the
+    // seeds of their own numbers, to show what seed each anchor represents.
+    // TODO: Can we only do this for the seeds that are in trees we keep?
+    std::vector<std::vector<size_t>> seed_seed_sequences;
+    if (!do_gapless_extension) {
+        seed_seed_sequences.reserve(seed_anchors.size());
+        for (size_t i = 0; i < seed_anchors.size(); ++i) {
+            seed_seed_sequences.push_back({i});
+        }
+    }
 
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
-            return tree_coverages[a] > tree_coverages[b] || (tree_coverages[a] == tree_coverages[b] && tree_scores[a] > tree_scores[b]); 
-        }, zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
+            auto equalish = [&] (const double x, const double y) {
+                if (x == y) {
+                    return true;
+                } else if (x > y) {
+                    return x - y <= std::numeric_limits<double>::round_error();
+                } else {
+                    return y - x <= std::numeric_limits<double>::round_error();
+                }
+            };
+            auto greater_than = [&] (const double x, const double y) {
+                if (equalish(x, y)) {
+                    return false;
+                } else {
+                    return x > y;
+                }
+            };
+
+            return greater_than(tree_coverages[a], tree_coverages[b])
+                || (equalish(tree_coverages[a], tree_coverages[b]) && greater_than(tree_scores[a], tree_scores[b]));
+
+        }, this->zipcode_tree_coverage_threshold, this->min_to_fragment, this->max_to_fragment, rng, [&](size_t item_num, size_t item_count) -> bool {
             // Handle sufficiently good fragmenting problems in descending score order
             
             if (track_provenance) {
@@ -836,6 +1220,66 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     &seeds_for_extension);
                 // Note that we don't use the funnel here; we don't actually
                 // track a gapless extension stage.
+
+                //If there are full-length extensions that are good enough, then just turn them into alignments.
+                if (GaplessExtender::full_length_extensions(tree_extensions)) {
+                    for (size_t extension_i = 0 ; extension_i < tree_extensions.size() ; extension_i++) {
+                        if (tree_extensions[extension_i].full() && 
+                            tree_extensions[extension_i].mismatches() <= this->default_max_extension_mismatches) {
+
+                            // For all good-scoring full-length extensions, make them into alignments
+                            // TODO When we pair:
+                            // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
+
+                            alignments.emplace_back(aln);
+                            alignments.back().clear_refpos();
+                            alignments.back().clear_path();
+                            alignments.back().set_score(0);
+                            alignments.back().set_identity(0);
+                            alignments.back().set_mapping_quality(0);
+                            this->extension_to_alignment(tree_extensions[extension_i], alignments.back());
+
+                            if (track_provenance) {
+                                //We want to know which "fragment" this came from
+                                alignment_source_fragment.emplace_back(fragments.size());
+                            }
+
+                            multiplicity_by_alignment.emplace_back(item_count);
+                            for (size_t seed_i : seeds_for_extension[extension_i]) {
+                                minimizer_explored.insert(seeds.at(seed_i).source);
+                            }
+
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << extension_i << endl;
+                                }
+                            }
+                        }
+                    }
+                }
+                // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
+                // Then skip fragmenting for this tree
+                if (alignments.size() > 1) {
+                    if (track_provenance) {
+                        //We might have already done some fragmenting so the funnel might already have started on that stage
+                        //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
+                        //stage for these too
+                        // Tell the funnel
+                        //TODO: idk what score to give it funnel.score(funnel.latest(), scored_fragment.first);!
+
+                        funnel.project(item_num);
+
+                        funnel.processed_input();
+
+                        //Add an entry to the list of fragments so we know which fragment num to give the alignments
+                        //This is just so the funnel can track everything
+                        fragments.emplace_back();
+
+                    }
+                    return true;
+                }
+
                 
                 // We can't actually handle the same seed being used as the
                 // endpoint of multiple anchors in the chaining. So we need to
@@ -1150,12 +1594,34 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         });
 
+    if (alignments.size() >= 2) {
+        //If we did get alignments from fragmenting, boot them through the funnel all at once
+        funnel.stage("extension_to_alignment");
+        for (size_t fragment_num : alignment_source_fragment) {
+            funnel.project(fragment_num);
+        }
+    }
+
     //Get the actual multiplicity from the counts
     for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
         multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
                                     ?  multiplicity_by_fragment[i] - (float)kept_tree_count
                                     : 0.0;
     }
+
+}
+
+void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, 
+        const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+        const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
+        const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
+        const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
+        std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, std::vector<int>& chain_score_estimates,
+        std::vector<std::vector<size_t>>& minimizer_kept_chain_count, std::vector<double>& multiplicity_by_chain,
+        std::vector<double>& multiplicity_by_tree,
+        std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+        LazyRNG& rng, Funnel& funnel) const {
+ 
     // Now glom the fragments together into chains 
     if (track_provenance) {
         funnel.stage("chain");
@@ -1164,23 +1630,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (track_provenance) {
         funnel.substage("chain");
     }
-    
-    // For each chain, we need:
-    // The chain itself, pointing into seeds
-    std::vector<std::vector<size_t>> chains;
-    // The zip code tree it came from
-    std::vector<size_t> chain_source_tree;
-    // An estimated alignment score
-    std::vector<int> chain_score_estimates;
-    // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
-    std::vector<std::vector<size_t>> minimizer_kept_chain_count;
-    // The multiplicity for each chain. For now, just the multiplicity of the tree it came from
-    std::vector<double> multiplicity_by_chain;
-    
     // Get all the fragment numbers for each zip code tree we actually used, so we can chain each independently again.
     // TODO: Stop reswizzling so much.
     std::unordered_map<size_t, std::vector<size_t>> tree_to_fragments;
-    vector<double> multiplicity_by_tree(zip_code_forest.trees.size(), 0);
     for (size_t i = 0; i < fragment_source_tree.size(); i++) {
         tree_to_fragments[fragment_source_tree[i]].push_back(i);
 #ifdef debug
@@ -1207,8 +1659,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     double fragment_score_threshold = std::min(best_fragment_score * fragment_score_fraction, fragment_max_min_score);
     double fragment_score_threshold_overall = std::max(fragment_score_threshold, fragment_min_score);
 
-    // Filter down to just the good ones, sorted by read start
-    std::unordered_map<size_t, std::vector<size_t>> good_fragments_in;
     for (auto& kv : tree_to_fragments) {
         if (show_work) {
             #pragma omp critical (cerr)
@@ -1327,6 +1777,104 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     funnel.pass("fragment-set-score-threshold", fragment_num, fragment_set_scores[processed_num]);
                     funnel.pass("max-chaining-problems", fragment_num);
                 }
+            }
+
+            //If we are not doing chaining, then just turn the best max_direct_to_chain_per_tree fragments into chains
+            if (max_direct_to_chain > 0) {
+                process_until_threshold_a(tree_fragments.size(),(std::function<double(size_t)>) [&](size_t i) -> double {
+                    return fragment_scores[tree_fragments[i]];
+                }, 0, 1, max_direct_to_chain, rng, 
+                [&](size_t fragment_num, size_t fragment_count) {
+                    // This alignment makes it
+                    // Called in score order
+
+                    // Get its fragment number out of all fragments
+                    size_t fragment_num_overall = tree_fragments.at(fragment_num);
+                    
+                    // Go get that fragment
+                    auto& fragment = fragments.at(fragment_num_overall);
+                        
+                    // Each fragment becomes a chain of seeds
+                    chains.emplace_back();
+                    auto& chain = chains.back();
+                    // Append all the seed numbers to the chain
+                    std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
+
+                    // The chain has a source
+                    chain_source_tree.push_back(tree_num);
+                    // And a score
+                    chain_score_estimates.emplace_back(fragment_scores.at(fragment_num_overall));
+
+                    // And counts of each minimizer kept
+                    minimizer_kept_chain_count.emplace_back();
+                    auto& minimizer_kept = minimizer_kept_chain_count.back();
+                    auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
+                    if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
+                        minimizer_kept.resize(fragment_minimizer_kept.size());
+                    }
+                    for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
+                        minimizer_kept[i] += fragment_minimizer_kept[i];
+                    }
+
+                    //Remember the multiplicity from the fragments. For now, it is just based on
+                    //the trees so it doesn't matter which fragment this comes from
+                    multiplicity_by_chain.emplace_back(multiplicity_by_tree[tree_num]);
+                    
+                    
+                    if (track_provenance) {
+                        funnel.pass("max-direct-chain",tree_fragments.at(fragment_num));
+                        // Say that this fragment became a chain
+                        funnel.project(fragment_num_overall);
+                        // With the same score
+                        funnel.score(funnel.latest(), chain_score_estimates.back());
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single local fragment: " 
+                                      << fragment_num << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " is made from single global fragment: "
+                                      << fragment_num_overall << std::endl;
+                            std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << chain_score_estimates.back() << " contains seeds:";
+                            for (auto& s : chains.back()) {
+                                std::cerr << " " << s;
+                            } 
+                            std::cerr << std::endl;
+                        }
+                        if (track_provenance) {
+                            for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                                // Log each range on a path associated with the chain.
+                                #pragma omp critical (cerr)
+                                std::cerr << log_name() << "\tAt linear reference "
+                                    << this->path_graph->get_path_name(handle_and_range.first)
+                                    << ":" << handle_and_range.second.first
+                                    << "-" << handle_and_range.second.second << std::endl;
+                            }
+                        }
+                        if (track_correctness && funnel.is_correct(funnel.latest())) {
+                            #pragma omp critical (cerr)
+                            cerr << log_name() << "\tCORRECT!" << endl;
+                        }
+                    } 
+                    return true;
+
+                }, [&](size_t fragment_num) {
+                    // We already have enough fragments, although this one has a good score
+                    // We take all fragments to chains
+                    //TODO: Do I need to fail the funnel here? I don't think there's a funnel item yet
+                    if (track_provenance){
+                        funnel.fail("max-direct-chain",tree_fragments.at(fragment_num));
+                    }
+                    return;
+       
+                }, [&](size_t fragment_num) {
+                    // This fragment does not have a sufficiently good score
+                    // Score threshold is 0; this should never happen
+                    crash_unless(false);
+                    return;
+                });
+
+                return true;
             }
 
             // Get a view of all the good fragments.
@@ -1511,7 +2059,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
         });
-    
+
+}
+
+void MinimizerMapper::get_best_chain_stats(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+                                           const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                           const std::vector<std::vector<size_t>>& fragments,
+                                           const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                           const std::vector<std::vector<size_t>>& chains,
+                                           const std::vector<size_t>& chain_source_tree,
+                                           const vector<algorithms::Anchor>& seed_anchors,
+                                           const std::vector<int>& chain_score_estimates,
+                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
+                                           double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
+                                           Funnel& funnel) const {
     // Find the best chain
     size_t best_chain = std::numeric_limits<size_t>::max();
     int best_chain_score = 0;
@@ -1522,7 +2083,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             best_chain_score = chain_score_estimates[i];
         }
     }
-    bool best_chain_correct = false;
     if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
         // We want to explicitly check if the best chain was correct, for looking at stats about it later.
         if (funnel.is_correct(best_chain)) {
@@ -1548,8 +2108,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
         // Find all the fragments we passed for this tree
         std::vector<std::vector<size_t>> relevant_fragments;
-        auto& tree_fragments = good_fragments_in[tree_num];
-        for (auto& fragment_num : tree_fragments) {
+        const auto& tree_fragments = good_fragments_in.at(tree_num);
+        for (const auto& fragment_num : tree_fragments) {
             // Get all the seeds in each fragment
             const std::vector<size_t>& fragment = fragments.at(fragment_num);
             relevant_fragments.push_back(fragment);
@@ -1575,15 +2135,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Find its coverage
-    double best_chain_coverage = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
     }
     
     // Find out how gappy it is. We can get the longest and the average distance maybe.
-    size_t best_chain_longest_jump = 0;
     size_t best_chain_total_jump = 0;
-    double best_chain_average_jump = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
             // Find the pair of anchors we go between
@@ -1599,50 +2156,44 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Also count anchors in the chain
-    size_t best_chain_anchors = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         best_chain_anchors = chains.at(best_chain).size();
     }
 
     // And total length of anchors in the chain
-    size_t best_chain_anchor_length = 0;
     if (best_chain != std::numeric_limits<size_t>::max()) {
         for (auto& item : chains.at(best_chain)) {
             best_chain_anchor_length += seed_anchors.at(item).length();
         }
     }
-    
+
+}
+
+void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+                                            const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                            const vector<algorithms::Anchor>& seed_anchors,
+                                            const std::vector<std::vector<size_t>>& chains, 
+                                            const std::vector<size_t>& chain_source_tree,
+                                            const std::vector<double>& multiplicity_by_chain,
+                                            const std::vector<int>& chain_score_estimates, 
+                                            const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                            vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                                            vector<size_t>& alignments_to_source,
+                                            SmallBitset& minimizer_explored, aligner_stats_t& stats,
+                                            bool& funnel_depleted,
+                                            LazyRNG& rng, Funnel& funnel) const {
+  
     if (track_provenance) {
         funnel.stage("align");
     }
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "=====Creating alignments=====" << endl;
-        }
-    }
+    //For finding the multiplicity of each alignment, first get the count
+    // of equal scoring chains
+    vector<size_t> chain_count_by_alignment (alignments.size(), 0);
 
 #ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
     vector<size_t> minimizer_kept_count(minimizers.size(), 0);
 #endif
-    
-    // Now start the alignment step. Everything has to become an alignment.
-
-    // We will fill this with all computed alignments in estimated score order.
-    vector<Alignment> alignments;
-    alignments.reserve(chain_score_estimates.size());
-    // This maps from alignment index back to chain index, for
-    // tracing back to minimizers for MAPQ. Can hold
-    // numeric_limits<size_t>::max() for an unaligned alignment.
-    vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(chain_score_estimates.size());
-    //For finding the multiplicity of each alignment, first get the count
-    // of equal scoring chains
-    vector<size_t> chain_count_by_alignment (alignments.size(), 0);
-    //The multiplicity for each alignment, projected from previous stages
-    vector<double> multiplicity_by_alignment;
 
     // Create a new alignment object to get rid of old annotations.
     {
@@ -1683,9 +2234,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Compute lower limit on chain score to actually investigate
     int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
 
-    // Track if minimizers were explored by alignments
-    SmallBitset minimizer_explored(minimizers.size());
-
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
@@ -1695,8 +2243,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Use pairs since we can't hash tuples.
     std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
 
-    // Track statistics about how many bases were aligned by diffrent methods, and how much time was used.
-    aligner_stats_t stats; 
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
@@ -1809,7 +2355,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
                 
                 // We currently just have the one best score and chain per zip code tree
-                vector<size_t>& chain = chains[processed_num];
+                const vector<size_t>& chain = chains.at(processed_num);
                 
                 try {
                     // Do the DP between the items in the chain
@@ -1949,12 +2495,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
         }, discard_chain_by_score);
-    
+
     // We want to be able to feed in an unaligned alignment on the normal
     // codepath, but we don't want it to really participate in the funnel
     // filters anymore. So we set this flag if the funnel is really empty of
     // items so we stop talking about filters.
-    bool funnel_depleted = false;
 
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
@@ -1987,15 +2532,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                           : 0.0);
         }
     }
-    
-    if (track_provenance) {
-        // Now say we are finding the winner(s)
-        funnel.stage("winner");
-    }
-    
-    // Fill this in with the alignments we will output as mappings
-    vector<Alignment> mappings;
-    mappings.reserve(min(alignments.size(), max_multimaps));
+}
+
+void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+                                                    const std::vector<double>& multiplicity_by_alignment,
+                                                    const std::vector<size_t>& alignments_to_source,
+                                                    const std::vector<int>& chain_score_estimates,
+                                                    std::vector<Alignment>& mappings,
+                                                    std::vector<double>& scores,
+                                                    std::vector<double>& multiplicity_by_mapping,
+                                                    bool& funnel_depleted, LazyRNG& rng,
+                                                    Funnel& funnel) const {
 
     // Look for duplicate alignments by using this collection of node IDs and orientations
     std::unordered_set<std::pair<nid_t, bool>> used_nodes;
@@ -2051,7 +2598,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     };
     
     // Grab all the scores in order for MAPQ computation.
-    vector<double> scores;
     scores.reserve(alignments.size());
     
     // Go through the alignments in descending score order, with ties at the top end shuffled.
@@ -2105,6 +2651,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
+
+        // Remember the multiplicity
+        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance && !funnel_depleted) {
             // Tell the funnel
@@ -2152,6 +2701,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
         // Remember the score at its rank even if it won't be output as a multimapping
         scores.emplace_back(alignments[alignment_num].score());
+        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance && !funnel_depleted) {
             funnel.fail("max-multimaps", alignment_num);
@@ -2161,235 +2711,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Score threshold is 0; this should never happen
         crash_unless(false);
     });
-    
-    if (track_provenance) {
-        funnel.substage("mapq");
-    }
-
-    // Note that it is possible for the top base-level alignment score *not* to be the winning alignment!
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Picked best alignment " << log_alignment(mappings[0]) << endl;
-            cerr << log_name() << "For scores:";
-            for (size_t i = 0; i < scores.size(); i++) {
-                cerr << " " << scores[i];
-                if (i + 1 < scores.size()) {
-                    cerr << ",";
-                }
-            }
-            cerr << endl;
-        }
-    }
-
-    vector<double> scaled_scores;
-    scaled_scores.reserve(scores.size());
-    for (auto& score : scores) {
-        double scaled_score = score;
-        if (mapq_score_window > 0) {
-            // Rescale to the size of the score window
-            scaled_score = scaled_score * mapq_score_window / aln.sequence().size();
-        }
-        // Rescale by a constant factor
-        scaled_score *= mapq_score_scale;
-        scaled_scores.push_back(scaled_score);
-    }
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Scaled scores:";
-            for (size_t i = 0; i < scaled_scores.size(); i++) {
-                cerr << " " << scaled_scores[i];
-                if (i + 1 < scaled_scores.size()) {
-                    cerr << ",";
-                }
-            }
-            cerr << endl;
-        }
-    }
-
-    crash_unless(!mappings.empty());
-    // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-    // Use exact mapping quality.
-    // Because the winning alignment won't necessarily *always* have the
-    // maximum score, we need to use compute_first_mapping_quality and not
-    // compute_max_mapping_quality.
-    double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_first_mapping_quality(scaled_scores, false, &multiplicity_by_alignment) ;
-
-#ifdef debug_write_minimizers
-#pragma omp critical
-    {
-        std::ofstream out;
-        out.open("minimizers.tsv", std::ios::app);
-        out << aln.name() << "\t" << mapq << "\t" << aln.sequence().size();
-        for (size_t i = 0 ; i < minimizers.size() ; i++) {
-            out << "\t";
-            out << minimizer_kept[i]
-                << "," << passed_downsampling[minimizer_score_order[i]]
-                << "," << minimizers[i].hits 
-                << "," << minimizers[i].score
-                << "," << minimizers[i].forward_offset()
-                << "," << minimizers[i].length;
-        }
-        out << endl;
-        out.close(); 
-    }
-#endif
-    
-#ifdef print_minimizer_table
-    double uncapped_mapq = mapq;
-#endif
-
-    set_annotation(mappings.front(), "mapq_uncapped", mapq);
-
-    if (use_explored_cap) {
-
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
-            }
-        }
-    
-        // TODO: give SmallBitset iterators so we can use it instead of an index vector.
-        vector<size_t> explored_minimizers;
-        for (size_t i = 0; i < minimizers.size(); i++) {
-            if (minimizer_explored.contains(i)) {
-                explored_minimizers.push_back(i);
-            }
-        }
-        // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-        double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
-        double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
-
-        set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
-
-        // Apply the caps and transformations
-        mapq = round(min(mapq_explored_cap, mapq));
-
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
-            }
-        }
-    }
-
-
-    // Make sure to clamp 0-60.
-    mapq = max(mapq, 0.0);
-    mapq = min(mapq, 60.0);
-    // And save the MAPQ
-    mappings.front().set_mapping_quality(mapq);
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "MAPQ is " << mapq << endl;
-        }
-    }
-
-    // Remember the scores
-    set_compressed_annotation(mappings.front(),"secondary_scores", scores);
-
-    if (track_provenance) {
-        funnel.substage_stop();
-    }
-    
-    for (size_t i = 0; i < mappings.size(); i++) {
-        // For each output alignment in score order
-        auto& out = mappings[i];
-        
-        // Assign primary and secondary status
-        out.set_is_secondary(i > 0);
-    }
-
-    if (this->set_refpos) {
-        if (track_provenance) {
-            // Time how long setting reference positions takes
-            funnel.substage("refpos");
-        }
-
-        crash_unless(path_graph != nullptr);
-        for (auto& m : mappings) {
-            // Annotate the reads with the positions of the nodes they are actually on (fast)
-            vg::algorithms::annotate_with_node_path_positions(*path_graph, m, -1);
-        }
-    }
-    
-    // Stop this alignment
-    funnel.stop();
-
-    // Annotate with whatever's in the funnel
-    funnel.annotate_mapped_alignment(mappings[0], track_correctness);
-    
-    if (track_provenance) {
-        if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), fragments.size(), funnel);
-        }
-    }
-    
-    // Special fragment and chain statistics
-    set_compressed_annotation(mappings[0], "fragment_scores", fragment_scores);
-    if (track_correctness) {
-        set_annotation(mappings[0], "best_chain.correct", best_chain_correct);
-    }
-    set_annotation(mappings[0], "best_chain.coverage", best_chain_coverage);
-    set_annotation(mappings[0], "best_chain.longest_jump", (double) best_chain_longest_jump);
-    set_annotation(mappings[0], "best_chain.average_jump", best_chain_average_jump);
-    set_annotation(mappings[0], "best_chain.anchors", (double) best_chain_anchors);
-    set_annotation(mappings[0], "best_chain.anchor_length", (double) best_chain_anchor_length);
-
-    stats.add_annotations(mappings[0], "read");
-    
-#ifdef print_minimizer_table
-    cerr << aln.sequence() << "\t";
-    for (char c : aln.quality()) {
-        cerr << (char)(c+33);
-    }
-    cerr << "\t" << zip_code_forest.trees.size();
-    for (size_t i = 0 ; i < minimizers.size() ; i++) {
-        auto& minimizer = minimizers[i];
-        cerr << "\t"
-             << minimizer.value.key.decode(minimizer.length) << "\t"
-             << minimizer.forward_offset() << "\t"
-             << minimizer.agglomeration_start << "\t"
-             << minimizer.agglomeration_length << "\t"
-             << minimizer.hits << "\t"
-             << minimizer_kept_count[i];
-         if (minimizer_kept_count[i]>0) {
-             assert(minimizer.hits<=hard_hit_cap) ;
-         }
-    }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t"  << mappings.front().mapping_quality() << "\t";
-    cerr << "\t";
-    for (auto& score : scores) {
-        cerr << score << ",";
-    }
-    if (track_correctness) {
-        cerr << "\t" << funnel.last_correct_stage() << endl;
-    } else {
-        cerr << "\t" << "?" << endl;
-    }
-#endif
-
-    if (track_provenance) {
-        if (show_work && aln.sequence().size() < LONG_LIMIT) {
-            // Dump the funnel info graph to standard error
-            #pragma omp critical (cerr)
-            {
-                funnel.to_dot(cerr);
-            }
-        }
-        
-        // Otherwise/also, if we are dumping explanations, dump it to a file
-        DotDumpExplainer<Funnel> explainer(true, funnel);
-    }
-
-    return mappings;
 }
 
 double MinimizerMapper::get_read_coverage(
@@ -3485,7 +3806,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 to_return.second = dagified_graph.get_total_length();
             }
         }
-        
+
         // And translate back into original graph space
         for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
             // Translate each mapping's ID and orientation down to the base graph

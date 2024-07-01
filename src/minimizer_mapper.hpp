@@ -310,6 +310,11 @@ public:
     static constexpr int default_max_chaining_problems = std::numeric_limits<int>::max();
     int max_chaining_problems = default_max_chaining_problems;
 
+    /// Sometimes we don't do chaining but instead turn fragments directly into chains
+    /// If this is 0, then do chaining. Otherwise take up to this many fragments and turn them into chains
+    static constexpr size_t default_max_direct_to_chain = 0;
+    size_t max_direct_to_chain = default_max_direct_to_chain;
+
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
@@ -323,8 +328,8 @@ public:
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score
     /// in fragmenting/chaining?
-    static constexpr int default_item_scale = 1;
-    int item_scale = default_item_scale;
+    static constexpr double default_item_scale = 1.0;
+    double item_scale = default_item_scale;
     /// How much of a multiple should we apply to each transition's gap penalty
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
@@ -832,6 +837,69 @@ protected:
             fallbacks.add_annotations(aln, scope, "fallbacks");
         }
     };
+
+    /**
+     * Given a collection of zipcode trees, score the trees and do fragmenting on the best trees.
+     * 
+     * This will fill in the given vectors of fragments, fragment scores, etc.
+     *
+     * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
+     * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
+     */
+    void do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                  const vector<algorithms::Anchor>& seed_anchors,
+                                  std::vector<std::vector<size_t>>& fragments, std::vector<double>& fragment_scores,
+                                  std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
+                                  std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
+                                  std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
+                                  LazyRNG& rng, Funnel& funnel) const;
+    
+    /**
+     * Given a collection of fragments, filter down to the good ones and do chaining on them
+     */
+    void do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                                  const std::vector<std::vector<size_t>>& fragments, const std::vector<double>& fragment_scores, 
+                                  const std::vector<algorithms::Anchor>& fragment_anchors, const std::vector<size_t>& fragment_source_tree,
+                                  const std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, const std::vector<double>& multiplicity_by_fragment,
+                                  std::vector<std::vector<size_t>>& chains, std::vector<size_t>& chain_source_tree, 
+                                  std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count, 
+                                  std::vector<double>& multiplicity_by_chain, vector<double>& multiplicity_by_tree,
+                                  std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                                  LazyRNG& rng, Funnel& funnel) const;
+
+    /**
+     * Collect stats about the best chains for annotating the final alignment
+     */
+    void get_best_chain_stats( Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, 
+                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                               const std::vector<std::vector<size_t>>& fragments,
+                               const std::unordered_map<size_t, std::vector<size_t>>& good_fragments_in,
+                               const std::vector<std::vector<size_t>>& chains,
+                               const std::vector<size_t>& chain_source_tree,
+                               const vector<algorithms::Anchor>& seed_anchors,
+                               const std::vector<int>& chain_score_estimates,
+                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump, 
+                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length, 
+                               Funnel& funnel) const ;
+
+    void do_alignment_on_chains(Alignment& aln, const std::vector<Seed>& seeds, 
+                               const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                               const vector<algorithms::Anchor>& seed_anchors,
+                               const std::vector<std::vector<size_t>>& chains, 
+                               const std::vector<size_t>& chain_source_tree,
+                               const std::vector<double>& multiplicity_by_chain,
+                               const std::vector<int>& chain_score_estimates,
+                               const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                               vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
+                               vector<size_t>& alignments_to_source,
+                               SmallBitset& minimizer_explored, aligner_stats_t& stats, bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
+
+    void pick_mappings_from_alignments(Alignment& aln, const std::vector<Alignment>& alignments, 
+                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
+                                       const std::vector<int>& chain_score_estimates,
+                                       std::vector<Alignment>& mappings,
+                                       std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
+                                       bool& funnel_depleted, LazyRNG& rng, Funnel& funnel) const;
 
     
 

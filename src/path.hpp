@@ -1,4 +1,4 @@
-    #ifndef VG_PATH_HPP_INCLUDED
+#ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -289,8 +289,15 @@ void reverse_complement_path_in_place(Path* path,
                                       const function<int64_t(id_t)>& node_length);
 /// Simplify the path for addition as new material in the graph. Remove any
 /// mappings that are merely single deletions, merge adjacent edits of the same
-/// type, strip leading and trailing deletion edits on mappings, and make sure no
-/// mappings have missing positions.
+/// type, strip leading and trailing deletion edits on mappings (adjusting
+/// positions), and make sure no mappings have missing positions.
+///
+/// Note that this removes deletions at the start and end of Mappings, so code
+/// that handles simplified Alignments needs to handle offsets on internal
+/// Mappings.
+///
+/// If trim_internal_deletions is false, refrains from creating internal skips
+/// of deleted sequence. 
 Path simplify(const Path& p, bool trim_internal_deletions = true);
 /// Merge adjacent edits of the same type, strip leading and trailing deletion
 /// edits (while updating positions if necessary), and makes sure position is
@@ -320,7 +327,10 @@ pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos);
 // divide mapping at reference-relative offset (as measure in from_length)
 pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset);
 pair<mapping_t, mapping_t> cut_mapping_offset(const mapping_t& m, size_t offset);
-// divide mapping at target-relative offset (as measured in to_length)
+/// Divide mapping at target-relative offset (as measured in to_length).
+///
+/// Deletions at the cut point (which are 0 target-relative bases long) always
+/// end up in the first piece.
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset);
 pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, size_t offset);
 // divide path at reference-relative position
@@ -379,12 +389,12 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
  */
 class edit_t {
 public:
-    edit_t() = default;
-    edit_t(const edit_t&) = default;
-    edit_t(edit_t&&) = default;
+    edit_t() noexcept : _from_length(0), _to_length(0), _sequence() {}
+    edit_t(const edit_t& other) = default;
+    edit_t(edit_t&& other) = default;
     ~edit_t() = default;
-    edit_t& operator=(const edit_t&) = default;
-    edit_t& operator=(edit_t&&) = default;
+    edit_t& operator=(const edit_t& other) = default;
+    edit_t& operator=(edit_t&& other) = default;
     inline int32_t from_length() const;
     inline void set_from_length(int32_t l);
     inline int32_t to_length() const;
@@ -404,11 +414,11 @@ private:
 class path_mapping_t {
 public:
     path_mapping_t() = default;
-    path_mapping_t(const path_mapping_t&) = default;
-    path_mapping_t(path_mapping_t&&) = default;
+    path_mapping_t(const path_mapping_t& other) = default;
+    path_mapping_t(path_mapping_t&& other) = default;
     ~path_mapping_t() = default;
-    path_mapping_t& operator=(const path_mapping_t&) = default;
-    path_mapping_t& operator=(path_mapping_t&&) = default;
+    path_mapping_t& operator=(const path_mapping_t& other) = default;
+    path_mapping_t& operator=(path_mapping_t&& other) = default;
     inline const position_t& position() const;
     inline position_t* mutable_position();
     inline const vector<edit_t>& edit() const;
@@ -427,11 +437,11 @@ private:
 class path_t {
 public:
     path_t() = default;
-    path_t(const path_t&) = default;
-    path_t(path_t&&) = default;
+    path_t(const path_t& other) = default;
+    path_t(path_t&& other) = default;
     ~path_t() = default;
-    path_t& operator=(const path_t&) = default;
-    path_t& operator=(path_t&&) = default;
+    path_t& operator=(const path_t& other) = default;
+    path_t& operator=(path_t&& other) = default;
     inline const vector<path_mapping_t>& mapping() const;
     inline const path_mapping_t& mapping(size_t i) const;
     inline vector<path_mapping_t>* mutable_mapping();
