@@ -328,6 +328,8 @@ TEST_CASE("MinimizerMapper can map against subgraphs between abutting points", "
             pos_t right_anchor {graph.get_id(h2), false, 0};
             
             TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+            std::cerr << pb2json(aln) << std::endl;
             
             // Make sure we get the right alignment
             REQUIRE(aln.path().mapping_size() == 1);
