@@ -1082,8 +1082,8 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
 
 //------------------------------------------------------------------------------
 
-Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, Verbosity verbosity) :
-    gbz(gbz), verbosity(verbosity)
+Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity) :
+    gbz(gbz), haplotypes(haplotypes), verbosity(verbosity)
 {
 }
 
@@ -1197,13 +1197,13 @@ double get_or_estimate_coverage(
     return coverage;
 }
 
-gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const {
+gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const Parameters& parameters) const {
 
     // Sanity checks (may throw).
     recombinator_sanity_checks(parameters);
 
     // Get kmer counts (may throw) and determine coverage.
-    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = haplotypes.kmer_counts(kff_file, this->verbosity);
+    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
     double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
 
     double start = gbwt::readTimer();
@@ -1212,19 +1212,19 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     }
 
     // Determine construction jobs.
-    std::vector<std::vector<size_t>> jobs(haplotypes.jobs());
-    for (auto& chain : haplotypes.chains) {
-        if (chain.job_id < haplotypes.jobs()) {
+    std::vector<std::vector<size_t>> jobs(this->haplotypes.jobs());
+    for (auto& chain : this->haplotypes.chains) {
+        if (chain.job_id < this->haplotypes.jobs()) {
             jobs[chain.job_id].push_back(chain.offset);
         }
     }
 
     // Figure out GBWT path ids for reference paths in each job.
-    std::vector<std::vector<gbwt::size_type>> reference_paths(haplotypes.jobs());
+    std::vector<std::vector<gbwt::size_type>> reference_paths(this->haplotypes.jobs());
     if (parameters.include_reference) {
         for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
-            size_t job_id = haplotypes.jobs_for_cached_paths[i];
-            if (job_id < haplotypes.jobs()) {
+            size_t job_id = this->haplotypes.jobs_for_cached_paths[i];
+            if (job_id < this->haplotypes.jobs()) {
                 reference_paths[job_id].push_back(this->gbz.graph.named_paths[i].id);
             }
         }
@@ -1253,7 +1253,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
         for (auto chain_id : jobs[job]) {
             try {
                 Statistics chain_statistics = this->generate_haplotypes(
-                    haplotypes.chains[chain_id], counts, builder, metadata, parameters, coverage
+                    this->haplotypes.chains[chain_id], counts, builder, metadata, parameters, coverage
                 );
                 job_statistics.combine(chain_statistics);
             } catch (const std::runtime_error& e) {
@@ -1348,17 +1348,16 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
 }
 
 std::vector<char> Recombinator::classify_kmers(
-    const Haplotypes& haplotypes,
     const std::string& kff_file, const Recombinator::Parameters& parameters
 ) const {
     // Get kmer counts (may throw) and determine coverage.
-    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = haplotypes.kmer_counts(kff_file, this->verbosity);
+    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
     double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
 
     // Classify the kmers in each subchain.
     std::vector<char> classifications;
-    classifications.reserve(haplotypes.kmers());
-    for (const auto& chain : haplotypes.chains) {
+    classifications.reserve(this->haplotypes.kmers());
+    for (const auto& chain : this->haplotypes.chains) {
         for (const auto& subchain : chain.subchains) {
             std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = vg::classify_kmers(
                 subchain, counts, coverage, nullptr, parameters
@@ -1613,15 +1612,14 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 //------------------------------------------------------------------------------
 
 std::vector<Recombinator::LocalHaplotype> Recombinator::extract_sequences(
-    const Haplotypes& haplotypes, const std::string& kff_file,
-    size_t chain_id, size_t subchain_id, const Parameters& parameters
+    const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
 ) const {
     // Sanity checks.
-    if (chain_id >= haplotypes.chains.size()) {
+    if (chain_id >= this->haplotypes.chains.size()) {
         std::string msg = "Recombinator::extract_sequences(): invalid chain id " + std::to_string(chain_id);
         throw std::runtime_error(msg);
     }
-    if (subchain_id >= haplotypes.chains[chain_id].subchains.size()) {
+    if (subchain_id >= this->haplotypes.chains[chain_id].subchains.size()) {
         std::string msg = "Recombinator::extract_sequences(): invalid subchain id " + std::to_string(subchain_id) +
             " in chain " + std::to_string(chain_id);
         throw std::runtime_error(msg);
@@ -1629,7 +1627,7 @@ std::vector<Recombinator::LocalHaplotype> Recombinator::extract_sequences(
     recombinator_sanity_checks(parameters);
 
     // Extract the haplotypes.
-    const Haplotypes::Subchain& subchain = haplotypes.chains[chain_id].subchains[subchain_id];
+    const Haplotypes::Subchain& subchain = this->haplotypes.chains[chain_id].subchains[subchain_id];
     std::vector<LocalHaplotype> result(subchain.sequences.size());
     for (size_t i = 0; i < subchain.sequences.size(); i++) {
         size_t path_id = gbwt::Path::id(subchain.sequences[i].first);
@@ -1648,7 +1646,7 @@ std::vector<Recombinator::LocalHaplotype> Recombinator::extract_sequences(
     }
 
     // Get kmer counts (may throw) and determine coverage.
-    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = haplotypes.kmer_counts(kff_file, this->verbosity);
+    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
     double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
 
     // Fill in the scores.

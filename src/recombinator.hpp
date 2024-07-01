@@ -373,6 +373,16 @@ private:
 
 //------------------------------------------------------------------------------
 
+/*
+  TODO:
+    * Parameters should include the functionality for classifying kmers, scoring
+      haplotypes, and samplign haplotypes.
+
+  Models:
+    * Diploid (current)
+    * Haploid
+*/
+
 /**
  * A class that creates synthetic haplotypes from a `Haplotypes` representation of
  * local haplotypes.
@@ -447,7 +457,7 @@ public:
     };
 
     /// Creates a new `Recombinator`.
-    Recombinator(const gbwtgraph::GBZ& gbz, Verbosity verbosity);
+    Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity);
 
     /// Parameters for `generate_haplotypes()`.
     struct Parameters {
@@ -484,8 +494,7 @@ public:
     };
 
     /**
-     * Generates haplotypes based on the given `Haplotypes` representation and
-     * the kmer counts in the given KFF file.
+     * Generates haplotypes based on the kmer counts in the given KFF file.
      *
      * Runs multiple GBWT construction jobs in parallel using OpenMP threads and
      * generates the specified number of haplotypes in each top-level chain
@@ -500,7 +509,7 @@ public:
      * Throws `std::runtime_error` on error in single-threaded parts and exits
      * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
-    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
+    gbwt::GBWT generate_haplotypes(const std::string& kff_file, const Parameters& parameters) const;
 
     /// A local haplotype sequence within a single subchain.
     struct LocalHaplotype {
@@ -525,23 +534,23 @@ public:
      *
      * Throws `std::runtime_error` on error.
      */
-    std::vector<char> classify_kmers(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
+    std::vector<char> classify_kmers(const std::string& kff_file, const Parameters& parameters) const;
 
     /**
      * Extracts the local haplotypes in the given subchain. In addition to the
      * haplotype sequence, this also reports the name of the corresponding path
      * as well as (rank, score) for the haplotype in each round of haplotype
-     * selection. The number of rounds is `parameters.num_haplotyeps`, but if
+     * selection. The number of rounds is `parameters.num_haplotypes`, but if
      * the haplotype is selected earlier, it will not get further scores.
      *
      * Throws `std::runtime_error` on error.
      */
     std::vector<LocalHaplotype> extract_sequences(
-        const Haplotypes& haplotypes, const std::string& kff_file,
-        size_t chain_id, size_t subchain_id, const Parameters& parameters
+        const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
     ) const;
 
     const gbwtgraph::GBZ& gbz;
+    const Haplotypes& haplotypes;
     Verbosity verbosity;
 
 private:

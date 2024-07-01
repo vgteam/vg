@@ -574,10 +574,10 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
-    Recombinator recombinator(gbz, config.verbosity);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
     gbwt::GBWT merged;
     try {
-        merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
+        merged = recombinator.generate_haplotypes(config.kmer_input, config.recombinator_parameters);
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
@@ -896,12 +896,11 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         std::cerr << "Extracting haplotypes from chain " << config.chain_id << ", subchain " << config.subchain_id << std::endl;
     }
 
-    Recombinator recombinator(gbz, config.verbosity);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
     std::vector<Recombinator::LocalHaplotype> result;
     try {
         result = recombinator.extract_sequences(
-            haplotypes, config.kmer_input,
-            config.chain_id, config.subchain_id, config.recombinator_parameters
+            config.kmer_input, config.chain_id, config.subchain_id, config.recombinator_parameters
         );
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
@@ -940,8 +939,8 @@ void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, con
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Classifying kmers" << std::endl;
     }
-    Recombinator recombinator(gbz, config.verbosity);
-    std::vector<char> classifications = recombinator.classify_kmers(haplotypes, config.kmer_input, config.recombinator_parameters);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
+    std::vector<char> classifications = recombinator.classify_kmers(config.kmer_input, config.recombinator_parameters);
 
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Writing " << classifications.size() << " classifications to " << config.kmer_output << std::endl;

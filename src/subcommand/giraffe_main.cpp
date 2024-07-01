@@ -1669,14 +1669,14 @@ string sample_haplotypes(const vector<pair<string, string>>& indexes, string& ba
 
     // Sample haplotypes.
     Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
-    Recombinator recombinator(gbz, verbosity);
+    Recombinator recombinator(gbz, haplotypes, verbosity);
     Recombinator::Parameters parameters;
     parameters.num_haplotypes = Recombinator::NUM_CANDIDATES;
     parameters.diploid_sampling = true;
     parameters.include_reference = true;
     gbwt::GBWT sampled_gbwt;
     try {
-        sampled_gbwt = recombinator.generate_haplotypes(haplotypes, kff_file, parameters);
+        sampled_gbwt = recombinator.generate_haplotypes(kff_file, parameters);
     } catch (const std::runtime_error& e) {
         std::cerr << "error:[vg giraffe] Haplotype sampling failed: " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
