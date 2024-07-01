@@ -110,7 +110,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -148,7 +148,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Handles tails when anchors for them are not generated") {
         
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -208,7 +208,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, false, 0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -244,7 +244,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
         SECTION("Handles tails when anchors for them are not generated") {
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, false, 0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -301,7 +301,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, false, 0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -338,7 +338,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
         SECTION("Handles tails when anchors for them are not generated") {
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, false, 0, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, std::numeric_limits<size_t>::max(), false, 0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?

@@ -2500,6 +2500,7 @@ TEST_CASE("Connect with a non-diverging multi-node cycle", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
+// TODO: Can we do meaningful tests with the distance parameters?
 TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
@@ -2514,7 +2515,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 1, 1},
             {0, 0, 0},
-            {0, 0, 0}
+            {0, 0, 0},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2531,7 +2533,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 1, 1},
             {0, 0, 0},
-            {0, 0, 0}
+            {0, 0, 0},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2547,7 +2550,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 1, 1},
-            {0, 0, 0}
+            {0, 0, 0},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2563,7 +2567,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 1, 1},
-            {0, 1, 1}
+            {0, 1, 1},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2580,7 +2585,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 1, 1},
-            {0, 1, 1}
+            {0, 1, 1},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2596,7 +2602,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 1, 1},
-            {0, 2, 2}
+            {0, 2, 2},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2613,7 +2620,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 1, 1},
-            {0, 2, 2}
+            {0, 2, 2},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         
@@ -2629,7 +2637,8 @@ TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
         WFAExtender::ErrorModel errors {
             {0, 0, 0},
             {0, 2, 2},
-            {0, 2, 2}
+            {0, 2, 2},
+            WFAExtender::ErrorModel::default_distance(),
         };
         WFAExtender extender(graph, aligner, errors);
         

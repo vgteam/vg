@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 50
+plan tests 55
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -44,6 +44,18 @@ is "${?}" "0" "a read can be mapped with the fast preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
 is "${?}" "0" "a read can be mapped with the default preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b sr >/dev/null
+is "${?}" "0" "a read can be mapped with the short read chaining preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b sr >/dev/null
+is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
+
+rm -Rf grid-out
+mkdir grid-out
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-basename grid-out/file --hard-hit-cap 5:6
+is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
+rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
 is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"
@@ -210,11 +222,14 @@ rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null
 vg index -j 1mb1kgp.dist  1mb1kgp.vg
 vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
-vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains
+vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains --set-refpos
 # This is an 8001 bp read with 1 insert and 1 substitution
+# 7999 * 1 + 1 * -4 + -6 + 5 + 5 = 7999
 is "$(vg view -aj longread.gam | jq -r '.score')" "7999" "A long read can be correctly aligned"
 is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l)" "2" "A long read has the correct edits found"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l)" "1" "Long read minimizer set is correctly restricted"
+is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
+is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
 rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt
 

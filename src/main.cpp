@@ -53,10 +53,11 @@ int main(int argc, char *argv[]) {
     preflight_check();
     
     // Make sure we configure the memory allocator appropriately for our environment
-    configure_memory_allocator();
+    AllocatorConfig::configure();
     
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
+    set_crash_context("Starting up");
 
     // Determine a sensible default number of threads and apply it.
     choose_good_thread_count();

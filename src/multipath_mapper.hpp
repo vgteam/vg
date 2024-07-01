@@ -78,9 +78,6 @@ namespace vg {
         /// Experimental: skeleton code for predicting path distance from minimum distance
         void determine_distance_correlation();
         
-        /// Should be called once after construction, or any time the band padding multiplier is changed
-        void init_band_padding_memo();
-        
         using AlignerClient::set_alignment_scores;
 
         /// Set the algner scoring parameters and create the stored aligner instances. The
@@ -115,7 +112,6 @@ namespace vg {
         size_t max_tail_merge_supress_length = 4;
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
-        double band_padding_multiplier = 1.0;
         bool use_pessimistic_tail_alignment = false;
         double pessimistic_gap_multiplier = 0.0;
         bool restrained_graph_extraction = false;
@@ -136,7 +132,6 @@ namespace vg {
         int max_fanout_base_quality = 20;
         int max_fans_out = 5;
         size_t max_p_value_memo_size = 500;
-        size_t band_padding_memo_size = 2000;
         double max_exponential_rate_intercept = 0.612045;
         double max_exponential_rate_slope = 0.000555181;
         double max_exponential_shape_intercept = 12.136;
@@ -203,6 +198,9 @@ namespace vg {
         // the maximum number of pairs of each motif that we will consider during spliced alignment
         size_t max_motif_pairs = 1024;
         unordered_set<path_handle_t> ref_path_handles;
+
+        // A function for computing band padding
+        std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -687,9 +685,6 @@ namespace vg {
         // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
         static const size_t gap_memo_max_size;
-        
-        // a memo for transcendental band padidng function (gets initialized at construction)
-        vector<size_t> band_padding_memo;
         
 #ifdef mpmap_instrument_mem_statistics
     public:

@@ -912,9 +912,9 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar, char mismatch_operation) {
     for (const auto& edit : mapping.edit()) {
-        if (edit.from_length() && edit.from_length() == edit.to_length()) {
+        if (edit.sequence().empty() && edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
             append_cigar_operation(edit.from_length(), 'M', cigar);
@@ -923,8 +923,8 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
-                append_cigar_operation(edit.from_length(), 'M', cigar);
-                //cerr << "match " << edit.from_length() << endl;
+                append_cigar_operation(edit.from_length(), mismatch_operation, cigar);
+                //cerr << "mismatch " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
@@ -2526,7 +2526,9 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
 }
 
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph) {
+    size_t total_to_length = 0;
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+        // Make sure the node exists
         const Mapping& mapping = aln.path().mapping(i);
         if (!hgraph->has_node(mapping.position().node_id())) {
             std::stringstream ss;
@@ -2534,20 +2536,126 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
             return {
                 AlignmentValidity::NODE_MISSING,
                 i,
+                0,
+                total_to_length,
                 ss.str()
             };
         }
-        size_t node_len = hgraph->get_length(hgraph->get_handle(mapping.position().node_id()));
-        if (mapping_from_length(mapping) + mapping.position().offset() > node_len) {
-            std::stringstream ss;
-            ss << "Length of node "
-               << mapping.position().node_id() << " (" << node_len << ") exceeded by Mapping with offset "
-               << mapping.position().offset() << " and from-length " << mapping_from_length(mapping);
-            return {
-                AlignmentValidity::NODE_TOO_SHORT,
-                i,
-                ss.str()
-            };
+        // Make sure the Mapping stays inside the node
+        auto node_handle = hgraph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
+        std::string node_sequence = hgraph->get_sequence(node_handle);
+        size_t node_len = node_sequence.size();
+        size_t node_total_from_length = mapping.position().offset();
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            auto& edit = mapping.edit(j);
+
+            if (node_total_from_length + edit.from_length() > node_len) {
+                std::stringstream ss;
+                ss << "Length of node "
+                   << mapping.position().node_id() << " (" << node_len << ") exceeded by Mapping with offset "
+                   << mapping.position().offset() << " and from-length " << mapping_from_length(mapping);
+                return {
+                    AlignmentValidity::NODE_TOO_SHORT,
+                    i,
+                    j,
+                    total_to_length,
+                    ss.str()
+                };
+            }
+
+            if (total_to_length + edit.to_length() > aln.sequence().size()) {
+                std::stringstream ss;
+                ss << "Length of read sequence (" << aln.sequence().size()
+                   << ") exceeded by Mapping with to-length " << mapping_to_length(mapping);
+                return {
+                    AlignmentValidity::READ_TOO_SHORT,
+                    i,
+                    j,
+                    total_to_length,
+                    ss.str()
+                };
+            }
+
+            if (edit.to_length() > 0) {
+                std::string to_sequence = aln.sequence().substr(total_to_length, edit.to_length());
+                if (edit.to_length() > edit.from_length() && edit.sequence().empty()) {
+                    std::stringstream ss;
+                    ss << "Edit has no sequence but increases length from "
+                       << edit.from_length() << " to " << edit.to_length();
+                    return {
+                        AlignmentValidity::EDIT_SEQUENCE_WRONG,
+                        i,
+                        j,
+                        total_to_length,
+                        ss.str()
+                    };
+                }
+                if (!edit.sequence().empty()) {
+                    if (edit.sequence().size() != edit.to_length()) {
+                        // We have a sequence but it's not the right length for the edit
+                        std::stringstream ss;
+                        ss << "Edit has sequence " << edit.sequence()
+                           << " of length " << edit.sequence().size() << " but a to length of "
+                           << edit.to_length();
+                        return {
+                            AlignmentValidity::EDIT_SEQUENCE_WRONG,
+                            i,
+                            j,
+                            total_to_length,
+                            ss.str()
+                        };
+
+                    }
+                    if (edit.sequence() != to_sequence) {
+                        // We aren't editing to what the read has here
+                        std::stringstream ss;
+                        ss << "Edit has sequence " << edit.sequence()
+                           << " but read has sequence " << to_sequence;
+                        return {
+                            AlignmentValidity::EDIT_SEQUENCE_WRONG,
+                            i,
+                            j,
+                            total_to_length,
+                            ss.str()
+                        };
+                    }
+                }
+                if (edit.from_length() > 0) {
+                    std::string from_sequence = node_sequence.substr(node_total_from_length, edit.from_length());
+                    if (!edit.sequence().empty() && edit.sequence() == from_sequence) {
+                        // We're editing to something that's already there
+                        std::stringstream ss;
+                        ss << "Edit has sequence " << edit.sequence()
+                           << " but graph already has sequence " << from_sequence;
+                        return {
+                            AlignmentValidity::EDIT_SEQUENCE_WRONG,
+                            i,
+                            j,
+                            total_to_length,
+                            ss.str()
+                        };
+                    }
+
+                    if (from_sequence != to_sequence && edit.sequence().empty()) {
+                        // We should have included a sequence in the edit but didn't.
+                        std::stringstream ss;
+                        ss << "Edit has no sequence but graph sequence " << from_sequence
+                           << " at node " << mapping.position().node_id()
+                           << " orientation " << (mapping.position().is_reverse() ? "-" : "+")
+                           << " offset " << node_total_from_length
+                           << " does not match read sequence " << to_sequence;
+                        return {
+                            AlignmentValidity::EDIT_SEQUENCE_WRONG,
+                            i,
+                            j,
+                            total_to_length,
+                            ss.str()
+                        };
+                    }
+                }
+            }
+            node_total_from_length += edit.from_length();
+            total_to_length += edit.to_length();
         }
     }
     return {AlignmentValidity::OK};

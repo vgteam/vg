@@ -8,7 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "traversal_support.hpp"
@@ -69,12 +69,9 @@ TEST_CASE( "Deletion allele supports found correctly",
         string graph_json = R"(
 {"edge": [{"from": "31041", "to": "31042"}, {"from": "31040", "to": "31041"}, {"from": "31040", "to": "31043"}, {"from": "134035", "to": "148994"}, {"from": "31042", "to": "134035"}, {"from": "31043", "from_start": true, "to": "134035", "to_end": true}, {"from": "31043", "from_start": true, "to": "148994", "to_end": true}], "node": [{"id": "31041", "sequence": "TATTTCCTAATGGGGTAGTGTCAGAGAGAGTA"}, {"id": "31040", "sequence": "GGCCCTGGAATATC"}, {"id": "134035", "sequence": "ATC"}, {"id": "31042", "sequence": "ATAACGCAGTATTTGTGA"}, {"id": "148994", "sequence": "A"}, {"id": "31043", "sequence": "GATCCCCTCTCCTTTACGAACTGGTAGAAGTG"}]}
     )";
-    
-    Graph g;
-    json2pb(g, graph_json);
-    
-    // Wrap the graph in a HandleGraph
-    VG graph(g);
+
+    VG graph;
+    io::json2graph(graph_json, &graph);
 
     unordered_map<nid_t, double> node_supports = {
         {31040, 17.5},
