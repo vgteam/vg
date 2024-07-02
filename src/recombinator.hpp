@@ -296,8 +296,11 @@ public:
         /// Target length for subchains (in bp).
         size_t subchain_length = SUBCHAIN_LENGTH;
 
-        /// Generate approximately this many  jobs.
+        /// Generate approximately this many jobs.
         size_t approximate_jobs = APPROXIMATE_JOBS;
+
+        /// Print a description of the parameters.
+        void print(std::ostream& out) const;
     };
 
     /**
@@ -372,16 +375,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-
-/*
-  TODO:
-    * Parameters should include the functionality for classifying kmers, scoring
-      haplotypes, and samplign haplotypes.
-
-  Models:
-    * Diploid (current)
-    * Haploid
-*/
 
 /**
  * A class that creates synthetic haplotypes from a `Haplotypes` representation of
@@ -460,6 +453,7 @@ public:
     Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity);
 
     /// Parameters for `generate_haplotypes()`.
+    /// TODO: We should have a single parameter for the scoring/sampling model.
     struct Parameters {
         /// Number of haplotypes to be generated, or the number of candidates
         /// for diploid sampling.
@@ -485,12 +479,20 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
+        /// Use the haploid scoring model. The most common kmer count is used as
+        /// the coverage estimate. Kmers that would be classified as heterozygous
+        /// are treated as homozygous.
+        bool haploid_scoring = false;
+
         /// After selecting the initial `num_haplotypes` haplotypes, choose the
         /// highest-scoring pair out of them.
         bool diploid_sampling = false;
 
         /// Include named and reference paths.
         bool include_reference = false;
+
+        /// Print a description of the parameters.
+        void print(std::ostream& out) const;
     };
 
     /**

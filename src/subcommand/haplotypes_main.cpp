@@ -225,7 +225,8 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
-    std::cerr << "        --diploid-sampling    choose the best pair from the greedily selected haplotypes" << std::endl;
+    std::cerr << "        --haploid-scoring     use a scoring model without heterozygous kmers" << std::endl;
+    std::cerr << "        --diploid-sampling    choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
@@ -255,8 +256,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_PRESENT_DISCOUNT = 1302;
     constexpr int OPT_HET_ADJUSTMENT = 1303;
     constexpr int OPT_ABSENT_SCORE = 1304;
-    constexpr int OPT_DIPLOID_SAMPLING = 1305;
-    constexpr int OPT_INCLUDE_REFERENCE = 1306;
+    constexpr int OPT_HAPLOID_SCORING = 1305;
+    constexpr int OPT_DIPLOID_SAMPLING = 1306;
+    constexpr int OPT_INCLUDE_REFERENCE = 1307;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
@@ -280,6 +282,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
@@ -376,6 +379,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::cerr << "error: [vg haplotypes] absent score must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case OPT_HAPLOID_SCORING:
+            this->recombinator_parameters.haploid_scoring = true;
             break;
         case OPT_DIPLOID_SAMPLING:
             this->recombinator_parameters.diploid_sampling = true;

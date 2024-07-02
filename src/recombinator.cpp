@@ -293,6 +293,10 @@ HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
 {
 }
 
+void HaplotypePartitioner::Parameters::print(std::ostream& out) const {
+    out << "Partitioning parameters: target length " << this->subchain_length << " bp; " << this->approximate_jobs << " jobs" << std::endl;
+}
+
 //------------------------------------------------------------------------------
 
 Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& parameters) const {
@@ -305,6 +309,9 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     if (parameters.approximate_jobs == 0) {
         std::string msg = "HaplotypePartitioner::partition_haplotypes(): number of jobs cannot be 0";
         throw std::runtime_error(msg);
+    }
+    if (this->verbosity >= Haplotypes::verbosity_detailed) {
+        parameters.print(std::cerr);
     }
 
     Haplotypes result;
@@ -523,6 +530,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             }
             size_t candidate = this->get_distance(snarls[head].start, snarls[tail + 1].end);
             if (candidate > parameters.subchain_length) {
+                // TODO: We need an option for non-greedy boundaries.
                 // Including the next snarl would exceed target length. But if a haplotype visits
                 // the tail in both orientations, it flips the orientation in a subsequent subchain,
                 // returns back, flips again, and eventually continues forward. In such situations,
@@ -1087,6 +1095,26 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
 {
 }
 
+void Recombinator::Parameters::print(std::ostream& out) const {
+    out << "Sampling parameters:" << std::endl;
+    if (this->haploid_scoring) {
+        out << "- haploid scoring (absent " << this->absent_score << ", present " << this->present_discount << ")" << std::endl;
+    } else {
+        out << "- diploid scoring (absent " << this->absent_score << ", het " << this->het_adjustment << ", present " << this->present_discount << ")" << std::endl;
+    }
+    if (this->coverage > 0) {
+        out << "- kmer coverage " << this->coverage << std::endl;
+    }
+    if (this->diploid_sampling) {
+        out << "- diploid sampling (" << this->num_haplotypes << " candidates)" << std::endl;
+    } else {
+        out << "- heuristic sampling (" << this->num_haplotypes << " haplotypes)" << std::endl;
+    }
+    if (this->include_reference) {
+        out << "- include reference paths" << std::endl;
+    }
+}
+
 //------------------------------------------------------------------------------
 
 void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) {
@@ -1162,9 +1190,9 @@ double get_or_estimate_coverage(
             << ", mode " << statistics.mode;
     }
 
-    // If mode < median, try to find a secondary peak at ~2x mode and use
-    // it if it is good enough.
-    if (statistics.mode < statistics.median) {
+    // In the default (non-haploid) scoring model, if mode < median, we try
+    // to find a secondary peak at ~2x mode and use it if it is good enough.
+    if (statistics.mode < statistics.median && !parameters.haploid_scoring) {
         size_t low = 1.7 * statistics.mode, high = 2.3 * statistics.mode;
         size_t peak = count_to_frequency[coverage];
         size_t best = low, secondary = count_to_frequency[low];
@@ -1201,6 +1229,10 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
 
     // Sanity checks (may throw).
     recombinator_sanity_checks(parameters);
+
+    if (this->verbosity >= Haplotypes::verbosity_detailed) {
+        parameters.print(std::cerr);
+    }
 
     // Get kmer counts (may throw) and determine coverage.
     hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
@@ -1317,9 +1349,6 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     double heterozygous_threshold = coverage / std::log(4.0);
     double homozygous_threshold = coverage * 2.5;
 
-    // TODO: -log prob may be the right score once we have enough haplotypes, but
-    // right now +1 works better, because we don't have haplotypes with the right
-    // combination of rare kmers.
     // Determine the type of each kmer in the sample and the score for the kmer.
     // A haplotype with the kmer gets +1.0 * score, while a haplotype without it
     // gets -1.0 * score.
@@ -1330,7 +1359,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
         if (count < absent_threshold) {
             kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
             selected_kmers++;
-        } else if (count < heterozygous_threshold) {
+        } else if (count < heterozygous_threshold && !parameters.haploid_scoring) {
             kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
             selected_kmers++;
         } else if (count < homozygous_threshold) {
