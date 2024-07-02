@@ -1049,7 +1049,12 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
     }
 
-    if (!config.graph_output.empty()) {
+    if (config.graph_output.empty()) {
+        if (config.gbz_format) {
+            std::cerr << "error: [vg gbwt] GBZ format requires graph output" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    } else {
         if (!has_graph_input || !one_input_gbwt) {
             std::cerr << "error: [vg gbwt] GBWTGraph construction requires an input graph and and one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
