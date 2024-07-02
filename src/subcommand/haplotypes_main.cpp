@@ -217,6 +217,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
+    std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
@@ -251,6 +252,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_KMER_LENGTH = 1200;
     constexpr int OPT_WINDOW_LENGTH = 1201;
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
+    constexpr int OPT_LINEAR_STRUCTURE = 1203;
     constexpr int OPT_COVERAGE = 1300;
     constexpr int OPT_NUM_HAPLOTYPES = 1301;
     constexpr int OPT_PRESENT_DISCOUNT = 1302;
@@ -277,6 +279,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
+        { "linear-structure", no_argument, 0, OPT_LINEAR_STRUCTURE },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
@@ -347,6 +350,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::cerr << "error: [vg haplotypes] subchain length cannot be 0" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case OPT_LINEAR_STRUCTURE:
+            this->partitioner_parameters.linear_structure = true;
             break;
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);

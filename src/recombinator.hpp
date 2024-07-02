@@ -299,6 +299,10 @@ public:
         /// Generate approximately this many jobs.
         size_t approximate_jobs = APPROXIMATE_JOBS;
 
+        /// Avoid placing subchain boundaries in places where haplotypes would
+        /// cross them multiple times.
+        bool linear_structure = false;
+
         /// Print a description of the parameters.
         void print(std::ostream& out) const;
     };

@@ -294,7 +294,12 @@ HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
 }
 
 void HaplotypePartitioner::Parameters::print(std::ostream& out) const {
-    out << "Partitioning parameters: target length " << this->subchain_length << " bp; " << this->approximate_jobs << " jobs" << std::endl;
+    out << "Partitioning parameters:" << std::endl;
+    out << "- target length " << this->subchain_length << " bp" << std::endl;
+    if (this->linear_structure) {
+        out << "- strictly linear structure" << std::endl;
+    }
+    out << "- " << this->approximate_jobs << " jobs" << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -530,7 +535,6 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             }
             size_t candidate = this->get_distance(snarls[head].start, snarls[tail + 1].end);
             if (candidate > parameters.subchain_length) {
-                // TODO: We need an option for non-greedy boundaries.
                 // Including the next snarl would exceed target length. But if a haplotype visits
                 // the tail in both orientations, it flips the orientation in a subsequent subchain,
                 // returns back, flips again, and eventually continues forward. In such situations,
@@ -538,7 +542,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
                 // while sampling maximal haplotypes could make some kmers specific to the next
                 // subchain shared with haplotypes in this subchain. We therefore move forward until
                 // we can make the subchain contain the reversals.
-                if (this->contains_reversals(snarls[tail].end)) {
+                if (parameters.linear_structure && this->contains_reversals(snarls[tail].end)) {
                     extra_snarls++;
                 } else {
                     break;
