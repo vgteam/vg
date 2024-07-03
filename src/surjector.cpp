@@ -3006,14 +3006,14 @@ using namespace std;
 #endif
 
             size_t subgraph_bases = aln_graph->get_total_length();
-            if (subgraph_bases > max_subgraph_bases) {
+            if (source.sequence().size() > 0 && subgraph_bases / (double) source.sequence().size() > max_subgraph_bases_per_read_base) {
 #ifdef debug_always_warn_on_too_long
                 cerr << "gave up on too long read " + source.name() + "\n";
 #endif
                 if (!warned_about_subgraph_size.test_and_set()) {
                     cerr << "warning[vg::Surjector]: Refusing to perform very large alignment against "
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()
-                        << "; suppressing further warnings." << endl;
+                        << " length " << source.sequence().size() << "; suppressing further warnings." << endl;
                 }
                 surjected = move(make_null_alignment(source));
                 return surjected;

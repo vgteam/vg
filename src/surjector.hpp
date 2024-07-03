@@ -111,8 +111,13 @@ using namespace std;
         /// the maximum length of a tail that we will try to align
         size_t max_tail_length = std::numeric_limits<size_t>::max();
         
-        /// How big of a graph in bp should we ever try to align against for realigning surjection?
-        size_t max_subgraph_bases = 100 * 1024;
+        /// We have a different default max_subgraph_bases_per_read_base to use for spliced alignment.
+        static constexpr double SPLICED_DEFAULT_SUBGRAPH_LIMIT = 16 * 1024 * 1024 / 125.0;
+        /// And an accessible default max_subgraph_bases_per_read_base for normal alignment.
+        static constexpr double DEFAULT_SUBGRAPH_LIMIT = 100 * 1024 / 125.0;
+        /// How big of a graph (in graph bases per read base) should we ever try to align against for realigning surjection?
+        double max_subgraph_bases_per_read_base = DEFAULT_SUBGRAPH_LIMIT;
+       
         
         /// in spliced surject, downsample if the base-wise average coverage by chunks is this high
         int64_t min_fold_coverage_for_downsample = 8;
