@@ -220,6 +220,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
+    std::cerr << "        --preset X            use preset X (default, haploid, diploid)" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_default_candidates() << ")" << std::endl;
@@ -253,14 +254,15 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_WINDOW_LENGTH = 1201;
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
     constexpr int OPT_LINEAR_STRUCTURE = 1203;
-    constexpr int OPT_COVERAGE = 1300;
-    constexpr int OPT_NUM_HAPLOTYPES = 1301;
-    constexpr int OPT_PRESENT_DISCOUNT = 1302;
-    constexpr int OPT_HET_ADJUSTMENT = 1303;
-    constexpr int OPT_ABSENT_SCORE = 1304;
-    constexpr int OPT_HAPLOID_SCORING = 1305;
-    constexpr int OPT_DIPLOID_SAMPLING = 1306;
-    constexpr int OPT_INCLUDE_REFERENCE = 1307;
+    constexpr int OPT_PRESET = 1300;
+    constexpr int OPT_COVERAGE = 1301;
+    constexpr int OPT_NUM_HAPLOTYPES = 1302;
+    constexpr int OPT_PRESENT_DISCOUNT = 1303;
+    constexpr int OPT_HET_ADJUSTMENT = 1304;
+    constexpr int OPT_ABSENT_SCORE = 1305;
+    constexpr int OPT_HAPLOID_SCORING = 1306;
+    constexpr int OPT_DIPLOID_SAMPLING = 1307;
+    constexpr int OPT_INCLUDE_REFERENCE = 1308;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
@@ -280,6 +282,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
         { "linear-structure", no_argument, 0, OPT_LINEAR_STRUCTURE },
+        { "preset", required_argument, 0, OPT_PRESET },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
@@ -354,6 +357,24 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_LINEAR_STRUCTURE:
             this->partitioner_parameters.linear_structure = true;
             break;
+
+        case OPT_PRESET:
+            {
+                Recombinator::Parameters::preset_t preset;
+                if (std::string(optarg) == "default") {
+                    preset = Recombinator::Parameters::preset_default;
+                } else if (std::string(optarg) == "haploid") {
+                    preset = Recombinator::Parameters::preset_haploid;
+                } else if (std::string(optarg) == "diploid") {
+                    preset = Recombinator::Parameters::preset_diploid;
+                } else {
+                    std::cerr << "error: [vg haplotypes] unknown preset: " << optarg << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                this->recombinator_parameters = Recombinator::Parameters(preset);
+                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
+                break;
+            }
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;

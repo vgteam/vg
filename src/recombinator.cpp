@@ -1099,6 +1099,19 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
 {
 }
 
+//------------------------------------------------------------------------------
+
+Recombinator::Parameters::Parameters(preset_t preset) {
+    if (preset == preset_haploid) {
+        this->haploid_scoring = true;
+        this->include_reference = true;
+    } else if (preset == preset_diploid) {
+        this->num_haplotypes = NUM_CANDIDATES;
+        this->diploid_sampling = true;
+        this->include_reference = true;
+    }
+}
+
 void Recombinator::Parameters::print(std::ostream& out) const {
     out << "Sampling parameters:" << std::endl;
     if (this->haploid_scoring) {

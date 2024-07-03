@@ -457,7 +457,6 @@ public:
     Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity);
 
     /// Parameters for `generate_haplotypes()`.
-    /// TODO: We should have a single parameter for the scoring/sampling model.
     struct Parameters {
         /// Number of haplotypes to be generated, or the number of candidates
         /// for diploid sampling.
@@ -494,6 +493,18 @@ public:
 
         /// Include named and reference paths.
         bool include_reference = false;
+
+        /// Preset parameters for common use cases.
+        enum preset_t {
+            /// Default parameters.
+            preset_default,
+            /// Best practices for haploid sampling.
+            preset_haploid,
+            /// Best practices for diploid sampling.
+            preset_diploid
+        };
+
+        explicit Parameters(preset_t preset = preset_default);
 
         /// Print a description of the parameters.
         void print(std::ostream& out) const;
