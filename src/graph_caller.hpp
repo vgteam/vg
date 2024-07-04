@@ -85,7 +85,8 @@ public:
                               const vector<size_t>& contig_length_overrides) const;
 
     /// Add a variant to our buffer
-    void add_variant(vcflib::Variant& var) const;
+    /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
+    bool add_variant(vcflib::Variant& var) const;
 
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
@@ -103,13 +104,18 @@ public:
 protected:
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
+    void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
+                                 const Traversal& trav, bool reversed, bool one_based) const;
+    /// legacy version of above
     void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
+    
     
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
     
     /// print a vcf variant
-    void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+    /// return value is taken from add_variant (see above)
+    bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                       const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
@@ -131,6 +137,8 @@ protected:
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
+    string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
+    /// legacy version of above
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
 
     /// do the opposite of above
@@ -160,6 +168,9 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
+
+    // prevent giant variants
+    static const int64_t max_vcf_line_length = 2000000000;
 };
 
 /**

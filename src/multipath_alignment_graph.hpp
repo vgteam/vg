@@ -85,19 +85,19 @@ namespace vg {
         
         /// Construct a graph of the reachability between aligned chunks in a linearized
         /// path graph. Produces a graph with reachability edges.
-        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                 const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
-        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// and using a lambda for a projector
-        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                 const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns = true,
                                 bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
@@ -261,7 +261,7 @@ namespace vg {
                                              int64_t* removed_end_from_length = nullptr);
         
         /// Add the path chunks as nodes to the connectivity graph
-        void create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        void create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, path_t>>& path_chunks,
                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                      vector<size_t>* path_node_provenance = nullptr);

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 12
+plan tests 13
 
 vg construct -r small/x.fa > j.vg
 vg index -x j.xg j.vg
@@ -52,5 +52,7 @@ cat <(samtools view -H small/x.bam) <(printf "name\t4\t*\t0\t0\t*\t*\t0\t0\tACGT
 is "$(vg inject -x x.xg unmapped.sam | vg view -aj - | grep "path" | wc -l)" 0 "vg inject does not make an alignment for an umapped read"
 is "$(echo $?)" 0 "vg inject does not crash on an unmapped read"
 
+is $(vg inject -x x.xg small/x.bam -o GAF | wc -l) \
+    1000 "vg inject supports GAF output"
 
 rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam
