@@ -217,15 +217,18 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
+    std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
+    std::cerr << "        --preset X            use preset X (default, haploid, diploid)" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_default_candidates() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
-    std::cerr << "        --diploid-sampling    choose the best pair from the greedily selected haplotypes" << std::endl;
+    std::cerr << "        --haploid-scoring     use a scoring model without heterozygous kmers" << std::endl;
+    std::cerr << "        --diploid-sampling    choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
@@ -250,13 +253,16 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_KMER_LENGTH = 1200;
     constexpr int OPT_WINDOW_LENGTH = 1201;
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
-    constexpr int OPT_COVERAGE = 1300;
-    constexpr int OPT_NUM_HAPLOTYPES = 1301;
-    constexpr int OPT_PRESENT_DISCOUNT = 1302;
-    constexpr int OPT_HET_ADJUSTMENT = 1303;
-    constexpr int OPT_ABSENT_SCORE = 1304;
-    constexpr int OPT_DIPLOID_SAMPLING = 1305;
-    constexpr int OPT_INCLUDE_REFERENCE = 1306;
+    constexpr int OPT_LINEAR_STRUCTURE = 1203;
+    constexpr int OPT_PRESET = 1300;
+    constexpr int OPT_COVERAGE = 1301;
+    constexpr int OPT_NUM_HAPLOTYPES = 1302;
+    constexpr int OPT_PRESENT_DISCOUNT = 1303;
+    constexpr int OPT_HET_ADJUSTMENT = 1304;
+    constexpr int OPT_ABSENT_SCORE = 1305;
+    constexpr int OPT_HAPLOID_SCORING = 1306;
+    constexpr int OPT_DIPLOID_SAMPLING = 1307;
+    constexpr int OPT_INCLUDE_REFERENCE = 1308;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
@@ -275,11 +281,14 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
+        { "linear-structure", no_argument, 0, OPT_LINEAR_STRUCTURE },
+        { "preset", required_argument, 0, OPT_PRESET },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
@@ -345,6 +354,27 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::exit(EXIT_FAILURE);
             }
             break;
+        case OPT_LINEAR_STRUCTURE:
+            this->partitioner_parameters.linear_structure = true;
+            break;
+
+        case OPT_PRESET:
+            {
+                Recombinator::Parameters::preset_t preset;
+                if (std::string(optarg) == "default") {
+                    preset = Recombinator::Parameters::preset_default;
+                } else if (std::string(optarg) == "haploid") {
+                    preset = Recombinator::Parameters::preset_haploid;
+                } else if (std::string(optarg) == "diploid") {
+                    preset = Recombinator::Parameters::preset_diploid;
+                } else {
+                    std::cerr << "error: [vg haplotypes] unknown preset: " << optarg << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                this->recombinator_parameters = Recombinator::Parameters(preset);
+                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
+                break;
+            }
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;
@@ -376,6 +406,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::cerr << "error: [vg haplotypes] absent score must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case OPT_HAPLOID_SCORING:
+            this->recombinator_parameters.haploid_scoring = true;
             break;
         case OPT_DIPLOID_SAMPLING:
             this->recombinator_parameters.diploid_sampling = true;
@@ -574,10 +607,10 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
-    Recombinator recombinator(gbz, config.verbosity);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
     gbwt::GBWT merged;
     try {
-        merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
+        merged = recombinator.generate_haplotypes(config.kmer_input, config.recombinator_parameters);
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
@@ -896,12 +929,11 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         std::cerr << "Extracting haplotypes from chain " << config.chain_id << ", subchain " << config.subchain_id << std::endl;
     }
 
-    Recombinator recombinator(gbz, config.verbosity);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
     std::vector<Recombinator::LocalHaplotype> result;
     try {
         result = recombinator.extract_sequences(
-            haplotypes, config.kmer_input,
-            config.chain_id, config.subchain_id, config.recombinator_parameters
+            config.kmer_input, config.chain_id, config.subchain_id, config.recombinator_parameters
         );
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
@@ -940,8 +972,8 @@ void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, con
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Classifying kmers" << std::endl;
     }
-    Recombinator recombinator(gbz, config.verbosity);
-    std::vector<char> classifications = recombinator.classify_kmers(haplotypes, config.kmer_input, config.recombinator_parameters);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
+    std::vector<char> classifications = recombinator.classify_kmers(config.kmer_input, config.recombinator_parameters);
 
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Writing " << classifications.size() << " classifications to " << config.kmer_output << std::endl;

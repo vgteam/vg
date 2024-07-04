@@ -366,13 +366,27 @@ public:
                 return std::min(max, (int32_t)(per_base * length) + min);
             }
         };
-            
+
         /// Limits for mismatches
         Event mismatches;
         /// Limits for total gaps (*not* gap opens; a gap open uses 1 gap and 1 gap length)
         Event gaps;
         /// Limits for total gap length (gap extends plus gap opens)
         Event gap_length;
+        /// Limits for alignments that have fallen too far behind.
+        Event distance;
+
+        /// Default error model for mismatches.
+        constexpr static Event default_mismatches() { return { 0.03, 1, 6 }; }
+
+        /// Default error model for gaps.
+        constexpr static Event default_gaps() { return { 0.05, 1, 10 }; }
+
+        /// Default error model for gap length.
+        constexpr static Event default_gap_length() { return { 0.1, 1, 20 }; }
+
+        /// Default error model for distance.
+        constexpr static Event default_distance() { return { 0.1, 10, 200 }; }
     };
     
     /// If not specified, we use this default error model.
@@ -438,9 +452,6 @@ public:
     ReadMasker                  mask;
     const Aligner*              aligner;
     const ErrorModel*           error_model;
-    
-    /// TODO: Remove when unnecessary.
-    bool debug = false;
 };
 
 //------------------------------------------------------------------------------
