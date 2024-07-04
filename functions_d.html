@@ -100,10 +100,6 @@ $(function() {
 <li>Debug
 : <a class="el" href="structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a332234c0232e64560e7e9d902049c8f2">vg::IndexingParameters</a>
 </li>
-<li>debug
-: <a class="el" href="classvg_1_1WFAExtender.html#aed19b7214850f12708cb91f8b0b98cf8">vg::WFAExtender</a>
-, <a class="el" href="classvg_1_1WFATree.html#a8625337aae9080bcfd009375912de9f0">vg::WFATree</a>
-</li>
 <li>decode()
 : <a class="el" href="structvg_1_1MIPayload.html#aacb9fa13a4fc57075a68029e7c7d84e8">vg::MIPayload</a>
 </li>
@@ -170,6 +166,9 @@ $(function() {
 <li>default_context_length()
 : <a class="el" href="structGBWTConfig.html#ac7920a61ea6e371b8d91754c757e4644">GBWTConfig</a>
 </li>
+<li>default_distance()
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#aa2ddef59dceb81bd45cc7a485ff3fb6f">vg::WFAExtender::ErrorModel</a>
+</li>
 <li>default_distance_limit
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a65b0d0ad12d3891423022138797fbb8c">vg::MinimizerMapper</a>
 </li>
@@ -190,6 +189,12 @@ $(function() {
 </li>
 <li>default_extension_set_score_threshold
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a83ad907b2bb4955d69984b067c6701db">vg::MinimizerMapper</a>
+</li>
+<li>default_gap_length()
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#a542b1c4afc94ad305ab098e3a226075c">vg::WFAExtender::ErrorModel</a>
+</li>
+<li>default_gaps()
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#affe4519ada47143c048385a6eb9caf88">vg::WFAExtender::ErrorModel</a>
 </li>
 <li>default_hard_hit_cap
 : <a class="el" href="classvg_1_1MinimizerMapper.html#adaea07e204eca95eeac41c22013725d6">vg::MinimizerMapper</a>
@@ -283,6 +288,9 @@ $(function() {
 </li>
 <li>default_minimizer_score_fraction
 : <a class="el" href="classvg_1_1MinimizerMapper.html#aecd1b06ba8d1d6325d21827422777ecd">vg::MinimizerMapper</a>
+</li>
+<li>default_mismatches()
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#ab68d1f72fc508682dafd052bab6d268c">vg::WFAExtender::ErrorModel</a>
 </li>
 <li>default_num_bp_per_min
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a270d4aa37a8c19a9953af4185fe2dc81">vg::MinimizerMapper</a>
@@ -439,7 +447,7 @@ $(function() {
 </li>
 <li>destroy_edge()
 : <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a285ac35e805eab548c4106ee534d79f2">handlegraph::DeletableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a284327157f9d4b82224fc856179a668d">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a9d4264e39e3826ded714992361ab879e">vg::VG</a>
 </li>
 <li>destroy_handle()
 : <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a06d4d3ecda0694d5045c457f3eecd8e3">handlegraph::DeletableHandleGraph</a>
@@ -463,7 +471,7 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#aec0db609d022b3c3183403600970238f">vg::VG</a>
 </li>
 <li>dfs_gbwt()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a4355a2ecfe99c02410f92093efc77ce4">vg::MinimizerMapper</a>
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a657e584de6e57a3f6f15616f245e39ef">vg::MinimizerMapper</a>
 </li>
 <li>diagonal
 : <a class="el" href="structvg_1_1WFAPoint.html#ad95025eb9daeb494c52fabdf713ec1d0">vg::WFAPoint</a>
@@ -525,9 +533,11 @@ $(function() {
 <li>dissociate()
 : <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#acb05cd688a0b14471e3995aa60d9103c">handlegraph::TriviallySerializable</a>
 </li>
-<li>distance
-: <a class="el" href="classvg_1_1MEMClusterer_1_1HitEdge.html#a9792b646c0a3905c5b111d3a61d336f2">vg::MEMClusterer::HitEdge</a>
+<li>distance()
+: <a class="el" href="structvg_1_1MatchPos.html#a3adf7aecb3aaf7dd92bd4e7b515c9cf4">vg::MatchPos</a>
+, <a class="el" href="classvg_1_1MEMClusterer_1_1HitEdge.html#a9792b646c0a3905c5b111d3a61d336f2">vg::MEMClusterer::HitEdge</a>
 , <a class="el" href="classvg_1_1MultipathMapper.html#ac3de928a00a38f13fe42009ea5185a7a">vg::MultipathMapper</a>
+, <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#a700d6dd2d1d47e2aa9c24c474a023a06">vg::WFAExtender::ErrorModel</a>
 </li>
 <li>distance_between()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d">vg::MinimizerMapper</a>
@@ -582,14 +592,14 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimizerMapper.html#af629f2b0730c6f38794d4193740317cc">vg::MinimizerMapper</a>
 </li>
 <li>divide_handle()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#aca166406fa2000778552ed77c41a5e4c">handlegraph::MutableHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a05c38787f0ff4a2695e61d98cb402175">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a7a5dbc95fa80e7fe3dc04d62ac6d7b3c">vg::VG</a>
 </li>
 <li>divide_mapping()
 : <a class="el" href="classvg_1_1Paths.html#a98161e70365341b3522a198b4c199556">vg::Paths</a>
 </li>
 <li>divide_node()
-: <a class="el" href="classvg_1_1VG.html#a7bee7317e4f7e42d85d8e7ef8d07273a">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#ad06f0fcad4bf5b1c29cf937a870a58b4">vg::VG</a>
 </li>
 <li>divide_path()
 : <a class="el" href="classvg_1_1VG.html#a0466bd1a92042266f6a99aa306d387c9">vg::VG</a>
@@ -643,7 +653,7 @@ $(function() {
 : <a class="el" href="structvg_1_1IndexingParameters.html#aafe781017908d4c15538093514c53e61">vg::IndexingParameters</a>
 </li>
 <li>DozeuPinningOverlay()
-: <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a2a71927eb2c877e8bad8208d804f028e">vg::DozeuPinningOverlay</a>
+: <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a5b86da6db2f137450aba39f1807640a1">vg::DozeuPinningOverlay</a>
 </li>
 <li>DP_column
 : <a class="el" href="structhaplo_1_1haplo__DP.html#aac064205c5153507bc6e25e465873ade">haplo::haplo_DP</a>
@@ -652,7 +662,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MEMClusterer_1_1HitNode.html#a7db6db0a42c9f87de4bf20c94abca967">vg::MEMClusterer::HitNode</a>
 </li>
 <li>DPScoreComparator()
-: <a class="el" href="structvg_1_1MEMClusterer_1_1DPScoreComparator.html#aac5cf15234c5137ca426604d910340c8">vg::MEMClusterer::DPScoreComparator</a>
+: <a class="el" href="structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a1c6be54ddf88de294dd910d8f39427aa">vg::MEMClusterer::DPScoreComparator</a>
 </li>
 <li>draw()
 : <a class="el" href="classvg_1_1Viz.html#aed21697f1ddd4fb1b9c5ea2fcaa831b3">vg::Viz</a>

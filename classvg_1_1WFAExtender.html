@@ -108,9 +108,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a85f8f39bc292b1b5f0737c70c14c7fdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1378f212c728e87b7ba1231b1b2a2d2d"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a1378f212c728e87b7ba1231b1b2a2d2d">error_model</a></td></tr>
 <tr class="separator:a1378f212c728e87b7ba1231b1b2a2d2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aed19b7214850f12708cb91f8b0b98cf8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#aed19b7214850f12708cb91f8b0b98cf8">debug</a> = false</td></tr>
-<tr class="memdesc:aed19b7214850f12708cb91f8b0b98cf8"><td class="mdescLeft">&#160;</td><td class="mdescRight">TODO: Remove when unnecessary.  <a href="classvg_1_1WFAExtender.html#aed19b7214850f12708cb91f8b0b98cf8">More...</a><br /></td></tr>
-<tr class="separator:aed19b7214850f12708cb91f8b0b98cf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -298,22 +295,6 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aed19b7214850f12708cb91f8b0b98cf8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aed19b7214850f12708cb91f8b0b98cf8">&#9670;&nbsp;</a></span>debug</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::WFAExtender::debug = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>TODO: Remove when unnecessary. </p>
-
-</div>
-</div>
 <a id="af4e721ca734a32164df1e6ff9cce233c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af4e721ca734a32164df1e6ff9cce233c">&#9670;&nbsp;</a></span>default_error_model</h2>
 
@@ -334,12 +315,10 @@ Static Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">{</div>
-<div class="line">    </div>
-<div class="line">    {0.03, 1, 6},</div>
-<div class="line">    </div>
-<div class="line">    {0.05, 1, 10},</div>
-<div class="line">    </div>
-<div class="line">    {0.1, 1, 20}</div>
+<div class="line">    <a class="code" href="structvg_1_1WFAExtender_1_1ErrorModel.html#ab68d1f72fc508682dafd052bab6d268c">WFAExtender::ErrorModel::default_mismatches</a>(),</div>
+<div class="line">    <a class="code" href="structvg_1_1WFAExtender_1_1ErrorModel.html#affe4519ada47143c048385a6eb9caf88">WFAExtender::ErrorModel::default_gaps</a>(),</div>
+<div class="line">    <a class="code" href="structvg_1_1WFAExtender_1_1ErrorModel.html#a542b1c4afc94ad305ab098e3a226075c">WFAExtender::ErrorModel::default_gap_length</a>(),</div>
+<div class="line">    <a class="code" href="structvg_1_1WFAExtender_1_1ErrorModel.html#aa2ddef59dceb81bd45cc7a485ff3fb6f">WFAExtender::ErrorModel::default_distance</a>()</div>
 <div class="line">}</div>
 </div><!-- fragment -->
 <p>If not specified, we use this default error model. </p>
@@ -393,6 +372,10 @@ Static Public Attributes</h2></td></tr>
 <li>src/<a class="el" href="gbwt__extender_8cpp.html">gbwt_extender.cpp</a></li>
 </ul>
 </div><!-- contents -->
+<div class="ttc" id="astructvg_1_1WFAExtender_1_1ErrorModel_html_ab68d1f72fc508682dafd052bab6d268c"><div class="ttname"><a href="structvg_1_1WFAExtender_1_1ErrorModel.html#ab68d1f72fc508682dafd052bab6d268c">vg::WFAExtender::ErrorModel::default_mismatches</a></div><div class="ttdeci">constexpr static Event default_mismatches()</div><div class="ttdoc">Default error model for mismatches.</div><div class="ttdef"><b>Definition:</b> gbwt_extender.hpp:380</div></div>
+<div class="ttc" id="astructvg_1_1WFAExtender_1_1ErrorModel_html_a542b1c4afc94ad305ab098e3a226075c"><div class="ttname"><a href="structvg_1_1WFAExtender_1_1ErrorModel.html#a542b1c4afc94ad305ab098e3a226075c">vg::WFAExtender::ErrorModel::default_gap_length</a></div><div class="ttdeci">constexpr static Event default_gap_length()</div><div class="ttdoc">Default error model for gap length.</div><div class="ttdef"><b>Definition:</b> gbwt_extender.hpp:386</div></div>
+<div class="ttc" id="astructvg_1_1WFAExtender_1_1ErrorModel_html_affe4519ada47143c048385a6eb9caf88"><div class="ttname"><a href="structvg_1_1WFAExtender_1_1ErrorModel.html#affe4519ada47143c048385a6eb9caf88">vg::WFAExtender::ErrorModel::default_gaps</a></div><div class="ttdeci">constexpr static Event default_gaps()</div><div class="ttdoc">Default error model for gaps.</div><div class="ttdef"><b>Definition:</b> gbwt_extender.hpp:383</div></div>
+<div class="ttc" id="astructvg_1_1WFAExtender_1_1ErrorModel_html_aa2ddef59dceb81bd45cc7a485ff3fb6f"><div class="ttname"><a href="structvg_1_1WFAExtender_1_1ErrorModel.html#aa2ddef59dceb81bd45cc7a485ff3fb6f">vg::WFAExtender::ErrorModel::default_distance</a></div><div class="ttdeci">constexpr static Event default_distance()</div><div class="ttdoc">Default error model for distance.</div><div class="ttdef"><b>Definition:</b> gbwt_extender.hpp:389</div></div>
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

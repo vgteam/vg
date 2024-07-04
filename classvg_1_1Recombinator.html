@@ -87,7 +87,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A local haplotype sequence within a single subchain.  <a href="structvg_1_1Recombinator_1_1LocalHaplotype.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html" title="Parameters for generate_haplotypes().">Parameters</a> for <code><a class="el" href="classvg_1_1Recombinator.html#ade8518b5efc745c39f97a6733cc84b00">generate_haplotypes()</a></code>.  <a href="structvg_1_1Recombinator_1_1Parameters.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html" title="Parameters for generate_haplotypes().">Parameters</a> for <code><a class="el" href="classvg_1_1Recombinator.html#a7f803cd4d08d8c699877e274bc3f5ceb">generate_haplotypes()</a></code>.  <a href="structvg_1_1Recombinator_1_1Parameters.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Statistics</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html" title="Statistics on the generated haplotypes.">Statistics</a> on the generated haplotypes.  <a href="structvg_1_1Recombinator_1_1Statistics.html#details">More...</a><br /></td></tr>
@@ -111,20 +111,22 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5abc10442215d1993a99d386b1d7ce5d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a5abc10442215d1993a99d386b1d7ce5d">Recombinator</a> (const gbwtgraph::GBZ &amp;<a class="el" href="classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6">gbz</a>, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> <a class="el" href="classvg_1_1Recombinator.html#a634aa461ea8f2e934d54eac098fd3a12">verbosity</a>)</td></tr>
-<tr class="memdesc:a5abc10442215d1993a99d386b1d7ce5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a new <code><a class="el" href="classvg_1_1Recombinator.html">Recombinator</a></code>.  <a href="classvg_1_1Recombinator.html#a5abc10442215d1993a99d386b1d7ce5d">More...</a><br /></td></tr>
-<tr class="separator:a5abc10442215d1993a99d386b1d7ce5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ade8518b5efc745c39f97a6733cc84b00"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#ade8518b5efc745c39f97a6733cc84b00">generate_haplotypes</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
-<tr class="separator:ade8518b5efc745c39f97a6733cc84b00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a59082a2dd541793528c2c816b23639dd"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a59082a2dd541793528c2c816b23639dd">classify_kmers</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
-<tr class="separator:a59082a2dd541793528c2c816b23639dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4de45e68a2ac4ca6e9dbbab948c14a92"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">LocalHaplotype</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a4de45e68a2ac4ca6e9dbbab948c14a92">extract_sequences</a> (const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const std::string &amp;kff_file, size_t chain_id, size_t subchain_id, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
-<tr class="separator:a4de45e68a2ac4ca6e9dbbab948c14a92"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9248c550bcc5aa267abde6eefec69e88"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a9248c550bcc5aa267abde6eefec69e88">Recombinator</a> (const gbwtgraph::GBZ &amp;<a class="el" href="classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6">gbz</a>, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;<a class="el" href="classvg_1_1Recombinator.html#a536bca6a31d76be8d90571b24b8ff0e8">haplotypes</a>, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> <a class="el" href="classvg_1_1Recombinator.html#a634aa461ea8f2e934d54eac098fd3a12">verbosity</a>)</td></tr>
+<tr class="memdesc:a9248c550bcc5aa267abde6eefec69e88"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a new <code><a class="el" href="classvg_1_1Recombinator.html">Recombinator</a></code>.  <a href="classvg_1_1Recombinator.html#a9248c550bcc5aa267abde6eefec69e88">More...</a><br /></td></tr>
+<tr class="separator:a9248c550bcc5aa267abde6eefec69e88"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f803cd4d08d8c699877e274bc3f5ceb"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a7f803cd4d08d8c699877e274bc3f5ceb">generate_haplotypes</a> (const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
+<tr class="separator:a7f803cd4d08d8c699877e274bc3f5ceb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa7fd2b3cd41b3a1b8ddb04ee7cbfb671"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#aa7fd2b3cd41b3a1b8ddb04ee7cbfb671">classify_kmers</a> (const std::string &amp;kff_file, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
+<tr class="separator:aa7fd2b3cd41b3a1b8ddb04ee7cbfb671"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5267a1c51ed0caf5e78834e1b6221e0a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">LocalHaplotype</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a5267a1c51ed0caf5e78834e1b6221e0a">extract_sequences</a> (const std::string &amp;kff_file, size_t chain_id, size_t subchain_id, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
+<tr class="separator:a5267a1c51ed0caf5e78834e1b6221e0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a977b21bbcc9ea6520dbc97a5014488e6"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::GBZ &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6">gbz</a></td></tr>
 <tr class="separator:a977b21bbcc9ea6520dbc97a5014488e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a536bca6a31d76be8d90571b24b8ff0e8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a536bca6a31d76be8d90571b24b8ff0e8">haplotypes</a></td></tr>
+<tr class="separator:a536bca6a31d76be8d90571b24b8ff0e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a634aa461ea8f2e934d54eac098fd3a12"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a634aa461ea8f2e934d54eac098fd3a12">verbosity</a></td></tr>
 <tr class="separator:a634aa461ea8f2e934d54eac098fd3a12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -213,8 +215,8 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a5abc10442215d1993a99d386b1d7ce5d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5abc10442215d1993a99d386b1d7ce5d">&#9670;&nbsp;</a></span>Recombinator()</h2>
+<a id="a9248c550bcc5aa267abde6eefec69e88"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9248c550bcc5aa267abde6eefec69e88">&#9670;&nbsp;</a></span>Recombinator()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -224,6 +226,12 @@ Private Member Functions</h2></td></tr>
           <td>(</td>
           <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
           <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
+          <td class="paramname"><em>haplotypes</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -244,8 +252,8 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a59082a2dd541793528c2c816b23639dd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a59082a2dd541793528c2c816b23639dd">&#9670;&nbsp;</a></span>classify_kmers()</h2>
+<a id="aa7fd2b3cd41b3a1b8ddb04ee7cbfb671"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa7fd2b3cd41b3a1b8ddb04ee7cbfb671">&#9670;&nbsp;</a></span>classify_kmers()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -253,12 +261,6 @@ Private Member Functions</h2></td></tr>
         <tr>
           <td class="memname">std::vector&lt; char &gt; vg::Recombinator::classify_kmers </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>kff_file</em>, </td>
         </tr>
@@ -280,8 +282,8 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4de45e68a2ac4ca6e9dbbab948c14a92"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4de45e68a2ac4ca6e9dbbab948c14a92">&#9670;&nbsp;</a></span>extract_sequences()</h2>
+<a id="a5267a1c51ed0caf5e78834e1b6221e0a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5267a1c51ed0caf5e78834e1b6221e0a">&#9670;&nbsp;</a></span>extract_sequences()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -289,12 +291,6 @@ Private Member Functions</h2></td></tr>
         <tr>
           <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">Recombinator::LocalHaplotype</a> &gt; vg::Recombinator::extract_sequences </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>kff_file</em>, </td>
         </tr>
@@ -323,51 +319,13 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Extracts the local haplotypes in the given subchain. In addition to the haplotype sequence, this also reports the name of the corresponding path as well as (rank, score) for the haplotype in each round of haplotype selection. The number of rounds is <code>parameters.num_haplotyeps</code>, but if the haplotype is selected earlier, it will not get further scores.</p>
+<p>Extracts the local haplotypes in the given subchain. In addition to the haplotype sequence, this also reports the name of the corresponding path as well as (rank, score) for the haplotype in each round of haplotype selection. The number of rounds is <code>parameters.num_haplotypes</code>, but if the haplotype is selected earlier, it will not get further scores.</p>
 <p>Throws <code>std::runtime_error</code> on error. </p>
 
 </div>
 </div>
-<a id="ade8518b5efc745c39f97a6733cc84b00"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ade8518b5efc745c39f97a6733cc84b00">&#9670;&nbsp;</a></span>generate_haplotypes() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">gbwt::GBWT vg::Recombinator::generate_haplotypes </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>kff_file</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;&#160;</td>
-          <td class="paramname"><em>parameters</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Generates haplotypes based on the given <code><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a></code> representation and the kmer counts in the given KFF file.</p>
-<p>Runs multiple GBWT construction jobs in parallel using OpenMP threads and generates the specified number of haplotypes in each top-level chain (component).</p>
-<p>Each generated haplotype has a single source haplotype in each subchain. The subchains are connected by unary paths. Suffix / prefix subchains in the middle of a chain create fragment breaks. If the chain starts without a prefix (ends without a suffix), the haplotype chosen for the first (last) subchain is used from the start (continued until the end).</p>
-<p>Throws <code>std::runtime_error</code> on error in single-threaded parts and exits with <code>std::exit(EXIT_FAILURE)</code> in multi-threaded parts. </p>
-
-</div>
-</div>
 <a id="a8ac8a32e83455572b44af1da347cd09d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8ac8a32e83455572b44af1da347cd09d">&#9670;&nbsp;</a></span>generate_haplotypes() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a8ac8a32e83455572b44af1da347cd09d">&#9670;&nbsp;</a></span>generate_haplotypes() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -423,6 +381,38 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7f803cd4d08d8c699877e274bc3f5ceb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f803cd4d08d8c699877e274bc3f5ceb">&#9670;&nbsp;</a></span>generate_haplotypes() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::Recombinator::generate_haplotypes </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>kff_file</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Parameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Generates haplotypes based on the kmer counts in the given KFF file.</p>
+<p>Runs multiple GBWT construction jobs in parallel using OpenMP threads and generates the specified number of haplotypes in each top-level chain (component).</p>
+<p>Each generated haplotype has a single source haplotype in each subchain. The subchains are connected by unary paths. Suffix / prefix subchains in the middle of a chain create fragment breaks. If the chain starts without a prefix (ends without a suffix), the haplotype chosen for the first (last) subchain is used from the start (continued until the end).</p>
+<p>Throws <code>std::runtime_error</code> on error in single-threaded parts and exits with <code>std::exit(EXIT_FAILURE)</code> in multi-threaded parts. </p>
 
 </div>
 </div>
@@ -482,6 +472,20 @@ Private Member Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const gbwtgraph::GBZ&amp; vg::Recombinator::gbz</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a536bca6a31d76be8d90571b24b8ff0e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a536bca6a31d76be8d90571b24b8ff0e8">&#9670;&nbsp;</a></span>haplotypes</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a>&amp; vg::Recombinator::haplotypes</td>
         </tr>
       </table>
 </div><div class="memdoc">

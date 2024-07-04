@@ -70,6 +70,7 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
+<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="structvg_1_1WFANode-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::WFANode Struct Reference</div>  </div>
@@ -78,65 +79,61 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a6848b658102caa0520b090eb6a6446a3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a6848b658102caa0520b090eb6a6446a3">WFANode</a> (const vector&lt; gbwt::SearchState &gt; &amp;<a class="el" href="structvg_1_1WFANode.html#a127f6b267245827417ae50ec15e9f058">states</a>, uint32_t <a class="el" href="structvg_1_1WFANode.html#a038fa38b43b9c6b4b8e3f3b892408760">parent</a>, const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
-<tr class="separator:a6848b658102caa0520b090eb6a6446a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93d02d2b8f73a4cdcbe5a356258cb5e8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a93d02d2b8f73a4cdcbe5a356258cb5e8">WFANode</a> (const gbwtgraph::CachedGBWTGraph &amp;graph, const gbwt::SearchState &amp;<a class="el" href="structvg_1_1WFANode.html#ac59b2dd030133cc65cc0bf47af486ef0">state</a>, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> target, std::uint32_t <a class="el" href="structvg_1_1WFANode.html#a78adf1a04bc5f5907cc3a46445061e62">parent</a>)</td></tr>
+<tr class="separator:a93d02d2b8f73a4cdcbe5a356258cb5e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f70c59baed78d97644100b45cf865cd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a9f70c59baed78d97644100b45cf865cd">length</a> () const</td></tr>
+<tr class="separator:a9f70c59baed78d97644100b45cf865cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af75c62d0086aaa47baa79808601cf4f0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#af75c62d0086aaa47baa79808601cf4f0">is_leaf</a> () const</td></tr>
 <tr class="separator:af75c62d0086aaa47baa79808601cf4f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a80571c88f088ee4b4267f2548d57cda2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a80571c88f088ee4b4267f2548d57cda2">expanded</a> () const</td></tr>
 <tr class="separator:a80571c88f088ee4b4267f2548d57cda2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a817c0992513df066ab61c176d84f4ee8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a817c0992513df066ab61c176d84f4ee8">same_node</a> (<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos) const</td></tr>
-<tr class="separator:a817c0992513df066ab61c176d84f4ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acc0aec8237e421f193822972cfc06391"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#acc0aec8237e421f193822972cfc06391">node_offset_of</a> (<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos) const</td></tr>
-<tr class="separator:acc0aec8237e421f193822972cfc06391"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9f70c59baed78d97644100b45cf865cd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a9f70c59baed78d97644100b45cf865cd">length</a> () const</td></tr>
-<tr class="separator:a9f70c59baed78d97644100b45cf865cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4460062120b4153f4ea19b4bfc916ef5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1MatchPos.html">MatchPos</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a4460062120b4153f4ea19b4bfc916ef5">find_pos</a> (size_t type, int32_t score, int32_t diagonal, const <a class="el" href="structvg_1_1MatchPos_1_1PathList.html">MatchPos::PathList</a> &amp;path) const</td></tr>
+<tr class="memitem:a4460062120b4153f4ea19b4bfc916ef5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1MatchPos.html">MatchPos</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a4460062120b4153f4ea19b4bfc916ef5">find_pos</a> (size_t type, int32_t score, int32_t diagonal, const <a class="el" href="structvg_1_1MatchPos_1_1PathList.html">MatchPos::PathList</a> &amp;<a class="el" href="structvg_1_1WFANode.html#ad947775b8a38d6d03e6c40b5a8ee06c2">path</a>) const</td></tr>
 <tr class="separator:a4460062120b4153f4ea19b4bfc916ef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ca9cee0c921c093c9c9b88506f1e58a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a3ca9cee0c921c093c9c9b88506f1e58a">update</a> (size_t type, int32_t score, int32_t diagonal, const <a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;pos)</td></tr>
 <tr class="separator:a3ca9cee0c921c093c9c9b88506f1e58a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8577faa0410e723fa6c5a2de7f4e452c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a8577faa0410e723fa6c5a2de7f4e452c">update</a> (size_t type, int32_t score, int32_t diagonal, uint32_t seq_offset, uint32_t node_offset)</td></tr>
 <tr class="separator:a8577faa0410e723fa6c5a2de7f4e452c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb58360466c4424bd749d48f4af839bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#afb58360466c4424bd749d48f4af839bb">match_forward</a> (const std::string &amp;sequence, const gbwtgraph::GBWTGraph &amp;graph, <a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;pos) const</td></tr>
-<tr class="separator:afb58360466c4424bd749d48f4af839bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7281a60f6608a151aec04c65613aaaca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a7281a60f6608a151aec04c65613aaaca">match_backward</a> (const std::string &amp;sequence, const gbwtgraph::GBWTGraph &amp;graph, <a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;pos) const</td></tr>
-<tr class="separator:a7281a60f6608a151aec04c65613aaaca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a368dbe3b756f08e21718cbfac97978fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a368dbe3b756f08e21718cbfac97978fd">match_forward</a> (const std::string &amp;sequence, <a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;pos) const</td></tr>
+<tr class="separator:a368dbe3b756f08e21718cbfac97978fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a127f6b267245827417ae50ec15e9f058"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::SearchState &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a127f6b267245827417ae50ec15e9f058">states</a></td></tr>
-<tr class="separator:a127f6b267245827417ae50ec15e9f058"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aed374255689d9bbb23c72282c44749e3"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; gbwt::node_type, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#aed374255689d9bbb23c72282c44749e3">starts_by_node</a></td></tr>
-<tr class="separator:aed374255689d9bbb23c72282c44749e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2753a02036f9beb847ebc14f76d41103"><td class="memItemLeft" align="right" valign="top">std::map&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a2753a02036f9beb847ebc14f76d41103">states_by_start</a></td></tr>
-<tr class="separator:a2753a02036f9beb847ebc14f76d41103"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae8b77b81877e81013b092a4faf3cc0a2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#ae8b77b81877e81013b092a4faf3cc0a2">stored_length</a></td></tr>
-<tr class="memdesc:ae8b77b81877e81013b092a4faf3cc0a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Total length.  <a href="structvg_1_1WFANode.html#ae8b77b81877e81013b092a4faf3cc0a2">More...</a><br /></td></tr>
-<tr class="separator:ae8b77b81877e81013b092a4faf3cc0a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a038fa38b43b9c6b4b8e3f3b892408760"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a038fa38b43b9c6b4b8e3f3b892408760">parent</a></td></tr>
-<tr class="separator:a038fa38b43b9c6b4b8e3f3b892408760"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a623f6bb8c15155804eb7cb8b83124215"><td class="memItemLeft" align="right" valign="top">std::vector&lt; uint32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a623f6bb8c15155804eb7cb8b83124215">children</a></td></tr>
-<tr class="separator:a623f6bb8c15155804eb7cb8b83124215"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad947775b8a38d6d03e6c40b5a8ee06c2"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#ad947775b8a38d6d03e6c40b5a8ee06c2">path</a></td></tr>
+<tr class="separator:ad947775b8a38d6d03e6c40b5a8ee06c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac59b2dd030133cc65cc0bf47af486ef0"><td class="memItemLeft" align="right" valign="top">gbwt::SearchState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#ac59b2dd030133cc65cc0bf47af486ef0">state</a></td></tr>
+<tr class="separator:ac59b2dd030133cc65cc0bf47af486ef0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a923918d714be1ab7c32f27a5ed31e9"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a1a923918d714be1ab7c32f27a5ed31e9">node_sequence</a></td></tr>
+<tr class="separator:a1a923918d714be1ab7c32f27a5ed31e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a78adf1a04bc5f5907cc3a46445061e62"><td class="memItemLeft" align="right" valign="top">std::uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a78adf1a04bc5f5907cc3a46445061e62">parent</a></td></tr>
+<tr class="separator:a78adf1a04bc5f5907cc3a46445061e62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3526a0ecf760bf0026933381d155d03e"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::uint32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a3526a0ecf760bf0026933381d155d03e">children</a></td></tr>
+<tr class="separator:a3526a0ecf760bf0026933381d155d03e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab230231efd27b35e2db2b6055e187f50"><td class="memItemLeft" align="right" valign="top">std::uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#ab230231efd27b35e2db2b6055e187f50">target_offset</a></td></tr>
+<tr class="separator:ab230231efd27b35e2db2b6055e187f50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a209c5a0d9b49196134038a4cd79ed0d1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a209c5a0d9b49196134038a4cd79ed0d1">dead_end</a></td></tr>
 <tr class="separator:a209c5a0d9b49196134038a4cd79ed0d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a150e6d51f79924a088a01436cf0d3192"><td class="memItemLeft" align="right" valign="top">std::array&lt; std::unordered_map&lt; <a class="el" href="structvg_1_1WFAPoint.html#a7f118f60c7b8ac46926e6627afaa4d23">WFAPoint::key_type</a>, <a class="el" href="structvg_1_1WFAPoint.html#a783bd5a58352f7be967ed9556c99f95b">WFAPoint::value_type</a> &gt;, 3 &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a150e6d51f79924a088a01436cf0d3192">wavefronts</a></td></tr>
-<tr class="separator:a150e6d51f79924a088a01436cf0d3192"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6b8938c80565dd8c9219945b2a5be194"><td class="memItemLeft" align="right" valign="top">std::array&lt; <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1WFAPoint.html#a7f118f60c7b8ac46926e6627afaa4d23">WFAPoint::key_type</a>, <a class="el" href="structvg_1_1WFAPoint.html#a783bd5a58352f7be967ed9556c99f95b">WFAPoint::value_type</a> &gt;, 3 &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a6b8938c80565dd8c9219945b2a5be194">wavefronts</a></td></tr>
+<tr class="separator:a6b8938c80565dd8c9219945b2a5be194"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
+<tr class="memitem:a761a104c95d2f39fa286c39c4aeaa6ba"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a761a104c95d2f39fa286c39c4aeaa6ba">TARGET_LENGTH</a> = 1024</td></tr>
+<tr class="separator:a761a104c95d2f39fa286c39c4aeaa6ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0188bfd686597181c42f2384c21e9e19"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a0188bfd686597181c42f2384c21e9e19">MATCHES</a> = 0</td></tr>
 <tr class="separator:a0188bfd686597181c42f2384c21e9e19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99807b74ee148f30fae2549a8aa54339"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a99807b74ee148f30fae2549a8aa54339">INSERTIONS</a> = 1</td></tr>
 <tr class="separator:a99807b74ee148f30fae2549a8aa54339"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf73ec9a87e0d2e04b2ae4d0e13158e6"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#acf73ec9a87e0d2e04b2ae4d0e13158e6">DELETIONS</a> = 2</td></tr>
 <tr class="separator:acf73ec9a87e0d2e04b2ae4d0e13158e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
+Private Member Functions</h2></td></tr>
+<tr class="memitem:a078c2ef3a3c95bb25c532b7313c93494"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFANode.html#a078c2ef3a3c95bb25c532b7313c93494">append_node</a> (const gbwtgraph::CachedGBWTGraph &amp;graph, gbwt::SearchState next, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> target)</td></tr>
+<tr class="separator:a078c2ef3a3c95bb25c532b7313c93494"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Represents a node in the tree of haplotypes we are traversing and doing WFA against.</p>
-<p>Will have <a class="el" href="structvg_1_1WFANode.html#a4460062120b4153f4ea19b4bfc916ef5">WFANode::find_pos()</a> called against it as part of a loop for each diagonal, and if it doesn't answer its parent will be queried, recursively back to the root. If we allow the number of <a class="el" href="structvg_1_1WFANode.html">WFANode</a> objects along a non-branching path to be linear in the sequence length, then we will make O(sequence length) calls for each diagonal, and we end up getting O(n^2) (or worse?) lookups.</p>
-<p>So, it is essential that we allow one <a class="el" href="structvg_1_1WFANode.html">WFANode</a> to stand for a whole non-branching run of haplotypes, up to about the total sequence length we will be working on. This limits the number of recursive queries of parents so it grows only with the number of haplotypes we are aligning against, which is bounded, and not directly with the sequence length. </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a6848b658102caa0520b090eb6a6446a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6848b658102caa0520b090eb6a6446a3">&#9670;&nbsp;</a></span>WFANode()</h2>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a93d02d2b8f73a4cdcbe5a356258cb5e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a93d02d2b8f73a4cdcbe5a356258cb5e8">&#9670;&nbsp;</a></span>WFANode()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -147,20 +144,26 @@ Static Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::WFANode::WFANode </td>
           <td>(</td>
-          <td class="paramtype">const vector&lt; gbwt::SearchState &gt; &amp;&#160;</td>
-          <td class="paramname"><em>states</em>, </td>
+          <td class="paramtype">const gbwtgraph::CachedGBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">uint32_t&#160;</td>
-          <td class="paramname"><em>parent</em>, </td>
+          <td class="paramtype">const gbwt::SearchState &amp;&#160;</td>
+          <td class="paramname"><em>state</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::uint32_t&#160;</td>
+          <td class="paramname"><em>parent</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -178,6 +181,48 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a078c2ef3a3c95bb25c532b7313c93494"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a078c2ef3a3c95bb25c532b7313c93494">&#9670;&nbsp;</a></span>append_node()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::WFANode::append_node </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::CachedGBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::SearchState&#160;</td>
+          <td class="paramname"><em>next</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
+          <td class="paramname"><em>target</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a80571c88f088ee4b4267f2548d57cda2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a80571c88f088ee4b4267f2548d57cda2">&#9670;&nbsp;</a></span>expanded()</h2>
 
@@ -301,50 +346,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a7281a60f6608a151aec04c65613aaaca"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7281a60f6608a151aec04c65613aaaca">&#9670;&nbsp;</a></span>match_backward()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::WFANode::match_backward </td>
-          <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;&#160;</td>
-          <td class="paramname"><em>pos</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="afb58360466c4424bd749d48f4af839bb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afb58360466c4424bd749d48f4af839bb">&#9670;&nbsp;</a></span>match_forward()</h2>
+<a id="a368dbe3b756f08e21718cbfac97978fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a368dbe3b756f08e21718cbfac97978fd">&#9670;&nbsp;</a></span>match_forward()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -361,12 +364,6 @@ Static Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1MatchPos.html">MatchPos</a> &amp;&#160;</td>
           <td class="paramname"><em>pos</em>&#160;</td>
         </tr>
@@ -374,59 +371,6 @@ Static Public Attributes</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="acc0aec8237e421f193822972cfc06391"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acc0aec8237e421f193822972cfc06391">&#9670;&nbsp;</a></span>node_offset_of()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::WFANode::node_offset_of </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
-          <td class="paramname"><em>pos</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Map from graph position to offset along the <a class="el" href="structvg_1_1WFANode.html">WFANode</a>. TODO: Having this requires that the <a class="el" href="structvg_1_1WFANode.html">WFANode</a> never visits the same oriented geaph node twice. Can we get away with not having this somehow? </p>
-
-</div>
-</div>
-<a id="a817c0992513df066ab61c176d84f4ee8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a817c0992513df066ab61c176d84f4ee8">&#9670;&nbsp;</a></span>same_node()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::WFANode::same_node </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td>
-          <td class="paramname"><em>pos</em></td><td>)</td>
-          <td> const</td>
         </tr>
       </table>
   </td>
@@ -541,14 +485,14 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a623f6bb8c15155804eb7cb8b83124215"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a623f6bb8c15155804eb7cb8b83124215">&#9670;&nbsp;</a></span>children</h2>
+<a id="a3526a0ecf760bf0026933381d155d03e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3526a0ecf760bf0026933381d155d03e">&#9670;&nbsp;</a></span>children</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;uint32_t&gt; vg::WFANode::children</td>
+          <td class="memname">std::vector&lt;std::uint32_t&gt; vg::WFANode::children</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -635,89 +579,106 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a038fa38b43b9c6b4b8e3f3b892408760"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a038fa38b43b9c6b4b8e3f3b892408760">&#9670;&nbsp;</a></span>parent</h2>
+<a id="a1a923918d714be1ab7c32f27a5ed31e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a923918d714be1ab7c32f27a5ed31e9">&#9670;&nbsp;</a></span>node_sequence</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">uint32_t vg::WFANode::parent</td>
+          <td class="memname">std::string vg::WFANode::node_sequence</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="aed374255689d9bbb23c72282c44749e3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aed374255689d9bbb23c72282c44749e3">&#9670;&nbsp;</a></span>starts_by_node</h2>
+<a id="a78adf1a04bc5f5907cc3a46445061e62"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a78adf1a04bc5f5907cc3a46445061e62">&#9670;&nbsp;</a></span>parent</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::unordered_map&lt;gbwt::node_type, size_t&gt; vg::WFANode::starts_by_node</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>And this tracks the GBWT packed nodes (ID and orientation) that are visited, and maps to start offset, for O(1) query. It cannot have duplicates. </p>
-
-</div>
-</div>
-<a id="a127f6b267245827417ae50ec15e9f058"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a127f6b267245827417ae50ec15e9f058">&#9670;&nbsp;</a></span>states</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::vector&lt;gbwt::SearchState&gt; vg::WFANode::states</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>This tracks the GBWT search states for all graph nodes we visit that have been coalesced into this <a class="el" href="structvg_1_1WFANode.html">WFANode</a> </p>
-
-</div>
-</div>
-<a id="a2753a02036f9beb847ebc14f76d41103"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2753a02036f9beb847ebc14f76d41103">&#9670;&nbsp;</a></span>states_by_start</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::map&lt;size_t, size_t&gt; vg::WFANode::states_by_start</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>And this tracks the start offsets of each in our sequence space. TODO: Replace with something O(1) </p>
-
-</div>
-</div>
-<a id="ae8b77b81877e81013b092a4faf3cc0a2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae8b77b81877e81013b092a4faf3cc0a2">&#9670;&nbsp;</a></span>stored_length</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::WFANode::stored_length</td>
+          <td class="memname">std::uint32_t vg::WFANode::parent</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Total length. </p>
-
 </div>
 </div>
-<a id="a150e6d51f79924a088a01436cf0d3192"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a150e6d51f79924a088a01436cf0d3192">&#9670;&nbsp;</a></span>wavefronts</h2>
+<a id="ad947775b8a38d6d03e6c40b5a8ee06c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad947775b8a38d6d03e6c40b5a8ee06c2">&#9670;&nbsp;</a></span>path</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::array&lt;std::unordered_map&lt;<a class="el" href="structvg_1_1WFAPoint.html#a7f118f60c7b8ac46926e6627afaa4d23">WFAPoint::key_type</a>, <a class="el" href="structvg_1_1WFAPoint.html#a783bd5a58352f7be967ed9556c99f95b">WFAPoint::value_type</a>&gt;, 3&gt; vg::WFANode::wavefronts</td>
+          <td class="memname">gbwt::vector_type vg::WFANode::path</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac59b2dd030133cc65cc0bf47af486ef0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac59b2dd030133cc65cc0bf47af486ef0">&#9670;&nbsp;</a></span>state</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::SearchState vg::WFANode::state</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a761a104c95d2f39fa286c39c4aeaa6ba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a761a104c95d2f39fa286c39c4aeaa6ba">&#9670;&nbsp;</a></span>TARGET_LENGTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr static size_t vg::WFANode::TARGET_LENGTH = 1024</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab230231efd27b35e2db2b6055e187f50"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab230231efd27b35e2db2b6055e187f50">&#9670;&nbsp;</a></span>target_offset</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::uint32_t vg::WFANode::target_offset</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6b8938c80565dd8c9219945b2a5be194"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6b8938c80565dd8c9219945b2a5be194">&#9670;&nbsp;</a></span>wavefronts</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::array&lt;<a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt;<a class="el" href="structvg_1_1WFAPoint.html#a7f118f60c7b8ac46926e6627afaa4d23">WFAPoint::key_type</a>, <a class="el" href="structvg_1_1WFAPoint.html#a783bd5a58352f7be967ed9556c99f95b">WFAPoint::value_type</a>&gt;, 3&gt; vg::WFANode::wavefronts</td>
         </tr>
       </table>
 </div><div class="memdoc">

@@ -138,6 +138,8 @@ Static Public Attributes</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a8d98335b0032014b1e033a6610fb644d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a8d98335b0032014b1e033a6610fb644d">get_distance</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> to) const</td></tr>
 <tr class="separator:a8d98335b0032014b1e033a6610fb644d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c032fa5d7fcb5c2d52bba8604c1d0d7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a4c032fa5d7fcb5c2d52bba8604c1d0d7">contains_reversals</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle) const</td></tr>
+<tr class="separator:a4c032fa5d7fcb5c2d52bba8604c1d0d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a27be1484d044a8f872083ea6e98d9786"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html">Subchain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a27be1484d044a8f872083ea6e98d9786">get_subchains</a> (const gbwtgraph::TopLevelChain &amp;chain, const <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
 <tr class="separator:a27be1484d044a8f872083ea6e98d9786"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acbe0f7f081cf6db06a894e451d8915b6"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#acbe0f7f081cf6db06a894e451d8915b6">get_sequence_visits</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle) const</td></tr>
@@ -301,6 +303,32 @@ Private Member Functions</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4c032fa5d7fcb5c2d52bba8604c1d0d7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c032fa5d7fcb5c2d52bba8604c1d0d7">&#9670;&nbsp;</a></span>contains_reversals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::HaplotypePartitioner::contains_reversals </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -479,7 +507,8 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Creates a <code><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a></code> representation of the haplotypes in the GBWT index.</p>
 <p>Top-level chains (weakly connected components in the graph) are assigned to a number of jobs that can be later used as GBWT construction jobs. Multiple jobs are run in parallel using OpenMP threads.</p>
-<p>Each top-level chain is partitioned into subchains that consist of one or more snarls. Multiple snarls are combined into the same subchain if the minimum distance over the subchain is at most the target length and there are GBWT haplotypes that cross the subchain. If there are no snarls in a top-level chain, it is represented as a single subchain without boundary nodes.</p>
+<p>Each top-level chain is partitioned into subchains that consist of one or more snarls. Multiple snarls are combined into the same subchain if the minimum distance over the subchain is at most the target length and there are GBWT haplotypes that cross the subchain. We also keep extending the subchain if a haplotype would cross the end in both directions. By doing this, we can avoid sequence loss with haplotypes reversing their direction, while keeping kmers specific to each subchain.</p>
+<p>If there are no snarls in a top-level chain, it is represented as a single subchain without boundary nodes.</p>
 <p><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> crossing each subchain are represented using minimizers with a single occurrence in the graph.</p>
 <p>Throws <code>std::runtime_error</code> on error in single-threaded parts and exits with <code>std::exit(EXIT_FAILURE)</code> in multi-threaded parts. </p>
 
