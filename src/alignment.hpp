@@ -318,7 +318,8 @@ struct AlignmentValidity {
     enum Problem {
         OK,
         NODE_MISSING,
-        NODE_TOO_SHORT
+        NODE_TOO_SHORT,
+        SEQ_DOES_NOT_MATCH
     };
     
     /// The kind of problem with the alignment.
@@ -337,7 +338,7 @@ struct AlignmentValidity {
 /// Check to make sure edits on the alignment's path don't assume incorrect
 /// node lengths or ids. Result can be used like a bool or inspected for
 /// further details. Does not log anything itself about bad alignments.
-AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph);
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence = false);
     
 /// Make an Alignment corresponding to a subregion of a stored path.
 /// Positions are 0-based, and pos2 is excluded.

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 13
+plan tests 14
 
 vg construct -r small/x.fa > j.vg
 vg index -x j.xg j.vg
@@ -55,4 +55,7 @@ is "$(echo $?)" 0 "vg inject does not crash on an unmapped read"
 is $(vg inject -x x.xg small/x.bam -o GAF | wc -l) \
     1000 "vg inject supports GAF output"
 
-rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam
+samtools cat small/x.bam small/i.bam > all.bam
+is "$(vg inject -x x.xg all.bam | vg validate -A -c -a - x.xg 2>&1 | wc -l)" 0 "vg inject produces valid alignments of the read and reference"
+
+rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam all.bam
