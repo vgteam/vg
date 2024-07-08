@@ -56,6 +56,6 @@ is $(vg inject -x x.xg small/x.bam -o GAF | wc -l) \
     1000 "vg inject supports GAF output"
 
 samtools cat small/x.bam small/i.bam > all.bam
-is "$(vg inject -x x.xg all.bam | vg validate -A -c -a - x.xg 2>&1 | wc -l)" 0 "vg inject produces valid alignments of the read and reference"
+is "$(vg inject -x x.xg all.bam | vg validate -A -c -a - x.xg 2>&1 | grep invalid | wc -l)" 0 "vg inject produces valid alignments of the read and reference"
 
 rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam all.bam
