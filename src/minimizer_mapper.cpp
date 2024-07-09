@@ -1400,6 +1400,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         
         // Map single-ended and bail
         std::array<vector<Alignment>, 2> mapped_pair = {map(aln1), map(aln2)};
+        // We have no way to know which mapping ought to go with each other, so pad out
+        // the shorter list with copies of the first item, so we can report all mappings
+        // we got.
+        for (size_t index = 0; index < 2; index++) {
+            while (mapped_pair[index].size() < mapped_pair[1 - index].size()) {
+                mapped_pair[index].push_back(mapped_pair[index].front());
+            }
+        }
         pair_all(mapped_pair);
         return {std::move(mapped_pair[0]), std::move(mapped_pair[1])};
     }

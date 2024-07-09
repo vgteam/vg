@@ -3682,9 +3682,9 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
         [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
 
-//#ifdef debug
+#ifdef debug
         dump_debug_graph(dagified_graph);
-//#endif
+#endif
         
         // Then trim off the tips that are either in the wrong orientation relative
         // to whether we want them to be a source or a sink, or extraneous
@@ -3807,30 +3807,36 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 to_return.second = dagified_graph.get_total_length();
             }
         }
-        
+
         // And translate back into original graph space
         for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
             // Translate each mapping's ID and orientation down to the base graph
             Mapping* m = alignment.mutable_path()->mutable_mapping(i);
             
             handle_t dagified_handle = dagified_graph.get_handle(m->position().node_id(), m->position().is_reverse());
-            auto base_coords = dagified_handle_to_base(dagified_handle); 
-            
+            auto base_coords = dagified_handle_to_base(dagified_handle);
+
             m->mutable_position()->set_node_id(base_coords.first);
             m->mutable_position()->set_is_reverse(base_coords.second);
         }
-        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0 && offset(left_anchor) < graph->get_length(graph->get_handle(id(left_anchor)))) {
-            // There is some of the left anchor's node actually in the
-            // extracted graph. The left anchor isn't past the end of its node.
-            
+        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0) {
             // Get the positions of the leftmost mapping
             Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
 
-            // The alignment must actually start on the anchor node.
-            assert(left_pos->node_id() == id(left_anchor));
+            if (offset(left_anchor) != 0 && offset(left_anchor) < graph->get_length(graph->get_handle(id(left_anchor)))) {
+                // There is some of the left anchor's node actually in the
+                // extracted graph. The left anchor isn't past the end of its node.
 
-            // Add on the offset for the missing piece of the left anchor node
-            left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+                // The alignment must actually start on the anchor node.
+                assert(left_pos->node_id() == id(left_anchor));
+            }
+
+            if (left_pos->node_id() == id(left_anchor)) {
+                // If the alignment does start on the anchor node (even at 0 or at the past-end position)
+
+                // Add on the offset for the cut-off piece of the left anchor node
+                left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+            }
         }
         if (alignment.path().mapping_size() > 0) {
             // Make sure we don't have an empty mapping on the end
