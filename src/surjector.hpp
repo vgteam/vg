@@ -129,7 +129,7 @@ using namespace std;
         /// How many anchors (per path) will we use when surjecting using
         /// anchors?
         /// Excessive anchors will be pruned away.
-        size_t max_anchors = 200;
+        size_t max_anchors = std::numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
         
