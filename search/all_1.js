@@ -159,7 +159,7 @@ var searchData=
   ['alignment_5findex_5ft_191',['alignment_index_t',['../structvg_1_1alignment__index__t.html',1,'vg']]],
   ['alignment_5fio_2ecpp_192',['alignment_io.cpp',['../alignment__io_8cpp.html',1,'']]],
   ['alignment_5fio_2ehpp_193',['alignment_io.hpp',['../alignment__io_8hpp.html',1,'']]],
-  ['alignment_5fis_5fvalid_194',['alignment_is_valid',['../namespacevg.html#a02344193099beceed3ee60119c63fa1f',1,'vg']]],
+  ['alignment_5fis_5fvalid_194',['alignment_is_valid',['../namespacevg.html#aa15ba62ae06958a1e792554996b5ee62',1,'vg']]],
   ['alignment_5fmiddle_195',['alignment_middle',['../namespacevg.html#a15b82cc5c99cc3e8f78229ac971ec9c3',1,'vg']]],
   ['alignment_5foverhang_196',['alignment_overhang',['../classvg_1_1ReadFilter.html#ab655011da419f60374d9238c0c21312b',1,'vg::ReadFilter']]],
   ['alignment_5fpair_197',['alignment_pair',['../classvg_1_1Sampler.html#aecbd1aa581c396a85ab850dab54b5cd1',1,'vg::Sampler']]],

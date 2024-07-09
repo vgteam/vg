@@ -407,7 +407,7 @@ var searchData=
   ['prob_5fsampler_4449',['prob_sampler',['../classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1',1,'vg::NGSSimulator']]],
   ['prob_5fto_5flogprob_4450',['prob_to_logprob',['../namespacevg.html#a476a2102f4f5aa82c06be87780ae6d42',1,'vg']]],
   ['prob_5fto_5fphred_4451',['prob_to_phred',['../namespacevg.html#acb81881c0a3b7cf276097d8142ddb312',1,'vg']]],
-  ['problem_4452',['problem',['../structvg_1_1AlignmentValidity.html#a1ca7f243aa52fe313bdfac808f4eba92',1,'vg::AlignmentValidity::problem()'],['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9',1,'vg::AlignmentValidity::Problem()']]],
+  ['problem_4452',['Problem',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9',1,'vg::AlignmentValidity::Problem()'],['../structvg_1_1AlignmentValidity.html#a1ca7f243aa52fe313bdfac808f4eba92',1,'vg::AlignmentValidity::problem()']]],
   ['problemdumpexplainer_4453',['ProblemDumpExplainer',['../classvg_1_1ProblemDumpExplainer.html',1,'vg::ProblemDumpExplainer'],['../classvg_1_1ProblemDumpExplainer.html#a51e4e904203bd8817e6a93a454ee1e10',1,'vg::ProblemDumpExplainer::ProblemDumpExplainer()']]],
   ['process_5fin_5fout_5fgrowth_4454',['process_in_out_growth',['../classvg_1_1FlowSort.html#a31800555477d90ab371c08852c9cd05b',1,'vg::FlowSort']]],
   ['process_5funtil_5fthreshold_5fa_4455',['process_until_threshold_a',['../classvg_1_1MinimizerMapper.html#a3394d7b08a36522298e05cf6035769d0',1,'vg::MinimizerMapper']]],

@@ -1041,8 +1041,8 @@ Functions</h2></td></tr>
 <tr class="separator:a6c45c724ede7f4892b24ad654d68fbef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab7c6a6b96f1c4c2ca04b0b6df8f384b3">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation)</td></tr>
 <tr class="separator:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02344193099beceed3ee60119c63fa1f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1AlignmentValidity.html">AlignmentValidity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a02344193099beceed3ee60119c63fa1f">alignment_is_valid</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph)</td></tr>
-<tr class="separator:a02344193099beceed3ee60119c63fa1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa15ba62ae06958a1e792554996b5ee62"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1AlignmentValidity.html">AlignmentValidity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa15ba62ae06958a1e792554996b5ee62">alignment_is_valid</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph, bool check_sequence)</td></tr>
+<tr class="separator:aa15ba62ae06958a1e792554996b5ee62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac712c04180499746dab8cdc6c8795c56"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac712c04180499746dab8cdc6c8795c56">target_alignment</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;<a class="el" href="namespacevg.html#a81755bb87928f81a864e4a752973bd69">cigar_mapping</a>)</td></tr>
 <tr class="separator:ac712c04180499746dab8cdc6c8795c56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08575acb0012ffaabd9859324e404562"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a08575acb0012ffaabd9859324e404562">target_alignment</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse)</td></tr>
@@ -4011,8 +4011,8 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
-<a id="a02344193099beceed3ee60119c63fa1f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02344193099beceed3ee60119c63fa1f">&#9670;&nbsp;</a></span>alignment_is_valid()</h2>
+<a id="aa15ba62ae06958a1e792554996b5ee62"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa15ba62ae06958a1e792554996b5ee62">&#9670;&nbsp;</a></span>alignment_is_valid()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4027,7 +4027,13 @@ template&lt;typename Iter &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>hgraph</em>&#160;</td>
+          <td class="paramname"><em>hgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>check_sequence</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
