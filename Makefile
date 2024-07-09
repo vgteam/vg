@@ -71,6 +71,9 @@ DEPGEN_FLAGS := -MMD -MP
 INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ' | sed 's/ -I/ -isystem /g')
 
 # Define libraries to link vg against.
+
+# These need to come before library search paths from LDFLAGS or we won't
+# prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
 LD_LIB_FLAGS := -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
@@ -490,20 +493,20 @@ $(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
 	
 $(LIB_DIR)/libvg.$(SHARED_SUFFIX): $(LIBVG_SHARED_DEPS)
 	rm -f $@
-	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
+	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
 
 # Each test set can have its own binary, and not link everything static
 $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX)
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -557,7 +560,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 # TODO: The normal and debug jemalloc builds can't safely be run at the same time.
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
@@ -664,7 +667,7 @@ $(LIB_DIR)/cleaned_old_elfutils:
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. && $(MAKE) $(FILTER) && $(MAKE) install
@@ -750,7 +753,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 	+mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
-	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
