@@ -1009,17 +1009,17 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 4)
         .add_entry<size_t>("max-to-fragment", 500)
         .add_entry<double>("zipcode-tree-scale", 1.5)
-        .add_entry<double>("zipcode-tree-score-threshold", 20)
+        .add_entry<double>("zipcode-tree-score-threshold", 70)
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.15)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.13)
         // And extend them
         .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
         // Allowing a lot of mismatches because we chop later
-        .add_entry<size_t>("max-extension-mismatches", 10)
+        .add_entry<size_t>("max-extension-mismatches", 15)
         // And fragment them
-        .add_entry<double>("fragment-gap-scale", 3.6)
+        .add_entry<double>("fragment-gap-scale", 4.75)
         .add_entry<double>("gap-scale", 2.2)
-        .add_entry<size_t>("fragment-max-lookback-bases", 450)
+        .add_entry<size_t>("fragment-max-lookback-bases", 300)
         .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
         .add_entry<size_t>("fragment-max-indel-bases", 3000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)

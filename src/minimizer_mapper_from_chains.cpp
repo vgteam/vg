@@ -683,13 +683,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                              minimizer_kept_fragment_count, multiplicity_by_fragment, alignments, 
                              minimizer_explored, multiplicity_by_alignment, rng, funnel);
 
-    //If we have at least two alignments, then we will skip chaining and aligning stages and just return the alignments
-    // If we have only one, forget it
-    if (alignments.size() == 1) {
-        alignments.clear();
-        multiplicity_by_alignment.clear();
-        minimizer_explored = SmallBitset(minimizers.size());
-    }
 
     
     // For each chain, we need:
@@ -1260,7 +1253,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 }
                 // If we got at least two full-length extensions as alignments, even if they didn't come from this tree,
                 // Then skip fragmenting for this tree
-                if (alignments.size() > 1) {
+                if (alignments.size() >= 1) {
                     if (track_provenance) {
                         //We might have already done some fragmenting so the funnel might already have started on that stage
                         //So to get the funnel to track the gapless extensions properly, we need to make a fake fragmenting
@@ -1594,19 +1587,27 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             }
         });
 
-    if (alignments.size() >= 2) {
+    if (alignments.size() >= 1) {
         //If we did get alignments from fragmenting, boot them through the funnel all at once
         funnel.stage("extension_to_alignment");
         for (size_t fragment_num : alignment_source_fragment) {
             funnel.project(fragment_num);
         }
-    }
+        //Get the actual multiplicity from the counts
+        for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; i++) {
+            multiplicity_by_alignment[i] = multiplicity_by_alignment[i] >= kept_tree_count
+                                        ?  multiplicity_by_alignment[i] - (float)kept_tree_count
+                                        : 0.0;
+        }
 
-    //Get the actual multiplicity from the counts
-    for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
-        multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
-                                    ?  multiplicity_by_fragment[i] - (float)kept_tree_count
-                                    : 0.0;
+    } else {
+
+        //Get the actual multiplicity from the counts
+        for (size_t i = 0 ; i < multiplicity_by_fragment.size() ; i++) {
+            multiplicity_by_fragment[i] = multiplicity_by_fragment[i] >= kept_tree_count
+                                        ?  multiplicity_by_fragment[i] - (float)kept_tree_count
+                                        : 0.0;
+        }
     }
 
 }

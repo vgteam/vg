@@ -577,6 +577,18 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
     }
 }
 
+net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) {
+    net_handle_t n = distance_index->get_node_net_handle(id);
+    for (size_t d = max_depth() ; d > depth ; d--) {
+        n = distance_index->get_parent(n);
+        if (distance_index->is_trivial_chain(n)){
+            n = distance_index->get_parent(n);
+        }
+    }
+    return n;
+}
+
+
 size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
 
 
