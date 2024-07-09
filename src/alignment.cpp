@@ -2675,7 +2675,10 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     size_t offset_in_edit = 0;
     size_t node_pos = pos1 - graph->get_position_of_step(step);
     while (edit_idx < cigar_mapping.edit_size()) {
-
+        if (step == graph->path_end(path)) {
+            cerr << "error: walked to end of path before exhausting CIGAR on read:" << endl;
+            cerr << pb2json(cigar_mapping) << endl;
+        }
         handle_t h = graph->get_handle_of_step(step);
         string seq = graph->get_sequence(h);
 
