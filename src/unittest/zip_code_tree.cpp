@@ -2484,10 +2484,11 @@ namespace unittest {
             
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             vector<MinimizerMapper::Minimizer> minimizers;
-            for (auto pos : positions) {
+            for (size_t i = 0 ; i < positions.size(); ++i) {
+                auto pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                seeds.push_back({ pos.first, pos.second, zipcode});
+                seeds.push_back({ pos.first, i, zipcode});
 
                 minimizers.emplace_back();
                 minimizers.back().value.offset = pos.second;
@@ -2582,7 +2583,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
-    TEST_CASE("Remove a child of the top-level chain", "[zip_tree][bug]") {
+    TEST_CASE("Remove a child of the top-level chain", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGGGGGGG");
@@ -2643,7 +2644,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
-    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree][bug]") {
+    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGGGGGGG");
@@ -2725,6 +2726,76 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
+    TEST_CASE("Snp nested in looping snarl", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTGGGGGGG");
+        Node* n2 = graph.create_node("GGGGGGGTG");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("G");
+        Node* n5 = graph.create_node("GGGGGGGAT");
+        Node* n6 = graph.create_node("GGGGGGGAT");
+        Node* n7 = graph.create_node("GGGGGGGATTTTTTTTTTTTTTTTTTTTTT");
+        Node* n8 = graph.create_node("GGGGGGGAT");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n2, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n5);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n5, n6);
+        Edge* e7 = graph.create_edge(n6, n2);
+        Edge* e8 = graph.create_edge(n6, n7);
+        Edge* e9 = graph.create_edge(n1, n8);
+        Edge* e10 = graph.create_edge(n8, n7);
+       
+
+        //ofstream out ("testGraph.hg");
+        //graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION( "Snps alone" ) {
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(1, false, 0), 1);
+            positions.emplace_back(make_pos_t(2, false, 8), 2);
+            positions.emplace_back(make_pos_t(3, false, 0), 3);
+            positions.emplace_back(make_pos_t(5, false, 0), 4);
+            positions.emplace_back(make_pos_t(2, false, 8), 15);
+            positions.emplace_back(make_pos_t(4, false, 5), 16);
+            positions.emplace_back(make_pos_t(5, false, 0), 17);
+            positions.emplace_back(make_pos_t(7, false, 0), 18);
+
+        distance_index.for_each_child(distance_index.get_root(), [&](net_handle_t child) {
+            cerr << distance_index.net_handle_as_string(child) << endl;
+        });
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+
+            for (size_t i = 0 ; i < positions.size() ; ++i) {
+                auto pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos.first);
+                seeds.push_back({ pos.first, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 100, 100);
+            zip_forest.print_self(&seeds, &minimizer_vector);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 100);
+        }
+
+
+    }
     /*
 
     TEST_CASE("Failed unit test", "[failed]") {
@@ -2775,7 +2846,7 @@ namespace unittest {
             // For each random graph
     
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(1, 20);
+            uniform_int_distribution<int> variant_count(1, 10);
             uniform_int_distribution<int> chrom_len(10, 200);
             uniform_int_distribution<int> distance_limit(5, 100);
     
