@@ -23,6 +23,7 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # specifying the private deploy key we will use to get at the docs repo.
 
 # Make sure no submodules have untracked files from caching
+# See <https://gist.github.com/nicktoumpelis/11214362#file-repo-rinse-sh-L2>
 git submodule foreach --recursive git clean -xfd
 
 # Find all the submodules that Doxygen wants to look at and make sure we have
