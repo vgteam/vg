@@ -60,15 +60,11 @@ DEPGEN_FLAGS := -MMD -MP
 
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
-# We make our dependency install directory -isystem; this might not be
-# necessary on all platforms and suppresses warnings.
-# Also, pkg-config flags need to be made -isystem if our dependency install
-# directory is, or they might put a system HTSlib before ours.
-# Also, Protobuf produces an absurd number of these now, so we deduplicate them
+# Also, Protobuf produces an absurd number of pkg-config flags now, so we deduplicate them
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ' | sed 's/ -I/ -isystem /g')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
 
@@ -502,7 +498,7 @@ $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPO
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
