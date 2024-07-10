@@ -369,11 +369,11 @@ cerr << "Add all seeds to nodes: " << endl;
 #ifdef DEBUG_CLUSTER
                 cerr << "Using cached values for node " << id << ": " 
                     << ", " << MIPayload::record_offset(zip_code, distance_index, id)
-                    << ", " << MIPayload::parent_record_offset(zip_code, distance_index, id)
+                    << ", " << MIPayload::parent_record_offset(zip_code, decoder, distance_index, id)
                     << ", " << MIPayload::node_record_offset(zip_code, distance_index, id)
-                    << ", " << MIPayload::node_length(zip_code)
-                    << ", " << MIPayload::prefix_sum(zip_code, distance_index, id)
-                    << ", " << MIPayload::chain_component(zip_code, distance_index, id) << endl;
+                    << ", " << MIPayload::node_length(zip_code, decoder)
+                    << ", " << MIPayload::prefix_sum(zip_code, decoder, distance_index, id)
+                    << ", " << MIPayload::chain_component(zip_code, decoder, distance_index, id) << endl;
 
                 net_handle_t handle = distance_index.get_node_net_handle(id);
                 net_handle_t parent_handle = distance_index.get_parent(handle);
@@ -383,12 +383,12 @@ cerr << "Add all seeds to nodes: " << endl;
                 //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
                 //                                             :distance_index.get_record_offset(parent_handle))); 
                 assert(MIPayload::node_record_offset(zip_code, distance_index, id) == distance_index.get_node_record_offset(handle));
-                assert(MIPayload::node_length(zip_code) == distance_index.minimum_length(handle));
+                assert(MIPayload::node_length(zip_code, decoder) == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
                 //         ? std::numeric_limits<size_t>::max() 
                 //         : distance_index.get_prefix_sum_value(handle);
                 //assert(MIPayload::prefix_sum(zip_code, distance_index, id) == prefix_sum);
-                assert(MIPayload::chain_component(zip_code, distance_index, id) == (distance_index.is_multicomponent_chain(parent_handle) 
+                assert(MIPayload::chain_component(zip_code, decoder, distance_index, id) == (distance_index.is_multicomponent_chain(parent_handle) 
                                 ? distance_index.get_chain_component(handle)
                                 : 0));
 
@@ -398,7 +398,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
             //Get the net_handle for the node the seed is on
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id);
-            size_t node_chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
+            size_t node_chain_component = MIPayload::chain_component(seed.zipcode, seed.decoder, distance_index, get_id(seed.pos));
             size_t node_record_offset = MIPayload::node_record_offset(zip_code, distance_index, id);
 
 
@@ -410,10 +410,10 @@ cerr << "Add all seeds to nodes: " << endl;
             //snarl tree to be clustered
             ZipCode::code_type_t node_type = decoder.get_code_type(node_depth);
             ZipCode::code_type_t parent_type = node_depth == 0 ? node_type : decoder.get_code_type(node_depth-1);
-            auto parent_record_offset = MIPayload::parent_record_offset(zip_code, distance_index, id);
+            auto parent_record_offset = MIPayload::parent_record_offset(zip_code, decoder, distance_index, id);
             bool parent_is_root = parent_type == ZipCode::ROOT_SNARL || parent_type == ZipCode::ROOT_CHAIN || parent_type == ZipCode::ROOT_NODE;
             //TODO: idk why this doesn't work with the parent_type
-            bool parent_is_chain = MIPayload::parent_is_chain(zip_code, distance_index, id);
+            bool parent_is_chain = MIPayload::parent_is_chain(zip_code, decoder, distance_index, id);
             bool is_trivial_chain = node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE;
             size_t prefix_sum = is_trivial_chain ? 0 : decoder.get_offset_in_chain(node_depth, &distance_index);
             size_t node_length = decoder.get_length(node_depth, &distance_index);
@@ -1937,11 +1937,13 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 : clustering_problem.all_node_problems.at(
                         clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).chain_component_start;
     size_t last_length = last_child.is_seed
-                       ? MIPayload::node_length(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).zipcode)
+                       ? MIPayload::node_length(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).zipcode,
+                       clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).decoder)
                        : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).node_length;
     size_t last_chain_component_end = last_child.is_seed
                        ? MIPayload::chain_component(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).zipcode,
+                                                    clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).decoder,
                                                     distance_index,
                                                     get_id(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).pos))
                        : clustering_problem.all_node_problems.at(
@@ -2202,17 +2204,17 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         if (last_child.net_handle == current_child.net_handle) {
             //This can happen if the last thing was also a seed on the same node
             distance_from_last_child_to_current_child = 0; 
-        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) {
+        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos))) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
+                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos));
             } else {
                 size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)), 
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)), 
                                                 distance_from_chain_start_to_last_node); 
             }
         }
@@ -2231,27 +2233,27 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(current_child.net_handle) == SnarlDistanceIndex::get_record_offset(chain_problem->end_in)) {
         //If this is the last node in the chain
-        if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) { 
+        if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos))) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
             distance_from_current_end_to_end_of_chain = 0;
         }
-    } else if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) { 
+    } else if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos))) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_problem->node_length, 
-                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)), 
-                                            MIPayload::node_length(current_child_seed.zipcode)));
+                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)), 
+                                            MIPayload::node_length(current_child_seed.zipcode, current_child_seed.decoder)));
     
     }
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos))) << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
 
@@ -2286,13 +2288,13 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         //The distance left and right of the seed are currently oriented relative to the chain
     
         //The current left distance is infinite if it is not in the first component of a multicomponent chain
-        if (MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0) {
+        if (MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)) != 0) {
             //If this node isn't in the first component of the chain
             current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
             current_child_seed.distance_left = SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)));
+                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)));
         }
         current_child_seed.distance_right = SnarlDistanceIndex::sum(current_child_seed.distance_right, 
                                                        distance_from_current_end_to_end_of_chain);
@@ -2337,16 +2339,16 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                         ? std::numeric_limits<size_t>::max() : 
                 (last_child.net_handle == current_child.net_handle ? 0 
-                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed.zipcode)));
+                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed.zipcode, current_child_seed.decoder)));
     
         //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
         //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
         //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
-                MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() 
+                MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() 
                                              : SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))),
+                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos))),
                 SnarlDistanceIndex::sum(current_child_seed.distance_right, distance_from_current_end_to_end_of_chain)); 
     
     
@@ -2380,7 +2382,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 //If the last child was the same as this child (seeds on the same node),
                 //then the distances right are including the current node, so subtract
                 //the length of this node
-                distance_between -= MIPayload::node_length(current_child_seed.zipcode);
+                distance_between -= MIPayload::node_length(current_child_seed.zipcode, current_child_seed.decoder);
             }
 
 #ifdef DEBUG_CLUSTER
@@ -2489,9 +2491,9 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     
     //Update the last node we saw to this one
     last_child = current_child;
-    last_prefix_sum = MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
-    last_length = MIPayload::node_length(current_child_seed.zipcode);
-    last_chain_component_end = MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
+    last_prefix_sum = MIPayload::prefix_sum(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos));
+    last_length = MIPayload::node_length(current_child_seed.zipcode, current_child_seed.decoder);
+    last_chain_component_end = MIPayload::chain_component(current_child_seed.zipcode, current_child_seed.decoder, distance_index, get_id(current_child_seed.pos));
 
 }
 
@@ -3176,6 +3178,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
             if (include_prefix_sum) {
                 dist_left = SnarlDistanceIndex::sum(dist_left, 
                        MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_i).zipcode,
+                                              clustering_problem.all_seeds->at(read_num)->at(seed_i).decoder,
                                               distance_index, get_id(clustering_problem.all_seeds->at(read_num)->at(seed_i).pos))); 
             }
             //Since we only stored the proper distance left for seeds on chains
@@ -3213,7 +3216,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
             const SeedCache& first_seed = clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second);
             //TOOD: get_id is weird
             node_problem->fragment_best_left = SnarlDistanceIndex::sum(first_seed.distance_left,
-                    include_prefix_sum ? MIPayload::prefix_sum(first_seed.zipcode, distance_index, get_id(clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second).pos)) : 0);
+                    include_prefix_sum ? MIPayload::prefix_sum(first_seed.zipcode, first_seed.decoder, distance_index, get_id(clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second).pos)) : 0);
 
             //Record the new cluster
             for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++ ) {
@@ -3260,6 +3263,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
         if (include_prefix_sum) {
             offset = SnarlDistanceIndex::sum(offset, 
                    MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_num).zipcode,
+                                          clustering_problem.all_seeds->at(read_num)->at(seed_num).decoder,
                                           distance_index, get_id( clustering_problem.all_seeds->at(read_num)->at(seed_num).pos))); 
         }
 
