@@ -495,18 +495,15 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Add the parent chain or trivial chain
                 bool new_parent = false;
                 //TODO: Could get depth from the zipcodes but the idea of depth isn't the same
-                size_t depth;
-                if ((node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE) && parent_type == ZipCode::ROOT_CHAIN) {
-                    //If the node is a trivial chain, and the parent we stored is a chain and root,
-                    //then the node is in a simple snarl on the root-level chain
-                    depth = 2;
-                } else if (parent_type == ZipCode::ROOT_CHAIN || parent_type == ZipCode::ROOT_NODE) {
-                    //If the parent is a root (or root-level chain)
-                    depth = 1;
-                } else {
-                    //Otherwise get it later from parent_node_cluster_offset_to_depth
-                    depth = std::numeric_limits<size_t>::max();
+                size_t parent_depth = 0;
+                for (size_t d = 0 ; d <= node_depth ; d++) {
+                    auto type = decoder.get_code_type(d);
+                    if (type == ZipCode::CHAIN || type == ZipCode::ROOT_CHAIN || type == ZipCode::ROOT_NODE) {
+                        parent_depth++;
+                    }
                 }
+
+
                 new_parent = false;
                 if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                     //If we haven't seen the parent chain before, make a new SnarlTreeNodeProblem for it
@@ -524,26 +521,17 @@ cerr << "Add all seeds to nodes: " << endl;
                                                               clustering_problem.seed_count_prefix_sum.back(), distance_index);
                     }
 
-                    //Get the depth from the parent if we didn't cache it
-                    if (depth == std::numeric_limits<size_t>::max()) {
-                        depth = distance_index.get_depth(parent);
-                    }
-                    parent_to_depth.emplace(parent, depth);
+                    parent_to_depth.emplace(parent, parent_depth);
                     new_parent = true;
-                } else {
-                    //If we've seen the parent before, just find its index into all_node_problems and its depth
-                    if (depth == std::numeric_limits<size_t>::max()) {
-                        depth = parent_to_depth[parent];
-                    }
                 }
 #ifdef DEBUG_CLUSTER
-                assert(depth == distance_index.get_depth(parent));
+                assert(parent_depth == distance_index.get_depth(parent));
 #endif
 
 
                 //If chains_by_level isn't big enough for this depth, resize it and reserve space at each level
-                if (depth+1 > chains_by_level.size()) {
-                    size_t to_add = (depth+1) - chains_by_level.size(); 
+                if (parent_depth+1 > chains_by_level.size()) {
+                    size_t to_add = (parent_depth+1) - chains_by_level.size(); 
                     for (size_t i = 0 ; i < to_add ; i++) {
                         chains_by_level.emplace_back();
                         chains_by_level.back().reserve(clustering_problem.seed_count_prefix_sum.back());
@@ -570,7 +558,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //And the parent to chains_by_level
                 if (new_parent) {
-                    chains_by_level[depth].emplace_back(parent);
+                    chains_by_level[parent_depth].emplace_back(parent);
                 }
 
 
