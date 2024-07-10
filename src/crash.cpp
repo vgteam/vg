@@ -39,6 +39,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <signal.h>
 #include <typeinfo>
 
