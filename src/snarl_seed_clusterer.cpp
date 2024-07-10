@@ -461,7 +461,7 @@ cerr << "Add all seeds to nodes: " << endl;
                 assert( distance_index.start_end_traversal_of(parent) == distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle)));
             }
 #endif
-            if (!distance_index.is_root(parent)) {
+            if (!(parent_type == ZipCode::ROOT_SNARL || parent_type == ZipCode::ROOT_NODE)) {
                 //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
 
 #ifdef DEBUG_CLUSTER

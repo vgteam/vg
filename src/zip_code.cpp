@@ -1847,6 +1847,7 @@ bool MIPayload::parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& di
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
+        ZipCode::code_type_t node_type = decoder.get_code_type(node_depth);
         ZipCode::code_type_t parent_type = decoder.get_code_type(node_depth-1);
         if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
             //If the parent is an irregular snarl
@@ -1855,9 +1856,8 @@ bool MIPayload::parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& di
 
         } else if (parent_type == ZipCode::REGULAR_SNARL) {
 
-            net_handle_t node_handle = distance_index.get_node_net_handle(id);
-            net_handle_t parent = distance_index.get_parent(node_handle);
-            if (distance_index.is_trivial_chain(parent)) {
+            if (node_type == ZipCode::CHAIN) {
+                net_handle_t parent = distance_index.get_parent(distance_index.get_node_net_handle(id));
                 if (distance_index.is_simple_snarl(distance_index.get_parent(parent))) {
                     return true;
                 } else {
