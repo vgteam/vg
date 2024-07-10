@@ -101,7 +101,9 @@ void ZipCode::from_vector(const std::vector<size_t>& values) {
 
 ZipCodeDecoder::ZipCodeDecoder(const ZipCode* zipcode) :
     zipcode(zipcode), decoder(0) {
-    fill_in_full_decoder();
+    if (zipcode != nullptr) {
+        fill_in_full_decoder();
+    }
 }
 
 void ZipCodeDecoder::fill_in_full_decoder() {

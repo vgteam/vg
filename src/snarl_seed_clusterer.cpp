@@ -36,6 +36,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
             zip.fill_in_zipcode(distance_index, seed_caches[i].pos);
             seed_caches[i].zipcode = std::move(zip);
         }
+        seed_caches[i].decoder = ZipCodeDecoder(&(seed_caches[i].zipcode));
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
@@ -80,6 +81,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
                 zip.fill_in_zipcode(distance_index, all_seed_caches[read_num][i].pos);
                 all_seed_caches[read_num][i].zipcode = std::move(zip);
             }
+            all_seed_caches[read_num][i].decoder = ZipCodeDecoder(&(all_seed_caches[read_num][i].zipcode));
         }
     }
     vector<vector<SeedCache>*> seed_cache_pointers;
@@ -359,39 +361,46 @@ cerr << "Add all seeds to nodes: " << endl;
             //The zipcodes are already filled in
             //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
             //index but that would be too much work to write for now
-            const ZipCode& old_cache = seed.zipcode;
+            const ZipCode& zip_code = seed.zipcode;
+            ZipCodeDecoder& decoder = seed.decoder;
+
+            size_t node_depth = decoder.max_depth();
 
 #ifdef DEBUG_CLUSTER
                 cerr << "Using cached values for node " << id << ": " 
-                    << ", " << MIPayload::record_offset(old_cache, distance_index, id)
-                    << ", " << MIPayload::parent_record_offset(old_cache, distance_index, id)
-                    << ", " << MIPayload::node_record_offset(old_cache, distance_index, id)
-                    << ", " << MIPayload::node_length(old_cache)
-                    << ", " << MIPayload::prefix_sum(old_cache, distance_index, id)
-                    << ", " << MIPayload::chain_component(old_cache, distance_index, id) << endl;
+                    << ", " << MIPayload::record_offset(zip_code, distance_index, id)
+                    << ", " << MIPayload::parent_record_offset(zip_code, distance_index, id)
+                    << ", " << MIPayload::node_record_offset(zip_code, distance_index, id)
+                    << ", " << MIPayload::node_length(zip_code)
+                    << ", " << MIPayload::prefix_sum(zip_code, distance_index, id)
+                    << ", " << MIPayload::chain_component(zip_code, distance_index, id) << endl;
 
                 net_handle_t handle = distance_index.get_node_net_handle(id);
                 net_handle_t parent_handle = distance_index.get_parent(handle);
 
-                assert(MIPayload::record_offset(old_cache, distance_index, id) == distance_index.get_record_offset(handle)); 
-                //assert(MIPayload::parent_record_offset(old_cache, distance_index, id) == 
+                assert(MIPayload::record_offset(zip_code, distance_index, id) == distance_index.get_record_offset(handle)); 
+                //assert(MIPayload::parent_record_offset(zip_code, distance_index, id) == 
                 //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
                 //                                             :distance_index.get_record_offset(parent_handle))); 
-                assert(MIPayload::node_record_offset(old_cache, distance_index, id) == distance_index.get_node_record_offset(handle));
-                assert(MIPayload::node_length(old_cache) == distance_index.minimum_length(handle));
+                assert(MIPayload::node_record_offset(zip_code, distance_index, id) == distance_index.get_node_record_offset(handle));
+                assert(MIPayload::node_length(zip_code) == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
                 //         ? std::numeric_limits<size_t>::max() 
                 //         : distance_index.get_prefix_sum_value(handle);
-                //assert(MIPayload::prefix_sum(old_cache, distance_index, id) == prefix_sum);
-                assert(MIPayload::chain_component(old_cache, distance_index, id) == (distance_index.is_multicomponent_chain(parent_handle) 
+                //assert(MIPayload::prefix_sum(zip_code, distance_index, id) == prefix_sum);
+                assert(MIPayload::chain_component(zip_code, distance_index, id) == (distance_index.is_multicomponent_chain(parent_handle) 
                                 ? distance_index.get_chain_component(handle)
                                 : 0));
 
 #endif
 
 
+
             //Get the net_handle for the node the seed is on
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id);
+            size_t node_chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
+            size_t node_record_offset = MIPayload::node_record_offset(zip_code, distance_index, id);
+
 
 
             //Get the parent of the node
@@ -399,37 +408,48 @@ cerr << "Add all seeds to nodes: " << endl;
             //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
             //because they will be clustered here and added to the root instead of being added to the 
             //snarl tree to be clustered
-            if (MIPayload::is_trivial_chain(old_cache)) {
+            ZipCode::code_type_t node_type = decoder.get_code_type(node_depth);
+            ZipCode::code_type_t parent_type = node_depth == 0 ? node_type : decoder.get_code_type(node_depth-1);
+            auto parent_record_offset = MIPayload::parent_record_offset(zip_code, distance_index, id);
+            bool parent_is_root = parent_type == ZipCode::ROOT_SNARL || parent_type == ZipCode::ROOT_CHAIN || parent_type == ZipCode::ROOT_NODE;
+            //TODO: idk why this doesn't work with the parent_type
+            bool parent_is_chain = MIPayload::parent_is_chain(zip_code, distance_index, id);
+            bool is_trivial_chain = node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE;
+            size_t prefix_sum = is_trivial_chain ? 0 : decoder.get_offset_in_chain(node_depth, &distance_index);
+            size_t node_length = decoder.get_length(node_depth, &distance_index);
+            bool is_reversed_in_parent = decoder.get_is_reversed_in_parent(node_depth);
+
+            if (node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE) {
                 //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
                 parent = distance_index.get_net_handle_from_values (distance_index.get_record_offset(node_net_handle),
                                                         SnarlDistanceIndex::START_END,
                                                         SnarlDistanceIndex::CHAIN_HANDLE,
-                                                        MIPayload::node_record_offset(old_cache, distance_index, id));
-                if (MIPayload::parent_record_offset(old_cache, distance_index, id) == 0) {
+                                                        node_record_offset);
+                if (parent_record_offset == 0) {
                     //If the parent offset stored in the cache is the root, then this is a trivial chain
                     //child of the root not in a root snarl, so remember the root as the parent and the 
                     //trivial chain as the node
                     node_net_handle = parent;
                     parent = distance_index.get_root();
-                } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache, distance_index, id)) {
+                } else if (parent_type == ZipCode::ROOT_SNARL) {
                     //If the parent is a root snarl, then the node becomes the trivial chain 
                     //and we get the parent root snarl from the cache
                     node_net_handle = parent;
-                    parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                    parent = distance_index.get_net_handle_from_values(parent_record_offset,
                                                                        SnarlDistanceIndex::START_END,
                                                                        SnarlDistanceIndex::ROOT_HANDLE);
                 }
-            } else if (MIPayload::parent_record_offset(old_cache, distance_index, id) == 0) {
+            } else if (parent_record_offset == 0) {
                 //The parent is just the root
                 parent = distance_index.get_root();
-            } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache, distance_index, id)) {
+            } else if (parent_type == ZipCode::ROOT_SNARL) {
                 //If the parent is a root snarl
-                parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                parent = distance_index.get_net_handle_from_values(parent_record_offset,
                                                        SnarlDistanceIndex::START_END,
                                                        SnarlDistanceIndex::ROOT_HANDLE);
             } else {
                 //Otherwise the parent is an actual chain and we use the value from the cache
-                parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                parent = distance_index.get_net_handle_from_values(parent_record_offset,
                                                        SnarlDistanceIndex::START_END,
                                                        SnarlDistanceIndex::CHAIN_HANDLE);
             }
@@ -456,11 +476,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Seed payload is: 
                 //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
 
-                bool is_trivial_chain =  MIPayload::is_trivial_chain(old_cache);
-                size_t prefix_sum = MIPayload::prefix_sum(old_cache, distance_index, id);
-                size_t node_length = MIPayload::node_length(old_cache);
-                bool is_reversed_in_parent = MIPayload::is_reversed(old_cache, distance_index, id);
-
 #ifdef DEBUG_CLUSTER
                 //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
                 //                                  : distance_index.get_prefix_sum_value(node_net_handle)));
@@ -479,12 +494,13 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //Add the parent chain or trivial chain
                 bool new_parent = false;
+                //TODO: Could get depth from the zipcodes but the idea of depth isn't the same
                 size_t depth;
-                if (MIPayload::is_trivial_chain(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && MIPayload::parent_is_root(old_cache)) {
+                if ((node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE) && parent_type == ZipCode::ROOT_CHAIN) {
                     //If the node is a trivial chain, and the parent we stored is a chain and root,
                     //then the node is in a simple snarl on the root-level chain
                     depth = 2;
-                } else if (MIPayload::parent_is_root(old_cache)) {
+                } else if (parent_type == ZipCode::ROOT_CHAIN || parent_type == ZipCode::ROOT_NODE) {
                     //If the parent is a root (or root-level chain)
                     depth = 1;
                 } else {
@@ -547,9 +563,9 @@ cerr << "Add all seeds to nodes: " << endl;
                 parent_problem.children.back().seed_indices = {read_num, i};
                 parent_problem.children.back().is_seed = true;
                 parent_problem.children.back().has_chain_values = true;
-                parent_problem.children.back().chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
+                parent_problem.children.back().chain_component = node_chain_component;
                 parent_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      MIPayload::prefix_sum(seed.zipcode, distance_index, get_id(seed.pos)));
+                                                                      prefix_sum);
 
 
                 //And the parent to chains_by_level
@@ -560,15 +576,15 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
                 if ( new_parent) {
-                    if (is_trivial_chain && !MIPayload::parent_is_root(old_cache)) {
-                        bool grandparent_is_simple_snarl = MIPayload::parent_is_chain(old_cache, distance_index, id);
+                    if (is_trivial_chain && !parent_is_root) {
+                        bool grandparent_is_simple_snarl = parent_is_chain;
                         parent_problem.has_parent_handle = true;
                         parent_problem.parent_net_handle = grandparent_is_simple_snarl 
                                   ? distance_index.get_net_handle_from_values(distance_index.get_record_offset(node_net_handle),
                                                                   SnarlDistanceIndex::START_END,
                                                                   SnarlDistanceIndex::SNARL_HANDLE,
                                                                   1)
-                                  : distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                                  : distance_index.get_net_handle_from_values(parent_record_offset,
                                                                   SnarlDistanceIndex::START_END,
                                                                   SnarlDistanceIndex::SNARL_HANDLE);
 #ifdef DEBUG_CLUSTER
@@ -579,14 +595,14 @@ cerr << "Add all seeds to nodes: " << endl;
                             //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
                             parent_problem.has_grandparent_handle = true;
                             parent_problem.grandparent_net_handle = distance_index.get_net_handle_from_values(
-                                                                        MIPayload::parent_record_offset(old_cache, distance_index, id),
+                                                                        parent_record_offset,
                                                                         SnarlDistanceIndex::START_END,
                                                                         SnarlDistanceIndex::CHAIN_HANDLE);
 #ifdef DEBUG_CLUSTER
                                   cerr << "GRANDPARENT: " << distance_index.net_handle_as_string(parent_problem.grandparent_net_handle) << endl;
 #endif
                         }
-                    } else if (MIPayload::parent_is_root(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && !is_trivial_chain) {
+                    } else if (parent_is_root && parent_is_chain && !is_trivial_chain) {
                         //The parent chain is a child of the root
                         parent_problem.has_parent_handle = true;
                         parent_problem.parent_net_handle = distance_index.get_net_handle_from_values(
@@ -602,9 +618,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Otherwise, the parent is the root or a root snarl, and the node_net_handle is a node
 
 
-                //Get the values from the seed. Some may be infinite and need to be re-set
-                size_t node_length =  MIPayload::node_length(old_cache);
-                bool is_reversed_in_parent = MIPayload::is_reversed(old_cache, distance_index, id);
 
 
                 //Create a new SnarlTreeNodeProblem for this node
@@ -635,9 +648,9 @@ cerr << "Add all seeds to nodes: " << endl;
                 node_problem.children.back().seed_indices = {read_num, i};
                 node_problem.children.back().is_seed = true;
                 node_problem.children.back().has_chain_values = true;
-                node_problem.children.back().chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
+                node_problem.children.back().chain_component = node_chain_component;
                 node_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      MIPayload::prefix_sum(seed.zipcode, distance_index, get_id(seed.pos)));
+                                                                      prefix_sum);
 
 
 

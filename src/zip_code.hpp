@@ -249,7 +249,7 @@ class ZipCodeDecoder {
     ///Constructor that goes through the zipcode and decodes it to fill in decoder
     ///If a depth is given, then only fill in up to depth snarl tree nodes
     ///Otherwise, fill in the whole zipcode
-    ZipCodeDecoder(const ZipCode* zipcode);
+    ZipCodeDecoder(const ZipCode* zipcode = nullptr);
 
     ///Go through the entire zipcode and fill in the decoder
     void fill_in_full_decoder();
@@ -318,6 +318,8 @@ class ZipCodeDecoder {
     /// Dump a ZipCodeDecoder to a stream so that it can be reconstructed for a
     /// unit test from the resulting information.
     void dump(std::ostream& out) const;
+
+    //TODO: I want to make a struct for holding all values of a code as real values
 
 };
 

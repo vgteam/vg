@@ -123,6 +123,8 @@ class SnarlDistanceIndexClusterer {
             //Cached values (zip codes) from the minimizer
             ZipCode zipcode;
 
+            ZipCodeDecoder decoder;
+
             //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
             //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
