@@ -251,6 +251,14 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    string file_name = get_input_file_name(optind, argc, argv);
+
+    if (have_input_file(optind, argc, argv)) {
+        // We only take one input file.
+        cerr << "error[vg surject] Extra argument provided: " << get_input_file_name(optind, argc, argv, false) << endl;
+        exit(1);
+    }
+
     // Create a preprocessor to apply read group and sample name overrides in place
     auto set_metadata = [&](Alignment& update) {
         if (!sample_name.empty()) {
@@ -261,8 +269,6 @@ int main_surject(int argc, char** argv) {
         }
     };
 
-    string file_name = get_input_file_name(optind, argc, argv);
-    
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     // If we add an overlay for path position queries, use one optimized for
