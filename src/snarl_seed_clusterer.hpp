@@ -134,7 +134,10 @@ class SnarlDistanceIndexClusterer {
             //to the right side of the node, relative to the chain
             size_t distance_left = std::numeric_limits<size_t>::max();
             size_t distance_right = std::numeric_limits<size_t>::max();
-            size_t chain_component = std::numeric_limits<size_t>::max();
+            //Values from the payload that we're saving
+            size_t payload_chain_component = std::numeric_limits<size_t>::max();
+            size_t payload_prefix_sum = std::numeric_limits<size_t>::max();
+            size_t payload_node_length = std::numeric_limits<size_t>::max();
 
         };
 
