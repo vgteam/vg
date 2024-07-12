@@ -264,10 +264,18 @@ using namespace std;
             for (auto& chunk : path_chunks) {
                 anchor_lengths.push_back(path_from_length(chunk.second));
             }
-            auto anchors_by_length = sort_permutation(anchor_lengths.begin(), anchor_lengths.end(), [&](const size_t& a, const size_t& b) {
-                // Return true if the anchor with length a has to come first because it is longer.
-                return a > b;
-            });
+
+            // find the order we'll consider them for removal in
+            vector<size_t> anchor_keep_order;
+            if (max_anchors < numeric_limits<size_t>::max()) {
+                anchor_keep_order = std::move(sort_permutation(anchor_lengths.begin(), anchor_lengths.end(), [&](const size_t& a, const size_t& b) {
+                    // Return true if the anchor with length a has to come first because it is longer.
+                    return a > b;
+                }));
+            }
+            else {
+                anchor_keep_order = std::move(range_vector(path_chunks.size()));
+            }
             
             vector<bool> keep(path_chunks.size(), true);
             
@@ -275,32 +283,36 @@ using namespace std;
                 for (int i = 0; i < path_chunks.size(); ++i) {
                     auto& chunk = path_chunks[i];
                     // Mark anchors that are themselves suspicious as not to be kept.
-                    if (((i == 0 || i + 1 == path_chunks.size()) && path_chunks.size() != 1)
-                        && anchor_lengths[i] <= max_tail_anchor_prune &&
-                        chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+                    if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second)
+                        && anchor_lengths[i] <= max_tail_anchor_prune
+                        && chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
 #ifdef debug_anchored_surject
-                        cerr << "anchor " << i << " pruned for being a short tail" << endl;
+                        cerr << "anchor " << i << " (read interval " << (chunk.first.first - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << " : " << (chunk.first.second - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << ") pruned for being a short tail" << endl;
 #endif
                         // this is a short anchor on one of the tails
                         keep[i] = false;
                         continue;
                     }
-                    SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
-                    for (int order = 1; order <= 6; ++order) {
-                        if (complexity.p_value(order) < low_complexity_p_value) {
+                    if (anchor_lengths[i] < max_low_complexity_anchor_prune &&
+                        chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune) {
+                        
+                        SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
+                        for (int order = 1; order <= 6; ++order) {
+                            if (complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
-                            cerr << "anchor " << i << " pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
+                                cerr << "anchor " << i << " (read[" << (chunk.first.first - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << ":" << (chunk.first.second - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << "]) pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
 #endif
-                            // the sequences is repetitive at this order
-                            keep[i] = false;
-                            break;
+                                // the sequences is repetitive at this order
+                                keep[i] = false;
+                                break;
+                            }
                         }
                     }
                 }
             }
             
             size_t kept_anchors = 0;
-            for (auto& i : anchors_by_length) {
+            for (auto& i : anchor_keep_order) {
                 // For each anchor longest to shortest
                 if (kept_anchors < max_anchors) {
                     // If we can keep it
@@ -319,20 +331,14 @@ using namespace std;
             }
             
             // make sure we didn't flag all of the anchors for removal
-            bool keep_any = false;
-            for (bool b : keep) {
-                keep_any = keep_any || b;
-            }
             if (kept_anchors == 0) {
                 // we filtered out all of the anchors, choose the longest one to keep
                 // even though it failed the filter
-                if (!anchors_by_length.empty()) {
-                    auto max_idx = anchors_by_length.at(0);
+                auto max_idx = anchor_keep_order.at(0);
 #ifdef debug_anchored_surject
-                    cerr << "reversing decision to prune " << max_idx << endl;
+                cerr << "reversing decision to prune " << max_idx << endl;
 #endif
-                    keep[max_idx] = true;
-                }
+                keep[max_idx] = true;
             }
             // we're keeping at least one anchor, so we should be able to throw away the other ones
             int removed_so_far = 0;
@@ -3638,10 +3644,6 @@ using namespace std;
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
                     // add this mapping
                     from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                    
-#ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(it->first)) << ", pos " << graph->get_position_of_step(it->first) << " comes after forward chunk " << it->second << endl;
-#endif
                 }
             }
             // initialize new chunks for steps that did not extend
@@ -3687,10 +3689,6 @@ using namespace std;
                     aln_chunk.first.second = source.sequence().begin() + through_to_length;
                     // add this mapping
                     from_proto_mapping(path.mapping(i), *aln_chunk.second.add_mapping());
-                    
-#ifdef debug_anchored_surject
-                    cerr << "step on " << graph->get_id(graph->get_handle_of_step(extended_step.first)) << ", pos " << graph->get_position_of_step(extended_step.first) << " comes after reverse chunk " << it->second << endl;
-#endif
                 }
                 else {
                     extended_step.second.first = path_chunks.first.size();

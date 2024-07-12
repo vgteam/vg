@@ -11,6 +11,7 @@
 #include <sstream>
 #include <algorithm>
 #include <functional>
+#include <limits>
 
 #include "aligner.hpp"
 #include "handle.hpp"
@@ -125,11 +126,12 @@ using namespace std;
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
+        int64_t max_low_complexity_anchor_prune = 32;
         
         /// How many anchors (per path) will we use when surjecting using
         /// anchors?
         /// Excessive anchors will be pruned away.
-        size_t max_anchors = 200;
+        size_t max_anchors = numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
         
