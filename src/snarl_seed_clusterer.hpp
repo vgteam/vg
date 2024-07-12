@@ -125,6 +125,9 @@ class SnarlDistanceIndexClusterer {
 
             ZipCodeDecoder decoder;
 
+            //TODO: I think I can skip the zipcode now since I have the payload
+            MIPayload payload;
+
             //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
             //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 

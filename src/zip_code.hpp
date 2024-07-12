@@ -323,6 +323,9 @@ class ZipCodeDecoder {
 
     //TODO: I want to make a struct for holding all values of a code as real values
 
+    ///Fill in a payload with values from the zipcode
+    MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
+
 };
 
 std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder); 
@@ -331,39 +334,53 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder);
 /**
     The payload for the minimizer index. This stores distance information that gets used in clustering
     The payload now uses zip codes, so this gets used to go from a zip code to distance information
-    usable by the clusterer, which expects the old payload format
+    usable by the clusterer
 */
-struct MIPayload {
+struct MIPayload {    
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
     //typedef std::pair<code_type, code_type> payload_type;
 
-    
-    constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
-    constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
+    constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
+    constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
     //How do decode the zipcode to get the old payload values
-    static size_t record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t get_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t parent_record_offset(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t get_parent_record_offset(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t node_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t get_node_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t node_length(const ZipCode& zip, const ZipCodeDecoder& decoder);
+    static size_t get_node_length(const ZipCode& zip, const ZipCodeDecoder& decoder);
 
-    static bool is_reversed(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static bool get_is_reversed(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static bool is_trivial_chain (const ZipCode& zip, const ZipCodeDecoder& decoder);
+    static bool get_is_trivial_chain (const ZipCode& zip, const ZipCodeDecoder& decoder);
 
-    static bool parent_is_chain(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static bool get_parent_is_chain(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static bool get_parent_is_root (const ZipCode& zip, const ZipCodeDecoder& decoder);
 
-    static bool parent_is_root (const ZipCode& zip, const ZipCodeDecoder& decoder);
+    static size_t get_prefix_sum (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t get_chain_component (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t prefix_sum (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t chain_component (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    
+
+
+    net_handle_t node_handle;
+    net_handle_t parent_handle;
+
+    size_t node_length = std::numeric_limits<size_t>::max();
+    size_t prefix_sum = std::numeric_limits<size_t>::max();
+    size_t chain_component = std::numeric_limits<size_t>::max();
+    //Depth according to the distance index
+    size_t parent_depth = 0;
+
+    ZipCode::code_type_t parent_type = ZipCode::EMPTY;
+    bool is_reversed = false;
+    bool is_trivial_chain = false;
+    bool parent_is_chain = false;
+    bool parent_is_root = false;
 }; 
 }
 

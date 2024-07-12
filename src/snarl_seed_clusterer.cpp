@@ -37,6 +37,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
             seed_caches[i].zipcode = std::move(zip);
         }
         seed_caches[i].decoder = ZipCodeDecoder(&(seed_caches[i].zipcode));
+        seed_caches[i].payload = seed_caches[i].decoder.get_payload_from_zipcode(id(seed_caches[i].pos), distance_index);
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
@@ -82,6 +83,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
                 all_seed_caches[read_num][i].zipcode = std::move(zip);
             }
             all_seed_caches[read_num][i].decoder = ZipCodeDecoder(&(all_seed_caches[read_num][i].zipcode));
+            all_seed_caches[read_num][i].payload = all_seed_caches[read_num][i].decoder.get_payload_from_zipcode(id(all_seed_caches[read_num][i].pos), distance_index);
         }
     }
     vector<vector<SeedCache>*> seed_cache_pointers;
@@ -361,6 +363,7 @@ cerr << "Add all seeds to nodes: " << endl;
             //The zipcodes are already filled in
             //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
             //index but that would be too much work to write for now
+            const MIPayload& payload = seed.payload;
             const ZipCode& zip_code = seed.zipcode;
             ZipCodeDecoder& decoder = seed.decoder;
 
@@ -398,9 +401,9 @@ cerr << "Add all seeds to nodes: " << endl;
 
             //Get the net_handle for the node the seed is on
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id);
-            size_t node_chain_component = MIPayload::chain_component(seed.zipcode, seed.decoder, distance_index, get_id(seed.pos));
+            size_t node_chain_component = MIPayload::get_chain_component(seed.zipcode, seed.decoder, distance_index, get_id(seed.pos));
             seed.payload_chain_component=node_chain_component;
-            size_t node_record_offset = MIPayload::node_record_offset(zip_code, distance_index, id);
+            size_t node_record_offset = MIPayload::get_node_record_offset(zip_code, distance_index, id);
 
 
 
@@ -411,10 +414,10 @@ cerr << "Add all seeds to nodes: " << endl;
             //snarl tree to be clustered
             ZipCode::code_type_t node_type = decoder.get_code_type(node_depth);
             ZipCode::code_type_t parent_type = node_depth == 0 ? node_type : decoder.get_code_type(node_depth-1);
-            auto parent_record_offset = MIPayload::parent_record_offset(zip_code, decoder, distance_index, id);
+            auto parent_record_offset = MIPayload::get_parent_record_offset(zip_code, decoder, distance_index, id);
             bool parent_is_root = parent_type == ZipCode::ROOT_SNARL || parent_type == ZipCode::ROOT_CHAIN || parent_type == ZipCode::ROOT_NODE;
             //TODO: idk why this doesn't work with the parent_type
-            bool parent_is_chain = MIPayload::parent_is_chain(zip_code, decoder, distance_index, id);
+            bool parent_is_chain = MIPayload::get_parent_is_chain(zip_code, decoder, distance_index, id);
             bool is_trivial_chain = node_type == ZipCode::CHAIN || node_type == ZipCode::ROOT_NODE;
             size_t prefix_sum = is_trivial_chain ? 0 : decoder.get_offset_in_chain(node_depth, &distance_index);
             seed.payload_prefix_sum = prefix_sum;
@@ -456,6 +459,10 @@ cerr << "Add all seeds to nodes: " << endl;
                                                        SnarlDistanceIndex::START_END,
                                                        SnarlDistanceIndex::CHAIN_HANDLE);
             }
+            //cerr << "node and parent " << distance_index.net_handle_as_string(node_net_handle) << " " << distance_index.net_handle_as_string(parent) << endl;
+            //cerr << "node and parent " << distance_index.net_handle_as_string(payload.node_handle) << " " << distance_index.net_handle_as_string(payload.parent_handle) << endl;
+            //assert(node_net_handle == payload.node_handle);
+            //assert(parent == payload.parent_handle);
             
 
 #ifdef DEBUG_CLUSTER
