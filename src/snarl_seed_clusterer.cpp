@@ -672,27 +672,16 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
             SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(snarl_parent));
 
-            //Add the snarl to its parent
-            if (distance_index.is_root(snarl_parent)) {
-                 if(distance_index.is_root_snarl(snarl_parent)) {
-                    //If the parent is a root snarl, then remember it to be compared in the root
-                    clustering_problem.root_children.emplace_back(snarl_parent, snarl_handle);
-                 } else {
-                     //Otherwise, compare it to itself using external connectivity and forget about it since we're done
-                     compare_and_combine_cluster_on_one_child(clustering_problem, 
-                         &clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(snarl_parent)));
-                 }
-            } else {
-                //Add the snarl to its parent chain
-                parent_problem.children.emplace_back();
-                parent_problem.children.back().net_handle = snarl_handle;
-                parent_problem.children.back().is_seed = false;
-                parent_problem.children.back().has_chain_values = false;
-                if (new_parent) {
-                    //And the parent chain to the things to be clustered next
-                    clustering_problem.parent_chains->emplace_back(snarl_parent);
-                }
+            //Add the snarl to its parent chain
+            parent_problem.children.emplace_back();
+            parent_problem.children.back().net_handle = snarl_handle;
+            parent_problem.children.back().is_seed = false;
+            parent_problem.children.back().has_chain_values = false;
+            if (new_parent) {
+                //And the parent chain to the things to be clustered next
+                clustering_problem.parent_chains->emplace_back(snarl_parent);
             }
+            
         }
 
 #ifdef DEBUG_CLUSTER
