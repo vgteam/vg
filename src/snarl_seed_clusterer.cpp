@@ -718,7 +718,9 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 
         net_handle_t parent = chain_problem->has_parent_handle
                             ? chain_problem->parent_net_handle
-                            : distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle));
+                            : (chain_problem->zipcode_depth == 0 
+                                ? distance_index.get_root()
+                                : distance_index.start_end_traversal_of(chain_problem->seed->decoder.get_net_handle_slow(id(chain_problem->seed->pos),chain_problem->zipcode_depth-1, &distance_index)));
 #ifdef DEBUG_CLUSTER
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
