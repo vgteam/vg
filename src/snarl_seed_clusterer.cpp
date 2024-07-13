@@ -326,7 +326,7 @@ cerr << "Add all seeds to nodes: " << endl;
     //these will be the nodes that are children of the root or root snarl. 
     //All other seeds are added directly to their parent chains as children
     //Bool is true if the parent of the node is a root snarl
-    std::vector<std::pair<net_handle_t, bool>> nodes_to_cluster_now;
+    std::vector<const SeedCache*> nodes_to_cluster_now;
 
 
     //Map the parent SnarlTreeNodeProblem to its depth so we don't use get_depth() as much
@@ -434,13 +434,15 @@ cerr << "Add all seeds to nodes: " << endl;
                         clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
                         clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
                                                      clustering_problem.seed_count_prefix_sum.back(),
-                                                     false, seed.payload.node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()); 
+                                                     false, seed.payload.node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
+                                                     &seed, seed.decoder.max_depth()); 
                         clustering_problem.all_node_problems.back().is_trivial_chain = true;
                     } else {
                         //The parent is an actual chain
                         clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
                         clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
-                                                              clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                                                              clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                                              &seed, seed.decoder.max_depth() - 1);
                     }
 
                     parent_to_depth.emplace(seed.payload.parent_handle, seed.payload.parent_depth);
@@ -539,7 +541,8 @@ cerr << "Add all seeds to nodes: " << endl;
                     clustering_problem.all_node_problems.emplace_back(seed.payload.node_handle, clustering_problem.all_seeds->size(),
                                              clustering_problem.seed_count_prefix_sum.back(),
                                              false, seed.payload.node_length, std::numeric_limits<size_t>::max(),
-                                              std::numeric_limits<size_t>::max());
+                                              std::numeric_limits<size_t>::max(),
+                                              &seed, seed.decoder.max_depth());
 
                     //Remember the parent of this node, since it will be needed to remember the root snarl later
                     clustering_problem.all_node_problems.back().parent_net_handle = seed.payload.parent_handle;
@@ -566,7 +569,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //Remember this seed as a child of the node
                 if (new_node) {
-                    nodes_to_cluster_now.emplace_back(seed.payload.node_handle, seed.payload.parent_type == ZipCode::ROOT_SNARL);
+                    nodes_to_cluster_now.emplace_back(&seed);
                 }
             }
         }
@@ -577,8 +580,8 @@ cerr << "Add all seeds to nodes: " << endl;
 #endif
 
     //Go through and cluster nodes that are children of the root or root snarls
-    for(const auto& net_and_is_root : nodes_to_cluster_now) {
-        const net_handle_t& node_net_handle = net_and_is_root.first;
+    for(const SeedCache* seed : nodes_to_cluster_now) {
+        const net_handle_t& node_net_handle = seed->payload.node_handle;
         SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(
                                                     clustering_problem.net_handle_to_node_problem_index.at(node_net_handle));
 
@@ -589,13 +592,14 @@ cerr << "Add all seeds to nodes: " << endl;
 
         net_handle_t parent = node_problem.parent_net_handle;
 
-        if (net_and_is_root.second) {
+        if (seed->payload.parent_type == ZipCode::ROOT_SNARL) {
             //If this is a root snarl, then remember it to cluster in the root
             if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent,
                                                          clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
-                                             clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                                             clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                             seed, 0);
             }
             clustering_problem.root_children.emplace_back(parent, node_net_handle);
         } else {
@@ -652,10 +656,11 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
                 clustering_problem.net_handle_to_node_problem_index.emplace(snarl_parent,
                         clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(snarl_parent, clustering_problem.all_seeds->size(),
-                                clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                                clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                snarl_problem->seed, snarl_problem->zipcode_depth-1);
 
                 //Because a new SnarlTreeNodeProblem got added, the snarl_problem pointer might have moved
-                SnarlTreeNodeProblem snarl_problem = clustering_problem.all_node_problems.at(
+                SnarlTreeNodeProblem& snarl_problem = clustering_problem.all_node_problems.at(
                         clustering_problem.net_handle_to_node_problem_index.at(snarl_handle));
                 if (snarl_problem.has_grandparent_handle) {
                     SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
@@ -754,7 +759,8 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                     clustering_problem.net_handle_to_node_problem_index.emplace(parent, clustering_problem.all_node_problems.size());
                     clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
-                                     clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                                     clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                     chain_problem->seed, chain_problem->zipcode_depth-1);
                 }
                 clustering_problem.root_children.emplace_back(parent, chain_handle);
             } else if (!is_top_level_chain) {
@@ -808,7 +814,8 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 new_parent = true;
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent, clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
-                                                          clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                                                          clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                                          chain_problem->seed, chain_problem->zipcode_depth-1);
                 //Because a new SnarlTreeNodeProblem got added, the old chain_problem pointer might have moved
                 SnarlTreeNodeProblem& chain_problem = clustering_problem.all_node_problems.at( 
                         clustering_problem.net_handle_to_node_problem_index.at(chain_handle));
@@ -2966,7 +2973,9 @@ void SnarlDistanceIndexClusterer::cluster_root(ClusteringProblem& clustering_pro
 
     //Keep track of all clusters on the root
     SnarlTreeNodeProblem root_problem(distance_index.get_root(), clustering_problem.all_seeds->size(),
-                               clustering_problem.seed_count_prefix_sum.back(), distance_index);
+                               clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                               &clustering_problem.all_seeds->at(0)->front(), 0);
+    //TODO: ikd about the seed here
 
     //Remember old distances
     vector<pair<size_t, size_t>> child_distances (clustering_problem.seed_count_prefix_sum.back(), 

@@ -259,6 +259,9 @@ class SnarlDistanceIndexClusterer {
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
+
+
+
             //The parent and grandparent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
@@ -267,6 +270,10 @@ class SnarlDistanceIndexClusterer {
             //The boundary node of containing_net_handle, for a snarl or chain
             //if it is a snarl, then this is the actual node, not the sentinel 
             net_handle_t end_in;
+
+            //One representative seed so we can get the zipcode and stuff
+            const SeedCache* seed;
+            size_t zipcode_depth;
 
             //Minimum length of a node or snarl
             //If it is a chain, then it is distance_index.chain_minimum_length(), which is
@@ -295,20 +302,26 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index) :
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
+                                  const SeedCache* seed, size_t zipcode_depth) :
                 containing_net_handle(std::move(net)),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                seed(seed),
+                zipcode_depth(zipcode_depth) {
                 read_cluster_heads.reserve(seed_count);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
-            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, size_t node_length, size_t prefix_sum, size_t component) :
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
+                                 size_t node_length, size_t prefix_sum, size_t component, const SeedCache* seed, size_t zipcode_depth) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
                 chain_component_start(component),
                 chain_component_end(component),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                seed(seed),
+                zipcode_depth(zipcode_depth) {
                     read_cluster_heads.reserve(seed_count);
             }
 
