@@ -1652,333 +1652,10 @@ void ZipCodeCollection::deserialize(std::istream& in) {
     }
 
 }
-
-size_t MIPayload::get_record_offset(const ZipCode& code, const SnarlDistanceIndex& distance_index, const nid_t& id ) {
-
-    //TODO: This is pointless but I'll keep it until I fix everything
-    net_handle_t node_handle = distance_index.get_node_net_handle(id);
-    return distance_index.get_record_offset(node_handle);
-}
-
-size_t MIPayload::get_parent_record_offset(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id) {
-
-
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return  0;
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-#ifdef DEBUG_ZIPCODE
-        assert(distance_index.get_record_offset(decoder.get_net_handle(0, &distance_index)) ==
-              distance_index.get_record_offset(distance_index.get_parent(distance_index.get_node_net_handle(id))));
-#endif
-
-        return distance_index.get_record_offset(decoder.get_net_handle(0, &distance_index));
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-#ifdef DEBUG_ZIPCODE
-        assert(distance_index.get_record_offset(decoder.get_net_handle(0, &distance_index)) ==
-              distance_index.get_record_offset(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(id)))));
-#endif
-        
-        return  distance_index.get_record_offset(decoder.get_net_handle(0, &distance_index));
-
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        ZipCode::code_type_t parent_type = decoder.get_code_type(node_depth-1);
-        if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
-            //If the parent is an irregular snarl
-            return decoder.get_distance_index_address(node_depth-1);
-
-        } else  {
-            //TODO: I'm not sure about what to do about this, I don't like doing it here
-            net_handle_t node_handle = distance_index.get_node_net_handle(id);
-            net_handle_t parent = distance_index.get_parent(node_handle);
-            if (distance_index.is_trivial_chain(parent)) {
-                net_handle_t grandparent = distance_index.get_parent(parent);
-                if (distance_index.is_simple_snarl(grandparent)) {
-                    return distance_index.get_record_offset(distance_index.get_parent(grandparent));
-
-                } else {
-                    return distance_index.get_record_offset(grandparent);
-                }
-            } else {
-                return distance_index.get_record_offset(parent);
-            }
-        }
-    }
-}
-
-size_t MIPayload::get_node_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id) {
-
-    //TODO: This is pointless but I'll keep it until I fix everything
-    net_handle_t node_handle = distance_index.get_node_net_handle(id);
-    return distance_index.get_node_record_offset(node_handle);
-}
-
-size_t MIPayload::get_node_length(const ZipCode& zip, const ZipCodeDecoder& decoder) {
-
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return decoder.get_length(0);
-
-    } else if (decoder.decoder_length() == 2) {
-        //If this is a node in the top-level chain
-
-        return decoder.get_length(1);
-
-   } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        return decoder.get_length(node_depth);
-    }
-}
-
-bool MIPayload::get_is_reversed(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id) {
- 
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return false;
-
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        return decoder.get_is_reversed_in_parent(1);
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        
-        return false;
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        ZipCode:: code_type_t parent_type = decoder.get_code_type(node_depth-1);
-        if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
-            //If the parent is an irregular snarl
-            return false;
-
-        } else if (parent_type == ZipCode::REGULAR_SNARL) {
-            //If the parent is a regular snarl
-
-            //Because I'm storing "regular" and not "simple", need to check this
-            if (distance_index.is_simple_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(id))))) {
-                return decoder.get_is_reversed_in_parent(node_depth);
-            } else {
-                return false;
-            }
-        } else {
-            //If the parent is a chain
-            //If this was a node in a chain
-            return decoder.get_is_reversed_in_parent(node_depth);
-        }
-    }
-}
-
-bool MIPayload::get_is_trivial_chain(const ZipCode& zip, const ZipCodeDecoder& decoder) {
- 
-
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return true;
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        return false;
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        
-        return true;
-
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        ZipCode::code_type_t parent_type = decoder.get_code_type(node_depth-1);
-        if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
-            //If the parent is an irregular snarl
-            return true;
-
-        } else if (parent_type == ZipCode::REGULAR_SNARL) {
-            //If the parent is a regular snarl
-            return true;
-
-        } else {
-            //If the parent is a chain
-            //If this was a node in a chain
-            return false;
-        }
-    }
-}
-
-bool MIPayload::get_parent_is_chain(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id) {
- 
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return true;
-
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        return true;
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        
-        return false;
-
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        ZipCode::code_type_t node_type = decoder.get_code_type(node_depth);
-        ZipCode::code_type_t parent_type = decoder.get_code_type(node_depth-1);
-        if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
-            //If the parent is an irregular snarl
-
-            return false;
-
-        } else if (parent_type == ZipCode::REGULAR_SNARL) {
-
-            if (node_type == ZipCode::CHAIN) {
-                net_handle_t parent = distance_index.get_parent(distance_index.get_node_net_handle(id));
-                if (distance_index.is_simple_snarl(distance_index.get_parent(parent))) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else {
-                return true;
-            }
-
-        } else {
-            //If the parent is a chain
-            //If this was a node in a chain
-            return true;
-
-        }
-    }
-}
-
-
-bool MIPayload::get_parent_is_root(const ZipCode& zip, const ZipCodeDecoder& decoder) {
- 
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return true;
-
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        return false;
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        
-        return true;
-
-    } else {
-
-        return false;
-    }
-}
-
-
-size_t MIPayload::get_prefix_sum(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id) {
- 
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-        return  0;
-
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        return decoder.get_offset_in_chain(1);
-
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        return 0;
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        ZipCode::code_type_t parent_type = decoder.get_code_type(node_depth-1);
-        if (parent_type == ZipCode::IRREGULAR_SNARL || parent_type == ZipCode::CYCLIC_SNARL) {
-            return 0;
-        } else if (parent_type == ZipCode::REGULAR_SNARL) {
-            //If the parent is a snarl
-            //Because I'm storing "regular" and not "simple", need to check this
-            if (distance_index.is_simple_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(id))))) {
-                return decoder.get_offset_in_chain(node_depth-1);
-            } else {
-                return 0;
-            }
-        } else {
-            //If the parent is a chain
-            //If this was a node in a chain
-            return decoder.get_offset_in_chain(node_depth);
-        }
-    }
-}
-
-size_t MIPayload::get_chain_component(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id) {
- 
-
-    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
-
-    if (decoder.decoder_length() == 1) {
-        //If the root-level structure is a node
-
-        return 0;
-
-    } else if (decoder.decoder_length() == 2 && root_is_chain) {
-        //If this is a node in the top-level chain
-
-        net_handle_t net_handle = distance_index.get_node_net_handle(id);
-        net_handle_t parent = distance_index.get_parent(net_handle);
-        return distance_index.is_multicomponent_chain(parent) 
-                ? distance_index.get_chain_component(net_handle)
-                : 0;
-    
-    } else if (decoder.decoder_length() == 2 && !root_is_chain) {
-        //If the node is the child of the root snarl
-        
-        return 0;
-    } else {
-        //Otherwise, check the last thing in the zipcode to get the node values
-        size_t node_depth = decoder.decoder_length()-1;
-
-        net_handle_t net_handle = distance_index.get_node_net_handle(id);
-        net_handle_t parent = distance_index.get_parent(net_handle);
-        return distance_index.is_multicomponent_chain(parent) 
-                ? distance_index.get_chain_component(net_handle)
-                : 0;
-    }
-}
-
 MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const {
     MIPayload payload;
 
     if (decoder_length() == 1) {
-        cerr << "Root node" << endl;
         //If the root-level structure is a node
         payload.parent_is_root = true;
         payload.parent_is_chain = true;
@@ -1990,19 +1667,21 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         //root_identifier
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-        payload.node_handle = distance_index.get_handle_from_connected_component(zip_value);
-        cerr << "Got node from identifier " << zip_value << " " << distance_index.net_handle_as_string(payload.node_handle) << endl;
+        payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
+                                                                          SnarlDistanceIndex::START_END,
+                                                                          SnarlDistanceIndex::CHAIN_HANDLE);
 
         //Root node length
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
 
-        payload.node_length = zip_value;
+        payload.node_length =  zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
         payload.is_trivial_chain = true;
         payload.is_reversed = false;
         payload.parent_handle = distance_index.get_root();
+        payload.parent_type = ZipCode::ROOT_NODE;
+        payload.parent_record_offset = 0;
 
     } else if (decoder[max_depth() - 1].first) {
-        cerr << "Parent is chain" << endl;
         //If the parent is a chain
         payload.node_handle = distance_index.get_node_net_handle(id);
         payload.parent_is_chain = true;
@@ -2010,7 +1689,7 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 
         //Walk through the zipcode to get values
         size_t zip_value;
-        size_t zip_index = decoder[0].second;
+        size_t zip_index = decoder[max_depth()-1].second;
         //is_chain
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
 
@@ -2020,10 +1699,12 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             //If the node is a child of the root chain
             payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
             payload.parent_type = ZipCode::ROOT_CHAIN;
+            payload.parent_is_root = true;
         } else {
-            payload.parent_handle = distance_index.get_parent(payload.node_handle);
+            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_parent(payload.node_handle));
             payload.parent_type = ZipCode::CHAIN;
         }
+        payload.parent_record_offset = distance_index.get_record_offset(payload.parent_handle);
 
         //Node prefix sum
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
@@ -2043,29 +1724,34 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 
 
     } else {
-        cerr << "Child of a snarl" << endl;
         //If the node is a child of a snarl
         
-        auto node_handle = distance_index.get_node_net_handle(id);
-        payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(node_handle),
+        payload.node_handle = distance_index.get_node_net_handle(id);
+        payload.parent_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(payload.node_handle),
                                                          SnarlDistanceIndex::START_END,
                                                          SnarlDistanceIndex::CHAIN_HANDLE,
-                                                         distance_index.get_node_record_offset(node_handle));
+                                                         distance_index.get_node_record_offset(payload.node_handle));
         payload.parent_is_chain = false;
         payload.parent_is_root = decoder_length() == 2;
         payload.is_trivial_chain = true;
 
 
         size_t zip_value;
-        size_t zip_index = decoder[0].second;
+        size_t zip_index;
         if (payload.parent_is_root) {
             //is_chain
+            zip_index = decoder[0].second;
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //Identifier for root snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
+            payload.node_handle = payload.parent_handle;
+            payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value));
+            payload.parent_handle = distance_index.get_net_handle_from_values(payload.parent_record_offset,
+                                            SnarlDistanceIndex::START_END,
+                                            SnarlDistanceIndex::ROOT_HANDLE);
             payload.parent_type = ZipCode::ROOT_SNARL;
         } else {
+            zip_index = decoder[max_depth()-1].second;
             //is_regular
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //If this is a non-root snarl, get as much as we can from it 
@@ -2080,7 +1766,9 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 
             //Snarl prefix sum
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            payload.prefix_sum = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
+
+            payload.prefix_sum = 0; //TODO: SHould use this zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
+
             //Snarl length
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //Snarl child_count
@@ -2090,15 +1778,18 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 
             if (payload.parent_type == ZipCode::REGULAR_SNARL) {
                 //Snarl is reversed
-                payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_parent(payload.node_handle));
-                if (distance_index.is_simple_snarl(distance_index.get_parent(payload.parent_handle))) {
-                    std::tie(payload.is_reversed, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                net_handle_t grandparent_handle = distance_index.get_parent(payload.parent_handle);
+                if (distance_index.is_simple_snarl(grandparent_handle)) {
+                    payload.is_reversed = zip_value;
+                    payload.parent_is_chain=true;
+                payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_parent(grandparent_handle));
                 } else {
                     payload.is_reversed = false;
+                payload.parent_record_offset = distance_index.get_record_offset(grandparent_handle);
                 }
             } else {
-                payload.parent_handle = distance_index.get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
                 payload.is_reversed = false;
+                payload.parent_record_offset = zip_value;
             }
 
         }

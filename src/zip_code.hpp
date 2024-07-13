@@ -344,37 +344,16 @@ struct MIPayload {
     constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
-    //How do decode the zipcode to get the old payload values
-    static size_t get_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
-
-    static size_t get_parent_record_offset(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
-
-    static size_t get_node_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
-
-    static size_t get_node_length(const ZipCode& zip, const ZipCodeDecoder& decoder);
-
-    static bool get_is_reversed(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
-
-    static bool get_is_trivial_chain (const ZipCode& zip, const ZipCodeDecoder& decoder);
-
-    static bool get_parent_is_chain(const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
-    static bool get_parent_is_root (const ZipCode& zip, const ZipCodeDecoder& decoder);
-
-    static size_t get_prefix_sum (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
-    static size_t get_chain_component (const ZipCode& zip, const ZipCodeDecoder& decoder, const SnarlDistanceIndex& distance_index, const nid_t& id);
-
-
-
-
 
     net_handle_t node_handle;
     net_handle_t parent_handle;
 
     size_t node_length = std::numeric_limits<size_t>::max();
-    size_t prefix_sum = std::numeric_limits<size_t>::max();
-    size_t chain_component = std::numeric_limits<size_t>::max();
+    size_t prefix_sum = 0;
+    size_t chain_component = 0;
     //Depth according to the distance index
     size_t parent_depth = 0;
+    size_t parent_record_offset = 0;
 
     ZipCode::code_type_t parent_type = ZipCode::EMPTY;
     bool is_reversed = false;
