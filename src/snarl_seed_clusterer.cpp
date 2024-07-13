@@ -325,7 +325,8 @@ cerr << "Add all seeds to nodes: " << endl;
     //This is to remember the nodes that we are going to cluster at the end of get_nodes
     //these will be the nodes that are children of the root or root snarl. 
     //All other seeds are added directly to their parent chains as children
-    vector<net_handle_t> nodes_to_cluster_now;
+    //Bool is true if the parent of the node is a root snarl
+    std::vector<std::pair<net_handle_t, bool>> nodes_to_cluster_now;
 
 
     //Map the parent SnarlTreeNodeProblem to its depth so we don't use get_depth() as much
@@ -367,8 +368,6 @@ cerr << "Add all seeds to nodes: " << endl;
             const ZipCode& zip_code = seed.zipcode;
             ZipCodeDecoder& decoder = seed.decoder;
 
-            size_t node_depth = decoder.max_depth();
-
 #ifdef DEBUG_CLUSTER
                 cerr << "Using cached values for node " << id << ": " 
                     << ", " << seed.payload.record_offset
@@ -403,19 +402,11 @@ cerr << "Add all seeds to nodes: " << endl;
             if (!(seed.payload.parent_type == ZipCode::ROOT_SNARL || seed.payload.parent_type == ZipCode::ROOT_NODE)) {
                 //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
 
-#ifdef DEBUG_CLUSTER
-                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(seed.payload.parent_handle) << endl;
-#endif
-
                 //Add the seed to its parent
                 //Also update the zipcode on the seed 
 
-
-
-                //Seed payload is: 
-                //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
-
 #ifdef DEBUG_CLUSTER
+                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(seed.payload.parent_handle) << endl;
                 //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
                 //                                  : distance_index.get_prefix_sum_value(seed.payload.node_handle)));
                 cerr << "Node length should be " << distance_index.minimum_length(seed.payload.node_handle) << " actually " << seed.payload.node_length << endl;
@@ -575,7 +566,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //Remember this seed as a child of the node
                 if (new_node) {
-                    nodes_to_cluster_now.emplace_back(seed.payload.node_handle);
+                    nodes_to_cluster_now.emplace_back(seed.payload.node_handle, seed.payload.parent_type == ZipCode::ROOT_SNARL);
                 }
             }
         }
@@ -586,7 +577,8 @@ cerr << "Add all seeds to nodes: " << endl;
 #endif
 
     //Go through and cluster nodes that are children of the root or root snarls
-    for(const net_handle_t& node_net_handle : nodes_to_cluster_now) {
+    for(const auto& net_and_is_root : nodes_to_cluster_now) {
+        const net_handle_t& node_net_handle = net_and_is_root.first;
         SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(
                                                     clustering_problem.net_handle_to_node_problem_index.at(node_net_handle));
 
@@ -597,7 +589,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
         net_handle_t parent = node_problem.parent_net_handle;
 
-        if (distance_index.is_root_snarl(parent)) {
+        if (net_and_is_root.second) {
             //If this is a root snarl, then remember it to cluster in the root
             if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent,
