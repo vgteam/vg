@@ -649,7 +649,7 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
 
             net_handle_t snarl_parent = snarl_problem->has_parent_handle
                                       ? snarl_problem->parent_net_handle
-                                      : distance_index.start_end_traversal_of(distance_index.get_parent(snarl_problem->containing_net_handle));
+                                      : distance_index.start_end_traversal_of(snarl_problem->seed->decoder.get_net_handle_slow(id(snarl_problem->seed->pos), snarl_problem->zipcode_depth-1, &distance_index));
             bool new_parent = false;
             if (clustering_problem.net_handle_to_node_problem_index.count(snarl_parent) == 0) {
                 new_parent = true;
