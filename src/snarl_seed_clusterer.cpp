@@ -791,6 +791,38 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                                              : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false); 
 
            #ifdef DEBUG_CLUSTER
+                assert(chain_problem->distance_start_left == 
+                        distance_index.distance_to_parent_bound(parent, true, distance_index.flip(chain_handle),
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)));
+
+                assert(chain_problem->distance_start_right == 
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, 
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)));
+
+                assert(chain_problem->distance_end_left ==
+                        distance_index.distance_to_parent_bound(parent, false, distance_index.flip(chain_handle), 
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)));
+
+                assert(chain_problem->distance_end_right == 
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)));
+
             cerr << "This child has distances to end : " << chain_problem->distance_start_left << " " << chain_problem->distance_start_right 
                  << " " << chain_problem->distance_end_left << " " << chain_problem->distance_end_right << endl;
 #endif
