@@ -879,6 +879,7 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
     snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
     snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
 
+
     //Add 1 to values to store inf properly
     snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = 
         snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] == std::numeric_limits<size_t>::max() 

@@ -728,8 +728,11 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
             assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
         }
 #endif
-        bool is_root = distance_index.is_root(parent);
-        bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
+        ZipCode::code_type_t parent_type = chain_problem->zipcode_depth == 0 
+                                ? ZipCode::EMPTY
+                                : chain_problem->seed->decoder.get_code_type(chain_problem->zipcode_depth-1);
+        bool is_root = parent_type == ZipCode::EMPTY || parent_type == ZipCode::ROOT_SNARL;
+        bool is_root_snarl = is_root ? ZipCode::ROOT_SNARL : false;
 
         //This is used to determine if we need to remember the distances to the ends of the chain, since
         //for a top level chain it doesn't matter
@@ -764,38 +767,30 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 
             //Remember the distances to the ends of the parent 
 
-            chain_problem->distance_start_left = 
-                    distance_index.distance_to_parent_bound(parent, true, distance_index.flip(chain_handle),
-                        std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
-                                        SnarlDistanceIndex::SNARL_HANDLE,
-                                        (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
-                                                                         : SnarlDistanceIndex::CHAIN_HANDLE), 
-                                        SnarlDistanceIndex::CHAIN_HANDLE));
+            //If the child of the snarl child (a node or snarl in the chain) was reversed, then we got a backwards handle
+            //to the child when getting the distances
+            bool snarl_child_is_rev = chain_problem->seed->decoder.get_code_type(chain_problem->zipcode_depth-1) == ZipCode::REGULAR_SNARL 
+                                      || chain_problem->zipcode_depth == chain_problem->seed->decoder.max_depth() 
+                                    ? false
+                                    : chain_problem->seed->decoder.get_is_reversed_in_parent(chain_problem->zipcode_depth+1);
 
-            chain_problem->distance_start_right = 
-                    distance_index.distance_to_parent_bound(parent, true, chain_handle, 
-                        std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
-                                        SnarlDistanceIndex::SNARL_HANDLE,
-                                        (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
-                                                                         : SnarlDistanceIndex::CHAIN_HANDLE), 
-                                        SnarlDistanceIndex::CHAIN_HANDLE));
+           chain_problem->distance_start_left = snarl_child_is_rev
+                                              ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false)
+                                              : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true);
 
-            chain_problem->distance_end_left =
-                    distance_index.distance_to_parent_bound(parent, false, distance_index.flip(chain_handle), 
-                        std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
-                                        SnarlDistanceIndex::SNARL_HANDLE,
-                                        (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
-                                                                         : SnarlDistanceIndex::CHAIN_HANDLE), 
-                                        SnarlDistanceIndex::CHAIN_HANDLE));
+           chain_problem->distance_start_right = snarl_child_is_rev 
+                                               ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true)
+                                               : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false);
 
-            chain_problem->distance_end_right = 
-                    distance_index.distance_to_parent_bound(parent, false, chain_handle,
-                        std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
-                                        SnarlDistanceIndex::SNARL_HANDLE,
-                                        (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
-                                                                         : SnarlDistanceIndex::CHAIN_HANDLE), 
-                                        SnarlDistanceIndex::CHAIN_HANDLE));
-#ifdef DEBUG_CLUSTER
+           chain_problem->distance_end_left = snarl_child_is_rev
+                                            ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false)
+                                            : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true);
+
+           chain_problem->distance_end_right = snarl_child_is_rev
+                                             ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true)
+                                             : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false); 
+
+           #ifdef DEBUG_CLUSTER
             cerr << "This child has distances to end : " << chain_problem->distance_start_left << " " << chain_problem->distance_start_right 
                  << " " << chain_problem->distance_end_left << " " << chain_problem->distance_end_right << endl;
 #endif
