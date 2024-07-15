@@ -323,10 +323,6 @@ cerr << "Add all seeds to nodes: " << endl;
     //Bool is true if the parent of the node is a root snarl
     std::vector<const SeedCache*> nodes_to_cluster_now;
 
-    //All nodes we've already assigned
-    hash_set<id_t> seen_nodes;
-    seen_nodes.reserve(clustering_problem.seed_count_prefix_sum.back());
-
     for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++){ 
         vector<SeedCache>* seeds = clustering_problem.all_seeds->at(read_num);
         for (size_t i = 0; i < seeds->size(); i++) {
@@ -520,7 +516,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //Create a new SnarlTreeNodeProblem for this node
                 bool new_node = false;
-                if (seen_nodes.count(id) == 0) {
+                if (clustering_problem.net_handle_to_node_problem_index.count(seed.payload.node_handle) == 0) {
                     new_node = true;
                     clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.node_handle, 
                                                                                 clustering_problem.all_node_problems.size());
@@ -532,8 +528,6 @@ cerr << "Add all seeds to nodes: " << endl;
 
                     //Remember the parent of this node, since it will be needed to remember the root snarl later
                     clustering_problem.all_node_problems.back().parent_net_handle = seed.payload.parent_handle;
-
-                    seen_nodes.insert(id);
 
                 }
 
