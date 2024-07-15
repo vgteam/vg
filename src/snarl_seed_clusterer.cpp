@@ -992,6 +992,7 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
     //The cluster heads that will be removed from the parent's read_cluster_heads
     vector<pair<size_t, size_t>> to_erase;
+    to_erase.reserve(parent_problem->read_cluster_heads.size());
 
     //Helper function that will compare two clusters
     //Given the read num and seed_num of the cluster head, the distance to the other node side we're looking at, 
@@ -2279,6 +2280,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     
         //Cluster heads to remove because they got combined with the current seed
         vector<pair<size_t, size_t>> to_remove;
+        to_remove.reserve(chain_problem->read_cluster_heads.size());
         //And the new cluster containing the current seed, and possibly anything that gets combined with it
         ClusterHead new_cluster = {read_num, cluster_num, new_distances.first, new_distances.second};
     
@@ -2448,6 +2450,7 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
          size_t combined_fragment_left = std::numeric_limits<size_t>::max();
          size_t combined_fragment_right = std::numeric_limits<size_t>::max();
          vector<pair<size_t, size_t>> to_erase;
+         to_erase.reserve(child_problem.read_cluster_heads.size());
 
          for (auto& child_cluster_head : child_problem.read_cluster_heads) {
             //Go through each of the clusters on this child
@@ -2678,6 +2681,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
     //Clusters to remove from the chain because they got combined
     vector<pair<size_t, size_t>> to_erase;
+    to_erase.reserve(chain_problem->read_cluster_heads.size());
 
     //And new clusters to add that didn't get combined
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
