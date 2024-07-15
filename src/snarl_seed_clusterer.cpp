@@ -323,12 +323,6 @@ cerr << "Add all seeds to nodes: " << endl;
     //Bool is true if the parent of the node is a root snarl
     std::vector<const SeedCache*> nodes_to_cluster_now;
 
-
-    //Map the parent SnarlTreeNodeProblem to its depth so we don't use get_depth() as much
-    hash_map<net_handle_t, size_t> parent_to_depth;
-    parent_to_depth.reserve(clustering_problem.seed_count_prefix_sum.back());
-
-
     //All nodes we've already assigned
     hash_set<id_t> seen_nodes;
     seen_nodes.reserve(clustering_problem.seed_count_prefix_sum.back());
@@ -438,7 +432,6 @@ cerr << "Add all seeds to nodes: " << endl;
                                                               &seed, seed.seed->zipcode_decoder->max_depth() - 1);
                     }
 
-                    parent_to_depth.emplace(seed.payload.parent_handle, seed.payload.parent_depth);
                     new_parent = true;
                 }
 #ifdef DEBUG_CLUSTER
