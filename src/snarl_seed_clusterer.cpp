@@ -725,7 +725,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                                 ? ZipCode::EMPTY
                                 : chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1);
         bool is_root = parent_type == ZipCode::EMPTY || parent_type == ZipCode::ROOT_SNARL;
-        bool is_root_snarl = is_root ? ZipCode::ROOT_SNARL : false;
+        bool is_root_snarl = parent_type == ZipCode::ROOT_SNARL;
 
         //This is used to determine if we need to remember the distances to the ends of the chain, since
         //for a top level chain it doesn't matter
