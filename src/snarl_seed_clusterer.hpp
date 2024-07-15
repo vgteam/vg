@@ -74,10 +74,10 @@ class SnarlDistanceIndexClusterer {
             std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
 
             Seed() = default;
-            Seed(pos_t pos, size_t source) : pos(pos), source(source) {}
             Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
                 ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
                 zipcode_decoder.reset(decoder);
+                zipcode_decoder->fill_in_full_decoder();
             }
             Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
                 pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
@@ -116,14 +116,7 @@ class SnarlDistanceIndexClusterer {
         // TODO: This will copy information from the seed, since we need per-seed information anyways
         // and some of it needs to be mutable, it's simpler than keeping around two collections of Seeds
         struct SeedCache{
-
-            pos_t pos;
-
-            //TODO: This gets copied because it needs to be mutable
-            //Cached values (zip codes) from the minimizer
-            ZipCode zipcode;
-
-            ZipCodeDecoder decoder;
+            const Seed* seed;
 
             //TODO: I think I can skip the zipcode now since I have the payload
             MIPayload payload;

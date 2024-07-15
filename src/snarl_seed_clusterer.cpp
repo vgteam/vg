@@ -28,16 +28,13 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
 
     vector<SeedCache> seed_caches(seeds.size());
     for (size_t i = 0 ; i < seeds.size() ; i++) {
-        seed_caches[i].pos = seeds[i].pos;
-        seed_caches[i].zipcode = seeds[i].zipcode;
-        if (seeds[i].zipcode.byte_count() == 0) {
-            //If the zipcode is empty
-            ZipCode zip;
-            zip.fill_in_zipcode(distance_index, seed_caches[i].pos);
-            seed_caches[i].zipcode = std::move(zip);
+#ifdef DEBUG_CLUSTER
+        assert (seeds[i].zipcode.byte_count() != 0) {
+#endif
+        seed_caches[i].seed = &(seeds[i]);
+        if (seeds[i].zipcode.byte_count() != 0) {
+            seed_caches[i].payload = seeds[i].zipcode_decoder->get_payload_from_zipcode(id(seeds[i].pos), distance_index);
         }
-        seed_caches[i].decoder = ZipCodeDecoder(&(seed_caches[i].zipcode));
-        seed_caches[i].payload = seed_caches[i].decoder.get_payload_from_zipcode(id(seed_caches[i].pos), distance_index);
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
@@ -74,16 +71,14 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
     for (size_t read_num = 0 ; read_num < all_seeds.size() ; read_num++) {
         all_seed_caches.emplace_back(all_seeds[read_num].size());
         for (size_t i = 0 ; i < all_seeds[read_num].size() ; i++) {
-            all_seed_caches[read_num][i].pos = all_seeds[read_num][i].pos;
-            all_seed_caches[read_num][i].zipcode = all_seeds[read_num][i].zipcode;
-            if (all_seeds[read_num][i].zipcode.byte_count() == 0) {
-                //If the zipcode is empty
-                ZipCode zip;
-                zip.fill_in_zipcode(distance_index, all_seed_caches[read_num][i].pos);
-                all_seed_caches[read_num][i].zipcode = std::move(zip);
+#ifdef DEBUG_CLUSTER
+            //The zipcode should be filled in
+            assert(all_seeds[read_num][i].zipcode.byte_count() != 0);
+#endif
+            all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
+            if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
+                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode_decoder->get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index);
             }
-            all_seed_caches[read_num][i].decoder = ZipCodeDecoder(&(all_seed_caches[read_num][i].zipcode));
-            all_seed_caches[read_num][i].payload = all_seed_caches[read_num][i].decoder.get_payload_from_zipcode(id(all_seed_caches[read_num][i].pos), distance_index);
         }
     }
     vector<vector<SeedCache>*> seed_cache_pointers;
@@ -342,7 +337,7 @@ cerr << "Add all seeds to nodes: " << endl;
         vector<SeedCache>* seeds = clustering_problem.all_seeds->at(read_num);
         for (size_t i = 0; i < seeds->size(); i++) {
             SeedCache& seed = seeds->at(i);
-            pos_t pos = seed.pos;
+            pos_t pos = seed.seed->pos;
             id_t id = get_id(pos);
             
 
@@ -365,8 +360,6 @@ cerr << "Add all seeds to nodes: " << endl;
             //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
             //index but that would be too much work to write for now
             const MIPayload& payload = seed.payload;
-            const ZipCode& zip_code = seed.zipcode;
-            ZipCodeDecoder& decoder = seed.decoder;
 
 #ifdef DEBUG_CLUSTER
                 cerr << "Using cached values for node " << id << ": " 
@@ -435,14 +428,14 @@ cerr << "Add all seeds to nodes: " << endl;
                         clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
                                                      clustering_problem.seed_count_prefix_sum.back(),
                                                      false, seed.payload.node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
-                                                     &seed, seed.decoder.max_depth()); 
+                                                     &seed, seed.seed->zipcode_decoder->max_depth()); 
                         clustering_problem.all_node_problems.back().is_trivial_chain = true;
                     } else {
                         //The parent is an actual chain
                         clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
                         clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
                                                               clustering_problem.seed_count_prefix_sum.back(), distance_index,
-                                                              &seed, seed.decoder.max_depth() - 1);
+                                                              &seed, seed.seed->zipcode_decoder->max_depth() - 1);
                     }
 
                     parent_to_depth.emplace(seed.payload.parent_handle, seed.payload.parent_depth);
@@ -542,7 +535,7 @@ cerr << "Add all seeds to nodes: " << endl;
                                              clustering_problem.seed_count_prefix_sum.back(),
                                              false, seed.payload.node_length, std::numeric_limits<size_t>::max(),
                                               std::numeric_limits<size_t>::max(),
-                                              &seed, seed.decoder.max_depth());
+                                              &seed, seed.seed->zipcode_decoder->max_depth());
 
                     //Remember the parent of this node, since it will be needed to remember the root snarl later
                     clustering_problem.all_node_problems.back().parent_net_handle = seed.payload.parent_handle;
@@ -649,7 +642,7 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
 
             net_handle_t snarl_parent = snarl_problem->has_parent_handle
                                       ? snarl_problem->parent_net_handle
-                                      : distance_index.start_end_traversal_of(snarl_problem->seed->decoder.get_net_handle_slow(id(snarl_problem->seed->pos), snarl_problem->zipcode_depth-1, &distance_index));
+                                      : distance_index.start_end_traversal_of(snarl_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(snarl_problem->seed->seed->pos), snarl_problem->zipcode_depth-1, &distance_index));
             bool new_parent = false;
             if (clustering_problem.net_handle_to_node_problem_index.count(snarl_parent) == 0) {
                 new_parent = true;
@@ -720,7 +713,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                             ? chain_problem->parent_net_handle
                             : (chain_problem->zipcode_depth == 0 
                                 ? distance_index.get_root()
-                                : distance_index.start_end_traversal_of(chain_problem->seed->decoder.get_net_handle_slow(id(chain_problem->seed->pos),chain_problem->zipcode_depth-1, &distance_index)));
+                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, &distance_index)));
 #ifdef DEBUG_CLUSTER
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
@@ -730,7 +723,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 #endif
         ZipCode::code_type_t parent_type = chain_problem->zipcode_depth == 0 
                                 ? ZipCode::EMPTY
-                                : chain_problem->seed->decoder.get_code_type(chain_problem->zipcode_depth-1);
+                                : chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1);
         bool is_root = parent_type == ZipCode::EMPTY || parent_type == ZipCode::ROOT_SNARL;
         bool is_root_snarl = is_root ? ZipCode::ROOT_SNARL : false;
 
@@ -769,26 +762,26 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 
             //If the child of the snarl child (a node or snarl in the chain) was reversed, then we got a backwards handle
             //to the child when getting the distances
-            bool snarl_child_is_rev = chain_problem->seed->decoder.get_code_type(chain_problem->zipcode_depth-1) == ZipCode::REGULAR_SNARL 
-                                      || chain_problem->zipcode_depth == chain_problem->seed->decoder.max_depth() 
+            bool snarl_child_is_rev = chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1) == ZipCode::REGULAR_SNARL 
+                                      || chain_problem->zipcode_depth == chain_problem->seed->seed->zipcode_decoder->max_depth() 
                                     ? false
-                                    : chain_problem->seed->decoder.get_is_reversed_in_parent(chain_problem->zipcode_depth+1);
+                                    : chain_problem->seed->seed->zipcode_decoder->get_is_reversed_in_parent(chain_problem->zipcode_depth+1);
 
            chain_problem->distance_start_left = snarl_child_is_rev
-                                              ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false)
-                                              : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true);
+                                              ? chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false)
+                                              : chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true);
 
            chain_problem->distance_start_right = snarl_child_is_rev 
-                                               ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true)
-                                               : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false);
+                                               ? chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, true)
+                                               : chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, true, false);
 
            chain_problem->distance_end_left = snarl_child_is_rev
-                                            ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false)
-                                            : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true);
+                                            ? chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false)
+                                            : chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true);
 
            chain_problem->distance_end_right = snarl_child_is_rev
-                                             ? chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true)
-                                             : chain_problem->seed->decoder.get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false); 
+                                             ? chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, true)
+                                             : chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false); 
 
            #ifdef DEBUG_CLUSTER
                 assert(chain_problem->distance_start_left == 
@@ -2126,7 +2119,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     */
  
 #ifdef DEBUG_CLUSTER
-            cerr << "At child seed " << current_child_seed.pos << endl;
+            cerr << "At child seed " << current_child_seed->seed->pos << endl;
 #endif   
     //The distance from the right side of the last child to the left side of this child 
     //(relative to the orientation of the chain
