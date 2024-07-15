@@ -1865,6 +1865,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
     //These are clusters that we don't want to consider as we walk through the chain but that 
     //we want to remember after we're done with the chain because the left distance is small
     vector<ClusterHead> cluster_heads_to_add_again;
+    cluster_heads_to_add_again.reserve(chain_problem->read_cluster_heads.size());
 
     //For remembering the best left distances of the chain, we only need to check for the smallest chain distance left
     //for the children up to the first node
@@ -2097,8 +2098,8 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                                 const SnarlTreeNodeProblem::SnarlTreeChild& current_child, bool is_first_child, 
                                 bool is_last_child, bool skip_distances_to_ends) const {
 
-    size_t read_num = current_child.seed_indices.first;
-    size_t cluster_num = current_child.seed_indices.second;
+    size_t& read_num = current_child.seed_indices.first;
+    size_t& cluster_num = current_child.seed_indices.second;
     net_handle_t& chain_handle = chain_problem->containing_net_handle;
     SeedCache& current_child_seed = clustering_problem.all_seeds->at(read_num)->at(cluster_num);
     /*
