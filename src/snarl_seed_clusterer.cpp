@@ -2098,8 +2098,8 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                                 const SnarlTreeNodeProblem::SnarlTreeChild& current_child, bool is_first_child, 
                                 bool is_last_child, bool skip_distances_to_ends) const {
 
-    size_t& read_num = current_child.seed_indices.first;
-    size_t& cluster_num = current_child.seed_indices.second;
+    const size_t& read_num = current_child.seed_indices.first;
+    const size_t& cluster_num = current_child.seed_indices.second;
     net_handle_t& chain_handle = chain_problem->containing_net_handle;
     SeedCache& current_child_seed = clustering_problem.all_seeds->at(read_num)->at(cluster_num);
     /*

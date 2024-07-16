@@ -1567,6 +1567,7 @@ gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
 
 void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     assert(payload != MIPayload::NO_CODE);
+    zipcode.data.reserve(16);
 
     //get one byte at a time from the payload and add it to the zip code
     size_t bit_mask = (1 << 8) - 1;
