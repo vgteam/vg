@@ -6056,6 +6056,11 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 // figure out how long we need to try to align out to
                 size_t tail_length = alignment.sequence().end() - path_node.end;
                 size_t aligning_tail_length = min(tail_length, max_tail_length);
+#ifdef debug_multipath_alignment
+                if (aligning_tail_length != tail_length) {
+                    cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
+                }
+#endif
                 int64_t gap =  min(max_gap, aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
                                                                             path_node.end - alignment.sequence().begin()));
                 if (pessimistic_tail_gap_multiplier) {
@@ -6104,7 +6109,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 auto& alt_alignments = right_alignments[j];
                 
 #ifdef debug_multipath_alignment
-                cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph extracted from " << end_pos << endl;
                 tail_graph.for_each_handle([&](const handle_t& handle) {
                     cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                     tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -6218,6 +6223,11 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     // figure out how far we need to try to align out to
                     size_t tail_length = path_node.begin - alignment.sequence().begin();
                     size_t aligning_tail_length = min(tail_length, max_tail_length);
+#ifdef debug_multipath_alignment
+                    if (aligning_tail_length != tail_length) {
+                        cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
+                    }
+#endif
                     int64_t gap =  min(max_gap, aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
                                                                                 aligning_tail_length));
                     if (pessimistic_tail_gap_multiplier) {
@@ -6256,17 +6266,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     // get the sequence remaining in the left tail
                     Alignment left_tail_sequence;
                     left_tail_sequence.set_sequence(alignment.sequence().substr(tail_length - aligning_tail_length,
-                                                                                path_node.begin - alignment.sequence().begin()));
+                                                                                aligning_tail_length));
                     if (!alignment.quality().empty()) {
                         left_tail_sequence.set_quality(alignment.quality().substr(tail_length - aligning_tail_length,
-                                                                                  path_node.begin - alignment.sequence().begin()));
+                                                                                  aligning_tail_length));
                     }
 
                     // And the place to put it
                     auto& alt_alignments = left_alignments[j];
                         
 #ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph extracted from " << begin_pos << endl;
                     tail_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                         tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
