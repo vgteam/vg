@@ -214,7 +214,7 @@ namespace vg {
         for (const auto& path_chunk : path_chunks) {
             
 #ifdef debug_multipath_alignment
-            cerr << "performing DFS to walk out path " << pb2json(path_chunk.second) << endl;
+            cerr << "performing DFS to walk out path " << debug_string(path_chunk.second) << endl;
 #endif
             
             const auto& path = path_chunk.second;
@@ -256,7 +256,7 @@ namespace vg {
                         // position matched the path
                         
 #ifdef debug_multipath_alignment
-                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
+                        cerr << "chunk position " << debug_string(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
 #endif
                         
                         if (stack.size() == path.mapping_size()) {
@@ -6173,19 +6173,26 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                     size_t cut_point = (path_node.end - alignment.sequence().begin()) + aligning_tail_length;
                     size_t tail_remaining = tail_length - aligning_tail_length;
+                    
                     for (auto& alt_aln : alt_alignments) {
+                                                
                         alt_aln.mutable_sequence()->append(alignment.sequence(), cut_point, tail_remaining);
                         if (!alt_aln.quality().empty()) {
-                            alt_aln.mutable_sequence()->append(alignment.quality(),cut_point, tail_remaining);
+                            alt_aln.mutable_sequence()->append(alignment.quality(), cut_point, tail_remaining);
                         }
                         
-                        Mapping* m = alt_aln.mutable_path()->add_mapping();
-                        m->mutable_position()->set_node_id(id(end_pos));
-                        m->mutable_position()->set_is_reverse(is_rev(end_pos));
-                        m->mutable_position()->set_offset(offset(end_pos));
-                        Edit* e = m->add_edit();
-                        e->set_to_length(tail_remaining);
-                        e->set_sequence(alignment.sequence().substr(cut_point, tail_remaining));
+                        Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(alt_aln.path().mapping_size() - 1);
+                        Edit* final_edit = mapping->mutable_edit(mapping->edit_size() - 1);
+                        if (final_edit->from_length() == 0 && !final_edit->sequence().empty()) {
+                            // extend the softclip
+                            final_edit->set_sequence(final_edit->sequence() + alignment.sequence().substr(cut_point, tail_remaining));
+                        }
+                        else {
+                            final_edit = mapping->add_edit();
+                            final_edit->set_from_length(0);
+                            final_edit->set_to_length(tail_remaining);
+                            final_edit->set_sequence(alignment.sequence().substr(cut_point, tail_remaining));
+                        }
                     }
                 }
             }
@@ -6331,19 +6338,24 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                 alt_aln.mutable_sequence()->append(alignment.quality(), 0, tail_remaining);
                             }
                             
-                            Path* p = alt_aln.mutable_path();
-                            // protobuf makes you manually insert at the beginning of an array
-                            p->add_mapping();
-                            for (size_t i = p->mapping_size() - 1; i > 0; --i) {
-                                p->mutable_mapping()->SwapElements(i, i - 1);
+                            Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(0);
+                            Edit* first_edit = mapping->mutable_edit(0);
+                            if (first_edit->from_length() == 0 && !first_edit->sequence().empty()) {
+                                // it softclipped anyway, extend the softclip
+                                first_edit->set_sequence(alignment.sequence().substr(0, tail_remaining) + first_edit->sequence());
+                                first_edit->set_to_length(first_edit->sequence().size());
                             }
-                            Mapping* m = p->mutable_mapping(0);
-                            m->mutable_position()->set_node_id(id(begin_pos));
-                            m->mutable_position()->set_is_reverse(is_rev(begin_pos));
-                            m->mutable_position()->set_offset(offset(begin_pos));
-                            Edit* e = m->add_edit();
-                            e->set_to_length(tail_remaining);
-                            e->set_sequence(alignment.sequence().substr(0, tail_remaining));
+                            else {
+                                mapping->add_edit();
+                                // protobuf makes you manually insert at the beginning of an array
+                                for (size_t i = mapping->edit_size() - 1; i > 0; --i) {
+                                    mapping->mutable_edit()->SwapElements(i, i - 1);
+                                }
+                                first_edit = mapping->mutable_edit(0);
+                                first_edit->set_from_length(0);
+                                first_edit->set_to_length(tail_remaining);
+                                first_edit->set_sequence(alignment.sequence().substr(0, tail_remaining));
+                            }
                         }
                     }
                 }
