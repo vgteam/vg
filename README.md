@@ -167,7 +167,7 @@ As with Linux, you can add `-j16` or other numbers at the end to run multiple bu
     
 **Note that static binaries cannot yet be built for Mac.**
 
-Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
+The vg Mac build targets whatever the current version of Apple Clang is, and whatever version of Apple Clang is provided by our Github Actions Mac CI system. If your Clang is up to date and vg does not build for you, please open an issue.
 
 #### Mac: Run
 
