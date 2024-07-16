@@ -458,6 +458,7 @@ class SnarlDistanceIndexClusterer {
 
                 net_handle_to_node_problem_index.reserve(5*seed_count);
                 all_node_problems.reserve(5*seed_count);
+                parent_snarls.reserve(seed_count);
                 root_children.reserve(seed_count);
             }
         };

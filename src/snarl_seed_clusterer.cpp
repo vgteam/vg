@@ -322,6 +322,7 @@ cerr << "Add all seeds to nodes: " << endl;
     //All other seeds are added directly to their parent chains as children
     //Bool is true if the parent of the node is a root snarl
     std::vector<const SeedCache*> nodes_to_cluster_now;
+    nodes_to_cluster_now.reserve(clustering_problem.all_seeds->size());
 
     for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++){ 
         vector<SeedCache>* seeds = clustering_problem.all_seeds->at(read_num);
@@ -2673,6 +2674,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
     //And new clusters to add that didn't get combined
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
+    to_add.reserve(chain_problem->read_cluster_heads.size());
     
     //There is at most one new cluster per read
     pair<ClusterHead, ClusterHead> new_cluster_by_read;
@@ -2995,6 +2997,7 @@ void SnarlDistanceIndexClusterer::cluster_root(ClusteringProblem& clustering_pro
     //Go through the list of parent child pairs. Once we reach a new parent, cluster all children found up to this point
     net_handle_t current_parent = clustering_problem.root_children.front().first;
     vector<net_handle_t> children;
+    children.reserve(clustering_problem.root_children.size());
     for (size_t root_child_i = 0 ; root_child_i < clustering_problem.root_children.size() ; root_child_i++) {
         pair<net_handle_t, net_handle_t>& parent_to_child = clustering_problem.root_children[root_child_i];
         net_handle_t& parent = parent_to_child.first;
