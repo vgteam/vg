@@ -4,6 +4,8 @@
 
 //#define DEBUG_CLUSTER
 //#define debug_distances
+//#define EXHAUSTIVE_CLUSTER_CHECK
+
 namespace vg {
 
 SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -238,7 +240,10 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
         cerr << endl;
     }
 
-/*
+
+
+#endif
+#ifdef EXHAUSTIVE_CLUSTER_CHECK
     //CHeck read clusters
     for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++) {
         auto all_groups =  clustering_problem.read_union_find[read_num].all_groups();
@@ -298,9 +303,6 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
             assert (uf.all_groups().size() == 1);
         }
     }
-    */
-
-
 #endif
     return make_tuple(std::move(clustering_problem.read_union_find), std::move(clustering_problem.fragment_union_find));
 
