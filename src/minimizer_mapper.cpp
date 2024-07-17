@@ -3674,9 +3674,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // We are starting a new run
             start = i; limit = i + 1;
             run_hits = minimizers[i].hits;
-            for (size_t j = i + 1; j < minimizers_in_read_order.size() && minimizers_in_read_order[j].value.key == minimizers_in_read_order[i].value.key; j++) {
+            for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
                 limit++;
-                run_hits += minimizers_in_read_order[j].hits;
+                run_hits += minimizers[j].hits;
             }
             // We haven't taken the first thing in the run yet.
             taking_run = false;
