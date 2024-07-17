@@ -47,7 +47,7 @@ void help_surject(char** argv) {
          << "  -b, --bam-output         write BAM to stdout" << endl
          << "  -s, --sam-output         write SAM to stdout" << endl
          << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
-         << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 300)" << endl
+         << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
          << "  -a, --max-anchors N      use no more than N anchors per target path (default: 200)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
@@ -97,7 +97,7 @@ int main_surject(int argc, char** argv) {
     int min_splice_length = 20;
     size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
-    size_t max_tail_len = 300;
+    size_t max_tail_len = 10000;
     bool qual_adj = false;
     bool prune_anchors = false;
     size_t max_anchors = 200;
