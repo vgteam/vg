@@ -130,7 +130,7 @@ var searchData=
   ['max_5fsuboptimal_5fpath_5fscore_5fratio_11925',['max_suboptimal_path_score_ratio',['../classvg_1_1MultipathMapper.html#ac117889984b58f3c0fd3d389a8ee7f26',1,'vg::MultipathMapper']]],
   ['max_5ftag_5flength_11926',['MAX_TAG_LENGTH',['../classvg_1_1io_1_1Registry.html#a8791c3355999775f973ab74fa4111fa2',1,'vg::io::Registry']]],
   ['max_5ftail_5fanchor_5fprune_11927',['max_tail_anchor_prune',['../classvg_1_1Surjector.html#a59034e11562bb0969c25defd215f166b',1,'vg::Surjector']]],
-  ['max_5ftail_5flength_11928',['max_tail_length',['../classvg_1_1MinimizerMapper.html#ad041c860d77e6ad2bd025bd2da337d7a',1,'vg::MinimizerMapper']]],
+  ['max_5ftail_5flength_11928',['max_tail_length',['../classvg_1_1MinimizerMapper.html#ad041c860d77e6ad2bd025bd2da337d7a',1,'vg::MinimizerMapper::max_tail_length()'],['../classvg_1_1Surjector.html#a185cc3fad9b021b08f03880ae0119db6',1,'vg::Surjector::max_tail_length()']]],
   ['max_5ftail_5fmerge_5fsupress_5flength_11929',['max_tail_merge_supress_length',['../classvg_1_1MultipathMapper.html#a8de58bf1942c4aa16b762554268d3e3d',1,'vg::MultipathMapper']]],
   ['max_5ftarget_5ffactor_11930',['max_target_factor',['../classvg_1_1Mapper.html#a5ecf825b76d29c8b8242d8167fae6cc4',1,'vg::Mapper']]],
   ['max_5ftrav_5fsize_11931',['max_trav_size',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#a4842f02f38903b12e0c7de54bf0482e3',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],
