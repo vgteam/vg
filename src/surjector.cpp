@@ -3095,6 +3095,7 @@ using namespace std;
                                false,                                    // dynamic alt alns
                                numeric_limits<int64_t>::max(),           // max gap
                                0.0,                                      // pessimistic tail gap multiplier
+                               max_tail_length,                          // max length of tail to align
                                false,                                    // simplify topologies
                                0,                                        // unmergeable len
                                1,                                        // band padding

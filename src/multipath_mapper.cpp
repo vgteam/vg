@@ -6256,9 +6256,9 @@ namespace vg {
             
             // do the connecting alignments and fill out the multipath_alignment_t object
             multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
-                                  max_tail_merge_supress_length, choose_band_padding, multipath_aln_out, snarl_manager,
-                                  distance_index, &translator);
+                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, std::numeric_limits<size_t>::max(),
+                                  simplify_topologies, max_tail_merge_supress_length, choose_band_padding, multipath_aln_out,
+                                  snarl_manager, distance_index, &translator);
             
             // Note that we do NOT topologically order the multipath_alignment_t. The
             // caller has to do that, after it is finished breaking it up into
@@ -6313,8 +6313,8 @@ namespace vg {
         
         // do the connecting alignments and fill out the multipath_alignment_t object
         multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
-                              max_tail_merge_supress_length, choose_band_padding, multipath_aln_out);
+                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, std::numeric_limits<size_t>::max(),
+                              simplify_topologies, max_tail_merge_supress_length, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
