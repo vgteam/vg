@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace vg;
-using namespace vg::subcommand;
+using namespace vg::subcommand; 
 
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
@@ -49,7 +49,7 @@ void help_surject(char** argv) {
          << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
-         << "  -a, --max-anchors N      use no more than N anchors per target path (default: 200)" << endl
+         << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
          << "  -N, --sample NAME        set this sample name for all reads" << endl
@@ -100,7 +100,7 @@ int main_surject(int argc, char** argv) {
     size_t max_tail_len = 10000;
     bool qual_adj = false;
     bool prune_anchors = false;
-    size_t max_anchors = 200;
+    size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
     bool validate = true;
