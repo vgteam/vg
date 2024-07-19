@@ -9,6 +9,7 @@
 
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/pad_band.hpp"
 
 //#define debug_multipath_alignment
 //#define debug_decompose_algorithm
@@ -4230,10 +4231,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
                                     bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
         
-        // don't dynamically choose band padding, shim constant value into a function type
-        function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            return band_padding;
-        };
         align(alignment,
               align_graph,
               aligner,
@@ -4244,7 +4241,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               pessimistic_tail_gap_multiplier,
               simplify_topologies,
               unmergeable_len,
-              constant_padding,
+              algorithms::pad_band_constant(band_padding),
               multipath_aln_out,
               cutting_snarls,
               dist_index,
@@ -5183,7 +5180,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                         double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
-                                        function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                                        const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
                                         bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {

@@ -213,7 +213,7 @@ namespace vg {
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies,
-                   size_t unmergeable_len, function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                   size_t unmergeable_len, const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
                    const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false,
                    unordered_map<handle_t, bool>* left_align_strand = nullptr);
