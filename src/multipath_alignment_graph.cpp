@@ -215,7 +215,7 @@ namespace vg {
         for (const auto& path_chunk : path_chunks) {
             
 #ifdef debug_multipath_alignment
-            cerr << "performing DFS to walk out path " << pb2json(path_chunk.second) << endl;
+            cerr << "performing DFS to walk out path " << debug_string(path_chunk.second) << endl;
 #endif
             
             const auto& path = path_chunk.second;
@@ -257,7 +257,7 @@ namespace vg {
                         // position matched the path
                         
 #ifdef debug_multipath_alignment
-                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
+                        cerr << "chunk position " << debug_string(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
 #endif
                         
                         if (stack.size() == path.mapping_size()) {
@@ -6056,26 +6056,29 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                 
                 // figure out how long we need to try to align out to
-                int64_t tail_length = alignment.sequence().end() - path_node.end;
-                int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
-                if (pessimistic_tail_gap_multiplier) {
-                    gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
+                size_t tail_length = alignment.sequence().end() - path_node.end;
+                size_t aligning_tail_length = min(tail_length, max_tail_length);
+#ifdef debug_multipath_alignment
+                if (aligning_tail_length != tail_length) {
+                    cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
                 }
-                int64_t target_length = tail_length + gap;
+#endif
+                int64_t gap =  min(max_gap, aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
+                                                                            path_node.end - alignment.sequence().begin()));
+                if (pessimistic_tail_gap_multiplier) {
+                    gap = min(gap, pessimistic_tail_gap(aligning_tail_length, pessimistic_tail_gap_multiplier));
+                }
+                int64_t target_length = aligning_tail_length + gap;
                 
                 pos_t end_pos = final_position(path_node.path);
                 
                 bdsg::HashGraph tail_graph;
-                unordered_map<id_t, id_t> tail_trans;
-                if (tail_length <= max_tail_length || dynamic_alt_alns) {
-                    // We need to pull out the tail graph
-                    tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                     &tail_graph,
-                                                                     target_length,
-                                                                     end_pos,
-                                                                     false,         // search forward
-                                                                     false);        // no need to preserve cycles (in a DAG)
-                }
+                unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                                           &tail_graph,
+                                                                                           target_length,
+                                                                                           end_pos,
+                                                                                           false,         // search forward
+                                                                                           false);        // no need to preserve cycles (in a DAG)
                 
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
@@ -6098,17 +6101,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 // get the sequence remaining in the right tail
                 Alignment right_tail_sequence;
                 right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
-                                                                             alignment.sequence().end() - path_node.end));
+                                                                             aligning_tail_length));
                 if (!alignment.quality().empty()) {
                     right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
-                                                                               alignment.sequence().end() - path_node.end));
+                                                                               aligning_tail_length));
                 }
 
                 // And the place to put it
                 auto& alt_alignments = right_alignments[j];
                 
 #ifdef debug_multipath_alignment
-                cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph extracted from " << end_pos << endl;
                 tail_graph.for_each_handle([&](const handle_t& handle) {
                     cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                     tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -6119,70 +6122,85 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     });
                 });
 #endif
+                
+                // align against the graph
+                
+                if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                    cerr << "align right with dozeu with gap " << gap << endl;
+#endif
+                    // we can speed things up by using the dozeu pinned alignment
+                    alt_alignments.emplace_back(move(right_tail_sequence));
+                    aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
+                }
+                else {
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "align right with gssw" << endl;
+#endif
+                    
+                    // TODO: it would be cleaner to handle these in one multiplier, but i already tuned
+                    // this for the tails and i don't feel like doing that again...
+                    double tail_multiplier = low_complexity_multiplier(right_tail_sequence.sequence().begin(),
+                                                                       right_tail_sequence.sequence().end());
+                    double anchor_multiplier = low_complexity_multiplier(max(path_node.end - anchor_low_cmplx_len,
+                                                                             alignment.sequence().begin()),
+                                                                         path_node.end);
+                    double multiplier = max(tail_multiplier, anchor_multiplier);
+                    if (multiplier != 1.0) {
+                        num_alt_alns = round(multiplier * num_alt_alns);
+#ifdef debug_multipath_alignment
+                        cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+#endif
+                    }
+                    aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                }
+                
+                // Translate back into non-extracted graph.
+                // Make sure to account for having removed the left end of the cut node relative to end_pos
+                for (auto& aln : alt_alignments) {
+                    // We always remove end_pos's offset, since we
+                    // search forward from it to extract the subgraph,
+                    // but that may be from the left or right end of
+                    // its node depending on orientation.
+                    translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
+                }
+#ifdef debug_multipath_alignment
+                cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                    cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                }
+#endif
 
-                if (tail_length <= max_tail_length) {
-                    // align against the graph
-                    
-                    if (num_alt_alns == 1) {
-#ifdef debug_multipath_alignment
-                        cerr << "align right with dozeu with gap " << gap << endl;
-#endif
-                        // we can speed things up by using the dozeu pinned alignment
-                        alt_alignments.emplace_back(move(right_tail_sequence));
-                        aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
-                    }
-                    else {
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "align right with gssw" << endl;
-#endif
-                        
-                        // TODO: it would be cleaner to handle these in one multiplier, but i already tuned
-                        // this for the tails and i don't feel like doing that again...
-                        double tail_multiplier = low_complexity_multiplier(right_tail_sequence.sequence().begin(),
-                                                                           right_tail_sequence.sequence().end());
-                        double anchor_multiplier = low_complexity_multiplier(max(path_node.end - anchor_low_cmplx_len,
-                                                                                 alignment.sequence().begin()),
-                                                                             path_node.end);
-                        double multiplier = max(tail_multiplier, anchor_multiplier);
-                        if (multiplier != 1.0) {
-                            num_alt_alns = round(multiplier * num_alt_alns);
-#ifdef debug_multipath_alignment
-                            cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
-#endif
-                        }
-                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                    }
-                    
-                    // Translate back into non-extracted graph.
-                    // Make sure to account for having removed the left end of the cut node relative to end_pos
-                    for (auto& aln : alt_alignments) {
-                        // We always remove end_pos's offset, since we
-                        // search forward from it to extract the subgraph,
-                        // but that may be from the left or right end of
-                        // its node depending on orientation.
-                        translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
-                    }
-#ifdef debug_multipath_alignment
-                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
-                    for (size_t i = 0; i < alt_alignments.size(); ++i) {
-                        cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
-                    }
-#endif
-                } else {
+                if (aligning_tail_length < tail_length) {
                     // Tail is too long. Just make a softclip directly in the base graph ID space.
                     // TODO: What if we just don't produce this? Do we get softclips for free?
 #ifdef debug_multipath_alignment
                     cerr << "softclip long right" << endl;
 #endif
-                    alt_alignments.emplace_back(std::move(right_tail_sequence));
-                    Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
-                    m->mutable_position()->set_node_id(id(end_pos));
-                    m->mutable_position()->set_is_reverse(is_rev(end_pos));
-                    m->mutable_position()->set_offset(offset(end_pos));
-                    Edit* e = m->add_edit();
-                    e->set_to_length(alt_alignments.back().sequence().size());
-                    e->set_sequence(alt_alignments.back().sequence());
+                    size_t cut_point = (path_node.end - alignment.sequence().begin()) + aligning_tail_length;
+                    size_t tail_remaining = tail_length - aligning_tail_length;
+                    
+                    for (auto& alt_aln : alt_alignments) {
+                                                
+                        alt_aln.mutable_sequence()->append(alignment.sequence(), cut_point, tail_remaining);
+                        if (!alt_aln.quality().empty()) {
+                            alt_aln.mutable_sequence()->append(alignment.quality(), cut_point, tail_remaining);
+                        }
+                        
+                        Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(alt_aln.path().mapping_size() - 1);
+                        Edit* final_edit = mapping->mutable_edit(mapping->edit_size() - 1);
+                        if (final_edit->from_length() == 0 && !final_edit->sequence().empty()) {
+                            // extend the softclip
+                            final_edit->set_sequence(final_edit->sequence() + alignment.sequence().substr(cut_point, tail_remaining));
+                        }
+                        else {
+                            final_edit = mapping->add_edit();
+                            final_edit->set_from_length(0);
+                            final_edit->set_to_length(tail_remaining);
+                            final_edit->set_sequence(alignment.sequence().substr(cut_point, tail_remaining));
+                        }
+                    }
                 }
             }
         }
@@ -6205,8 +6223,15 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 if (path_node.begin != alignment.sequence().begin()) {
                     
                     // figure out how far we need to try to align out to
-                    int64_t tail_length = path_node.begin - alignment.sequence().begin();
-                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.begin), max_gap);
+                    size_t tail_length = path_node.begin - alignment.sequence().begin();
+                    size_t aligning_tail_length = min(tail_length, max_tail_length);
+#ifdef debug_multipath_alignment
+                    if (aligning_tail_length != tail_length) {
+                        cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
+                    }
+#endif
+                    int64_t gap =  min(max_gap, aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
+                                                                                aligning_tail_length));
                     if (pessimistic_tail_gap_multiplier) {
                         gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
                     }
@@ -6215,16 +6240,12 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     bdsg::HashGraph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans;
-                    if (tail_length <= max_tail_length || dynamic_alt_alns) {
-                        // We need to pull out the tail graph
-                        tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                         &tail_graph,
-                                                                         target_length,
-                                                                         begin_pos,
-                                                                         true,          // search backward
-                                                                         false);        // no need to preserve cycles (in a DAG)
-                    }
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                                               &tail_graph,
+                                                                                               target_length,
+                                                                                               begin_pos,
+                                                                                               true,          // search backward
+                                                                                               false);        // no need to preserve cycles (in a DAG)
                     
                     size_t num_alt_alns;
                     if (dynamic_alt_alns) {
@@ -6246,16 +6267,18 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     // Otherwise we need an alignment to fill.
                     // get the sequence remaining in the left tail
                     Alignment left_tail_sequence;
-                    left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
+                    left_tail_sequence.set_sequence(alignment.sequence().substr(tail_length - aligning_tail_length,
+                                                                                aligning_tail_length));
                     if (!alignment.quality().empty()) {
-                        left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
+                        left_tail_sequence.set_quality(alignment.quality().substr(tail_length - aligning_tail_length,
+                                                                                  aligning_tail_length));
                     }
 
                     // And the place to put it
                     auto& alt_alignments = left_alignments[j];
                         
 #ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph extracted from " << begin_pos << endl;
                     tail_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
                         tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
@@ -6267,67 +6290,85 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     });
 #endif
                         
-                    if (tail_length <= max_tail_length) {
-                        // align against the graph
-                        
-                        if (num_alt_alns == 1) {
+                    // align against the graph
+                    
+                    if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
-                            cerr << "align left with dozeu using gap " << gap << endl;
+                        cerr << "align left with dozeu using gap " << gap << endl;
 #endif
-                            // we can speed things up by using the dozeu pinned alignment
-                            alt_alignments.emplace_back(move(left_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
-                        }
-                        else {
+                        // we can speed things up by using the dozeu pinned alignment
+                        alt_alignments.emplace_back(move(left_tail_sequence));
+                        aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
+                    }
+                    else {
 #ifdef debug_multipath_alignment
-                            cerr << "align left with gssw" << endl;
+                        cerr << "align left with gssw" << endl;
 #endif
-                            double anchor_multiplier = low_complexity_multiplier(path_node.begin,
-                                                                                 min(path_node.begin + anchor_low_cmplx_len,
-                                                                                     alignment.sequence().end()));
-                            double tail_multiplier = low_complexity_multiplier(left_tail_sequence.sequence().begin(),
-                                                                               left_tail_sequence.sequence().end());
-                            double multiplier = max(tail_multiplier, anchor_multiplier);
-                            if (multiplier != 1.0) {
-                                num_alt_alns = round(multiplier * num_alt_alns);
+                        double anchor_multiplier = low_complexity_multiplier(path_node.begin,
+                                                                             min(path_node.begin + anchor_low_cmplx_len,
+                                                                                 alignment.sequence().end()));
+                        double tail_multiplier = low_complexity_multiplier(left_tail_sequence.sequence().begin(),
+                                                                           left_tail_sequence.sequence().end());
+                        double multiplier = max(tail_multiplier, anchor_multiplier);
+                        if (multiplier != 1.0) {
+                            num_alt_alns = round(multiplier * num_alt_alns);
 #ifdef debug_multipath_alignment
-                                cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+                            cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
 #endif
-                            }
-                            
-                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         
-                        // Translate back into non-extracted graph.
-                        // Make sure to account for having removed the right end of the cut node relative to begin_pos
-                        for (auto& aln : alt_alignments) {
-                            // begin_pos's offset is how much we keep, so we removed the node's length minus that.
-                            // And by default it comes off the right side of the node.
-                            translate_node_ids(*aln.mutable_path(), tail_trans, 
-                                id(begin_pos),
-                                align_graph.get_length(align_graph.get_handle(id(begin_pos))) - offset(begin_pos),
-                                !is_rev(begin_pos));
-                        }
+                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                    }
+                    
+                    // Translate back into non-extracted graph.
+                    // Make sure to account for having removed the right end of the cut node relative to begin_pos
+                    for (auto& aln : alt_alignments) {
+                        // begin_pos's offset is how much we keep, so we removed the node's length minus that.
+                        // And by default it comes off the right side of the node.
+                        translate_node_ids(*aln.mutable_path(), tail_trans,
+                                           id(begin_pos),
+                                           align_graph.get_length(align_graph.get_handle(id(begin_pos))) - offset(begin_pos),
+                                           !is_rev(begin_pos));
+                    }
 #ifdef debug_multipath_alignment
-                        cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
-                        for (size_t i = 0; i < alt_alignments.size(); ++i) {
-                            cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
-                        }
+                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                    for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                        cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                    }
 #endif
-                    } else {
+                    if (aligning_tail_length < tail_length) {
                         // Tail is too long. Just make a softclip directly in the base graph ID space.
                         // TODO: What if we just don't produce this? Do we get softclips for free?
 #ifdef debug_multipath_alignment
                         cerr << "softclip long left" << endl;
 #endif
-                        alt_alignments.emplace_back(std::move(left_tail_sequence));
-                        Mapping* m = alt_alignments.back().mutable_path()->add_mapping();
-                        m->mutable_position()->set_node_id(id(begin_pos));
-                        m->mutable_position()->set_is_reverse(is_rev(begin_pos));
-                        m->mutable_position()->set_offset(offset(begin_pos));
-                        Edit* e = m->add_edit();
-                        e->set_to_length(alt_alignments.back().sequence().size());
-                        e->set_sequence(alt_alignments.back().sequence());
+                        size_t tail_remaining = tail_length - aligning_tail_length;
+                        for (auto& alt_aln : alt_alignments) {
+                            
+                            alt_aln.mutable_sequence()->append(alignment.sequence(), 0, tail_remaining);
+                            if (!alt_aln.quality().empty()) {
+                                alt_aln.mutable_sequence()->append(alignment.quality(), 0, tail_remaining);
+                            }
+                            
+                            Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(0);
+                            Edit* first_edit = mapping->mutable_edit(0);
+                            if (first_edit->from_length() == 0 && !first_edit->sequence().empty()) {
+                                // it softclipped anyway, extend the softclip
+                                first_edit->set_sequence(alignment.sequence().substr(0, tail_remaining) + first_edit->sequence());
+                                first_edit->set_to_length(first_edit->sequence().size());
+                            }
+                            else {
+                                mapping->add_edit();
+                                // protobuf makes you manually insert at the beginning of an array
+                                for (size_t i = mapping->edit_size() - 1; i > 0; --i) {
+                                    mapping->mutable_edit()->SwapElements(i, i - 1);
+                                }
+                                first_edit = mapping->mutable_edit(0);
+                                first_edit->set_from_length(0);
+                                first_edit->set_to_length(tail_remaining);
+                                first_edit->set_sequence(alignment.sequence().substr(0, tail_remaining));
+                            }
+                        }
                     }
                 }
             }
