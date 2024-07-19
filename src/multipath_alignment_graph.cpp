@@ -4233,10 +4233,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 
                                     bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
         
-        // don't dynamically choose band padding, shim constant value into a function type
-        function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            return band_padding;
-        };
         align(alignment,
               align_graph,
               aligner,
