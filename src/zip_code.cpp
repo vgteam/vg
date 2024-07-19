@@ -799,12 +799,6 @@ vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDista
     vector<size_t> node_code;
     //Assume this node is in a regular chain
     size_t prefix_sum = distance_index.get_prefix_sum_value(node); 
-    if (distance_index.is_multicomponent_chain(distance_index.get_parent(node))) {
-        //TODO: This isn't great, should really use some better value than the length of the chain,
-        //which is just the length of the last component
-        prefix_sum += distance_index.get_chain_component(node) *
-                      distance_index.chain_minimum_length(distance_index.get_parent(node));
-    }
     node_code.emplace_back(prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
     node_code.emplace_back(distance_index.minimum_length(node)+1);
     node_code.emplace_back(distance_index.is_reversed_in_parent(node));
@@ -837,12 +831,6 @@ vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    if (distance_index.is_multicomponent_chain(distance_index.get_parent(snarl))) {
-        //TODO: This isn't great, should really use some better value than the length of the chain,
-        //which is just the length of the last component
-        prefix_sum += distance_index.get_chain_component(start_node) *
-                      distance_index.chain_minimum_length(distance_index.get_parent(snarl));
-    }
     snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
     //Length of the snarl
@@ -877,12 +865,6 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    if (distance_index.is_multicomponent_chain(distance_index.get_parent(snarl))) {
-        //TODO: This isn't great, should really use some better value than the length of the chain,
-        //which is just the length of the last component
-        prefix_sum += distance_index.get_chain_component(start_node) *
-                      distance_index.chain_minimum_length(distance_index.get_parent(snarl));
-    }
     snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
     //Length of the snarl

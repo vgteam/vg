@@ -176,12 +176,6 @@ class ZipCode {
         const static size_t NODE_LENGTH_OFFSET = 1;
         const static size_t NODE_IS_REVERSED_OFFSET = 2;
 
-        //To deal with multicomponent chains, the prefix sum value for nodes and snarls is actually 
-        // the prefix sum + (component # * chain length)
-        // TODO: This is kinda hacky but it will prevent anything in a different
-        //       component from being clustered together, assuming that the distance
-        //       limit is smaller than the chain length
-
 
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
