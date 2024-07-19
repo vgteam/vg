@@ -611,7 +611,6 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         return aln.sequence();
     });
 
-
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Indexes of minimizers, sorted into score order, best score first
