@@ -110,7 +110,8 @@ const unordered_map<string, string> Version::codenames = {
     {"v1.55.0", "Bernolda"},
     {"v1.56.0", "Collalto"},
     {"v1.57.0", "Franchini"},
-    {"v1.58.0", "Cartari"}
+    {"v1.58.0", "Cartari"},
+    {"v1.69.0", "Bologna"}    // Reserved
     // Add more codenames here
 };
 
