@@ -38,6 +38,13 @@ class ZipCodeDecoder;
 ///This can interpret zipcodes to format them as the old payload
 struct MIPayload;
 
+
+/// A struct to be used as a unique identifier for a snarl tree node (node/snarl/chain)
+/// using information from the zipcodes.
+/// It should be unique and hashable
+typedef std::string net_identifier_t;
+
+
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
  * positions, with minimal queries to the distance index
@@ -326,6 +333,17 @@ class ZipCodeDecoder {
     ///Fill in a payload with values from the zipcode
     MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
 
+    /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
+    /// would be the node, also include the node id
+    net_identifier_t get_identifier(size_t depth) const;
+
+};
+
+template<>
+struct wang_hash<net_identifier_t> {
+    size_t operator()(const net_identifier_t& id) const {
+        return wang_hash<std::string>()(id);
+    }
 };
 
 std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder); 

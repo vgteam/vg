@@ -1868,5 +1868,51 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
     return payload;
 }
 
+net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
+    string result = ""
+    for (size_t d = 0 ; d < depth ; d++) {
+        result += (decoder[i].first ? "1" : "0");
+        if (d == 0) {
+            //Root structure
+            size_t zip_value;
+            size_t zip_index = decoder[d].second;
+            for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET; i++) {
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                result += string(zip_value);
+            }
+        } else if (decoder[d].first) {
+            //is_chain so could be a chain or a node
+            if (decoder[d-1].first) {
+                //If the thing before this was also a chain, then it is a node
+                size_t zip_value;
+                size_t zip_index = decoder[d].second;
+                for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OR_RANK_OFFSET; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                    result += string(zip_value);
+                }
+            } else {
+                //Otherwise it's a chain
+                size_t zip_value;
+                size_t zip_index = decoder[d].second;
+                for (size_t i = 0 ; i <= ZipCode::CHAIN_RANK_IN_SNARL_OFFSET; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                    result += string(zip_value);
+                }
+            }
+        } else {
+            //Definitely a snarl
+            size_t zip_value;
+            size_t zip_index = decoder[d].second;
+            for (size_t i = 0 ; i <= ZipCode::SNARL_OFFSET_IN_CHAIN; i++) {
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                result += string(zip_value);
+            }
+        }
+        result += "."
+        
+    }
+    return result;
+}
+
 
 }
