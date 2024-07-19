@@ -108,6 +108,9 @@ using namespace std;
 
         /// the minimum length apparent intron that we will try to repair
         int64_t min_splice_repair_length = 250;
+
+        /// the maximum length of a tail that we will try to align
+        size_t max_tail_length = 10000;
         
         /// How big of a graph in bp should we ever try to align against for realigning surjection?
         size_t max_subgraph_bases = 100 * 1024;
