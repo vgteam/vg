@@ -336,6 +336,8 @@ class ZipCodeDecoder {
     /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
     /// would be the node, also include the node id
     net_identifier_t get_identifier(size_t depth) const;
+    const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
+
 
 };
 

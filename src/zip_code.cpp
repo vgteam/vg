@@ -1869,16 +1869,20 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 }
 
 net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
-    string result = ""
+    if (depth == std::numeric_limits<size_t>::max()) {
+        //This is equivalent to distance_index.get_root()
+        return "ROOT";
+    }
+    string result = "";
     for (size_t d = 0 ; d < depth ; d++) {
-        result += (decoder[i].first ? "1" : "0");
+        result += (decoder[d].first ? "1" : "0");
         if (d == 0) {
             //Root structure
             size_t zip_value;
             size_t zip_index = decoder[d].second;
             for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-                result += string(zip_value);
+                result += std::to_string(zip_value);
             }
         } else if (decoder[d].first) {
             //is_chain so could be a chain or a node
@@ -1888,7 +1892,7 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
                 size_t zip_index = decoder[d].second;
                 for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OR_RANK_OFFSET; i++) {
                     std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-                    result += string(zip_value);
+                    result += std::to_string(zip_value);
                 }
             } else {
                 //Otherwise it's a chain
@@ -1896,23 +1900,44 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
                 size_t zip_index = decoder[d].second;
                 for (size_t i = 0 ; i <= ZipCode::CHAIN_RANK_IN_SNARL_OFFSET; i++) {
                     std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-                    result += string(zip_value);
+                    result += std::to_string(zip_value);
                 }
             }
         } else {
             //Definitely a snarl
             size_t zip_value;
             size_t zip_index = decoder[d].second;
-            for (size_t i = 0 ; i <= ZipCode::SNARL_OFFSET_IN_CHAIN; i++) {
+            for (size_t i = 0 ; i <= ZipCode::SNARL_OFFSET_IN_CHAIN_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-                result += string(zip_value);
+                result += std::to_string(zip_value);
             }
         }
-        result += "."
+        if (d < std::min(depth, max_depth())) {
+            result += ".";
+        }
         
     }
+    if (depth > max_depth()) {
+        //If this was node that's in a trivial chain
+        result += ".n";
+    }
+
     return result;
 }
+
+const net_identifier_t ZipCodeDecoder::get_parent_identifier(const net_identifier_t& child) {
+    if (child == "ROOT") {
+        throw std::runtime_error("error: trying to get the parent of the root net_identifier_t");
+    }
+    for (int i = child.size()-1 ; i >= 0 ; i--) {
+        if (child[i] == '.') {
+            return (net_identifier_t) string(child, 0, i);
+        }
+    }
+    //If we didn't find a '.', then the parent is just the root
+    return "ROOT";
+}
+
 
 
 }
