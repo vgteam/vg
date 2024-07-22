@@ -481,7 +481,7 @@ size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDista
         }
         size_t zip_value;
         size_t zip_index = decoder[depth].second;
-        for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OR_RANK_OFFSET ; i++) {
+        for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
 
@@ -796,21 +796,23 @@ vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDista
     assert((distance_index.is_chain(distance_index.get_parent(node)) || distance_index.is_root(distance_index.get_parent(node))));
 #endif
     //Node code is: offset in chain, length, is reversed
-    vector<size_t> node_code;
+    vector<size_t> node_code(NODE_SIZE);
     //Assume this node is in a regular chain
     size_t prefix_sum = distance_index.get_prefix_sum_value(node); 
-    node_code.emplace_back(prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
-    node_code.emplace_back(distance_index.minimum_length(node)+1);
-    node_code.emplace_back(distance_index.is_reversed_in_parent(node));
+    node_code[NODE_OFFSET_OFFSET] = prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1;
+    node_code[NODE_LENGTH_OFFSET] = distance_index.minimum_length(node)+1;
+    node_code[NODE_IS_REVERSED_OFFSET] = distance_index.is_reversed_in_parent(node);
+    size_t component = distance_index.get_chain_component(node);
+    node_code[NODE_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
     return node_code;
 
 }
 vector<size_t> ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index) {
     //Chain code is: rank in snarl, length
-    vector<size_t> chain_code;
-    chain_code.emplace_back(distance_index.get_rank_in_parent(chain));
+    vector<size_t> chain_code (CHAIN_SIZE);
+    chain_code[CHAIN_RANK_IN_SNARL_OFFSET] = distance_index.get_rank_in_parent(chain);
     size_t len = distance_index.minimum_length(chain);
-    chain_code.emplace_back(len == std::numeric_limits<size_t>::max() ? 0 : len+1);
+    chain_code[CHAIN_LENGTH_OFFSET] = len == std::numeric_limits<size_t>::max() ? 0 : len+1;
     return chain_code;
 
 }
@@ -832,6 +834,9 @@ vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const 
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
     snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
+
+    size_t component = distance_index.get_chain_component(start_node);
+    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
 
     //Length of the snarl
     size_t len = distance_index.minimum_length(snarl);
@@ -1890,7 +1895,7 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
                 //If the thing before this was also a chain, then it is a node
                 size_t zip_value;
                 size_t zip_index = decoder[d].second;
-                for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OR_RANK_OFFSET; i++) {
+                for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OFFSET; i++) {
                     std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
                     result += std::to_string(zip_value);
                 }

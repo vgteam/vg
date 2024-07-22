@@ -136,6 +136,10 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
                                                 distance_index.get_node_net_handle(n1->id())));
 
+            //The component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
 
@@ -194,6 +198,10 @@ using namespace std;
             //Child count
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 2);
+
+            //Chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //node is reversed in the snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -424,6 +432,11 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
                                                 distance_index.get_node_net_handle(n1->id())));
 
+            //component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(
+                                                distance_index.get_node_net_handle(n1->id())));
+
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
 
@@ -484,6 +497,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
 
+            //chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_net_handle(n2->id())));
+
             //Is the chain is reversed in the snarl 
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
@@ -517,6 +534,10 @@ using namespace std;
             //is the node reversed in the parent
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id())));
+
+            //chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_net_handle(n2->id())));
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -593,6 +614,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
 
+            //Chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_net_handle(n2->id())));
+
             //Is the chain is reversed in the snarl 
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
@@ -637,6 +662,9 @@ using namespace std;
                                                                    distance_index.flip(distance_index.canonical(chain3))) != 0;
             REQUIRE(value_and_index.first == is_rev);
 
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, true))));
+
             //Chain code for chain 3-5
             REQUIRE(decoder.decoder[4] == std::make_pair(true, value_and_index.second));
             //Rank in parent
@@ -664,10 +692,14 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
 
-            //is_reversed
-            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
             snarl = distance_index.get_parent(chain4);
+
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, true))));
+
+            //is_reversed
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
                                                                    distance_index.flip(distance_index.canonical(chain4))) != 0;
             REQUIRE(value_and_index.first == is_rev);
@@ -992,6 +1024,10 @@ using namespace std;
             //Snarl child count
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == child_count);
+
+            //component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, false))));
 
             //Snarl record offset
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -1512,6 +1548,11 @@ using namespace std;
             //Fifth is if the node is reversed
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
+                                                distance_index.get_node_net_handle(n1->id())));
+
+            //Chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_chain_component(
                                                 distance_index.get_node_net_handle(n1->id())));
 
             //That's it

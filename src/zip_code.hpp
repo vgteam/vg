@@ -154,8 +154,8 @@ class ZipCode {
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         ///Offsets for snarl codes
-        const static size_t REGULAR_SNARL_SIZE = 5;
-        const static size_t IRREGULAR_SNARL_SIZE = 9;
+        const static size_t REGULAR_SNARL_SIZE = 6;
+        const static size_t IRREGULAR_SNARL_SIZE = 10;
 
         //Both regular and irregular snarls have these
 
@@ -165,23 +165,27 @@ class ZipCode {
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
         const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
+        //THis will be the lower of the two component numbers if the snarl spans two
+        //This only happens if the snarl is not start-end connected, which we'll know from the length
+        const static size_t SNARL_CHAIN_COMPONENT_OFFSET = 4;
 
         //Only for regular snarls
-        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 4;
+        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 5;
 
         //Only for irregular snarls
-        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 4;
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 5;
         //Distance from the left side of the child to the start of the snarl
-        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET = 5;
-        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET = 6;
-        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET = 7;
-        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET = 8;
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET = 6;
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET = 7;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET = 8;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET = 9;
 
         ///Offsets for nodes
-        const static size_t NODE_SIZE = 3;
-        const static size_t NODE_OFFSET_OR_RANK_OFFSET = 0;
+        const static size_t NODE_SIZE = 4;
+        const static size_t NODE_OFFSET_OFFSET = 0;
         const static size_t NODE_LENGTH_OFFSET = 1;
         const static size_t NODE_IS_REVERSED_OFFSET = 2;
+        const static size_t NODE_CHAIN_COMPONENT_OFFSET = 3;
 
 
         /* Functions for getting the code for each snarl/chain/node
