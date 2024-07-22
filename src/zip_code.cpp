@@ -1772,9 +1772,8 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
         //TODO: For top-level chains we got this from the distance index
         payload.is_reversed = zip_value;
 
-        payload.chain_component = distance_index.is_multicomponent_chain(payload.parent_handle) 
-                                ? distance_index.get_chain_component(payload.node_handle)
-                                : 0;
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        payload.chain_component = zip_value;
 
 
 
