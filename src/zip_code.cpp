@@ -1859,6 +1859,9 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //Snarl child_count
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+            //Chain component
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+            payload.chain_component = zip_value;
             //is_reversed for regular snarl and record offset for irregular/cyclic snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
 
