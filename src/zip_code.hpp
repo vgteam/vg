@@ -299,6 +299,10 @@ class ZipCodeDecoder {
     ///Doesn't use a given distance index if it isn't needed
     size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
 
+    ///Get the chain component of a chain child.
+    ///For snarls, this will be the component of the start node
+    size_t get_chain_component(const size_t& depth) const ;
+
     ///Is the snarl tree node backwards relative to its parent
     bool get_is_reversed_in_parent(const size_t& depth) const;
 

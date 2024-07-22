@@ -485,7 +485,7 @@ size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDista
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
 
-        return zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
+        return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
     } else {
         //If this is a snarl
 
@@ -496,6 +496,38 @@ size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDista
         }
 
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+    }
+}
+size_t ZipCodeDecoder::get_chain_component(const size_t& depth) const {
+
+
+    if (depth == 0) {
+        //If this is the root chain/snarl/node
+        throw std::runtime_error("zipcodes don't have chain offsets for roots");
+
+    } else if (decoder[depth].first) {
+        //If this is a chain/node
+
+        if (!decoder[depth-1].first) {
+            throw std::runtime_error("zipcodes trying to find the offset in child of a snarl");
+        }
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::NODE_CHAIN_COMPONENT_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        }
+
+        return zip_value;
+    } else {
+        //If this is a snarl
+
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_CHAIN_COMPONENT_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        }
+
+        return zip_value;
     }
 }
 bool ZipCodeDecoder::get_is_reversed_in_parent(const size_t& depth) const {
