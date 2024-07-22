@@ -2148,14 +2148,6 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         //If this isn't the last child in the chain, then we only want the distance to the end of the current child
     
         distance_from_current_end_to_end_of_chain = 0;
-    } else if (SnarlDistanceIndex::get_record_offset(current_child.net_handle) == SnarlDistanceIndex::get_record_offset(chain_problem->end_in)) {
-        //If this is the last node in the chain
-        if (chain_problem->chain_component_end != current_child_seed.payload.chain_component) { 
-            //If they aren't in the same component
-            distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
-        } else {
-            distance_from_current_end_to_end_of_chain = 0;
-        }
     } else if (chain_problem->chain_component_end != current_child_seed.payload.chain_component) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();

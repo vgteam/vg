@@ -331,8 +331,9 @@ class SnarlDistanceIndexClusterer {
                 node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
                 end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
-                chain_component_start = distance_index.get_chain_component(start_in);
-                chain_component_end = distance_index.get_chain_component(end_in);
+                chain_component_start = seed->seed->zipcode_decoder->get_chain_component(zipcode_depth);
+                chain_component_end = node_length == std::numeric_limits<size_t>::max() ? chain_component_start+1
+                                                                                      : chain_component_start;
                 prefix_sum_value = SnarlDistanceIndex::sum(
                                  distance_index.get_prefix_sum_value(start_in),
                                  distance_index.minimum_length(start_in));
