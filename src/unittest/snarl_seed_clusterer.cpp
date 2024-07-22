@@ -796,6 +796,64 @@ namespace unittest {
             REQUIRE(clusters.size() == 2); 
             
         }
+    }    
+    TEST_CASE( "Top-level looping chain",
+                   "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("AGCGTGTAGAGAA");
+        Node* n2 = graph.create_node("ATGCGTGCTGAGCA");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("C");
+        Node* n5 = graph.create_node("ATGCGTGCTGAGCA");
+        Node* n6 = graph.create_node("GCTTAC");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n5, false, true);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n2, n6, true, false);
+        Edge* e6 = graph.create_edge(n3, n4);
+        Edge* e7 = graph.create_edge(n3, n5);
+        Edge* e8 = graph.create_edge(n4, n5);
+        Edge* e9 = graph.create_edge(n5, n6);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
+
+        ofstream out ("bug_graph.vg");
+            graph.serialize(out);
+
+        SECTION( "Two clusters" ) {
+ 
+            vector<vector<pos_t>> pos_ts(2);
+            pos_ts[0].emplace_back(1, false, 12);
+            pos_ts[0].emplace_back(3, true, 0);
+            pos_ts[0].emplace_back(6, true, 2);
+            pos_ts[1].emplace_back(4, false,0);
+            pos_ts[1].emplace_back(6,false, 5);
+            pos_ts[1].emplace_back(5,false, 9);
+            pos_ts[1].emplace_back(3,true, 0);
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
+            for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
+                    for (pos_t pos : pos_ts[read_num]) {
+
+                            ZipCode zipcode;
+                            zipcode.fill_in_zipcode(dist_index, pos);
+                            seeds[read_num].push_back({ pos, 0, zipcode});
+                    }
+            }
+            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds, 15, 35); 
+            REQUIRE(clusters.size() == 2); 
+            REQUIRE(clusters[0].size() == 2);
+            
+
+
+        }
+
+
     }
     TEST_CASE( "Cluster looping, multicomponent",
                    "[cluster]" ) {
@@ -3150,7 +3208,6 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
-    /*
     TEST_CASE("Failed graph", "[failed_cluster]"){
 
         HashGraph graph;
@@ -3167,41 +3224,37 @@ namespace unittest {
 
 
         vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(30, false, 0);
-        pos_ts[0].emplace_back(22, false, 0);
-        pos_t pos1 = pos_ts[0][0];
-        pos_t pos2 = pos_ts[0][1];
-        net_handle_t node31 = dist_index.get_node_net_handle(30);
+        pos_ts[0].emplace_back(6, false, 12);
+        pos_ts[0].emplace_back(9, true, 0);
+        pos_ts[0].emplace_back(11, true, 2);
+        pos_ts[1].emplace_back(7, false,0);
+        pos_ts[1].emplace_back(11,false, 5);
+        pos_ts[1].emplace_back(8,false, 9);
+        pos_ts[1].emplace_back(9,true, 0);
+        vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
+        for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
+                for (pos_t pos : pos_ts[read_num]) {
+
+                        ZipCode zipcode;
+                        zipcode.fill_in_zipcode(dist_index, pos);
+                        seeds[read_num].push_back({ pos, 0, zipcode});
+                }
+        }
+
+        vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+
+        REQUIRE(clusters.size() == 2);
         
-       size_t dist = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &graph);
-       cerr << "DISTANCE BETWEEN " << pos1 << " and " << pos2 << " = " << dist << endl;
-
-
-        //vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
-        //for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
-        //        for (pos_t pos : pos_ts[read_num]) {
-
-        //                ZipCode zipcode;
-        //                zipcode.fill_in_zipcode(dist_index, pos);
-        //                seeds[read_num].push_back({ pos, 0, zipcode});
-        //        }
-        //}
-
-        //vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
-
-        //REQUIRE(clusters.size() == 1);
-        //
         REQUIRE(false);
     }
-    */
-    TEST_CASE("Random graphs", "[cluster_random]"){
+    TEST_CASE("Random graphs", "[cluster][cluster_random]"){
 
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(1, 70);
+            uniform_int_distribution<int> variant_count(1, 10);
             uniform_int_distribution<int> chrom_len(10, 200);
 
             //Make a random graph with three chromosomes of random lengths
