@@ -904,6 +904,9 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
     snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
+    size_t component = distance_index.get_chain_component(start_node);
+    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
+
     //Length of the snarl
     size_t len = distance_index.minimum_length(snarl);
     snarl_code[SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
@@ -1859,9 +1862,10 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //Snarl child_count
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            //Chain component
+            //Chain component of the snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            payload.chain_component = zip_value;
+            //TODO: SHould use this somehow
+            payload.chain_component = 0;
             //is_reversed for regular snarl and record offset for irregular/cyclic snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
 
