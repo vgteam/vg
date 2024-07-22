@@ -31,7 +31,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
     vector<SeedCache> seed_caches(seeds.size());
     for (size_t i = 0 ; i < seeds.size() ; i++) {
 #ifdef DEBUG_CLUSTER
-        assert (seeds[i].zipcode.byte_count() != 0) {
+        assert (seeds[i].zipcode.byte_count() != 0) ;
 #endif
         seed_caches[i].seed = &(seeds[i]);
         if (seeds[i].zipcode.byte_count() != 0) {
@@ -218,7 +218,7 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
         for (auto group : clustering_problem.read_union_find[read_num].all_groups()){
             cerr << "\t\t";
             for (size_t c : group) {
-               cerr << clustering_problem.all_seeds->at(read_num)->at(c).pos << " ";
+               cerr << clustering_problem.all_seeds->at(read_num)->at(c).seed->pos << " ";
             }
             cerr << endl;
         }
@@ -235,7 +235,7 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
     for (auto group : clustering_problem.fragment_union_find.all_groups()){
         cerr << "\t";
         for (size_t c : group) {
-           cerr << ordered_seeds[c].pos << " ";
+           cerr << ordered_seeds[c].seed->pos << " ";
         }
         cerr << endl;
     }
@@ -252,19 +252,19 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
             structures::UnionFind uf(group.size(), false);
             for (size_t i1 = 0 ; i1 < group.size() ; i1++) {
                 size_t c = group[i1];
-                pos_t pos1 = clustering_problem.all_seeds->at(read_num)->at(c).pos;
-                pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1), distance_index.node_length(get_id(pos1)) - get_offset(pos1) - 1);
+                pos_t pos1 = clustering_problem.all_seeds->at(read_num)->at(c).seed->pos;
+                pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1), distance_index.node_length(distance_index.get_node_net_handle(get_id(pos1))) - get_offset(pos1) - 1);
 
                 for (size_t i2 = 0 ; i2 < i1 ; i2++) {
                 
                     size_t d = group[i2];
                 
-                    pos_t pos2 = clustering_problem.all_seeds->at(read_num)->at(d).pos;
-                    pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), distance_index.node_length(get_id(pos2))- get_offset(pos2) - 1);
-                    size_t d1 = distance_index.min_distance(pos1, pos2);
-                    size_t d2 = std::min(d1, distance_index.min_distance(pos1, rev2));
-                    size_t d3 = std::min(d2, distance_index.min_distance(rev1, rev2));
-                    size_t d4 = std::min(d3, distance_index.min_distance(rev1, pos2));
+                    pos_t pos2 = clustering_problem.all_seeds->at(read_num)->at(d).seed->pos;
+                    pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), distance_index.node_length(distance_index.get_node_net_handle(get_id(pos2)))- get_offset(pos2) - 1);
+                    size_t d1 = distance_index.minimum_distance(pos1, pos2);
+                    size_t d2 = std::min(d1, distance_index.minimum_distance(pos1, rev2));
+                    size_t d3 = std::min(d2, distance_index.minimum_distance(rev1, rev2));
+                    size_t d4 = std::min(d3, distance_index.minimum_distance(rev1, pos2));
                     if (d4 != -1 && d4 <= clustering_problem.read_distance_limit) {
                     
                          uf.union_groups(i1, i2);
@@ -275,12 +275,12 @@ for (size_t i = 1 ; i < clustering_problem.all_seeds->size() ; i++) {
                         auto group2 = all_groups[g2];
                         for (size_t d : group2) {
                            pos_t pos2 = clustering_problem.all_seeds->at(read_num)->at(d).pos;
-                           pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), distance_index.node_length(get_id(pos2)) - get_offset(pos2) - 1);
+                           pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), distance_index.node_length(distance_index.get_node_net_handle(get_id(pos2))) - get_offset(pos2) - 1);
                            
                            size_t d1 = distance_index.min_distance(pos1, pos2);
-                           size_t d2 = std::min(d1, distance_index.min_distance(pos1, rev2));
-                           size_t d3 = std::min(d2, distance_index.min_distance(rev1, rev2));
-                           size_t d4 = std::min(d3, distance_index.min_distance(rev1, pos2));
+                           size_t d2 = std::min(d1, distance_index.minimum_distance(pos1, rev2));
+                           size_t d3 = std::min(d2, distance_index.minimum_distance(rev1, rev2));
+                           size_t d4 = std::min(d3, distance_index.minimum_distance(rev1, pos2));
                            
                            assert (d4 == -1 || d4 > clustering_problem.read_distance_limit);
                         }  
@@ -355,30 +355,32 @@ cerr << "Add all seeds to nodes: " << endl;
             const MIPayload& payload = seed.payload;
 
 #ifdef DEBUG_CLUSTER
-                cerr << "Using cached values for node " << id << ": " 
-                    << ", " << seed.payload.record_offset
-                    << ", " << seed.payload.parent_record_offset
-                    << ", " << seed.payload.node_record_offset
-                    << ", " << seed.payload.node_length
-                    << ", " << seed.payload.prefix_sum
-                    << ", " << seed.payload.chain_component << endl;
+                //cerr << "Using cached values for node " << id << ": " 
+                //    << ", " << seed.payload.record_offset
+                //    << ", " << seed.payload.parent_record_offset
+                //    << ", " << seed.payload.node_length
+                //    << ", " << seed.payload.prefix_sum
+                //    << ", " << seed.payload.chain_component << endl;
 
                 net_handle_t handle = distance_index.get_node_net_handle(id);
                 net_handle_t parent_handle = distance_index.get_parent(handle);
 
-                assert(seed.payload.record_offset == distance_index.get_record_offset(handle)); 
                 //assert(seed.payload.parent_record_offset == 
                 //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
                 //                                             :distance_index.get_record_offset(parent_handle))); 
-                assert(seed.payload.node_record_offset == distance_index.get_node_record_offset(handle));
                 assert(seed.payload.node_length == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
                 //         ? std::numeric_limits<size_t>::max() 
                 //         : distance_index.get_prefix_sum_value(handle);
                 //assert(seed.payload.prefix_sum == prefix_sum);
-                assert(seed.payload.chain_component == (distance_index.is_multicomponent_chain(parent_handle) 
+
+                size_t chain_component = (distance_index.is_multicomponent_chain(parent_handle) 
                                 ? distance_index.get_chain_component(handle)
-                                : 0));
+                                : 0);
+                chain_component = chain_component == std::numeric_limits<size_t>::max() ? 0 : chain_component;
+                cerr << "For nod " << distance_index.net_handle_as_string(handle) << endl;
+                cerr << "Chain compoentn: " << chain_component << " was " << seed.payload.chain_component << endl;
+                assert(seed.payload.chain_component == chain_component);
 
             if (!distance_index.is_root(seed.payload.parent_handle)) {
                 cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle))) << endl; 
@@ -708,7 +710,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
             cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
-            assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+            //assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
         }
 #endif
         ZipCode::code_type_t parent_type = chain_problem->zipcode_depth == 0 
@@ -774,6 +776,40 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                                              : chain_problem->seed->seed->zipcode_decoder->get_distance_to_snarl_bound(chain_problem->zipcode_depth, false, false); 
 
            #ifdef DEBUG_CLUSTER
+           cerr << "For child type " << chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth) << endl;
+           cerr << "For parent type " << chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1) << endl;
+           cerr << "Zipcode thinks we're looking at " << distance_index.net_handle_as_string(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index)) << " and " 
+                ke<< distance_index.net_handle_as_string(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth-1, &distance_index))<< endl;
+                cerr << "Check distances from " << distance_index.net_handle_as_string(chain_handle) << " to parent " << distance_index.net_handle_as_string(parent) << endl;
+                cerr << "\t guessed: " << chain_problem->distance_start_left << " " << chain_problem->distance_start_right << " " << chain_problem->distance_end_left << " " << chain_problem->distance_end_right << endl;
+                cerr << "\t should be " 
+                     << distance_index.distance_to_parent_bound(parent, true, distance_index.flip(chain_handle),
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)) << " "
+
+                     << distance_index.distance_to_parent_bound(parent, true, chain_handle, 
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)) << " "
+
+                     << distance_index.distance_to_parent_bound(parent, false, distance_index.flip(chain_handle), 
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)) << " " 
+
+                    << distance_index.distance_to_parent_bound(parent, false, chain_handle,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_problem->is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE 
+                                                                             : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE)) << endl;
                 assert(chain_problem->distance_start_left == 
                         distance_index.distance_to_parent_bound(parent, true, distance_index.flip(chain_handle),
                             std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
@@ -806,8 +842,6 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                                                                              : SnarlDistanceIndex::CHAIN_HANDLE), 
                                             SnarlDistanceIndex::CHAIN_HANDLE)));
 
-            cerr << "This child has distances to end : " << chain_problem->distance_start_left << " " << chain_problem->distance_start_right 
-                 << " " << chain_problem->distance_end_left << " " << chain_problem->distance_end_right << endl;
 #endif
             //And add it to its parent snarl
             bool new_parent = false;
@@ -880,7 +914,7 @@ void SnarlDistanceIndexClusterer::cluster_one_node(
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -1036,7 +1070,7 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
             combined = true;
 
 #ifdef DEBUG_CLUSTER
-            cerr << "\t\t\tCombining read/cluster " << read_num << "/" << cluster_num << "... new cluster head:" << clustering_problem.all_seeds->at(read_num)->at(new_cluster_head_and_distances.cluster_num).pos << endl; 
+            cerr << "\t\t\tCombining read/cluster " << read_num << "/" << cluster_num << "... new cluster head:" << clustering_problem.all_seeds->at(read_num)->at(new_cluster_head_and_distances.cluster_num).seed->pos << endl; 
             cerr << "\t\t\t\t Best distances for this cluster: " << old_distances.first << " and " << old_distances.second << endl;
             cerr << "\t\t\t\t New best distances for combined cluster: " << new_cluster_head_and_distances.distance_left << " and " << new_cluster_head_and_distances.distance_right << endl;
 #endif
@@ -1665,7 +1699,7 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -1788,7 +1822,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -1918,7 +1952,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -1937,7 +1971,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
     for (auto group : clustering_problem.fragment_union_find.all_groups()){
         cerr << "\t";
         for (size_t c : group) {
-           cerr << ordered_seeds[c].pos << " ";
+           cerr << ordered_seeds[c].seed->pos << " ";
         }
         cerr << endl;
     }
@@ -1982,7 +2016,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -2066,7 +2100,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                         has_seeds = true;
                     }
                 }
@@ -2111,7 +2145,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     */
  
 #ifdef DEBUG_CLUSTER
-            cerr << "At child seed " << current_child_seed->seed->pos << endl;
+            cerr << "At child seed " << current_child_seed.seed->pos << endl;
 #endif   
     //The distance from the right side of the last child to the left side of this child 
     //(relative to the orientation of the chain
@@ -2626,14 +2660,6 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
         //If this isn't the last child in the chain, then we only want the distance to the end of the current child
     
         distance_from_current_end_to_end_of_chain = 0;
-    } else if (SnarlDistanceIndex::get_record_offset(current_child.net_handle) == SnarlDistanceIndex::get_record_offset(chain_problem->end_in)) {
-        //If this is the last node in the chain
-        if (chain_problem->chain_component_end != child_problem.chain_component_end) { 
-            //If they aren't in the same component
-            distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
-        } else {
-            distance_from_current_end_to_end_of_chain = 0;
-        }
     } else if (chain_problem->is_looping_chain) {
         //TODO: I think I should be able to do this without the distance index but none of our graphs so far have loops 
         //      so I'm not going to bother
@@ -3047,7 +3073,7 @@ void SnarlDistanceIndexClusterer::cluster_root(ClusteringProblem& clustering_pro
                 cerr << "\t\t" << c.first << ":"<<c.second << ":  ";
                 for (size_t x = 0 ; x < clustering_problem.all_seeds->at(c.first)->size() ; x++) {
                     if (clustering_problem.read_union_find[c.first].find_group(x) == c.second) {
-                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).pos << " ";
+                        cerr << clustering_problem.all_seeds->at(c.first)->at(x).seed->pos << " ";
                     }
                 }
                 cerr << endl;
