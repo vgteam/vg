@@ -323,7 +323,7 @@ class SnarlDistanceIndexClusterer {
                 is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
                 node_length = distance_index.chain_minimum_length(containing_net_handle);
                 end_in = distance_index.get_bound(containing_net_handle, true, true);
-                chain_component_end = distance_index.get_chain_component(end_in, true);
+                chain_component_end = seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true);
             }
 
             //Set the values needed to cluster a snarl

@@ -364,10 +364,12 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 net_handle_t handle = distance_index.get_node_net_handle(id);
                 net_handle_t parent_handle = distance_index.get_parent(handle);
+                cerr << "Check values for node " << distance_index.net_handle_as_string(handle) << " in parent " << distance_index.net_handle_as_string(parent_handle) << endl;
 
                 //assert(seed.payload.parent_record_offset == 
                 //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
                 //                                             :distance_index.get_record_offset(parent_handle))); 
+                cerr << "Node length " << seed.payload.node_length << " should be " << distance_index.minimum_length(handle) << endl;
                 assert(seed.payload.node_length == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
                 //         ? std::numeric_limits<size_t>::max() 
@@ -384,6 +386,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
             if (!distance_index.is_root(seed.payload.parent_handle)) {
                 cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle))) << endl; 
+                cerr <<" Is actually " << distance_index.net_handle_as_string( distance_index.start_end_traversal_of(seed.payload.parent_handle)) << endl;
                 assert( distance_index.start_end_traversal_of(seed.payload.parent_handle) == distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle)));
             }
 #endif
@@ -779,7 +782,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
            cerr << "For child type " << chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth) << endl;
            cerr << "For parent type " << chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1) << endl;
            cerr << "Zipcode thinks we're looking at " << distance_index.net_handle_as_string(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index)) << " and " 
-                ke<< distance_index.net_handle_as_string(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth-1, &distance_index))<< endl;
+                << distance_index.net_handle_as_string(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth-1, &distance_index))<< endl;
                 cerr << "Check distances from " << distance_index.net_handle_as_string(chain_handle) << " to parent " << distance_index.net_handle_as_string(parent) << endl;
                 cerr << "\t guessed: " << chain_problem->distance_start_left << " " << chain_problem->distance_start_right << " " << chain_problem->distance_end_left << " " << chain_problem->distance_end_right << endl;
                 cerr << "\t should be " 
