@@ -119,6 +119,10 @@ using namespace std;
             //Second value is the connected component number of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
+            
+            //Component count of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //Next is the node code
             //Third value is the prefix sum of the node
@@ -180,6 +184,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the snarl code
 
             //1 for a regular snarl
@@ -221,6 +229,10 @@ using namespace std;
             //node length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 2+1);
+
+            //chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -415,6 +427,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Third value is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the node code
             //Third value is the prefix sum of the node
 
@@ -478,6 +494,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Third value is the chain component count of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the regular snarl code
             REQUIRE(decoder.decoder[1] == std::make_pair(false, value_and_index.second));
 
@@ -520,6 +540,10 @@ using namespace std;
             //chain length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 3+1);
+
+            //chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //Next is the node code
             REQUIRE(decoder.decoder[3] == std::make_pair(true, value_and_index.second));
@@ -595,6 +619,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Second value is the chain component count of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the regular snarl code for snarl 1-8
             REQUIRE(decoder.decoder[1] == std::make_pair(false, value_and_index.second));
 
@@ -636,6 +664,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 3+1);
 
+            //chain component_count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the regular snarl code for snarl 2-7
             REQUIRE(decoder.decoder[3] == std::make_pair(false, value_and_index.second));
             //1 as tag for regular snarl
@@ -674,6 +706,10 @@ using namespace std;
             //length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.minimum_length(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))) +1);
+
+            //component_count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //REgular snarl code for snarl 3-5
             REQUIRE(decoder.decoder[5] == std::make_pair(false, value_and_index.second));
@@ -714,6 +750,9 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 4+1) ;
 
+            //Chain component
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0) ;
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -982,8 +1021,6 @@ using namespace std;
         bool chain_is_reversed = distance_index.is_reversed_in_parent(
                                                 distance_index.get_node_net_handle(n1->id()));
 
-        graph.serialize_to_file("test_graph.hg");
-
         SECTION ("zip code for node in irregular snarl") { 
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
@@ -998,6 +1035,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 1);
 
             //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third is the chain component count
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -1058,6 +1099,10 @@ using namespace std;
             //Length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1+1);
+
+            //Component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -1337,6 +1382,9 @@ using namespace std;
             //length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 2+1);
+            //component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
 
             //Node 3
             REQUIRE(decoder.decoder[2] == std::make_pair(true, value_and_index.second));
@@ -1489,7 +1537,7 @@ using namespace std;
             };
         }
     }
-    TEST_CASE("Top-level chain zipcode", "[zipcode]") {
+    TEST_CASE("Top-level chain zipcode", "[zipcode][bug]") {
  
         VG graph;
  
@@ -1514,6 +1562,14 @@ using namespace std;
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        net_handle_t n = distance_index.get_node_net_handle(3);
+        while (! distance_index.is_root(n)) {
+            cerr << distance_index.net_handle_as_string(n) << endl;
+            n = distance_index.get_parent(n);
+        }
+            cerr << distance_index.net_handle_as_string(n) << endl;
+
+        graph.serialize_to_file("test_graph.hg");
 
         SECTION ("zip code for node on top-level chain") {
             net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
@@ -1531,6 +1587,10 @@ using namespace std;
             REQUIRE(decoder.decoder[0] == std::make_pair(true, (size_t)0));
 
             //Second value is the connected component number of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Third value is the chain component count
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -1561,19 +1621,19 @@ using namespace std;
         }
         SECTION("Distances") {
             ZipCode zip1;
-            zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            ZipCode zip2;
-            zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            ZipCode zip3;
-            zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            ZipCode zip4;
-            zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            ZipCode zip5;
-            zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            ZipCode zip6;
-            zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            ZipCode zip7;
-            zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
+            zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), false, 0));
+            ZipCode zip2;                                                     
+            zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), false, 0));
+            ZipCode zip3;                                                     
+            zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), false, 0));
+            ZipCode zip4;                                                     
+            zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), false, 0));
+            ZipCode zip5;                                                     
+            zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), false, 0));
+            ZipCode zip6;                                                     
+            zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), false, 0));
+            ZipCode zip7;                                                     
+            zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), false, 0));
 
             ZipCodeDecoder decoder1(&zip1);
             ZipCodeDecoder decoder2(&zip2);
@@ -1581,6 +1641,10 @@ using namespace std;
                                                       decoder2, make_pos_t(n2->id(), false, 0),
                                                      distance_index)
                     == 3);
+            ZipCodeDecoder decoder6(&zip6);
+            cerr << "DISTANCE: "  << ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                      decoder6, make_pos_t(n6->id(), false, 0),
+                                                     distance_index) << endl;;
             REQUIRE(ZipCode::is_farther_than(zip1, zip6, 3));
             REQUIRE(!ZipCode::is_farther_than(zip1, zip6, 5));
             REQUIRE(ZipCode::is_farther_than(zip1, zip7, 8));

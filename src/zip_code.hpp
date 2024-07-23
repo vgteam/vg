@@ -139,9 +139,13 @@ class ZipCode {
         ///Offsets of values in a root chain or snarl code
         ///Roots have a bool for is_chain and an identifier, which is the
         ///connected component number from the distance index
-        const static size_t ROOT_CHAIN_OR_SNARL_SIZE = 2;
+        const static size_t ROOT_SNARL_SIZE = 2;
         const static size_t ROOT_IS_CHAIN_OFFSET = 0;
         const static size_t ROOT_IDENTIFIER_OFFSET = 1;
+
+        //FOr a chain, also include the component count
+        const static size_t ROOT_CHAIN_SIZE = 3;
+        const static size_t ROOT_CHAIN_COMPONENT_COUNT_OFFSET = 2;
 
         //If the zipcode is for a root-level node, then there are only three things
         //in the zipcode, and the last is the length of the node
@@ -149,9 +153,17 @@ class ZipCode {
         const static size_t ROOT_NODE_LENGTH_OFFSET = 2;
 
         ///Offsets for chain codes
-        const static size_t CHAIN_SIZE = 2;
+        const static size_t CHAIN_SIZE = 3;
         const static size_t CHAIN_RANK_IN_SNARL_OFFSET = 0;
         const static size_t CHAIN_LENGTH_OFFSET = 1;
+
+        //This tells us if the chain is a multicomponent chain, how many components it has, and if the chain loops
+        //The value is the component of the last node in the chain * 2, +1 if the chain loops
+        //So 0 means normal chain, 1 means one component but the chain loops, 2 means 2 components, 3 means 2 components with a loop...
+        //This is maybe not the most efficient way of storing it but since it is pretty rare for the chains to 
+        //be multicomponent chains and rarer for them to loop, and the multicomponent chains probably won't have
+        //a lot of components anyway, this is more efficient for the majority of cases when the value will be 0
+        const static size_t CHAIN_COMPONENT_COUNT_OFFSET = 2;
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 6;

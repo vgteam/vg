@@ -33,13 +33,27 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
         //the chain from the stack
         //If the root-level structure is a trivial chain, then just store the node (as a chain, which will have the 
         //connected-component number as the rank in the snarl anyways)
-        if (!distance_index.is_trivial_chain(ancestors.back())) {
+        zipcode.add_value(distance_index.get_connected_component_number(ancestors.back()));
+        cerr << "Adding " << distance_index.net_handle_as_string(ancestors.back()) << endl;
+        if (ancestors.size() == 2 && distance_index.is_trivial_chain(ancestors.back())) {
 #ifdef DEBUG_ZIPCODE
-        cerr << "Adding code for top-level chain" << endl;
+           cerr << "Adding code for top-level trivial chain" << endl;
 #endif
-            zipcode.add_value(distance_index.get_connected_component_number(ancestors.back()));
-            ancestors.pop_back();
+            zipcode.add_value(distance_index.minimum_length(ancestors.back())+1);
+            return;
+        } else {
+#ifdef DEBUG_ZIPCODE
+            cerr << "Adding code for top-level chain" << endl;
+#endif
+
+            size_t component = distance_index.get_chain_component(distance_index.get_bound(ancestors.back(), true, false), true);
+            component = component == std::numeric_limits<size_t>::max() ? 0 : component*2;
+            if (distance_index.is_looping_chain(ancestors.back())) {
+                component += 1;
+            }
+            zipcode.add_value(component);
         }
+        ancestors.pop_back();
     }
 
     //Go through the ancestors top (root) down and add them to the zip code
@@ -154,21 +168,19 @@ cerr << "\tadding the root, which is a " << (previous_is_chain ? "chain or node"
         return false;
     } else if (zip_length == 1) {
         //If there is one thing in the zipcode
-
-        //Get the first value, which is 1 if the top-level structure is a chain
-        for (size_t i = 0 ; i <= ZipCode::ROOT_IS_CHAIN_OFFSET ; i++) {
-            std::tie(previous_is_chain, zip_index) = zipcode->zipcode.get_value_and_next_index(0);
-        }
-        //The next thing is the connected-component number
-        for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET - ZipCode::ROOT_IS_CHAIN_OFFSET -1; i++) {
-            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-        }
+        previous_is_chain = decoder.back().first;
 
         //If the top-level structure is a chain, it might actually be a node, in which case
         //the only other thing that got stored is the length
         if (previous_is_chain) {
-            if (zipcode->zipcode.get_value_and_next_index(zip_index).second == std::numeric_limits<size_t>::max()) {
-                //If the zip code ends here, then this was a node and we're done
+            //Get to the end of the root chain
+            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE);//This is true for now but all this will change if it isn't
+
+            for (size_t i = 0 ; i < ZipCode::ROOT_CHAIN_SIZE ; i++) {
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+            }
+            if (zip_index == std::numeric_limits<size_t>::max()) {
+                //If the zip code ends here (after the length), then this was a node and we're done
 #ifdef DEBUG_ZIPCODE
 cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
 #endif
@@ -195,6 +207,9 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
             }
         } else {
             //Otherwise, the top-level thing is a snarl and the next thing is a chain 
+            for (size_t i = 0 ; i < ZipCode::ROOT_SNARL_SIZE ; i++) {
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+            }
             decoder.emplace_back(!previous_is_chain, zip_index);
             return false;
         }
@@ -845,6 +860,15 @@ vector<size_t> ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDis
     chain_code[CHAIN_RANK_IN_SNARL_OFFSET] = distance_index.get_rank_in_parent(chain);
     size_t len = distance_index.minimum_length(chain);
     chain_code[CHAIN_LENGTH_OFFSET] = len == std::numeric_limits<size_t>::max() ? 0 : len+1;
+    bool is_trivial = distance_index.is_trivial_chain(chain) ;
+    size_t component = is_trivial
+                       ? 0 
+                       : distance_index.get_chain_component(distance_index.get_bound(chain, true, false), true);
+    component = component == std::numeric_limits<size_t>::max() ? 0 : component*2;
+    if (!is_trivial && distance_index.is_looping_chain(chain)) {
+        component += 1;
+    }
+    chain_code[CHAIN_COMPONENT_COUNT_OFFSET] = component;
     return chain_code;
 
 }
@@ -1460,12 +1484,16 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
         //The zips now point to the children of the shared chain, so we can proceed as if the top-level
         //structure was a chain
 
+    } else {
+        //If it is a chain, get one more thing to get to the end of the chain
+        std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+        std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
     }
 
     //Both zips now point to a thing in a shared chain
     //Get the minimum possible distance between the structures on the chain
     //For a lower bound, this assumes that the positions are as close as they can be on the structure in the chain
-    size_t prefix_sum1, prefix_sum2, length1, length2;
+    size_t prefix_sum1, prefix_sum2, length1, length2, component1, component2;
 
     //The next thing could either be a snarl or a node. If it is a node, 
     vector<size_t> next_values;
@@ -1483,6 +1511,7 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
         //If the last thing was a node
         prefix_sum1 = next_values[0];
         length1 = next_values[1];
+        component1 = next_values[2];
         prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
         length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
     } else {
@@ -1494,6 +1523,8 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
             //If the next thing was a regular snarl
             prefix_sum1 = next_values[1];
             length1 = next_values[2];
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            component1 = zip_value1;
             prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
             length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
         } else {
@@ -1519,6 +1550,7 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
         //If the last thing was a node
         prefix_sum2 = next_values[0];
         length2 = next_values[1];
+        component2 = next_values[2];
         prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
         length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
     } else {
@@ -1530,6 +1562,8 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
             //If the next thing was a regular snarl
             prefix_sum2 = next_values[1];
             length2 = next_values[2];
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+            component2 = zip_value2;
             prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
             length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
         } else {
@@ -1542,7 +1576,8 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
     cerr << "Finding distance in chain between " << prefix_sum1 << " " << length1 << " and " << prefix_sum2 << " and " << length2 << endl;
 #endif
 
-    if (prefix_sum1 == std::numeric_limits<size_t>::max() ||
+    if (component1 != component2 ||
+        prefix_sum1 == std::numeric_limits<size_t>::max() ||
         prefix_sum2 == std::numeric_limits<size_t>::max() ||
         length1 == std::numeric_limits<size_t>::max() ||
         length2 == std::numeric_limits<size_t>::max()) {
