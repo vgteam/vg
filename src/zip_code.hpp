@@ -315,6 +315,13 @@ class ZipCodeDecoder {
     ///For snarls, this will be the component of the start node
     size_t get_chain_component(const size_t& depth) const ;
 
+    ///Get the chain component of the last node in the chain
+    /// This behaves like the distance index get_chain_component- 
+    /// for looping chains it returns the last component if get_end is true,
+    /// and 0 if it is false
+    size_t get_last_chain_component(const size_t& depth, bool get_end = false) const ;
+    bool get_is_looping_chain(const size_t& depth) const ;
+
     ///Is the snarl tree node backwards relative to its parent
     bool get_is_reversed_in_parent(const size_t& depth) const;
 

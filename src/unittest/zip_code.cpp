@@ -1537,7 +1537,7 @@ using namespace std;
             };
         }
     }
-    TEST_CASE("Top-level chain zipcode", "[zipcode][bug]") {
+    TEST_CASE("Top-level chain zipcode", "[zipcode]") {
  
         VG graph;
  
@@ -1562,14 +1562,6 @@ using namespace std;
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        net_handle_t n = distance_index.get_node_net_handle(3);
-        while (! distance_index.is_root(n)) {
-            cerr << distance_index.net_handle_as_string(n) << endl;
-            n = distance_index.get_parent(n);
-        }
-            cerr << distance_index.net_handle_as_string(n) << endl;
-
-        graph.serialize_to_file("test_graph.hg");
 
         SECTION ("zip code for node on top-level chain") {
             net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
@@ -1743,6 +1735,59 @@ using namespace std;
                 REQUIRE(zipcodes.at(i).zipcode == new_zipcodes.at(i).zipcode);
             }
             
+        }
+    }
+    TEST_CASE( "Looping chain zipcode", "[zipcode][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("ACACGTTGC");
+        Node* n2 = graph.create_node("TCTCCACCGGCAAGTTTCACTTCACTT");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("AT");
+        Node* n5 = graph.create_node("CGTGGGG");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n5);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n4, n5);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "node2" ) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
+            net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+            net_handle_t parent = distance_index.get_parent(node2);
+            cerr << distance_index.net_handle_as_string(parent) << endl;
+            net_handle_t bound = distance_index.get_bound(parent, true, false);
+
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 2);
+
+            REQUIRE(distance_index.minimum_length(node2) == decoder.get_length(1));
+            REQUIRE(decoder.get_chain_component(1) == distance_index.get_chain_component(node2));
+            REQUIRE(decoder.get_last_chain_component(0, true) == distance_index.get_chain_component(bound, true));
+            REQUIRE(decoder.get_last_chain_component(0, false) == distance_index.get_chain_component(bound, false));
+            REQUIRE(decoder.get_is_looping_chain(0));
+        }
+
+        SECTION( "node5" ) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
+            net_handle_t node = distance_index.get_node_net_handle(n5->id());
+            net_handle_t parent = distance_index.get_parent(node);
+            net_handle_t bound = distance_index.get_bound(parent, true, false);
+
+            ZipCodeDecoder decoder(&zipcode);
+
+            REQUIRE(distance_index.minimum_length(node) == decoder.get_length(decoder.max_depth()));
         }
     }
 }
