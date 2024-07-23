@@ -98,6 +98,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a3b9b032ce45f87e1abd5c175db6f5275"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a421fe49069d9a533db9ab682d4bec754"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a421fe49069d9a533db9ab682d4bec754">destroy_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle)=0</td></tr>
 <tr class="separator:a421fe49069d9a533db9ab682d4bec754"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c87d426fc5c9f4606faf11caa557e92"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a9c87d426fc5c9f4606faf11caa557e92">destroy_paths</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths)</td></tr>
+<tr class="separator:a9c87d426fc5c9f4606faf11caa557e92"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0873a6eb776bb2557a5b8453dbf13824"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a0873a6eb776bb2557a5b8453dbf13824">create_path_handle</a> (const std::string &amp;name, bool is_circular=false)=0</td></tr>
 <tr class="separator:a0873a6eb776bb2557a5b8453dbf13824"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95370bd388b2c113cf0556f266993418"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a95370bd388b2c113cf0556f266993418">rename_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, const std::string &amp;new_name)</td></tr>
@@ -457,6 +459,33 @@ Additional Inherited Members</h2></td></tr>
 <p>Destroy the given path. Invalidates handles to the path and its steps. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>.</p>
+
+</div>
+</div>
+<a id="a9c87d426fc5c9f4606faf11caa557e92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c87d426fc5c9f4606faf11caa557e92">&#9670;&nbsp;</a></span>destroy_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::MutablePathHandleGraph::destroy_paths </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Destroy the given set of paths. Invalidates handles to all the paths and their steps. </p>
 
 </div>
 </div>
