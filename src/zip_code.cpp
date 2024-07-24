@@ -2003,15 +2003,9 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             if (payload.parent_type == ZipCode::REGULAR_SNARL) {
                 //Snarl is reversed
                 net_handle_t grandparent_handle = distance_index.get_parent(payload.parent_handle);
-                //Simple and regular snarls are different for clustering
-                if (distance_index.is_simple_snarl(grandparent_handle)) {
-                    payload.is_reversed = zip_value;
-                    payload.parent_is_chain=true;
-                    payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_parent(grandparent_handle));
-                } else {
-                    payload.is_reversed = false;
-                    payload.parent_record_offset = distance_index.get_record_offset(grandparent_handle);
-                }
+                payload.is_reversed = zip_value;
+                payload.parent_is_chain=true;
+                payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_parent(grandparent_handle));
             } else {
                 payload.is_reversed = false;
                 payload.parent_record_offset = zip_value;
