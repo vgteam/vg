@@ -356,8 +356,6 @@ cerr << "Add all seeds to nodes: " << endl;
 
 #ifdef DEBUG_CLUSTER
                 //cerr << "Using cached values for node " << id << ": " 
-                //    << ", " << seed.payload.record_offset
-                //    << ", " << seed.payload.parent_record_offset
                 //    << ", " << seed.payload.node_length
                 //    << ", " << seed.payload.prefix_sum
                 //    << ", " << seed.payload.chain_component << endl;
@@ -366,9 +364,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 net_handle_t parent_handle = distance_index.get_parent(handle);
                 cerr << "Check values for node " << distance_index.net_handle_as_string(handle) << " in parent " << distance_index.net_handle_as_string(parent_handle) << endl;
 
-                //assert(seed.payload.parent_record_offset == 
-                //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
-                //                                             :distance_index.get_record_offset(parent_handle))); 
                 cerr << "Node length " << seed.payload.node_length << " should be " << distance_index.minimum_length(handle) << endl;
                 assert(seed.payload.node_length == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
@@ -409,8 +404,8 @@ cerr << "Add all seeds to nodes: " << endl;
                 }
                 cerr << seed.payload.is_reversed << " " << distance_index.is_reversed_in_parent(seed.payload.parent_handle) << endl;
 
-                assert(seed.payload.is_reversed == (seed.payload.is_trivial_chain ? distance_index.is_reversed_in_parent(seed.payload.parent_handle)
-                                                             : distance_index.is_reversed_in_parent(seed.payload.node_handle)));
+                //assert(seed.payload.is_reversed == (seed.payload.is_trivial_chain ? distance_index.is_reversed_in_parent(seed.payload.parent_handle)
+                //                                             : distance_index.is_reversed_in_parent(seed.payload.node_handle)));
 #endif
 
                 //Add the parent chain or trivial chain
@@ -473,46 +468,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 //And the parent to chains_by_level
                 if (new_parent) {
                     chains_by_level[seed.payload.parent_depth].emplace_back(seed.payload.parent_handle);
-                }
-
-
-                //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if ( new_parent) {
-                    if (seed.payload.is_trivial_chain && !seed.payload.parent_is_root) {
-                        bool grandparent_is_simple_snarl = seed.payload.parent_is_chain;
-                        parent_problem.has_parent_handle = true;
-                        parent_problem.parent_net_handle = grandparent_is_simple_snarl 
-                                  ? distance_index.get_net_handle_from_values(distance_index.get_record_offset(seed.payload.node_handle),
-                                                                  SnarlDistanceIndex::START_END,
-                                                                  SnarlDistanceIndex::SNARL_HANDLE,
-                                                                  1)
-                                  : distance_index.get_net_handle_from_values(seed.payload.parent_record_offset,
-                                                                  SnarlDistanceIndex::START_END,
-                                                                  SnarlDistanceIndex::SNARL_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
-#endif
-
-                        if (grandparent_is_simple_snarl) {
-                            //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
-                            parent_problem.has_grandparent_handle = true;
-                            parent_problem.grandparent_net_handle = distance_index.get_net_handle_from_values(
-                                                                        seed.payload.parent_record_offset,
-                                                                        SnarlDistanceIndex::START_END,
-                                                                        SnarlDistanceIndex::CHAIN_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "GRANDPARENT: " << distance_index.net_handle_as_string(parent_problem.grandparent_net_handle) << endl;
-#endif
-                        }
-                    } else if (seed.payload.parent_is_root && seed.payload.parent_is_chain && !seed.payload.is_trivial_chain) {
-                        //The parent chain is a child of the root
-                        parent_problem.has_parent_handle = true;
-                        parent_problem.parent_net_handle = distance_index.get_net_handle_from_values(
-                                    0, SnarlDistanceIndex::START_END, SnarlDistanceIndex::ROOT_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
-#endif
-                    }
                 }
 
 
