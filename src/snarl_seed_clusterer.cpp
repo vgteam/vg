@@ -1794,7 +1794,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
 
     //First, sort the children of the chain
     //If there is only one child, check if it's a seeed
-    bool only_seeds=chain_problem->children.size() == 1 ? distance_index.is_node(chain_problem->children.front().net_handle)
+    bool only_seeds=chain_problem->children.size() == 1 ? chain_problem->children.front().is_seed
                                                         : true;
 
     std::sort(chain_problem->children.begin(), chain_problem->children.end(), 
@@ -1819,7 +1819,18 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
             if (child1.chain_component != child2.chain_component) {
                 return child1.chain_component < child2.chain_component;
             } else if (child1.prefix_sum == child2.prefix_sum) {
-                return distance_index.is_ordered_in_chain(child1.net_handle, child2.net_handle);
+                //Get the prefix sum values not including the offset in the positions 
+                size_t prefix_sum1 = child1.is_seed 
+                                   ? clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).payload.prefix_sum
+                                   : child1.prefix_sum;
+                size_t prefix_sum2 = child2.is_seed 
+                                   ? clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).payload.prefix_sum
+                                   : child2.prefix_sum;
+                if (prefix_sum1 == prefix_sum2){
+                    return child2.is_seed;
+                } else {
+                    return prefix_sum1 < prefix_sum2;
+                }
             } else {
                 return child1.prefix_sum < child2.prefix_sum;
             }
@@ -1844,7 +1855,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
         //This also does the work of clustering a trivial chain (which is just a node), which should be the same amount of work as using cluster_one_node
 
         cluster_seeds_on_linear_structure(clustering_problem, chain_problem, chain_problem->node_length, 
-                !distance_index.is_trivial_chain(chain_handle), is_top_level_chain);
+                !chain_problem->is_trivial_chain, is_top_level_chain);
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tFound clusters on " << distance_index.net_handle_as_string(chain_handle) << endl;
