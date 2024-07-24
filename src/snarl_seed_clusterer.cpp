@@ -725,10 +725,10 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
         //This is used to determine if we need to remember the distances to the ends of the chain, since
         //for a top level chain it doesn't matter
         bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
-                         !distance_index.is_externally_start_start_connected(chain_handle) &&
-                         !distance_index.is_externally_start_end_connected(chain_handle) &&
-                         !distance_index.is_externally_end_end_connected(chain_handle) &&
-                         !chain_problem->seed->seed->zipcode_decoder->get_is_looping_chain(chain_problem->zipcode_depth);
+                         !chain_problem->seed->seed->zipcode_decoder->is_externally_start_start_connected(0) &&
+                         !chain_problem->seed->seed->zipcode_decoder->is_externally_start_end_connected(0) &&
+                         !chain_problem->seed->seed->zipcode_decoder->is_externally_end_end_connected(0) &&
+                         !chain_problem->seed->seed->zipcode_decoder->get_is_looping_chain(0);
 
         // Compute the clusters for the chain
         cluster_one_chain(clustering_problem, chain_problem, is_top_level_chain);
@@ -1439,9 +1439,18 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_one_child(Clust
 
 
     //Get the distances between the two sides of the child
-    size_t distance_left_left = distance_index.is_externally_start_start_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
-    size_t distance_left_right = distance_index.is_externally_start_end_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
-    size_t distance_right_right = distance_index.is_externally_end_end_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
+    size_t distance_left_left = 
+            child_problem->seed->seed->zipcode_decoder->is_externally_start_start_connected(child_problem->zipcode_depth) 
+            ? 0 
+            : std::numeric_limits<size_t>::max();
+    size_t distance_left_right = 
+            child_problem->seed->seed->zipcode_decoder->is_externally_start_end_connected(child_problem->zipcode_depth) 
+            ? 0 
+            : std::numeric_limits<size_t>::max();
+    size_t distance_right_right = 
+            child_problem->seed->seed->zipcode_decoder->is_externally_end_end_connected(child_problem->zipcode_depth) 
+            ? 0 
+            : std::numeric_limits<size_t>::max();
     if (distance_left_left == std::numeric_limits<size_t>::max() &&
         distance_left_right == std::numeric_limits<size_t>::max() &&
         distance_right_right == std::numeric_limits<size_t>::max()) {
