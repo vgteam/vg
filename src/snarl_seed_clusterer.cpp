@@ -2695,12 +2695,11 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
         //If this isn't the last child in the chain, then we only want the distance to the end of the current child
     
         distance_from_current_end_to_end_of_chain = 0;
-    } else if (chain_problem->is_looping_chain) {
-        //TODO: I think I should be able to do this without the distance index but none of our graphs so far have loops 
-        //      so I'm not going to bother
-        //If it's a looping chain then use the distance index
-        distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_problem->end_in, 
-                 current_child.net_handle);
+    } else if (chain_problem->chain_component_end != child_problem.chain_component_end) {
+        //If it's not in the same component
+        distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max(); 
+        //TODO: Used to do this, I"m pretty sure I don't need to though
+        //distance_index.distance_in_parent(chain_handle, chain_problem->end_in, current_child.net_handle);
     } else if (child_problem.node_length == std::numeric_limits<size_t>::max() ) {
             //If the node length is infinite, then it is a snarl that isn't start-end connected, so the start
             //and end of the snarl are in different components of the chain. Since it reached here, the end

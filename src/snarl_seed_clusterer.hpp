@@ -260,10 +260,6 @@ class SnarlDistanceIndexClusterer {
             net_handle_t parent_net_handle;
             net_handle_t grandparent_net_handle;
 
-            //The boundary node of containing_net_handle, for a snarl or chain
-            //if it is a snarl, then this is the actual node, not the sentinel 
-            net_handle_t end_in;
-
             //One representative seed so we can get the zipcode and stuff
             const SeedCache* seed;
             size_t zipcode_depth;
@@ -322,7 +318,6 @@ class SnarlDistanceIndexClusterer {
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
                 is_looping_chain = seed->seed->zipcode_decoder->get_is_looping_chain(zipcode_depth);
                 node_length = distance_index.chain_minimum_length(containing_net_handle);
-                end_in = distance_index.get_bound(containing_net_handle, true, true);
                 chain_component_end = seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true);
                 is_reversed_in_parent = seed->seed->zipcode_decoder->get_is_reversed_in_parent(zipcode_depth);
             }
@@ -331,7 +326,7 @@ class SnarlDistanceIndexClusterer {
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
                 node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
-                end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
+                net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 chain_component_start = seed->seed->zipcode_decoder->get_chain_component(zipcode_depth);
                 chain_component_end = node_length == std::numeric_limits<size_t>::max() ? chain_component_start+1
                                                                                       : chain_component_start;
