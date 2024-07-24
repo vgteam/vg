@@ -51,6 +51,19 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 component += 1;
             }
             zipcode.add_value(component);
+
+            size_t connectivity = 0;
+            if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
+                connectivity = connectivity | 1;
+            }
+            if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
+                connectivity = connectivity | 2;
+            }
+            if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
+                connectivity = connectivity | 4;
+            }
+ 
+            zipcode.add_value(connectivity);
         }
         ancestors.pop_back();
     }
@@ -173,9 +186,9 @@ cerr << "\tadding the root, which is a " << (previous_is_chain ? "chain or node"
         //the only other thing that got stored is the length
         if (previous_is_chain) {
             //Get to the end of the root chain
-            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE);//This is true for now but all this will change if it isn't
+            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE+1);//This is true for now but all this will change if it isn't
 
-            for (size_t i = 0 ; i < ZipCode::ROOT_CHAIN_SIZE ; i++) {
+            for (size_t i = 0 ; i < ZipCode::ROOT_NODE_SIZE ; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             }
             if (zip_index == std::numeric_limits<size_t>::max()) {
@@ -186,6 +199,8 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
                 finished_decoding = true;
                 return true;
             } else {
+                //Get to the end of the root chain
+                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
                 //Otherwise, check if this is a node or a snarl. If it is a node, then there are three things remaining
                 size_t start_index = zip_index;
 
@@ -810,6 +825,37 @@ size_t ZipCodeDecoder::get_distance_to_snarl_bound(const size_t& depth, bool sna
         }
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value - 1;
      }
+}
+
+bool ZipCodeDecoder::is_externally_start_end_connected (const size_t& depth) const {
+    assert(depth == 0);
+    assert(decoder[0].first);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    }
+    return (zip_value & 1) != 0;
+}
+bool ZipCodeDecoder::is_externally_start_start_connected (const size_t& depth) const {
+    assert(depth == 0);
+    assert(decoder[0].first);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    }
+    return (zip_value & 2) != 0;
+}
+bool ZipCodeDecoder::is_externally_end_end_connected (const size_t& depth) const {
+    assert(depth == 0);
+    assert(decoder[0].first);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    }
+    return (zip_value & 4) != 0;
 }
 
 const bool ZipCodeDecoder::is_equal(const ZipCodeDecoder& decoder1, const ZipCodeDecoder& decoder2,
@@ -1518,9 +1564,11 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
         //structure was a chain
 
     } else {
-        //If it is a chain, get one more thing to get to the end of the chain
-        std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
-        std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        //If it is a chain, get two more things to get to the end of the chain
+        for (size_t i = 0 ; i < 2 ; ++i) {
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        }
     }
 
     //Both zips now point to a thing in a shared chain

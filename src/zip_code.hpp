@@ -144,8 +144,10 @@ class ZipCode {
         const static size_t ROOT_IDENTIFIER_OFFSET = 1;
 
         //FOr a chain, also include the component count
-        const static size_t ROOT_CHAIN_SIZE = 3;
+        const static size_t ROOT_CHAIN_SIZE = 4;
         const static size_t ROOT_CHAIN_COMPONENT_COUNT_OFFSET = 2;
+        //This is a bitvector storing if there is connectivity between the bounds of the chain
+        const static size_t ROOT_CHAIN_CONNECTIVITY_OFFSET = 3;
 
         //If the zipcode is for a root-level node, then there are only three things
         //in the zipcode, and the last is the length of the node
@@ -343,6 +345,11 @@ class ZipCodeDecoder {
 
     /// The minimum distance from start or end of the snarl to the left or right side of the child
     size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) const;
+
+    bool is_externally_start_end_connected(const size_t& depth) const;
+    bool is_externally_start_start_connected(const size_t& depth) const;
+    bool is_externally_end_end_connected(const size_t& depth) const;
+
 
     ///Are the two decoders pointing to the same snarl tree node at the given depth
     ///This only checks if the values in the zipcode are the same at the given depth, 

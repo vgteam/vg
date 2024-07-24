@@ -124,6 +124,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the node code
             //Third value is the prefix sum of the node
 
@@ -185,6 +189,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -431,6 +439,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the node code
             //Third value is the prefix sum of the node
 
@@ -495,6 +507,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Third value is the chain component count of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -620,6 +636,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Second value is the chain component count of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -1039,6 +1059,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Third is the chain component count
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Connectivity of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
@@ -1586,6 +1610,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            //Connectivity of the chain
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //Next is the node code
             //Third value is the prefix sum of the node
 
@@ -1633,10 +1661,7 @@ using namespace std;
                                                       decoder2, make_pos_t(n2->id(), false, 0),
                                                      distance_index)
                     == 3);
-            ZipCodeDecoder decoder6(&zip6);
-            cerr << "DISTANCE: "  << ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
-                                                      decoder6, make_pos_t(n6->id(), false, 0),
-                                                     distance_index) << endl;;
+
             REQUIRE(ZipCode::is_farther_than(zip1, zip6, 3));
             REQUIRE(!ZipCode::is_farther_than(zip1, zip6, 5));
             REQUIRE(ZipCode::is_farther_than(zip1, zip7, 8));
@@ -1737,7 +1762,7 @@ using namespace std;
             
         }
     }
-    TEST_CASE( "Looping chain zipcode", "[zipcode][bug]" ) {
+    TEST_CASE( "Looping chain zipcode", "[zipcode]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("ACACGTTGC");
@@ -1765,7 +1790,6 @@ using namespace std;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
             net_handle_t parent = distance_index.get_parent(node2);
-            cerr << distance_index.net_handle_as_string(parent) << endl;
             net_handle_t bound = distance_index.get_bound(parent, true, false);
 
             ZipCodeDecoder decoder(&zipcode);
@@ -1788,6 +1812,48 @@ using namespace std;
             ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.minimum_length(node) == decoder.get_length(decoder.max_depth()));
+        }
+    }
+    TEST_CASE( "Chain with external connectivity zipcode","[zipcode]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n1, n1, true, false);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+
+        SECTION( "Check connectivity" ) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(dist_index, make_pos_t(n2->id(), false, 0));
+            ZipCodeDecoder decoder(&zipcode);
+
+            REQUIRE(decoder.get_length(1) == 1);
+
+            if (dist_index.is_reversed_in_parent(dist_index.get_node_net_handle(n1->id()))) {
+                REQUIRE(decoder.is_externally_end_end_connected(0));
+            } else {
+                REQUIRE(decoder.is_externally_start_start_connected(0));
+            }
+
         }
     }
 }
