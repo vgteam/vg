@@ -1907,6 +1907,7 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
             payload.parent_type = ZipCode::ROOT_CHAIN;
             payload.parent_is_root = true;
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         } else {
             payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_parent(payload.node_handle));
             payload.parent_type = ZipCode::CHAIN;
