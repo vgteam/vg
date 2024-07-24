@@ -33,6 +33,10 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 11+1);
 
+            //Connectivity
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
 

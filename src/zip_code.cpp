@@ -39,6 +39,18 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
            cerr << "Adding code for top-level trivial chain" << endl;
 #endif
             zipcode.add_value(distance_index.minimum_length(ancestors.back())+1);
+            size_t connectivity = 0;
+            if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
+                connectivity = connectivity | 1;
+            }
+            if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
+                connectivity = connectivity | 2;
+            }
+            if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
+                connectivity = connectivity | 4;
+            }
+ 
+            zipcode.add_value(connectivity);
             return;
         } else {
 #ifdef DEBUG_ZIPCODE
@@ -52,19 +64,19 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             }
             zipcode.add_value(component);
 
-            size_t connectivity = 0;
-            if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
-                connectivity = connectivity | 1;
-            }
-            if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
-                connectivity = connectivity | 2;
-            }
-            if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
-                connectivity = connectivity | 4;
-            }
- 
-            zipcode.add_value(connectivity);
         }
+        size_t connectivity = 0;
+        if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
+            connectivity = connectivity | 1;
+        }
+        if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
+            connectivity = connectivity | 2;
+        }
+        if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
+            connectivity = connectivity | 4;
+        }
+ 
+        zipcode.add_value(connectivity);
         ancestors.pop_back();
     }
 
@@ -186,7 +198,7 @@ cerr << "\tadding the root, which is a " << (previous_is_chain ? "chain or node"
         //the only other thing that got stored is the length
         if (previous_is_chain) {
             //Get to the end of the root chain
-            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE+1);//This is true for now but all this will change if it isn't
+            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE);//This is true for now but all this will change if it isn't
 
             for (size_t i = 0 ; i < ZipCode::ROOT_NODE_SIZE ; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
@@ -199,8 +211,6 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
                 finished_decoding = true;
                 return true;
             } else {
-                //Get to the end of the root chain
-                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
                 //Otherwise, check if this is a node or a snarl. If it is a node, then there are three things remaining
                 size_t start_index = zip_index;
 
@@ -832,7 +842,7 @@ bool ZipCodeDecoder::is_externally_start_end_connected (const size_t& depth) con
     assert(decoder[0].first);
     size_t zip_value;
     size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 1) != 0;
@@ -842,7 +852,7 @@ bool ZipCodeDecoder::is_externally_start_start_connected (const size_t& depth) c
     assert(decoder[0].first);
     size_t zip_value;
     size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 2) != 0;
@@ -852,7 +862,7 @@ bool ZipCodeDecoder::is_externally_end_end_connected (const size_t& depth) const
     assert(decoder[0].first);
     size_t zip_value;
     size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 4) != 0;
