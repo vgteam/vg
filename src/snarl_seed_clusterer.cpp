@@ -728,7 +728,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                          !distance_index.is_externally_start_start_connected(chain_handle) &&
                          !distance_index.is_externally_start_end_connected(chain_handle) &&
                          !distance_index.is_externally_end_end_connected(chain_handle) &&
-                         !distance_index.is_looping_chain(chain_handle);
+                         !chain_problem->seed->seed->zipcode_decoder->get_is_looping_chain(chain_problem->zipcode_depth);
 
         // Compute the clusters for the chain
         cluster_one_chain(clustering_problem, chain_problem, is_top_level_chain);
@@ -1585,7 +1585,7 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
 
     //If the snarl is a simple snarl, then there is no clustering to do because there is no path between
     //the nodes. Otherwise, compare the children of the snarl
-    if (!distance_index.is_simple_snarl(snarl_handle)) {
+    if (snarl_problem->seed->seed->zipcode_decoder->get_code_type(snarl_problem->zipcode_depth) != ZipCode::REGULAR_SNARL) {
         //If this isn't a simple snarl
         //Get the children of this snarl and their clusters
 
@@ -1601,8 +1601,13 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
             SnarlTreeNodeProblem& child_problem_i = clustering_problem.all_node_problems.at(
                     clustering_problem.net_handle_to_node_problem_index.at(snarl_problem->children[i].net_handle));
 
-            if (child_problem_i.fragment_best_left > (clustering_problem.fragment_distance_limit == 0 ? clustering_problem.read_distance_limit : clustering_problem.fragment_distance_limit) &&  
-                child_problem_i.fragment_best_right > (clustering_problem.fragment_distance_limit == 0 ? clustering_problem.read_distance_limit : clustering_problem.fragment_distance_limit)) {
+            if (child_problem_i.fragment_best_left > (clustering_problem.fragment_distance_limit == 0 
+                                                            ? clustering_problem.read_distance_limit 
+                                                            : clustering_problem.fragment_distance_limit) 
+                    &&  
+                child_problem_i.fragment_best_right > (clustering_problem.fragment_distance_limit == 0 
+                                                            ? clustering_problem.read_distance_limit 
+                                                            : clustering_problem.fragment_distance_limit)) {
                 //If everything is too far away to cluster, then skip it
                 continue;
             }
@@ -1652,30 +1657,57 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
                     clustering_problem.net_handle_to_node_problem_index.at(node_problem.net_handle));
 
             //Add the cluster heads
+            //May need to flip the distances
             for (auto& cluster_head : child_problem.read_cluster_heads) {
                 snarl_problem->read_cluster_heads.emplace(cluster_head);
-            }
-
-            //Update the distances
-            //Because the orientation of the nodes was determined by the orientation of the chain,
-            //the orientation relative to the snarl is correct
-            for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++) {
-                if (read_num == 0) {
-                    snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_left.first,
-                                                                   child_problem.read_best_left.first);
-                    snarl_problem->read_best_right.first = std::min(snarl_problem->read_best_right.first,
-                                                                    child_problem.read_best_right.first);
-                } else {
-                    snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_left.second,
-                                                                   child_problem.read_best_left.second);
-                    snarl_problem->read_best_right.second = std::min(snarl_problem->read_best_right.second,
-                                                                    child_problem.read_best_right.second);
+                if (child_problem.is_reversed_in_parent) {
+                    size_t old_left = clustering_problem.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left;
+                    clustering_problem.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left = 
+                            clustering_problem.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right;
+                    clustering_problem.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = old_left;
                 }
             }
-            snarl_problem->fragment_best_left = std::min(snarl_problem->fragment_best_left,
-                                                          child_problem.fragment_best_left);
-            snarl_problem->fragment_best_right = std::min(snarl_problem->fragment_best_right,
-                                                           child_problem.fragment_best_right);
+
+
+            //Update the distances
+            for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++) {
+                if (read_num == 0) {
+                    if (child_problem.is_reversed_in_parent) {
+                        snarl_problem->read_best_right.first = std::min(snarl_problem->read_best_left.first,
+                                                                       child_problem.read_best_left.first);
+                        snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_right.first,
+                                                                        child_problem.read_best_right.first);
+                    } else {
+                        snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_left.first,
+                                                                       child_problem.read_best_left.first);
+                        snarl_problem->read_best_right.first = std::min(snarl_problem->read_best_right.first,
+                                                                        child_problem.read_best_right.first);
+                    }
+                } else {
+                    if (child_problem.is_reversed_in_parent) {
+                        snarl_problem->read_best_right.second = std::min(snarl_problem->read_best_left.second,
+                                                                       child_problem.read_best_left.second);
+                        snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_right.second,
+                                                                        child_problem.read_best_right.second);
+                    } else {
+                        snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_left.second,
+                                                                       child_problem.read_best_left.second);
+                        snarl_problem->read_best_right.second = std::min(snarl_problem->read_best_right.second,
+                                                                        child_problem.read_best_right.second);
+                    }
+                }
+            }
+            if (child_problem.is_reversed_in_parent) {
+                snarl_problem->fragment_best_right = std::min(snarl_problem->fragment_best_left,
+                                                              child_problem.fragment_best_left);
+                snarl_problem->fragment_best_left = std::min(snarl_problem->fragment_best_right,
+                                                               child_problem.fragment_best_right);
+            } else {
+                snarl_problem->fragment_best_left = std::min(snarl_problem->fragment_best_left,
+                                                              child_problem.fragment_best_left);
+                snarl_problem->fragment_best_right = std::min(snarl_problem->fragment_best_right,
+                                                               child_problem.fragment_best_right);
+            }
 
 
         }
