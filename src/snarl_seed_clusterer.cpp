@@ -605,12 +605,6 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
                 //Because a new SnarlTreeNodeProblem got added, the snarl_problem pointer might have moved
                 SnarlTreeNodeProblem& snarl_problem = clustering_problem.all_node_problems.at(
                         clustering_problem.net_handle_to_node_problem_index.at(snarl_handle));
-                if (snarl_problem.has_grandparent_handle) {
-                    SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
-                            clustering_problem.net_handle_to_node_problem_index.at(snarl_parent));
-                    parent_problem.has_parent_handle = true;
-                    parent_problem.parent_net_handle = snarl_problem.grandparent_net_handle;
-                }
             }
             SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(snarl_parent));
@@ -812,12 +806,6 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 //Because a new SnarlTreeNodeProblem got added, the old chain_problem pointer might have moved
                 SnarlTreeNodeProblem& chain_problem = clustering_problem.all_node_problems.at( 
                         clustering_problem.net_handle_to_node_problem_index.at(chain_handle));
-                if (chain_problem.has_grandparent_handle) {
-                    SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
-                            clustering_problem.net_handle_to_node_problem_index.at(parent));
-                    parent_problem.has_parent_handle = true;
-                    parent_problem.parent_net_handle = chain_problem.grandparent_net_handle;
-                }
             }
             SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(parent));

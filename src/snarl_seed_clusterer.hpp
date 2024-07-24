@@ -255,10 +255,9 @@ class SnarlDistanceIndexClusterer {
 
 
 
-            //The parent and grandparent of containing_net_handle, which might or might not be set
+            //The parent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
-            net_handle_t grandparent_net_handle;
 
             //One representative seed so we can get the zipcode and stuff
             const SeedCache* seed;
@@ -278,7 +277,6 @@ class SnarlDistanceIndexClusterer {
 
             //These are sometimes set if the value was in the cache
             bool has_parent_handle = false;
-            bool has_grandparent_handle = false;
 
             //Only set this for nodes or snarls in chains
             bool is_reversed_in_parent = false;
