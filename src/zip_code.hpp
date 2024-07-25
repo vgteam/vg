@@ -376,10 +376,13 @@ class ZipCodeDecoder {
 
 };
 
+//How to hash a net_identifier_t
 template<>
 struct wang_hash<net_identifier_t> {
     size_t operator()(const net_identifier_t& id) const {
-        return wang_hash<std::string>()(id);
+        cerr <<" Get hash of " << id << endl;
+        string id_string = static_cast<string>(id);
+        return std::hash<std::string>{}(id_string);
     }
 };
 

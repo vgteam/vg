@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 //#define debug_distances
 //#define EXHAUSTIVE_CLUSTER_CHECK
 
@@ -379,11 +379,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 cerr << "Chain compoentn: " << chain_component << " was " << seed.payload.chain_component << endl;
                 assert(seed.payload.chain_component == chain_component);
 
-            if (!distance_index.is_root(seed.payload.parent_handle)) {
-                cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle))) << endl; 
-                cerr <<" Is actually " << distance_index.net_handle_as_string( distance_index.start_end_traversal_of(seed.payload.parent_handle)) << endl;
-                assert( distance_index.start_end_traversal_of(seed.payload.parent_handle) == distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle)));
-            }
 #endif
             if (!(seed.payload.parent_type == ZipCode::ROOT_SNARL || seed.payload.parent_type == ZipCode::ROOT_NODE)) {
                 //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
@@ -392,20 +387,20 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Also update the zipcode on the seed 
 
 #ifdef DEBUG_CLUSTER
-                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(seed.payload.parent_handle) << endl;
+                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(handle) << endl;
                 //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
-                //                                  : distance_index.get_prefix_sum_value(seed.payload.node_handle)));
-                cerr << "Node length should be " << distance_index.minimum_length(seed.payload.node_handle) << " actually " << seed.payload.node_length << endl;
-                assert(seed.payload.node_length == distance_index.minimum_length(seed.payload.node_handle));
-                cerr << "Reversed in parent? " << distance_index.net_handle_as_string(seed.payload.node_handle) << " " << distance_index.net_handle_as_string(seed.payload.parent_handle) << " " << seed.payload.is_reversed << endl;
+                //                                  : distance_index.get_prefix_sum_value(handle)));
+                cerr << "Node length should be " << distance_index.minimum_length(handle) << " actually " << seed.payload.node_length << endl;
+                assert(seed.payload.node_length == distance_index.minimum_length(handle));
+                cerr << "Reversed in parent? " << distance_index.net_handle_as_string(handle) << " " << distance_index.net_handle_as_string(parent_handle) << " " << seed.payload.is_reversed << endl;
                 cerr << "is trivial? " << seed.payload.is_trivial_chain << endl;
-                if (!distance_index.is_root(seed.payload.parent_handle)) {
-                    cerr << "Grandparent: " << distance_index.net_handle_as_string(distance_index.get_parent(seed.payload.parent_handle)) << endl;
+                if (!distance_index.is_root(parent_handle)) {
+                    cerr << "Grandparent: " << distance_index.net_handle_as_string(distance_index.get_parent(parent_handle)) << endl;
                 }
-                cerr << seed.payload.is_reversed << " " << distance_index.is_reversed_in_parent(seed.payload.parent_handle) << endl;
+                cerr << seed.payload.is_reversed << " " << distance_index.is_reversed_in_parent(parent_handle) << endl;
 
                 //assert(seed.payload.is_reversed == (seed.payload.is_trivial_chain ? distance_index.is_reversed_in_parent(seed.payload.parent_handle)
-                //                                             : distance_index.is_reversed_in_parent(seed.payload.node_handle)));
+                //                                             : distance_index.is_reversed_in_parent(handle)));
 #endif
 
                 //Add the parent chain or trivial chain
@@ -437,7 +432,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     new_parent = true;
                 }
 #ifdef DEBUG_CLUSTER
-                assert(seed.payload.parent_depth == distance_index.get_depth(seed.payload.parent_handle));
+                assert(seed.payload.parent_depth == distance_index.get_depth(parent_handle));
 #endif
 
 
@@ -477,12 +472,12 @@ cerr << "Add all seeds to nodes: " << endl;
             } else {
                 //Otherwise, the parent is the root or a root snarl, and the node_net_handle is a node
 
-
-
+cerr <<" Check identifier " << seed.payload.identifier << endl;
 
                 //Create a new SnarlTreeNodeProblem for this node
                 bool new_node = false;
                 if (clustering_problem.net_identifier_to_node_problem_index.count(seed.payload.identifier) == 0) {
+                    cerr << "Mak ea new node problem" << endl;
                     new_node = true;
                     clustering_problem.net_identifier_to_node_problem_index.emplace(seed.payload.identifier, 
                                                                                 clustering_problem.all_node_problems.size());
@@ -493,9 +488,11 @@ cerr << "Add all seeds to nodes: " << endl;
                                               std::numeric_limits<size_t>::max(),
                                               &seed, seed.seed->zipcode_decoder->max_depth());
                 }
+                cerr << "Ad distances" << endl;
 
                 seed.distance_left = seed.payload.is_reversed != is_rev(pos) ? seed.payload.node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = seed.payload.is_reversed != is_rev(pos) ? get_offset(pos) + 1 : seed.payload.node_length- get_offset(pos);
+                cerr << "Add nodes node problem" << endl;
 
                 SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(clustering_problem.net_identifier_to_node_problem_index.at(seed.payload.identifier));
 
@@ -629,8 +626,8 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
         }
 
 #ifdef DEBUG_CLUSTER
-        cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_problem->net_handle)  << " as a child of "
-              << distance_index.net_handle_as_string(distance_index.get_parent(snarl_problem->net_handle)) << endl;
+        cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_problem->containing_net_handle)  << " as a child of "
+              << distance_index.net_handle_as_string(distance_index.get_parent(snarl_problem->containing_net_handle)) << endl;
 #endif
 
     }
@@ -655,7 +652,11 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
         net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index);
         cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << " with " << chain_problem->children.size() << " children" << endl;
         for (auto& x : chain_problem->children) {
-            cerr << "\t" << distance_index.net_handle_as_string(x.net_handle) << endl;
+            if (x.has_net_handle) {
+                cerr << "\t" << distance_index.net_handle_as_string(x.net_handle) << endl;
+            } else {
+                cerr << "\t(didn't store the net handle)" << endl;
+            }
         }
 #endif
 
@@ -1892,6 +1893,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
 
 
 #ifdef DEBUG_CLUSTER
+    net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index); 
     cerr << "Cluster chain " << distance_index.net_handle_as_string(chain_handle) << endl;
     cerr << "\t chain has " << chain_problem->children.size() << " children" << endl;
 #endif

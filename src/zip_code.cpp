@@ -1871,6 +1871,7 @@ void ZipCodeCollection::deserialize(std::istream& in) {
 MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const {
     MIPayload payload;
     payload.identifier = get_identifier(max_depth());
+    cerr << "Found identifier " << payload.identifier << endl;
 
     if (decoder_length() == 1) {
         //If the root-level structure is a node
@@ -2016,12 +2017,13 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 }
 
 net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
+    cerr << "Get identifier at ddepth " << depth << endl;
     if (depth == std::numeric_limits<size_t>::max()) {
         //This is equivalent to distance_index.get_root()
         return "ROOT";
     }
     string result = "";
-    for (size_t d = 0 ; d < depth ; d++) {
+    for (size_t d = 0 ; d <= depth ; d++) {
         result += (decoder[d].first ? "1" : "0");
         if (d == 0) {
             //Root structure
@@ -2030,6 +2032,7 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
             for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
                 result += std::to_string(zip_value);
+                cerr << "Add identifier " << zip_value << endl;
             }
         } else if (decoder[d].first) {
             //is_chain so could be a chain or a node
@@ -2062,7 +2065,8 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
         if (d < std::min(depth, max_depth())) {
             result += ".";
         }
-        
+     
+        cerr << "At depth " << d << " result is " << result << endl;   
     }
     if (depth > max_depth()) {
         //If this was node that's in a trivial chain
