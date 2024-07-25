@@ -370,6 +370,7 @@ class ZipCodeDecoder {
     /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
     /// would be the node, also include the node id
     net_identifier_t get_identifier(size_t depth) const;
+    const static net_identifier_t get_root_identifier() { return "ROOT"; };
     const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
 
 
@@ -401,6 +402,7 @@ struct MIPayload {
 
     net_handle_t node_handle;
     net_handle_t parent_handle;
+    net_identifier_t identifier;
 
     size_t node_length = std::numeric_limits<size_t>::max();
     size_t prefix_sum = 0;

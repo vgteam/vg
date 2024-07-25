@@ -418,7 +418,9 @@ cerr << "Add all seeds to nodes: " << endl;
                     new_parent = true;
                     if (seed.payload.is_trivial_chain ) {
                         clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
-                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
+                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, 
+                                                     ZipCodeDecoder::get_parent_identifier(seed.payload.identifier), 
+                                                     clustering_problem.all_seeds->size(),
                                                      clustering_problem.seed_count_prefix_sum.back(),
                                                      false, seed.payload.node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
                                                      &seed, seed.seed->zipcode_decoder->max_depth()); 
@@ -426,7 +428,9 @@ cerr << "Add all seeds to nodes: " << endl;
                     } else {
                         //The parent is an actual chain
                         clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
-                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
+                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle,
+                                                              ZipCodeDecoder::get_parent_identifier(seed.payload.identifier),
+                                                              clustering_problem.all_seeds->size(),
                                                               clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                                               &seed, seed.seed->zipcode_decoder->max_depth() - 1);
                     }
@@ -483,7 +487,9 @@ cerr << "Add all seeds to nodes: " << endl;
                     new_node = true;
                     clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.node_handle, 
                                                                                 clustering_problem.all_node_problems.size());
-                    clustering_problem.all_node_problems.emplace_back(seed.payload.node_handle, clustering_problem.all_seeds->size(),
+                    clustering_problem.all_node_problems.emplace_back(seed.payload.node_handle, 
+                                             seed.payload.identifier,
+                                             clustering_problem.all_seeds->size(),
                                              clustering_problem.seed_count_prefix_sum.back(),
                                              false, seed.payload.node_length, std::numeric_limits<size_t>::max(),
                                               std::numeric_limits<size_t>::max(),
@@ -540,7 +546,9 @@ cerr << "Add all seeds to nodes: " << endl;
             if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent,
                                                          clustering_problem.all_node_problems.size());
-                clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
+                clustering_problem.all_node_problems.emplace_back(parent, 
+                                             ZipCodeDecoder::get_parent_identifier(node_problem.containing_net_id), 
+                                             clustering_problem.all_seeds->size(),
                                              clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                              seed, 0);
             }
@@ -598,7 +606,9 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
                 new_parent = true;
                 clustering_problem.net_handle_to_node_problem_index.emplace(snarl_parent,
                         clustering_problem.all_node_problems.size());
-                clustering_problem.all_node_problems.emplace_back(snarl_parent, clustering_problem.all_seeds->size(),
+                clustering_problem.all_node_problems.emplace_back(snarl_parent, 
+                                ZipCodeDecoder::get_parent_identifier(snarl_problem->containing_net_id),
+                                clustering_problem.all_seeds->size(),
                                 clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                 snarl_problem->seed, snarl_problem->zipcode_depth-1);
 
@@ -689,7 +699,9 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 //If the parent is a root snarl, then remember it to cluster in the root
                 if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                     clustering_problem.net_handle_to_node_problem_index.emplace(parent, clustering_problem.all_node_problems.size());
-                    clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
+                    clustering_problem.all_node_problems.emplace_back(parent, 
+                                     ZipCodeDecoder::get_parent_identifier(chain_problem->containing_net_id),
+                                     clustering_problem.all_seeds->size(),
                                      clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                      chain_problem->seed, chain_problem->zipcode_depth-1);
                 }
@@ -800,9 +812,11 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
             if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                 new_parent = true;
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent, clustering_problem.all_node_problems.size());
-                clustering_problem.all_node_problems.emplace_back(parent, clustering_problem.all_seeds->size(),
-                                                          clustering_problem.seed_count_prefix_sum.back(), distance_index,
-                                                          chain_problem->seed, chain_problem->zipcode_depth-1);
+                clustering_problem.all_node_problems.emplace_back(parent,
+                                 ZipCodeDecoder::get_parent_identifier(chain_problem->containing_net_id),
+                                 clustering_problem.all_seeds->size(),
+                                 clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                 chain_problem->seed, chain_problem->zipcode_depth-1);
                 //Because a new SnarlTreeNodeProblem got added, the old chain_problem pointer might have moved
                 SnarlTreeNodeProblem& chain_problem = clustering_problem.all_node_problems.at( 
                         clustering_problem.net_handle_to_node_problem_index.at(chain_handle));
@@ -2994,7 +3008,7 @@ void SnarlDistanceIndexClusterer::cluster_root(ClusteringProblem& clustering_pro
     }
 
     //Keep track of all clusters on the root
-    SnarlTreeNodeProblem root_problem(distance_index.get_root(), clustering_problem.all_seeds->size(),
+    SnarlTreeNodeProblem root_problem(distance_index.get_root(), ZipCodeDecoder::get_root_identifier(), clustering_problem.all_seeds->size(),
                                clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                &clustering_problem.all_seeds->at(0)->front(), 0);
     //TODO: ikd about the seed here

@@ -1870,6 +1870,7 @@ void ZipCodeCollection::deserialize(std::istream& in) {
 }
 MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const {
     MIPayload payload;
+    payload.identifier = get_identifier(max_depth());
 
     if (decoder_length() == 1) {
         //If the root-level structure is a node
