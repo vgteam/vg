@@ -280,6 +280,9 @@ using namespace std;
             vector<bool> keep(path_chunks.size(), true);
             
             if (prune_suspicious_anchors) {
+#ifdef debug_anchored_surject
+                cerr << "pruning suspicious anchors" << endl;
+#endif
                 for (int i = 0; i < path_chunks.size(); ++i) {
                     auto& chunk = path_chunks[i];
                     // Mark anchors that are themselves suspicious as not to be kept.
@@ -295,16 +298,40 @@ using namespace std;
                     }
                     if (anchor_lengths[i] < max_low_complexity_anchor_prune &&
                         chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune) {
-                        
-                        SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
-                        for (int order = 1; order <= 6; ++order) {
-                            if (complexity.p_value(order) < low_complexity_p_value) {
+                        SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
+                        if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
+                            const auto& seq = source_aln ? source_aln->sequence() : source_mp_aln->sequence();
+                            auto context_begin = max(seq.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
+                            auto context_end = min(seq.end(), context_begin + pad_suspicious_anchors_to_length);
+                            if (context_end == seq.end()) {
+                                // try to ensure enough bases if we're near the end of the read
+                                context_begin = max(seq.begin(), context_end - pad_suspicious_anchors_to_length);
+                            }
+                            SeqComplexity<6> context_complexity(context_begin, context_end);
+                            // TODO: repetetive
+                            for (int order = 1, max_order = 6; order <= max_order; ++order) {
+                                if (context_complexity.p_value(order) < low_complexity_p_value &&
+                                    (chunk_complexity.repetitiveness(order) > 0.5 || (chunk.first.second - chunk.first.first) <= order)) {
 #ifdef debug_anchored_surject
-                                cerr << "anchor " << i << " (read[" << (chunk.first.first - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << ":" << (chunk.first.second - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << "]) pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
+                                    cerr << "anchor " << i << " (read[" << (chunk.first.first - seq.begin()) << ":" << (chunk.first.second - seq.begin()) << "]) pruned being for having context with low complexity at order " << order << " with p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 #endif
-                                // the sequences is repetitive at this order
-                                keep[i] = false;
-                                break;
+                                    // the sequences is repetitive at this order
+                                    keep[i] = false;
+                                    break;
+                                }
+                            }
+                        }
+                        else {
+                            for (int order = 1; order <= 6; ++order) {
+                                if (chunk_complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                                    const auto& seq = source_aln ? source_aln->sequence() : source_mp_aln->sequence();
+                                    cerr << "anchor " << i << " (read[" << (chunk.first.first - seq.begin()) << ":" << (chunk.first.second - seq.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
+                                    // the sequences is repetitive at this order
+                                    keep[i] = false;
+                                    break;
+                                }
                             }
                         }
                     }
