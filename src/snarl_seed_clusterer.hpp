@@ -213,9 +213,10 @@ class SnarlDistanceIndexClusterer {
 
             //Struct to store one child, which may be a seed, node, snarl, or chain
             struct SnarlTreeChild {
-                //If the net_handle is a node, then the child is a seed, otherwise the handle 
-                //is used to find the problem
+                //This may or may not be set
                 net_handle_t net_handle;
+
+                //Used as an identifier
                 net_identifier_t identifier;
                 pair<size_t, size_t> seed_indices;
 
@@ -231,6 +232,7 @@ class SnarlDistanceIndexClusterer {
                 //For a seed, it gets set when the child is made, otherwise the first time this 
                 //child is seen when sorting
                 bool has_chain_values;
+                bool has_net_handle;
             };
             //The children of this snarl tree node
             //Initially unsorted, sort before clustering for chains
@@ -291,9 +293,8 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            SnarlTreeNodeProblem( net_handle_t net, net_identifier_t id, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
+            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
                                   const SeedCache* seed, size_t zipcode_depth) :
-                containing_net_handle(std::move(net)),
                 containing_net_id(std::move(id)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 seed(seed),
@@ -302,9 +303,8 @@ class SnarlDistanceIndexClusterer {
                 parent_net_id = ZipCodeDecoder::get_parent_identifier(containing_net_id);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
-            SnarlTreeNodeProblem( net_handle_t net, net_identifier_t id, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
+            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
                                  size_t node_length, size_t prefix_sum, size_t component, const SeedCache* seed, size_t zipcode_depth) :
-                containing_net_handle(net),
                 containing_net_id(std::move(id)),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
@@ -328,6 +328,10 @@ class SnarlDistanceIndexClusterer {
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
+                if (!has_net_handle) {
+                    containing_net_handle = seed->seed->zipcode_decoder->get_net_handle_slow(id(seed->seed->pos), zipcode_depth, &distance_index); 
+                    has_net_handle = true;
+                }
                 node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
                 net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
@@ -342,8 +346,13 @@ class SnarlDistanceIndexClusterer {
                 //Distance to go backward in the chain and back
                 loop_left = SnarlDistanceIndex::sum(distance_index.get_reverse_loop_value(start_in),
                                                             2*distance_index.minimum_length(start_in));
+            }
 
-
+            void set_net_handle(const SnarlDistanceIndex& distance_index) {
+                if (!has_net_handle) {
+                    has_net_handle = true;
+                    containing_net_handle = seed->seed->zipcode_decoder->get_net_handle_slow(id(seed->seed->pos), zipcode_depth, &distance_index);
+                }
             }
 
         };

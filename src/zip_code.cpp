@@ -1884,9 +1884,6 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         //root_identifier
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-        payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
-                                                                          SnarlDistanceIndex::START_END,
-                                                                          SnarlDistanceIndex::CHAIN_HANDLE);
 
         //Root node length
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
@@ -1894,12 +1891,10 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
         payload.node_length =  zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
         payload.is_trivial_chain = true;
         payload.is_reversed = false;
-        payload.parent_handle = distance_index.get_root();
         payload.parent_type = ZipCode::ROOT_NODE;
 
     } else if (decoder[max_depth() - 1].first) {
         //If the parent is a chain
-        payload.node_handle = distance_index.get_node_net_handle(id);
         payload.parent_is_chain = true;
         payload.parent_is_root = false;
 
@@ -1914,12 +1909,10 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
 
         if (decoder_length() == 2) {
             //If the node is a child of the root chain
-            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
             payload.parent_type = ZipCode::ROOT_CHAIN;
             payload.parent_is_root = true;
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         } else {
-            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_parent(payload.node_handle));
             payload.parent_type = ZipCode::CHAIN;
         }
 
@@ -1945,11 +1938,6 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
     } else {
         //If the node is a child of a snarl
         
-        payload.node_handle = distance_index.get_node_net_handle(id);
-        payload.parent_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(payload.node_handle),
-                                                         SnarlDistanceIndex::START_END,
-                                                         SnarlDistanceIndex::CHAIN_HANDLE,
-                                                         distance_index.get_node_record_offset(payload.node_handle));
         payload.parent_is_chain = false;
         payload.parent_is_root = decoder_length() == 2;
         payload.is_trivial_chain = true;
@@ -1963,11 +1951,6 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             //Identifier for root snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            payload.node_handle = payload.parent_handle;
-            payload.parent_handle = distance_index.get_net_handle_from_values(
-                                        distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
-                                        SnarlDistanceIndex::START_END,
-                                        SnarlDistanceIndex::ROOT_HANDLE);
             payload.parent_type = ZipCode::ROOT_SNARL;
         } else {
             zip_index = decoder[max_depth()-1].second;

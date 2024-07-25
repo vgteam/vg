@@ -400,8 +400,6 @@ struct MIPayload {
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
 
-    net_handle_t node_handle;
-    net_handle_t parent_handle;
     net_identifier_t identifier;
 
     size_t node_length = std::numeric_limits<size_t>::max();
@@ -409,7 +407,6 @@ struct MIPayload {
     size_t chain_component = 0;
     //Depth according to the distance index
     size_t parent_depth = 0;
-    size_t parent_record_offset = 0;
 
     ZipCode::code_type_t parent_type = ZipCode::EMPTY;
     bool is_reversed = false;
