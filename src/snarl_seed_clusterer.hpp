@@ -216,7 +216,7 @@ class SnarlDistanceIndexClusterer {
                 //If the net_handle is a node, then the child is a seed, otherwise the handle 
                 //is used to find the problem
                 net_handle_t net_handle;
-                net_identifier_t net_id;
+                net_identifier_t identifier;
                 pair<size_t, size_t> seed_indices;
 
                 //The values used to sort the children of a chain
@@ -408,14 +408,14 @@ class SnarlDistanceIndexClusterer {
             //The snarls and chains get updated as we move up the snarl tree
 
             //Maps each net_handle_t to an index to its node problem, in all_node_problems
-            hash_map<net_handle_t, size_t> net_handle_to_node_problem_index;
+            hash_map<net_identifier_t, size_t> net_identifier_to_node_problem_index;
             //This stores all the snarl tree nodes and their clustering scratch work 
             vector<SnarlTreeNodeProblem> all_node_problems;
            
             //All chains for the current level of the snarl tree and gets updated as the algorithm
             //moves up the snarl tree. At one iteration, the algorithm will go through each chain
             //in chain to children and cluster the chain using clusters on the children
-            vector<net_handle_t>* current_chains;
+            vector<net_identifier_t>* current_chains;
 
 
             //Same as current_chains but for the level of the snarl
@@ -423,18 +423,18 @@ class SnarlDistanceIndexClusterer {
             //This gets updated as the current level is processed - the snarls from this level
             //are added as children to parent_chain_to_children.
             //After processing one level, this becomes the next chain_to_children
-            vector<net_handle_t>* parent_chains;
+            vector<net_identifier_t>* parent_chains;
 
             //All snarls for the current level of the snarl tree 
             //(chains from chain_to_children get added to their parent snarls, snarls get added to parent_snarls
             //then all snarls in snarl_to_children are clustered and added to parent_chain_to_children)
-            vector<net_handle_t> parent_snarls;
+            vector<net_identifier_t> parent_snarls;
 
 
             //This holds all the child problems of the root
             //Each pair is the parent and the child. This will be sorted by parent before
             //clustering
-            vector<pair<net_handle_t, net_handle_t>> root_children;
+            vector<pair<net_identifier_t, net_identifier_t>> root_children;
 
 
             /////////////////////////////////////////////////////////
@@ -457,7 +457,7 @@ class SnarlDistanceIndexClusterer {
 
                 }
 
-                net_handle_to_node_problem_index.reserve(5*seed_count);
+                net_identifier_to_node_problem_index.reserve(5*seed_count);
                 all_node_problems.reserve(5*seed_count);
                 parent_snarls.reserve(seed_count);
                 root_children.reserve(seed_count);
@@ -470,7 +470,7 @@ class SnarlDistanceIndexClusterer {
         //If a node is a child of the root or of a root snarl, then add cluster it and
         //remember to cluster the root snarl 
         void get_nodes( ClusteringProblem& clustering_problem,
-                        vector<vector<net_handle_t>>& chains_by_level) const;
+                        vector<vector<net_identifier_t>>& chains_by_level) const;
 
 
         //Cluster all the snarls at the current level
