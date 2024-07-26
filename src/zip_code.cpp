@@ -709,11 +709,17 @@ net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, 
         //If this is a chain/node
 
         net_handle_t n = distance_index->get_node_net_handle(id);
-        for (size_t d = max_depth() ; d > depth ; d--) {
-            n = distance_index->get_parent(n);
-            if (distance_index->is_trivial_chain(n)){
+        size_t max = max_depth();
+        if (max > 1 && decoder[max].first && !decoder[max-1].first) { 
+            //If the last thing is a trivial chain
+            if (depth == max+1) {
+                return n;
+            } else {
                 n = distance_index->get_parent(n);
             }
+        }
+        for (size_t d = max ; d > depth ; d--) {
+            n = distance_index->get_parent(n);
         }
         return n;
     } else {
