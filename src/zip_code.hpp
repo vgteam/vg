@@ -380,7 +380,6 @@ class ZipCodeDecoder {
 template<>
 struct wang_hash<net_identifier_t> {
     size_t operator()(const net_identifier_t& id) const {
-        cerr <<" Get hash of " << id << endl;
         string id_string = static_cast<string>(id);
         return std::hash<std::string>{}(id_string);
     }
