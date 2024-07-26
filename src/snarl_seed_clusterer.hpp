@@ -300,7 +300,7 @@ class SnarlDistanceIndexClusterer {
                 seed(seed),
                 zipcode_depth(zipcode_depth) {
                 read_cluster_heads.reserve(seed_count);
-                parent_net_id = ZipCodeDecoder::get_parent_identifier(containing_net_id);
+                parent_net_id =containing_net_id == "ROOT" ? "ROOT" :  ZipCodeDecoder::get_parent_identifier(containing_net_id);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
             SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
@@ -315,7 +315,7 @@ class SnarlDistanceIndexClusterer {
                 seed(seed),
                 zipcode_depth(zipcode_depth) {
                 read_cluster_heads.reserve(seed_count);
-                parent_net_id = ZipCodeDecoder::get_parent_identifier(containing_net_id);
+                parent_net_id = containing_net_id == "ROOT" ? "ROOT" : ZipCodeDecoder::get_parent_identifier(containing_net_id);
             }
 
             //Set the values needed to cluster a chain
@@ -328,10 +328,6 @@ class SnarlDistanceIndexClusterer {
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
-                if (!has_net_handle) {
-                    containing_net_handle = seed->seed->zipcode_decoder->get_net_handle_slow(id(seed->seed->pos), zipcode_depth, &distance_index); 
-                    has_net_handle = true;
-                }
                 node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
                 net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
