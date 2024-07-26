@@ -710,7 +710,7 @@ net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, 
 
         net_handle_t n = distance_index->get_node_net_handle(id);
         size_t max = max_depth();
-        if (max > 1 && decoder[max].first && !decoder[max-1].first) { 
+        if (max >= 1 && decoder[max].first && !decoder[max-1].first) { 
             //If the last thing is a trivial chain
             if (depth == max+1) {
                 return distance_index->start_end_traversal_of(n);
@@ -1958,6 +1958,7 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             //Identifier for root snarl
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             payload.parent_type = ZipCode::ROOT_SNARL;
+            payload.identifier = get_identifier(max_depth());
         } else {
             zip_index = decoder[max_depth()-1].second;
             //is_regular
@@ -1995,6 +1996,7 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
             } else {
                 payload.is_reversed = false;
             }
+            payload.identifier = get_identifier(max_depth()+1);
 
         }
         //We should be at the node/trivial chain now
@@ -2005,8 +2007,7 @@ MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistance
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         payload.node_length = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
 
-        //Since the node is technically in a trivial chain, get the node identifier not the chain
-        payload.identifier = get_identifier(max_depth()+1);
+        //This will be the node of the trivial chain
         //Get the rest as default values
 
     }
