@@ -81,6 +81,23 @@ using namespace std;
                                                          distance_index)
                     == 3);
         }
+        SECTION("get net handle") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+            ZipCodeDecoder decoder(&zipcode);
+            net_handle_t n = distance_index.get_node_net_handle(n1->id());
+            net_identifier_t id = decoder.get_identifier(decoder.max_depth()+1);
+            for (int i = decoder.max_depth()+1 ; i >= 0 ; --i) {
+                assert(distance_index.start_end_traversal_of(n) == 
+                            distance_index.start_end_traversal_of(decoder.get_net_handle_slow(n1->id(), i , &distance_index)));
+                if (i != 0) {
+                    assert(decoder.get_identifier(i-1) == decoder.get_parent_identifier(id)); 
+                    n = distance_index.get_parent(n);
+                    id = decoder.get_parent_identifier(id);
+                }
+            }
+
+        }
     }
     TEST_CASE("Simple chain zipcode", "[zipcode]") {
         //Snarl 1-3, snarl 3-6
@@ -1312,7 +1329,7 @@ using namespace std;
         }
     }
 
-    TEST_CASE("Top-level snarl zipcode", "[zipcode]") {
+    TEST_CASE("Top-level snarl zipcode", "[zipcode][test]") {
  
         VG graph;
  
@@ -1563,6 +1580,40 @@ using namespace std;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
+        }
+        SECTION("get net handle node 1") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+            ZipCodeDecoder decoder(&zipcode);
+            net_handle_t n = distance_index.get_node_net_handle(n1->id());
+            net_identifier_t id = decoder.get_identifier(decoder.max_depth()+1);
+            for (int i = decoder.max_depth()+1 ; i >= 0 ; --i) {
+                assert(distance_index.start_end_traversal_of(n) == 
+                            distance_index.start_end_traversal_of(decoder.get_net_handle_slow(n1->id(), i , &distance_index)));
+                if (i != 0) {
+                    assert(decoder.get_identifier(i-1) == decoder.get_parent_identifier(id)); 
+                    n = distance_index.get_parent(n);
+                    id = decoder.get_parent_identifier(id);
+                }
+            }
+
+        }
+        SECTION("get net handle") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
+            ZipCodeDecoder decoder(&zipcode);
+            net_handle_t n = distance_index.get_node_net_handle(n4->id());
+            net_identifier_t id = decoder.get_identifier(decoder.max_depth()+1);
+            for (int i = decoder.max_depth() +1 ; i >= 0 ; --i) {
+                assert(distance_index.start_end_traversal_of(n) == 
+                            distance_index.start_end_traversal_of(decoder.get_net_handle_slow(n4->id(), i , &distance_index)));
+                if (i != 0) {
+                    assert(decoder.get_identifier(i-1) == decoder.get_parent_identifier(id)); 
+                    n = distance_index.get_parent(n);
+                    id = decoder.get_parent_identifier(id);
+                }
+            }
+
         }
     }
     TEST_CASE("Top-level chain zipcode", "[zipcode]") {

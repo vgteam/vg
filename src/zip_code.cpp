@@ -2031,7 +2031,6 @@ net_identifier_t ZipCodeDecoder::get_identifier(size_t depth) const {
     }
     string result = "";
     for (size_t d = 0 ; d <= std::min(max_depth(), depth) ; d++) {
-        cerr << " at depth " << d << " with max depth " << max_depth() << " and dep th " << depth << endl;
         result += (decoder[d].first ? "1" : "0");
         if (d == 0) {
             //Root structure
