@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/multipath_mapper.cpp File Reference</title>
+<title>vg: src/algorithms/pad_band.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,45 +62,37 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
-<div class="title">multipath_mapper.cpp File Reference</div>  </div>
+<div class="title">pad_band.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="multipath__mapper_8hpp.html">multipath_mapper.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="multipath__alignment__graph_8hpp.html">multipath_alignment_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="kmp_8hpp.html">kmp.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="hash__map_8hpp.html">hash_map.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="nodeside_8hpp.html">nodeside.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="annotation_8hpp.html">annotation.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="statistics_8hpp.html">statistics.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="identity__overlay_8hpp.html">identity_overlay.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="reverse__graph_8hpp.html">reverse_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="split__strand__graph_8hpp.html">split_strand_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="dagified__graph_8hpp.html">dagified_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="count__covered_8hpp.html">algorithms/count_covered.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="extract__containing__graph_8hpp.html">algorithms/extract_containing_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="locally__expand__graph_8hpp.html">algorithms/locally_expand_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="jump__along__path_8hpp.html">algorithms/jump_along_path.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="ref__path__distance_8hpp.html">algorithms/ref_path_distance.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="component_8hpp.html">algorithms/component.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="pad__band_8hpp.html">algorithms/pad_band.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
+<code>#include &lt;vg/vg.pb.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a58ef89aaf7868024c6c3795fecf34a26"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a58ef89aaf7868024c6c3795fecf34a26">vg::algorithms::pad_band_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000)</td></tr>
+<tr class="separator:a58ef89aaf7868024c6c3795fecf34a26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab48342aedc7d81e2334c52bb320223c2"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">vg::algorithms::pad_band_constant</a> (size_t band_padding)</td></tr>
+<tr class="memdesc:ab48342aedc7d81e2334c52bb320223c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a band padding function that uses a constant value.  <a href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">More...</a><br /></td></tr>
+<tr class="separator:ab48342aedc7d81e2334c52bb320223c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Implements the MultipathMapper class </p>
+<div class="textblock"><p>Defines algorithm for computing band padding for banded alignment. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
