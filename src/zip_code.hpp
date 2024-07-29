@@ -365,7 +365,7 @@ class ZipCodeDecoder {
     //TODO: I want to make a struct for holding all values of a code as real values
 
     ///Fill in a payload with values from the zipcode
-    MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
+    MIPayload get_payload_from_zipcode(nid_t id) const;
 
     /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
     /// would be the node, also include the node id

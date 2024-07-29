@@ -1881,7 +1881,7 @@ void ZipCodeCollection::deserialize(std::istream& in) {
     }
 
 }
-MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const {
+MIPayload ZipCodeDecoder::get_payload_from_zipcode(nid_t id) const {
     MIPayload payload;
 
     if (decoder_length() == 1) {

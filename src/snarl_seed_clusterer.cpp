@@ -35,7 +35,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
 #endif
         seed_caches[i].seed = &(seeds[i]);
         if (seeds[i].zipcode.byte_count() != 0) {
-            seed_caches[i].payload = seeds[i].zipcode_decoder->get_payload_from_zipcode(id(seeds[i].pos), distance_index);
+            seed_caches[i].payload = seeds[i].zipcode_decoder->get_payload_from_zipcode(id(seeds[i].pos));
         }
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
@@ -79,7 +79,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 #endif
             all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
             if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
-                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode_decoder->get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index);
+                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode_decoder->get_payload_from_zipcode(id(all_seeds[read_num][i].pos));
             }
         }
     }
