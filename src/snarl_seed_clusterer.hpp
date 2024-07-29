@@ -321,7 +321,15 @@ class SnarlDistanceIndexClusterer {
             //Set the values needed to cluster a chain
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
                 is_looping_chain = seed->seed->zipcode_decoder->get_is_looping_chain(zipcode_depth);
-                node_length = distance_index.chain_minimum_length(containing_net_handle);
+                if (zipcode_depth == 0 || is_looping_chain || seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true) != 0) { 
+                    node_length = distance_index.chain_minimum_length(containing_net_handle);
+                } else {
+                    node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
+                }
+                if (distance_index.chain_minimum_length(containing_net_handle) != node_length) {
+                    cerr << "Got wrong length for chain " << distance_index.net_handle_as_string(seed->seed->zipcode_decoder->get_net_handle_slow(id(seed->seed->pos), zipcode_depth, &distance_index)) << " at depth " << zipcode_depth << endl; 
+                    cerr << "distances: " << distance_index.chain_minimum_length(containing_net_handle) << " and " <<  node_length << endl;
+                }
                 chain_component_end = seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true);
                 is_reversed_in_parent = seed->seed->zipcode_decoder->get_is_reversed_in_parent(zipcode_depth);
             }
