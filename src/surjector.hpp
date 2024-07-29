@@ -192,6 +192,9 @@ using namespace std;
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
+        void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
+                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
+        
         /// Compute the widest end-inclusive interval of path positions that
         /// the realigned sequence could align to, or an interval where start >
         /// end if there are no path chunks.
