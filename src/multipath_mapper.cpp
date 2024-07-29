@@ -45,6 +45,7 @@
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
 #include "algorithms/component.hpp"
+#include "algorithms/pad_band.hpp"
 
 namespace vg {
     
@@ -60,6 +61,7 @@ namespace vg {
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      SnarlDistanceIndex* distance_index) :
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
+        choose_band_padding(algorithms::pad_band_random_walk(1.0, 0)),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
         path_component_index(distance_index ? nullptr : new PathComponentIndex(graph)),
@@ -893,15 +895,6 @@ namespace vg {
                     }
                 }
             }
-        }
-    }
-    
-    void MultipathMapper::init_band_padding_memo() {
-        band_padding_memo.clear();
-        band_padding_memo.resize(band_padding_memo_size);
-        
-        for (size_t i = 0; i < band_padding_memo.size(); i++) {
-            band_padding_memo[i] = size_t(band_padding_multiplier * sqrt(i)) + 1;
         }
     }
 
@@ -6248,12 +6241,6 @@ namespace vg {
             }
 #endif
             
-            function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-                size_t read_length = seq.sequence().size();
-                return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
-                                                              : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
-            };
-            
             // do the connecting alignments and fill out the multipath_alignment_t object
             multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
                                   use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, std::numeric_limits<size_t>::max(),
@@ -6304,12 +6291,6 @@ namespace vg {
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
         multi_aln_graph.remove_transitive_edges(topological_order);
-        
-        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            size_t read_length = seq.sequence().end() - seq.sequence().begin();
-            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
-                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
-        };
         
         // do the connecting alignments and fill out the multipath_alignment_t object
         multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
