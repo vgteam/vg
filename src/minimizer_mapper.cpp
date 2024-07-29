@@ -2072,7 +2072,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
+                    cerr << log_name() << "Found no pairs" << endl;
                 }
             }
             std::array<alignment_index_t, 2> best_index {NO_INDEX, NO_INDEX};
@@ -2088,6 +2088,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
             if (max_rescue_attempts == 0 ) { 
                 // If we aren't attempting rescue, just return the best alignment from each end.
+                
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Not attempting rescue; return best alignment for each read" << endl;
+                    }
+                }
+
                 // By default, use argument alignments for scratch.
                 std::array<Alignment*, 2> best_aln {alns[0], alns[1]};
     
