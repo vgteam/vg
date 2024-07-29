@@ -426,7 +426,7 @@ cerr << "Node has identifier " << seed.payload.identifier << endl;
                         clustering_problem.net_identifier_to_node_problem_index.emplace(parent_id, clustering_problem.all_node_problems.size());
                         clustering_problem.all_node_problems.emplace_back(parent_id,
                                                               clustering_problem.all_seeds->size(),
-                                                              clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                                              clustering_problem.seed_count_prefix_sum.back(),
                                                               &seed, seed.seed->zipcode_decoder->max_depth() - 1);
                     }
 
@@ -538,7 +538,7 @@ cerr << "Node has identifier " << seed.payload.identifier << endl;
                                                          clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(parent_id, 
                                              clustering_problem.all_seeds->size(),
-                                             clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                             clustering_problem.seed_count_prefix_sum.back(),
                                              seed, 0);
                 if (node_problem.has_parent_handle) {
                     clustering_problem.all_node_problems.back().containing_net_handle = node_problem.parent_net_handle;
@@ -597,7 +597,7 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
                         clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(parent_id,
                                 clustering_problem.all_seeds->size(),
-                                clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                clustering_problem.seed_count_prefix_sum.back(),
                                 snarl_problem->seed, snarl_problem->zipcode_depth-1);
                 if (snarl_problem->has_parent_handle) {
                     clustering_problem.all_node_problems.back().containing_net_handle = snarl_problem->parent_net_handle;
@@ -686,8 +686,11 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                             ? chain_problem->parent_net_handle
                             : (chain_problem->zipcode_depth == 0 
                                 ? distance_index.get_root()
-                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, &distance_index, &chain_problem->containing_net_handle)));
+                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(
+                                                                            id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, 
+                                                                            &distance_index, &chain_problem->containing_net_handle)));
         net_identifier_t parent_id = chain_id == "ROOT" ? "ROOT" : ZipCodeDecoder::get_parent_identifier(chain_id);
+
 #ifdef DEBUG_CLUSTER
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << " with id " << parent_id << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
@@ -705,7 +708,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                     clustering_problem.net_identifier_to_node_problem_index.emplace(parent_id, clustering_problem.all_node_problems.size());
                     clustering_problem.all_node_problems.emplace_back(parent_id,
                                      clustering_problem.all_seeds->size(),
-                                     clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                     clustering_problem.seed_count_prefix_sum.back(),
                                      chain_problem->seed, chain_problem->zipcode_depth-1);
                     if (chain_problem->has_parent_handle) {
                         clustering_problem.all_node_problems.back().containing_net_handle = chain_problem->parent_net_handle;
@@ -824,7 +827,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 clustering_problem.net_identifier_to_node_problem_index.emplace(parent_id, clustering_problem.all_node_problems.size());
                 clustering_problem.all_node_problems.emplace_back(parent_id,
                                  clustering_problem.all_seeds->size(),
-                                 clustering_problem.seed_count_prefix_sum.back(), distance_index,
+                                 clustering_problem.seed_count_prefix_sum.back(),
                                  chain_problem->seed, chain_problem->zipcode_depth-1);
 
                 //Because a new SnarlTreeNodeProblem got added, the old chain_problem pointer might have moved

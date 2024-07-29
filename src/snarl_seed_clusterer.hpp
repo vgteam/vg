@@ -293,7 +293,7 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
+            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, 
                                   const SeedCache* seed, size_t zipcode_depth) :
                 containing_net_id(std::move(id)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
