@@ -693,7 +693,7 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
     }
 }
 
-net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) const {
+net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index, const net_handle_t* child) const {
     //This is just copying get_net_handle except adding a slower version for the things we don't remember
 
     if (depth == 0) {
@@ -707,6 +707,9 @@ net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, 
 
     } else if (decoder[depth].first) {
         //If this is a chain/node
+        if (child != nullptr) {
+            return distance_index->get_parent(*child);
+        }
 
         net_handle_t n = distance_index->get_node_net_handle(id);
         size_t max = max_depth();
@@ -733,6 +736,10 @@ net_handle_t ZipCodeDecoder::get_net_handle_slow(nid_t id, const size_t& depth, 
         }
         if (zip_value == 1) {
             //If this is a regular snarl
+
+            if (child != nullptr) {
+                return distance_index->get_parent(*child);
+            }
 
             net_handle_t n = distance_index->get_node_net_handle(id);
             for (size_t d = max_depth() ; d > depth ; d--) {

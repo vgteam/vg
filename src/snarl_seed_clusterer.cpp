@@ -620,6 +620,9 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
             parent_problem.children.back().is_seed = false;
             parent_problem.children.back().chain_component = snarl_problem->chain_component_start;
             parent_problem.children.back().prefix_sum = snarl_problem->prefix_sum_value;
+            if (snarl_problem->has_parent_handle && ! parent_problem.has_net_handle) {
+                parent_problem.containing_net_handle = snarl_problem->parent_net_handle;
+            }
 
             parent_problem.children.back().has_chain_values = true;
             if (new_parent) {
@@ -651,7 +654,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 clustering_problem.net_identifier_to_node_problem_index.at(chain_id));
 
 #ifdef DEBUG_CLUSTER
-        net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index);
+        net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index, &chain_problem->containing_net_handle);
         cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << " with " << chain_problem->children.size() << " children" << endl;
         for (auto& x : chain_problem->children) {
             if (x.has_net_handle) {
@@ -663,19 +666,6 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 #endif
 
 
-        net_handle_t parent = chain_problem->has_parent_handle
-                            ? chain_problem->parent_net_handle
-                            : (chain_problem->zipcode_depth == 0 
-                                ? distance_index.get_root()
-                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, &distance_index)));
-        net_identifier_t parent_id = chain_id == "ROOT" ? "ROOT" : ZipCodeDecoder::get_parent_identifier(chain_id);
-#ifdef DEBUG_CLUSTER
-        cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << " with id " << parent_id << endl;
-        if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
-            cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
-            //assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
-        }
-#endif
         ZipCode::code_type_t parent_type = chain_problem->zipcode_depth == 0 
                                 ? ZipCode::EMPTY
                                 : chain_problem->seed->seed->zipcode_decoder->get_code_type(chain_problem->zipcode_depth-1);
@@ -692,6 +682,19 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
 
         // Compute the clusters for the chain
         cluster_one_chain(clustering_problem, chain_problem, is_top_level_chain);
+        net_handle_t parent = chain_problem->has_parent_handle
+                            ? chain_problem->parent_net_handle
+                            : (chain_problem->zipcode_depth == 0 
+                                ? distance_index.get_root()
+                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, &distance_index, &chain_problem->containing_net_handle)));
+        net_identifier_t parent_id = chain_id == "ROOT" ? "ROOT" : ZipCodeDecoder::get_parent_identifier(chain_id);
+#ifdef DEBUG_CLUSTER
+        cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << " with id " << parent_id << endl;
+        if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
+            cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
+            //assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+        }
+#endif
 
         //Add the chain to its parent
         if (is_root) {
@@ -842,6 +845,9 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
             parent_problem.children.back().identifier = chain_id;
             parent_problem.children.back().is_seed = false;
             parent_problem.children.back().has_chain_values = false;
+            if (chain_problem->has_parent_handle && ! parent_problem.has_net_handle) {
+                parent_problem.containing_net_handle = chain_problem->parent_net_handle;
+            }
 
 
             if (new_parent) {
@@ -941,7 +947,10 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
     //I'm pretty sure this will only not have been set for a root snarl, in which case its fastest to get it from the zipcode
     //instead of distance_index.get_parent
     if (!parent_problem->has_net_handle) {
-        parent_problem->set_net_handle(distance_index);
+        parent_problem->containing_net_handle = parent_problem->seed->seed->zipcode_decoder->get_net_handle_slow(
+                                                    id(parent_problem->seed->seed->pos), parent_problem->zipcode_depth, 
+                                                    &distance_index, &child_problem1->containing_net_handle);
+        parent_problem->has_net_handle = true;
 
     }
 
