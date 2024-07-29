@@ -618,7 +618,10 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
             parent_problem.children.back().net_handle = snarl_problem->containing_net_handle;
             parent_problem.children.back().identifier = snarl_id;
             parent_problem.children.back().is_seed = false;
-            parent_problem.children.back().has_chain_values = false;
+            parent_problem.children.back().chain_component = snarl_problem->chain_component_start;
+            parent_problem.children.back().prefix_sum = snarl_problem->prefix_sum_value;
+
+            parent_problem.children.back().has_chain_values = true;
             if (new_parent) {
                 //And the parent chain to the things to be clustered next
                 clustering_problem.parent_chains->emplace_back(parent_id);
@@ -1806,10 +1809,12 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
             }
             if (!child1.is_seed && !child1.has_chain_values) {
                 //If child1 is a snarl and hasn't had its values set yet
+                //TODO: I think this should never happen
                 child1.chain_component = clustering_problem.all_node_problems.at(
                        clustering_problem.net_identifier_to_node_problem_index.at(child1.identifier)).chain_component_start;
                 child1.prefix_sum = clustering_problem.all_node_problems.at(
                        clustering_problem.net_identifier_to_node_problem_index.at(child1.identifier)).prefix_sum_value;
+                child1.has_chain_values = true;
             }
             if (!child2.is_seed && !child2.has_chain_values) {
                 //If child2 is a snarl and hasn't had its values set yet
@@ -1817,10 +1822,11 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                        clustering_problem.net_identifier_to_node_problem_index.at(child2.identifier)).chain_component_start;
                 child2.prefix_sum = clustering_problem.all_node_problems.at(
                        clustering_problem.net_identifier_to_node_problem_index.at(child2.identifier)).prefix_sum_value;
+                child2.has_chain_values = true;
             }
             if (child1.chain_component != child2.chain_component) {
                 return child1.chain_component < child2.chain_component;
-            } else if (child1.prefix_sum == child2.prefix_sum) {
+            } else if (child1.prefix_sum == child2.prefix_sum && !(child1.is_seed && child2.is_seed)) {
                 //Get the prefix sum values not including the offset in the positions 
                 size_t prefix_sum1 = child1.is_seed 
                                    ? clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).payload.prefix_sum
