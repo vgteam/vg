@@ -654,7 +654,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                 clustering_problem.net_identifier_to_node_problem_index.at(chain_id));
 
 #ifdef DEBUG_CLUSTER
-        net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index, &chain_problem->containing_net_handle);
+        net_handle_t chain_handle = chain_problem->seed->seed->zipcode_decoder->get_net_handle_slow(id(chain_problem->seed->seed->pos), chain_problem->zipcode_depth, &distance_index);
         cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << " with " << chain_problem->children.size() << " children" << endl;
         for (auto& x : chain_problem->children) {
             if (x.has_net_handle) {

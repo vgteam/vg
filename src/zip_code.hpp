@@ -346,6 +346,7 @@ class ZipCodeDecoder {
     /// The minimum distance from start or end of the snarl to the left or right side of the child
     size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) const;
 
+    bool is_externally_connected(const size_t& depth) const;
     bool is_externally_start_end_connected(const size_t& depth) const;
     bool is_externally_start_start_connected(const size_t& depth) const;
     bool is_externally_end_end_connected(const size_t& depth) const;
