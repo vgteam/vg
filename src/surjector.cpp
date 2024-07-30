@@ -4154,7 +4154,7 @@ using namespace std;
                     bool found_indel = false;
                     // note: relying on underflow for the break conditions in the reverse direction
                     for (mapping_idx = left_end ? 0 : path_chunk.second.mapping_size() - 1;
-                         (mapping_idx < path_chunk.second.mapping_size() && !found_indel && walked_to_length < max_low_complexity_anchor_prune);
+                         (mapping_idx < path_chunk.second.mapping_size() && walked_to_length < max_low_complexity_anchor_prune);
                          mapping_idx += incr) {
                         
                         const auto& mapping = path_chunk.second.mapping(mapping_idx);
@@ -4169,9 +4169,16 @@ using namespace std;
                             }
                             walked_to_length += edit.to_length();
                         }
+                        if (found_indel) {
+                            break;
+                        }
                     }
                     
                     if (found_indel) {
+#ifdef debug_anchored_surject
+                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel at mapping " << mapping_idx << ", edit " << edit_idx << ", walked length " << walked_to_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
+#endif
+                        
                         // we found an indel in the anchor, now we test whether it's in a low complexity sequence
                         
                         const auto& indel_edit = path_chunk.second.mapping(mapping_idx).edit(edit_idx);
@@ -4179,6 +4186,9 @@ using namespace std;
                         auto trim_end = left_end ? path_chunk.first.first + (walked_to_length + indel_edit.to_length()) : path_chunk.first.second;
                         if (trim_begin == path_chunk.first.first && trim_end == path_chunk.first.second) {
                             // don't trim the entire anchor
+#ifdef debug_anchored_surject
+                            cerr << "trimming would eliminate the entire anchor, skipping" << endl;
+#endif
                             continue;
                         }
                         
@@ -4187,6 +4197,9 @@ using namespace std;
                         bool do_trim = false;
                         for (int order = 1; order <= 6 && !do_trim; ++order) {
                             if (trim_candidate_complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                                cerr << "anchor is low complexity with order " << order << " and p-value " << trim_candidate_complexity.p_value(order) << endl;
+#endif
                                 do_trim = true;
                             }
                         }
@@ -4210,6 +4223,10 @@ using namespace std;
                                 mappings_to_delete += 1;
                                 edits_to_delete = 0;
                             }
+                            
+#ifdef debug_anchored_surject
+                            cerr << "trimming " << mappings_to_delete << " mapping and " << edits_to_delete << " edits" << endl;
+#endif
                             
                             bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunk.first))
                                              != path_chunk.second.mapping().front().position().is_reverse());
@@ -4244,6 +4261,13 @@ using namespace std;
                                     final_mapping->mutable_edit()->pop_back();
                                 }
                             }
+                            
+#ifdef debug_anchored_surject
+                            cerr << "result of trimming:" << endl;
+                            cerr << "read[" << (path_chunk.first.first - sequence.begin()) << ":" << (path_chunk.first.second - sequence.begin()) << "] : " << string(path_chunk.first.first, path_chunk.first.second) << endl;
+                            cerr << graph->get_path_name(graph->get_path_handle_of_step(ref_chunk.first)) << " : " << graph->get_position_of_step(ref_chunk.first) << "(node " << graph->get_id(graph->get_handle_of_step(ref_chunk.first)) << ") - " << graph->get_position_of_step(ref_chunk.second) << " (node " << graph->get_id(graph->get_handle_of_step(ref_chunk.second)) << ")" << endl;
+                            cerr << debug_string(path_chunk.second) << endl;
+#endif
                         }
                     }
                 }
