@@ -1900,7 +1900,8 @@ pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
 
 void parse_bed_regions(istream& bedstream,
                        const PathPositionHandleGraph* graph,
-                       vector<Alignment>* out_alignments) {
+                       vector<Alignment>* out_alignments,
+                       AlignmentEmitter* aln_emitter) {
     out_alignments->clear();
     if (!bedstream) {
         cerr << "Unable to open bed file." << endl;
@@ -2166,13 +2167,24 @@ void parse_bed_regions(istream& bedstream,
             out_alignments->push_back(alignment);
         }
 
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
+        // if we do want to output alignments and we have enough, write them
+        if(aln_emitter != nullptr & out_alignments->size() > 1000){
+            aln_emitter->emit_singles(vector<Alignment>(*out_alignments));
+            // clear the buffer
+            out_alignments->clear();
+        }
+    }
+
+    // if we do want to output to alignments and we have some, write them
+    if(aln_emitter != nullptr & out_alignments->size() > 0){
+        aln_emitter->emit_singles(vector<Alignment>(*out_alignments));
     }
 }
 
 void parse_gff_regions(istream& gffstream,
                        const PathPositionHandleGraph* graph,
-                       vector<Alignment>* out_alignments) {
+                       vector<Alignment>* out_alignments,
+                       AlignmentEmitter* aln_emitter) {
     out_alignments->clear();
     if (!gffstream) {
         cerr << "Unable to open gff3/gtf file." << endl;
@@ -2448,7 +2460,16 @@ void parse_gff_regions(istream& gffstream,
             out_alignments->push_back(alignment);
         }
 
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
+        // if we do want to output alignments and we have enough, write them
+        if(aln_emitter != nullptr & out_alignments->size() > 1000){
+            aln_emitter->emit_singles(vector<Alignment>(*out_alignments));
+            // clear the buffer
+            out_alignments->clear();
+        }
+        
+    }
+    if(aln_emitter != nullptr & out_alignments->size() > 0){
+        aln_emitter->emit_singles(vector<Alignment>(*out_alignments));
     }
 }
 

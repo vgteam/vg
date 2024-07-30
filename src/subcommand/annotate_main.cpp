@@ -25,6 +25,7 @@ void help_annotate(char** argv) {
          << "    -b, --bed-name FILE    a BED file to convert to GAM. May repeat." << endl
          << "    -f, --gff-name FILE    a GFF3 file to convert to GAM. May repeat." << endl
          << "    -g, --ggff             output at GGFF subgraph annotation file instead of GAM (requires -s)" << endl
+         << "    -F, --gaf-output       output in GAF format rather than GAM" << endl
          << "    -s, --snarls FILE      file containing snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl
          << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
@@ -97,6 +98,7 @@ int main_annotate(int argc, char** argv) {
     size_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
+    bool output_gaf = false;
     string snarls_name;
 
     int c;
@@ -112,6 +114,7 @@ int main_annotate(int argc, char** argv) {
             {"bed-name", required_argument, 0, 'b'},
             {"gff-name", required_argument, 0, 'f'},
             {"ggff", no_argument, 0, 'g'},
+            {"gaf-output", no_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"novelty", no_argument, 0, 'n'},
             {"threads", required_argument, 0, 't'},
@@ -120,7 +123,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pml:b:f:gs:nt:h",
+        c = getopt_long (argc, argv, "hx:a:pml:b:f:gFs:nt:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -147,6 +150,10 @@ int main_annotate(int argc, char** argv) {
             
         case 'g':
             output_ggff = true;
+            break;
+                
+        case 'F':
+            output_gaf = true;
             break;
                 
         case 's':
@@ -461,12 +468,16 @@ int main_annotate(int argc, char** argv) {
             }
         }
         else {
+
+            // Open up a GAM/GAF output stream
+            unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", output_gaf ? "GAF" : "GAM", {}, vg::get_thread_count(),
+                                                                                                           xg_index);
+            
             for (auto& bed_name : bed_names) {
                 // Convert each BED file to GAM
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     vector<Alignment> buffer;
-                    parse_bed_regions(bed_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_bed_regions(bed_stream, xg_index, &buffer, alignment_emitter.get());
                 });
                 
                 // TODO: We'll get an EOF marker per input file.
@@ -474,9 +485,9 @@ int main_annotate(int argc, char** argv) {
             
             for (auto& gff_name : gff_names) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
+                    // parse_bed_regions(gff_stream, xg_index, aln_emitter);
                     vector<Alignment> buffer;
-                    parse_gff_regions(gff_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_gff_regions(gff_stream, xg_index, &buffer, alignment_emitter.get());
                 });
             }
         }
