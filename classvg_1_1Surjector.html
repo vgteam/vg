@@ -193,6 +193,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:adc4dbb4ce6f48d755c91e4931028c6d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac1ef0f552e2bd46b48a773837cee6c7c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac1ef0f552e2bd46b48a773837cee6c7c">filter_redundant_path_chunks</a> (bool path_rev, vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
 <tr class="separator:ac1ef0f552e2bd46b48a773837cee6c7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae34c7f96fff02c5490477fc8ad643908"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ae34c7f96fff02c5490477fc8ad643908">prune_and_trim_anchors</a> (const string &amp;sequence, vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;step_ranges) const</td></tr>
+<tr class="separator:ae34c7f96fff02c5490477fc8ad643908"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adf6d3d9d2bec77f147192b05fc4df18b"><td class="memItemLeft" align="right" valign="top">pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#adf6d3d9d2bec77f147192b05fc4df18b">compute_path_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, bool rev_strand, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, bool no_left_expansion, bool no_right_expansion) const</td></tr>
 <tr class="separator:adf6d3d9d2bec77f147192b05fc4df18b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, bool rev_strand, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
@@ -1000,6 +1002,48 @@ template&lt;class AlnType &gt; </div>
           <td class="paramtype">const unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, pair&lt; AlnType, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>surjections</em></td><td>)</td>
           <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae34c7f96fff02c5490477fc8ad643908"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae34c7f96fff02c5490477fc8ad643908">&#9670;&nbsp;</a></span>prune_and_trim_anchors()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::prune_and_trim_anchors </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>step_ranges</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>

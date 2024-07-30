@@ -149,7 +149,7 @@ var searchData=
   ['nonatgcnton_3798',['nonATGCNtoN',['../namespacevg.html#a453b457823e1ddf916ebf298befb4512',1,'vg']]],
   ['nonce_3799',['nonce',['../classvg_1_1Sampler.html#a36388c416226dd9c343b2da154aada5c',1,'vg::Sampler']]],
   ['nondisjoint_3800',['nondisjoint',['../structhaplo_1_1int__itvl__t.html#af18e576db32fb19f602ed249e07567a7',1,'haplo::int_itvl_t']]],
-  ['none_3801',['NONE',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693',1,'vg::Funnel::NONE()'],['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a7ec02cb6759bbdcec376638fb9e76d4e',1,'vg::IndexingParameters::None()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39aa676d6ce23c4076e354ffb65936c03d1',1,'vg::None()']]],
+  ['none_3801',['None',['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a7ec02cb6759bbdcec376638fb9e76d4e',1,'vg::IndexingParameters::None()'],['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693',1,'vg::Funnel::NONE()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39aa676d6ce23c4076e354ffb65936c03d1',1,'vg::None()']]],
   ['nonoverlapping_5fnode_5fcontext_5fwithout_5fpaths_3802',['nonoverlapping_node_context_without_paths',['../classvg_1_1VG.html#a44edad9ba2a6df332234b43715dd71db',1,'vg::VG']]],
   ['normal_3803',['normal',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea867c09ce684d19db107c790ac73e29c2',1,'vg::Haplotypes::Subchain']]],
   ['normal_5faligners_3804',['normal_aligners',['../classvg_1_1Genotyper.html#a91d6174a20ca4f121f68766fbf7fb4b0',1,'vg::Genotyper']]],
