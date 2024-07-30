@@ -135,6 +135,7 @@ using namespace std;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
         int64_t max_low_complexity_anchor_prune = 32;
+        int64_t pad_suspicious_anchors_to_length = 10;
         
         /// How many anchors (per path) will we use when surjecting using
         /// anchors?
@@ -195,6 +196,9 @@ using namespace std;
         void filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
+        void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
+                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
         
         /// Compute the widest end-inclusive interval of path positions that
         /// the realigned sequence could align to, or an interval where start >

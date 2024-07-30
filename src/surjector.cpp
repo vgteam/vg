@@ -255,106 +255,8 @@ using namespace std;
         // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
         // low complexity sequences
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
-            auto& path_chunks = it->second.first;
-            auto& step_ranges = it->second.second;
-            
-            // Compute the lengths of all anchors
-            std::vector<size_t> anchor_lengths;
-            anchor_lengths.reserve(path_chunks.size());
-            for (auto& chunk : path_chunks) {
-                anchor_lengths.push_back(path_from_length(chunk.second));
-            }
-
-            // find the order we'll consider them for removal in
-            vector<size_t> anchor_keep_order;
-            if (max_anchors < numeric_limits<size_t>::max()) {
-                anchor_keep_order = std::move(sort_permutation(anchor_lengths.begin(), anchor_lengths.end(), [&](const size_t& a, const size_t& b) {
-                    // Return true if the anchor with length a has to come first because it is longer.
-                    return a > b;
-                }));
-            }
-            else {
-                anchor_keep_order = std::move(range_vector(path_chunks.size()));
-            }
-            
-            vector<bool> keep(path_chunks.size(), true);
-            
-            if (prune_suspicious_anchors) {
-                for (int i = 0; i < path_chunks.size(); ++i) {
-                    auto& chunk = path_chunks[i];
-                    // Mark anchors that are themselves suspicious as not to be kept.
-                    if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second)
-                        && anchor_lengths[i] <= max_tail_anchor_prune
-                        && chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
-#ifdef debug_anchored_surject
-                        cerr << "anchor " << i << " (read interval " << (chunk.first.first - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << " : " << (chunk.first.second - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << ") pruned for being a short tail" << endl;
-#endif
-                        // this is a short anchor on one of the tails
-                        keep[i] = false;
-                        continue;
-                    }
-                    if (anchor_lengths[i] < max_low_complexity_anchor_prune &&
-                        chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune) {
-                        
-                        SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
-                        for (int order = 1; order <= 6; ++order) {
-                            if (complexity.p_value(order) < low_complexity_p_value) {
-#ifdef debug_anchored_surject
-                                cerr << "anchor " << i << " (read[" << (chunk.first.first - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << ":" << (chunk.first.second - (source_aln ? source_aln->sequence().begin() : source_mp_aln->sequence().begin())) << "]) pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
-#endif
-                                // the sequences is repetitive at this order
-                                keep[i] = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            size_t kept_anchors = 0;
-            for (auto& i : anchor_keep_order) {
-                // For each anchor longest to shortest
-                if (kept_anchors < max_anchors) {
-                    // If we can keep it
-                    if (keep[i]) {
-                        // And we want to keep it
-                        // Remember we kept one
-                        kept_anchors++;
-                    }
-                } else {
-                    // After we keep enough, all other anchors can't be kept.
-#ifdef debug_anchored_surject
-                    cerr << "anchor " << i << " pruned because we already have " << max_anchors << " anchors" << endl;
-#endif
-                    keep[i] = false;
-                }
-            }
-            
-            // make sure we didn't flag all of the anchors for removal
-            if (kept_anchors == 0) {
-                // we filtered out all of the anchors, choose the longest one to keep
-                // even though it failed the filter
-                auto max_idx = anchor_keep_order.at(0);
-#ifdef debug_anchored_surject
-                cerr << "reversing decision to prune " << max_idx << endl;
-#endif
-                keep[max_idx] = true;
-            }
-            // we're keeping at least one anchor, so we should be able to throw away the other ones
-            int removed_so_far = 0;
-            for (int i = 0; i < path_chunks.size(); ++i) {
-                if (!keep[i]) {
-                    ++removed_so_far;
-                }
-                else if (removed_so_far) {
-                    path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                    step_ranges[i - removed_so_far] = move(step_ranges[i]);
-                }
-            }
-            if (removed_so_far) {
-                path_chunks.resize(path_chunks.size() - removed_so_far);
-                step_ranges.resize(step_ranges.size() - removed_so_far);
-            }
+            prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
+                                   it->second.first, it->second.second);
         }
         
         // the surjected alignment for each path we overlapped
@@ -4098,6 +4000,276 @@ using namespace std;
                     std::swap(path_chunks[i], path_chunks[index[i]]);
                     std::swap(ref_chunks[i], ref_chunks[index[i]]);
                     std::swap(index[i], index[index[i]]);
+                }
+            }
+        }
+    }
+
+    void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
+                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges) const {
+        
+        if (!prune_suspicious_anchors && max_anchors > path_chunks.size()) {
+            // the setting don't require us to prune anything here
+            return;
+        }
+        
+        // Compute the lengths of all anchors
+        std::vector<size_t> anchor_lengths;
+        anchor_lengths.reserve(path_chunks.size());
+        for (auto& chunk : path_chunks) {
+            anchor_lengths.push_back(path_from_length(chunk.second));
+        }
+        
+        // find the order we'll consider them for removal in
+        vector<size_t> anchor_keep_order;
+        if (max_anchors < numeric_limits<size_t>::max()) {
+            anchor_keep_order = std::move(sort_permutation(anchor_lengths.begin(), anchor_lengths.end(), [&](const size_t& a, const size_t& b) {
+                // Return true if the anchor with length a has to come first because it is longer.
+                return a > b;
+            }));
+        }
+        else {
+            anchor_keep_order = std::move(range_vector(path_chunks.size()));
+        }
+        
+        vector<bool> keep(path_chunks.size(), true);
+        
+        if (prune_suspicious_anchors) {
+#ifdef debug_anchored_surject
+            cerr << "pruning suspicious anchors" << endl;
+#endif
+            for (int i = 0; i < path_chunks.size(); ++i) {
+                auto& chunk = path_chunks[i];
+                // Mark anchors that are themselves suspicious as not to be kept.
+                if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second)
+                    && anchor_lengths[i] <= max_tail_anchor_prune
+                    && chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+#ifdef debug_anchored_surject
+                    cerr << "anchor " << i << " (read interval " << (chunk.first.first - sequence.begin()) << " : " << (chunk.first.second - sequence.begin()) << ") pruned for being a short tail" << endl;
+#endif
+                    // this is a short anchor on one of the tails
+                    keep[i] = false;
+                    continue;
+                }
+                if (anchor_lengths[i] < max_low_complexity_anchor_prune &&
+                    chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune) {
+                    SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
+                    if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
+                        auto context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
+                        auto context_end = min(sequence.end(), context_begin + pad_suspicious_anchors_to_length);
+                        if (context_end == sequence.end()) {
+                            // try to ensure enough bases if we're near the end of the read
+                            context_begin = max(sequence.begin(), context_end - pad_suspicious_anchors_to_length);
+                        }
+                        SeqComplexity<6> context_complexity(context_begin, context_end);
+                        // TODO: repetetive
+                        for (int order = 1, max_order = 6; order <= max_order; ++order) {
+                            if (context_complexity.p_value(order) < low_complexity_p_value &&
+                                (chunk_complexity.repetitiveness(order) > 0.5 || (chunk.first.second - chunk.first.first) <= order)) {
+#ifdef debug_anchored_surject
+                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << " with p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
+                                // the sequences is repetitive at this order
+                                keep[i] = false;
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        for (int order = 1; order <= 6; ++order) {
+                            if (chunk_complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
+                                // the sequences is repetitive at this order
+                                keep[i] = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        size_t kept_anchors = 0;
+        for (auto& i : anchor_keep_order) {
+            // For each anchor longest to shortest
+            if (kept_anchors < max_anchors) {
+                // If we can keep it
+                if (keep[i]) {
+                    // And we want to keep it
+                    // Remember we kept one
+                    kept_anchors++;
+                }
+            } else {
+                // After we keep enough, all other anchors can't be kept.
+#ifdef debug_anchored_surject
+                cerr << "anchor " << i << " pruned because we already have " << max_anchors << " anchors" << endl;
+#endif
+                keep[i] = false;
+            }
+        }
+        
+        // make sure we didn't flag all of the anchors for removal
+        if (kept_anchors == 0) {
+            // we filtered out all of the anchors, choose the longest one to keep
+            // even though it failed the filter
+            auto max_idx = anchor_keep_order.at(0);
+#ifdef debug_anchored_surject
+            cerr << "reversing decision to prune " << max_idx << endl;
+#endif
+            keep[max_idx] = true;
+        }
+        // we're keeping at least one anchor, so we should be able to throw away the other ones
+        int removed_so_far = 0;
+        for (int i = 0; i < path_chunks.size(); ++i) {
+            if (!keep[i]) {
+                ++removed_so_far;
+            }
+            else if (removed_so_far) {
+                path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                step_ranges[i - removed_so_far] = move(step_ranges[i]);
+            }
+        }
+        if (removed_so_far) {
+            path_chunks.resize(path_chunks.size() - removed_so_far);
+            step_ranges.resize(step_ranges.size() - removed_so_far);
+        }
+        
+        if (prune_suspicious_anchors) {
+            // also try to trim back anchors that have internal indels next to low complexity sequence
+            
+            for (size_t i = 0; i < path_chunks.size(); ++i) {
+                
+                auto& path_chunk = path_chunks[i];
+                auto& ref_chunk = step_ranges[i];
+                
+                for (bool left_end : {true, false}) {
+                    
+                    // find the nearest indel to this end
+                    int64_t incr = left_end ? 1 : -1;
+                    size_t walked_to_length = 0;
+                    size_t mapping_idx;
+                    size_t edit_idx;
+                    bool found_indel = false;
+                    // note: relying on underflow for the break conditions in the reverse direction
+                    for (mapping_idx = left_end ? 0 : path_chunk.second.mapping_size() - 1;
+                         (mapping_idx < path_chunk.second.mapping_size() && walked_to_length < max_low_complexity_anchor_prune);
+                         mapping_idx += incr) {
+                        
+                        const auto& mapping = path_chunk.second.mapping(mapping_idx);
+                        for (edit_idx = left_end ? 0 : mapping.edit_size() - 1;
+                             edit_idx < mapping.edit_size() && walked_to_length < max_low_complexity_anchor_prune;
+                             edit_idx += incr) {
+                            
+                            const auto& edit = mapping.edit(edit_idx);
+                            if (edit.from_length() == 0 || edit.to_length() == 0) {
+                                found_indel = true;
+                                break;
+                            }
+                            walked_to_length += edit.to_length();
+                        }
+                        if (found_indel) {
+                            break;
+                        }
+                    }
+                    
+                    if (found_indel) {
+#ifdef debug_anchored_surject
+                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel at mapping " << mapping_idx << ", edit " << edit_idx << ", walked length " << walked_to_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
+#endif
+                        
+                        // we found an indel in the anchor, now we test whether it's in a low complexity sequence
+                        
+                        const auto& indel_edit = path_chunk.second.mapping(mapping_idx).edit(edit_idx);
+                        auto trim_begin = left_end ? path_chunk.first.first : path_chunk.first.second - (walked_to_length + indel_edit.to_length());
+                        auto trim_end = left_end ? path_chunk.first.first + (walked_to_length + indel_edit.to_length()) : path_chunk.first.second;
+                        if (trim_begin == path_chunk.first.first && trim_end == path_chunk.first.second) {
+                            // don't trim the entire anchor
+#ifdef debug_anchored_surject
+                            cerr << "trimming would eliminate the entire anchor, skipping" << endl;
+#endif
+                            continue;
+                        }
+                        
+                        // is the entire tail of this anchor low complexity?
+                        SeqComplexity<6> trim_candidate_complexity(trim_begin, trim_end);
+                        bool do_trim = false;
+                        for (int order = 1; order <= 6 && !do_trim; ++order) {
+                            if (trim_candidate_complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                                cerr << "anchor is low complexity with order " << order << " and p-value " << trim_candidate_complexity.p_value(order) << endl;
+#endif
+                                do_trim = true;
+                            }
+                        }
+                        
+                        if (do_trim) {
+                            
+                            // figure how much we have to delete
+                            size_t mappings_to_delete;
+                            size_t edits_to_delete;
+                            if (left_end) {
+                                mappings_to_delete = mapping_idx;
+                                edits_to_delete = edit_idx + 1; // include the indel edit
+                            }
+                            else {
+                                mappings_to_delete = path_chunk.second.mapping_size() - mapping_idx - 1;
+                                edits_to_delete = path_chunk.second.mapping(mapping_idx).edit_size() - edit_idx;
+                            }
+                            
+                            if (edits_to_delete == path_chunk.second.mapping(mapping_idx).edit_size()) {
+                                // we're deleting all of the final mapping
+                                mappings_to_delete += 1;
+                                edits_to_delete = 0;
+                            }
+                            
+#ifdef debug_anchored_surject
+                            cerr << "trimming " << mappings_to_delete << " mapping and " << edits_to_delete << " edits" << endl;
+#endif
+                            
+                            bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunk.first))
+                                             != path_chunk.second.mapping().front().position().is_reverse());
+                            
+                            if (left_end) {
+                                
+                                // trim read interval
+                                path_chunk.first.first = trim_end;
+                                
+                                // trim aligned path
+                                auto mappings = path_chunk.second.mutable_mapping();
+                                mappings->erase(mappings->begin(), mappings->begin() + mappings_to_delete);
+                                auto edits = mappings->front().mutable_edit();
+                                edits->erase(edits->begin(), edits->begin() + edits_to_delete);
+                                
+                                // trim ref interval
+                                for (size_t m = 0; m < mappings_to_delete; ++m) {
+                                    ref_chunk.first = path_rev ? graph->get_previous_step(ref_chunk.first) : graph->get_next_step(ref_chunk.first);
+                                }
+                            }
+                            else {
+                                // trim read interval
+                                path_chunk.first.second = trim_begin;
+                                
+                                // trim aligned path and ref interval
+                                for (size_t m = 0; m < mappings_to_delete; ++m) {
+                                    path_chunk.second.mutable_mapping()->pop_back();
+                                    ref_chunk.second = path_rev ? graph->get_next_step(ref_chunk.second) : graph->get_previous_step(ref_chunk.second);
+                                }
+                                auto final_mapping = path_chunk.second.mutable_mapping(path_chunk.second.mapping_size() - 1);
+                                for (size_t e = 0; e < edits_to_delete; ++e) {
+                                    final_mapping->mutable_edit()->pop_back();
+                                }
+                            }
+                            
+#ifdef debug_anchored_surject
+                            cerr << "result of trimming:" << endl;
+                            cerr << "read[" << (path_chunk.first.first - sequence.begin()) << ":" << (path_chunk.first.second - sequence.begin()) << "] : " << string(path_chunk.first.first, path_chunk.first.second) << endl;
+                            cerr << graph->get_path_name(graph->get_path_handle_of_step(ref_chunk.first)) << " : " << graph->get_position_of_step(ref_chunk.first) << "(node " << graph->get_id(graph->get_handle_of_step(ref_chunk.first)) << ") - " << graph->get_position_of_step(ref_chunk.second) << " (node " << graph->get_id(graph->get_handle_of_step(ref_chunk.second)) << ")" << endl;
+                            cerr << debug_string(path_chunk.second) << endl;
+#endif
+                        }
+                    }
                 }
             }
         }

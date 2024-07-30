@@ -578,21 +578,17 @@ int main_paths(int argc, char** argv) {
                 exit(1);
             }
 
-            vector<string> to_destroy;
+            vector<path_handle_t> to_destroy;
             if (drop_paths) {
                 for_each_selected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
+                    to_destroy.push_back(path_handle);
                 });
             } else {
                 for_each_unselected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
+                    to_destroy.push_back(path_handle);
                 });
             }
-            for (string& path_name : to_destroy) {
-                mutable_graph->destroy_path(graph->get_path_handle(path_name));
-            }
+            mutable_graph->destroy_paths(to_destroy);
             
             // output the graph
             serializable_graph->serialize(cout);
