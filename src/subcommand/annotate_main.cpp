@@ -479,24 +479,31 @@ int main_annotate(int argc, char** argv) {
             }
         }
         else {
+            // We are converting annotations to GAM.
+            // Set up GAM output.
+            // TODO: use AlignmentEmitter?
+            vector<Alignment> buffer;
+            auto emit_alignment = [&](Alignment& aln) {
+                // Buffer and possibly write each record
+                buffer.emplace_back(std::move(aln));
+                vg::io::write_buffered(cout, buffer, 1000);
+            };
+
             for (auto& bed_name : bed_names) {
                 // Convert each BED file to GAM
                 get_input_file(bed_name, [&](istream& bed_stream) {
-                    vector<Alignment> buffer;
-                    parse_bed_regions(bed_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_bed_regions(bed_stream, xg_index, emit_alignment);
                 });
-                
-                // TODO: We'll get an EOF marker per input file.
             }
             
             for (auto& gff_name : gff_names) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
-                    vector<Alignment> buffer;
-                    parse_gff_regions(gff_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_gff_regions(gff_stream, xg_index, emit_alignment);
                 });
             }
+            
+            // Flush the remaining stuff in the buffer
+            vg::io::write_buffered(cout, buffer, 0);
         }
     }
 

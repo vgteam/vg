@@ -1798,7 +1798,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = move(normalized);
+        *alignment.mutable_path() = std::move(normalized);
     }
 }
 
@@ -1902,6 +1902,15 @@ void parse_bed_regions(istream& bedstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_bed_regions(bedstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_bed_regions(istream& bedstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+    
     if (!bedstream) {
         cerr << "Unable to open bed file." << endl;
         return;
@@ -2147,8 +2156,7 @@ void parse_bed_regions(istream& bedstream,
         // Make the Alignment
         Alignment alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
         alignment.set_score(score);
-
-        out_alignments->push_back(alignment);
+        callback(alignment);
 
         // if more subpaths need to be written, write them now
         while (!other_seqs.empty()){
@@ -2163,10 +2171,8 @@ void parse_bed_regions(istream& bedstream,
             path_handle = graph->get_path_handle(seq);
             alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
             alignment.set_score(score);
-            out_alignments->push_back(alignment);
+            callback(alignment);
         }
-
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
@@ -2174,6 +2180,16 @@ void parse_gff_regions(istream& gffstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_gff_regions(gffstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_gff_regions(istream& gffstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+
+
     if (!gffstream) {
         cerr << "Unable to open gff3/gtf file." << endl;
         return;
@@ -2431,8 +2447,7 @@ void parse_gff_regions(istream& gffstream,
         }
         
         Alignment alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
-            
-        out_alignments->push_back(alignment);
+        callback(alignment);
 
         // if more subpaths need to be written, write them now
         while (!other_seqs.empty()){
@@ -2445,10 +2460,8 @@ void parse_gff_regions(istream& gffstream,
             other_ends.pop_back();
             // get alignment
             alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
-            out_alignments->push_back(alignment);
+            callback(alignment);
         }
-
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
