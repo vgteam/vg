@@ -19,18 +19,14 @@ using namespace std;
  * A ZipCode stores the information and can be used to create a zipcode. It can be used
  * to calculate the distance between zipcodes
  *
- * A ZipCodeDecoder is used for interpreting zipcodes to find specific values that were
- * stored in the ZipCode. A ZipCodeDecoder must be constructed from a specific zipcode.
+ * A decoder is used for interpreting zipcodes to find specific values that were
+ * stored in the ZipCode. 
  * Construction of a decoder occurs one code at a time, starting from the root snarl or chain, 
- * so it is possible to have a partially constructed ZipCodeDecoder, to avoid having to 
+ * so it is possible to have a partially constructed decoder, to avoid having to 
  * walk through the entire ZipCode to get the values for things higher in the snarl tree.
  * The full decoder must be constructed to get values for the node.
  */
 
-///A decoder for interpreting a zipcode
-///Can interpret the values for a snarl tree node given the depth 
-///(depth in the snarl tree, also the index into the zipcode vector)
-class ZipCodeDecoder;
 
 
 ///A struct to interpret the minimizer payload
@@ -59,7 +55,8 @@ class ZipCode {
     /// Regular snarls are bubbles. Irregular snarls are snarls that aren't bubbles but are dags
     /// Cyclic snarls are non-dags. They are stored the same as irregular snarls. Only the type is different
     public:
-    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, CYCLIC_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
+        enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, CYCLIC_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
+
     public:
 
         //Fill in an empty zipcode given a position
@@ -83,8 +80,8 @@ class ZipCode {
         //The decoders may or may not be filled in, and may be filled in when this is run
         //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
         //will be greater than the distance limit
-        static size_t minimum_distance_between(ZipCodeDecoder& zip_decoder1, const pos_t& pos1, 
-                                       ZipCodeDecoder& zip_decoder2, const pos_t& pos2,
+        static size_t minimum_distance_between(ZipCode& zip1, const pos_t& pos1, 
+                                       ZipCode& zip2, const pos_t& pos2,
                                        const SnarlDistanceIndex& distance_index, 
                                        size_t distance_limit = std::numeric_limits<size_t>::max(),
                                        bool undirected_distance=false, 
@@ -214,7 +211,117 @@ class ZipCode {
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
-    friend class ZipCodeDecoder;
+
+
+    //////////////////////////////// Stuff for decoding the zipcode
+
+    public:
+        //TODO: Make the decoder and zipcode private, still need it for unit testing
+        ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
+        ///where is_chain indicates whether it's a chain/node, and index
+        ///is the index of the node/snarl/chain code in the varint_vector_t
+        std::vector<pair<bool, size_t>> decoder;
+
+        ///Did we fill in the entire decoder
+        ///TODO: I'm making it fill in the decoder automatically because it seems to be faster that way, instead of 
+        /// waiting to see which parts are actually needed
+        bool finished_decoding = false;
+
+        public:
+
+        ///Go through the entire zipcode and fill in the decoder
+        void fill_in_full_decoder();
+
+        ///Fill in one more item in the decoder
+        ///Returns true if this is the last thing in the zipcode and false if there is more to decode
+        bool fill_in_next_decoder();
+
+        ///What is the maximum depth of this zipcode?
+        size_t max_depth() const;
+
+        ///How many codes in the zipcode have been decoded?
+        size_t decoder_length() const {return decoder.size();}
+
+        ///What type of snarl tree node is at the given depth (index into the zipcode)
+        ZipCode::code_type_t get_code_type(const size_t& depth) const ;
+
+        ///Get the length of a snarl tree node given the depth in the snarl tree
+        ///This requires the distance index for irregular snarls (except for a top-level snarl)
+        ///Throws an exception if the distance index is not given when it is needed
+        ///Doesn't use a given distance index if it isn't needed
+        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
+
+        ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
+        size_t get_rank_in_snarl(const size_t& depth) const ;
+
+        ///Get the number of children in a snarl. Throw an exception if it isn't a snarl
+        size_t get_snarl_child_count(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
+
+        ///Get the prefix sum of a child of a chain
+        ///This requires the distance index for irregular snarls (except for a top-level snarl)
+        ///Throws an exception if the distance index is not given when it is needed
+        ///Doesn't use a given distance index if it isn't needed
+        size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
+
+        ///Get the chain component of a chain child.
+        ///For snarls, this will be the component of the start node
+        size_t get_chain_component(const size_t& depth) const ;
+
+        ///Get the chain component of the last node in the chain
+        /// This behaves like the distance index get_chain_component- 
+        /// for looping chains it returns the last component if get_end is true,
+        /// and 0 if it is false
+        size_t get_last_chain_component(const size_t& depth, bool get_end = false) const ;
+        bool get_is_looping_chain(const size_t& depth) const ;
+
+        ///Is the snarl tree node backwards relative to its parent
+        bool get_is_reversed_in_parent(const size_t& depth) const;
+
+        ///Get the handle of the thing at the given depth. This can only be used for
+        ///Root-level structures or irregular snarls
+        net_handle_t get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index)  const;
+
+        ///Get the handle of the thing at the given depth. This can be used for anything but is slow,
+        /// even for roots and irregular/cyclic snarls. It's a separate function to make sure I
+        /// remember that it's slow
+        net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) const;
+
+        ///Get the information that was stored to get the address in the distance index
+        ///This is the connected component number for a root structure, or the address of
+        ///an irregular snarl. Throws an error for anything else
+        ///This is used for checking equality without looking at the distance index.
+        ///Use get_net_handle for getting the actual handle
+        size_t get_distance_index_address(const size_t& depth)  const;
+
+        /// The minimum distance from start or end of the snarl to the left or right side of the child
+        size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) const;
+
+        bool is_externally_start_end_connected(const size_t& depth) const;
+        bool is_externally_start_start_connected(const size_t& depth) const;
+        bool is_externally_end_end_connected(const size_t& depth) const;
+
+
+        ///Are the two decoders pointing to the same snarl tree node at the given depth
+        ///This only checks if the values in the zipcode are the same at the given depth, 
+        ///so if the preceeding snarl tree nodes are different, 
+        ///then this might actually refer to different things
+        const static bool is_equal(const ZipCode& zip1, const ZipCode& zip2,
+                                    const size_t& depth);
+
+        /// Dump a ZipCode to a stream so that it can be reconstructed for a
+        /// unit test from the resulting information.
+        void dump(std::ostream& out) const;
+
+        //TODO: I want to make a struct for holding all values of a code as real values
+
+        ///Fill in a payload with values from the zipcode
+        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
+
+        /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
+        /// would be the node, also include the node id
+        net_identifier_t get_identifier(size_t depth) const;
+        const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
+
 };
 
 /// Print a code type to a stream
@@ -254,127 +361,6 @@ class ZipCodeCollection {
 };
 
 
-/*
- * Struct for interpreting a ZipCode
- */
-class ZipCodeDecoder {
-
-    public:
-    //TODO: Make the decoder and zipcode private, still need it for unit testing
-    ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
-    ///where is_chain indicates whether it's a chain/node, and index
-    ///is the index of the node/snarl/chain code in the varint_vector_t
-    std::vector<pair<bool, size_t>> decoder;
-
-    ///The zipcode that this is decoding
-    const ZipCode* zipcode;
-
-    ///Did we fill in the entire decoder
-    bool finished_decoding;
-
-    public:
-
-    ///Constructor that goes through the zipcode and decodes it to fill in decoder
-    ///If a depth is given, then only fill in up to depth snarl tree nodes
-    ///Otherwise, fill in the whole zipcode
-    ZipCodeDecoder(const ZipCode* zipcode = nullptr);
-
-    ///Go through the entire zipcode and fill in the decoder
-    void fill_in_full_decoder();
-
-    ///Fill in one more item in the decoder
-    ///Returns true if this is the last thing in the zipcode and false if there is more to decode
-    bool fill_in_next_decoder();
-
-    ///What is the maximum depth of this zipcode?
-    size_t max_depth() const;
-
-    ///How many codes in the zipcode have been decoded?
-    size_t decoder_length() const {return decoder.size();}
-
-    ///What type of snarl tree node is at the given depth (index into the zipcode)
-    ZipCode::code_type_t get_code_type(const size_t& depth) const ;
-
-    ///Get the length of a snarl tree node given the depth in the snarl tree
-    ///This requires the distance index for irregular snarls (except for a top-level snarl)
-    ///Throws an exception if the distance index is not given when it is needed
-    ///Doesn't use a given distance index if it isn't needed
-    size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
-
-    ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
-    size_t get_rank_in_snarl(const size_t& depth) const ;
-
-    ///Get the number of children in a snarl. Throw an exception if it isn't a snarl
-    size_t get_snarl_child_count(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
-
-    ///Get the prefix sum of a child of a chain
-    ///This requires the distance index for irregular snarls (except for a top-level snarl)
-    ///Throws an exception if the distance index is not given when it is needed
-    ///Doesn't use a given distance index if it isn't needed
-    size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
-
-    ///Get the chain component of a chain child.
-    ///For snarls, this will be the component of the start node
-    size_t get_chain_component(const size_t& depth) const ;
-
-    ///Get the chain component of the last node in the chain
-    /// This behaves like the distance index get_chain_component- 
-    /// for looping chains it returns the last component if get_end is true,
-    /// and 0 if it is false
-    size_t get_last_chain_component(const size_t& depth, bool get_end = false) const ;
-    bool get_is_looping_chain(const size_t& depth) const ;
-
-    ///Is the snarl tree node backwards relative to its parent
-    bool get_is_reversed_in_parent(const size_t& depth) const;
-
-    ///Get the handle of the thing at the given depth. This can only be used for
-    ///Root-level structures or irregular snarls
-    net_handle_t get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index)  const;
-
-    ///Get the handle of the thing at the given depth. This can be used for anything but is slow,
-    /// even for roots and irregular/cyclic snarls. It's a separate function to make sure I
-    /// remember that it's slow
-    net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) const;
-
-    ///Get the information that was stored to get the address in the distance index
-    ///This is the connected component number for a root structure, or the address of
-    ///an irregular snarl. Throws an error for anything else
-    ///This is used for checking equality without looking at the distance index.
-    ///Use get_net_handle for getting the actual handle
-    size_t get_distance_index_address(const size_t& depth)  const;
-
-    /// The minimum distance from start or end of the snarl to the left or right side of the child
-    size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) const;
-
-    bool is_externally_start_end_connected(const size_t& depth) const;
-    bool is_externally_start_start_connected(const size_t& depth) const;
-    bool is_externally_end_end_connected(const size_t& depth) const;
-
-
-    ///Are the two decoders pointing to the same snarl tree node at the given depth
-    ///This only checks if the values in the zipcode are the same at the given depth, 
-    ///so if the preceeding snarl tree nodes are different, 
-    ///then this might actually refer to different things
-    const static bool is_equal(const ZipCodeDecoder& decoder1, const ZipCodeDecoder& decoder2,
-                                const size_t& depth);
-
-    /// Dump a ZipCodeDecoder to a stream so that it can be reconstructed for a
-    /// unit test from the resulting information.
-    void dump(std::ostream& out) const;
-
-    //TODO: I want to make a struct for holding all values of a code as real values
-
-    ///Fill in a payload with values from the zipcode
-    MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
-
-    /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
-    /// would be the node, also include the node id
-    net_identifier_t get_identifier(size_t depth) const;
-    const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
-
-
-};
-
 template<>
 struct wang_hash<net_identifier_t> {
     size_t operator()(const net_identifier_t& id) const {
@@ -382,7 +368,7 @@ struct wang_hash<net_identifier_t> {
     }
 };
 
-std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder); 
+std::ostream& operator<<(std::ostream& out, const ZipCode& decoder); 
 
 
 /**
