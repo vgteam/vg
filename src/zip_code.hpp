@@ -334,7 +334,7 @@ class ZipCodeDecoder {
     ///Get the handle of the thing at the given depth. This can be used for anything but is slow,
     /// even for roots and irregular/cyclic snarls. It's a separate function to make sure I
     /// remember that it's slow
-    net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index, const net_handle_t* child = nullptr) const;
+    net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) const;
 
     ///Get the information that was stored to get the address in the distance index
     ///This is the connected component number for a root structure, or the address of
@@ -346,7 +346,6 @@ class ZipCodeDecoder {
     /// The minimum distance from start or end of the snarl to the left or right side of the child
     size_t get_distance_to_snarl_bound(const size_t& depth, bool snarl_start, bool left_side) const;
 
-    bool is_externally_connected(const size_t& depth) const;
     bool is_externally_start_end_connected(const size_t& depth) const;
     bool is_externally_start_start_connected(const size_t& depth) const;
     bool is_externally_end_end_connected(const size_t& depth) const;
@@ -366,23 +365,20 @@ class ZipCodeDecoder {
     //TODO: I want to make a struct for holding all values of a code as real values
 
     ///Fill in a payload with values from the zipcode
-    MIPayload get_payload_from_zipcode(nid_t id) const;
+    MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
 
     /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
     /// would be the node, also include the node id
     net_identifier_t get_identifier(size_t depth) const;
-    const static net_identifier_t get_root_identifier() { return "ROOT"; };
     const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
 
 
 };
 
-//How to hash a net_identifier_t
 template<>
 struct wang_hash<net_identifier_t> {
     size_t operator()(const net_identifier_t& id) const {
-        string id_string = static_cast<string>(id);
-        return std::hash<std::string>{}(id_string);
+        return wang_hash<std::string>()(id);
     }
 };
 
@@ -403,13 +399,15 @@ struct MIPayload {
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
 
-    net_identifier_t identifier;
+    net_handle_t node_handle;
+    net_handle_t parent_handle;
 
     size_t node_length = std::numeric_limits<size_t>::max();
     size_t prefix_sum = 0;
     size_t chain_component = 0;
     //Depth according to the distance index
     size_t parent_depth = 0;
+    size_t parent_record_offset = 0;
 
     ZipCode::code_type_t parent_type = ZipCode::EMPTY;
     bool is_reversed = false;

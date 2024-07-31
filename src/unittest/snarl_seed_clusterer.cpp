@@ -728,7 +728,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
-
+        
         //graph.to_dot(cerr);
 
         SECTION( "Three clusters going across snarl" ) {
@@ -798,7 +798,7 @@ namespace unittest {
         }
     }    
     TEST_CASE( "Top-level looping chain",
-                   "[cluster]" ) {
+                   "[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("AGCGTGTAGAGAA");
@@ -823,6 +823,8 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
 
+        ofstream out ("bug_graph.vg");
+            graph.serialize(out);
 
         SECTION( "Two clusters" ) {
  
@@ -1672,7 +1674,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }
-    TEST_CASE( "Loop on first node in a top-level chain","[cluster][bug]" ) {
+    TEST_CASE( "Loop on first node in a top-level chain","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1700,10 +1702,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-                ofstream out ("testGraph.hg");
-            graph.serialize(out);
-
-
 
         SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
 
@@ -3226,31 +3224,13 @@ namespace unittest {
 
 
         vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(1, false, 57);
-	    pos_ts[0].emplace_back(1, true, 15);
-	    pos_ts[0].emplace_back(2, false, 25);
-	    pos_ts[0].emplace_back(1, false, 36);
-	    pos_ts[0].emplace_back(5, true, 16);
-	    pos_ts[0].emplace_back(1, false, 46);
-	    pos_ts[0].emplace_back(2, true, 21);
-	    pos_ts[0].emplace_back(1, true, 10);
-
-	    pos_ts[1].emplace_back(2, false, 0);
-	    pos_ts[1].emplace_back(2, true, 2);
-	    pos_ts[1].emplace_back(6, true, 24);
-	    pos_ts[1].emplace_back(6, true, 44);
-	    pos_ts[1].emplace_back(1, false, 42);
-	    pos_ts[1].emplace_back(2, false, 19);
-	    pos_ts[1].emplace_back(2, false, 23);
-	    pos_ts[1].emplace_back(5, true, 19);
-	    pos_ts[1].emplace_back(4, false, 73);
-	    pos_ts[1].emplace_back(4, true, 57);
-	    pos_ts[1].emplace_back(3, false, 23);
-	    pos_ts[1].emplace_back(6, true, 10);
-	    pos_ts[1].emplace_back(5, false, 19);
-
-
-
+        pos_ts[0].emplace_back(6, false, 12);
+        pos_ts[0].emplace_back(9, true, 0);
+        pos_ts[0].emplace_back(11, true, 2);
+        pos_ts[1].emplace_back(7, false,0);
+        pos_ts[1].emplace_back(11,false, 5);
+        pos_ts[1].emplace_back(8,false, 9);
+        pos_ts[1].emplace_back(9,true, 0);
         vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
         for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
                 for (pos_t pos : pos_ts[read_num]) {
@@ -3285,7 +3265,7 @@ namespace unittest {
 
             IntegratedSnarlFinder snarl_finder(graph);
             SnarlDistanceIndex dist_index;
-            fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+            fill_in_distance_index(&dist_index, &graph, &snarl_finder, 5);
     
 
 
@@ -3316,9 +3296,9 @@ namespace unittest {
                         handle_t node1 = graph.get_handle(nodeID1);
  
                         offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
-                        bool rev = uniform_int_distribution<int>(0,1)(generator) == 0;
 
-                        pos_t pos = make_pos_t(nodeID1, rev,offset1 );
+                        pos_t pos = make_pos_t(nodeID1,
+                            uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
 
 
                     
@@ -3374,20 +3354,12 @@ namespace unittest {
                                             if ( dist != -1 && dist <= read_lim) {
                                                 dist_index.print_self();
                                                 graph.serialize("testGraph.hg");
-
-                                                cerr << "Failed with positions" << endl;
-
-                                                for (size_t read = 0 ; read < 2 ; read ++) {
-                                                        cerr << "read: " << read << endl;
-                                                    for (auto& seed : all_seeds[i]) {
-                                                        cerr << "\t" << id(seed.pos) << ", " << (is_rev(seed.pos) ? "true, " : "false, ") << offset(seed.pos) << endl; 
-                                                    }
-                                                }
                                                 cerr << "These should have been in the same read cluster: " ;
                                                 cerr << pos1 << " and " << pos2 << endl;
                                                 cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
                                                 REQUIRE(false);
                                             }
+                                            
                                         }
                                     }
                                 }
@@ -3409,14 +3381,6 @@ namespace unittest {
                             if (actual_clusters.size() != 1) {
                                 dist_index.print_self();
                                 graph.serialize("testGraph.hg");
-                                cerr << "Failed with positions" << endl;
-
-                                for (size_t read = 0 ; read < 2 ; read ++) {
-                                        cerr << "read: " << read << endl;
-                                    for (auto& seed : all_seeds[i]) {
-                                        cerr << "\t" << id(seed.pos) << ", " << (is_rev(seed.pos) ? "true, " : "false, ") << offset(seed.pos) << endl; 
-                                    }
-                                }
                                 cerr << "These should be different read clusters: " << endl;
                                 for (auto c : actual_clusters) {
                                     cerr << "cluster: " ; 
@@ -3465,14 +3429,6 @@ namespace unittest {
                                     if ( dist != -1 && dist <= fragment_lim) {
                                         dist_index.print_self();
                                         graph.serialize("testGraph.hg");
-                                        cerr << "Failed with positions" << endl;
-
-                                        for (size_t read = 0 ; read < 2 ; read ++) {
-                                                cerr << "read: " << read << endl;
-                                            for (auto& seed : all_seeds[i]) {
-                                                cerr << "\t" << id(seed.pos) << ", " << (is_rev(seed.pos) ? "true, " : "false, ") << offset(seed.pos) << endl; 
-                                            }
-                                        }
                                         cerr << "These should have been in the same fragment cluster: " ;
                                         cerr << pos1 << " and " << pos2 << endl;
                                         cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
@@ -3505,14 +3461,6 @@ namespace unittest {
                     if (actual_clusters.size() != 1) {
                                         dist_index.print_self();
                         graph.serialize("testGraph.hg");
-                        cerr << "Failed with positions" << endl;
-
-                        for (size_t read = 0 ; read < 2 ; read ++) {
-                                cerr << "read: " << read << endl;
-                            for (auto& seed : all_seeds[i]) {
-                                cerr << "\t" << id(seed.pos) << ", " << (is_rev(seed.pos) ? "true, " : "false, ") << offset(seed.pos) << endl; 
-                            }
-                        }
                         cerr << "These should be different fragment clusters: " << endl;
                         for (auto c : actual_clusters) {
                             cerr << "cluster: " ; 

@@ -213,11 +213,9 @@ class SnarlDistanceIndexClusterer {
 
             //Struct to store one child, which may be a seed, node, snarl, or chain
             struct SnarlTreeChild {
-                //This may or may not be set
+                //If the net_handle is a node, then the child is a seed, otherwise the handle 
+                //is used to find the problem
                 net_handle_t net_handle;
-
-                //Used as an identifier
-                net_identifier_t identifier;
                 pair<size_t, size_t> seed_indices;
 
                 //The values used to sort the children of a chain
@@ -232,7 +230,6 @@ class SnarlDistanceIndexClusterer {
                 //For a seed, it gets set when the child is made, otherwise the first time this 
                 //child is seen when sorting
                 bool has_chain_values;
-                bool has_net_handle;
             };
             //The children of this snarl tree node
             //Initially unsorted, sort before clustering for chains
@@ -252,15 +249,16 @@ class SnarlDistanceIndexClusterer {
             size_t distance_end_left = std::numeric_limits<size_t>::max();
             size_t distance_end_right = std::numeric_limits<size_t>::max();
 
-            net_identifier_t containing_net_id;
-            net_identifier_t parent_net_id;
-
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
-            //The parent of containing_net_handle, which might or might not be set
+
+
+
+            //The parent and grandparent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
+            net_handle_t grandparent_net_handle;
 
             //One representative seed so we can get the zipcode and stuff
             const SeedCache* seed;
@@ -279,8 +277,8 @@ class SnarlDistanceIndexClusterer {
             size_t loop_right = std::numeric_limits<size_t>::max();
 
             //These are sometimes set if the value was in the cache
-            bool has_net_handle = false;
             bool has_parent_handle = false;
+            bool has_grandparent_handle = false;
 
             //Only set this for nodes or snarls in chains
             bool is_reversed_in_parent = false;
@@ -293,19 +291,18 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, 
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
                                   const SeedCache* seed, size_t zipcode_depth) :
-                containing_net_id(std::move(id)),
+                containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 seed(seed),
                 zipcode_depth(zipcode_depth) {
                 read_cluster_heads.reserve(seed_count);
-                parent_net_id =containing_net_id == "ROOT" ? "ROOT" :  ZipCodeDecoder::get_parent_identifier(containing_net_id);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
-            SnarlTreeNodeProblem(net_identifier_t id, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
                                  size_t node_length, size_t prefix_sum, size_t component, const SeedCache* seed, size_t zipcode_depth) :
-                containing_net_id(std::move(id)),
+                containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
@@ -314,18 +311,13 @@ class SnarlDistanceIndexClusterer {
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 seed(seed),
                 zipcode_depth(zipcode_depth) {
-                read_cluster_heads.reserve(seed_count);
-                parent_net_id = containing_net_id == "ROOT" ? "ROOT" : ZipCodeDecoder::get_parent_identifier(containing_net_id);
+                    read_cluster_heads.reserve(seed_count);
             }
 
             //Set the values needed to cluster a chain
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
                 is_looping_chain = seed->seed->zipcode_decoder->get_is_looping_chain(zipcode_depth);
-                if (zipcode_depth == 0 || is_looping_chain || seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true) != 0) { 
-                    node_length = distance_index.chain_minimum_length(containing_net_handle);
-                } else {
-                    node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
-                }
+                node_length = distance_index.chain_minimum_length(containing_net_handle);
                 chain_component_end = seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true);
                 is_reversed_in_parent = seed->seed->zipcode_decoder->get_is_reversed_in_parent(zipcode_depth);
             }
@@ -346,13 +338,8 @@ class SnarlDistanceIndexClusterer {
                 //Distance to go backward in the chain and back
                 loop_left = SnarlDistanceIndex::sum(distance_index.get_reverse_loop_value(start_in),
                                                             2*distance_index.minimum_length(start_in));
-            }
 
-            void set_net_handle(const SnarlDistanceIndex& distance_index) {
-                if (!has_net_handle) {
-                    has_net_handle = true;
-                    containing_net_handle = seed->seed->zipcode_decoder->get_net_handle_slow(id(seed->seed->pos), zipcode_depth, &distance_index);
-                }
+
             }
 
         };
@@ -417,14 +404,14 @@ class SnarlDistanceIndexClusterer {
             //The snarls and chains get updated as we move up the snarl tree
 
             //Maps each net_handle_t to an index to its node problem, in all_node_problems
-            hash_map<net_identifier_t, size_t> net_identifier_to_node_problem_index;
+            hash_map<net_handle_t, size_t> net_handle_to_node_problem_index;
             //This stores all the snarl tree nodes and their clustering scratch work 
             vector<SnarlTreeNodeProblem> all_node_problems;
            
             //All chains for the current level of the snarl tree and gets updated as the algorithm
             //moves up the snarl tree. At one iteration, the algorithm will go through each chain
             //in chain to children and cluster the chain using clusters on the children
-            vector<net_identifier_t>* current_chains;
+            vector<net_handle_t>* current_chains;
 
 
             //Same as current_chains but for the level of the snarl
@@ -432,18 +419,18 @@ class SnarlDistanceIndexClusterer {
             //This gets updated as the current level is processed - the snarls from this level
             //are added as children to parent_chain_to_children.
             //After processing one level, this becomes the next chain_to_children
-            vector<net_identifier_t>* parent_chains;
+            vector<net_handle_t>* parent_chains;
 
             //All snarls for the current level of the snarl tree 
             //(chains from chain_to_children get added to their parent snarls, snarls get added to parent_snarls
             //then all snarls in snarl_to_children are clustered and added to parent_chain_to_children)
-            vector<net_identifier_t> parent_snarls;
+            vector<net_handle_t> parent_snarls;
 
 
             //This holds all the child problems of the root
             //Each pair is the parent and the child. This will be sorted by parent before
             //clustering
-            vector<pair<net_identifier_t, net_identifier_t>> root_children;
+            vector<pair<net_handle_t, net_handle_t>> root_children;
 
 
             /////////////////////////////////////////////////////////
@@ -466,7 +453,7 @@ class SnarlDistanceIndexClusterer {
 
                 }
 
-                net_identifier_to_node_problem_index.reserve(5*seed_count);
+                net_handle_to_node_problem_index.reserve(5*seed_count);
                 all_node_problems.reserve(5*seed_count);
                 parent_snarls.reserve(seed_count);
                 root_children.reserve(seed_count);
@@ -479,7 +466,7 @@ class SnarlDistanceIndexClusterer {
         //If a node is a child of the root or of a root snarl, then add cluster it and
         //remember to cluster the root snarl 
         void get_nodes( ClusteringProblem& clustering_problem,
-                        vector<vector<net_identifier_t>>& chains_by_level) const;
+                        vector<vector<net_handle_t>>& chains_by_level) const;
 
 
         //Cluster all the snarls at the current level
