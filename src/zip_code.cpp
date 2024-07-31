@@ -143,6 +143,7 @@ void ZipCode::fill_in_full_decoder() {
         //If the zipcode is empty
         return;
     }
+    decoder.reserve(byte_count() / 4);
     bool done=false;
     while (!done) {
         done = fill_in_next_decoder();
