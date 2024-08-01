@@ -6170,17 +6170,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 if (aligning_tail_length < tail_length) {
                     // Tail is too long. Just make a softclip directly in the base graph ID space.
                     // TODO: What if we just don't produce this? Do we get softclips for free?
+                    
+                    size_t cut_point = (path_node.end - alignment.sequence().begin()) + aligning_tail_length;
+                    size_t tail_remaining = tail_length - aligning_tail_length;
 #ifdef debug_multipath_alignment
                     cerr << "softclip long right" << endl;
 #endif
-                    size_t cut_point = (path_node.end - alignment.sequence().begin()) + aligning_tail_length;
-                    size_t tail_remaining = tail_length - aligning_tail_length;
                     
                     for (auto& alt_aln : alt_alignments) {
-                                                
                         alt_aln.mutable_sequence()->append(alignment.sequence(), cut_point, tail_remaining);
                         if (!alt_aln.quality().empty()) {
-                            alt_aln.mutable_sequence()->append(alignment.quality(), cut_point, tail_remaining);
+                            alt_aln.mutable_quality()->append(alignment.quality(), cut_point, tail_remaining);
                         }
                         
                         Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(alt_aln.path().mapping_size() - 1);
@@ -6188,6 +6188,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         if (final_edit->from_length() == 0 && !final_edit->sequence().empty()) {
                             // extend the softclip
                             final_edit->set_sequence(final_edit->sequence() + alignment.sequence().substr(cut_point, tail_remaining));
+                            final_edit->set_to_length(final_edit->sequence().size());
                         }
                         else {
                             final_edit = mapping->add_edit();
@@ -6342,7 +6343,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             
                             alt_aln.mutable_sequence()->append(alignment.sequence(), 0, tail_remaining);
                             if (!alt_aln.quality().empty()) {
-                                alt_aln.mutable_sequence()->append(alignment.quality(), 0, tail_remaining);
+                                alt_aln.mutable_quality()->append(alignment.quality(), 0, tail_remaining);
                             }
                             
                             Mapping* mapping = alt_aln.mutable_path()->mutable_mapping(0);

@@ -3857,6 +3857,14 @@ namespace vg {
 #endif
                     return false;
                 }
+                for (const auto& connection : subpath.connection()) {
+                    if (connection.next() <= i) {
+#ifdef debug_verbose_validation
+                        cerr << "validation failure on connection topological order" << endl;
+#endif
+                        return false;
+                    }
+                }
             }
         }
         
