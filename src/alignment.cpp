@@ -1798,7 +1798,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = move(normalized);
+        *alignment.mutable_path() = std::move(normalized);
     }
 }
 

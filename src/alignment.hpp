@@ -297,8 +297,8 @@ map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 /// Parse regions from the given BED file into Alignments in a vector.
 /// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
 /// Skips and warns about malformed or illegal BED records.
+/// If the optional AlignmentEmitter argument is provided, emit the alignments (and flush the vector once in a while).
 void parse_bed_regions(istream& bedstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments, vg::io::AlignmentEmitter* aln_emitter = nullptr);
-// void parse_bed_regions(istream& bedstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments);
 void parse_gff_regions(istream& gtfstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments, vg::io::AlignmentEmitter* aln_emitter = nullptr);
 
 Position alignment_start(const Alignment& aln);

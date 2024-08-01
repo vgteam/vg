@@ -485,7 +485,6 @@ int main_annotate(int argc, char** argv) {
             
             for (auto& gff_name : gff_names) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
-                    // parse_bed_regions(gff_stream, xg_index, aln_emitter);
                     vector<Alignment> buffer;
                     parse_gff_regions(gff_stream, xg_index, &buffer, alignment_emitter.get());
                 });
