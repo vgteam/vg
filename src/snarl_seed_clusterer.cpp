@@ -31,10 +31,10 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
     vector<SeedCache> seed_caches(seeds.size());
     for (size_t i = 0 ; i < seeds.size() ; i++) {
 #ifdef DEBUG_CLUSTER
-        assert (seeds[i].zipcode.byte_count() != 0) ;
+        assert (seeds[i].zipcode.bit_count() != 0) ;
 #endif
         seed_caches[i].seed = &(seeds[i]);
-        if (seeds[i].zipcode.byte_count() != 0) {
+        if (seeds[i].zipcode.bit_count() != 0) {
             seed_caches[i].payload = seeds[i].zipcode.get_payload_from_zipcode(id(seeds[i].pos), distance_index);
         }
     }
@@ -75,10 +75,10 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
         for (size_t i = 0 ; i < all_seeds[read_num].size() ; i++) {
 #ifdef DEBUG_CLUSTER
             //The zipcode should be filled in
-            assert(all_seeds[read_num][i].zipcode.byte_count() != 0);
+            assert(all_seeds[read_num][i].zipcode.bit_count() != 0);
 #endif
             all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
-            if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
+            if (all_seeds[read_num][i].zipcode.bit_count() != 0) {
                 all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode.get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index);
             }
         }

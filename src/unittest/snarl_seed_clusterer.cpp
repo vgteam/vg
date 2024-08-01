@@ -833,7 +833,7 @@ namespace unittest {
         }
     }    
     TEST_CASE( "Top-level looping chain",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("AGCGTGTAGAGAA");
