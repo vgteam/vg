@@ -4240,7 +4240,13 @@ using namespace std;
                                 auto mappings = path_chunk.second.mutable_mapping();
                                 mappings->erase(mappings->begin(), mappings->begin() + mappings_to_delete);
                                 auto edits = mappings->front().mutable_edit();
+                                size_t deleting_from_length = 0;
+                                for (size_t e = 0; e < edits_to_delete; ++e) {
+                                    deleting_from_length += (*edits)[e].from_length();
+                                }
                                 edits->erase(edits->begin(), edits->begin() + edits_to_delete);
+                                auto position = mappings->front().mutable_position();
+                                position->set_offset(position->offset() + deleting_from_length);
                                 
                                 // trim ref interval
                                 for (size_t m = 0; m < mappings_to_delete; ++m) {
