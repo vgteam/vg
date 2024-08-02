@@ -1,11 +1,11 @@
 #include "zip_code.hpp"
 
-#define DEBUG_ZIPCODE
+//#define DEBUG_ZIPCODE
 
 namespace vg{
 using namespace std;
 
-void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos) {
+void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
 
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
@@ -66,6 +66,9 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             temp_zipcode.emplace_back(connectivity);
             max_value = std::max(max_value, temp_zipcode.back());
             zipcode.from_vector(temp_zipcode, max_value);
+            if (fill_in_decoder) {
+                fill_in_full_decoder();
+            }
             return;
         } else {
 #ifdef DEBUG_ZIPCODE
@@ -111,6 +114,9 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 
             if (distance_index.is_trivial_chain(current_ancestor)) {
                 zipcode.from_vector(temp_zipcode, max_value);
+                if (fill_in_decoder) {
+                    fill_in_full_decoder();
+                }
                 return;
             }
         } else if (distance_index.is_regular_snarl(current_ancestor)) {
@@ -122,8 +128,11 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index, temp_zipcode, max_value);
         }
     }
-    cerr << "Make real zipcode from temp with length " << temp_zipcode.size() << endl;
     zipcode.from_vector(temp_zipcode, max_value);
+
+    if (fill_in_decoder) {
+        fill_in_full_decoder();
+    }
 }
 
 void ZipCode::from_vector(const std::vector<size_t>& values, size_t max_value) {
@@ -1522,7 +1531,7 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
 #endif
             mask1 >>= 1;
         } else {
-            if ((payload.first & mask2) != 0) {
+            if ((payload.second & mask2) != 0) {
                 zipcode.set_bit_at(i);
 #ifdef DEBUG_ZIPCODE
                 cerr << "1";
@@ -1576,6 +1585,9 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
     //The zipcode vector will be serialized as a bunch of min_width_int_vector_ts
     //The first min_width_int_vector_t will have one value, which will be the length of the
     //zipcode that follows it
+#ifdef DEBUG_ZIPCODE
+    cerr << "Serialize zipcode collection" << endl;
+#endif
 
     //First serialize the header, which is the magic number and version
     uint32_t magic = magic_number;
@@ -1587,7 +1599,7 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
     for (const ZipCode& zip : zipcodes) {
 
         //Write the width
-        size_t width = zip.zipcode.get_bit_width();
+        uint8_t width = (uint8_t) zip.zipcode.get_bit_width();
         out.write(reinterpret_cast<const char*>(&width), sizeof(width));
     
         //How many values are in the vector. Used with width to get the bit count
@@ -1598,6 +1610,12 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
 
         //Write the zipcode 
 #ifdef DEBUG_ZIPCODE
+        cerr << "Write width " << (size_t) width << " and item count " << item_count << " and zipcode: " << endl;
+        cerr << "\t";
+        for (size_t i = 0 ; i < zip.zipcode.size() ; i++) {
+            cerr << zip.zipcode.at(i) << " ";
+        }
+        cerr << endl << "\t";
         size_t zip_byte_count = 0;
 #endif
         size_t bit_count = zip.zipcode.get_bit_count();
@@ -1607,15 +1625,24 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
 #endif
             uint8_t result = 0;
             for (size_t j = 0 ; j < 8 ; j++) {
-                result << 1;
+                result <<= 1;
                 if (i+j < bit_count && zip.zipcode.bit_at(i+j)) {
+#ifdef DEBUG_ZIPCODE
+                    cerr << "1";
+#endif
                     result |= 1;
                 }
+#ifdef DEBUG_ZIPCODE
+                else {
+                    cerr << "0";
+                }
+#endif
             }
             out << char(result);
         }
 #ifdef DEBUG_ZIPCODE
-        assert(zip_byte_count == bit_count / 8); 
+        cerr << endl;
+        assert(zip_byte_count == ceil((float)bit_count / 8)); 
 #endif
     }
 
@@ -1647,12 +1674,12 @@ void ZipCodeCollection::deserialize(std::istream& in) {
         size_t bit_count = (size_t)width * item_count;
 
         //How many bytes were used to store all the bits in the zipcode bit vector
-        size_t byte_count = (size_t) std::floor((float)bit_count / 8);
+        size_t byte_count = (size_t) std::ceil((float)bit_count / 8);
 
 
 
 #ifdef DEBUG_ZIPCODE
-        cerr << "Get zipcode of " << bit_count << " bits" << endl;
+        cerr << "Get zipcode with width " << (size_t) width << " and item count " << item_count << endl << "\t";
 #endif
 
         char line [byte_count];
@@ -1666,13 +1693,28 @@ void ZipCodeCollection::deserialize(std::istream& in) {
         for (const char& character : line) {
             for (int i = 7 ; i >= 0 ; i--) {
                 if (added_bits < bit_count) {
-                    if  ((uint8_t)character & (1 << i) != 0)  {
+                    if  (((uint8_t)character & ((uint8_t)1 << i)) != 0)  {
                         zip.zipcode.set_bit_at(added_bits);
+#ifdef DEBUG_ZIPCODE
+                        cerr << "1";
+#endif
                     }
+#ifdef DEBUG_ZIPCODE
+                    else {
+                        cerr << "0";
+                    }
+#endif
                     added_bits++;
                 }
             }
         }
+#ifdef DEBUG_ZIPCODE
+        cerr << endl <<"\t";
+        for (size_t i = 0 ; i < zip.zipcode.size() ; i++) {
+            cerr << zip.zipcode.at(i) << " ";
+        }
+        cerr << endl;
+#endif
 
         zipcodes.emplace_back(std::move(zip));
     }

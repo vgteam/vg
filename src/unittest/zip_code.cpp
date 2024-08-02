@@ -8,7 +8,7 @@ namespace vg{
 namespace unittest{
 using namespace std;
 
-    TEST_CASE("One node zipcode", "[zipcode][bug]") {
+    TEST_CASE("One node zipcode", "[zipcode]") {
         VG graph;
  
         Node* n1 = graph.create_node("GCAAACAGATT");
@@ -48,7 +48,6 @@ using namespace std;
             REQUIRE(zipcode.decoder.front().second == 0);
         }
         SECTION("decoded code") {
-            cerr << "New code" << endl;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             zipcode.fill_in_full_decoder();
@@ -141,7 +140,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(7) == 0);
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 7);
+            REQUIRE(zipcode.zipcode.size() == 8);
 
         }
         SECTION ("decoded zip code for node on top-level chain") {
@@ -222,7 +221,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(12) == 0);
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 12);
+            REQUIRE(zipcode.zipcode.size() == 13);
 
 
         }
@@ -392,6 +391,9 @@ using namespace std;
         Edge* e10 = graph.create_edge(n7, n8);
 
  
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
@@ -437,7 +439,7 @@ using namespace std;
                                                 distance_index.get_node_net_handle(n1->id())));
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 7);
+            REQUIRE(zipcode.zipcode.size() == 8);
 
 
         }
@@ -534,7 +536,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(16) == distance_index.get_chain_component(distance_index.get_node_net_handle(n2->id())));
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 16);
+            REQUIRE(zipcode.zipcode.size() == 17);
 
 
         }
@@ -594,7 +596,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(3) == 0);
 
             //Next is the regular snarl code for snarl 1-8
-            REQUIRE(zipcode.decoder[1] == std::make_pair(false, (size_t) 3));
+            REQUIRE(zipcode.decoder[1] == std::make_pair(false, (size_t) 4));
 
             //1 for regular snarl tag
             REQUIRE(zipcode.zipcode.at(4) == 1);
@@ -698,7 +700,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(30) == 0) ;
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 30);
+            REQUIRE(zipcode.zipcode.size() == 31);
 
 
         }
@@ -1035,7 +1037,7 @@ using namespace std;
             REQUIRE(zipcode.zipcode.at(16) == 0);
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 16);
+            REQUIRE(zipcode.zipcode.size() == 17);
         }
         SECTION ("decode zip code for node in irregular snarl") { 
             ZipCode zipcode;
@@ -1528,7 +1530,7 @@ using namespace std;
                                                 distance_index.get_node_net_handle(n1->id())));
 
             //That's it
-            REQUIRE(zipcode.zipcode.size() == 7);
+            REQUIRE(zipcode.zipcode.size() == 8);
 
         }
         SECTION("Distances") {
@@ -1725,8 +1727,6 @@ using namespace std;
         Edge* e7 = graph.create_edge(n5, n6);
         Edge* e8 = graph.create_edge(n1, n1, true, false);
 
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;

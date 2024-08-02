@@ -60,7 +60,7 @@ class ZipCode {
     public:
 
         //Fill in an empty zipcode given a position
-        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
+        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder=true);
 
         //Fill in an empty zipcode using the information that was stored in a payload
         void fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload); 
@@ -361,7 +361,7 @@ class ZipCodeCollection {
 
     //magic number to identify the file
     const static uint32_t magic_number = 0x5a495053; //ZIPS
-    const static uint32_t version = 2;
+    const static uint32_t version = 3;
 
     public:
     const static std::uint32_t get_magic_number() {return magic_number;}

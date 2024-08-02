@@ -1,6 +1,6 @@
 #include "min_width_int_vector.hpp"
 
-#define DEBUG_MININT
+//#define DEBUG_MININT
 
 namespace vg {
 using namespace std;
