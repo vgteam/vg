@@ -48,11 +48,10 @@ using namespace std;
             zipcode.fill_in_full_decoder();
 
             REQUIRE(zipcode.decoder_length() == 1);
-            REQUIRE(zipcode.decoder.front().first == 1);
-            REQUIRE(zipcode.decoder.front().second == 0);
+            REQUIRE(zipcode.decoder.front().is_chain == 1);
+            REQUIRE(zipcode.decoder.front().offset == 0);
         }
         SECTION("decoded code") {
-            cerr << "New code" << endl;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             zipcode.fill_in_full_decoder();
@@ -118,7 +117,7 @@ using namespace std;
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
 
             //Second value is the connected component number of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -135,7 +134,7 @@ using namespace std;
             //Next is the node code
             //Third value is the prefix sum of the node
 
-            REQUIRE(zipcode.decoder[1] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
 
@@ -186,7 +185,7 @@ using namespace std;
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
 
             //Second value is the connected component number of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -203,7 +202,7 @@ using namespace std;
             //Next is the snarl code
 
             //1 for a regular snarl
-            REQUIRE(zipcode.decoder[1] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
 
@@ -233,7 +232,7 @@ using namespace std;
 
             //Next is the chain code
             //rank of the chain in the snarl
-            REQUIRE(zipcode.decoder[2] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(
                                                 distance_index.get_node_net_handle(n4->id()))));
@@ -430,7 +429,7 @@ using namespace std;
 
             REQUIRE(zipcode.decoder_length() == 2); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
@@ -450,7 +449,7 @@ using namespace std;
             //Next is the node code
             //Third value is the prefix sum of the node
 
-            REQUIRE(zipcode.decoder[1] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
 
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
@@ -501,7 +500,7 @@ using namespace std;
 
             REQUIRE(zipcode.decoder_length() == 4); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
@@ -519,7 +518,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Next is the regular snarl code
-            REQUIRE(zipcode.decoder[1] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
 
             //1 for regular snarl tag
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -550,7 +549,7 @@ using namespace std;
             REQUIRE(value_and_index.first == is_rev);
 
             //Next is the chain code
-            REQUIRE(zipcode.decoder[2] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
 
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -566,7 +565,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Next is the node code
-            REQUIRE(zipcode.decoder[3] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[3] == ZipCode::decoder_t(true, value_and_index.second));
             //Offset of the node in the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n2->id()))+1);
@@ -629,7 +628,7 @@ using namespace std;
             zipcode.fill_in_full_decoder();
             REQUIRE(zipcode.decoder_length() == 7); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
 
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -648,7 +647,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Next is the regular snarl code for snarl 1-8
-            REQUIRE(zipcode.decoder[1] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
 
             //1 for regular snarl tag
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -678,7 +677,7 @@ using namespace std;
                                                                    distance_index.flip(distance_index.canonical(chain2))) != 0;
             REQUIRE(value_and_index.first == is_rev);
             //Next is the chain code for chain 2-7
-            REQUIRE(zipcode.decoder[2] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(
@@ -693,7 +692,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Next is the regular snarl code for snarl 2-7
-            REQUIRE(zipcode.decoder[3] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[3] == ZipCode::decoder_t(false, value_and_index.second));
             //1 as tag for regular snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
@@ -722,7 +721,7 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, true))));
 
             //Chain code for chain 3-5
-            REQUIRE(zipcode.decoder[4] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[4] == ZipCode::decoder_t(true, value_and_index.second));
             //Rank in parent
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))) );
@@ -736,7 +735,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //REgular snarl code for snarl 3-5
-            REQUIRE(zipcode.decoder[5] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[5] == ZipCode::decoder_t(false, value_and_index.second));
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 1);
 
@@ -765,7 +764,7 @@ using namespace std;
             REQUIRE(value_and_index.first == is_rev);
 
             //Chain code for node 4
-            REQUIRE(zipcode.decoder[6] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[6] == ZipCode::decoder_t(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_node_net_handle(n4->id()))) ;
@@ -1052,7 +1051,7 @@ using namespace std;
 
             REQUIRE(zipcode.decoder_length() == 3); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
 
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -1071,7 +1070,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Irregular snarl code for snarl 1-4
-            REQUIRE(zipcode.decoder[1] == std::make_pair(false, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(false, value_and_index.second));
             //0 as tag for irregular snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 2);
@@ -1119,7 +1118,7 @@ using namespace std;
             //REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
 
             //Node 3 as a chain
-            REQUIRE(zipcode.decoder[2] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
             //Rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))));
@@ -1348,7 +1347,7 @@ using namespace std;
 
             REQUIRE(zipcode.decoder_length() == 2); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(false, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(false, (size_t)0));
 
             //0 to indicate that it's a top-level snarl
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -1359,7 +1358,7 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id())));
 
             //Next is node 1 as a chain
-            REQUIRE(zipcode.decoder[1] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))));
@@ -1395,7 +1394,7 @@ using namespace std;
 
             REQUIRE(zipcode.decoder_length() == 3); 
 
-            REQUIRE(zipcode.decoder[0] == std::make_pair(false, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(false, (size_t)0));
 
             //0 to indicate that it's a top-level snarl
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -1406,7 +1405,7 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id())));
 
             //Next is chain 2-3
-            REQUIRE(zipcode.decoder[1] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))));
@@ -1418,7 +1417,7 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Node 3
-            REQUIRE(zipcode.decoder[2] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[2] == ZipCode::decoder_t(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1)+1);
@@ -1609,7 +1608,7 @@ using namespace std;
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
-            REQUIRE(zipcode.decoder[0] == std::make_pair(true, (size_t)0));
+            REQUIRE(zipcode.decoder[0] == ZipCode::decoder_t(true, (size_t)0));
 
             //Second value is the connected component number of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -1626,7 +1625,7 @@ using namespace std;
             //Next is the node code
             //Third value is the prefix sum of the node
 
-            REQUIRE(zipcode.decoder[1] == std::make_pair(true, value_and_index.second));
+            REQUIRE(zipcode.decoder[1] == ZipCode::decoder_t(true, value_and_index.second));
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
 

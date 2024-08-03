@@ -220,7 +220,15 @@ class ZipCode {
         ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
         ///where is_chain indicates whether it's a chain/node, and index
         ///is the index of the node/snarl/chain code in the varint_vector_t
-        std::vector<pair<bool, size_t>> decoder;
+        struct decoder_t {
+            bool is_chain : 1;
+            size_t offset : 15;
+            decoder_t(bool is_chain, size_t offset) : is_chain(is_chain), offset(offset) {}
+            inline bool operator==(const decoder_t& other) const {
+                return is_chain == other.is_chain && offset == other.offset;
+            }
+        };
+        std::vector<decoder_t> decoder;
 
         ///Did we fill in the entire decoder
         ///TODO: I'm making it fill in the decoder automatically because it seems to be faster that way, instead of 
