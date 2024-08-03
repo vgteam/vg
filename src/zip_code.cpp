@@ -1799,6 +1799,26 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
 #ifdef DEBUG_ZIPCODE
         assert(byte_count == zip_byte_count); 
 #endif
+
+        //Also save the decoder
+        varint_vector_t decoder_vector;
+        for (const ZipCode::decoder_t& d : zip.decoder) {
+            decoder_vector.add_value(d.is_chain);
+            decoder_vector.add_value(d.offset);
+        }
+
+        //Write the number of bytes for the zipcode
+        varint_vector_t decoder_byte_count;
+        decoder_byte_count.add_value(decoder_vector.byte_count());
+        for (const uint8_t& byte : decoder_byte_count.data) {
+            out << char(byte);
+        } 
+
+
+        //Write the decoder
+        for (const uint8_t& byte : decoder_vector.data ) {
+            out << char(byte);
+        }
     }
 
 }
@@ -1852,6 +1872,53 @@ void ZipCodeCollection::deserialize(std::istream& in) {
         for (const char& character : line) {
             zip.zipcode.add_one_byte(uint8_t(character));
         }
+
+
+        //Now get the decoder
+
+        varint_vector_t decoder_byte_count_vector;
+        while (in.peek() & (1<<7)) {
+            //If the first bit in the byte is 1, then add it, stop once the first bit is 0 
+            char ch;
+            in.get(ch);
+            decoder_byte_count_vector.add_one_byte((uint8_t)ch);
+        }
+        assert(! (in.peek() & (1<<7))); 
+        //The next byte has a 0 as its first bit, so add it
+        char ch;
+        in.get(ch);
+        decoder_byte_count_vector.add_one_byte((uint8_t)ch);
+
+        //The first (and only) value in the vector is the length of the zipcode
+        size_t decoder_byte_count = decoder_byte_count_vector.get_value_and_next_index(0).first;
+
+#ifdef DEBUG_ZIPCODE
+        cerr << "Get decoder of " << decoder_byte_count << " bytes" << endl;
+        //assert(decoder_byte_count >= 15);
+        assert(decoder_byte_count_vector.get_value_and_next_index(0).second == std::numeric_limits<size_t>::max());
+#endif
+
+        char line1 [decoder_byte_count];
+
+        in.read(line1, decoder_byte_count);
+
+        varint_vector_t decoder_vector;
+        for (const char& character : line1) {
+            decoder_vector.add_one_byte(uint8_t(character));
+        }
+
+        if (decoder_vector.byte_count() != 0) {
+            size_t index = 0;
+            while (index != std::numeric_limits<size_t>::max()) {
+                size_t is_chain, offset;
+                std::tie(is_chain, index) = decoder_vector.get_value_and_next_index(index);
+                std::tie(offset, index) = decoder_vector.get_value_and_next_index(index);
+                zip.decoder.emplace_back(is_chain != 0, offset);
+            }
+        }
+
+
+
         zipcodes.emplace_back(std::move(zip));
     }
 

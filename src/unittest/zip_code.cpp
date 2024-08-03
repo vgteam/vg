@@ -1747,7 +1747,7 @@ using namespace std;
                 REQUIRE(zipcode == decoded);
             };
         }
-        SECTION("serialization") {
+        SECTION("serialize without decoder") {
             ZipCodeCollection zipcodes;
             for (size_t i = 1 ; i <= 7 ; i++) {
                 ZipCode zip;
@@ -1766,6 +1766,30 @@ using namespace std;
             REQUIRE(zipcodes.size() == new_zipcodes.size());
             for (size_t i = 0 ; i < zipcodes.size() ; i++) {
                 REQUIRE(zipcodes.at(i).zipcode == new_zipcodes.at(i).zipcode);
+            }
+            
+        }
+        SECTION("serialize with decoder") {
+            ZipCodeCollection zipcodes;
+            for (size_t i = 1 ; i <= 7 ; i++) {
+                ZipCode zip;
+                zip.fill_in_zipcode(distance_index, make_pos_t(i, 0, false));
+                zip.fill_in_full_decoder();
+                zipcodes.emplace_back(zip);
+            }
+            ofstream out ("zipcodes");
+            zipcodes.serialize(out);
+            out.close();
+
+            ifstream in("zipcodes");
+            ZipCodeCollection new_zipcodes;
+            new_zipcodes.deserialize(in);
+            in.close();
+
+            REQUIRE(zipcodes.size() == new_zipcodes.size());
+            for (size_t i = 0 ; i < zipcodes.size() ; i++) {
+                REQUIRE(zipcodes.at(i).zipcode == new_zipcodes.at(i).zipcode);
+                REQUIRE(zipcodes.at(i).decoder == new_zipcodes.at(i).decoder);
             }
             
         }
