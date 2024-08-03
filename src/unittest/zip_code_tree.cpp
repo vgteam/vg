@@ -40,7 +40,6 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -85,7 +84,6 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -156,7 +154,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -267,7 +264,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -390,7 +386,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -437,7 +432,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -500,7 +494,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -585,7 +578,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -635,7 +627,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -769,7 +760,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -844,7 +834,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -882,7 +871,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -920,7 +908,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -957,7 +944,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -992,7 +978,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1018,7 +1003,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1045,7 +1029,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1072,7 +1055,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1099,7 +1081,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1157,7 +1138,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1215,7 +1195,6 @@ namespace unittest {
             for (auto pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
                 minimizers.emplace_back();
@@ -1271,7 +1250,6 @@ namespace unittest {
             for (auto pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
                 minimizers.emplace_back();
@@ -1373,7 +1351,6 @@ namespace unittest {
             for (auto pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
                 minimizers.emplace_back();
@@ -1438,7 +1415,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1530,7 +1506,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1563,7 +1538,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1594,7 +1568,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1620,7 +1593,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1648,7 +1620,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1676,7 +1647,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1703,7 +1673,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1806,7 +1775,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1838,7 +1806,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1868,7 +1835,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1900,7 +1866,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -1958,7 +1923,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
 
                 minimizers.emplace_back();
@@ -2029,7 +1993,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
 
                 minimizers.emplace_back();
@@ -2100,7 +2063,6 @@ namespace unittest {
                 pos_t pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, i, zipcode});
 
                 minimizers.emplace_back();
@@ -2144,7 +2106,6 @@ namespace unittest {
                 pos_t pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, i, zipcode});
 
                 minimizers.emplace_back();
@@ -2223,7 +2184,6 @@ namespace unittest {
             for (auto pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
                 minimizers.emplace_back();
@@ -2278,7 +2238,6 @@ namespace unittest {
             for (auto pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, pos.second, zipcode});
 
                 minimizers.emplace_back();
@@ -2323,7 +2282,6 @@ namespace unittest {
         for (pos_t pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos);
-            zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
 
@@ -2366,7 +2324,6 @@ namespace unittest {
         for (pos_t pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos);
-            zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
 
@@ -2416,7 +2373,6 @@ namespace unittest {
         for (pos_t pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos);
-            zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
         }
 
@@ -2467,7 +2423,6 @@ namespace unittest {
         for (pos_t pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos);
-            zipcode.fill_in_full_decoder();
             seeds.push_back({ pos, 0, zipcode});
 
             minimizers.emplace_back();
@@ -2533,7 +2488,6 @@ namespace unittest {
                 auto pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
                 minimizers.emplace_back();
@@ -2598,7 +2552,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2619,7 +2572,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2662,7 +2614,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2682,7 +2633,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2727,7 +2677,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2747,7 +2696,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2767,7 +2715,6 @@ namespace unittest {
             for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos, 0, zipcode});
             }
 
@@ -2832,7 +2779,6 @@ namespace unittest {
                 auto pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
                 seeds.push_back({ pos.first, i, zipcode});
 
                 minimizers.emplace_back();
@@ -2878,7 +2824,6 @@ namespace unittest {
         for (auto pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos.first);
-                zipcode.fill_in_full_decoder();
             seeds.push_back({ pos.first, pos.second, zipcode});
         }
         distance_index.for_each_child(distance_index.get_root(), [&](net_handle_t child) {
@@ -2945,7 +2890,6 @@ namespace unittest {
 
                     ZipCode zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    zipcode.fill_in_full_decoder();
 
                     seeds.push_back({ pos, (size_t)j, zipcode});
 

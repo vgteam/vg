@@ -3757,7 +3757,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     //If the zipcode was saved in the payload
                     seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                seeds.back().zipcode.fill_in_full_decoder();
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&seeds.back().zipcode);
+                seeds.back().zipcode_decoder.reset(decoder);
 
             }
             

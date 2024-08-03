@@ -70,23 +70,42 @@ class SnarlDistanceIndexClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            //TODO: unique_ptr?
+            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
 
             Seed() = default;
             Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
-                zipcode.fill_in_full_decoder();
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
+                zipcode_decoder.reset(decoder);
+                zipcode_decoder->fill_in_full_decoder();
+            }
+            Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
+                pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
             }
 
             //Move constructor
             Seed (Seed&& other) :
                 pos(std::move(other.pos)),
                 source(std::move(other.source)),
-                zipcode(std::move(other.zipcode)){}
+                zipcode(std::move(other.zipcode)),
+                zipcode_decoder(std::move(other.zipcode_decoder)) {
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+            }
 
             //Move assignment operator
             Seed& operator=(Seed&& other) {
                 pos = std::move(other.pos);
                 source = std::move(other.source);
                 zipcode = std::move(other.zipcode);
+                zipcode_decoder = std::move(other.zipcode_decoder);
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
                 return *this;
             }
         };
@@ -101,6 +120,9 @@ class SnarlDistanceIndexClusterer {
 
             //TODO: I think I can skip the zipcode now since I have the payload
             MIPayload payload;
+
+            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
+            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -294,18 +316,18 @@ class SnarlDistanceIndexClusterer {
 
             //Set the values needed to cluster a chain
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
-                is_looping_chain = seed->seed->zipcode.get_is_looping_chain(zipcode_depth);
+                is_looping_chain = seed->seed->zipcode_decoder->get_is_looping_chain(zipcode_depth);
                 node_length = distance_index.chain_minimum_length(containing_net_handle);
-                chain_component_end = seed->seed->zipcode.get_last_chain_component(zipcode_depth, true);
-                is_reversed_in_parent = seed->seed->zipcode.get_is_reversed_in_parent(zipcode_depth);
+                chain_component_end = seed->seed->zipcode_decoder->get_last_chain_component(zipcode_depth, true);
+                is_reversed_in_parent = seed->seed->zipcode_decoder->get_is_reversed_in_parent(zipcode_depth);
             }
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
-                node_length = seed->seed->zipcode.get_length(zipcode_depth, &distance_index);
+                node_length = seed->seed->zipcode_decoder->get_length(zipcode_depth, &distance_index);
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
                 net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
-                chain_component_start = seed->seed->zipcode.get_chain_component(zipcode_depth);
+                chain_component_start = seed->seed->zipcode_decoder->get_chain_component(zipcode_depth);
                 chain_component_end = node_length == std::numeric_limits<size_t>::max() ? chain_component_start+1
                                                                                       : chain_component_start;
                 prefix_sum_value = SnarlDistanceIndex::sum(

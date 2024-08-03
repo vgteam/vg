@@ -91,26 +91,26 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
 static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1, const MinimizerMapper::Seed& end_seed1,
                                         const MinimizerMapper::Seed& start_seed2, const MinimizerMapper::Seed& end_seed2) {
 #ifdef debug
-    assert(start_seed1.zipcode.get_distance_index_address(0) ==
-           end_seed1.zipcode.get_distance_index_address(0));
-    assert(start_seed2.zipcode.get_distance_index_address(0) ==
-           end_seed2.zipcode.get_distance_index_address(0));
+    assert(start_seed1.zipcode_decoder->get_distance_index_address(0) ==
+           end_seed1.zipcode_decoder->get_distance_index_address(0));
+    assert(start_seed2.zipcode_decoder->get_distance_index_address(0) ==
+           end_seed2.zipcode_decoder->get_distance_index_address(0));
 #endif
-    if (start_seed1.zipcode.get_distance_index_address(0) !=
-        start_seed2.zipcode.get_distance_index_address(0)) {
+    if (start_seed1.zipcode_decoder->get_distance_index_address(0) !=
+        start_seed2.zipcode_decoder->get_distance_index_address(0)) {
         //If the two ranges are on different connected components
         return false;
     }
-    if (start_seed1.zipcode.get_code_type(0) == ZipCode::ROOT_SNARL) {
+    if (start_seed1.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_SNARL) {
         //If this is in a root snarl
-        if (start_seed1.zipcode.get_rank_in_snarl(1) !=
-            start_seed2.zipcode.get_rank_in_snarl(1) 
+        if (start_seed1.zipcode_decoder->get_rank_in_snarl(1) !=
+            start_seed2.zipcode_decoder->get_rank_in_snarl(1) 
             ||
-            start_seed1.zipcode.get_rank_in_snarl(1) !=
-            end_seed1.zipcode.get_rank_in_snarl(1) 
+            start_seed1.zipcode_decoder->get_rank_in_snarl(1) !=
+            end_seed1.zipcode_decoder->get_rank_in_snarl(1) 
             ||
-            start_seed2.zipcode.get_rank_in_snarl(1) !=
-            end_seed2.zipcode.get_rank_in_snarl(1)) {
+            start_seed2.zipcode_decoder->get_rank_in_snarl(1) !=
+            end_seed2.zipcode_decoder->get_rank_in_snarl(1)) {
             //If the two ranges are on different children of the snarl
             return false;
         }
@@ -119,20 +119,20 @@ static bool chain_ranges_are_equivalent(const MinimizerMapper::Seed& start_seed1
     //Get the offset used for determining the range
     //On the top-level chain, node, or child of the top-level snarl 
     auto get_seed_offset = [&] (const MinimizerMapper::Seed& seed) {
-        if (seed.zipcode.get_code_type(0) == ZipCode::ROOT_CHAIN) {
-            return seed.zipcode.get_offset_in_chain(1);
-        } else if (seed.zipcode.get_code_type(0) == ZipCode::ROOT_NODE) {
-            return is_rev(seed.pos) ? seed.zipcode.get_length(0) - offset(seed.pos)
+        if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_CHAIN) {
+            return seed.zipcode_decoder->get_offset_in_chain(1);
+        } else if (seed.zipcode_decoder->get_code_type(0) == ZipCode::ROOT_NODE) {
+            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(0) - offset(seed.pos)
                                     : offset(seed.pos);
         } else {
             //Otherwise, this is a top-level snarl, and we've already made sure that it's on the 
             //same child chain/node
-            if (seed.zipcode.get_code_type(1) == ZipCode::CHAIN) {
+            if (seed.zipcode_decoder->get_code_type(1) == ZipCode::CHAIN) {
                 //On a chain
-                return seed.zipcode.get_offset_in_chain(2);
+                return seed.zipcode_decoder->get_offset_in_chain(2);
             } else {
                 //On a node
-                return is_rev(seed.pos) ? seed.zipcode.get_length(1) - offset(seed.pos)
+                return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(1) - offset(seed.pos)
                                         : offset(seed.pos);
             }
         }
@@ -3861,7 +3861,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     return to_return;
 }
 
-std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, std::vector<Seed>& seeds) const {
+std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
     for (size_t i = 0; i < seeds.size(); i++) {
@@ -3870,7 +3870,7 @@ std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner) {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner) {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
@@ -3928,7 +3928,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // TODO: Always make sequence and quality available for scoring!
     // We're going to score the anchor as the full minimizer, and rely on the margins to stop us from taking overlapping anchors.
     int score = aligner->score_exact_match(aln, read_start - margin_left, length + margin_right);
-    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, &(seed.zipcode), hint_start); 
+    return algorithms::Anchor(read_start, graph_start, length, margin_left, margin_right, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, size_t read_start, size_t read_end, const std::vector<size_t>& sorted_seeds, const std::vector<algorithms::Anchor>& seed_anchors, const std::vector<size_t>::const_iterator& mismatch_begin, const std::vector<size_t>::const_iterator& mismatch_end, const HandleGraph& graph, const Aligner* aligner) {
