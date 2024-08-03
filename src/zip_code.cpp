@@ -5,7 +5,7 @@
 namespace vg{
 using namespace std;
 
-void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
+void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos) {
 
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
@@ -16,42 +16,29 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
         current_handle = distance_index.get_parent(current_handle);
     }
 
-    //Make a temporary zipcode that will turn into the real one
-    vector<size_t> temp_zipcode;
-    temp_zipcode.reserve(ancestors.size() * 4);
-    //Remember the maximum value we see to set the bitwidth when we make the real zipcode
-    size_t max_value = 0;
-
 
     //Now add the root-level snarl or chain
     if (distance_index.is_root_snarl(current_handle)) {
         //FIrst thing is a snarl, so add the snarl's connected component number
-        temp_zipcode.emplace_back(0);
+        zipcode.add_value(0);
 #ifdef DEBUG_ZIPCODE
         cerr << "Adding code for top-level snarl " << distance_index.net_handle_as_string(current_handle) << endl;
 #endif
-        temp_zipcode.emplace_back(distance_index.get_connected_component_number(current_handle));
-        max_value = std::max(max_value, temp_zipcode.back());
+        zipcode.add_value(distance_index.get_connected_component_number(current_handle));
     } else {
-#ifdef DEBUG_ZIPCODE
-        cerr << "Adding code for top-level chain " << distance_index.net_handle_as_string(current_handle) << endl;
-#endif
         //FIrst thing is a chain so add its connected component number and remove the chain from the stack
-        temp_zipcode.emplace_back(1);
-        max_value = std::max(max_value, temp_zipcode.back());
+        zipcode.add_value(1);
 
         //If the root-level structure is actually a chain, then save the connected component number and take out
         //the chain from the stack
         //If the root-level structure is a trivial chain, then just store the node (as a chain, which will have the 
         //connected-component number as the rank in the snarl anyways)
-        temp_zipcode.emplace_back(distance_index.get_connected_component_number(ancestors.back()));
-        max_value = std::max(max_value, temp_zipcode.back());
+        zipcode.add_value(distance_index.get_connected_component_number(ancestors.back()));
         if (ancestors.size() == 2 && distance_index.is_trivial_chain(ancestors.back())) {
 #ifdef DEBUG_ZIPCODE
            cerr << "Adding code for top-level trivial chain" << endl;
 #endif
-            temp_zipcode.emplace_back(distance_index.minimum_length(ancestors.back())+1);
-            max_value = std::max(max_value, temp_zipcode.back());
+            zipcode.add_value(distance_index.minimum_length(ancestors.back())+1);
             size_t connectivity = 0;
             if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
                 connectivity = connectivity | 1;
@@ -63,12 +50,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 connectivity = connectivity | 4;
             }
  
-            temp_zipcode.emplace_back(connectivity);
-            max_value = std::max(max_value, temp_zipcode.back());
-            zipcode.from_vector(temp_zipcode, max_value);
-            if (fill_in_decoder) {
-                fill_in_full_decoder();
-            }
+            zipcode.add_value(connectivity);
             return;
         } else {
 #ifdef DEBUG_ZIPCODE
@@ -80,8 +62,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             if (distance_index.is_looping_chain(ancestors.back())) {
                 component += 1;
             }
-            temp_zipcode.emplace_back(component);
-            max_value = std::max(max_value, temp_zipcode.back());
+            zipcode.add_value(component);
 
         }
         size_t connectivity = 0;
@@ -95,8 +76,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             connectivity = connectivity | 4;
         }
  
-        temp_zipcode.emplace_back(connectivity);
-        max_value = std::max(max_value, temp_zipcode.back());
+        zipcode.add_value(connectivity);
         ancestors.pop_back();
     }
 
@@ -108,44 +88,62 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
         cerr << "Adding code for " << distance_index.net_handle_as_string(current_ancestor) << endl;
 #endif
         if (distance_index.is_node(current_ancestor)) {
-            get_node_code(current_ancestor, distance_index, temp_zipcode, max_value);
+            vector<size_t> to_add = get_node_code(current_ancestor, distance_index);
+            for (auto& x : to_add) {
+                zipcode.add_value(x);
+            }
+#ifdef DEBUG_ZIPCODE
+            assert(to_add.size() == ZipCode::NODE_SIZE);
+#endif
         } else if (distance_index.is_chain(current_ancestor)) {
-            get_chain_code(current_ancestor, distance_index, temp_zipcode, max_value);
-
+            vector<size_t> to_add = get_chain_code(current_ancestor, distance_index);
+            for (auto& x : to_add) {
+                zipcode.add_value(x);
+            }
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::CHAIN_SIZE);
+#endif
             if (distance_index.is_trivial_chain(current_ancestor)) {
-                zipcode.from_vector(temp_zipcode, max_value);
-                if (fill_in_decoder) {
-                    fill_in_full_decoder();
-                }
                 return;
             }
         } else if (distance_index.is_regular_snarl(current_ancestor)) {
-            get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index, temp_zipcode, max_value);
+            vector<size_t> to_add = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
+            for (auto& x : to_add) {
+                zipcode.add_value(x);
+            }
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::REGULAR_SNARL_SIZE);
+#endif
         } else {
 #ifdef DEBUG_ZIPCODE
             assert(distance_index.is_snarl(current_ancestor));
 #endif
-            get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index, temp_zipcode, max_value);
+            vector<size_t> to_add = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index);
+#ifdef DEBUG_ZIPCODE
+            assert(to_add.size() == ZipCode::IRREGULAR_SNARL_SIZE);
+#endif
+            for (auto& x : to_add) {
+                zipcode.add_value(x);
+            }
         }
-    }
-    zipcode.from_vector(temp_zipcode, max_value);
-
-    if (fill_in_decoder) {
-        fill_in_full_decoder();
     }
 }
 
-void ZipCode::from_vector(const std::vector<size_t>& values, size_t max_value) {
-    zipcode.from_vector(values, max_value);
+std::vector<size_t> ZipCode::to_vector() const {
+    return zipcode.to_vector();
+}
+
+void ZipCode::from_vector(const std::vector<size_t>& values) {
+    zipcode.from_vector(values);
 }
 
 
 void ZipCode::fill_in_full_decoder() {
-    if (zipcode.size() == 0 || finished_decoding) {
+    if (byte_count() == 0 || finished_decoding) {
         //If the zipcode is empty
         return;
     }
-    decoder.reserve(zipcode.size() / 4);
+    decoder.reserve(byte_count() / 4);
     bool done=false;
     while (!done) {
         done = fill_in_next_decoder();
@@ -165,79 +163,193 @@ bool ZipCode::fill_in_next_decoder() {
     //check to see how much has been filled in
     size_t zip_length = decoder_length();
 
+    //Does the most recent thing in the zip_index point to a chain/node?
+    bool previous_is_chain;
+
+    size_t zip_index=0;
+    size_t zip_value;
 
     if (zip_length == 0) {
         //If there is nothing in the decoder yet, then the first thing will start at 0
+        for (size_t i = 0 ; i <= ZipCode::ROOT_IS_CHAIN_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
 
         //Is the root a chain/node?
-        decoder.emplace_back(zipcode.at(ROOT_IS_CHAIN_OFFSET), 0);
+        previous_is_chain = zip_value;
+        decoder.emplace_back(previous_is_chain, 0);
 
 #ifdef DEBUG_ZIPCODE
-cerr << "\tadding the root, which is a " << (decoder.back().first ? "chain or node" : "snarl") << endl;
+cerr << "\tadding the root, which is a " << (previous_is_chain ? "chain or node" : "snarl") << endl;
 #endif
-        if (zipcode.size() == ROOT_NODE_SIZE) {
-            //If this was a root node, then we're done
-            finished_decoding = true;
-            return true;
+        //There might be something else but we're done for now
+        return false;
+    } else if (zip_length == 1) {
+        //If there is one thing in the zipcode
+        previous_is_chain = decoder.back().first;
+
+        //If the top-level structure is a chain, it might actually be a node, in which case
+        //the only other thing that got stored is the length
+        if (previous_is_chain) {
+            //Get to the end of the root chain
+            assert(ZipCode::ROOT_CHAIN_SIZE==ZipCode::ROOT_NODE_SIZE);//This is true for now but all this will change if it isn't
+
+            for (size_t i = 0 ; i < ZipCode::ROOT_NODE_SIZE ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            if (zip_index == std::numeric_limits<size_t>::max()) {
+                //If the zip code ends here (after the length), then this was a node and we're done
+#ifdef DEBUG_ZIPCODE
+cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
+#endif
+                finished_decoding = true;
+                return true;
+            } else {
+                //Otherwise, check if this is a node or a snarl. If it is a node, then there are three things remaining
+                size_t start_index = zip_index;
+
+                //If it's a node, then there are three remaining things in the index 
+                //If it were a snarl, then there are more than three things
+                for (size_t i = 0 ; i < ZipCode::NODE_SIZE ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+
+
+                //Return the start of this thing, and true if it was a node
+                decoder.emplace_back(zip_index == std::numeric_limits<size_t>::max(), start_index);
+#ifdef DEBUG_ZIPCODE
+                cerr << "\tAdding a " << (zip_index == std::numeric_limits<size_t>::max() ? "node" : "snarl") << endl;
+#endif
+                //If this was a node, then we're done so return true. Otherwise, it was a snarl to return false
+                return zip_index == std::numeric_limits<size_t>::max();
+            }
         } else {
-            //There might be something else but we're done for now
+            //Otherwise, the top-level thing is a snarl and the next thing is a chain 
+            for (size_t i = 0 ; i < ZipCode::ROOT_SNARL_SIZE ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            decoder.emplace_back(!previous_is_chain, zip_index);
             return false;
         }
     } else {
-        //This is not a root
-        bool previous_is_chain = decoder.back().first;
-        size_t previous_start = decoder.back().second;
+        //If there was already stuff in the decoder, then figure out where the last thing
+        //is and set values
+        previous_is_chain = decoder.back().first;
+        zip_index = decoder.back().second;
+#ifdef DEBUG_ZIPCODE
+        cerr << "Last thing was a " << (previous_is_chain ? "chain or node" : "snarl") << " starting at " << zip_index << endl;
+#endif
+
+        //get to the end of the current thing, add the next thing to the decoder and return
 
         if (previous_is_chain) {
-            //If the last thing was chain, then either the chain was the last thing in the zipcode
-            // (if it was the child of a snarl) or the next thing is either a node or snarl
+            //If the current zip_index points to a chain, then either it points to a node, or to 
+            //a chain that is followed by a node or snarl
+            //The node is the shorter of the two, so if the zipcode ends after the node, then it was
+            //a node and otherwise, it was an actual chain
 
+            //This must be true in order for this to work
             assert(std::min(ZipCode::CHAIN_SIZE + ZipCode::REGULAR_SNARL_SIZE,
                             ZipCode::CHAIN_SIZE + ZipCode::IRREGULAR_SNARL_SIZE) > ZipCode::NODE_SIZE);
 
-            size_t this_size = zip_length == 1 ? ROOT_CHAIN_SIZE : CHAIN_SIZE;
-            if (zipcode.size() == previous_start + this_size) {
-                //If the zipcode ends here
+            //Get to the end of the "node". If it is the end of the zipcode, then it was a node
+            //Otherwise, it was a snarl
+            //The node could actually be a chain in a snarl, in which case the zipcode ends after the 
+            //chain
+            size_t check_zip_index = zip_index;
+            for (size_t i = 0 ; i < std::min(ZipCode::CHAIN_SIZE, ZipCode::NODE_SIZE) ; i++) {
+                check_zip_index = zipcode.get_value_and_next_index(check_zip_index).second;
+            }
+            //If the zipcode ends after a chain
+            if (check_zip_index == std::numeric_limits<size_t>::max()) {
 #ifdef DEBUG_ZIPCODE
-            cerr << "The last thing was a trivial chain so we're done" << endl;
+                cerr << "\tThe last thing was a chain pretending to be a node so we're done" << endl;
 #endif
                 finished_decoding = true;
                 return true;
-            } else if (zipcode.size() == previous_start + this_size + NODE_SIZE) {
-                //If the zipcode ends after the node, add the node and we're done
+            }
+            //Now check if it was actually a real node
+            for (size_t i = 0 ; i < std::max(ZipCode::NODE_SIZE, ZipCode::CHAIN_SIZE)
+                                    - std::min(ZipCode::NODE_SIZE, ZipCode::CHAIN_SIZE); i++) {
+                check_zip_index = zipcode.get_value_and_next_index(check_zip_index).second;
+            }
+
+            //This might be a node that is a child of the chain, in which case there is one
+            //more thing in the zip code
+
+            if (check_zip_index == std::numeric_limits<size_t>::max()) {
+                //If the zip code ends here, then this was a node and we're done
+                //This should never really happen since it would have returned true when
+                //adding the node, but I'll leave in just in case someone calls this when they
+                //shouldn't have
 #ifdef DEBUG_ZIPCODE
-            cerr << "Adding a node and we're done" << endl;
+                cerr << "\tThe last thing was a node so we're done" << endl;
 #endif
-                decoder.emplace_back(true, previous_start + this_size);
                 finished_decoding = true;
                 return true;
             } else {
-                //Otherwise, this is a snarl and we're not done
+                //Otherwise, the last thing was a chain
+                //Get to the end of the chain
+                for (size_t i = 0 ; i < ZipCode::CHAIN_SIZE  ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+
+                //zip_index is now the start of the current thing that we want to add - the thing after the chain
+
+                //The current thing can be either a snarl or a node. If it is a node, then the zipcode
+                //ends after the node. If it is a snarl, then the shortest the remaining zipcocde can be
+                //is the size of a snarl and a chain
+                //This must be true in order for this to work
+                assert(std::min(ZipCode::CHAIN_SIZE + ZipCode::REGULAR_SNARL_SIZE,
+                                ZipCode::CHAIN_SIZE + ZipCode::IRREGULAR_SNARL_SIZE) > ZipCode::NODE_SIZE);
+
+                //Check if the current thing is a node
+                check_zip_index = zip_index;
+                for (size_t i = 0 ; i < ZipCode::NODE_SIZE ; i++) {
+                    check_zip_index = zipcode.get_value_and_next_index(check_zip_index).second;
+                }
+
+                //Return the start of this thing, and true if it was a node
+                decoder.emplace_back(check_zip_index == std::numeric_limits<size_t>::max(), zip_index);
 #ifdef DEBUG_ZIPCODE
-            cerr << "Adding a snarl starting at " << (previous_start + this_size) << endl;
+                cerr << "\tAdd a " << (check_zip_index == std::numeric_limits<size_t>::max() ? "node" : "snarl") << endl;
 #endif
-                decoder.emplace_back(false, previous_start + this_size);
-                return false;
+                //If this was a node, then we're done so return true. Otherwise, it was a snarl to return false
+                return check_zip_index == std::numeric_limits<size_t>::max();
             }
         } else {
-            //Otherwise, the last thing was a snarl
-            size_t next_start = previous_start;
+            //If !previous_is_chain, then the current zip_index points to a snarl
 
             //The regular/irregular snarl tag
-            if (zip_length == 1) {
-                //IF this was a root snarl
-                next_start += ROOT_SNARL_SIZE;
-            } else if (zipcode.at(previous_start + SNARL_IS_REGULAR_OFFSET) == 1) {
-                //If this was a regular snarl
-                next_start += REGULAR_SNARL_SIZE;
-            } else {
-                //Technically it could be irregular or cyclic but it doesn't matter because the codes are the same
-                next_start += IRREGULAR_SNARL_SIZE;            
+            for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET  ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             }
-            decoder.emplace_back(true, next_start);
-            return false;
+
+            if (zip_value == 1) {
+#ifdef DEBUG_ZIPCODE
+                cerr << "\tAdd a node child of a regular snarl" << endl;
+#endif
+                //Regular snarl, so 2 remaining things in the code
+                for (size_t i = 0 ; i < ZipCode::REGULAR_SNARL_SIZE - ZipCode::SNARL_IS_REGULAR_OFFSET - 1; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+                decoder.emplace_back(!previous_is_chain, zip_index);
+                return false;
+            } else {
+#ifdef DEBUG_ZIPCODE
+                cerr << "\tAdd the child of " << (decoder.size() == 2 ? "a top-level " : "an" ) << " irregular snarl" << endl;
+#endif
+                //If the decoder has two things in it (top-level chain and the current snarl), then this
+                //is a top-level irregular snarl. Otherwise a normal irregular snarl
+                size_t code_size = ZipCode::IRREGULAR_SNARL_SIZE;
+                for (size_t i = 0 ; i < code_size - ZipCode::SNARL_IS_REGULAR_OFFSET - 1; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+                decoder.emplace_back(!previous_is_chain, zip_index);
+                return false;
+            }
         }
-    }
+    }    
 }
 
 size_t ZipCode::max_depth() const {
@@ -275,13 +387,17 @@ ZipCode::code_type_t ZipCode::get_code_type(const size_t& depth) const {
             }
         } else {
             //Definitely a snarl
-            size_t code_type_int = zipcode.at(decoder[depth].second + ZipCode::SNARL_IS_REGULAR_OFFSET);
-            if (code_type_int == 0) {
-                return IRREGULAR_SNARL;
-            } else if (code_type_int == 1) {
-                return REGULAR_SNARL;
+            size_t zip_value;
+            size_t zip_index = decoder[depth].second;
+            for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            if (zip_value == 0) {
+                return ZipCode::IRREGULAR_SNARL;
+            } else if (zip_value == 1) {
+                return ZipCode::REGULAR_SNARL;
             } else {
-                return CYCLIC_SNARL;
+                return  ZipCode::CYCLIC_SNARL;
             }
         }
     }
@@ -294,7 +410,11 @@ size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distan
 
         if (decoder_length() == 1) {
             //If the length is 1, then it's a node
-            size_t zip_value = zipcode.at(decoder[depth].second + ROOT_NODE_LENGTH_OFFSET);
+            size_t zip_value;
+            size_t zip_index = decoder[depth].second;
+            for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_LENGTH_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
             return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
 
         } else {
@@ -305,13 +425,23 @@ size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distan
         //If this is a chain/node
 
         //If this is a chain or a node, then the length will be the second thing
-        assert(CHAIN_LENGTH_OFFSET == NODE_LENGTH_OFFSET);
-        size_t zip_value = zipcode.at(decoder[depth].second + CHAIN_LENGTH_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+
+        for (size_t i = 0 ; i <= ZipCode::CHAIN_LENGTH_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
     } else {
         //If this is a snarl
 
-        size_t zip_value = zipcode.at(decoder[depth].second + SNARL_LENGTH_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+
+        for (size_t i = 0 ; i <= ZipCode::SNARL_LENGTH_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
     }
 }
@@ -330,7 +460,12 @@ size_t ZipCode::get_rank_in_snarl(const size_t& depth) const {
             throw std::runtime_error("zipcodes trying to find the rank in snarl of a node in a chain");
         }
 
-        return zipcode.at(decoder[depth].second + CHAIN_RANK_IN_SNARL_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::CHAIN_RANK_IN_SNARL_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
     } else {
         //If this is a snarl
         throw std::runtime_error("zipcodes don't store snarl ranks for snarls");
@@ -352,7 +487,12 @@ size_t ZipCode::get_snarl_child_count(const size_t& depth, const SnarlDistanceIn
     } else if (!decoder[depth].first) {
         //If this is a snarl
 
-        return zipcode.at(decoder[depth].second + SNARL_CHILD_COUNT_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_CHILD_COUNT_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
     } else {
         //If this is not a snarl
         throw std::runtime_error("trying to get the snarl child count of a non-snarl zipcode");
@@ -372,13 +512,21 @@ size_t ZipCode::get_offset_in_chain(const size_t& depth, const SnarlDistanceInde
         if (!decoder[depth-1].first) {
             throw std::runtime_error("zipcodes trying to find the offset in child of a snarl");
         }
-        size_t zip_value = zipcode.at(decoder[depth].second + NODE_OFFSET_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
 
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
     } else {
         //If this is a snarl
 
-        size_t zip_value = zipcode.at(decoder[depth].second + SNARL_OFFSET_IN_CHAIN_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_OFFSET_IN_CHAIN_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
 
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
     }
@@ -396,11 +544,23 @@ size_t ZipCode::get_chain_component(const size_t& depth) const {
         if (!decoder[depth-1].first) {
             throw std::runtime_error("zipcodes trying to find the offset in child of a snarl");
         }
-        return zipcode.at(decoder[depth].second + NODE_CHAIN_COMPONENT_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::NODE_CHAIN_COMPONENT_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+
+        return zip_value;
     } else {
         //If this is a snarl
 
-        return zipcode.at(decoder[depth].second + SNARL_CHAIN_COMPONENT_OFFSET);
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_CHAIN_COMPONENT_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+
+        return zip_value;
     }
 }
 
@@ -409,7 +569,11 @@ size_t ZipCode::get_last_chain_component(const size_t& depth, bool get_end) cons
     if (!decoder[depth].first) {
         throw std::runtime_error("zipcodes trying to find the last chain component a snarl");
     }
-    size_t zip_value = zipcode.at(decoder[depth].second + CHAIN_COMPONENT_COUNT_OFFSET);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
     if (zip_value % 2) {
         if (!get_end) {
             return 0;
@@ -426,7 +590,12 @@ bool ZipCode::get_is_looping_chain(const size_t& depth) const {
     if (!decoder[depth].first) {
         throw std::runtime_error("zipcodes trying to find the last chain component a snarl");
     }
-    return zipcode.at(decoder[depth].second + CHAIN_COMPONENT_COUNT_OFFSET) % 2;
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
+    return zip_value % 2;
 }
 bool ZipCode::get_is_reversed_in_parent(const size_t& depth) const {
 
@@ -441,15 +610,28 @@ bool ZipCode::get_is_reversed_in_parent(const size_t& depth) const {
         if (decoder[depth-1].first) {
             //If the parent is a chain, then this is a node and we need to check its orientation
 
-            return zipcode.at(decoder[depth].second + NODE_IS_REVERSED_OFFSET);
+            size_t zip_value;
+            size_t zip_index = decoder[depth].second;
+            for (size_t i = 0 ; i <= ZipCode::NODE_IS_REVERSED_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            return zip_value;
         } else {
             //If the parent is a snarl, then this might be a chain in a regular snarl
-
-            size_t snarl_type = zipcode.at(decoder[depth-1].second + SNARL_IS_REGULAR_OFFSET);
-            if (snarl_type == 1) {
+            size_t zip_value;
+            size_t zip_index = decoder[depth-1].second;
+            //zip_value is true if the parent is a regular snarl
+            for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            if (zip_value == 1) {
                 //The parent is a regular snarl, which stores is_reversed for the child
                 
-                return zipcode.at(decoder[depth-1].second + REGULAR_SNARL_IS_REVERSED_OFFSET);
+                for (size_t i = 0 ; i <= ZipCode::REGULAR_SNARL_IS_REVERSED_OFFSET -
+                                         ZipCode::SNARL_IS_REGULAR_OFFSET - 1 ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+                return zip_value;
             } else {
                 //The parent is an irregular snarl, so it isn't reversed
                 return false;
@@ -468,7 +650,11 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        return distance_index->get_handle_from_connected_component(zipcode.at(ROOT_IDENTIFIER_OFFSET));
+        size_t zip_value, zip_index = 0;
+        for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        return distance_index->get_handle_from_connected_component(zip_value);
 
     } else if (decoder[depth].first) {
         //If this is a chain/node
@@ -477,18 +663,25 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
     } else {
         //If this is a snarl
 
-        size_t snarl_type = zipcode.at(decoder[depth].second + SNARL_IS_REGULAR_OFFSET);
-        if (snarl_type == 1) {
+        size_t zip_value; 
+        size_t zip_index = decoder[depth].second;
+        //zip_value is is_regular_snarl
+        for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        if (zip_value == 1) {
             //If this is a regular snarl
 
             throw std::runtime_error("zipcodes trying to get a handle of a regular snarl");
         } else {
             //Irregular snarl
 
-            size_t zip_value = zipcode.at(decoder[depth].second + IRREGULAR_SNARL_RECORD_OFFSET);
-            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, 
-                                                                                   SnarlDistanceIndex::START_END, 
-                                                                                   SnarlDistanceIndex::SNARL_HANDLE);
+            //zip_value is distance index offset
+            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
+                                     ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
             return snarl_handle;
         }
     }
@@ -500,7 +693,11 @@ net_handle_t ZipCode::get_net_handle_slow(nid_t id, const size_t& depth, const S
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        return distance_index->get_handle_from_connected_component(zipcode.at(ROOT_IDENTIFIER_OFFSET));
+        size_t zip_value, zip_index = 0;
+        for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        return distance_index->get_handle_from_connected_component(zip_value);
 
     } else if (decoder[depth].first) {
         //If this is a chain/node
@@ -516,8 +713,13 @@ net_handle_t ZipCode::get_net_handle_slow(nid_t id, const size_t& depth, const S
     } else {
         //If this is a snarl
 
-        size_t snarl_type = zipcode.at(decoder[depth].second + SNARL_IS_REGULAR_OFFSET);
-        if (snarl_type == 1) {
+        size_t zip_value; 
+        size_t zip_index = decoder[depth].second;
+        //zip_value is is_regular_snarl
+        for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        if (zip_value == 1) {
             //If this is a regular snarl
 
             net_handle_t n = distance_index->get_node_net_handle(id);
@@ -531,10 +733,12 @@ net_handle_t ZipCode::get_net_handle_slow(nid_t id, const size_t& depth, const S
         } else {
             //Irregular snarl
 
-            size_t zip_value = zipcode.at(decoder[depth].second + IRREGULAR_SNARL_RECORD_OFFSET);
-            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, 
-                                                                                   SnarlDistanceIndex::START_END, 
-                                                                                   SnarlDistanceIndex::SNARL_HANDLE);
+            //zip_value is distance index offset
+            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
+                                     ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
             return snarl_handle;
         }
     }
@@ -547,7 +751,11 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        return zipcode.at(ROOT_IDENTIFIER_OFFSET);
+        size_t zip_value, zip_index = 0;
+        for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
 
     } else if (decoder[depth].first) {
         //If this is a chain/node
@@ -556,15 +764,25 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
     } else {
         //If this is a snarl
 
-        size_t snarl_type = zipcode.at(decoder[depth].second + SNARL_IS_REGULAR_OFFSET);
-        if (snarl_type == 1) {
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        //zip_value is is_regular_snarl
+        for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
+        if (zip_value == 1) {
             //If this is a regular snarl
 
             throw std::runtime_error("zipcodes trying to get a handle of a regular ansl");
         } else {
             //Irregular snarl
 
-            return zipcode.at(decoder[depth].second + IRREGULAR_SNARL_RECORD_OFFSET);
+            //zip_value is distance index offset
+            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET -
+                                     ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            }
+            return zip_value;
         }
     }
 }
@@ -574,11 +792,18 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
     assert(depth > 0);
     assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL || get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)); 
 #endif
-     size_t snarl_type = zipcode.at(decoder[depth-1].second + SNARL_IS_REGULAR_OFFSET);
-     if (snarl_type == 1) {
+     size_t zip_value;
+     size_t zip_index = decoder[depth-1].second;
+     //zip_value is 1 if the parent is a regular snarl
+     for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET ; i++) {
+         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+     }
+     if (zip_value == 1) {
          //The parent is a regular snarl, which stores is_reversed for the child
-
-         size_t zip_value = zipcode.at(decoder[depth-1].second + REGULAR_SNARL_IS_REVERSED_OFFSET);
+         for (size_t i = 0 ; i <= ZipCode::REGULAR_SNARL_IS_REVERSED_OFFSET -
+                                  ZipCode::SNARL_IS_REGULAR_OFFSET - 1 ; i++) {
+             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+         }
          //Zip value is true if the child is reversed
 
          if ((snarl_start && left_side) || (!snarl_start && !left_side)) {
@@ -599,7 +824,9 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
         } else {
             distance_offset = ZipCode::IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET;
         }
-        size_t zip_value = zipcode.at(decoder[depth-1].second + distance_offset);
+        for (size_t i = 0 ; i <= distance_offset - ZipCode::SNARL_IS_REGULAR_OFFSET -1 ; i++) {
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        }
         return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value - 1;
      }
 }
@@ -607,19 +834,31 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
 bool ZipCode::is_externally_start_end_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].first);
-    size_t zip_value = zipcode.at(decoder[depth].second + ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
     return (zip_value & 1) != 0;
 }
 bool ZipCode::is_externally_start_start_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].first);
-    size_t zip_value = zipcode.at(decoder[depth].second + ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
     return (zip_value & 2) != 0;
 }
 bool ZipCode::is_externally_end_end_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].first);
-    size_t zip_value = zipcode.at(decoder[depth].second + ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET);
+    size_t zip_value;
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
     return (zip_value & 4) != 0;
 }
 
@@ -659,11 +898,12 @@ const bool ZipCode::is_equal(const ZipCode& zip1, const ZipCode& zip2,
 }
 
 void ZipCode::dump(std::ostream& out) const {
+    std::vector<size_t> numbers = to_vector();
     // Print out the numbers in a way that is easy to copy-paste as a vector literal.
     out << "<zipcode {";
-    for (size_t i = 0; i < zipcode.size(); i++) {
-        out << zipcode.at(i);
-        if (i + 1 < zipcode.size()) {
+    for (size_t i = 0; i < numbers.size(); i++) {
+        out << numbers[i];
+        if (i + 1 < numbers.size()) {
             out << ", ";
         }
     }
@@ -675,51 +915,29 @@ std::ostream& operator<<(std::ostream& out, const ZipCode& zip) {
 }
 
 
-void ZipCode::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index,
-                            vector<size_t>& temp_zipcode, size_t& max_value) {
+vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIPCODE
     assert(!distance_index.is_trivial_chain(node));
     assert((distance_index.is_chain(distance_index.get_parent(node)) || distance_index.is_root(distance_index.get_parent(node))));
 #endif
-    size_t start_i = temp_zipcode.size();
-    temp_zipcode.resize(start_i + NODE_SIZE);
-    //Node code is: offset in chain, length, is reversed, chain component
-
+    //Node code is: offset in chain, length, is reversed
+    vector<size_t> node_code(NODE_SIZE);
     //Assume this node is in a regular chain
     size_t prefix_sum = distance_index.get_prefix_sum_value(node); 
-    temp_zipcode[start_i + NODE_OFFSET_OFFSET] = prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1;
-    max_value = std::max(max_value, temp_zipcode[start_i + NODE_OFFSET_OFFSET]);
-
-    temp_zipcode[start_i + NODE_LENGTH_OFFSET] = distance_index.minimum_length(node)+1;
-    max_value = std::max(max_value, temp_zipcode[start_i + NODE_LENGTH_OFFSET]);
-
-    temp_zipcode[start_i + NODE_IS_REVERSED_OFFSET] = distance_index.is_reversed_in_parent(node);
-    max_value = std::max(max_value, temp_zipcode[start_i + NODE_IS_REVERSED_OFFSET]);
-
+    node_code[NODE_OFFSET_OFFSET] = prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1;
+    node_code[NODE_LENGTH_OFFSET] = distance_index.minimum_length(node)+1;
+    node_code[NODE_IS_REVERSED_OFFSET] = distance_index.is_reversed_in_parent(node);
     size_t component = distance_index.get_chain_component(node);
-    temp_zipcode[start_i + NODE_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
-    max_value = std::max(max_value, temp_zipcode[start_i + NODE_CHAIN_COMPONENT_OFFSET]);
-
-    return;
+    node_code[NODE_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
+    return node_code;
 
 }
-void ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index,
-                            vector<size_t>& temp_zipcode, size_t& max_value) {
+vector<size_t> ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index) {
     //Chain code is: rank in snarl, length
-
-    size_t start_i = temp_zipcode.size();
-    temp_zipcode.resize(start_i + CHAIN_SIZE);
-
-    //Rank in snarl
-    temp_zipcode[start_i + CHAIN_RANK_IN_SNARL_OFFSET] = distance_index.get_rank_in_parent(chain);
-    max_value = std::max(max_value, temp_zipcode[start_i + CHAIN_RANK_IN_SNARL_OFFSET]);
-
-    //Length
+    vector<size_t> chain_code (CHAIN_SIZE);
+    chain_code[CHAIN_RANK_IN_SNARL_OFFSET] = distance_index.get_rank_in_parent(chain);
     size_t len = distance_index.minimum_length(chain);
-    temp_zipcode[start_i + CHAIN_LENGTH_OFFSET] = len == std::numeric_limits<size_t>::max() ? 0 : len+1;
-    max_value = std::max(max_value, temp_zipcode[start_i + CHAIN_LENGTH_OFFSET]);
-
-    //Component count and if it loops
+    chain_code[CHAIN_LENGTH_OFFSET] = len == std::numeric_limits<size_t>::max() ? 0 : len+1;
     bool is_trivial = distance_index.is_trivial_chain(chain) ;
     size_t component = is_trivial
                        ? 0 
@@ -728,125 +946,102 @@ void ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex
     if (!is_trivial && distance_index.is_looping_chain(chain)) {
         component += 1;
     }
-    temp_zipcode[start_i + CHAIN_COMPONENT_COUNT_OFFSET] = component;
-    max_value = std::max(max_value, component);
-
-    return;
+    chain_code[CHAIN_COMPONENT_COUNT_OFFSET] = component;
+    return chain_code;
 
 }
-void ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
-                            const SnarlDistanceIndex& distance_index,
-                            vector<size_t>& temp_zipcode, size_t& max_value) {
-
-    size_t start_i = temp_zipcode.size();
-    temp_zipcode.resize(start_i + REGULAR_SNARL_SIZE);
-
+vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index) {
+    //Regular snarl code is 1, offset in chain, length, is reversed
+    vector<size_t> snarl_code (REGULAR_SNARL_SIZE);
 
     //Tag to say that it's a regular snarl
-    temp_zipcode[start_i + SNARL_IS_REGULAR_OFFSET] = 1;
+    snarl_code[SNARL_IS_REGULAR_OFFSET] = 1;
 
     //The number of children
     size_t child_count = 0;
     distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
         child_count++;
     });
-    temp_zipcode[start_i + SNARL_CHILD_COUNT_OFFSET] = child_count;
-    max_value = std::max(max_value, child_count);
+    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    temp_zipcode[start_i + SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_OFFSET_IN_CHAIN_OFFSET]);
+    snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
     size_t component = distance_index.get_chain_component(start_node);
-    temp_zipcode[start_i + SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_CHAIN_COMPONENT_OFFSET]);
+    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
 
     //Length of the snarl
     size_t len = distance_index.minimum_length(snarl);
-    temp_zipcode[start_i + SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_LENGTH_OFFSET]);
+    snarl_code[SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
 
     //Is the child of the snarl reversed in the snarl
 #ifdef DEBUG_ZIPCODE
     assert(distance_index.is_chain(snarl_child));
 #endif
-    temp_zipcode[start_i + REGULAR_SNARL_IS_REVERSED_OFFSET] = (distance_index.distance_in_parent(snarl, 
+    snarl_code[REGULAR_SNARL_IS_REVERSED_OFFSET] = (distance_index.distance_in_parent(snarl, 
                                                         distance_index.get_bound(snarl, false, true),
                                                         distance_index.flip(distance_index.canonical(snarl_child))) != 0);
-    max_value = std::max(max_value, temp_zipcode[start_i + REGULAR_SNARL_IS_REVERSED_OFFSET]);
 
-    return;
+    return snarl_code;
 
 }
-void ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
-                                                 const SnarlDistanceIndex& distance_index,
-                            vector<size_t>& temp_zipcode, size_t& max_value) {
-
-    size_t start_i = temp_zipcode.size();
-    temp_zipcode.resize(start_i + IRREGULAR_SNARL_SIZE);
+vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
+                                                 const SnarlDistanceIndex& distance_index) {
+    vector<size_t> snarl_code (IRREGULAR_SNARL_SIZE);
 
     //Tag to say that it's an irregular snarl
-    temp_zipcode[start_i + SNARL_IS_REGULAR_OFFSET] = distance_index.is_dag(snarl) ? 0 : 2;
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_IS_REGULAR_OFFSET]);
+    snarl_code[SNARL_IS_REGULAR_OFFSET] = distance_index.is_dag(snarl) ? 0 : 2;
 
     //The number of children
     size_t child_count = 0;
     distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
         child_count++;
     });
-    temp_zipcode[start_i + SNARL_CHILD_COUNT_OFFSET] = child_count;
-    max_value = std::max(max_value, child_count);
+    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    temp_zipcode[start_i + SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_OFFSET_IN_CHAIN_OFFSET]);
+    snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
     size_t component = distance_index.get_chain_component(start_node);
-    temp_zipcode[start_i + SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_CHAIN_COMPONENT_OFFSET]);
+    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
 
     //Length of the snarl
     size_t len = distance_index.minimum_length(snarl);
-    temp_zipcode[start_i + SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
-    max_value = std::max(max_value, temp_zipcode[start_i + SNARL_LENGTH_OFFSET]);
+    snarl_code[SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
 
 
     //Record offset to look up distances in the index later
-    temp_zipcode[start_i + IRREGULAR_SNARL_RECORD_OFFSET] = (distance_index.get_record_offset(snarl));
-    max_value = std::max(max_value, temp_zipcode[start_i + IRREGULAR_SNARL_RECORD_OFFSET]);
+    snarl_code[IRREGULAR_SNARL_RECORD_OFFSET] = (distance_index.get_record_offset(snarl));
 
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child));
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child));
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child));
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child));
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
 
 
     //Add 1 to values to store inf properly
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = 
-        temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] == std::numeric_limits<size_t>::max() 
         ? 0 
-        : temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] + 1;
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = 
-        temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] == std::numeric_limits<size_t>::max() 
         ? 0 
-        : temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] + 1;
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = 
-        temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] == std::numeric_limits<size_t>::max() 
         ? 0 
-        : temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] + 1;
-    temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = 
-        temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] + 1;
+    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = 
+        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] == std::numeric_limits<size_t>::max() 
         ? 0 
-        : temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] + 1;
+        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] + 1;
 
-    max_value = std::max(max_value, temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET]);
-    max_value = std::max(max_value, temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET]);
-    max_value = std::max(max_value, temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET]);
-    max_value = std::max(max_value, temp_zipcode[start_i + IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET]);
+    return snarl_code;
 
 }
 
@@ -1313,53 +1508,149 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
     cerr << "Checking if two zip codes are farther than " << limit << endl;
 #endif
 
-    if (zip1.decoder[0].first != zip2.decoder[0].first) {
+    size_t zip_index1 = 0; size_t zip_index2 = 0;
+    size_t zip_value1 = std::numeric_limits<size_t>::max();
+    size_t zip_value2 = std::numeric_limits<size_t>::max();
+
+    //If the two positions aren't on the same connected component, then we're done
+    for (size_t i = 0 ; i <= ROOT_IS_CHAIN_OFFSET ; i++) { 
+        std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+        std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+    }
+    if (zip_value1 != zip_value2) {
 #ifdef DEBUG_ZIPCODE
         cerr << "Zip codes are on different connected components" << endl;
 #endif
         return true;
     }
 
-    if (zip1.get_distance_index_address(0) != zip2.get_distance_index_address(0)) {
+    bool is_top_level_chain = zip_value1;
+    for (size_t i = 0 ; i <= ROOT_IDENTIFIER_OFFSET - ROOT_IS_CHAIN_OFFSET - 1; i++) { 
+        std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+        std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+    }
+    if (zip_value1 != zip_value2) {
 #ifdef DEBUG_ZIPCODE
         cerr << "Zip codes are on different connected components" << endl;
 #endif
         return true;
     }
 
-    //The depth of a chain that both zips are on 
-    size_t shared_depth = 0;
-
-    if (!zip1.decoder[0].first) {
+    if (!is_top_level_chain) {
         //If the top-level thing is a snarl, then check if the zips are in the same chain. 
         //If they are, then proceed from the shared chain
 
-        if (zip1.get_rank_in_snarl(1) != zip2.get_rank_in_snarl(1)) {
+        //The next thing will be the identifier for the chain
+        for (size_t i = 0 ; i <= CHAIN_RANK_IN_SNARL_OFFSET; i++) { 
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        }
+        if (zip_value1 != zip_value2) {
             //We can't tell
             return false;
         }
-        //Next check the length of the chain
-        if (zip1.get_length(1) < limit) {
+        //Next is the length of the chain
+        for (size_t i = 0 ; i <= CHAIN_LENGTH_OFFSET - CHAIN_RANK_IN_SNARL_OFFSET - 1; i++) { 
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        }
+        if (zip_value1 < limit) {
             return true;
         }
-        //The two zipcodes are on the same chain at depth 1
-        shared_depth = 1;
 
         //The zips now point to the children of the shared chain, so we can proceed as if the top-level
         //structure was a chain
 
+    } else {
+        //If it is a chain, get two more things to get to the end of the chain
+        for (size_t i = 0 ; i < 2 ; ++i) {
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        }
     }
 
     //Both zips now point to a thing in a shared chain
     //Get the minimum possible distance between the structures on the chain
     //For a lower bound, this assumes that the positions are as close as they can be on the structure in the chain
-    size_t prefix_sum1 = zip1.get_offset_in_chain(shared_depth+1);
-    size_t prefix_sum2 = zip2.get_offset_in_chain(shared_depth+1);
-    size_t length1 = zip1.get_length(shared_depth+1); 
-    size_t length2 = zip2.get_length(shared_depth+1); 
-    size_t component1 = zip1.get_chain_component(shared_depth+1); 
-    size_t component2 = zip2.get_chain_component(shared_depth+1); 
+    size_t prefix_sum1, prefix_sum2, length1, length2, component1, component2;
 
+    //The next thing could either be a snarl or a node. If it is a node, 
+    vector<size_t> next_values;
+    for (size_t i = 0 ; i < NODE_SIZE ; i++ ) {
+#ifdef DEBUG_ZIPCODE
+        assert(zip_index1 != std::numeric_limits<size_t>::max());
+#endif
+        std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+        next_values.emplace_back(zip_value1);
+    }
+    if (zip_index1 == std::numeric_limits<size_t>::max()) {
+#ifdef DEBUG_ZIPCODE
+        cerr << "zip1 is a node in a chain" << endl;
+#endif
+        //If the last thing was a node
+        prefix_sum1 = next_values[0];
+        length1 = next_values[1];
+        component1 = next_values[2];
+        prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
+        length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
+    } else {
+#ifdef DEBUG_ZIPCODE
+        cerr << "zip1 is in a snarl in a chain" << endl;
+#endif
+        //If the last thing was a snarl
+        if (next_values[0]) {
+            //If the next thing was a regular snarl
+            prefix_sum1 = next_values[1];
+            length1 = next_values[2];
+            std::tie(zip_value1, zip_index1) = zip1.zipcode.get_value_and_next_index(zip_index1);
+            component1 = zip_value1;
+            prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
+            length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
+        } else {
+            //If the next thing was an irregular snarl
+            //TODO: If it's an irregular snarl, then we don't actually store the relevant values so we can't tell. Could look it up in the distance index or store it
+            return false;
+        }
+    }
+    
+    //Do the same for the other zip
+    next_values.clear();
+    for (size_t i = 0 ; i < NODE_SIZE ; i++ ) {
+#ifdef DEBUG_ZIPCODE
+        assert(zip_index2 != std::numeric_limits<size_t>::max());
+#endif
+        std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+        next_values.emplace_back(zip_value2);
+    }
+    if (zip_index2 == std::numeric_limits<size_t>::max()) {
+#ifdef DEBUG_ZIPCODE
+        cerr << "zip2 is a node in a chain" << endl;
+#endif
+        //If the last thing was a node
+        prefix_sum2 = next_values[0];
+        length2 = next_values[1];
+        component2 = next_values[2];
+        prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
+        length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
+    } else {
+#ifdef DEBUG_ZIPCODE
+        cerr << "zip2 is in a snarl in a chain" << endl;
+#endif
+        //If the last thing was a snarl
+        if (next_values[0]) {
+            //If the next thing was a regular snarl
+            prefix_sum2 = next_values[1];
+            length2 = next_values[2];
+            std::tie(zip_value2, zip_index2) = zip2.zipcode.get_value_and_next_index(zip_index2);
+            component2 = zip_value2;
+            prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
+            length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
+        } else {
+            //If the next thing was an irregular snarl
+            //TODO: If it's an irregular snarl, then we don't actually store the relevant values so we can't tell. Could look it up in the distance index or store it
+            return false;
+        }
+    }
 #ifdef DEBUG_ZIPCODE
     cerr << "Finding distance in chain between " << prefix_sum1 << " " << length1 << " and " << prefix_sum2 << " and " << length2 << endl;
 #endif
@@ -1398,162 +1689,52 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
 }
 
 gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
-#ifdef DEBUG_ZIPCODE
-    cerr << "Encode integers: ";
-    for (size_t i = 0 ; i < zipcode.size() ; i++) {
-        cerr << zipcode.at(i) << " ";
-    }
-    cerr << endl;
-#endif
-    if (bit_count() > 112) {
+    if (byte_count() > 15) {
         //If there aren't enough bits to represent the zip code
         return MIPayload::NO_CODE;
     }
+    
+    //Index and value as we walk through the zip code
+    size_t index = 0;
+    size_t value;
+    
     //The values that get returned
     code_type encoded1 = 0;
     code_type encoded2 = 0;
 
-    //The first (leftmost of first int) 8 bits is the width
-    encoded1 |= zipcode.get_bit_width();
+    encoded1 |= byte_count();
 
-    //Left shift by 8 to make space for the next thing we're adding
-    encoded1 <<= 8;
-    //The second 8 bits is the number of items in the vector (not the number of bits)
-    encoded1 |= zipcode.size(); 
-    encoded1 <<= 1;
+    for (size_t i = 0 ; i < zipcode.data.size() ; i++ ) {
+       size_t byte = static_cast<size_t> (zipcode.data[i]); 
+       if ( i < 7 ) {
+            //Add to first code
+            encoded1 |= (byte << ((i+1)*8));
 
-#ifdef DEBUG_ZIPCODE
-cerr << "Encode the bit width "<< ((size_t) zipcode.get_bit_width()) << " and size " << zipcode.size() << endl;
-cerr << "\t";
-#endif
-    
-
-    //16 bits are set, so 112 left
-    //Now add each bit one by one and left shift to make space for the next one
-    for (size_t i = 0 ; i < 112 ; i++ ) {
-        if ( i < 48 ) {
-            //Add to first code, just one bit to the end
-            if (i < zipcode.get_bit_count() && zipcode.bit_at(i)) {
-                encoded1 |= 1;
-#ifdef DEBUG_ZIPCODE
-                cerr << "1";
-#endif
-            }
-#ifdef DEBUG_ZIPCODE
-            else {
-                cerr << "0";
-            }
-#endif
-            //Left shift by one after everything except the last bit
-            if (i != 47) {
-                encoded1 <<= 1;
-            }
         } else {
             //Add to second code
-            if (i < zipcode.get_bit_count() && zipcode.bit_at(i)) {
-                encoded2 |= 1;
-#ifdef DEBUG_ZIPCODE
-                cerr << "1";
-#endif
-            }
-#ifdef DEBUG_ZIPCODE
-            else {
-                cerr << "0";
-            }
-#endif
-            if ( i != 111) {
-                encoded2 <<= 1;
-            }
+            encoded2 |= (byte << ((i-7)*8));
         }
     
     }
-#ifdef DEBUG_ZIPCODE
-    cerr << endl;
-    cerr << "Actual ints being stored: " << encoded1 << " and " << encoded2 << ": ";
-    for (int i = 63 ; i >= 0 ; --i) {
-        if (((size_t) 1 << i) & encoded1) {
-            cerr << "1";
-        } else {
-            cerr << "0";
-        }
-    }
-    for (int i = 63 ; i >= 0 ; --i) {
-        if (((size_t) 1 << i) & encoded2) {
-            cerr << "1";
-        } else {
-            cerr << "0";
-        }
-    }
-    cerr << endl;
-#endif
     return {encoded1, encoded2};
 
 }
 
 void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     assert(payload != MIPayload::NO_CODE);
+    zipcode.data.reserve(16);
 
-    //First 8 bits of first int is the width
-    size_t width = payload.first >> 56;
-    zipcode.set_bit_width((uint8_t)width);
-
-    //Second 8 bits is the item count
-    size_t item_count = (payload.first >> 48) & ((1 << 8)-1);
-
-    //bit count is the product of the two
-    size_t bit_count = (size_t)width * (size_t)item_count;
-    zipcode.set_bitvector_length(bit_count);
-
-#ifdef DEBUG_ZIPCODE
-    cerr << "Get zipcode from payload " << payload.first << " and " << payload.second<< " with  width: " << width << " item count " << item_count << " meaning " << bit_count << " bits" << endl;
-    cerr << "\t";
-#endif
-
-
-    //Mask for checking the relevant bit
-    //Start by checking the 17th bit from the left
-    //Right shift by one for each bit we look at
-    uint64_t mask1 = (uint64_t)1 << 47;
-    uint64_t mask2 = (uint64_t)1 << 63;
-    //get one bit at a time from the payload and add it to the zip code
-    for (size_t i = 0 ; i < bit_count ; i++) {
-        if (i < 48) {
-            if ((payload.first & mask1) != 0) {
-                zipcode.set_bit_at(i);
-#ifdef DEBUG_ZIPCODE
-                cerr << "1";
-#endif
-            }
-#ifdef DEBUG_ZIPCODE
-            else {
-                cerr << "0";
-            }
-#endif
-            mask1 >>= 1;
+    //get one byte at a time from the payload and add it to the zip code
+    size_t bit_mask = (1 << 8) - 1;
+    size_t byte_count = payload.first & bit_mask;
+    for (size_t i = 1 ; i <= byte_count ; i++) {
+        if (i < 8) {
+            zipcode.add_one_byte((payload.first >> (i*8)) & bit_mask);
         } else {
-            if ((payload.second & mask2) != 0) {
-                zipcode.set_bit_at(i);
-#ifdef DEBUG_ZIPCODE
-                cerr << "1";
-#endif
-            }
-#ifdef DEBUG_ZIPCODE
-            else {
-                cerr << "0";
-            }
-#endif
-            mask2 >>= 1;
+            zipcode.add_one_byte((payload.second >> ((i-8)*8)) & bit_mask);
         }
+
     }
-#ifdef DEBUG_ZIPCODE
-    cerr << endl;
-    cerr << "Found encoded integers: ";
-    for (size_t i = 0 ; i < zipcode.size() ; i++) {
-        cerr << zipcode.at(i) << " ";
-    }
-    cerr << endl;
-#endif
-    return;
 }
 
 std::ostream& operator<<(std::ostream& out, const ZipCode::code_type_t& type) {
@@ -1582,12 +1763,9 @@ std::ostream& operator<<(std::ostream& out, const ZipCode::code_type_t& type) {
 
 
 void ZipCodeCollection::serialize(std::ostream& out) const {
-    //The zipcode vector will be serialized as a bunch of min_width_int_vector_ts
-    //The first min_width_int_vector_t will have one value, which will be the length of the
+    //The zipcode vector will be serialized as a bunch of varint_vector_ts
+    //The first varint_vector_t will have one value, which will be the length of the
     //zipcode that follows it
-#ifdef DEBUG_ZIPCODE
-    cerr << "Serialize zipcode collection" << endl;
-#endif
 
     //First serialize the header, which is the magic number and version
     uint32_t magic = magic_number;
@@ -1597,52 +1775,29 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
 
 
     for (const ZipCode& zip : zipcodes) {
-
-        //Write the width
-        uint8_t width = (uint8_t) zip.zipcode.get_bit_width();
-        out.write(reinterpret_cast<const char*>(&width), sizeof(width));
     
-        //How many values are in the vector. Used with width to get the bit count
-        size_t item_count = zip.zipcode.size();
+        //How many bytes are going to be saved for the zipcode? 
+        size_t byte_count = zip.byte_count();
 
-        out.write(reinterpret_cast<const char*>(&item_count), sizeof(item_count));
-
+        varint_vector_t size_vector;
+        size_vector.add_value(byte_count);
+        //Write the number of bytes about to be saved 
+        for (const uint8_t& byte : size_vector.data) {
+            out << char(byte);
+        } 
 
         //Write the zipcode 
 #ifdef DEBUG_ZIPCODE
-        cerr << "Write width " << (size_t) width << " and item count " << item_count << " and zipcode: " << endl;
-        cerr << "\t";
-        for (size_t i = 0 ; i < zip.zipcode.size() ; i++) {
-            cerr << zip.zipcode.at(i) << " ";
-        }
-        cerr << endl << "\t";
         size_t zip_byte_count = 0;
 #endif
-        size_t bit_count = zip.zipcode.get_bit_count();
-        for (size_t i = 0 ; i < bit_count ; i += 8) {
+        for (const uint8_t& byte : zip.zipcode.data ) {
 #ifdef DEBUG_ZIPCODE
             zip_byte_count++;
 #endif
-            uint8_t result = 0;
-            for (size_t j = 0 ; j < 8 ; j++) {
-                result <<= 1;
-                if (i+j < bit_count && zip.zipcode.bit_at(i+j)) {
-#ifdef DEBUG_ZIPCODE
-                    cerr << "1";
-#endif
-                    result |= 1;
-                }
-#ifdef DEBUG_ZIPCODE
-                else {
-                    cerr << "0";
-                }
-#endif
-            }
-            out << char(result);
+            out << char(byte);
         }
 #ifdef DEBUG_ZIPCODE
-        cerr << endl;
-        assert(zip_byte_count == ceil((float)bit_count / 8)); 
+        assert(byte_count == zip_byte_count); 
 #endif
     }
 
@@ -1663,59 +1818,40 @@ void ZipCodeCollection::deserialize(std::istream& in) {
 
     while (in.peek() != EOF) {
 
-        //First, get the bitwidth of the vector
-        uint8_t width;
-        in.read(reinterpret_cast<char*>(&width), sizeof(width));
+        //First, get the number of bytes used by the zipcode
+        //This will be a varint_vector_t with one value, which is the number of bytes in the zipcode
+        //Each byte in the varint_vector_t starts with 0 if it is the last bit in the 
+        //number, and 1 if the next byte is included
+        varint_vector_t byte_count_vector;
+        while (in.peek() & (1<<7)) {
+            //If the first bit in the byte is 1, then add it, stop once the first bit is 0 
+            char c;
+            in.get(c);
+            byte_count_vector.add_one_byte((uint8_t)c);
+        }
+        assert(! (in.peek() & (1<<7))); 
+        //The next byte has a 0 as its first bit, so add it
+        char c;
+        in.get(c);
+        byte_count_vector.add_one_byte((uint8_t)c);
 
-        //Next, get the number of items in the zipcode
-        size_t item_count;
-        in.read(reinterpret_cast<char*>(&item_count), sizeof(item_count)); 
-
-        size_t bit_count = (size_t)width * item_count;
-
-        //How many bytes were used to store all the bits in the zipcode bit vector
-        size_t byte_count = (size_t) std::ceil((float)bit_count / 8);
-
-
+        //The first (and only) value in the vector is the length of the zipcode
+        size_t zipcode_byte_count = byte_count_vector.get_value_and_next_index(0).first;
 
 #ifdef DEBUG_ZIPCODE
-        cerr << "Get zipcode with width " << (size_t) width << " and item count " << item_count << endl << "\t";
+        cerr << "Get zipcode of " << zipcode_byte_count << " bytes" << endl;
+        //assert(zipcode_byte_count >= 15);
+        assert(byte_count_vector.get_value_and_next_index(0).second == std::numeric_limits<size_t>::max());
 #endif
 
-        char line [byte_count];
+        char line [zipcode_byte_count];
 
-        in.read(line, byte_count);
+        in.read(line, zipcode_byte_count);
 
         ZipCode zip;
-        zip.zipcode.set_bit_width(width);
-        zip.zipcode.set_bitvector_length(bit_count);
-        size_t added_bits = 0;
         for (const char& character : line) {
-            for (int i = 7 ; i >= 0 ; i--) {
-                if (added_bits < bit_count) {
-                    if  (((uint8_t)character & ((uint8_t)1 << i)) != 0)  {
-                        zip.zipcode.set_bit_at(added_bits);
-#ifdef DEBUG_ZIPCODE
-                        cerr << "1";
-#endif
-                    }
-#ifdef DEBUG_ZIPCODE
-                    else {
-                        cerr << "0";
-                    }
-#endif
-                    added_bits++;
-                }
-            }
+            zip.zipcode.add_one_byte(uint8_t(character));
         }
-#ifdef DEBUG_ZIPCODE
-        cerr << endl <<"\t";
-        for (size_t i = 0 ; i < zip.zipcode.size() ; i++) {
-            cerr << zip.zipcode.at(i) << " ";
-        }
-        cerr << endl;
-#endif
-
         zipcodes.emplace_back(std::move(zip));
     }
 
@@ -1728,12 +1864,21 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
         payload.parent_is_root = true;
         payload.parent_is_chain = true;
 
-        payload.node_handle = distance_index.get_net_handle_from_values(
-                distance_index.get_record_offset(distance_index.get_handle_from_connected_component(get_distance_index_address(0))),
-                SnarlDistanceIndex::START_END,
-                SnarlDistanceIndex::CHAIN_HANDLE);
+        //Walk through the zipcode to get values
+        size_t zip_value;
+        size_t zip_index = decoder[0].second;
+        //Root is chain
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        //root_identifier
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
+                                                                          SnarlDistanceIndex::START_END,
+                                                                          SnarlDistanceIndex::CHAIN_HANDLE);
 
-        payload.node_length = get_length(0);
+        //Root node length
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+
+        payload.node_length =  zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
         payload.is_trivial_chain = true;
         payload.is_reversed = false;
         payload.parent_handle = distance_index.get_root();
@@ -1746,29 +1891,43 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
         payload.parent_is_chain = true;
         payload.parent_is_root = false;
 
-        size_t parent_depth = max_depth() - 1;
+        //Walk through the zipcode to get values
+        size_t zip_value;
+        size_t zip_index = decoder[max_depth()-1].second;
+        //is_chain/rank in snarl
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+
+        //root_identifier for root, chain length for anything else
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
         if (decoder_length() == 2) {
             //If the node is a child of the root chain
-            payload.parent_handle = distance_index.start_end_traversal_of(
-                                        distance_index.get_handle_from_connected_component(get_distance_index_address(0)));
+            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
             payload.parent_type = ZipCode::ROOT_CHAIN;
             payload.parent_is_root = true;
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         } else {
             payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_parent(payload.node_handle));
             payload.parent_type = ZipCode::CHAIN;
         }
         payload.parent_record_offset = distance_index.get_record_offset(payload.parent_handle);
 
-        payload.prefix_sum = get_offset_in_chain(parent_depth+1);
+        //chain component count
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
+        //Node prefix sum
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        payload.prefix_sum = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
         //Node length
-        payload.node_length = get_length(parent_depth+1);
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        payload.node_length = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
         //is_reversed
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         //TODO: For top-level chains we got this from the distance index
-        payload.is_reversed = get_is_reversed_in_parent(parent_depth+1);
+        payload.is_reversed = zip_value;
 
-        payload.chain_component = get_chain_component(parent_depth+1);
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        payload.chain_component = zip_value;
 
 
 
@@ -1785,30 +1944,56 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
         payload.is_trivial_chain = true;
 
 
+        size_t zip_value;
+        size_t zip_index;
         if (payload.parent_is_root) {
             //is_chain
+            zip_index = decoder[0].second;
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            //Identifier for root snarl
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             payload.node_handle = payload.parent_handle;
-            payload.parent_record_offset = distance_index.get_record_offset(
-                                                distance_index.get_handle_from_connected_component(
-                                                    get_distance_index_address(0)));
+            payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value));
             payload.parent_handle = distance_index.get_net_handle_from_values(payload.parent_record_offset,
                                             SnarlDistanceIndex::START_END,
                                             SnarlDistanceIndex::ROOT_HANDLE);
             payload.parent_type = ZipCode::ROOT_SNARL;
         } else {
-            size_t parent_depth = max_depth() - 1;
-            payload.parent_type = get_code_type(parent_depth);
+            zip_index = decoder[max_depth()-1].second;
+            //is_regular
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            //If this is a non-root snarl, get as much as we can from it 
+            payload.parent_type = ZipCode::EMPTY;
+            if (zip_value == 0) {
+                payload.parent_type = ZipCode::IRREGULAR_SNARL;
+            } else if (zip_value == 1) {
+                payload.parent_type = ZipCode::REGULAR_SNARL;
+            } else {
+                payload.parent_type = ZipCode::CYCLIC_SNARL;
+            }
 
-            payload.prefix_sum = 0;
+            //Snarl prefix sum
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
+            payload.prefix_sum = 0; //TODO: SHould use this zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
+
+            //Snarl length
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            //Snarl child_count
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            //Chain component of the snarl
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            //TODO: SHould use this somehow
             payload.chain_component = 0;
+            //is_reversed for regular snarl and record offset for irregular/cyclic snarl
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
             if (payload.parent_type == ZipCode::REGULAR_SNARL) {
                 //Snarl is reversed
                 net_handle_t grandparent_handle = distance_index.get_parent(payload.parent_handle);
                 //Simple and regular snarls are different for clustering
                 if (distance_index.is_simple_snarl(grandparent_handle)) {
-                    payload.is_reversed = get_is_reversed_in_parent(parent_depth+1);
+                    payload.is_reversed = zip_value;
                     payload.parent_is_chain=true;
                     payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_parent(grandparent_handle));
                 } else {
@@ -1818,11 +2003,17 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
 
             } else {
                 payload.is_reversed = false;
-                payload.parent_record_offset = get_distance_index_address(parent_depth);
+                payload.parent_record_offset = zip_value;
             }
 
         }
-        payload.node_length = get_length(max_depth());
+        //We should be at the node/trivial chain now
+        zip_index = decoder[max_depth()].second;
+        //Chain rank in snarl
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        //Chain length
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+        payload.node_length = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
 
         //Get the rest as default values
 
@@ -1850,19 +2041,39 @@ net_identifier_t ZipCode::get_identifier(size_t depth) const {
         result += (decoder[d].first ? "1" : "0");
         if (d == 0) {
             //Root structure
-            result += std::to_string(get_distance_index_address(0));
+            size_t zip_value;
+            size_t zip_index = decoder[d].second;
+            for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                result += std::to_string(zip_value);
+            }
         } else if (decoder[d].first) {
             //is_chain so could be a chain or a node
             if (decoder[d-1].first) {
                 //If the thing before this was also a chain, then it is a node
-                result += std::to_string(get_offset_in_chain(d));
+                size_t zip_value;
+                size_t zip_index = decoder[d].second;
+                for (size_t i = 0 ; i <= ZipCode::NODE_OFFSET_OFFSET; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                    result += std::to_string(zip_value);
+                }
             } else {
                 //Otherwise it's a chain
-                result += std::to_string(get_rank_in_snarl(d));
+                size_t zip_value;
+                size_t zip_index = decoder[d].second;
+                for (size_t i = 0 ; i <= ZipCode::CHAIN_RANK_IN_SNARL_OFFSET; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                    result += std::to_string(zip_value);
+                }
             }
         } else {
             //Definitely a snarl
-            result += std::to_string(get_offset_in_chain(d));
+            size_t zip_value;
+            size_t zip_index = decoder[d].second;
+            for (size_t i = 0 ; i <= ZipCode::SNARL_OFFSET_IN_CHAIN_OFFSET; i++) {
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                result += std::to_string(zip_value);
+            }
         }
         if (d < std::min(depth, max_depth())) {
             result += ".";

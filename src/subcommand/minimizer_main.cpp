@@ -387,8 +387,8 @@ int main_minimizer(int argc, char** argv) {
                         //For each minimizer, writes the size of the zip code and then the zip code as a tsv
                         pair<size_t, size_t> value (0, 0);
             
-                        //How many bits get used
-                        cout << zipcode.zipcode.get_bit_count();
+                        //How many bytes get used
+                        cout << zipcode.zipcode.byte_count();
                         //Each integer saved
                         while (value.second != std::numeric_limits<size_t>::max()) {
                             value = zipcode.zipcode.get_value_and_next_index(value.second);
@@ -396,7 +396,7 @@ int main_minimizer(int argc, char** argv) {
                         }
                         cout << endl;
             #endif
-            if (zipcode.zipcode.get_bit_count() <= 112) {
+            if (zipcode.zipcode.byte_count() < 15) {
                 //If the zipcode is small enough to store in the payload
                 return zipcode.get_payload_from_zip();
             } else if (!zipcode_name.empty()) {

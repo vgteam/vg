@@ -2,7 +2,7 @@
 
 #define VG_ZIP_CODE_HPP_INCLUDED
 
-#include "min_width_int_vector.hpp"
+#include "varint.hpp"
 #include "snarl_distance_index.hpp"
 #include <gbwtgraph/minimizer.h>
 
@@ -60,7 +60,7 @@ class ZipCode {
     public:
 
         //Fill in an empty zipcode given a position
-        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos, bool fill_in_decoder=true);
+        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
 
         //Fill in an empty zipcode using the information that was stored in a payload
         void fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload); 
@@ -106,19 +106,14 @@ class ZipCode {
         typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
 
 
+        ///How many bytes were used to store this zipcode?
+        size_t byte_count() const {
+            return zipcode.byte_count();
+        }
 
     //TODO: Make this private:
         //The actual data for a zipcode is a vector of ints
-        min_width_int_vector_t zipcode;
-
-        ///How many bytes were used to store this zipcode?
-        size_t bit_count() const {
-            return zipcode.get_bit_count();
-        }
-        ///What is the bit width used to store this zipcode?
-        size_t bit_width() const {
-            return zipcode.get_bit_width();
-        }
+        varint_vector_t zipcode;
 
 
         /// Equality operator
@@ -126,8 +121,11 @@ class ZipCode {
             return zipcode == other.zipcode;
         }
 
+        /// Dump to a normal vector
+        std::vector<size_t> to_vector() const;
+
         /// Load from a normal vector
-        void from_vector(const std::vector<size_t>& values, size_t max_value = 0);
+        void from_vector(const std::vector<size_t>& values);
 
     private:
 
@@ -204,26 +202,15 @@ class ZipCode {
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
          */
-        ///Add the code for the given node to the end of the zipcode.
-        ///Also update max_value to be the maximum value in the zipcode
-        inline void get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index,
-                                  vector<size_t>& temp_zipcode, size_t& max_value);
-        ///Add the code for the given chain to the end of the zipcode.
-        ///Also update max_value to be the maximum value in the zipcode
-        inline void get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index,
-                                  vector<size_t>& temp_zipcode, size_t& max_value);
-
-        ///Add the code for the given regular snarl to the end of the zipcode.
-        ///Also update max_value to be the maximum value in the zipcode
-        inline void get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
-                                           const SnarlDistanceIndex& distance_index,
-                                           vector<size_t>& temp_zipcode, size_t& max_value);
-
-        ///Add the code for the given irregular or cyclic snarl to the end of the zipcode.
-        ///Also update max_value to be the maximum value in the zipcode
-        inline void get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
-                                             const SnarlDistanceIndex& distance_index,
-                                             vector<size_t>& temp_zipcode, size_t& max_value);
+        //Return a vector of size_ts that will represent the node in the zip code
+        inline vector<size_t> get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index);
+        //Return a vector of size_ts that will represent the chain in the zip code
+        inline vector<size_t> get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index);
+        //Return a vector of size_ts that will represent the snarl in the zip code
+        inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
+                                                            const SnarlDistanceIndex& distance_index);
+        //Return a vector of size_ts that will represent the snarl in the zip code
+        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
 
 
     //////////////////////////////// Stuff for decoding the zipcode
@@ -232,7 +219,7 @@ class ZipCode {
         //TODO: Make the decoder and zipcode private, still need it for unit testing
         ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
         ///where is_chain indicates whether it's a chain/node, and index
-        ///is the index of the node/snarl/chain code in the min_width_int_vector_t
+        ///is the index of the node/snarl/chain code in the varint_vector_t
         std::vector<pair<bool, size_t>> decoder;
 
         ///Did we fill in the entire decoder
@@ -361,7 +348,7 @@ class ZipCodeCollection {
 
     //magic number to identify the file
     const static uint32_t magic_number = 0x5a495053; //ZIPS
-    const static uint32_t version = 3;
+    const static uint32_t version = 2;
 
     public:
     const static std::uint32_t get_magic_number() {return magic_number;}
