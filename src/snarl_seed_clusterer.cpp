@@ -1811,7 +1811,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                        clustering_problem.net_handle_to_node_problem_index.at(child1.net_handle)).chain_component_start;
                 child1.prefix_sum = clustering_problem.all_node_problems.at(
                        clustering_problem.net_handle_to_node_problem_index.at(child1.net_handle)).prefix_sum_value;
-                child2.has_chain_values = true;
+                child1.has_chain_values = true;
             }
             if (!child2.is_seed && !child2.has_chain_values) {
                 //If child2 is a snarl and hasn't had its values set yet
