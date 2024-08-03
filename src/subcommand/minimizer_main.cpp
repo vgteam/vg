@@ -396,10 +396,7 @@ int main_minimizer(int argc, char** argv) {
                         }
                         cout << endl;
             #endif
-            if (zipcode.zipcode.byte_count() < 15) {
-                //If the zipcode is small enough to store in the payload
-                return zipcode.get_payload_from_zip();
-            } else if (!zipcode_name.empty()) {
+            if (!zipcode_name.empty()) {
                 //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
                 //And remember the zipcode
 
