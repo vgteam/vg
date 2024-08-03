@@ -356,7 +356,7 @@ class ZipCodeCollection {
 
     //magic number to identify the file
     const static uint32_t magic_number = 0x5a495053; //ZIPS
-    const static uint32_t version = 3;
+    const static uint32_t version = 2;
 
     public:
     const static std::uint32_t get_magic_number() {return magic_number;}
