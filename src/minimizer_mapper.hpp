@@ -601,15 +601,15 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip, ZipCodeDecoder* decoder) {
-        return { hit, minimizer, zip, std::unique_ptr<ZipCodeDecoder>(decoder)};
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip) {
+        return { hit, minimizer, zip};
     }
     
     /// Convert a collection of seeds to a collection of chaining anchors.
-    std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
+    std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, std::vector<Seed>& seeds) const;
     
     /// Convert a single seed to a single chaining anchor.
-    static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
+    static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
 
     /// Convert a read region, and the seeds that that region covers the
     /// stapled bases of (sorted by stapled base), into a single chaining
