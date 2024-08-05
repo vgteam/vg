@@ -403,6 +403,9 @@ int main_minimizer(int argc, char** argv) {
                 //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
                 //And remember the zipcode
 
+                //Fill in the decoder to be saved too
+                zipcode.fill_in_full_decoder();
+
                 
                 size_t zip_index;
                 #pragma omp critical 
