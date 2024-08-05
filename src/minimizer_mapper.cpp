@@ -3744,6 +3744,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
                     //If the zipcocde wasn't saved, then calculate it
                     seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+                    seeds.back().zipcode.fill_in_full_decoder();
                 } else if (minimizer.occs[j].payload.first == 0) {
                     //If the minimizer stored the index into a list of zipcodes
                     if (!this->zipcodes->empty()) {
@@ -3752,12 +3753,12 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     } else {
                         //If we don't have the oversized payloads, then fill in the zipcode using the pos
                         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+                        seeds.back().zipcode.fill_in_full_decoder();
                     }
                 } else {
                     //If the zipcode was saved in the payload
                     seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                seeds.back().zipcode.fill_in_full_decoder();
 
             }
             
