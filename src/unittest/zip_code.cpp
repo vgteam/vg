@@ -65,10 +65,11 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             }
         }
         SECTION("Distances within one node") {
@@ -332,60 +333,66 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                  ZipCode decoded;
                  decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             }
         }
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
     }
@@ -937,80 +944,88 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n8 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
     }
@@ -1246,70 +1261,77 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
     }
@@ -1502,70 +1524,77 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
     }
@@ -1681,70 +1710,77 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (zipcode.byte_count() <= 15) {
+            if (payload != MIPayload::NO_CODE) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
+                REQUIRE(zipcode.decoder == decoded.decoder);
             };
         }
         SECTION("serialization without decoder") {

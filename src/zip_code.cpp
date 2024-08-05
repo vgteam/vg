@@ -5,7 +5,7 @@
 namespace vg{
 using namespace std;
 
-void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos) {
+void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const pos_t& pos, bool fill_in_decoder) {
 
     std::vector<net_handle_t> ancestors;
     net_handle_t current_handle = distance_index.get_node_net_handle(id(pos));
@@ -51,6 +51,9 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             }
  
             zipcode.add_value(connectivity);
+            if (fill_in_decoder) {
+                fill_in_full_decoder();
+            }
             return;
         } else {
 #ifdef DEBUG_ZIPCODE
@@ -104,6 +107,9 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 assert(to_add.size() == ZipCode::CHAIN_SIZE);
 #endif
             if (distance_index.is_trivial_chain(current_ancestor)) {
+                if (fill_in_decoder) {
+                    fill_in_full_decoder();
+                }
                 return;
             }
         } else if (distance_index.is_regular_snarl(current_ancestor)) {
@@ -126,6 +132,9 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 zipcode.add_value(x);
             }
         }
+    }
+    if (fill_in_decoder) {
+        fill_in_full_decoder();
     }
 }
 
@@ -1689,10 +1698,37 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
 }
 
 gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
-    if (byte_count() > 15) {
+    varint_vector_t decoder_vector;
+    //The zipcode decoder's is_chain will always alternate is_chain between levels, except for the very end,
+    // which may have two is_chains in a row for a trivial chain. So we can store the whole series in two bits.
+    //For the decoder, we never need to know the byte count, since the value in the decoder is never 0
+
+
+    //TODO: This is assuming the decoder is filled in already
+    bool is_root_chain = decoder[0].is_chain;
+    bool is_trivial_chain = decoder.size() > 1 && decoder[decoder.size()-1].is_chain && decoder[decoder.size()-2].is_chain;
+    size_t is_chain_value = 0;
+    if (is_root_chain) {
+        is_chain_value |= 1;
+    }
+    if (is_trivial_chain) {
+        is_chain_value |= 1<<1;
+    }
+    decoder_vector.add_value(is_chain_value);
+    //The first offset is always 0 so ignore it
+    for (const ZipCode::decoder_t& d : decoder) {
+        if (d.offset != 0) {
+            decoder_vector.add_value(d.offset);
+        }
+    }
+
+    //First byte is for the byte_count
+    if (byte_count() + decoder_vector.byte_count() > 15) {
         //If there aren't enough bits to represent the zip code
         return MIPayload::NO_CODE;
     }
+
+    //Encode it as the byte count of the zipcode, the zipcode, and the decoder
     
     //Index and value as we walk through the zip code
     size_t index = 0;
@@ -1704,18 +1740,34 @@ gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
 
     encoded1 |= byte_count();
 
+    size_t encoded_bytes = 1;
+
     for (size_t i = 0 ; i < zipcode.data.size() ; i++ ) {
        size_t byte = static_cast<size_t> (zipcode.data[i]); 
-       if ( i < 7 ) {
+       if ( encoded_bytes < 8 ) {
             //Add to first code
-            encoded1 |= (byte << ((i+1)*8));
+            encoded1 |= (byte << (encoded_bytes*8));
 
         } else {
             //Add to second code
-            encoded2 |= (byte << ((i-7)*8));
+            encoded2 |= (byte << ((encoded_bytes-8)*8));
         }
+        encoded_bytes++;
     
     }
+    for (size_t i = 0 ; i < decoder_vector.data.size() ; i++) {
+       size_t byte = static_cast<size_t> (decoder_vector.data[i]); 
+       if ( encoded_bytes < 8 ) {
+            //Add to first code
+            encoded1 |= (byte << (encoded_bytes*8));
+
+        } else {
+            //Add to second code
+            encoded2 |= (byte << ((encoded_bytes-8)*8));
+        }
+        encoded_bytes++;
+    }
+    assert(encoded_bytes <= 16);
     return {encoded1, encoded2};
 
 }
@@ -1724,18 +1776,66 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     assert(payload != MIPayload::NO_CODE);
     zipcode.data.reserve(16);
 
+    size_t decoded_bytes = 0;
+
     //get one byte at a time from the payload and add it to the zip code
     size_t bit_mask = (1 << 8) - 1;
     size_t byte_count = payload.first & bit_mask;
-    for (size_t i = 1 ; i <= byte_count ; i++) {
-        if (i < 8) {
-            zipcode.add_one_byte((payload.first >> (i*8)) & bit_mask);
+    decoded_bytes++;
+    for (size_t i = 0 ; i < byte_count ; i++) {
+        if (decoded_bytes < 8) {
+            zipcode.add_one_byte((payload.first >> (decoded_bytes*8)) & bit_mask);
         } else {
-            zipcode.add_one_byte((payload.second >> ((i-8)*8)) & bit_mask);
+            zipcode.add_one_byte((payload.second >> ((decoded_bytes-8)*8)) & bit_mask);
         }
-
+        decoded_bytes++;
     }
-    fill_in_full_decoder();
+
+    //Find the booleans specifying the is_chain values
+    uint8_t is_chain_val = 0;
+    if (decoded_bytes < 8) {
+        is_chain_val = (payload.first >> (decoded_bytes*8)) & bit_mask;
+    } else {
+        is_chain_val = (payload.second >> ((decoded_bytes-8)*8)) & bit_mask;
+    }
+    decoded_bytes++;
+    bool is_chain = is_chain_val & 1;
+    bool is_trivial_chain = is_chain_val & (1<<1);
+
+    //Get the decoder offsets
+    varint_vector_t decoder_vector;
+    for (size_t i = decoded_bytes ; i <16 ; i++) {
+        uint8_t saved_byte;
+        if (decoded_bytes < 8) {
+            saved_byte = (payload.first >> (decoded_bytes*8)) & bit_mask;
+        } else {
+            saved_byte = (payload.second >> ((decoded_bytes-8)*8)) & bit_mask;
+        }
+        if (saved_byte != 0) {
+            decoder_vector.add_one_byte(saved_byte);
+        }
+        
+        decoded_bytes++;
+    }
+    //Now go through the varint vector up and add anything that isn't 0
+    size_t varint_value= 1;
+    size_t varint_index = 0;
+    decoder.emplace_back(is_chain, 0);
+    is_chain = !is_chain;
+    if (decoder_vector.byte_count() != 0) {
+        while (varint_index != std::numeric_limits<size_t>::max() && varint_value != 0) {
+            std::tie(varint_value, varint_index) = decoder_vector.get_value_and_next_index(varint_index);
+            
+            decoder.emplace_back(is_chain, varint_value);
+
+            is_chain = !is_chain;
+        }
+    }
+    if (is_trivial_chain) {
+        assert(!decoder.back().is_chain);
+        decoder.back().is_chain = true;
+    }
+
 }
 
 std::ostream& operator<<(std::ostream& out, const ZipCode::code_type_t& type) {
