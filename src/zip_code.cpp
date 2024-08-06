@@ -2040,7 +2040,10 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
         size_t zip_index = decoder[depth].offset;
         bool is_chain = decoder[depth].is_chain;
         if (depth == 0) {
-            //identifier is first for anything in the root
+            //is_Chain is first for anything in the root
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+
+            //identifier
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
             if (is_chain) {
@@ -2056,7 +2059,7 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
 
                     //For a root node, this is the length
                     std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
-                    current_code.length =  zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
+                    current_code.length = zip_value == std::numeric_limits<size_t>::max() ? 0 : zip_value-1;
 
 
                 } else {

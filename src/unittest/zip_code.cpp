@@ -51,6 +51,16 @@ using namespace std;
             REQUIRE(zipcode.decoder.front().is_chain == 1);
             REQUIRE(zipcode.decoder.front().offset == 0);
         }
+        SECTION("unpacked zipcode") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n1->id(), distance_index);
+            REQUIRE(unpacked.size() == 1);
+            REQUIRE(unpacked[0].net_handle == distance_index.get_parent(distance_index.get_node_net_handle(n1->id())));
+            REQUIRE(unpacked[0].length == distance_index.minimum_length(distance_index.get_node_net_handle(n1->id())));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_NODE);
+        }
         SECTION("decoded code") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
@@ -176,6 +186,30 @@ using namespace std;
             REQUIRE(zipcode.get_is_reversed_in_parent(1) == distance_index.is_reversed_in_parent(node1));
 
         }
+        SECTION ("unpacked zip code for node on top-level chain") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n1->id(), distance_index);
+
+
+            net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+            net_handle_t chain1 = distance_index.get_parent(node1);
+
+            REQUIRE(unpacked.size() == 2);
+
+
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_CHAIN);
+
+
+            //Next is the node code
+            REQUIRE(unpacked[1].code_type == ZipCode::NODE);
+            REQUIRE(unpacked[1].length == distance_index.minimum_length(node1));
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == distance_index.get_prefix_sum_value(node1));
+            REQUIRE(unpacked[1].is_reversed == distance_index.is_reversed_in_parent(node1));
+
+        }
         SECTION ("zip code for node in simple snarl") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
@@ -278,6 +312,46 @@ using namespace std;
             REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain4));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
             REQUIRE(zipcode.get_is_reversed_in_parent(2) == is_rev);
+        }
+        SECTION ("unpacked zip code for node in simple snarl") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n4->id(), distance_index);
+            REQUIRE(unpacked.size() == 3);
+
+
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            net_handle_t snarl36 = distance_index.get_parent(chain4); 
+            net_handle_t chain1 = distance_index.get_parent(snarl36);
+
+
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_CHAIN);
+
+            //values for the snarl
+            REQUIRE(unpacked[1].length == distance_index.minimum_length(snarl36));
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == (chain_is_reversed ? 5 : 6));
+            REQUIRE(unpacked[1].code_type == ZipCode::REGULAR_SNARL);
+            bool is_rev = distance_index.distance_in_parent(snarl36, distance_index.get_bound(snarl36, false, true),
+                                                                   distance_index.flip(chain4)) != 0;
+
+            //values for the chain
+            REQUIRE(unpacked[2].length == distance_index.minimum_length(chain4));
+            REQUIRE(unpacked[2].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain4));
+            REQUIRE(unpacked[2].code_type == ZipCode::CHAIN);
+            REQUIRE(unpacked[2].is_reversed == is_rev);
+            if (is_rev) {
+                REQUIRE(unpacked[2].distance_start_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_start_right == 0);
+                REQUIRE(unpacked[2].distance_end_left == 0);
+                REQUIRE(unpacked[2].distance_end_right == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(unpacked[2].distance_start_left == 0);
+                REQUIRE(unpacked[2].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_right == 0);
+            }
         }
         SECTION("Distances") {
             ZipCode zip1;
@@ -629,6 +703,53 @@ using namespace std;
             REQUIRE(zipcode.get_is_reversed_in_parent(3) == distance_index.is_reversed_in_parent(node2));
 
         }
+        SECTION ("unpacked zip code for node on in nested chain") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n2->id(), distance_index);
+            REQUIRE(unpacked.size() == 4); 
+
+            net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+            net_handle_t chain2 = distance_index.get_parent(node2);
+            net_handle_t snarl1 = distance_index.get_parent(chain2);
+            net_handle_t chain1 = distance_index.get_parent(snarl1);
+
+
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_CHAIN);
+
+            //Snarl at depth 1
+            REQUIRE(unpacked[1].length == 0);
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == (chain_is_reversed ? 4 : 3));
+            REQUIRE(unpacked[1].code_type == ZipCode::REGULAR_SNARL);
+            bool is_rev = distance_index.distance_in_parent(snarl1, distance_index.get_bound(snarl1, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+
+            //Chain at depth 2
+            REQUIRE(unpacked[2].length == 3);
+            REQUIRE(unpacked[2].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain2));
+            REQUIRE(unpacked[2].code_type == ZipCode::CHAIN);
+            REQUIRE(unpacked[2].is_reversed == is_rev);
+            if (is_rev) {
+                REQUIRE(unpacked[2].distance_start_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_start_right == 0);
+                REQUIRE(unpacked[2].distance_end_left == 0);
+                REQUIRE(unpacked[2].distance_end_right == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(unpacked[2].distance_start_left == 0);
+                REQUIRE(unpacked[2].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_right == 0);
+            }
+
+            //Node at depth 3
+            REQUIRE(unpacked[3].length == 1);
+            REQUIRE(unpacked[3].prefix_sum_or_snarl_rank == distance_index.get_prefix_sum_value(node2));
+            REQUIRE(unpacked[3].code_type == ZipCode::NODE);
+            REQUIRE(unpacked[3].is_reversed == distance_index.is_reversed_in_parent(node2));
+
+        }
         SECTION ("zip code for more deeply nested node") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
@@ -852,6 +973,93 @@ using namespace std;
             REQUIRE(zipcode.get_length(6) == 4);
             REQUIRE(zipcode.get_rank_in_snarl(6) == distance_index.get_rank_in_parent(chain4));
             REQUIRE(zipcode.get_code_type(6) == ZipCode::CHAIN);
+
+        }
+        SECTION ("unpacked zip code for more deeply nested node") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n4->id(), distance_index);
+            REQUIRE(unpacked.size() == 7);
+
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            net_handle_t snarl3 = distance_index.get_parent(chain4);
+            net_handle_t chain3 = distance_index.get_parent(snarl3);
+            net_handle_t snarl2 = distance_index.get_parent(chain3);
+            net_handle_t chain2 = distance_index.get_parent(snarl2);
+            net_handle_t snarl1 = distance_index.get_parent(chain2);
+            net_handle_t chain1 = distance_index.get_parent(snarl1);
+
+
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                        distance_index.canonical(chain1));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_CHAIN);
+
+            //Snarl at depth 1
+            REQUIRE(unpacked[1].length == 0);
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == (chain_is_reversed ? 4 : 3));
+            REQUIRE(unpacked[1].code_type == ZipCode::REGULAR_SNARL);
+            net_handle_t snarl = distance_index.get_parent(chain2);
+            bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+
+
+            //Chain at depth 2
+            REQUIRE(unpacked[2].is_reversed == is_rev);
+            REQUIRE(unpacked[2].length == 3);
+            REQUIRE(unpacked[2].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain2));
+            REQUIRE(unpacked[2].code_type == ZipCode::CHAIN);
+            if (is_rev) {
+                REQUIRE(unpacked[2].distance_start_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_start_right == 0);
+                REQUIRE(unpacked[2].distance_end_left == 0);
+                REQUIRE(unpacked[2].distance_end_right == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(unpacked[2].distance_start_left == 0);
+                REQUIRE(unpacked[2].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[2].distance_end_right == 0);
+            }
+
+
+            //Snarl at depth 3
+            REQUIRE(unpacked[3].length == 1);
+            REQUIRE(unpacked[3].prefix_sum_or_snarl_rank == 1);
+            REQUIRE(unpacked[3].code_type == ZipCode::REGULAR_SNARL);
+            snarl = distance_index.get_parent(chain3);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain3))) != 0;
+
+            //Chain at depth 4
+            REQUIRE(unpacked[4].is_reversed == is_rev);
+            REQUIRE(unpacked[4].length == distance_index.minimum_length(chain3));
+            REQUIRE(unpacked[4].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain3));
+            REQUIRE(unpacked[4].code_type == ZipCode::CHAIN);
+            if (is_rev) {
+                REQUIRE(unpacked[4].distance_start_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[4].distance_start_right == 0);
+                REQUIRE(unpacked[4].distance_end_left == 0);
+                REQUIRE(unpacked[4].distance_end_right == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(unpacked[4].distance_start_left == 0);
+                REQUIRE(unpacked[4].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[4].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[4].distance_end_right == 0);
+            }
+
+
+            //Snarl3 at depth 5
+            REQUIRE(unpacked[5].length == 0);
+            REQUIRE(unpacked[5].prefix_sum_or_snarl_rank == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 3 : 1));
+            REQUIRE(unpacked[5].code_type == ZipCode::REGULAR_SNARL);
+            snarl = distance_index.get_parent(chain4);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain4))) != 0;
+
+            //node/chain at depth 6
+            REQUIRE(unpacked[6].is_reversed == is_rev);
+            REQUIRE(unpacked[6].length == 4);
+            REQUIRE(unpacked[6].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain4));
+            REQUIRE(unpacked[6].code_type == ZipCode::CHAIN);
 
         }
         SECTION("Distances") {
@@ -1172,7 +1380,6 @@ using namespace std;
             REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain3));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
             bool snarl_is_rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
-            bool chain_is_rev = distance_index.is_reversed_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())));
             //node1 to left side of node 3
             REQUIRE(zipcode.get_distance_to_snarl_bound(2, !snarl_is_rev, true) ==  1);
             //Node 1 to right side of node 3
@@ -1181,6 +1388,51 @@ using namespace std;
             REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, true) ==  std::numeric_limits<size_t>::max());
             //Node 4 to right side of node 3
             REQUIRE(zipcode.get_distance_to_snarl_bound(2, snarl_is_rev, false) == 0);
+        }
+        SECTION ("unpacked zip code for node in irregular snarl") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n3->id(), distance_index);
+            REQUIRE(unpacked.size() == 3);
+
+            net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+            net_handle_t snarl1 = distance_index.get_parent(chain3);
+            net_handle_t chain1 = distance_index.get_parent(snarl1);
+
+
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                    distance_index.canonical(chain1));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_CHAIN);
+
+            //Snarl1 at depth 1
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 6 : 3));
+            REQUIRE(unpacked[1].length == distance_index.minimum_length(snarl1));
+            REQUIRE(unpacked[1].code_type == ZipCode::CYCLIC_SNARL);
+
+            //chain3 at depth 3
+            REQUIRE(unpacked[2].length == 1);
+            REQUIRE(unpacked[2].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain3));
+            REQUIRE(unpacked[2].code_type == ZipCode::CHAIN);
+            bool snarl_is_rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
+            if (snarl_is_rev) {
+                //node1 to left side of node 3
+                REQUIRE(unpacked[2].distance_end_left ==  1);
+                //Node 1 to right side of node 3
+                REQUIRE(unpacked[2].distance_end_right == 2);
+                //node4 to left side of node 3
+                REQUIRE(unpacked[2].distance_start_left ==  std::numeric_limits<size_t>::max());
+                //Node 4 to right side of node 3
+                REQUIRE(unpacked[2].distance_start_right == 0);
+
+            } else {
+                REQUIRE(unpacked[2].distance_start_left ==  1);
+                //Node 1 to right side of node 3
+                REQUIRE(unpacked[2].distance_start_right == 2);
+                //node4 to left side of node 3
+                REQUIRE(unpacked[2].distance_end_left ==  std::numeric_limits<size_t>::max());
+                //Node 4 to right side of node 3
+                REQUIRE(unpacked[2].distance_end_right == 0);
+            }
         }
         SECTION("Distances") {
             ZipCode zip1;
@@ -1408,6 +1660,27 @@ using namespace std;
             REQUIRE(zipcode.get_rank_in_snarl(1) == distance_index.get_rank_in_parent(chain1));
             REQUIRE(zipcode.get_code_type(1) == ZipCode::CHAIN);
         }
+        SECTION ("unpacked zip code for node in top-level snarl") { 
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n1->id(), distance_index);
+            REQUIRE(unpacked.size() == 2);
+
+
+            net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
+            net_handle_t root_snarl = distance_index.get_parent(chain1);
+
+
+            //Root snarl
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == 
+                    distance_index.canonical(distance_index.get_parent(chain1)));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_SNARL);
+
+            //Chain1 at depth 1
+            REQUIRE(unpacked[1].length == 3);
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain1));
+            REQUIRE(unpacked[1].code_type == ZipCode::CHAIN);
+        }
         SECTION ("zip code for node in chain in top-level snarl") { 
             net_handle_t node1 = distance_index.get_node_net_handle(n3->id());
             ZipCode zipcode;
@@ -1471,6 +1744,31 @@ using namespace std;
             REQUIRE(zipcode.get_offset_in_chain(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::NODE);
             REQUIRE(zipcode.get_is_reversed_in_parent(2) == distance_index.is_reversed_in_parent(node3));
+        }
+        SECTION ("unpack zip code for node in chain in top-level snarl") { 
+            net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+            net_handle_t chain2 = distance_index.get_parent(node3);
+            net_handle_t root_snarl = distance_index.get_parent(chain2);
+
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n3->id(), distance_index);
+            REQUIRE(unpacked.size() == 3);
+
+            //Root snarl
+            REQUIRE(distance_index.canonical(unpacked[0].net_handle) == distance_index.canonical(root_snarl));
+            REQUIRE(unpacked[0].code_type == ZipCode::ROOT_SNARL);
+
+            //chain2 at depth 1
+            REQUIRE(unpacked[1].length == 2);
+            REQUIRE(unpacked[1].prefix_sum_or_snarl_rank == distance_index.get_rank_in_parent(chain2));
+            REQUIRE(unpacked[1].code_type == ZipCode::CHAIN);
+
+            //node3 at depth 2
+            REQUIRE(unpacked[2].length == 1);
+            REQUIRE(unpacked[2].prefix_sum_or_snarl_rank == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1));
+            REQUIRE(unpacked[2].code_type == ZipCode::NODE);
+            REQUIRE(unpacked[2].is_reversed == distance_index.is_reversed_in_parent(node3));
         }
         SECTION("Distances") {
             ZipCode zip1;
@@ -1870,6 +2168,22 @@ using namespace std;
             REQUIRE(zipcode.get_last_chain_component(0, false) == distance_index.get_chain_component(bound, false));
             REQUIRE(zipcode.get_is_looping_chain(0));
         }
+        SECTION( "node2 unpacked" ) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n2->id(), distance_index);
+            REQUIRE(unpacked.size() == 2);
+
+            net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+            net_handle_t parent = distance_index.get_parent(node2);
+            net_handle_t bound = distance_index.get_bound(parent, true, false);
+
+
+            REQUIRE(distance_index.minimum_length(node2) == unpacked[1].length);
+            REQUIRE(unpacked[1].chain_component == distance_index.get_chain_component(node2));
+            REQUIRE(unpacked[0].chain_component == 1);
+            REQUIRE(unpacked[0].is_looping_chain);
+        }
 
         SECTION( "node5" ) {
             ZipCode zipcode;
@@ -1881,6 +2195,10 @@ using namespace std;
 
 
             REQUIRE(distance_index.minimum_length(node) == zipcode.get_length(zipcode.max_depth()));
+
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n5->id(), distance_index);
+
+            REQUIRE(distance_index.minimum_length(node) == unpacked[unpacked.size()-1].length);
         }
     }
     TEST_CASE( "Chain with external connectivity zipcode","[zipcode]" ) {
@@ -1921,6 +2239,26 @@ using namespace std;
                 REQUIRE(zipcode.is_externally_end_end_connected(0));
             } else {
                 REQUIRE(zipcode.is_externally_start_start_connected(0));
+            }
+
+        }
+        SECTION( "Check connectivity unpacked" ) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(dist_index, make_pos_t(n2->id(), false, 0));
+            vector<zip_code_t> unpacked = zipcode.unpack_zip_code(n2->id(), dist_index);
+
+            REQUIRE(unpacked[1].length == 1);
+
+            if (dist_index.is_reversed_in_parent(dist_index.get_node_net_handle(n1->id()))) {
+                REQUIRE(unpacked[0].distance_end_right == 0);
+                REQUIRE(unpacked[0].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[0].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[0].distance_start_left == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(unpacked[0].distance_end_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[0].distance_end_left == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[0].distance_start_right == std::numeric_limits<size_t>::max());
+                REQUIRE(unpacked[0].distance_start_left == 0);
             }
 
         }
