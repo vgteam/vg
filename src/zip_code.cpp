@@ -2026,14 +2026,14 @@ void ZipCodeCollection::deserialize(std::istream& in) {
     }
 
 }
-vector<code_type_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& distance_index) const {
-    vector<code_type_t> unpacked_zipcode;
+vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& distance_index) const {
+    vector<zip_code_t> unpacked_zipcode;
 
     //Otherwise, walk through the zipcode start to end (root to leaf) and fill in the unpacked zipcode
     //Fill in everything in the zipcode in this pass, and then go back and fill in any net handles that
     //weren't stored in the zipcode by getting the parents
     for (size_t depth = 0 ; depth < decoder_length() ; depth++) {
-        unpacked_zipcode.empalce_back();
+        unpacked_zipcode.emplace_back();
         zip_code_t& current_code = unpacked_zipcode.back();
 
         size_t zip_value;
@@ -2049,7 +2049,7 @@ vector<code_type_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex&
 
                     current_code.code_type = ZipCode::ROOT_NODE;
                     //Get the root node as a chain
-                    current_code.handle = distance_index.get_net_handle_from_values(
+                    current_code.net_handle = distance_index.get_net_handle_from_values(
                                                         distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
                                                         SnarlDistanceIndex::START_END,
                                                         SnarlDistanceIndex::CHAIN_HANDLE);
@@ -2155,10 +2155,10 @@ vector<code_type_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex&
                 current_code.length = zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
 
                 //CHild count
-                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index)
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
 
                 //Chain component
-                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);;
+                std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
                 current_code.chain_component = zip_value;
 
                 if (current_code.code_type == ZipCode::REGULAR_SNARL) {
@@ -2173,7 +2173,7 @@ vector<code_type_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex&
                     
                     //Snarl record for irregular/cyclic snarls
                     std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);;
-                    current_code.net_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+                    current_code.net_handle = distance_index.get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
 
                     //Distance values
                     //These are actually the distances from the child to the bounds of the snarl
@@ -2199,8 +2199,8 @@ vector<code_type_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex&
         zip_code_t& current_code = unpacked_zipcode[depth];
 
         //If we need to set the net handle
-        if (current_codenet_handle == distance_index.get_root()) {
-            if (depth == decoder_length-1 ) {
+        if (current_code.net_handle == distance_index.get_root()) {
+            if (depth == decoder_length()-1 ) {
                 current_code.net_handle = distance_index.get_node_net_handle(id);
                 if (current_code.code_type == ZipCode::CHAIN) {
                     current_code.net_handle = distance_index.get_net_handle_from_values(

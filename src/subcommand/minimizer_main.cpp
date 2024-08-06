@@ -375,7 +375,7 @@ int main_minimizer(int argc, char** argv) {
     }
     if (distance_name.empty()) {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::Payload {
-            return MIPayload::NO_CODE;
+            return ZipCode::NO_PAYLOAD;
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
@@ -397,7 +397,7 @@ int main_minimizer(int argc, char** argv) {
                         cout << endl;
             #endif
             auto payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 //If the zipcode is small enough to store in the payload
                 return payload;
             } else if (!zipcode_name.empty()) {
@@ -421,7 +421,7 @@ int main_minimizer(int argc, char** argv) {
                 }
                 return {0, zip_index};
             } else {
-                return MIPayload::NO_CODE;
+                return ZipCode::NO_PAYLOAD;
             }
         });
     }

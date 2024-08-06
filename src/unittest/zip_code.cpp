@@ -65,7 +65,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -333,7 +333,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -344,7 +344,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -355,7 +355,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -366,7 +366,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                  ZipCode decoded;
                  decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -377,7 +377,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -388,7 +388,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -944,7 +944,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -955,7 +955,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -966,7 +966,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -977,7 +977,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -988,7 +988,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -999,7 +999,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1010,7 +1010,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1021,7 +1021,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1261,7 +1261,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1272,7 +1272,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1283,7 +1283,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1294,7 +1294,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1305,7 +1305,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1316,7 +1316,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1327,7 +1327,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1524,7 +1524,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1535,7 +1535,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1546,7 +1546,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1557,7 +1557,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1568,7 +1568,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1579,7 +1579,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1590,7 +1590,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1710,7 +1710,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1721,7 +1721,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1732,7 +1732,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1743,7 +1743,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1754,7 +1754,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1765,7 +1765,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
@@ -1776,7 +1776,7 @@ using namespace std;
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
-            if (payload != MIPayload::NO_CODE) {
+            if (payload != ZipCode::NO_PAYLOAD) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);

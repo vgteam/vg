@@ -35,7 +35,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
 #endif
         seed_caches[i].seed = &(seeds[i]);
         if (seeds[i].zipcode.byte_count() != 0) {
-            seed_caches[i].payload = seeds[i].zipcode.get_payload_from_zipcode(id(seeds[i].pos), distance_index);
+            seed_caches[i].unpacked_zipcode = seeds[i].zipcode.unpack_zip_code(id(seeds[i].pos), distance_index);
         }
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
@@ -66,7 +66,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
         throw std::runtime_error("Clusterer: We can't handle more than paired end mapping");
     }
 
-    //Make a vector of SeedCache that contains all the payloads
+    //Make a vector of SeedCache that contains all the unpacked zipcodes
     vector<vector<SeedCache>> all_seed_caches;
     all_seed_caches.reserve(all_seeds.size());
 
@@ -79,7 +79,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 #endif
             all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
             if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
-                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode.get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index);
+                all_seed_caches[read_num][i].unpacked_zipcode = all_seeds[read_num][i].zipcode.unpack_zip_code(id(all_seeds[read_num][i].pos), distance_index);
             }
         }
     }
@@ -352,65 +352,41 @@ cerr << "Add all seeds to nodes: " << endl;
             //The zipcodes are already filled in
             //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
             //index but that would be too much work to write for now
-            const MIPayload& payload = seed.payload;
+            const zip_code_t& node_code = seed.unpacked_zipcode.back();
+            const zip_code_t& parent_code = seed.unpacked_zipcode[seed.unpacked_zipcode.size()-2];
 
 #ifdef DEBUG_CLUSTER
-                //cerr << "Using cached values for node " << id << ": " 
-                //    << ", " << seed.payload.record_offset
-                //    << ", " << seed.payload.parent_record_offset
-                //    << ", " << seed.payload.node_length
-                //    << ", " << seed.payload.prefix_sum
-                //    << ", " << seed.payload.chain_component << endl;
 
                 net_handle_t handle = distance_index.get_node_net_handle(id);
                 net_handle_t parent_handle = distance_index.get_parent(handle);
                 cerr << "Check values for node " << distance_index.net_handle_as_string(handle) << " in parent " << distance_index.net_handle_as_string(parent_handle) << endl;
 
-                //assert(seed.payload.parent_record_offset == 
-                //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
-                //                                             :distance_index.get_record_offset(parent_handle))); 
-                cerr << "Node length " << seed.payload.node_length << " should be " << distance_index.minimum_length(handle) << endl;
-                assert(seed.payload.node_length == distance_index.minimum_length(handle));
-                //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
-                //         ? std::numeric_limits<size_t>::max() 
-                //         : distance_index.get_prefix_sum_value(handle);
-                //assert(seed.payload.prefix_sum == prefix_sum);
+                cerr << "Node length " << node_code.length << " should be " << distance_index.minimum_length(handle) << endl;
+                assert(seed.unpacked_vector.back().length == distance_index.minimum_length(handle));
 
                 size_t chain_component = (distance_index.is_multicomponent_chain(parent_handle) 
                                 ? distance_index.get_chain_component(handle)
                                 : 0);
                 chain_component = chain_component == std::numeric_limits<size_t>::max() ? 0 : chain_component;
-                cerr << "For nod " << distance_index.net_handle_as_string(handle) << endl;
-                cerr << "Chain compoentn: " << chain_component << " was " << seed.payload.chain_component << endl;
-                assert(seed.payload.chain_component == chain_component);
+                cerr << "For node " << distance_index.net_handle_as_string(handle) << endl;
+                cerr << "Chain compoentn: " << chain_component << " was " << node_code.chain_component << endl;
+                assert(node_code.chain_component == chain_component);
 
-            if (!distance_index.is_root(seed.payload.parent_handle)) {
-                cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle))) << endl; 
-                cerr <<" Is actually " << distance_index.net_handle_as_string( distance_index.start_end_traversal_of(seed.payload.parent_handle)) << endl;
-                assert( distance_index.start_end_traversal_of(seed.payload.parent_handle) == distance_index.start_end_traversal_of(distance_index.get_parent(seed.payload.node_handle)));
-            }
 #endif
-            if (!(seed.payload.parent_type == ZipCode::ROOT_SNARL || seed.payload.parent_type == ZipCode::ROOT_NODE)) {
+            if (!((seed.unpacked_zipcode.front().code_type == ZipCode::ROOT_SNARL && seed.unpacked_zipcode.size() == 2) 
+                    || seed.unpacked_zipcode.front().code_type == ZipCode::ROOT_NODE)) {
                 //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
 
                 //Add the seed to its parent
                 //Also update the zipcode on the seed 
 
-#ifdef DEBUG_CLUSTER
-                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(seed.payload.parent_handle) << endl;
-                //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
-                //                                  : distance_index.get_prefix_sum_value(seed.payload.node_handle)));
-                cerr << "Node length should be " << distance_index.minimum_length(seed.payload.node_handle) << " actually " << seed.payload.node_length << endl;
-                assert(seed.payload.node_length == distance_index.minimum_length(seed.payload.node_handle));
-                cerr << "Reversed in parent? " << distance_index.net_handle_as_string(seed.payload.node_handle) << " " << distance_index.net_handle_as_string(seed.payload.parent_handle) << " " << seed.payload.is_reversed << endl;
-                cerr << "is trivial? " << seed.payload.is_trivial_chain << endl;
-                if (!distance_index.is_root(seed.payload.parent_handle)) {
-                    cerr << "Grandparent: " << distance_index.net_handle_as_string(distance_index.get_parent(seed.payload.parent_handle)) << endl;
-                }
-                cerr << seed.payload.is_reversed << " " << distance_index.is_reversed_in_parent(seed.payload.parent_handle) << endl;
 
-                assert(seed.payload.is_reversed == (seed.payload.is_trivial_chain ? distance_index.is_reversed_in_parent(seed.payload.parent_handle)
-                                                             : distance_index.is_reversed_in_parent(seed.payload.node_handle)));
+#ifdef DEBUG_CLUSTER
+                cerr << "\tchild of a chain " << distance_index.net_handle_as_string(seed.unpacked_zipcode[seed.unpacked_zipcode.size()-2].net_handle) << endl;
+                cerr << "Node length should be " << distance_index.minimum_length(node_code.net_handle) << " actually " << node_code.length << endl;
+                assert(node_code.length == distance_index.minimum_length(node_code.handle));
+                cerr << "Reversed in parent? " << distance_index.net_handle_as_string(node_code.net_handle) << " " << distance_index.net_handle_as_string(parent_code.net_handle) << " " << node_code.is_reversed << endl;
+
 #endif
 
                 //Add the parent chain or trivial chain
@@ -418,34 +394,43 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
                 new_parent = false;
-                if (clustering_problem.net_handle_to_node_problem_index.count(seed.payload.parent_handle) == 0) {
+                if (clustering_problem.net_handle_to_node_problem_index.count(parent_code.net_handle) == 0) {
                     //If we haven't seen the parent chain before, make a new SnarlTreeNodeProblem for it
                     new_parent = true;
-                    if (seed.payload.is_trivial_chain ) {
-                        clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
-                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
+                    if (distance_index.is_chain(node_code.net_handle) ) {
+                        //Trivial chain
+                        clustering_problem.net_handle_to_node_problem_index.emplace(node_code.net_handle, clustering_problem.all_node_problems.size());
+                        clustering_problem.all_node_problems.emplace_back(node_code.net_handle, clustering_problem.all_seeds->size(),
                                                      clustering_problem.seed_count_prefix_sum.back(),
-                                                     false, seed.payload.node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
+                                                     false, node_code.length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
                                                      &seed, seed.seed->zipcode.max_depth()); 
                         clustering_problem.all_node_problems.back().is_trivial_chain = true;
                     } else {
                         //The parent is an actual chain
-                        clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.parent_handle, clustering_problem.all_node_problems.size());
-                        clustering_problem.all_node_problems.emplace_back(seed.payload.parent_handle, clustering_problem.all_seeds->size(),
+                        clustering_problem.net_handle_to_node_problem_index.emplace(parent_code.net_handle, clustering_problem.all_node_problems.size());
+                        clustering_problem.all_node_problems.emplace_back(parent_code.net_handle, clustering_problem.all_seeds->size(),
                                                               clustering_problem.seed_count_prefix_sum.back(), distance_index,
                                                               &seed, seed.seed->zipcode.max_depth() - 1);
                     }
 
                     new_parent = true;
                 }
+                size_t parent_depth = 0;
+
+                for (size_t d = 0 ; d < seed.unpacked_zipcode.size() ; d++) {
+                    const auto& type = seed.unpacked_zipcode[d].code_type;
+                    if (type == ZipCode::CHAIN || type == ZipCode::ROOT_CHAIN || type == ZipCode::ROOT_NODE) {
+                        parent_depth++;
+                    }
+                }
 #ifdef DEBUG_CLUSTER
-                assert(seed.payload.parent_depth == distance_index.get_depth(seed.payload.parent_handle));
+                assert(parent_depth == distance_index.get_depth(parent_code.net_handle));
 #endif
 
 
                 //If chains_by_level isn't big enough for this depth, resize it and reserve space at each level
-                if (seed.payload.parent_depth+1 > chains_by_level.size()) {
-                    size_t to_add = (seed.payload.parent_depth+1) - chains_by_level.size(); 
+                if (parent_depth+1 > chains_by_level.size()) {
+                    size_t to_add = (parent_depth+1) - chains_by_level.size(); 
                     for (size_t i = 0 ; i < to_add ; i++) {
                         chains_by_level.emplace_back();
                         chains_by_level.back().reserve(clustering_problem.seed_count_prefix_sum.back());
@@ -453,66 +438,26 @@ cerr << "Add all seeds to nodes: " << endl;
                 }
 
                 //Make sure the seed's distances are relative to the orientation in the parent
-                seed.distance_left = seed.payload.is_reversed != is_rev(pos) ? seed.payload.node_length- get_offset(pos) 
+                seed.distance_left = node_code.is_reversed != is_rev(pos) ? node_code.length- get_offset(pos) 
                                                                           : get_offset(pos) + 1;
-                seed.distance_right = seed.payload.is_reversed != is_rev(pos) ? get_offset(pos) + 1 
-                                                                           : seed.payload.node_length- get_offset(pos);
+                seed.distance_right = node_code.is_reversed != is_rev(pos) ? get_offset(pos) + 1 
+                                                                           : node_code.length- get_offset(pos);
 
                 //Add this seed to its parent cluster
-                SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(seed.payload.parent_handle));
+                SnarlTreeNodeProblem& parent_problem = clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(parent_code.net_handle));
                 parent_problem.children.emplace_back();
-                parent_problem.children.back().net_handle = seed.payload.node_handle;
+                parent_problem.children.back().net_handle = node_code.net_handle;
                 parent_problem.children.back().seed_indices = {read_num, i};
                 parent_problem.children.back().is_seed = true;
                 parent_problem.children.back().has_chain_values = true;
-                parent_problem.children.back().chain_component = seed.payload.chain_component;
+                parent_problem.children.back().chain_component = node_code.chain_component;
                 parent_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      seed.payload.prefix_sum);
+                                                                      node_code.prefix_sum_or_snarl_rank);
 
 
                 //And the parent to chains_by_level
                 if (new_parent) {
-                    chains_by_level[seed.payload.parent_depth].emplace_back(seed.payload.parent_handle);
-                }
-
-
-                //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if ( new_parent) {
-                    if (seed.payload.is_trivial_chain && !seed.payload.parent_is_root) {
-                        bool grandparent_is_simple_snarl = seed.payload.parent_is_chain;
-                        parent_problem.has_parent_handle = true;
-                        parent_problem.parent_net_handle = grandparent_is_simple_snarl 
-                                  ? distance_index.get_net_handle_from_values(distance_index.get_record_offset(seed.payload.node_handle),
-                                                                  SnarlDistanceIndex::START_END,
-                                                                  SnarlDistanceIndex::SNARL_HANDLE,
-                                                                  1)
-                                  : distance_index.get_net_handle_from_values(seed.payload.parent_record_offset,
-                                                                  SnarlDistanceIndex::START_END,
-                                                                  SnarlDistanceIndex::SNARL_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
-#endif
-
-                        if (grandparent_is_simple_snarl) {
-                            //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
-                            parent_problem.has_grandparent_handle = true;
-                            parent_problem.grandparent_net_handle = distance_index.get_net_handle_from_values(
-                                                                        seed.payload.parent_record_offset,
-                                                                        SnarlDistanceIndex::START_END,
-                                                                        SnarlDistanceIndex::CHAIN_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "GRANDPARENT: " << distance_index.net_handle_as_string(parent_problem.grandparent_net_handle) << endl;
-#endif
-                        }
-                    } else if (seed.payload.parent_is_root && seed.payload.parent_is_chain && !seed.payload.is_trivial_chain) {
-                        //The parent chain is a child of the root
-                        parent_problem.has_parent_handle = true;
-                        parent_problem.parent_net_handle = distance_index.get_net_handle_from_values(
-                                    0, SnarlDistanceIndex::START_END, SnarlDistanceIndex::ROOT_HANDLE);
-#ifdef DEBUG_CLUSTER
-                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
-#endif
-                    }
+                    chains_by_level[parent_depth].emplace_back(parent_code.net_handle);
                 }
 
 
@@ -520,38 +465,36 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Otherwise, the parent is the root or a root snarl, and the node_net_handle is a node
 
 
-
-
                 //Create a new SnarlTreeNodeProblem for this node
                 bool new_node = false;
-                if (clustering_problem.net_handle_to_node_problem_index.count(seed.payload.node_handle) == 0) {
+                if (clustering_problem.net_handle_to_node_problem_index.count(node_code.net_handle) == 0) {
                     new_node = true;
-                    clustering_problem.net_handle_to_node_problem_index.emplace(seed.payload.node_handle, 
+                    clustering_problem.net_handle_to_node_problem_index.emplace(node_code.net_handle, 
                                                                                 clustering_problem.all_node_problems.size());
-                    clustering_problem.all_node_problems.emplace_back(seed.payload.node_handle, clustering_problem.all_seeds->size(),
+                    clustering_problem.all_node_problems.emplace_back(node_code.net_handle, clustering_problem.all_seeds->size(),
                                              clustering_problem.seed_count_prefix_sum.back(),
-                                             false, seed.payload.node_length, std::numeric_limits<size_t>::max(),
+                                             false, node_code.length, std::numeric_limits<size_t>::max(),
                                               std::numeric_limits<size_t>::max(),
                                               &seed, seed.seed->zipcode.max_depth());
 
                     //Remember the parent of this node, since it will be needed to remember the root snarl later
-                    clustering_problem.all_node_problems.back().parent_net_handle = seed.payload.parent_handle;
+                    clustering_problem.all_node_problems.back().parent_net_handle = parent_code.net_handle;
 
                 }
 
-                seed.distance_left = seed.payload.is_reversed != is_rev(pos) ? seed.payload.node_length- get_offset(pos) : get_offset(pos) + 1;
-                seed.distance_right = seed.payload.is_reversed != is_rev(pos) ? get_offset(pos) + 1 : seed.payload.node_length- get_offset(pos);
+                seed.distance_left = node_code.is_reversed != is_rev(pos) ? node_code.length- get_offset(pos) : get_offset(pos) + 1;
+                seed.distance_right = node_code.is_reversed != is_rev(pos) ? get_offset(pos) + 1 : node_code.length- get_offset(pos);
 
-                SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(seed.payload.node_handle));
+                SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(node_code.net_handle));
 
                 node_problem.children.emplace_back();
-                node_problem.children.back().net_handle = seed.payload.node_handle;
+                node_problem.children.back().net_handle = node_code.net_handle;
                 node_problem.children.back().seed_indices = {read_num, i};
                 node_problem.children.back().is_seed = true;
                 node_problem.children.back().has_chain_values = true;
-                node_problem.children.back().chain_component = seed.payload.chain_component;
+                node_problem.children.back().chain_component = node_code.chain_component;
                 node_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      seed.payload.prefix_sum);
+                                                                      node_code.prefix_sum_or_snarl_rank);
 
 
 
@@ -569,7 +512,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
     //Go through and cluster nodes that are children of the root or root snarls
     for(const SeedCache* seed : nodes_to_cluster_now) {
-        const net_handle_t& node_net_handle = seed->payload.node_handle;
+        const net_handle_t& node_net_handle = seed->unpacked_zipcode.back().net_handle;
         SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(
                                                     clustering_problem.net_handle_to_node_problem_index.at(node_net_handle));
 
@@ -580,7 +523,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
         net_handle_t parent = node_problem.parent_net_handle;
 
-        if (seed->payload.parent_type == ZipCode::ROOT_SNARL) {
+        if (seed->unpacked_zipcode[seed->unpacked_zipcode.size()-2].code_type == ZipCode::ROOT_SNARL) {
             //If this is a root snarl, then remember it to cluster in the root
             if (clustering_problem.net_handle_to_node_problem_index.count(parent) == 0) {
                 clustering_problem.net_handle_to_node_problem_index.emplace(parent,
@@ -1826,10 +1769,10 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
             } else if (child1.prefix_sum == child2.prefix_sum && !(child1.is_seed && child2.is_seed)) {
                 //Get the prefix sum values not including the offset in the positions 
                 size_t prefix_sum1 = child1.is_seed 
-                                   ? clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).payload.prefix_sum
+                                   ? clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).unpacked_zipcode.back().prefix_sum_or_snarl_rank
                                    : child1.prefix_sum;
                 size_t prefix_sum2 = child2.is_seed 
-                                   ? clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).payload.prefix_sum
+                                   ? clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).unpacked_zipcode.back().prefix_sum_or_snarl_rank
                                    : child2.prefix_sum;
                 if (prefix_sum1 == prefix_sum2){
                     return child2.is_seed;
@@ -1951,11 +1894,11 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 : clustering_problem.all_node_problems.at(
                         clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).chain_component_start;
     size_t last_length = last_child.is_seed
-                       ? clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).payload.node_length
+                       ? clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).unpacked_zipcode.back().length
                        : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).node_length;
     size_t last_chain_component_end = last_child.is_seed
-                       ? clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).payload.chain_component
+                       ? clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).unpacked_zipcode.back().chain_component
                        : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).chain_component_start;
 
@@ -2215,17 +2158,17 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         if (last_child.net_handle == current_child.net_handle) {
             //This can happen if the last thing was also a seed on the same node
             distance_from_last_child_to_current_child = 0; 
-        } else if ( last_chain_component_end == current_child_seed.payload.chain_component) {
+        } else if ( last_chain_component_end == current_child_seed.unpacked_zipcode.back().chain_component) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                distance_from_last_child_to_current_child = current_child_seed.payload.prefix_sum;
+                distance_from_last_child_to_current_child = current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank;
             } else {
                 size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(current_child_seed.payload.prefix_sum, 
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank, 
                                                 distance_from_chain_start_to_last_node); 
             }
         }
@@ -2242,21 +2185,21 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         //If this isn't the last child in the chain, then we only want the distance to the end of the current child
     
         distance_from_current_end_to_end_of_chain = 0;
-    } else if (chain_problem->chain_component_end != current_child_seed.payload.chain_component) { 
+    } else if (chain_problem->chain_component_end != current_child_seed.unpacked_zipcode.back().chain_component) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_problem->node_length, 
-                    SnarlDistanceIndex::sum(current_child_seed.payload.prefix_sum, 
-                                            current_child_seed.payload.node_length));
+                    SnarlDistanceIndex::sum(current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank, 
+                                            current_child_seed.unpacked_zipcode.back().length));
     
     }
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (current_child_seed.payload.chain_component != 0 ? std::numeric_limits<size_t>::max() : current_child_seed.payload.prefix_sum) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (current_child_seed.unpacked_zipcode.back().chain_component != 0 ? std::numeric_limits<size_t>::max() : current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank) << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
 
@@ -2291,13 +2234,13 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         //The distance left and right of the seed are currently oriented relative to the chain
     
         //The current left distance is infinite if it is not in the first component of a multicomponent chain
-        if (current_child_seed.payload.chain_component != 0) {
+        if (current_child_seed.unpacked_zipcode.back().chain_component != 0) {
             //If this node isn't in the first component of the chain
             current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
             current_child_seed.distance_left = SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       current_child_seed.payload.prefix_sum);
+                                                                       current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank);
         }
         current_child_seed.distance_right = SnarlDistanceIndex::sum(current_child_seed.distance_right, 
                                                        distance_from_current_end_to_end_of_chain);
@@ -2342,16 +2285,16 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                         ? std::numeric_limits<size_t>::max() : 
                 (last_child.net_handle == current_child.net_handle ? 0 
-                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, current_child_seed.payload.node_length));
+                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, current_child_seed.unpacked_zipcode.back().length));
     
         //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
         //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
         //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
-                current_child_seed.payload.chain_component != 0 ? std::numeric_limits<size_t>::max() 
+                current_child_seed.unpacked_zipcode.back().chain_component != 0 ? std::numeric_limits<size_t>::max() 
                                              : SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       current_child_seed.payload.prefix_sum),
+                                                                       current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank),
                 SnarlDistanceIndex::sum(current_child_seed.distance_right, distance_from_current_end_to_end_of_chain)); 
     
     
@@ -2386,7 +2329,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 //If the last child was the same as this child (seeds on the same node),
                 //then the distances right are including the current node, so subtract
                 //the length of this node
-                distance_between -= current_child_seed.payload.node_length;
+                distance_between -= current_child_seed.unpacked_zipcode.back().length;
             }
 
 #ifdef DEBUG_CLUSTER
@@ -2495,9 +2438,9 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     
     //Update the last node we saw to this one
     last_child = current_child;
-    last_prefix_sum = current_child_seed.payload.prefix_sum;
-    last_length = current_child_seed.payload.node_length;
-    last_chain_component_end = current_child_seed.payload.chain_component;
+    last_prefix_sum = current_child_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank;
+    last_length = current_child_seed.unpacked_zipcode.back().length;
+    last_chain_component_end = current_child_seed.unpacked_zipcode.back().chain_component;
 
 }
 
@@ -3178,7 +3121,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
             size_t dist_left = clustering_problem.all_seeds->at(read_num)->at(seed_i).distance_left;
             if (include_prefix_sum) {
                 dist_left = SnarlDistanceIndex::sum(dist_left, 
-                       clustering_problem.all_seeds->at(read_num)->at(seed_i).payload.prefix_sum); 
+                       clustering_problem.all_seeds->at(read_num)->at(seed_i).unpacked_zipcode.back().prefix_sum_or_snarl_rank); 
             }
             //Since we only stored the proper distance left for seeds on chains
             size_t dist_right = structure_length - dist_left + 1;
@@ -3213,9 +3156,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
         if (!skip_distances_to_ends) {
 
             const SeedCache& first_seed = clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second);
-            //TOOD: get_id is weird
             node_problem->fragment_best_left = SnarlDistanceIndex::sum(first_seed.distance_left,
-                    include_prefix_sum ? first_seed.payload.prefix_sum : 0);
+                    include_prefix_sum ? first_seed.unpacked_zipcode.back().prefix_sum_or_snarl_rank : 0);
 
             //Record the new cluster
             for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++ ) {
@@ -3261,7 +3203,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
         size_t offset = clustering_problem.all_seeds->at(read_num)->at(seed_num).distance_left;
         if (include_prefix_sum) {
             offset = SnarlDistanceIndex::sum(offset, 
-                   clustering_problem.all_seeds->at(read_num)->at(seed_num).payload.prefix_sum); 
+                   clustering_problem.all_seeds->at(read_num)->at(seed_num).unpacked_zipcode.back().prefix_sum_or_snarl_rank); 
         }
 
         //First and last offset and last cluster head for this read

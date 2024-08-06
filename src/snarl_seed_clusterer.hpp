@@ -99,8 +99,7 @@ class SnarlDistanceIndexClusterer {
         struct SeedCache{
             const Seed* seed;
 
-            //TODO: I think I can skip the zipcode now since I have the payload
-            MIPayload payload;
+            vector<zip_code_t> unpacked_zipcode;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
