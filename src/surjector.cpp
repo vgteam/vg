@@ -4036,7 +4036,11 @@ using namespace std;
         
         if (prune_suspicious_anchors) {
 #ifdef debug_anchored_surject
-            cerr << "pruning suspicious anchors" << endl;
+            cerr << "pruning suspicious anchors";
+            if (!step_ranges.empty()) {
+                cerr << " on path " << graph->get_path_name(graph->get_path_handle_of_step(step_ranges.front().first));
+            }
+            cerr << endl;
 #endif
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];

@@ -8,6 +8,8 @@
 #include "banded_global_aligner.hpp"
 #include "vg/io/json2pb.h"
 
+#include <array>
+
 //#define debug_banded_aligner_objects
 //#define debug_banded_aligner_graph_processing
 //#define debug_banded_aligner_fill_matrix
@@ -223,7 +225,7 @@ BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, handle_t 
 {
     // nothing to do
 #ifdef debug_banded_aligner_objects
-    cerr << "[BAMatrix]: constructor for node " << as_integer(node) << " and band from " << top_diag << " to " << bottom_diag << endl;;
+    cerr << "[BAMatrix]: constructor for node " << as_integer(node) << " and band from " << top_diag << " to " << bottom_diag << " with left alignment strand " << left_alignment_strand << endl;;
 #endif
 }
 
@@ -811,7 +813,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
             continue;
         }
         
-        vector<matrix_t> prev_mats{InsertCol, Match, InsertRow};
+        array<matrix_t, 3> prev_mats{Match, InsertCol, InsertRow};
         if (left_alignment_strand) {
             std::swap(prev_mats[0], prev_mats[2]);
         }
@@ -1417,7 +1419,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
 #ifdef debug_banded_aligner_traceback
             cerr << "[BAMatrix::traceback_over_edge] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (mat == InsertCol) << endl;
 #endif
-            vector<matrix_t> prev_mats{InsertCol, Match, InsertRow};
+            array<matrix_t, 3> prev_mats{Match, InsertCol, InsertRow};
             if (left_alignment_strand) {
                 std::swap(prev_mats[0], prev_mats[2]);
             }
@@ -2487,7 +2489,7 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 }
                 else {
                     // let the insert routine figure out which one is the best and which ones to keep in the stack
-                    vector<matrix_t> mats{InsertCol, Match, InsertRow};
+                    array<matrix_t, 3> mats{Match, InsertCol, InsertRow};
                     if (band_matrix->left_alignment_strand) {
                         std::swap(mats[0], mats[2]);
                     }
