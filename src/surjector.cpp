@@ -4151,6 +4151,7 @@ using namespace std;
                     // find the nearest indel to this end
                     int64_t incr = left_end ? 1 : -1;
                     size_t walked_to_length = 0;
+                    size_t walked_from_length = 0;
                     size_t mapping_idx;
                     size_t edit_idx;
                     bool found_indel = false;
@@ -4174,15 +4175,16 @@ using namespace std;
                                 break;
                             }
                             walked_to_length += edit.to_length();
+                            walked_from_length += edit.from_length();
                         }
                         if (exited_indel) {
                             break;
                         }
                     }
                     
-                    if (found_indel) {
+                    if (found_indel && walked_to_length < max_low_complexity_anchor_prune && walked_from_length < max_low_complexity_anchor_prune) {
 #ifdef debug_anchored_surject
-                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked length " << walked_to_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
+                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked to length " << walked_to_length << ", walked from length " << walked_from_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
 #endif
                         
                         // we found an indel in the anchor, now we test whether it's in a low complexity sequence
