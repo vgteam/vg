@@ -4041,9 +4041,8 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second)
-                    && anchor_lengths[i] <= max_tail_anchor_prune
-                    && chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+                if (chunk.first.first == path_chunks.front().first.first && chunk.first.second == path_chunks.back().first.second
+                    && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) {
 #ifdef debug_anchored_surject
                     cerr << "anchor " << i << " (read interval " << (chunk.first.first - sequence.begin()) << " : " << (chunk.first.second - sequence.begin()) << ") pruned for being a short tail" << endl;
 #endif
@@ -4051,8 +4050,7 @@ using namespace std;
                     keep[i] = false;
                     continue;
                 }
-                if (anchor_lengths[i] < max_low_complexity_anchor_prune &&
-                    chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune) {
+                if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
                         auto context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
@@ -4152,42 +4150,45 @@ using namespace std;
                     size_t mapping_idx;
                     size_t edit_idx;
                     bool found_indel = false;
+                    bool exited_indel = false;
                     // note: relying on underflow for the break conditions in the reverse direction
                     for (mapping_idx = left_end ? 0 : path_chunk.second.mapping_size() - 1;
-                         (mapping_idx < path_chunk.second.mapping_size() && walked_to_length < max_low_complexity_anchor_prune);
+                         (mapping_idx < path_chunk.second.mapping_size() && (walked_to_length < max_low_complexity_anchor_prune || found_indel));
                          mapping_idx += incr) {
                         
                         const auto& mapping = path_chunk.second.mapping(mapping_idx);
                         for (edit_idx = left_end ? 0 : mapping.edit_size() - 1;
-                             edit_idx < mapping.edit_size() && walked_to_length < max_low_complexity_anchor_prune;
+                             edit_idx < mapping.edit_size() && (walked_to_length < max_low_complexity_anchor_prune || found_indel);
                              edit_idx += incr) {
                             
                             const auto& edit = mapping.edit(edit_idx);
                             if (edit.from_length() == 0 || edit.to_length() == 0) {
                                 found_indel = true;
+                            }
+                            else if (found_indel) {
+                                exited_indel = true;
                                 break;
                             }
                             walked_to_length += edit.to_length();
                         }
-                        if (found_indel) {
+                        if (exited_indel) {
                             break;
                         }
                     }
                     
                     if (found_indel) {
 #ifdef debug_anchored_surject
-                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel at mapping " << mapping_idx << ", edit " << edit_idx << ", walked length " << walked_to_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
+                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked length " << walked_to_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
 #endif
                         
                         // we found an indel in the anchor, now we test whether it's in a low complexity sequence
                         
-                        const auto& indel_edit = path_chunk.second.mapping(mapping_idx).edit(edit_idx);
-                        auto trim_begin = left_end ? path_chunk.first.first : path_chunk.first.second - (walked_to_length + indel_edit.to_length());
-                        auto trim_end = left_end ? path_chunk.first.first + (walked_to_length + indel_edit.to_length()) : path_chunk.first.second;
+                        auto trim_begin = left_end ? path_chunk.first.first : path_chunk.first.second - walked_to_length;
+                        auto trim_end = left_end ? path_chunk.first.first + walked_to_length : path_chunk.first.second;
                         if (trim_begin == path_chunk.first.first && trim_end == path_chunk.first.second) {
                             // don't trim the entire anchor
 #ifdef debug_anchored_surject
-                            cerr << "trimming would eliminate the entire anchor, skipping" << endl;
+                            cerr << "trimming would eliminate the entire anchor, skipping trim from this end" << endl;
 #endif
                             continue;
                         }
@@ -4198,9 +4199,50 @@ using namespace std;
                         for (int order = 1; order <= 6 && !do_trim; ++order) {
                             if (trim_candidate_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
-                                cerr << "anchor is low complexity with order " << order << " and p-value " << trim_candidate_complexity.p_value(order) << endl;
+                                cerr << "anchor read sequence is low complexity with order " << order << " and p-value " << trim_candidate_complexity.p_value(order) << endl;
 #endif
                                 do_trim = true;
+                            }
+                        }
+                        
+                        if (!do_trim) {
+                            // also try to find low complexity in the graph sequence
+                            
+                            // pull the ref sequence
+                            std::string ref_seq;
+                            auto step = ref_chunk.first;
+                            for (size_t m = left_end ? 0 : mapping_idx, n = left_end ? mapping_idx + 1 : path_chunk.second.mapping_size(); m < n; ++m) {
+                                const auto& mapping = path_chunk.second.mapping(m);
+                                // TODO: a bit silly to do this on every mapping
+                                bool path_rev = graph->get_is_reverse(graph->get_handle_of_step(step)) != mapping.position().is_reverse();
+                                size_t walked_from_length = 0;
+                                for (size_t e = (!left_end && m == mapping_idx) ? edit_idx + 1 : 0,
+                                     k = (left_end && m == mapping_idx) ? edit_idx : mapping.edit_size(); e < k; ++e) {
+                                    walked_from_length += mapping.edit(e).from_length();
+                                }
+                                handle_t handle = graph->get_handle_of_step(step);
+                                if (path_rev) {
+                                    handle = graph->flip(handle);
+                                }
+                                size_t offset = mapping.position().offset();
+                                if (!left_end && m == mapping_idx) {
+                                    for (size_t e = 0; e <= edit_idx; ++e) {
+                                        offset += mapping.edit(e).from_length();
+                                    }
+                                }
+                                ref_seq.append(graph->get_subsequence(handle, offset, walked_from_length));
+                                step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
+                            }
+                            
+                            // is the ref sequence of this tail low complexity?
+                            SeqComplexity<6> trim_candidate_ref_complexity(ref_seq.begin(), ref_seq.end());
+                            for (int order = 1; order <= 6 && !do_trim; ++order) {
+                                if (trim_candidate_ref_complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                                    cerr << "anchor reference sequence is low complexity with order " << order << " and p-value " << trim_candidate_ref_complexity.p_value(order) << endl;
+#endif
+                                    do_trim = true;
+                                }
                             }
                         }
                         
@@ -4209,19 +4251,17 @@ using namespace std;
                             // figure how much we have to delete
                             size_t mappings_to_delete;
                             size_t edits_to_delete;
+                            if (mapping_idx >= path_chunk.second.mapping_size()) {
+                                mappings_to_delete = path_chunk.second.mapping_size();
+                                edits_to_delete = 0;
+                            }
                             if (left_end) {
                                 mappings_to_delete = mapping_idx;
-                                edits_to_delete = edit_idx + 1; // include the indel edit
+                                edits_to_delete = edit_idx;
                             }
                             else {
                                 mappings_to_delete = path_chunk.second.mapping_size() - mapping_idx - 1;
-                                edits_to_delete = path_chunk.second.mapping(mapping_idx).edit_size() - edit_idx;
-                            }
-                            
-                            if (edits_to_delete == path_chunk.second.mapping(mapping_idx).edit_size()) {
-                                // we're deleting all of the final mapping
-                                mappings_to_delete += 1;
-                                edits_to_delete = 0;
+                                edits_to_delete = path_chunk.second.mapping(mapping_idx).edit_size() - edit_idx - 1;
                             }
                             
 #ifdef debug_anchored_surject
