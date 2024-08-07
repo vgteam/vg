@@ -89,6 +89,7 @@ $(function() {
 <code>#include &lt;htslib/vcf.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__io_8hpp.html">vg/io/alignment_io.hpp</a>&quot;</code><br />
+<code>#include &lt;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -259,6 +260,10 @@ Functions</h2></td></tr>
 <tr class="separator:afa0c54720b2b1007ae540dc70b5b8024"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a4413a5d745c8fdc6339efdcd13310c"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a4413a5d745c8fdc6339efdcd13310c">vg::alignment_quality_per_node</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a2a4413a5d745c8fdc6339efdcd13310c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad88fe24ca988562008c8b734c22cb403"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad88fe24ca988562008c8b734c22cb403">vg::parse_bed_regions</a> (istream &amp;bedstream, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const std::function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; &amp;callback)</td></tr>
+<tr class="separator:ad88fe24ca988562008c8b734c22cb403"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a629c9fee8a51c4ca363511ae01ad4a09"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a629c9fee8a51c4ca363511ae01ad4a09">vg::parse_gff_regions</a> (istream &amp;gffstream, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const std::function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; &amp;callback)</td></tr>
+<tr class="separator:a629c9fee8a51c4ca363511ae01ad4a09"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a736f4c7b5d03a7efe78315b4c5490f15"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a736f4c7b5d03a7efe78315b4c5490f15">vg::parse_bed_regions</a> (istream &amp;bedstream, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *out_alignments)</td></tr>
 <tr class="separator:a736f4c7b5d03a7efe78315b4c5490f15"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a55cc20d96f38b54c590af4f3f3ac2498"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a55cc20d96f38b54c590af4f3f3ac2498">vg::parse_gff_regions</a> (istream &amp;gffstream, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *out_alignments)</td></tr>
