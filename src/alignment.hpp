@@ -15,6 +15,7 @@
 #include <htslib/vcf.h>
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
+#include <vg/io/alignment_emitter.hpp>
 
 namespace vg {
 
@@ -293,10 +294,19 @@ void normalize_alignment(Alignment& alignment);
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
-/// Parse regions from the given BED file into Alignments in a vector.
+/// Parse regions from the given BED file and call the given callback with each.
+/// Does *not* write them to standard output.
 /// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
 /// Skips and warns about malformed or illegal BED records.
+void parse_bed_regions(istream& bedstream, const PathPositionHandleGraph* graph, const std::function<void(Alignment&)>& callback);
+/// Parse regions from the given GFF file and call the given callback with each.
+/// Does *not* write them to standard output.
+void parse_gff_regions(istream& gtfstream, const PathPositionHandleGraph* graph, const std::function<void(Alignment&)>& callback);
+/// Parse regions from the given BED file into the given vector.
+/// Does *not* write them to standard output.
 void parse_bed_regions(istream& bedstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments);
+/// Parse regions from the given GFF file into the given vector.
+/// Does *not* write them to standard output.
 void parse_gff_regions(istream& gtfstream, const PathPositionHandleGraph* graph, vector<Alignment>* out_alignments);
 
 Position alignment_start(const Alignment& aln);
