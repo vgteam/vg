@@ -128,7 +128,7 @@ using namespace std;
         
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
-        double low_complexity_p_value = .001;
+        double low_complexity_p_value = .0075;
         int64_t max_low_complexity_anchor_prune = 32;
         int64_t pad_suspicious_anchors_to_length = 10;
         

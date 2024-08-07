@@ -77,7 +77,7 @@ namespace vg {
         return *this;
     }
 
-    multipath_alignment_t::~multipath_alignment_t() noexcept {
+    multipath_alignment_t::~multipath_alignment_t() {
         while (!_annotation.empty()) {
             clear_annotation(_annotation.begin()->first);
         }
