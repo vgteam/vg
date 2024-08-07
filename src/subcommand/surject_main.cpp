@@ -48,6 +48,7 @@ void help_surject(char** argv) {
          << "  -s, --sam-output         write SAM to stdout" << endl
          << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
+         << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
          << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
@@ -98,6 +99,8 @@ int main_surject(int argc, char** argv) {
     size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
     size_t max_tail_len = 10000;
+    // This needs to be nullable so that we can use the default for spliced if doing spliced mode.
+    std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
     bool prune_anchors = false;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
@@ -118,6 +121,7 @@ int main_surject(int argc, char** argv) {
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
             {"subpath-local", no_argument, 0, 'l'},
             {"max-tail-len", required_argument, 0, 'T'},
+            {"max-graph-scale", required_argument, 0, 'g'},
             {"interleaved", no_argument, 0, 'i'},
             {"multimap", no_argument, 0, 'M'},
             {"gaf-input", no_argument, 0, 'G'},
@@ -140,7 +144,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:lT:iGmcbsN:R:f:C:t:SPa:ALMVw:",
+        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPa:ALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -168,6 +172,10 @@ int main_surject(int argc, char** argv) {
 
         case 'T':
             max_tail_len = parse<size_t>(optarg);
+            break;
+
+        case 'g':
+            max_graph_scale.reset(new double(parse<double>(optarg)));
             break;
 
         case 'i':
@@ -311,13 +319,17 @@ int main_surject(int argc, char** argv) {
     if (spliced) {
         surjector.min_splice_length = min_splice_length;
         // we have to bump this up to be sure to align most splice junctions
-        surjector.max_subgraph_bases = 16 * 1024 * 1024;
+        surjector.max_subgraph_bases_per_read_base = Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT;
     }
     else {
         surjector.min_splice_length = numeric_limits<int64_t>::max();
     }
     surjector.max_tail_length = max_tail_len;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
+    if (max_graph_scale) {
+        // We have an override
+        surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
+    }
 
     // Count our threads
     int thread_count = vg::get_thread_count();

@@ -1042,7 +1042,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         const Snarl* snarl = name_to_snarl.at(name);
         assert(snarl != nullptr);
         // walk up the snarl tree
-        while (snarl = snarl_manager->parent_of(snarl)) {
+        while ((snarl = snarl_manager->parent_of(snarl))) {
             string cur_name = print_snarl(*snarl);
             if (names_in_vcf.count(cur_name)) {
                 // only count snarls that are in the vcf

@@ -3,6 +3,7 @@
 
 #include "snarls.hpp"
 #include "snarl_distance_index.hpp"
+#include "zip_code.hpp"
 #include "hash_map.hpp"
 #include "small_bitset.hpp"
 #include <structures/union_find.hpp>
@@ -55,9 +56,58 @@ class SnarlDistanceIndexClusterer {
 
         /// Seed information used in Giraffe.
         struct Seed {
+            /// Position of the seed.
+            ///
+            /// If the minimizer is from the read sequence's forward strand,
+            /// this corresponds to the first base in the read that is part of
+            /// the minimizer occurrence, and points in the read's forward
+            /// direction.
+            ///
+            /// If the minimizer is from the read sequence's reverse strand,
+            /// this corresponds to the *last* base in the read that is part of
+            /// the minimizer occurrence, but *still* points in the read's
+            /// *forward* direction.
             pos_t  pos;
             size_t source; // Source minimizer.
-            gbwtgraph::Payload minimizer_cache = MIPayload::NO_CODE; //minimizer payload
+            ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            //TODO: unique_ptr?
+            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
+
+            Seed() = default;
+            Seed(pos_t pos, size_t source) : pos(pos), source(source) {}
+            Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
+                zipcode_decoder.reset(decoder);
+            }
+            Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
+                pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+            }
+
+            //Move constructor
+            Seed (Seed&& other) :
+                pos(std::move(other.pos)),
+                source(std::move(other.source)),
+                zipcode(std::move(other.zipcode)),
+                zipcode_decoder(std::move(other.zipcode_decoder)) {
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+            }
+
+            //Move assignment operator
+            Seed& operator=(Seed&& other) {
+                pos = std::move(other.pos);
+                source = std::move(other.source);
+                zipcode = std::move(other.zipcode);
+                zipcode_decoder = std::move(other.zipcode_decoder);
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+                return *this;
+            }
         };
 
         /// Seed information used for clustering
@@ -70,9 +120,11 @@ class SnarlDistanceIndexClusterer {
             pos_t pos;
 
             //TODO: This gets copied because it needs to be mutable
-            //Cached values from the minimizer
-            //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
-            gbwtgraph::Payload minimizer_cache;
+            //Cached values (zip codes) from the minimizer
+            ZipCode zipcode;
+
+            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
+            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -121,12 +173,6 @@ class SnarlDistanceIndexClusterer {
                 const vector<vector<Seed>>& all_seeds, 
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
-
-        /**
-         * Find the minimum distance between two seeds. This will use the minimizer payload when possible
-         */
-        size_t distance_between_seeds(const Seed& seed1, const Seed& seed2,
-            bool stop_at_lowest_common_ancestor) const;
 
     private:
 

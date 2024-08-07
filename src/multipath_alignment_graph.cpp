@@ -4230,6 +4230,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     size_t unmergeable_len, size_t band_padding,
                                     multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+
                                     bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
         
         align(alignment,
