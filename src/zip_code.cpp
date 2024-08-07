@@ -2202,7 +2202,7 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
         zip_code_t& current_code = unpacked_zipcode[depth];
 
         //If we need to set the net handle
-        if (current_code.net_handle == distance_index.get_root()) {
+        if (!(depth == 0 || current_code.code_type == ZipCode::IRREGULAR_SNARL || current_code.code_type == ZipCode::CYCLIC_SNARL)) {
             if (depth == decoder_length()-1 ) {
                 current_code.net_handle = distance_index.get_node_net_handle(id);
                 if (current_code.code_type == ZipCode::CHAIN) {
@@ -2213,7 +2213,7 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
                                                             distance_index.get_node_record_offset(current_code.net_handle));
                 }
             } else {
-                current_code.net_handle = distance_index.get_parent(unpacked_zipcode[depth+1].net_handle);
+                current_code.net_handle = distance_index.start_end_traversal_of(distance_index.get_parent(unpacked_zipcode[depth+1].net_handle));
             }
         }
 
