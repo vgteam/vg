@@ -152,6 +152,7 @@ class ZipCode {
         ///Offsets for chain codes
         const static size_t CHAIN_SIZE = 3;
         const static size_t CHAIN_RANK_IN_SNARL_OFFSET = 0;
+        //For a multicomponent chain, this is the length of the last component, because the real length will always be inf
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         //This tells us if the chain is a multicomponent chain, how many components it has, and if the chain loops

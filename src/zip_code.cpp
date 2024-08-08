@@ -447,6 +447,7 @@ size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distan
         } else {
             //If we want the length of the last component of the chain, check if it is a multicopmonent chain
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            cerr << "Component " << zip_value << endl;
             if (zip_value != 0) {
                 //If this is a multicomponent (or looping chain, which also must be a multicomponent chain)
                 return std::numeric_limits<size_t>::max();
@@ -2092,19 +2093,32 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
                 }
                 //The next thing for both nodes and chains is the connectivity value
                 std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                bool externally_connected = false;
                 //start-end connected
                 if ((zip_value & 1) != 0) {
                     current_code.distance_start_right = 0;
                     current_code.distance_end_left = 0;
+                    externally_connected = true;
                 }
                 //start-start connected
                 if((zip_value & 2) != 0){
                     current_code.distance_start_left = 0;
+                    externally_connected = true;
                 }
                 //end-end connected
                 if ((zip_value & 4) != 0) {
                     current_code.distance_end_right = 0;
+                    externally_connected = true;
                 }
+                if (current_code.chain_component != 0 || externally_connected) {
+                    //If this is a multicomponent chain or has external connectivity, then we want to know the length
+                    if (decoder_length() == 1) {
+                        current_code.length = distance_index.minimum_length(current_code.net_handle);
+                    } else {
+                        current_code.length = distance_index.chain_minimum_length(current_code.net_handle);
+                    }
+                }
+                
             } else {
                 //Root snarl
                 current_code.code_type = ZipCode::ROOT_SNARL;
