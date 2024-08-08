@@ -255,7 +255,8 @@ class ZipCode {
         ///This requires the distance index for irregular snarls (except for a top-level snarl)
         ///Throws an exception if the distance index is not given when it is needed
         ///Doesn't use a given distance index if it isn't needed
-        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
+        ///If chain_component_length is true, then get the length of the last component of the multicomponent chain (instead of inf)
+        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr, bool get_chain_component_length=false) const ;
 
         ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
         size_t get_rank_in_snarl(const size_t& depth) const ;
