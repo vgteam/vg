@@ -1619,9 +1619,10 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
             for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++) {
                 if (read_num == 0) {
                     if (child_problem.unpacked_zipcode[child_problem.zipcode_depth].is_reversed) {
+                        size_t old_best_right = snarl_problem->read_best_right.first;
                         snarl_problem->read_best_right.first = std::min(snarl_problem->read_best_left.first,
                                                                        child_problem.read_best_left.first);
-                        snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_right.first,
+                        snarl_problem->read_best_left.first = std::min(old_best_right,
                                                                         child_problem.read_best_right.first);
                     } else {
                         snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_left.first,
@@ -1631,9 +1632,10 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
                     }
                 } else {
                     if (child_problem.unpacked_zipcode[child_problem.zipcode_depth].is_reversed) {
+                        size_t old_best_right = snarl_problem->read_best_right.second;
                         snarl_problem->read_best_right.second = std::min(snarl_problem->read_best_left.second,
                                                                        child_problem.read_best_left.second);
-                        snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_right.second,
+                        snarl_problem->read_best_left.second = std::min(old_best_right,
                                                                         child_problem.read_best_right.second);
                     } else {
                         snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_left.second,
@@ -2457,6 +2459,7 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
          vector<pair<size_t, size_t>> to_erase;
          to_erase.reserve(child_problem.read_cluster_heads.size());
 
+
          for (auto& child_cluster_head : child_problem.read_cluster_heads) {
             //Go through each of the clusters on this child
             size_t read_num = child_cluster_head.first;
@@ -2586,7 +2589,7 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
     const net_handle_t& chain_handle = chain_problem->unpacked_zipcode[chain_problem->zipcode_depth].net_handle;
     SnarlTreeNodeProblem& child_problem = clustering_problem.all_node_problems.at(
             clustering_problem.net_handle_to_node_problem_index.at(current_child.net_handle));
-    
+ 
     //Skip this child if its seeds are all too far away
     bool skip_snarl = false;
     if (child_problem.fragment_best_left > (clustering_problem.fragment_distance_limit == 0 ? clustering_problem.read_distance_limit : clustering_problem.fragment_distance_limit) &&  
@@ -2877,6 +2880,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                                              distance_from_last_child_to_current_child), 
                                              current_distance_left),
                     1);
+
             size_t distance_between_fragment = SnarlDistanceIndex::minus(
                     SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
                                              distance_from_last_child_to_current_child), 
