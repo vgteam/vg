@@ -2043,6 +2043,7 @@ void ZipCodeCollection::deserialize(std::istream& in) {
 }
 vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& distance_index) const {
     vector<zip_code_t> unpacked_zipcode;
+    unpacked_zipcode.reserve(decoder_length());
 
     //Otherwise, walk through the zipcode start to end (root to leaf) and fill in the unpacked zipcode
     //Fill in everything in the zipcode in this pass, and then go back and fill in any net handles that
