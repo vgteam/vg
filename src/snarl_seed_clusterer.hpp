@@ -255,6 +255,7 @@ class SnarlDistanceIndexClusterer {
                 unpacked_zipcode(unpacked_zipcode),
                 zipcode_depth(zipcode_depth) {
                     read_cluster_heads.reserve(seed_count);
+                    children.reserve(seed_count);
             }
 
             //Set the values needed to cluster a chain
