@@ -330,6 +330,7 @@ int main_surject(int argc, char** argv) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
     }
+    surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
 
     // Count our threads
     int thread_count = vg::get_thread_count();

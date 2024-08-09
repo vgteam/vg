@@ -34,7 +34,7 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph) {
+    Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
         if (!graph) {
             cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
         }
@@ -2982,13 +2982,6 @@ using namespace std;
 #endif
             }
             
-            // left align on forward strands and right align on reverse strands
-            unordered_map<handle_t, bool> left_align_strand;
-            left_align_strand.reserve(aln_graph->get_node_count());
-            aln_graph->for_each_handle([&](const handle_t& handle) {
-                left_align_strand[handle] = projection_trans(aln_graph->get_id(handle)).second;
-            });
-            
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, *aln_graph, get_aligner(),
@@ -3000,13 +2993,13 @@ using namespace std;
                                max_tail_length,                          // max length of tail to align
                                false,                                    // simplify topologies
                                0,                                        // unmergeable len
-                               1,                                        // band padding
+                               choose_band_padding,                      // band padding
                                mp_aln,                                   // output
                                nullptr,                                  // snarl manager
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
                                allow_negative_scores,                    // subpath local
-                               &left_align_strand);                      // strand to left align against
+                               rev_strand);                              // left/right align
             
             topologically_order_subpaths(mp_aln);
             
@@ -4057,17 +4050,17 @@ using namespace std;
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
-                        auto context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
-                        auto context_end = min(sequence.end(), context_begin + pad_suspicious_anchors_to_length);
-                        if (context_end == sequence.end()) {
+                        auto read_context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
+                        auto read_context_end = min(sequence.end(), read_context_begin + pad_suspicious_anchors_to_length);
+                        if (read_context_end == sequence.end()) {
                             // try to ensure enough bases if we're near the end of the read
-                            context_begin = max(sequence.begin(), context_end - pad_suspicious_anchors_to_length);
+                            read_context_begin = max(sequence.begin(), read_context_end - pad_suspicious_anchors_to_length);
                         }
-                        SeqComplexity<6> context_complexity(context_begin, context_end);
-                        // TODO: repetetive
+                        SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
+                        // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-                            if (context_complexity.p_value(order) < low_complexity_p_value &&
-                                (chunk_complexity.repetitiveness(order) > 0.5 || (chunk.first.second - chunk.first.first) <= order)) {
+
+                            if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << " with p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 #endif
@@ -4216,11 +4209,35 @@ using namespace std;
                             
                             // pull the ref sequence
                             std::string ref_seq;
-                            auto step = ref_chunk.first;
+                            bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunk.first))
+                                             != path_chunk.second.mapping().front().position().is_reverse());
+                            
+                            // get the left-most step to iterate along
+                            step_handle_t step;
+                            if (left_end) {
+                                step = ref_chunk.first;
+                            }
+                            else {
+                                step = ref_chunk.second;
+                                size_t to_walk = path_chunk.second.mapping_size() - (mapping_idx + 1);
+                                if (path_rev) {
+                                    for (size_t j = 0; j < to_walk; ++j) {
+                                        step = graph->get_next_step(step);
+                                    }
+                                }
+                                else {
+                                    for (size_t j = 0; j < to_walk; ++j) {
+                                        step = graph->get_previous_step(step);
+                                    }
+                                }
+                            }
+                            
+#ifdef debug_anchored_surject
+                            cerr << "extracting reference sequence starting on node " << graph->get_id(graph->get_handle_of_step(step)) << (graph->get_is_reverse(graph->get_handle_of_step(step)) ? "-" : "+") << " at position " << graph->get_position_of_step(step) << endl;
+#endif
+                            
                             for (size_t m = left_end ? 0 : mapping_idx, n = left_end ? mapping_idx + 1 : path_chunk.second.mapping_size(); m < n; ++m) {
                                 const auto& mapping = path_chunk.second.mapping(m);
-                                // TODO: a bit silly to do this on every mapping
-                                bool path_rev = graph->get_is_reverse(graph->get_handle_of_step(step)) != mapping.position().is_reverse();
                                 size_t walked_from_length = 0;
                                 for (size_t e = (!left_end && m == mapping_idx) ? edit_idx + 1 : 0,
                                      k = (left_end && m == mapping_idx) ? edit_idx : mapping.edit_size(); e < k; ++e) {
@@ -4239,6 +4256,9 @@ using namespace std;
                                 ref_seq.append(graph->get_subsequence(handle, offset, walked_from_length));
                                 step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
                             }
+#ifdef debug_anchored_surject
+                            cerr << "got reference seqeunce " << ref_seq << endl;
+#endif
                             
                             // is the ref sequence of this tail low complexity?
                             SeqComplexity<6> trim_candidate_ref_complexity(ref_seq.begin(), ref_seq.end());
