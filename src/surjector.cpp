@@ -22,7 +22,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-#define debug_anchored_surject
+//#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -2982,13 +2982,6 @@ using namespace std;
 #endif
             }
             
-            // left align on forward strands and right align on reverse strands
-            unordered_map<handle_t, bool> left_align_strand;
-            left_align_strand.reserve(aln_graph->get_node_count());
-            aln_graph->for_each_handle([&](const handle_t& handle) {
-                left_align_strand[handle] = projection_trans(aln_graph->get_id(handle)).second;
-            });
-            
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, *aln_graph, get_aligner(),
@@ -3006,7 +2999,7 @@ using namespace std;
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
                                allow_negative_scores,                    // subpath local
-                               &left_align_strand);                      // strand to left align against
+                               rev_strand);                              // left/right align
             
             topologically_order_subpaths(mp_aln);
             
@@ -4054,7 +4047,7 @@ using namespace std;
                     keep[i] = false;
                     continue;
                 }
-                std::cerr << "check prune on " << i << ", seq len " << (chunk.first.second - chunk.first.first) << ", path len " << anchor_lengths[i] << '\n';
+                //std::cerr << "check prune on " << i << ", seq len " << (chunk.first.second - chunk.first.first) << ", path len " << anchor_lengths[i] << '\n';
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
@@ -4067,7 +4060,7 @@ using namespace std;
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-                            cerr << "test padded " << i << ", seq " << string(read_context_begin, read_context_end) << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+                            //cerr << "test padded " << i << ", seq " << string(read_context_begin, read_context_end) << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 
                             if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
@@ -4080,9 +4073,9 @@ using namespace std;
                         }
                     }
                     else {
-                        std::cerr << "not padding " << i << '\n';
+                        //std::cerr << "not padding " << i << '\n';
                         for (int order = 1; order <= 6; ++order) {
-                            cerr << "test unpadded " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+                            //cerr << "test unpadded " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
                             if (chunk_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;

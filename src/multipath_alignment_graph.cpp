@@ -4,6 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 #include "sequence_complexity.hpp"
+#include "reverse_graph.hpp"
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -4230,7 +4231,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     size_t unmergeable_len, size_t band_padding,
                                     multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                    bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
+                                    bool allow_negative_scores, bool align_in_reverse) {
         
         align(alignment,
               align_graph,
@@ -4249,7 +4250,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               dist_index,
               project,
               allow_negative_scores,
-              left_align_strand);
+              align_in_reverse);
     }
 
     void MultipathAlignmentGraph::deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns,
@@ -5186,7 +5187,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                        bool allow_negative_scores, unordered_map<handle_t, bool>* left_align_strand) {
+                                        bool allow_negative_scores, bool align_in_reverse) {
         
         // TODO: magic number
         // how many tails we need to have before we try the more complicated but
@@ -5351,10 +5352,21 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         });
 #endif
                         
+                        // possibly the reverse the sequence
+                        HandleGraph* aln_connecting_graph = &connecting_graph;
+                        ReverseGraph reverse_graph(&connecting_graph, false);
+                        if (align_in_reverse) {
+                            reverse_alignment(intervening_sequence);
+                            aln_connecting_graph = &reverse_graph;
+                        }
                         vector<Alignment> alt_alignments;
-                        aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
-                                                           band_padding_function(intervening_sequence, connecting_graph), true,
-                                                           left_align_strand);
+                        aligner->align_global_banded_multi(intervening_sequence, alt_alignments, *aln_connecting_graph, num_alns_iter,
+                                                           band_padding_function(intervening_sequence, connecting_graph), true);
+                        if (align_in_reverse) {
+                            for (auto& aln : alt_alignments) {
+                                reverse_alignment(aln);
+                            }
+                        }
                         
                         // remove alignments with the same path
                         deduplicated = convert_and_deduplicate(alt_alignments, false, false);
@@ -6610,6 +6622,31 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         
         return to_return;
         
+    }
+
+    void MultipathAlignmentGraph::reverse_alignment(Alignment& aln) const {
+        
+        std::reverse(aln.mutable_sequence()->begin(), aln.mutable_sequence()->end());
+        if (!aln.quality().empty()) {
+            std::reverse(aln.mutable_quality()->begin(), aln.mutable_quality()->end());
+        }
+        
+        if (aln.path().mapping_size() != 0) {
+            auto path = aln.mutable_path();
+            for (size_t i = 0, j = path->mapping_size() - 1; i < j; ++i, --j) {
+                path->mutable_mapping()->SwapElements(i, j);
+            }
+            for (size_t k = 0; k < path->mapping_size(); ++k) {
+                auto mapping = path->mutable_mapping(k);
+                for (size_t i = 0, j = mapping->edit_size() - 1; i < j; ++i, --j) {
+                    mapping->mutable_edit()->SwapElements(i, j);
+                }
+                for (size_t i = 0; i < mapping->edit_size(); ++i) {
+                    auto edit = mapping->mutable_edit(i);
+                    std::reverse(edit->mutable_sequence()->begin(), edit->mutable_sequence()->end());
+                }
+            }
+        }
     }
 }
 
