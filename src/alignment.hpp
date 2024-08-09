@@ -15,6 +15,7 @@
 #include <htslib/vcf.h>
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
+#include <vg/io/alignment_emitter.hpp>
 
 namespace vg {
 

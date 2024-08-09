@@ -299,6 +299,9 @@ int main_gamsort(int argc, char **argv)
         while(opened_records.size() > 0){
             // which file will have the smallest record (i.e. to output first)
             gf = opened_records.top();
+            // remove the rk1/rk2 fields
+            gf.gaf.opt_fields.erase("rk1");
+            gf.gaf.opt_fields.erase("rk2");
             // output smallest record
             cout << gf.gaf << endl;
             opened_records.pop();
