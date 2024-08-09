@@ -22,7 +22,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-//#define debug_anchored_surject
+#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -34,7 +34,7 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph) {
+    Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
         if (!graph) {
             cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
         }
@@ -3000,7 +3000,7 @@ using namespace std;
                                max_tail_length,                          // max length of tail to align
                                false,                                    // simplify topologies
                                0,                                        // unmergeable len
-                               1,                                        // band padding
+                               choose_band_padding,                      // band padding
                                mp_aln,                                   // output
                                nullptr,                                  // snarl manager
                                nullptr,                                  // distance index
@@ -4054,20 +4054,22 @@ using namespace std;
                     keep[i] = false;
                     continue;
                 }
+                std::cerr << "check prune on " << i << ", seq len " << (chunk.first.second - chunk.first.first) << ", path len " << anchor_lengths[i] << '\n';
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
-                        auto context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
-                        auto context_end = min(sequence.end(), context_begin + pad_suspicious_anchors_to_length);
-                        if (context_end == sequence.end()) {
+                        auto read_context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
+                        auto read_context_end = min(sequence.end(), read_context_begin + pad_suspicious_anchors_to_length);
+                        if (read_context_end == sequence.end()) {
                             // try to ensure enough bases if we're near the end of the read
-                            context_begin = max(sequence.begin(), context_end - pad_suspicious_anchors_to_length);
+                            read_context_begin = max(sequence.begin(), read_context_end - pad_suspicious_anchors_to_length);
                         }
-                        SeqComplexity<6> context_complexity(context_begin, context_end);
-                        // TODO: repetetive
+                        SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
+                        // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-                            if (context_complexity.p_value(order) < low_complexity_p_value &&
-                                (chunk_complexity.repetitiveness(order) > 0.5 || (chunk.first.second - chunk.first.first) <= order)) {
+                            cerr << "test padded " << i << ", seq " << string(read_context_begin, read_context_end) << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+
+                            if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << " with p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 #endif
@@ -4078,7 +4080,9 @@ using namespace std;
                         }
                     }
                     else {
+                        std::cerr << "not padding " << i << '\n';
                         for (int order = 1; order <= 6; ++order) {
+                            cerr << "test unpadded " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) order " << order << " p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
                             if (chunk_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;

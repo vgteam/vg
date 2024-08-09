@@ -318,6 +318,7 @@ int main_surject(int argc, char** argv) {
     }
     surjector.max_tail_length = max_tail_len;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
+    surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000);
 
     // Count our threads
     int thread_count = vg::get_thread_count();
