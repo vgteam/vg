@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 //#define debug_distances
 //#define EXHAUSTIVE_CLUSTER_CHECK
 
