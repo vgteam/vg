@@ -2111,7 +2111,7 @@ vector<zip_code_t> ZipCode::unpack_zip_code(nid_t id, const SnarlDistanceIndex& 
                     current_code.distance_end_right = 0;
                     externally_connected = true;
                 }
-                if (current_code.chain_component != 0 || externally_connected) {
+                if (current_code.chain_component != 0 || externally_connected || current_code.is_looping_chain) {
                     //If this is a multicomponent chain or has external connectivity, then we want to know the length
                     if (decoder_length() == 1) {
                         current_code.length = distance_index.minimum_length(current_code.net_handle);
