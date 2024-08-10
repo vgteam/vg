@@ -190,24 +190,11 @@ class SnarlDistanceIndexClusterer {
 
             //Struct to store one child, which may be a seed, node, snarl, or chain
             struct SnarlTreeChild {
-                //TODO : Double check if the prefix sum etc can be gotten from the zipcode
                 //If the net_handle is a node, then the child is a seed, otherwise the handle 
                 //is used to find the problem
-                net_handle_t net_handle;
+                const vector<zip_code_t>* unpacked_zipcode;
+                size_t zipcode_depth;
                 pair<size_t, size_t> seed_indices;
-
-                //The values used to sort the children of a chain
-                //Storing it here is faster than looking it up each time
-                size_t chain_component;
-                size_t prefix_sum;
-                //Is this child a seed
-                //This is redundant with net_handle because any net_handle_t that is a node will really be a seed,
-                //but it's faster than looking it up in the distance index
-                bool is_seed;
-                //Have chain_component and prefix_sum been set?
-                //For a seed, it gets set when the child is made, otherwise the first time this 
-                //child is seen when sorting
-                bool has_chain_values;
             };
             //The children of this snarl tree node
             //Initially unsorted, sort before clustering for chains
