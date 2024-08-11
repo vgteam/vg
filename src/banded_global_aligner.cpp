@@ -211,21 +211,20 @@ void BandedGlobalAligner<IntType>::BABuilder::finalize_alignment(const list<int6
 
 template <class IntType>
 BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, handle_t node, int64_t top_diag, int64_t bottom_diag,
-                                                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len, bool left_alignment_strand) :
+                                                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len) :
                                                  node(node),
                                                  top_diag(top_diag),
                                                  bottom_diag(bottom_diag),
                                                  seeds(seeds),
                                                  alignment(alignment),
                                                  cumulative_seq_len(cumulative_seq_len),
-                                                 left_alignment_strand(left_alignment_strand),
                                                  match(nullptr),
                                                  insert_col(nullptr),
                                                  insert_row(nullptr)
 {
     // nothing to do
 #ifdef debug_banded_aligner_objects
-    cerr << "[BAMatrix]: constructor for node " << as_integer(node) << " and band from " << top_diag << " to " << bottom_diag << " with left alignment strand " << left_alignment_strand << endl;;
+    cerr << "[BAMatrix]: constructor for node " << as_integer(node) << " and band from " << top_diag << " to " << bottom_diag << endl;;
 #endif
 }
 
@@ -814,9 +813,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
         }
         
         array<matrix_t, 3> prev_mats{Match, InsertCol, InsertRow};
-        if (left_alignment_strand) {
-            std::swap(prev_mats[0], prev_mats[2]);
-        }
         
         // find optimal traceback
         idx = i * ncols + j;
@@ -1420,9 +1416,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             cerr << "[BAMatrix::traceback_over_edge] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (mat == InsertCol) << endl;
 #endif
             array<matrix_t, 3> prev_mats{Match, InsertCol, InsertRow};
-            if (left_alignment_strand) {
-                std::swap(prev_mats[0], prev_mats[2]);
-            }
             
             switch (mat) {
                 case Match:
@@ -1918,14 +1911,12 @@ void BandedGlobalAligner<IntType>::BAMatrix::print_band(const HandleGraph& graph
 template <class IntType>
 BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                                                   int64_t band_padding, bool permissive_banding,
-                                                  bool adjust_for_base_quality,
-                                                  const unordered_map<handle_t, bool>* left_align_strand) :
+                                                  bool adjust_for_base_quality) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       nullptr, 1,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality,
-                                                                      left_align_strand)
+                                                                      adjust_for_base_quality)
 {
     // nothing to do, just funnel into internal constructor
 }
@@ -1935,15 +1926,13 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   vector<Alignment>& alt_alignments,
                                                   int64_t max_multi_alns, int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality,
-                                                  const unordered_map<handle_t, bool>* left_align_strand) :
+                                                  bool adjust_for_base_quality) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       &alt_alignments,
                                                                       max_multi_alns,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality,
-                                                                      left_align_strand)
+                                                                      adjust_for_base_quality)
 {
     // check data integrity and funnel into internal constructor
     if (!alt_alignments.empty()) {
@@ -1958,8 +1947,7 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   int64_t max_multi_alns,
                                                   int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality,
-                                                  const unordered_map<handle_t, bool>* left_align_strand) :
+                                                  bool adjust_for_base_quality) :
                                                   graph(g),
                                                   alignment(alignment),
                                                   alt_alignments(alt_alignments),
@@ -2043,20 +2031,12 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                 seeds.push_back(banded_matrices[node_id_to_idx[graph.get_id(prev)]]);
             });
             
-            bool strand = false;
-            if (left_align_strand) {
-                auto it = left_align_strand->find(node);
-                if (it != left_align_strand->end()) {
-                    strand = it->second;
-                }
-            }
             banded_matrices[i] = new BAMatrix(alignment,
                                               node,
                                               band_ends[i].first,
                                               band_ends[i].second,
                                               std::move(seeds),
-                                              shortest_seqs[i],
-                                              strand);
+                                              shortest_seqs[i]);
             
         }
     }
@@ -2490,9 +2470,6 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 else {
                     // let the insert routine figure out which one is the best and which ones to keep in the stack
                     array<matrix_t, 3> mats{Match, InsertCol, InsertRow};
-                    if (band_matrix->left_alignment_strand) {
-                        std::swap(mats[0], mats[2]);
-                    }
                     for (auto mat : mats) {
                         switch (mat)
                         {
