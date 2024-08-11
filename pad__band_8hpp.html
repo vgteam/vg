@@ -75,6 +75,7 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
+<code>#include &lt;limits&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -85,8 +86,10 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
-<tr class="memitem:a58ef89aaf7868024c6c3795fecf34a26"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a58ef89aaf7868024c6c3795fecf34a26">vg::algorithms::pad_band_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000)</td></tr>
-<tr class="separator:a58ef89aaf7868024c6c3795fecf34a26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a606c26b5751d935c71d7971a92d99b"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6a606c26b5751d935c71d7971a92d99b">vg::algorithms::pad_band_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a6a606c26b5751d935c71d7971a92d99b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3363cc23e6c71e1bb5faac975af7920d"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3363cc23e6c71e1bb5faac975af7920d">vg::algorithms::pad_band_min_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a3363cc23e6c71e1bb5faac975af7920d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab48342aedc7d81e2334c52bb320223c2"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const Alignment &amp;, const HandleGraph &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">vg::algorithms::pad_band_constant</a> (size_t band_padding)</td></tr>
 <tr class="memdesc:ab48342aedc7d81e2334c52bb320223c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a band padding function that uses a constant value.  <a href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">More...</a><br /></td></tr>
 <tr class="separator:ab48342aedc7d81e2334c52bb320223c2"><td class="memSeparator" colspan="2">&#160;</td></tr>

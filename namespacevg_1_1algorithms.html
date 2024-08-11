@@ -306,8 +306,12 @@ Functions</h2></td></tr>
 <tr class="separator:a22d03c4f50c51d0d537811ba88895688"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb6a93eb17739d744908d61ca6650f4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool debug, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
 <tr class="separator:afb6a93eb17739d744908d61ca6650f4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05e89de7cdfc7dfdf9f40b64d69f7e97"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a05e89de7cdfc7dfdf9f40b64d69f7e97">pad_band_random_walk</a> (double band_padding_multiplier, size_t band_padding_memo_size)</td></tr>
-<tr class="separator:a05e89de7cdfc7dfdf9f40b64d69f7e97"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9957e925ee25c57698383d4e1df21f0d"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9957e925ee25c57698383d4e1df21f0d">pad_band_random_walk_internal</a> (double band_padding_multiplier, size_t band_padding_memo_size, size_t max_padding, const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; size_function)</td></tr>
+<tr class="separator:a9957e925ee25c57698383d4e1df21f0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1294ed71274673b7e4cc1d40e9472666"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1294ed71274673b7e4cc1d40e9472666">pad_band_random_walk</a> (double band_padding_multiplier, size_t band_padding_memo_size, size_t max_padding)</td></tr>
+<tr class="separator:a1294ed71274673b7e4cc1d40e9472666"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a25a37b51facd101b8a29b1a57661f74f"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a25a37b51facd101b8a29b1a57661f74f">pad_band_min_random_walk</a> (double band_padding_multiplier, size_t band_padding_memo_size, size_t max_padding)</td></tr>
+<tr class="separator:a25a37b51facd101b8a29b1a57661f74f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaab5b2261edb66897af9d1158e7758d8"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aaab5b2261edb66897af9d1158e7758d8">pad_band_constant</a> (size_t band_padding)</td></tr>
 <tr class="separator:aaab5b2261edb66897af9d1158e7758d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5ff6fdbf4ef393faf59f22365c46bbb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae5ff6fdbf4ef393faf59f22365c46bbb">append_mapping_sequence</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;m, const string &amp;node_seq, string &amp;seq)</td></tr>
@@ -396,8 +400,10 @@ Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
-<tr class="memitem:a58ef89aaf7868024c6c3795fecf34a26"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a58ef89aaf7868024c6c3795fecf34a26">pad_band_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000)</td></tr>
-<tr class="separator:a58ef89aaf7868024c6c3795fecf34a26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a606c26b5751d935c71d7971a92d99b"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6a606c26b5751d935c71d7971a92d99b">pad_band_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a6a606c26b5751d935c71d7971a92d99b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3363cc23e6c71e1bb5faac975af7920d"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3363cc23e6c71e1bb5faac975af7920d">pad_band_min_random_walk</a> (double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a3363cc23e6c71e1bb5faac975af7920d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab48342aedc7d81e2334c52bb320223c2"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">pad_band_constant</a> (size_t band_padding)</td></tr>
 <tr class="memdesc:ab48342aedc7d81e2334c52bb320223c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a band padding function that uses a constant value.  <a href="namespacevg_1_1algorithms.html#ab48342aedc7d81e2334c52bb320223c2">More...</a><br /></td></tr>
 <tr class="separator:ab48342aedc7d81e2334c52bb320223c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3962,8 +3968,42 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a05e89de7cdfc7dfdf9f40b64d69f7e97"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05e89de7cdfc7dfdf9f40b64d69f7e97">&#9670;&nbsp;</a></span>pad_band_random_walk()</h2>
+<a id="a25a37b51facd101b8a29b1a57661f74f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a25a37b51facd101b8a29b1a57661f74f">&#9670;&nbsp;</a></span>pad_band_min_random_walk()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::algorithms::pad_band_min_random_walk </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>band_padding_multiplier</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>band_padding_memo_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_padding</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1294ed71274673b7e4cc1d40e9472666"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1294ed71274673b7e4cc1d40e9472666">&#9670;&nbsp;</a></span>pad_band_random_walk()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3978,7 +4018,53 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>band_padding_memo_size</em>&#160;</td>
+          <td class="paramname"><em>band_padding_memo_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_padding</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9957e925ee25c57698383d4e1df21f0d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9957e925ee25c57698383d4e1df21f0d">&#9670;&nbsp;</a></span>pad_band_random_walk_internal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::algorithms::pad_band_random_walk_internal </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>band_padding_multiplier</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>band_padding_memo_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_padding</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>size_function</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -5282,18 +5368,33 @@ template&lt;typename TECCNode &gt; </div>
 
 </div>
 </div>
-<a id="a58ef89aaf7868024c6c3795fecf34a26"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a58ef89aaf7868024c6c3795fecf34a26">&#9670;&nbsp;</a></span>pad_band_random_walk</h2>
+<a id="a3363cc23e6c71e1bb5faac975af7920d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3363cc23e6c71e1bb5faac975af7920d">&#9670;&nbsp;</a></span>pad_band_min_random_walk</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::algorithms::pad_band_random_walk(double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000)</td>
+          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::algorithms::pad_band_min_random_walk(double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get a band padding function that uses the expected distance of a random walk, memoized out to the given length. </p>
+<p>Get a band padding function that scales the expected distance of a random walk, memoized out to the given length, using the minimum of graph size and read size as the length. </p>
+
+</div>
+</div>
+<a id="a6a606c26b5751d935c71d7971a92d99b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a606c26b5751d935c71d7971a92d99b">&#9670;&nbsp;</a></span>pad_band_random_walk</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::algorithms::pad_band_random_walk(double band_padding_multiplier=1.0, size_t band_padding_memo_size=2000, size_t max_padding=std::numeric_limits&lt; size_t &gt;::max())</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get a band padding function that scales with the expected distance of a random walk, memoized out to the given length. </p>
 
 </div>
 </div>

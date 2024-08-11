@@ -165,10 +165,12 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a59034e11562bb0969c25defd215f166b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1df336db06fea7951c960f71265d513d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1df336db06fea7951c960f71265d513d">low_complexity_p_value</a> = .0075</td></tr>
 <tr class="separator:a1df336db06fea7951c960f71265d513d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f304005022b214c309ff60a1f186b1f"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0f304005022b214c309ff60a1f186b1f">max_low_complexity_anchor_prune</a> = 32</td></tr>
+<tr class="memitem:a0f304005022b214c309ff60a1f186b1f"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0f304005022b214c309ff60a1f186b1f">max_low_complexity_anchor_prune</a> = 40</td></tr>
 <tr class="separator:a0f304005022b214c309ff60a1f186b1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7231e0ecf35ed767417fc37184b0a806"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a7231e0ecf35ed767417fc37184b0a806">pad_suspicious_anchors_to_length</a> = 10</td></tr>
+<tr class="memitem:a7231e0ecf35ed767417fc37184b0a806"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a7231e0ecf35ed767417fc37184b0a806">pad_suspicious_anchors_to_length</a> = 12</td></tr>
 <tr class="separator:a7231e0ecf35ed767417fc37184b0a806"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:affc7c08128f0896d0f45637f569d4fd7"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#affc7c08128f0896d0f45637f569d4fd7">choose_band_padding</a></td></tr>
+<tr class="separator:affc7c08128f0896d0f45637f569d4fd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a735901a421d305e6cbf13a016fdc9d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a5a735901a421d305e6cbf13a016fdc9d">max_anchors</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
 <tr class="separator:a5a735901a421d305e6cbf13a016fdc9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99dc61c54ce73a8db8526b0f935a14c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a99dc61c54ce73a8db8526b0f935a14c9">annotate_with_all_path_scores</a> = false</td></tr>
@@ -1757,6 +1759,20 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
+<a id="affc7c08128f0896d0f45637f569d4fd7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#affc7c08128f0896d0f45637f569d4fd7">&#9670;&nbsp;</a></span>choose_band_padding</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp;)&gt; vg::Surjector::choose_band_padding</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ace7092128b309c97f00fc688d3311c14"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ace7092128b309c97f00fc688d3311c14">&#9670;&nbsp;</a></span>dominated_path_chunk_diff</h2>
 
@@ -1847,7 +1863,7 @@ template&lt;class AlnType &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t vg::Surjector::max_low_complexity_anchor_prune = 32</td>
+          <td class="memname">int64_t vg::Surjector::max_low_complexity_anchor_prune = 40</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -1969,7 +1985,7 @@ template&lt;class AlnType &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t vg::Surjector::pad_suspicious_anchors_to_length = 10</td>
+          <td class="memname">int64_t vg::Surjector::pad_suspicious_anchors_to_length = 12</td>
         </tr>
       </table>
 </div><div class="memdoc">
