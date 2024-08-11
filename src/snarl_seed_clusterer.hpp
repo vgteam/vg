@@ -218,13 +218,6 @@ class SnarlDistanceIndexClusterer {
             const vector<zip_code_t>& unpacked_zipcode;
             size_t zipcode_depth;
 
-            //Minimum length of a node or snarl
-            //If it is a chain, then it is distance_index.chain_minimum_length(), which is
-            //the expected length for a normal chain, and the length of the 
-            //last component for a multicomponent chain 
-            size_t chain_component_start = 0; //of node or start of snarl
-            size_t chain_component_end = 0; //of node or end of snarl
-
             size_t loop_left = std::numeric_limits<size_t>::max();
             size_t loop_right = std::numeric_limits<size_t>::max();
 
@@ -236,8 +229,6 @@ class SnarlDistanceIndexClusterer {
             //read_count is the number of reads in a fragment (2 for paired end)
             SnarlTreeNodeProblem(size_t read_count, size_t seed_count, 
                                  const vector<zip_code_t>& unpacked_zipcode, size_t zipcode_depth) :
-                chain_component_start(unpacked_zipcode[zipcode_depth].chain_component),
-                chain_component_end(unpacked_zipcode[zipcode_depth].chain_component),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 unpacked_zipcode(unpacked_zipcode),
                 zipcode_depth(zipcode_depth) {
@@ -245,18 +236,11 @@ class SnarlDistanceIndexClusterer {
                     children.reserve(seed_count);
             }
 
-            //Set the values needed to cluster a chain
-            void set_chain_values(const SnarlDistanceIndex& distance_index) {
-                chain_component_end = unpacked_zipcode[zipcode_depth].chain_component;
-            }
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(unpacked_zipcode[zipcode_depth].net_handle, false, true));
                 net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(unpacked_zipcode[zipcode_depth].net_handle, true, true));
-                chain_component_start = unpacked_zipcode[zipcode_depth].chain_component;
-                chain_component_end = unpacked_zipcode[zipcode_depth].length == std::numeric_limits<size_t>::max() ? chain_component_start+1
-                                                                                      : chain_component_start;
                 loop_right = SnarlDistanceIndex::sum(distance_index.get_forward_loop_value(end_in),
                                                              2*distance_index.minimum_length(end_in));
                 //Distance to go backward in the chain and back
