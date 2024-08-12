@@ -110,7 +110,7 @@ class SnarlDistanceIndexClusterer {
 
             //Start with enough memory reserved for what is probably at least the max depth of the snarl tree
             SeedCache() {
-                unpacked_zipcode.reserve(10);
+                unpacked_zipcode.reserve(6);
             }
 
         };
