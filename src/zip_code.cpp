@@ -1821,6 +1821,7 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
 
     //Get the decoder offsets
     varint_vector_t decoder_vector;
+    decoder_vector.data.reserve(16);
     for (size_t i = decoded_bytes ; i <16 ; i++) {
         uint8_t saved_byte;
         if (decoded_bytes < 8) {
@@ -1837,6 +1838,8 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     //Now go through the varint vector up and add anything that isn't 0
     size_t varint_value= 1;
     size_t varint_index = 0;
+    //Somewhat arbitrarily reserve what we expect to be the number of codes in the zipcode
+    decoder.reserve(decoded_bytes / 4);
     decoder.emplace_back(is_chain, 0);
     is_chain = !is_chain;
     if (decoder_vector.byte_count() != 0) {
@@ -1852,6 +1855,7 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
         assert(!decoder.back().is_chain);
         decoder.back().is_chain = true;
     }
+    finished_decoding = true;
 
 }
 
