@@ -99,17 +99,19 @@ class SnarlDistanceIndexClusterer {
         struct SeedCache{
             const Seed* seed;
 
-            vector<zip_code_t> unpacked_zipcode;
-
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
             //For a seed in a chain, distance_left is the left of the chain, right is the distance
             //to the right side of the node, relative to the chain
             size_t distance_left = std::numeric_limits<size_t>::max();
             size_t distance_right = std::numeric_limits<size_t>::max();
-            //Values from the payload that we're saving
-            size_t payload_prefix_sum = std::numeric_limits<size_t>::max();
-            size_t payload_node_length = std::numeric_limits<size_t>::max();
+
+            vector<zip_code_t> unpacked_zipcode;
+
+            //Start with enough memory reserved for what is probably at least the max depth of the snarl tree
+            SeedCache() {
+                unpacked_zipcode.reserve(10);
+            }
 
         };
 
