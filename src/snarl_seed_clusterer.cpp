@@ -1685,9 +1685,10 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
             for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++) {
                 if (read_num == 0) {
                     if (child_problem.is_reversed_in_parent) {
+                        size_t old_best_right = snarl_problem->read_best_right.first;
                         snarl_problem->read_best_right.first = std::min(snarl_problem->read_best_left.first,
                                                                        child_problem.read_best_left.first);
-                        snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_right.first,
+                        snarl_problem->read_best_left.first = std::min(old_best_right,
                                                                         child_problem.read_best_right.first);
                     } else {
                         snarl_problem->read_best_left.first = std::min(snarl_problem->read_best_left.first,
@@ -1710,9 +1711,10 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
                 }
             }
             if (child_problem.is_reversed_in_parent) {
+                size_t old_best_right = snarl_problem->fragment_best_right;
                 snarl_problem->fragment_best_right = std::min(snarl_problem->fragment_best_left,
                                                               child_problem.fragment_best_left);
-                snarl_problem->fragment_best_left = std::min(snarl_problem->fragment_best_right,
+                snarl_problem->fragment_best_left = std::min(old_best_right,
                                                                child_problem.fragment_best_right);
             } else {
                 snarl_problem->fragment_best_left = std::min(snarl_problem->fragment_best_left,
