@@ -999,9 +999,11 @@ void validate_gbwt_config(GBWTConfig& config) {
     if (!config.to_remove.empty()) {
         if (config.build == GBWTConfig::build_gbz) {
             std::cerr << "error: [vg gbwt] the GBWT extracted from GBZ cannot have paths modified" << std::endl;
+            std::exit(EXIT_FAILURE);
         }
         if (config.build == GBWTConfig::build_gbwtgraph) {
             std::cerr << "error: [vg gbwt] the GBWT loaded with a GBWTGraph cannot have paths modified" << std::endl;
+            std::exit(EXIT_FAILURE);
         }
         if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             std::cerr << "error: [vg gbwt] removing a sample requires one input GBWT and output GBWT" << std::endl;
