@@ -81,6 +81,15 @@ using namespace std;
                                                          distance_index)
                     == 3);
         }
+        SECTION("unpacked root node") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+
+            ZipCode::chain_code_t unpacked_chain = zipcode.unpack_chain_code(0);
+            REQUIRE(unpacked_chain.get_snarl_rank_or_identifier() == 0);
+            REQUIRE(unpacked_chain.get_length() == 11);
+            REQUIRE(unpacked_chain.get_connectivity() == 0);
+        }
     }
     TEST_CASE("Simple chain zipcode", "[zipcode]") {
         //Snarl 1-3, snarl 3-6
@@ -278,6 +287,34 @@ using namespace std;
             REQUIRE(zipcode.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain4));
             REQUIRE(zipcode.get_code_type(2) == ZipCode::CHAIN);
             REQUIRE(zipcode.get_is_reversed_in_parent(2) == is_rev);
+        }
+        SECTION ("unpacked zip code for node in simple snarl") {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
+
+
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            net_handle_t snarl36 = distance_index.get_parent(chain4); 
+            net_handle_t chain1 = distance_index.get_parent(snarl36);
+
+
+            ZipCode::chain_code_t chain_code = zipcode.unpack_chain_code(0);
+            REQUIRE(chain_code.get_snarl_rank_or_identifier() == 0);
+
+            ZipCode::snarl_code_t snarl_code = zipcode.unpack_snarl_code(1);
+            //values for the snarl
+            REQUIRE(snarl_code.get_length() == distance_index.minimum_length(snarl36));
+            REQUIRE(snarl_code.get_prefix_sum_or_identifier() == (chain_is_reversed ? 5 : 6));
+            REQUIRE(snarl_code.get_code_type() == 1);
+            bool is_rev = distance_index.distance_in_parent(snarl36, distance_index.get_bound(snarl36, false, true),
+                                                                   distance_index.flip(chain4)) != 0;
+            REQUIRE(snarl_code.get_is_reversed() == is_rev);
+
+
+            ZipCode::chain_code_t node_code = zipcode.unpack_chain_code(2);
+            //values for the chain
+            REQUIRE(node_code.get_length() == distance_index.minimum_length(chain4));
+            REQUIRE(node_code.get_snarl_rank_or_identifier() == distance_index.get_rank_in_parent(chain4));
         }
         SECTION("Distances") {
             ZipCode zip1;

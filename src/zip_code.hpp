@@ -40,16 +40,18 @@ struct MIPayload;
 /// It should be unique and hashable
 typedef std::string net_identifier_t;
 
-///A struct to store an unpacked version of one node/snarl/chain code
-struct node_code_t;
-struct chain_code_t;
-struct snarl_code_t;
 
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
  * positions, with minimal queries to the distance index
  */
 class ZipCode {
+
+    ///structs to store an unpacked version of one node/snarl/chain code
+    public:
+        struct node_code_t;
+        struct chain_code_t;
+        struct snarl_code_t;
 
 
     /// The type of codes that can be stored in the zipcode
@@ -217,6 +219,7 @@ class ZipCode {
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline snarl_code_t get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
 
+    public:
 
         /* Functions to get the values out of the zipcode for one code
            The decoded code might not have all the values set*/
@@ -394,7 +397,7 @@ class ZipCodeCollection {
     This has getters and setters for getting the actual value, 
     and getters and setters for getting the raw values 
 */
-struct node_code_t {
+struct ZipCode::node_code_t {
     private:
     //Prefix sum for a nested node, address for a root node
     size_t prefix_sum_or_identifier ;
@@ -435,7 +438,7 @@ struct node_code_t {
     This has getters and setters for getting the actual value, 
     and getters and setters for getting the raw values 
 */
-struct chain_code_t {
+struct ZipCode::chain_code_t {
 
 
     private:
@@ -496,7 +499,7 @@ struct chain_code_t {
     This has getters and setters for getting the actual value, 
     and getters and setters for getting the raw values 
 */
-struct snarl_code_t {
+struct ZipCode::snarl_code_t {
 
     private:
         size_t length;
