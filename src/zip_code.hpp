@@ -222,6 +222,7 @@ class ZipCode {
            The decoded code might not have all the values set*/
 
         // Get a node_code_t for the given level
+        //For a root node, use a chain
         node_code_t unpack_node_code(size_t zipcode_level);
         //Return a chain_code_t that will represent the chain in the zip code
         //The actual values being stored, not the raw values
@@ -395,7 +396,8 @@ class ZipCodeCollection {
 */
 struct node_code_t {
     private:
-    size_t prefix_sum ;
+    //Prefix sum for a nested node, address for a root node
+    size_t prefix_sum_or_identifier ;
     size_t chain_component : 32;
     size_t length : 31;
     bool is_reversed;
@@ -403,25 +405,25 @@ struct node_code_t {
     public:
 
     ////// Raw getters
-    size_t get_raw_prefix_sum() {return prefix_sum;}
+    size_t get_raw_prefix_sum_or_identifier() {return prefix_sum_or_identifier;}
     size_t get_raw_chain_component() {return chain_component;}
     size_t get_raw_length() {return length;}
     bool get_raw_is_reversed() {return is_reversed;}
 
     ///// Raw setters
-    void set_raw_prefix_sum(size_t val) {prefix_sum = val;}
+    void set_raw_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val;}
     void set_raw_chain_component(size_t val) {chain_component = val;}
     void set_raw_length(size_t val) {length = val;}
     void set_raw_is_reversed(bool val) {is_reversed = val;}
 
     //// Real value setters
-    size_t get_prefix_sum() {return prefix_sum == 0 ? numeric_limits<size_t>::max() : prefix_sum-1;}
+    size_t get_prefix_sum_or_identifier() {return prefix_sum_or_identifier == 0 ? numeric_limits<size_t>::max() : prefix_sum_or_identifier-1;}
     size_t get_chain_component() {return chain_component;}
     size_t get_length() {return length-1;}
     bool get_is_reversed() {return is_reversed;}
 
     ////Real value getters
-    void set_prefix_sum(size_t val) {prefix_sum = val == std::numeric_limits<size_t>::max() ? 0 : val+1;}
+    void set_prefix_sum_or_identifier(size_t val) {prefix_sum_or_identifier = val == std::numeric_limits<size_t>::max() ? 0 : val+1;}
     void set_chain_component(size_t val) {chain_component = val == std::numeric_limits<size_t>::max() ? 0 : val;}
     void set_length(size_t val) {length = val+1;}
     void set_is_reversed(bool val) {is_reversed = val;}
@@ -498,7 +500,8 @@ struct snarl_code_t {
 
     private:
         size_t length;
-        size_t prefix_sum;
+        //Prefix sum for a nested snarl, identifier for a root snarl
+        size_t prefix_sum_or_identifier;
 
         size_t distance_start_left;
         size_t distance_start_right;
@@ -519,7 +522,7 @@ struct snarl_code_t {
         //and getters and setters for the raw values. These are sometimes redundant
 
         size_t get_raw_length() {return length;}
-        size_t get_raw_prefix_sum () {return prefix_sum;}
+        size_t get_raw_prefix_sum_or_identifier () {return prefix_sum_or_identifier;}
         size_t get_raw_distance_start_left () {return distance_start_left;}
         size_t get_raw_distance_start_right () {return distance_start_right;}
         size_t get_raw_distance_end_left () {return distance_end_left;}
@@ -531,7 +534,7 @@ struct snarl_code_t {
         bool get_raw_is_reversed() {return is_reversed;}
 
         void set_raw_length(size_t val) {length = val;}
-        void set_raw_prefix_sum (size_t val) {prefix_sum = val;}
+        void set_raw_prefix_sum_or_identifier (size_t val) {prefix_sum_or_identifier = val;}
         void set_raw_distance_start_left (size_t val) {distance_start_left = val;}
         void set_raw_distance_start_right (size_t val) {distance_start_right = val;}
         void set_raw_distance_end_left (size_t val) {distance_end_left = val;}
@@ -548,8 +551,8 @@ struct snarl_code_t {
         size_t get_length() {
             return length == 0 ? std::numeric_limits<size_t>::max() : length-1;
         }
-        size_t get_prefix_sum() {
-            return prefix_sum == 0 ? std::numeric_limits<size_t>::max() : prefix_sum-1;
+        size_t get_prefix_sum_or_identifier() {
+            return prefix_sum_or_identifier == 0 ? std::numeric_limits<size_t>::max() : prefix_sum_or_identifier-1;
         }
 
         //distance from the left side of the child to the start of the snarl
@@ -581,8 +584,8 @@ struct snarl_code_t {
         void set_length(size_t val) {
             length = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
         }
-        void set_prefix_sum(size_t val) {
-            prefix_sum = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        void set_prefix_sum_or_identifier(size_t val) {
+            prefix_sum_or_identifier = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
         }
 
         void set_distance_start_left(size_t val) {
