@@ -40,6 +40,10 @@ struct MIPayload;
 /// It should be unique and hashable
 typedef std::string net_identifier_t;
 
+///A struct to store an unpacked version of one node/snarl/chain code
+struct node_code_t;
+struct chain_code_t;
+struct snarl_code_t;
 
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
@@ -202,15 +206,16 @@ class ZipCode {
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
          */
-        //Return a vector of size_ts that will represent the node in the zip code
-        inline vector<size_t> get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index);
-        //Return a vector of size_ts that will represent the chain in the zip code
-        inline vector<size_t> get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index);
+        //Return a node_code_t that will represent the node in the zip code
+        inline node_code_t get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index);
+        //Return a chain_code_t that will represent the chain in the zip code
+        //The actual values being stored, not the raw values
+        inline chain_code_t get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
+        inline snarl_code_t get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
+        inline snarl_code_t get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
 
 
     //////////////////////////////// Stuff for decoding the zipcode
@@ -366,6 +371,61 @@ class ZipCodeCollection {
     }
 
 
+};
+
+
+
+/**
+    An unpacked version of one node code
+*/
+struct node_code_t {
+    size_t prefix_sum ;
+    size_t chain_component : 32;
+    size_t length : 31;
+    bool is_reversed;
+}; 
+
+/**
+    An unpacked version of one chain code
+*/
+struct chain_code_t {
+
+    //The length of the last component of the chain (which may be the whole chain)
+    size_t length;
+    //The rank in the parent snarl or, if it is a root chain, the identifier
+    size_t snarl_rank_or_identifier : 32;
+    size_t last_component : 16;
+
+    //For root chain/nodes, a bitvector representing the connectivity
+    size_t connectivity : 4;
+
+    bool is_looping_chain;
+}; 
+
+/**
+    An unpacked version of one snarl code
+*/
+struct snarl_code_t {
+
+    size_t length;
+    size_t prefix_sum;
+
+    //distance from the left side of the child to the start of the snarl
+    //or, for root nodes/chains, start-start connected
+    //start-right and end-left are the same for root nodes/chains
+    size_t distance_start_left;
+    size_t distance_start_right;
+    size_t distance_end_left;
+    size_t distance_end_right;
+
+    size_t record_offset : 32;
+
+    size_t child_count : 16; 
+    size_t chain_component : 16;
+
+    size_t code_type : 4;
+
+    bool is_reversed;
 };
 
 

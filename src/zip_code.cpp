@@ -91,18 +91,17 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
         cerr << "Adding code for " << distance_index.net_handle_as_string(current_ancestor) << endl;
 #endif
         if (distance_index.is_node(current_ancestor)) {
-            vector<size_t> to_add = get_node_code(current_ancestor, distance_index);
-            for (auto& x : to_add) {
-                zipcode.add_value(x);
-            }
-#ifdef DEBUG_ZIPCODE
-            assert(to_add.size() == ZipCode::NODE_SIZE);
-#endif
+            node_code_t node_code = get_node_code(current_ancestor, distance_index);
+            zipcode.add_value(node_code.prefix_sum);
+            zipcode.add_value(node_code.length);
+            zipcode.add_value(node_code.is_reversed);
+            zipcode.add_value(node_code.chain_component);
+
         } else if (distance_index.is_chain(current_ancestor)) {
-            vector<size_t> to_add = get_chain_code(current_ancestor, distance_index);
-            for (auto& x : to_add) {
-                zipcode.add_value(x);
-            }
+            chain_code_t chain_code = get_chain_code(current_ancestor, distance_index);
+            zipcode.add_value(chain_code.snarl_rank_or_identifier);
+            zipcode.add_value(chain_code.length);
+            zipcode.add_value(chain_code.last_component);
 #ifdef DEBUG_ZIPCODE
                 assert(to_add.size() == ZipCode::CHAIN_SIZE);
 #endif
@@ -113,24 +112,28 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
                 return;
             }
         } else if (distance_index.is_regular_snarl(current_ancestor)) {
-            vector<size_t> to_add = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
-            for (auto& x : to_add) {
-                zipcode.add_value(x);
-            }
-#ifdef DEBUG_ZIPCODE
-                assert(to_add.size() == ZipCode::REGULAR_SNARL_SIZE);
-#endif
+            snarl_code_t snarl_code = get_regular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
+            zipcode.add_value(snarl_code.code_type);
+            zipcode.add_value(snarl_code.prefix_sum);
+            zipcode.add_value(snarl_code.length);
+            zipcode.add_value(snarl_code.child_count);
+            zipcode.add_value(snarl_code.chain_component);
+            zipcode.add_value(snarl_code.is_reversed);
         } else {
 #ifdef DEBUG_ZIPCODE
             assert(distance_index.is_snarl(current_ancestor));
 #endif
-            vector<size_t> to_add = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index);
-#ifdef DEBUG_ZIPCODE
-            assert(to_add.size() == ZipCode::IRREGULAR_SNARL_SIZE);
-#endif
-            for (auto& x : to_add) {
-                zipcode.add_value(x);
-            }
+            snarl_code_t snarl_code = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index); 
+            zipcode.add_value(snarl_code.code_type);
+            zipcode.add_value(snarl_code.prefix_sum);
+            zipcode.add_value(snarl_code.length);
+            zipcode.add_value(snarl_code.child_count);
+            zipcode.add_value(snarl_code.chain_component);
+            zipcode.add_value(snarl_code.record_offset);
+            zipcode.add_value(snarl_code.distance_start_left);
+            zipcode.add_value(snarl_code.distance_end_left);
+            zipcode.add_value(snarl_code.distance_start_right);
+            zipcode.add_value(snarl_code.distance_end_right);
         }
     }
     if (fill_in_decoder) {
@@ -924,134 +927,151 @@ std::ostream& operator<<(std::ostream& out, const ZipCode& zip) {
 }
 
 
-vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index) {
+node_code_t ZipCode::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIPCODE
     assert(!distance_index.is_trivial_chain(node));
     assert((distance_index.is_chain(distance_index.get_parent(node)) || distance_index.is_root(distance_index.get_parent(node))));
 #endif
     //Node code is: offset in chain, length, is reversed
-    vector<size_t> node_code(NODE_SIZE);
+    node_code_t node_code;
     //Assume this node is in a regular chain
-    size_t prefix_sum = distance_index.get_prefix_sum_value(node); 
-    node_code[NODE_OFFSET_OFFSET] = prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1;
-    node_code[NODE_LENGTH_OFFSET] = distance_index.minimum_length(node)+1;
-    node_code[NODE_IS_REVERSED_OFFSET] = distance_index.is_reversed_in_parent(node);
-    size_t component = distance_index.get_chain_component(node);
-    node_code[NODE_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
+    node_code.prefix_sum = distance_index.get_prefix_sum_value(node); 
+    node_code.prefix_sum = node_code.prefix_sum == std::numeric_limits<size_t>::max() ? 0 : node_code.prefix_sum+1;
+
+    node_code.length = distance_index.minimum_length(node)+1;
+
+    node_code.is_reversed = distance_index.is_reversed_in_parent(node);
+    node_code.chain_component = distance_index.get_chain_component(node);
+    node_code.chain_component = node_code.chain_component == std::numeric_limits<size_t>::max() ? 0 : node_code.chain_component;
+
     return node_code;
 
 }
-vector<size_t> ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index) {
+chain_code_t ZipCode::get_chain_code(const net_handle_t& chain, const SnarlDistanceIndex& distance_index) {
     //Chain code is: rank in snarl, length
-    vector<size_t> chain_code (CHAIN_SIZE);
-    chain_code[CHAIN_RANK_IN_SNARL_OFFSET] = distance_index.get_rank_in_parent(chain);
-    size_t len = distance_index.minimum_length(chain);
-    chain_code[CHAIN_LENGTH_OFFSET] = len == std::numeric_limits<size_t>::max() ? 0 : len+1;
+    chain_code_t chain_code;
+    chain_code.snarl_rank_or_identifier = distance_index.get_rank_in_parent(chain);
+
+    chain_code.length = distance_index.minimum_length(chain);
+    chain_code.length = chain_code.length == std::numeric_limits<size_t>::max() ? 0 : chain_code.length+1;
+
     bool is_trivial = distance_index.is_trivial_chain(chain) ;
+
+    chain_code.is_looping_chain = is_trivial ? false
+                                             : distance_index.is_looping_chain(chain);
     size_t component = is_trivial
                        ? 0 
                        : distance_index.get_chain_component(distance_index.get_bound(chain, true, false), true);
-    component = component == std::numeric_limits<size_t>::max() ? 0 : component*2;
-    if (!is_trivial && distance_index.is_looping_chain(chain)) {
+    component = component == std::numeric_limits<size_t>::max() ? 0 : component * 2;
+    if (chain_code.is_looping_chain) {
         component += 1;
     }
-    chain_code[CHAIN_COMPONENT_COUNT_OFFSET] = component;
+    chain_code.last_component = component;
+
     return chain_code;
 
 }
-vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index) {
+snarl_code_t ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index) {
     //Regular snarl code is 1, offset in chain, length, is reversed
-    vector<size_t> snarl_code (REGULAR_SNARL_SIZE);
+    snarl_code_t snarl_code;
 
     //Tag to say that it's a regular snarl
-    snarl_code[SNARL_IS_REGULAR_OFFSET] = 1;
+    snarl_code.code_type = 1;
 
     //The number of children
     size_t child_count = 0;
     distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
         child_count++;
     });
-    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
+    snarl_code.child_count = child_count;
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
-    size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
-    size_t component = distance_index.get_chain_component(start_node);
-    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
+    size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
+    snarl_code.prefix_sum = prefix_sum == std::numeric_limits<size_t>::max() ? 0 
+                                                                             : prefix_sum+1;
+
+    size_t chain_component = distance_index.get_chain_component(start_node);
+    snarl_code.chain_component = chain_component == std::numeric_limits<size_t>::max() ? 0 
+                                                                                       : chain_component;
 
     //Length of the snarl
-    size_t len = distance_index.minimum_length(snarl);
-    snarl_code[SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
+    size_t length = distance_index.minimum_length(snarl);
+    snarl_code.length = length == std::numeric_limits<size_t>::max() ? 0 
+                                                                     : length+1;
 
     //Is the child of the snarl reversed in the snarl
 #ifdef DEBUG_ZIPCODE
     assert(distance_index.is_chain(snarl_child));
 #endif
-    snarl_code[REGULAR_SNARL_IS_REVERSED_OFFSET] = (distance_index.distance_in_parent(snarl, 
+    snarl_code.is_reversed = (distance_index.distance_in_parent(snarl, 
                                                         distance_index.get_bound(snarl, false, true),
                                                         distance_index.flip(distance_index.canonical(snarl_child))) != 0);
 
     return snarl_code;
 
 }
-vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
+snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                  const SnarlDistanceIndex& distance_index) {
-    vector<size_t> snarl_code (IRREGULAR_SNARL_SIZE);
+    snarl_code_t snarl_code;
 
     //Tag to say that it's an irregular snarl
-    snarl_code[SNARL_IS_REGULAR_OFFSET] = distance_index.is_dag(snarl) ? 0 : 2;
+    snarl_code.code_type = distance_index.is_dag(snarl) ? 0 : 2;
 
     //The number of children
-    size_t child_count = 0;
+    snarl_code.child_count = 0;
     distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
-        child_count++;
+        snarl_code.child_count++;
     });
-    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
-    size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
-    snarl_code[SNARL_OFFSET_IN_CHAIN_OFFSET] = (prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
 
-    size_t component = distance_index.get_chain_component(start_node);
-    snarl_code[SNARL_CHAIN_COMPONENT_OFFSET] = component == std::numeric_limits<size_t>::max() ? 0 : component;
+    snarl_code.prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
+
+    snarl_code.prefix_sum = snarl_code.prefix_sum == std::numeric_limits<size_t>::max() ? 0 
+                                                                                        : snarl_code.prefix_sum + 1;
+
+    snarl_code.chain_component = distance_index.get_chain_component(start_node) ;
+    snarl_code.chain_component = snarl_code.chain_component == std::numeric_limits<size_t>::max() ? 0 
+                                                                                                  : snarl_code.chain_component;
 
     //Length of the snarl
-    size_t len = distance_index.minimum_length(snarl);
-    snarl_code[SNARL_LENGTH_OFFSET] = (len == std::numeric_limits<size_t>::max() ? 0 : len+1);
+    snarl_code.length = distance_index.minimum_length(snarl);
+    snarl_code.length = snarl_code.length == std::numeric_limits<size_t>::max() ? 0 
+                                                                                : snarl_code.length+1;
 
 
     //Record offset to look up distances in the index later
-    snarl_code[IRREGULAR_SNARL_RECORD_OFFSET] = (distance_index.get_record_offset(snarl));
+    snarl_code.record_offset = distance_index.get_record_offset(snarl);
 
-    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child));
-    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child));
-    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
-    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
-
+    snarl_code.distance_start_left = distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child));
+    snarl_code.distance_end_left = distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child));
+    snarl_code.distance_start_right = distance_index.distance_to_parent_bound(snarl, true, snarl_child);
+    snarl_code.distance_end_right = distance_index.distance_to_parent_bound(snarl, false, snarl_child);
 
     //Add 1 to values to store inf properly
-    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] = 
-        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+    snarl_code.distance_start_left = 
+        snarl_code.distance_start_left == std::numeric_limits<size_t>::max() 
         ? 0 
-        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET] + 1;
-    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] = 
-        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code.distance_start_left + 1;
+    snarl_code.distance_start_right = 
+        snarl_code.distance_start_right == std::numeric_limits<size_t>::max() 
         ? 0 
-        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET] + 1;
-    snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] = 
-        snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code.distance_start_right + 1;
+    snarl_code.distance_end_left = 
+        snarl_code.distance_end_left == std::numeric_limits<size_t>::max() 
         ? 0 
-        : snarl_code[IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET] + 1;
-    snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] = 
-        snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] == std::numeric_limits<size_t>::max() 
+        : snarl_code.distance_end_left + 1;
+    snarl_code.distance_end_right = 
+        snarl_code.distance_end_right == std::numeric_limits<size_t>::max() 
         ? 0 
-        : snarl_code[IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET] + 1;
+        : snarl_code.distance_end_right + 1;
+
+
 
     return snarl_code;
-
 }
 
 size_t ZipCode::minimum_distance_between(ZipCode& zip1, const pos_t& pos1,   
