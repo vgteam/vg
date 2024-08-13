@@ -218,6 +218,18 @@ class ZipCode {
         inline snarl_code_t get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
 
 
+        /* Functions to get the values out of the zipcode for one code
+           The decoded code might not have all the values set*/
+
+        // Get a node_code_t for the given level
+        node_code_t unpack_node_code(size_t zipcode_level);
+        //Return a chain_code_t that will represent the chain in the zip code
+        //The actual values being stored, not the raw values
+        chain_code_t unpack_chain_code(size_t zipcode_level);
+        //Return a vector of size_ts that will represent the snarl in the zip code
+        snarl_code_t unpack_snarl_code(size_t zipcode_level);
+
+
     //////////////////////////////// Stuff for decoding the zipcode
 
     public:
@@ -377,55 +389,235 @@ class ZipCodeCollection {
 
 /**
     An unpacked version of one node code
+    The values actually stored are the same ones that get stored in the zipcode
+    This has getters and setters for getting the actual value, 
+    and getters and setters for getting the raw values 
 */
 struct node_code_t {
+    private:
     size_t prefix_sum ;
     size_t chain_component : 32;
     size_t length : 31;
     bool is_reversed;
+
+    public:
+
+    ////// Raw getters
+    size_t get_raw_prefix_sum() {return prefix_sum;}
+    size_t get_raw_chain_component() {return chain_component;}
+    size_t get_raw_length() {return length;}
+    bool get_raw_is_reversed() {return is_reversed;}
+
+    ///// Raw setters
+    void set_raw_prefix_sum(size_t val) {prefix_sum = val;}
+    void set_raw_chain_component(size_t val) {chain_component = val;}
+    void set_raw_length(size_t val) {length = val;}
+    void set_raw_is_reversed(bool val) {is_reversed = val;}
+
+    //// Real value setters
+    size_t get_prefix_sum() {return prefix_sum == 0 ? numeric_limits<size_t>::max() : prefix_sum-1;}
+    size_t get_chain_component() {return chain_component;}
+    size_t get_length() {return length-1;}
+    bool get_is_reversed() {return is_reversed;}
+
+    ////Real value getters
+    void set_prefix_sum(size_t val) {prefix_sum = val == std::numeric_limits<size_t>::max() ? 0 : val+1;}
+    void set_chain_component(size_t val) {chain_component = val == std::numeric_limits<size_t>::max() ? 0 : val;}
+    void set_length(size_t val) {length = val+1;}
+    void set_is_reversed(bool val) {is_reversed = val;}
 }; 
 
 /**
     An unpacked version of one chain code
+    The values actually stored are the same ones that get stored in the zipcode
+    This has getters and setters for getting the actual value, 
+    and getters and setters for getting the raw values 
 */
 struct chain_code_t {
 
+
+    private:
     //The length of the last component of the chain (which may be the whole chain)
     size_t length;
     //The rank in the parent snarl or, if it is a root chain, the identifier
     size_t snarl_rank_or_identifier : 32;
+
+    //This stores the component and is_looping_chain
     size_t last_component : 16;
 
     //For root chain/nodes, a bitvector representing the connectivity
     size_t connectivity : 4;
 
-    bool is_looping_chain;
+
+    public:
+    size_t get_raw_length() {return length;}
+    size_t get_raw_snarl_rank_or_identifier() {return snarl_rank_or_identifier;}
+    size_t get_raw_last_component() {return last_component;}
+    size_t get_raw_connectivity() {return connectivity;}
+    void set_raw_length(size_t val) {length = val;}
+    void set_raw_snarl_rank_or_identifier(size_t val) {snarl_rank_or_identifier = val;}
+    void set_raw_last_component(size_t val) {last_component = val;}
+    void set_raw_connectivity (size_t val){connectivity = val;}
+
+    size_t get_length() {
+        return length == 0 ? std::numeric_limits<size_t>::max() : length-1;
+    }
+    size_t get_snarl_rank_or_identifier() {return snarl_rank_or_identifier;}
+    size_t get_last_component() {
+        if (last_component % 2 ) {
+            return (last_component-1) / 2;
+        } else {
+            return last_component / 2;
+        }
+    }
+
+    size_t get_connectivity() {return connectivity;}
+    bool get_is_looping_chain() {return last_component % 2;}
+
+    void set_length(size_t val) {
+        length = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+    }
+    void set_snarl_rank_or_identifier(size_t val) {
+        snarl_rank_or_identifier = val;
+    }
+    void set_last_component(size_t comp, bool loops) {
+        comp = comp == std::numeric_limits<size_t>::max() ? 0 : comp*2;
+        if (loops) { comp ++;}
+        last_component = comp;
+    }
+    void set_connectivity(size_t val) {connectivity = val;}
 }; 
 
 /**
     An unpacked version of one snarl code
+    The values actually stored are the same ones that get stored in the zipcode
+    This has getters and setters for getting the actual value, 
+    and getters and setters for getting the raw values 
 */
 struct snarl_code_t {
 
-    size_t length;
-    size_t prefix_sum;
+    private:
+        size_t length;
+        size_t prefix_sum;
 
-    //distance from the left side of the child to the start of the snarl
-    //or, for root nodes/chains, start-start connected
-    //start-right and end-left are the same for root nodes/chains
-    size_t distance_start_left;
-    size_t distance_start_right;
-    size_t distance_end_left;
-    size_t distance_end_right;
+        size_t distance_start_left;
+        size_t distance_start_right;
+        size_t distance_end_left;
+        size_t distance_end_right;
 
-    size_t record_offset : 32;
+        size_t record_offset : 32;
 
-    size_t child_count : 16; 
-    size_t chain_component : 16;
+        size_t child_count : 16; 
+        size_t chain_component : 16;
 
-    size_t code_type : 4;
+        size_t code_type : 4;
 
-    bool is_reversed;
+        bool is_reversed;
+
+    public:
+        //We use getters and setters to deal with things that are max() but stored as 0
+        //and getters and setters for the raw values. These are sometimes redundant
+
+        size_t get_raw_length() {return length;}
+        size_t get_raw_prefix_sum () {return prefix_sum;}
+        size_t get_raw_distance_start_left () {return distance_start_left;}
+        size_t get_raw_distance_start_right () {return distance_start_right;}
+        size_t get_raw_distance_end_left () {return distance_end_left;}
+        size_t get_raw_distance_end_right () {return distance_end_right;}
+        size_t get_raw_record_offset () { return record_offset;}
+        size_t get_raw_child_count() {return child_count;}
+        size_t get_raw_chain_component() {return chain_component;}
+        size_t get_raw_code_type() {return code_type;}
+        bool get_raw_is_reversed() {return is_reversed;}
+
+        void set_raw_length(size_t val) {length = val;}
+        void set_raw_prefix_sum (size_t val) {prefix_sum = val;}
+        void set_raw_distance_start_left (size_t val) {distance_start_left = val;}
+        void set_raw_distance_start_right (size_t val) {distance_start_right = val;}
+        void set_raw_distance_end_left (size_t val) {distance_end_left = val;}
+        void set_raw_distance_end_right (size_t val) {distance_end_right = val;}
+        void set_raw_record_offset (size_t val) { record_offset = val;}
+        void set_raw_child_count(size_t val) {child_count = val;}
+        void set_raw_chain_component(size_t val) {chain_component = val;}
+        void set_raw_code_type(size_t val) {code_type = val;}
+        void set_raw_is_reversed(bool val) {is_reversed = val;}
+
+
+
+        //// Getters
+        size_t get_length() {
+            return length == 0 ? std::numeric_limits<size_t>::max() : length-1;
+        }
+        size_t get_prefix_sum() {
+            return prefix_sum == 0 ? std::numeric_limits<size_t>::max() : prefix_sum-1;
+        }
+
+        //distance from the left side of the child to the start of the snarl
+        //or, for root nodes/chains, start-start connected
+        //start-right and end-left are the same for root nodes/chains
+        size_t get_distance_start_left() {
+            return distance_start_left == 0 ? std::numeric_limits<size_t>::max() : distance_start_left-1;
+        }
+        size_t get_distance_start_right() {
+            return distance_start_right == 0 ? std::numeric_limits<size_t>::max() : distance_start_right-1;
+        }
+        size_t get_distance_end_left() {
+            return distance_end_left == 0 ? std::numeric_limits<size_t>::max() : distance_end_left-1;
+        }
+        size_t get_distance_end_right() {
+            return distance_end_right == 0 ? std::numeric_limits<size_t>::max() : distance_end_right-1;
+        }
+
+        size_t get_record_offset() {return record_offset;}
+
+        size_t get_child_count() {return child_count;} 
+        size_t get_chain_component() {return chain_component;}
+
+        size_t get_code_type() {return code_type;}
+
+        bool get_is_reversed() {return is_reversed;}
+
+        //////// Setters
+        void set_length(size_t val) {
+            length = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+        void set_prefix_sum(size_t val) {
+            prefix_sum = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+
+        void set_distance_start_left(size_t val) {
+            distance_start_left = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+        void set_distance_start_right(size_t val) {
+            distance_start_right = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+        void set_distance_end_left(size_t val) {
+            distance_end_left = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+        void set_distance_end_right(size_t val) {
+            distance_end_right = val == std::numeric_limits<size_t>::max() ? 0 : val+1;
+        }
+
+        void set_record_offset(size_t val) {
+            record_offset = val;
+        }
+
+        void set_child_count(size_t val) {
+            child_count = val;
+        }
+
+        void set_chain_component(size_t val) {
+            chain_component = val == std::numeric_limits<size_t>::max() ? 0 : val;
+        }
+
+        void set_code_type(size_t val) {
+            code_type = val;
+        }
+
+        void set_is_reversed(bool val) {
+            is_reversed = val;
+        }
+
 };
 
 
