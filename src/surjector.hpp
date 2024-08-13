@@ -136,6 +136,7 @@ using namespace std;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .0075;
         int64_t max_low_complexity_anchor_prune = 40;
+        int64_t max_low_complexity_anchor_trim = 60;
         int64_t pad_suspicious_anchors_to_length = 12;
         
         // A function for computing band padding

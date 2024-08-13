@@ -4059,10 +4059,10 @@ using namespace std;
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-
+                            //cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
                             if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
-                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << " with p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << ", p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 #endif
                                 // the sequences is repetitive at this order
                                 keep[i] = false;
@@ -4072,6 +4072,8 @@ using namespace std;
                     }
                     else {
                         for (int order = 1; order <= 6; ++order) {
+                            //cerr << "unpadded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), order " << order << ", p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+
                             if (chunk_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
@@ -4151,12 +4153,14 @@ using namespace std;
                     bool exited_indel = false;
                     // note: relying on underflow for the break conditions in the reverse direction
                     for (mapping_idx = left_end ? 0 : path_chunk.second.mapping_size() - 1;
-                         (mapping_idx < path_chunk.second.mapping_size() && (walked_to_length < max_low_complexity_anchor_prune || found_indel));
+                         (mapping_idx < path_chunk.second.mapping_size() &&
+                          (walked_to_length < max_low_complexity_anchor_trim || walked_from_length < max_low_complexity_anchor_trim || found_indel));
                          mapping_idx += incr) {
                         
                         const auto& mapping = path_chunk.second.mapping(mapping_idx);
                         for (edit_idx = left_end ? 0 : mapping.edit_size() - 1;
-                             edit_idx < mapping.edit_size() && (walked_to_length < max_low_complexity_anchor_prune || found_indel);
+                             (edit_idx < mapping.edit_size() &&
+                              (walked_to_length < max_low_complexity_anchor_trim || walked_from_length < max_low_complexity_anchor_trim || found_indel));
                              edit_idx += incr) {
                             
                             const auto& edit = mapping.edit(edit_idx);
@@ -4175,7 +4179,7 @@ using namespace std;
                         }
                     }
                     
-                    if (found_indel && walked_to_length < max_low_complexity_anchor_prune && walked_from_length < max_low_complexity_anchor_prune) {
+                    if (found_indel && (walked_to_length < max_low_complexity_anchor_trim || walked_from_length < max_low_complexity_anchor_trim)) {
 #ifdef debug_anchored_surject
                         cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked to length " << walked_to_length << ", walked from length " << walked_from_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
 #endif
