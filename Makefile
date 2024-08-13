@@ -879,30 +879,36 @@ ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
     # If it's not the same as the old one, replace the old one.
     # If it is the same, do nothing and don't rebuild dependent targets.
     $(info Check Git)
-    $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp)
-    $(shell diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp)
-    $(shell rm -f $(INC_DIR)/vg_git_version.hpp.tmp)
+	# Clean old path
+	$(shell rm -f $(INC_DIR)/vg_git_version.hpp)
+    $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(SRC_DIR)/vg_git_version.hpp.tmp)
+    $(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
+    $(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
 else
     # Just use the version file we have, if any
     $(info Do not check Git)
-    $(shell if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then touch $(INC_DIR)/vg_git_version.hpp; fi;)
+	# Clean old path
+	$(shell rm -f $(INC_DIR)/vg_git_version.hpp)
+    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp ]; then touch $(SRC_DIR)/vg_git_version.hpp; fi;)
 endif
 
 # Build an environment version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
-$(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp)
-$(shell echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
-$(shell echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
-$(shell echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
-$(shell diff $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp >/dev/null || cp $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp)
-$(shell rm -f $(INC_DIR)/vg_environment_version.hpp.tmp)
+# Clean old path
+$(shell rm -f $(INC_DIR)/vg_environment_version.hpp)
+$(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_OS \"$(shell uname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell diff $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp >/dev/null || cp $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp)
+$(shell rm -f $(SRC_DIR)/vg_environment_version.hpp.tmp)
 
 ###################################
 ## VG source code compilation begins here
 ####################################
 
-$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
+$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(SRC_DIR)/vg_git_version.hpp $(SRC_DIR)/vg_environment_version.hpp
 
 ########################
 ## Pattern Rules
@@ -1031,7 +1037,7 @@ clean-vg:
 	$(RM) -f $(ALGORITHMS_SHARED_OBJ_DIR)/*.o $(ALGORITHMS_SHARED_OBJ_DIR)/*.d
 	$(RM) -f $(IO_OBJ_DIR)/*.o $(IO_OBJ_DIR)/*.d
 	$(RM) -f $(IO_SHARED_OBJ_DIR)/*.o $(IO_SHARED_OBJ_DIR)/*.d
-	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
+	$(RM) -f $(SRC_DIR)/vg_git_version.hpp $(SRC_DIR)/vg_environment_version.hpp
 
 clean: clean-vcflib
 	$(RM) -r $(UNITTEST_BIN_DIR)
