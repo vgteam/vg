@@ -457,7 +457,7 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git
+.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -846,41 +846,33 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 GIT_VERSION_FILE_DEPS =
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
-    # If so, try and make a git version file
-	GIT_VERSION_FILE_DEPS = .check-git
+    # If so, try and make a git version file.
+    # We used to do this by having a phony target to depend on, but Make won't
+    # detect that the phony target is altering a different file, so it would
+    # take 2 make runs to pick up the right version.
+
+    # Build a real git version file.
+    # If it's not the same as the old one, replace the old one.
+    # If it is the same, do nothing and don't rebuild dependent targets.
+    $(info Check Git)
+    $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp)
+    $(shell diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp)
+    $(shell rm -f $(INC_DIR)/vg_git_version.hpp.tmp)
 else
     # Just use the version file we have, if any
-	GIT_VERSION_FILE_DEPS = .no-git
+    $(info Do not check Git)
+    $(shell if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then touch $(INC_DIR)/vg_git_version.hpp; fi;)
 endif
 
-# Build a real git version file.
+# Build an environment version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
-.check-git:
-	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
-	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
-	@rm -f $(INC_DIR)/vg_git_version.hpp.tmp
-
-# Make sure the version file exists, if we weren't given one in our tarball
-.no-git:
-	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
-		touch $(INC_DIR)/vg_git_version.hpp; \
-	fi;
-
-$(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
-# Build an environment version file with this phony target.
-# If it's not the same as the old one, replace the old one.
-# If it is the same, do nothing and don't rebuild dependent targets.
-.check-environment:
-	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@diff $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp >/dev/null || cp $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp
-	@rm -f $(INC_DIR)/vg_environment_version.hpp.tmp
-
-# The way to get the actual file is to maybe replace it.
-$(INC_DIR)/vg_environment_version.hpp: .check-environment
+$(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp)
+$(shell diff $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp >/dev/null || cp $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp)
+$(shell rm -f $(INC_DIR)/vg_environment_version.hpp.tmp)
 
 ###################################
 ## VG source code compilation begins here
@@ -1012,7 +1004,7 @@ clean-vg:
 	$(RM) -f $(ALGORITHMS_SHARED_OBJ_DIR)/*.o $(ALGORITHMS_SHARED_OBJ_DIR)/*.d
 	$(RM) -f $(IO_OBJ_DIR)/*.o $(IO_OBJ_DIR)/*.d
 	$(RM) -f $(IO_SHARED_OBJ_DIR)/*.o $(IO_SHARED_OBJ_DIR)/*.d
-	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
+	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
 
 clean: clean-vcflib
 	$(RM) -r $(UNITTEST_BIN_DIR)
