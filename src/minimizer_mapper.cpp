@@ -3741,7 +3741,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 seeds.back().source = i;
 
                 //Get the zipcode
-                if (minimizer.occs[j].payload == ZipCode::NO_PAYLOAD) {
+                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
                     //If the zipcocde wasn't saved, then calculate it
                     seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                     seeds.back().zipcode.fill_in_full_decoder();

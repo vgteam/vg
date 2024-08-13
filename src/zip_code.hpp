@@ -29,8 +29,10 @@ using namespace std;
 
 
 
-///A struct to store an unpacked version of one node/snarl/chain code
-struct zip_code_t;
+///A struct to interpret the minimizer payload
+///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
+///This can interpret zipcodes to format them as the old payload
+struct MIPayload;
 
 
 /// A struct to be used as a unique identifier for a snarl tree node (node/snarl/chain)
@@ -152,7 +154,6 @@ class ZipCode {
         ///Offsets for chain codes
         const static size_t CHAIN_SIZE = 3;
         const static size_t CHAIN_RANK_IN_SNARL_OFFSET = 0;
-        //For a multicomponent chain, this is the length of the last component, because the real length will always be inf
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         //This tells us if the chain is a multicomponent chain, how many components it has, and if the chain loops
@@ -256,8 +257,7 @@ class ZipCode {
         ///This requires the distance index for irregular snarls (except for a top-level snarl)
         ///Throws an exception if the distance index is not given when it is needed
         ///Doesn't use a given distance index if it isn't needed
-        ///If chain_component_length is true, then get the length of the last component of the multicomponent chain (instead of inf)
-        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr, bool get_chain_component_length=false) const ;
+        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
 
         ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
         size_t get_rank_in_snarl(const size_t& depth) const ;
@@ -320,16 +320,16 @@ class ZipCode {
         /// unit test from the resulting information.
         void dump(std::ostream& out) const;
 
-        ///Unpack the zip code to get a bigger version with random access
-        vector<zip_code_t> unpack_zip_code(nid_t id, const SnarlDistanceIndex& distance_index) const;
+        //TODO: I want to make a struct for holding all values of a code as real values
+
+        ///Fill in a payload with values from the zipcode
+        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
 
         /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
         /// would be the node, also include the node id
         net_identifier_t get_identifier(size_t depth) const;
         const static net_identifier_t get_parent_identifier(const net_identifier_t& child);
 
-    public:
-        constexpr static gbwtgraph::Payload NO_PAYLOAD = {0, 0};
 };
 
 /// Print a code type to a stream
@@ -380,29 +380,34 @@ std::ostream& operator<<(std::ostream& out, const ZipCode& decoder);
 
 
 /**
-    An unpacked version of one node/snarl/chain code
-    Not all values will be set for every type of code
+    The payload for the minimizer index. This stores distance information that gets used in clustering
+    The payload now uses zip codes, so this gets used to go from a zip code to distance information
+    usable by the clusterer
 */
-struct zip_code_t {
-    ZipCode::code_type_t code_type = ZipCode::EMPTY;
+struct MIPayload {    
+    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
+    //typedef std::pair<code_type, code_type> payload_type;
 
-    //TODO: I'd like this to be the root or another placeholder
-    net_handle_t net_handle;
 
-    size_t length = std::numeric_limits<size_t>::max();
-    size_t prefix_sum_or_snarl_rank = std::numeric_limits<size_t>::max();
-    size_t chain_component = std::numeric_limits<size_t>::max();
+    constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
+    constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max();
 
-    //distance from the left side of the child to the start of the snarl
-    //or, for root nodes/chains, start-start connected
-    //start-right and end-left are the same for root nodes/chains
-    size_t distance_start_left = std::numeric_limits<size_t>::max();
-    size_t distance_start_right = std::numeric_limits<size_t>::max();
-    size_t distance_end_left = std::numeric_limits<size_t>::max();
-    size_t distance_end_right = std::numeric_limits<size_t>::max();
 
+    net_handle_t node_handle;
+    net_handle_t parent_handle;
+
+    size_t node_length = std::numeric_limits<size_t>::max();
+    size_t prefix_sum = 0;
+    size_t chain_component = 0;
+    //Depth according to the distance index
+    size_t parent_depth = 0;
+    size_t parent_record_offset = 0;
+
+    ZipCode::code_type_t parent_type = ZipCode::EMPTY;
     bool is_reversed = false;
-    bool is_looping_chain = false;
+    bool is_trivial_chain = false;
+    bool parent_is_chain = false;
+    bool parent_is_root = false;
 }; 
 }
 
