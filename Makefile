@@ -474,7 +474,7 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build
+.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -866,8 +866,10 @@ $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultima
 
 # Auto-git-versioning
 
-# We need to scope this variable here
-GIT_VERSION_FILE_DEPS =
+# Can be overridden from the environment to supply a version if none is on disk.
+VG_GIT_VERSION ?= unknown
+# Clean old path
+$(shell rm -f $(INC_DIR)/vg_git_version.hpp)
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
     # If so, try and make a git version file.
@@ -879,18 +881,19 @@ ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
     # If it's not the same as the old one, replace the old one.
     # If it is the same, do nothing and don't rebuild dependent targets.
     $(info Check Git)
-    # Clean old path
-    $(shell rm -f $(INC_DIR)/vg_git_version.hpp)
     $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(SRC_DIR)/vg_git_version.hpp.tmp)
-    $(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
-    $(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
+	$(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
+	$(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
 else
-    # Just use the version file we have, if any
+    # Just use the version file we have, if any.
     $(info Do not check Git)
-    # Clean old path
-    $(shell rm -f $(INC_DIR)/vg_git_version.hpp)
-    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp ]; then touch $(SRC_DIR)/vg_git_version.hpp; fi;)
+	$(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
 endif
+
+
+# We have a do-nothing target so we can "make version"
+version:
+	@echo "Version information up to date"
 
 # Build an environment version file.
 # If it's not the same as the old one, replace the old one.
