@@ -348,7 +348,7 @@ class ZipCode {
 
         ///Fill in a payload with values from the zipcode
         ///Remember how to get the net handle from the connected component number.
-        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle=nullptr, hash_map<nid_t, net_handle_t>* id_to_net_handle=nullptr) const;
+        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle=nullptr) const;
 
         /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
         /// would be the node, also include the node id
