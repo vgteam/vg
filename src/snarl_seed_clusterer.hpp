@@ -294,10 +294,11 @@ class SnarlDistanceIndexClusterer {
 
             //Set the values needed to cluster a chain
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
-                is_looping_chain = seed->seed->zipcode.get_is_looping_chain(zipcode_depth);
+                ZipCode::chain_code_t chain_code = seed->seed->zipcode.unpack_chain_code(zipcode_depth);
+                is_looping_chain = chain_code.get_is_looping_chain();
                 node_length = zipcode_depth == 0 ? distance_index.chain_minimum_length(containing_net_handle)
-                                                 : seed->seed->zipcode.get_length(zipcode_depth, &distance_index, true);
-                chain_component_end = seed->seed->zipcode.get_last_chain_component(zipcode_depth, true);
+                                                 : chain_code.get_length();
+                chain_component_end = chain_code.get_last_component();
                 is_reversed_in_parent = seed->seed->zipcode.get_is_reversed_in_parent(zipcode_depth);
             }
 
