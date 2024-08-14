@@ -882,12 +882,12 @@ ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
     # If it is the same, do nothing and don't rebuild dependent targets.
     $(info Check Git)
     $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(SRC_DIR)/vg_git_version.hpp.tmp)
-	$(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
-	$(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
+    $(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
+    $(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
 else
     # Just use the version file we have, if any.
     $(info Do not check Git)
-	$(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
+    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
 endif
 
 
