@@ -315,7 +315,8 @@ class ZipCode {
         ///Get the handle of the thing at the given depth. This can be used for anything but is slow,
         /// even for roots and irregular/cyclic snarls. It's a separate function to make sure I
         /// remember that it's slow
-        net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index) const;
+        ///If the child handle is given, get the net handle as the parent of the child, if the address isn't stored
+        net_handle_t get_net_handle_slow(nid_t id, const size_t& depth, const SnarlDistanceIndex* distance_index, const net_handle_t* child_handle=nullptr) const;
 
         ///Get the information that was stored to get the address in the distance index
         ///This is the connected component number for a root structure, or the address of

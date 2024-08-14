@@ -318,7 +318,6 @@ class SnarlDistanceIndexClusterer {
                 //Distance to go backward in the chain and back
                 loop_left = SnarlDistanceIndex::sum(distance_index.get_reverse_loop_value(start_in),
                                                             2*distance_index.minimum_length(start_in));
-                is_reversed_in_parent = false;
 
 
             }

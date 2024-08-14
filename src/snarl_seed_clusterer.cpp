@@ -637,7 +637,10 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
 
             net_handle_t snarl_parent = snarl_problem->has_parent_handle
                                       ? snarl_problem->parent_net_handle
-                                      : distance_index.start_end_traversal_of(snarl_problem->seed->seed->zipcode.get_net_handle_slow(id(snarl_problem->seed->seed->pos), snarl_problem->zipcode_depth-1, &distance_index));
+                                      : distance_index.start_end_traversal_of(snarl_problem->seed->seed->zipcode.get_net_handle_slow(id(snarl_problem->seed->seed->pos), 
+                                                                                                                                     snarl_problem->zipcode_depth-1, 
+                                                                                                                                     &distance_index,
+                                                                                                                                     &(snarl_problem->containing_net_handle)));
             bool new_parent = false;
             if (clustering_problem.net_handle_to_node_problem_index.count(snarl_parent) == 0) {
                 new_parent = true;
@@ -711,7 +714,9 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                             ? chain_problem->parent_net_handle
                             : (chain_problem->zipcode_depth == 0 
                                 ? distance_index.get_root()
-                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode.get_net_handle_slow(id(chain_problem->seed->seed->pos),chain_problem->zipcode_depth-1, &distance_index)));
+                                : distance_index.start_end_traversal_of(chain_problem->seed->seed->zipcode.get_net_handle_slow(id(chain_problem->seed->seed->pos),
+                                                                                                                               chain_problem->zipcode_depth-1, &distance_index, 
+                                                                                                                               &(chain_problem->containing_net_handle))));
 #ifdef DEBUG_CLUSTER
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
