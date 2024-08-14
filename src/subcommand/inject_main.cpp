@@ -10,6 +10,7 @@
 
 #include <subcommand.hpp>
 
+#include "../crash.hpp"
 #include "../utility.hpp"
 #include "../alignment.hpp"
 #include "../vg.hpp"
@@ -124,12 +125,14 @@ int main_inject(int argc, char** argv) {
     Aligner aligner;
 
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
+        set_crash_context(aln.name());
         if (rescore) {
             // Rescore the alignment
             aln.set_score(aligner.score_contiguous_alignment(aln));
         }
 
         alignment_emitter->emit_mapped_single({std::move(aln)});
+        clear_crash_context();
     };
     if (threads > 1) {
         hts_for_each_parallel(file_name, lambda, xgidx);

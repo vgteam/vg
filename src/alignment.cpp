@@ -985,7 +985,7 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, const path_hand
 
     int64_t length = cigar_mapping(b, &mapping);
 
-    Alignment aln = target_alignment(graph, path, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
+    Alignment aln = target_alignment(graph, path, b->core.pos, b->core.pos + length, alignment.name(), on_reverse_strand, mapping);
 
     *alignment.mutable_path() = aln.path();
 
@@ -2761,9 +2761,10 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     size_t node_pos = pos1 - graph->get_position_of_step(step);
     while (edit_idx < cigar_mapping.edit_size()) {
         if (step == graph->path_end(path)) {
-            cerr << "error: walked to end of path before exhausting CIGAR on read:" << endl;
-            cerr << pb2json(cigar_mapping) << endl;
-            exit(1);
+            throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
+                                     " at edit " + std::to_string(edit_idx) +
+                                     "/" + std::to_string(cigar_mapping.edit_size()) +
+                                     " for alignment of feature " + feature);
         }
         handle_t h = graph->get_handle_of_step(step);
         string seq = graph->get_sequence(h);
