@@ -347,7 +347,8 @@ class ZipCode {
         //TODO: I want to make a struct for holding all values of a code as real values
 
         ///Fill in a payload with values from the zipcode
-        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const;
+        ///Remember how to get the net handle from the connected component number.
+        MIPayload get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle=nullptr) const;
 
         /// Get an identifier for the snarl tree node at this depth. If the snarl tree node at this depth
         /// would be the node, also include the node id

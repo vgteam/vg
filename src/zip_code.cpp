@@ -2201,7 +2201,7 @@ void ZipCodeCollection::deserialize(std::istream& in) {
     }
 
 }
-MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index) const {
+MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle) const {
     MIPayload payload;
 
     if (decoder_length() == 1) {
@@ -2216,9 +2216,16 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         //root_identifier
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
-        payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
+        if (component_to_net_handle!= nullptr && component_to_net_handle->count(zip_value)) {
+            payload.node_handle = component_to_net_handle->at(zip_value);
+        } else {
+            payload.node_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)),
                                                                           SnarlDistanceIndex::START_END,
                                                                           SnarlDistanceIndex::CHAIN_HANDLE);
+            if (component_to_net_handle!= nullptr) {
+                component_to_net_handle->emplace(zip_value, payload.node_handle);
+            }
+        }
 
         //Root node length
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
@@ -2247,7 +2254,14 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
 
         if (decoder_length() == 2) {
             //If the node is a child of the root chain
-            payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
+            if (component_to_net_handle!= nullptr && component_to_net_handle->count(zip_value)) {
+                payload.parent_handle = component_to_net_handle->at(zip_value);
+            } else {
+                payload.parent_handle = distance_index.start_end_traversal_of(distance_index.get_handle_from_connected_component(zip_value));
+                if (component_to_net_handle!= nullptr) {
+                    component_to_net_handle->emplace(zip_value, payload.parent_handle);
+                }
+            }
             payload.parent_type = ZipCode::ROOT_CHAIN;
             payload.parent_is_root = true;
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
@@ -2298,10 +2312,18 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
             //Identifier for root snarl
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
             payload.node_handle = payload.parent_handle;
-            payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value));
-            payload.parent_handle = distance_index.get_net_handle_from_values(payload.parent_record_offset,
-                                            SnarlDistanceIndex::START_END,
-                                            SnarlDistanceIndex::ROOT_HANDLE);
+            if (component_to_net_handle!= nullptr && component_to_net_handle->count(zip_value)) {
+                payload.parent_handle = component_to_net_handle->at(zip_value);
+                payload.parent_record_offset = distance_index.get_record_offset(payload.parent_handle);
+            } else {
+                    payload.parent_record_offset = distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value));
+                    payload.parent_handle = distance_index.get_net_handle_from_values(payload.parent_record_offset,
+                                                                                      SnarlDistanceIndex::START_END,
+                                                                                      SnarlDistanceIndex::ROOT_HANDLE);
+                if (component_to_net_handle!= nullptr) {
+                    component_to_net_handle->emplace(zip_value, payload.parent_handle);
+                }
+            }
             payload.parent_type = ZipCode::ROOT_SNARL;
         } else {
             zip_index = decoder[max_depth()-1].offset;

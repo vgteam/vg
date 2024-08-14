@@ -29,13 +29,16 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
     //Wrapper for single ended
 
     vector<SeedCache> seed_caches(seeds.size());
+
+    //Remember how to get the net handle from the connected component number so we don't need to look it up in the distance index
+    hash_map<size_t, net_handle_t> component_to_net_handle;
     for (size_t i = 0 ; i < seeds.size() ; i++) {
 #ifdef DEBUG_CLUSTER
         assert (seeds[i].zipcode.byte_count() != 0) ;
 #endif
         seed_caches[i].seed = &(seeds[i]);
         if (seeds[i].zipcode.byte_count() != 0) {
-            seed_caches[i].payload = seeds[i].zipcode.get_payload_from_zipcode(id(seeds[i].pos), distance_index);
+            seed_caches[i].payload = seeds[i].zipcode.get_payload_from_zipcode(id(seeds[i].pos), distance_index, &component_to_net_handle);
         }
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
@@ -70,6 +73,9 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
     vector<vector<SeedCache>> all_seed_caches;
     all_seed_caches.reserve(all_seeds.size());
 
+    //Remember how to get the net handle from the connected component number so we don't need to look it up in the distance index
+    hash_map<size_t, net_handle_t> component_to_net_handle;
+
     for (size_t read_num = 0 ; read_num < all_seeds.size() ; read_num++) {
         all_seed_caches.emplace_back(all_seeds[read_num].size());
         for (size_t i = 0 ; i < all_seeds[read_num].size() ; i++) {
@@ -79,7 +85,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 #endif
             all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
             if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
-                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode.get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index);
+                all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode.get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index, &component_to_net_handle);
             }
         }
     }
