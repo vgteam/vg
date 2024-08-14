@@ -304,20 +304,21 @@ class SnarlDistanceIndexClusterer {
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
-                node_length = seed->seed->zipcode.get_length(zipcode_depth, &distance_index);
-                net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
-                net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
-                chain_component_start = seed->seed->zipcode.get_chain_component(zipcode_depth);
+                ZipCode::snarl_code_t snarl_code = seed->seed->zipcode.unpack_snarl_code(zipcode_depth);
+                node_length = snarl_code.get_length();
+                chain_component_start = snarl_code.get_chain_component();
                 chain_component_end = node_length == std::numeric_limits<size_t>::max() ? chain_component_start+1
                                                                                       : chain_component_start;
-                prefix_sum_value = SnarlDistanceIndex::sum(
-                                 distance_index.get_prefix_sum_value(start_in),
-                                 distance_index.minimum_length(start_in));
+                prefix_sum_value = snarl_code.get_prefix_sum_or_identifier();
+
+                net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
+                net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 loop_right = SnarlDistanceIndex::sum(distance_index.get_forward_loop_value(end_in),
                                                              2*distance_index.minimum_length(end_in));
                 //Distance to go backward in the chain and back
                 loop_left = SnarlDistanceIndex::sum(distance_index.get_reverse_loop_value(start_in),
                                                             2*distance_index.minimum_length(start_in));
+                is_reversed_in_parent = false;
 
 
             }

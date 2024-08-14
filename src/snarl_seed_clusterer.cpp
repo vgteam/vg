@@ -716,7 +716,7 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
         if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
             cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
-            assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+            assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == distance_index.start_end_traversal_of(parent));
         }
 #endif
         ZipCode::code_type_t parent_type = chain_problem->zipcode_depth == 0 
@@ -1698,9 +1698,10 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(ClusteringProblem& clusterin
                     }
                 } else {
                     if (child_problem.is_reversed_in_parent) {
+                        size_t old_best_right = snarl_problem->read_best_right.second;
                         snarl_problem->read_best_right.second = std::min(snarl_problem->read_best_left.second,
                                                                        child_problem.read_best_left.second);
-                        snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_right.second,
+                        snarl_problem->read_best_left.second = std::min(old_best_right,
                                                                         child_problem.read_best_right.second);
                     } else {
                         snarl_problem->read_best_left.second = std::min(snarl_problem->read_best_left.second,
@@ -2658,6 +2659,7 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_problem(ClusteringProblem& 
     net_handle_t& chain_handle = chain_problem->containing_net_handle;
     SnarlTreeNodeProblem& child_problem = clustering_problem.all_node_problems.at(
             clustering_problem.net_handle_to_node_problem_index.at(current_child.net_handle));
+
     
     //Skip this child if its seeds are all too far away
     bool skip_snarl = false;
@@ -2802,8 +2804,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 size_t read_num = cluster_head.first;
                 pair<size_t, size_t> dists (clustering_problem.all_seeds->at(read_num)->at(cluster_head.second).distance_left,
                                            clustering_problem.all_seeds->at(read_num)->at(cluster_head.second).distance_right);
-                size_t dist_left = child_problem.is_reversed_in_parent ? dists.second : dists.first;
-                size_t dist_right = child_problem.is_reversed_in_parent ? dists.first : dists.second;
+                size_t dist_left = child_is_reversed ? dists.second : dists.first;
+                size_t dist_right = child_is_reversed ? dists.first : dists.second;
     
                 //Distances to the start of the chain, and the end of this node
                 //If this is the last thing in the chain, then the distance to the end of the chain
