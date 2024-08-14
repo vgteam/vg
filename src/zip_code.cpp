@@ -415,7 +415,7 @@ ZipCode::code_type_t ZipCode::get_code_type(const size_t& depth) const {
     }
 }
 
-size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distance_index) const {
+size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distance_index, bool get_chain_component_length) const {
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -443,7 +443,22 @@ size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distan
         for (size_t i = 0 ; i <= ZipCode::CHAIN_LENGTH_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
         }
-        return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+        
+        size_t len = zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+        if (get_chain_component_length || (depth != 0 && decoder[depth-1].is_chain)) {
+            //If this is a node or we want the component length that got saved, return the actual saved value
+            return len;
+        } else {
+            //If we want the length of the last component of the chain, check if it is a multicopmonent chain
+            std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+            if (zip_value != 0) {
+                //If this is a multicomponent (or looping chain, which also must be a multicomponent chain)
+                return std::numeric_limits<size_t>::max();
+            } else {
+                return len;
+            }
+        }
+
     } else {
         //If this is a snarl
 
@@ -950,9 +965,9 @@ ZipCode::chain_code_t ZipCode::get_chain_code(const net_handle_t& chain, const S
     chain_code_t chain_code;
     chain_code.set_snarl_rank_or_identifier(distance_index.get_rank_in_parent(chain));
 
-    chain_code.set_length(distance_index.minimum_length(chain));
-
     bool is_trivial = distance_index.is_trivial_chain(chain) ;
+
+    chain_code.set_length(is_trivial ? distance_index.minimum_length(chain) : distance_index.chain_minimum_length(chain));
 
     bool is_looping_chain(is_trivial ? false : distance_index.is_looping_chain(chain));
     size_t component = is_trivial
@@ -1958,6 +1973,7 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
 
     //Get the decoder offsets
     varint_vector_t decoder_vector;
+    decoder_vector.data.reserve(16-decoded_bytes);
     for (size_t i = decoded_bytes ; i <16 ; i++) {
         uint8_t saved_byte;
         if (decoded_bytes < 8) {
@@ -1974,6 +1990,7 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     //Now go through the varint vector up and add anything that isn't 0
     size_t varint_value= 1;
     size_t varint_index = 0;
+    decoder.reserve(decoder_vector.byte_count());
     decoder.emplace_back(is_chain, 0);
     is_chain = !is_chain;
     if (decoder_vector.byte_count() != 0) {

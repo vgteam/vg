@@ -160,6 +160,8 @@ class ZipCode {
         ///Offsets for chain codes
         const static size_t CHAIN_SIZE = 3;
         const static size_t CHAIN_RANK_IN_SNARL_OFFSET = 0;
+        //This is the distance index's chain_minimum_length, meaning that if it's a multicomponent chain,
+        //then it is the length of the last component.
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         //This tells us if the chain is a multicomponent chain, how many components it has, and if the chain loops
@@ -278,7 +280,7 @@ class ZipCode {
         ///This requires the distance index for irregular snarls (except for a top-level snarl)
         ///Throws an exception if the distance index is not given when it is needed
         ///Doesn't use a given distance index if it isn't needed
-        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) const ;
+        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr, bool get_chain_component_length = false) const ;
 
         ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
         size_t get_rank_in_snarl(const size_t& depth) const ;
