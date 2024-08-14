@@ -2201,7 +2201,8 @@ void ZipCodeCollection::deserialize(std::istream& in) {
     }
 
 }
-MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle) const {
+MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& distance_index, hash_map<size_t, net_handle_t>* component_to_net_handle, 
+                                            hash_map<nid_t, net_handle_t>* id_to_net_handle) const {
     MIPayload payload;
 
     if (decoder_length() == 1) {
@@ -2239,7 +2240,14 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
 
     } else if (decoder[max_depth() - 1].is_chain) {
         //If the parent is a chain
-        payload.node_handle = distance_index.get_node_net_handle(id);
+        if (id_to_net_handle != nullptr && id_to_net_handle->count(id) != 0) {
+            payload.node_handle = id_to_net_handle->at(id);
+        } else {
+            payload.node_handle = distance_index.get_node_net_handle(id);
+            if (id_to_net_handle != nullptr) {
+                id_to_net_handle->emplace(id, payload.node_handle);
+            }
+        }
         payload.parent_is_chain = true;
         payload.parent_is_root = false;
 
@@ -2293,7 +2301,14 @@ MIPayload ZipCode::get_payload_from_zipcode(nid_t id, const SnarlDistanceIndex& 
     } else {
         //If the node is a child of a snarl
         
-        payload.node_handle = distance_index.get_node_net_handle(id);
+        if (id_to_net_handle != nullptr && id_to_net_handle->count(id) != 0) {
+            payload.node_handle = id_to_net_handle->at(id);
+        } else {
+            payload.node_handle = distance_index.get_node_net_handle(id);
+            if (id_to_net_handle != nullptr) {
+                id_to_net_handle->emplace(id, payload.node_handle);
+            }
+        }
         payload.parent_handle = distance_index.get_net_handle_from_values(distance_index.get_record_offset(payload.node_handle),
                                                          SnarlDistanceIndex::START_END,
                                                          SnarlDistanceIndex::CHAIN_HANDLE,
