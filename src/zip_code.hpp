@@ -228,12 +228,12 @@ class ZipCode {
 
         // Get a node_code_t for the given level
         //For a root node, use a chain
-        node_code_t unpack_node_code(size_t zipcode_level);
+        node_code_t unpack_node_code(size_t zipcode_level) const;
         //Return a chain_code_t that will represent the chain in the zip code
         //The actual values being stored, not the raw values
-        chain_code_t unpack_chain_code(size_t zipcode_level);
+        chain_code_t unpack_chain_code(size_t zipcode_level) const;
         //Return a vector of size_ts that will represent the snarl in the zip code
-        snarl_code_t unpack_snarl_code(size_t zipcode_level);
+        snarl_code_t unpack_snarl_code(size_t zipcode_level) const;
 
 
     //////////////////////////////// Stuff for decoding the zipcode

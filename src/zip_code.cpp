@@ -1051,7 +1051,7 @@ ZipCode::snarl_code_t ZipCode::get_irregular_snarl_code(const net_handle_t& snar
     return snarl_code;
 }
 
-ZipCode::node_code_t ZipCode::unpack_node_code(size_t zipcode_level) {
+ZipCode::node_code_t ZipCode::unpack_node_code(size_t zipcode_level) const {
     node_code_t node_code;
     if (zipcode_level == 0) {
         throw std::runtime_error("error: Unpacking a root node. Use a chain instead");
@@ -1077,7 +1077,7 @@ ZipCode::node_code_t ZipCode::unpack_node_code(size_t zipcode_level) {
 
 }
 
-ZipCode::chain_code_t ZipCode::unpack_chain_code(size_t zipcode_level) {
+ZipCode::chain_code_t ZipCode::unpack_chain_code(size_t zipcode_level) const {
     chain_code_t chain_code;
     size_t zip_index = decoder[zipcode_level].offset;
     size_t zip_value;
@@ -1141,7 +1141,7 @@ ZipCode::chain_code_t ZipCode::unpack_chain_code(size_t zipcode_level) {
     return chain_code;
 }
 
-ZipCode::snarl_code_t ZipCode::unpack_snarl_code(size_t zipcode_level) {
+ZipCode::snarl_code_t ZipCode::unpack_snarl_code(size_t zipcode_level) const {
     snarl_code_t snarl_code;
     size_t zip_index = decoder[zipcode_level].offset;
     size_t zip_value;
