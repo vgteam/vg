@@ -266,9 +266,9 @@ then
         # have priveleges to easily install dependencies
         
         # Build the git version file first, so the Docker knows its version
-        make include/vg_git_version.hpp
+        make version
 
-        docker pull ubuntu:18.04
+        docker pull mirror.gcr.io/library/ubuntu:20.04
         docker build --no-cache -t "${DOCKER_TAG}" -f Dockerfile .
         if [ "$?" -ne 0 ]
         then

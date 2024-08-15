@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) {
         if (subcommand->get_category() == vg::subcommand::CommandCategory::DEPRECATED) {
             cerr << endl << "WARNING:[vg] Subcommand '" << argv[1] << "' is deprecated and is no longer being actively maintained. Future releases may eliminate it entirely." << endl << endl;
         }
+        set_crash_context("Starting '" +  std::string(argv[1]) + "' subcommand");
         return (*subcommand)(argc, argv);
     } else {
         // No subcommand found

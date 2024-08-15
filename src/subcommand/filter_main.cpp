@@ -60,7 +60,7 @@ void help_filter(char** argv) {
          << "    -i, --interleaved          assume interleaved input. both ends will be dropped if either fails filter" << endl
          << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
-         << "    -G, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the values are equal" << endl
+         << "    -G, --annotation K[:V]     keep reads if the annotation is present and not false or empty. If a value is given, keep reads if the values are equal" << endl
          << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
          << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl

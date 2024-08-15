@@ -77,7 +77,7 @@ namespace vg {
         return *this;
     }
 
-    multipath_alignment_t::~multipath_alignment_t() noexcept {
+    multipath_alignment_t::~multipath_alignment_t() {
         while (!_annotation.empty()) {
             clear_annotation(_annotation.begin()->first);
         }
@@ -3856,6 +3856,14 @@ namespace vg {
                     cerr << "validation failure on topological order" << endl;
 #endif
                     return false;
+                }
+                for (const auto& connection : subpath.connection()) {
+                    if (connection.next() <= i) {
+#ifdef debug_verbose_validation
+                        cerr << "validation failure on connection topological order" << endl;
+#endif
+                        return false;
+                    }
                 }
             }
         }

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 21
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -45,6 +45,12 @@ is $(vg gbwt -S -Z diploid.gbz) 3 "1 generated + 2 reference samples"
 is $(vg gbwt -C -Z diploid.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z diploid.gbz) 4 "2 generated + 2 reference haplotypes"
 
+# Diploid sampling using a preset
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset diploid -g diploid2.gbz full.gbz
+is $? 0 "diploid sampling using a preset"
+cmp diploid.gbz diploid2.gbz
+is $? 0 "the outputs are identical"
+
 # Giraffe integration, guessed output name
 vg giraffe -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
     -f haplotype-sampling/HG003.fq.gz > default.gam 2> /dev/null
@@ -63,6 +69,6 @@ is $? 0 "the sampled graphs are identical"
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz
-rm -f diploid.gbz
+rm -f diploid.gbz diploid2.gbz
 rm -f full.HG003.gbz full.HG003.dist full.HG003.min default.gam
 rm -f sampled.003HG.gbz sampled.003HG.dist sampled.003HG.min specified.gam

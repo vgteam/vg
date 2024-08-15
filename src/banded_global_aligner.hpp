@@ -60,8 +60,7 @@ namespace vg {
         ///
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false,
-                            const unordered_map<handle_t, bool>* left_align_strand = nullptr);
+                            bool adjust_for_base_quality = false);
         
         
         /// Initializes banded multi-alignment, which computes the top scoring alternate alignments in addition
@@ -79,8 +78,7 @@ namespace vg {
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>& alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false,
-                            const unordered_map<handle_t, bool>* left_align_strand = nullptr);
+                            bool adjust_for_base_quality = false);
         
         ~BandedGlobalAligner();
         
@@ -135,8 +133,7 @@ namespace vg {
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>* alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false,
-                            const unordered_map<handle_t, bool>* left_align_strand = nullptr);
+                            bool adjust_for_base_quality = false);
         
         /// Traceback through dynamic programming matrices to compute alignment
         void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf);
@@ -159,7 +156,7 @@ namespace vg {
         
     public:
         BAMatrix(Alignment& alignment, handle_t node, int64_t top_diag, int64_t bottom_diag,
-                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len, bool left_alignment_strand);
+                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len);
         ~BAMatrix();
         
         /// Use DP to fill the band with alignment scores
@@ -190,9 +187,7 @@ namespace vg {
         int64_t bottom_diag;
         
         handle_t node;
-        
-        bool left_alignment_strand;
-        
+                
         Alignment& alignment;
         
         /// Length of shortest sequence leading to matrix from a source node

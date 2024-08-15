@@ -18,6 +18,11 @@ FROM base AS build
 ARG THREADS=8
 ARG TARGETARCH
 
+# If you didn't `make version` berfore building the Docker, you can provide a
+# version value here to claim to be.
+ARG VG_GIT_VERSION
+ENV VG_GIT_VERSION=${VG_GIT_VERSION:-unknown}
+
 RUN echo build > /stage.txt
 
 RUN apt-get -qq -y update && \
@@ -56,21 +61,12 @@ RUN find . -name CMakeCache.txt | xargs rm -f
 COPY Makefile /vg/Makefile
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" CFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
-# Bring in the sources, which we need in order to build
+# Bring in the sources, which we need in order to build.
 COPY src /vg/src
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
-
-# Bring in any includes we pre-made, like the git version, if present
-COPY include /vg/include
-
-# Make sure version introspection is up to date
-RUN rm -f obj/version.o && . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) obj/version.o
-
-# Announce the version file, which must exist by now
-RUN ls /vg/include && cat /vg/include/vg_git_version.hpp
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
