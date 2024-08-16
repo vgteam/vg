@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace vg;
-using namespace vg::subcommand;
+using namespace vg::subcommand; 
 
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
@@ -47,10 +47,10 @@ void help_surject(char** argv) {
          << "  -b, --bam-output         write BAM to stdout" << endl
          << "  -s, --sam-output         write SAM to stdout" << endl
          << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
-         << "  -T, --max-tail-len N     do not align read tails longer than N" << endl
-         << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)"<< endl
+         << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
+         << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
-         << "  -a, --max-anchors N      use no more than N anchors per target path (default: 200)" << endl
+         << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
          << "  -N, --sample NAME        set this sample name for all reads" << endl
@@ -98,12 +98,12 @@ int main_surject(int argc, char** argv) {
     int min_splice_length = 20;
     size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
-    size_t max_tail_len = std::numeric_limits<size_t>::max();
-    // THis needs to be nullable so that we can use the default for spliced if doing spliced mode.
+    size_t max_tail_len = 10000;
+    // This needs to be nullable so that we can use the default for spliced if doing spliced mode.
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
     bool prune_anchors = false;
-    size_t max_anchors = 200;
+    size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
     bool validate = true;
@@ -266,6 +266,14 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    string file_name = get_input_file_name(optind, argc, argv);
+
+    if (have_input_file(optind, argc, argv)) {
+        // We only take one input file.
+        cerr << "error[vg surject] Extra argument provided: " << get_input_file_name(optind, argc, argv, false) << endl;
+        exit(1);
+    }
+
     // Create a preprocessor to apply read group and sample name overrides in place
     auto set_metadata = [&](Alignment& update) {
         if (!sample_name.empty()) {
@@ -276,8 +284,6 @@ int main_surject(int argc, char** argv) {
         }
     };
 
-    string file_name = get_input_file_name(optind, argc, argv);
-    
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     // If we add an overlay for path position queries, use one optimized for
@@ -324,6 +330,7 @@ int main_surject(int argc, char** argv) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
     }
+    surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
 
     // Count our threads
     int thread_count = vg::get_thread_count();

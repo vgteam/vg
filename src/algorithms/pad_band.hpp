@@ -9,15 +9,25 @@
 
 #include "../handle.hpp"
 #include <vg/vg.pb.h>
+#include <limits>
 
 namespace vg {
 namespace algorithms {
 
 using namespace std;
 
-/// Get a band padding function that uses the expected distance of a random
+/// Get a band padding function that scales with the expected distance of a random
 /// walk, memoized out to the given length.
-std::function<size_t(const Alignment&, const HandleGraph&)> pad_band_random_walk(double band_padding_multiplier = 1.0, size_t band_padding_memo_size = 2000);
+std::function<size_t(const Alignment&, const HandleGraph&)> pad_band_random_walk(double band_padding_multiplier = 1.0,
+                                                                                 size_t band_padding_memo_size = 2000,
+                                                                                 size_t max_padding = std::numeric_limits<size_t>::max());
+
+/// Get a band padding function that scales the expected distance of a random
+/// walk, memoized out to the given length, using the minimum of graph size and
+/// read size as the length.
+std::function<size_t(const Alignment&, const HandleGraph&)> pad_band_min_random_walk(double band_padding_multiplier = 1.0,
+                                                                                     size_t band_padding_memo_size = 2000,
+                                                                                     size_t max_padding = std::numeric_limits<size_t>::max());
 
 /// Get a band padding function that uses a constant value.
 std::function<size_t(const Alignment&, const HandleGraph&)> pad_band_constant(size_t band_padding);

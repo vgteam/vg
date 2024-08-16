@@ -45,7 +45,7 @@
 //#define debug_validate_clusters
 //#define debug_write_minimizers
 // Debug generation of alignments from chains
-//#define debug_chain_alignment
+#define debug_chain_alignment
 
 namespace vg {
 
@@ -1006,6 +1006,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     return mappings;
 }
 
+#define debug
 void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
         const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
         const vector<algorithms::Anchor>& seed_anchors,
@@ -1013,7 +1014,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
         std::vector<algorithms::Anchor>& fragment_anchors, std::vector<size_t>& fragment_source_tree,
         std::vector<std::vector<size_t>>& minimizer_kept_fragment_count, std::vector<double>& multiplicity_by_fragment,
         std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment, 
-        LazyRNG& rng, Funnel& funnel) const{
+        LazyRNG& rng, Funnel& funnel) const {
 
     // Keep track of which fragment each alignment comes from for the funnel
     std::vector<size_t> alignment_source_fragment;
@@ -1420,7 +1421,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                     cerr << log_name() << "Computing fragments over " << anchor_indexes.size() << " anchors" << endl;
                 }
             }
-
 #ifdef debug
             if (show_work) {
                 // Log the chaining problem so we can try it again elsewhere.
@@ -1611,6 +1611,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
     }
 
 }
+#undef debug
 
 void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, 
         const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
@@ -3148,7 +3149,18 @@ Alignment MinimizerMapper::find_chain_alignment(
             link_alignment.check_lengths(gbwt_graph);
             
             // Then the link (possibly empty)
-            append_path(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            {
+                Path link_path = link_alignment.to_path(this->gbwt_graph, aln.sequence());
+#ifdef debug_chain_alignment
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "\t" << pb2json(link_path) << endl;
+                    }
+                }
+#endif
+                append_path(composed_path, std::move(link_path));
+            }
             composed_score += link_alignment.score;
         } else {
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().

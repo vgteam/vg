@@ -192,7 +192,8 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
     vector<path_handle_t> path_handles;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             path_handles.push_back(path_handle);
-        });    
+        });
+    vector<path_handle_t> paths_to_destroy;
     for (path_handle_t& path_handle : path_handles) {
 
         string path_name = graph->get_path_name(path_handle);
@@ -257,9 +258,12 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
         }
 
         if (was_chopped) {
-            graph->destroy_path(path_handle);
+            paths_to_destroy.push_back(path_handle);
         }
     }
+
+    // delete the paths
+    graph->destroy_paths(paths_to_destroy);
 
     DeletableHandleGraph* del_graph = dynamic_cast<DeletableHandleGraph*>(graph);
     // delete the edges

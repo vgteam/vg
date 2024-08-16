@@ -1470,12 +1470,15 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
     if (colon_pos == string::npos) {
         //If there was no colon, then just check for the existence of the annotation
         // or, if it is a boolean value, check that it's true
+        // or, if it is a list, check that it is nonempty
         if (!has_annotation(read, annotation_to_match)) {
             return false;
         }
         google::protobuf::Value value = read.annotation().fields().at(annotation_to_match);
         if (value.kind_case() == google::protobuf::Value::KindCase::kBoolValue) {
             return get_annotation<bool>(read, annotation_to_match);
+        } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
+            return value.list_value().values_size() > 0;
         } else {
             return true;
         }

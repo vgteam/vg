@@ -1,11 +1,11 @@
-#ifndef VG_SUBGRAPH_OVERLAY_HPP_INCLUDED
-#define VG_SUBGRAPH_OVERLAY_HPP_INCLUDED
+#ifndef VG_SUBPATH_OVERLAY_HPP_INCLUDED
+#define VG_SUBPATH_OVERLAY_HPP_INCLUDED
 
 /**
- * \file subgraph_overlay.hpp
+ * \file subpath_overlay.hpp
  *
- * Provides SourceSinkOverlay, a HandleGraph implementation that joins all the
- * heads and tails of a backing graph to single source and sink nodes. 
+ * Provides SubpathOverlay, a PathHandleGraph overlay that presents an subinterval
+ * of a path as a linearized graph.
  *
  */
 
@@ -104,4 +104,4 @@ protected:
 
 }
 
-#endif
+#endif // VG_SUBPATH_OVERLAY_HPP_INCLUDED

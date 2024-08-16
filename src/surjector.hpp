@@ -11,12 +11,14 @@
 #include <sstream>
 #include <algorithm>
 #include <functional>
+#include <limits>
 
 #include "aligner.hpp"
 #include "handle.hpp"
 #include "path.hpp"
 #include <vg/vg.pb.h>
 #include "multipath_alignment.hpp"
+#include "algorithms/pad_band.hpp"
 
 
 namespace vg {
@@ -109,7 +111,7 @@ using namespace std;
         int64_t min_splice_repair_length = 250;
 
         /// the maximum length of a tail that we will try to align
-        size_t max_tail_length = std::numeric_limits<size_t>::max();
+        size_t max_tail_length = 10000;
         
         /// We have a different default max_subgraph_bases_per_read_base to use for spliced alignment.
         static constexpr double SPLICED_DEFAULT_SUBGRAPH_LIMIT = 16 * 1024 * 1024 / 125.0;
@@ -132,12 +134,18 @@ using namespace std;
         
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
-        double low_complexity_p_value = .001;
+        double low_complexity_p_value = .0075;
+        int64_t max_low_complexity_anchor_prune = 40;
+        int64_t max_low_complexity_anchor_trim = 60;
+        int64_t pad_suspicious_anchors_to_length = 12;
+        
+        // A function for computing band padding
+        std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
         
         /// How many anchors (per path) will we use when surjecting using
         /// anchors?
         /// Excessive anchors will be pruned away.
-        size_t max_anchors = 200;
+        size_t max_anchors = std::numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
         
@@ -193,6 +201,9 @@ using namespace std;
         void filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
+        void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
+                                    vector<pair<step_handle_t, step_handle_t>>& step_ranges) const;
         
         /// Compute the widest end-inclusive interval of path positions that
         /// the realigned sequence could align to, or an interval where start >
