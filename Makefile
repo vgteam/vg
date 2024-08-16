@@ -904,7 +904,7 @@ $(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null
 $(shell echo "#define VG_OS \"$(shell uname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
 $(shell echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
 $(shell echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
-$(shell diff $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp >/dev/null || cp $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp)
+$(shell diff $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp)
 $(shell rm -f $(SRC_DIR)/vg_environment_version.hpp.tmp)
 
 ###################################
