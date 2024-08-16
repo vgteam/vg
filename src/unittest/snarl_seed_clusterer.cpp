@@ -3328,6 +3328,7 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
+/*
     TEST_CASE("Failed graph", "[failed_cluster]"){
 
         HashGraph graph;
@@ -3344,29 +3345,11 @@ namespace unittest {
 
 
         vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(15, false, 9);
-        pos_ts[0].emplace_back(19, false, 23);
-        pos_ts[0].emplace_back(12, false, 4);
-        pos_ts[0].emplace_back(7, true, 2);
-        pos_ts[0].emplace_back(3, false, 16);
-        pos_ts[0].emplace_back(1, true, 6);
-        pos_ts[0].emplace_back(8, false, 10);
-        pos_ts[0].emplace_back(1, true, 2);
-        pos_ts[1].emplace_back(18, true, 0);
-        pos_ts[1].emplace_back(2, false, 0);
-        pos_ts[1].emplace_back(5, true, 19);
-        pos_ts[1].emplace_back(7, true, 9);
-        pos_ts[1].emplace_back(12, false, 9);
-        pos_ts[1].emplace_back(8, true, 14);
-        pos_ts[1].emplace_back(7, false, 7);
-        pos_ts[1].emplace_back(4, false, 2);
-        pos_ts[1].emplace_back(17, false, 42);
-        pos_ts[1].emplace_back(18, true, 0);
-        pos_ts[1].emplace_back(16, false, 3);
-        pos_ts[1].emplace_back(11, true, 16);
-        pos_ts[1].emplace_back(2, false, 0);
+pos_ts[1].emplace_back(7, false, 0);
+pos_ts[1].emplace_back(10, false, 0);
+pos_ts[1].emplace_back(8, false, 0);
 
-        vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
+       vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
         for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
                 for (pos_t pos : pos_ts[read_num]) {
 
@@ -3383,6 +3366,7 @@ namespace unittest {
         
         REQUIRE(false);
     }
+    */
     TEST_CASE("Random graphs", "[cluster][cluster_random]"){
 
 
