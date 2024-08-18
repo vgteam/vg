@@ -4181,7 +4181,7 @@ using namespace std;
                     
                     if (found_indel && (walked_to_length < max_low_complexity_anchor_trim || walked_from_length < max_low_complexity_anchor_trim)) {
 #ifdef debug_anchored_surject
-                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked to length " << walked_to_length << ", walked from length " << walked_from_length << ", which is within " << max_low_complexity_anchor_prune << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
+                        cerr << "anchor " << i << " at read pos " << (path_chunk.first.first - sequence.begin()) << " has indel ending at at mapping " << mapping_idx << ", edit " << edit_idx << ", walked to length " << walked_to_length << ", walked from length " << walked_from_length << ", which is within " << max_low_complexity_anchor_trim << " of the " << (left_end ? "left" : "right") << " end of the anchor" << endl;
 #endif
                         
                         // we found an indel in the anchor, now we test whether it's in a low complexity sequence
@@ -4194,6 +4194,15 @@ using namespace std;
                             cerr << "trimming would eliminate the entire anchor, skipping trim from this end" << endl;
 #endif
                             continue;
+                        }
+                        if (trim_end - trim_begin < pad_suspicious_anchors_to_length) {
+                            // we need to get some extra sequence to have power to detect STRs
+                            if (left_end) {
+                                trim_begin = std::max(sequence.begin(), trim_end - pad_suspicious_anchors_to_length);
+                            }
+                            else {
+                                trim_end = std::min(sequence.end(), trim_begin + pad_suspicious_anchors_to_length);
+                            }
                         }
                         
                         // is the entire tail of this anchor low complexity?
@@ -4260,9 +4269,87 @@ using namespace std;
                                 ref_seq.append(graph->get_subsequence(handle, offset, walked_from_length));
                                 step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
                             }
+                            
 #ifdef debug_anchored_surject
-                            cerr << "got reference seqeunce " << ref_seq << endl;
+                            cerr << "got reference sequence " << ref_seq << endl;
 #endif
+                            
+                            if (ref_seq.size() < pad_suspicious_anchors_to_length) {
+                                // we need to pad with additional sequence to have sufficient power to detect STRs
+                                if (left_end) {
+                                    step_handle_t step = ref_chunk.first;
+                                    path_handle_t path = graph->get_path_handle_of_step(step);
+                                    size_t prev_walked = 0;
+                                    size_t walked = std::min<size_t>(pad_suspicious_anchors_to_length - ref_seq.size(),
+                                                                     path_chunk.second.mapping().front().position().offset());
+                                    while (walked < pad_suspicious_anchors_to_length - ref_seq.size()) {
+                                        step = path_rev ? graph->get_next_step(step) : graph->get_previous_step(step);
+                                        if (step == graph->path_end(path) || step == graph->path_front_end(path)) {
+                                            step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
+                                            break;
+                                        }
+                                        prev_walked = walked;
+                                        walked += std::min<size_t>(pad_suspicious_anchors_to_length - ref_seq.size() - walked,
+                                                                   graph->get_length(graph->get_handle_of_step(step)));
+                                    }
+                                    
+                                    std::string padded_seq;
+                                    if (step == ref_chunk.first) {
+                                        size_t offset = path_chunk.second.mapping().front().position().offset();
+                                        handle_t handle = graph->get_handle_of_step(step);
+                                        if (path_rev) {
+                                            handle = graph->flip(handle);
+                                        }
+                                        padded_seq = std::move(graph->get_subsequence(handle, offset - walked, walked));
+                                    }
+                                    else {
+                                        size_t offset = graph->get_length(graph->get_handle_of_step(step)) - (walked - prev_walked);
+                                        while (true) {
+                                            handle_t handle = graph->get_handle_of_step(step);
+                                            if (path_rev) {
+                                                handle = graph->flip(handle);
+                                            }
+                                            if (step == ref_chunk.first) {
+                                                padded_seq.append(graph->get_subsequence(handle, offset,
+                                                                                         path_chunk.second.mapping().front().position().offset() - offset));
+                                                break;
+                                            }
+                                            else {
+                                                padded_seq.append(graph->get_subsequence(handle, offset, graph->get_length(handle) - offset));
+                                            }
+                                            
+                                            step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
+                                            offset = 0;
+                                        }
+                                    }
+                                    padded_seq.append(ref_seq);
+                                    ref_seq = std::move(padded_seq);
+                                }
+                                else {
+                                    size_t offset = path_chunk.second.mapping().back().position().offset();
+                                    for (const auto& edit : path_chunk.second.mapping().back().edit()) {
+                                        offset += edit.from_length();
+                                    }
+                                    step_handle_t step = ref_chunk.second;
+                                    path_handle_t path = graph->get_path_handle_of_step(step);
+                                    while (step != graph->path_end(path) && step != graph->path_front_end(path) &&
+                                           ref_seq.size() < pad_suspicious_anchors_to_length) {
+                                        
+                                        handle_t handle = graph->get_handle_of_step(step);
+                                        if (path_rev) {
+                                            handle = graph->flip(handle);
+                                        }
+                                        ref_seq.append(graph->get_subsequence(handle, offset,
+                                                                              min<size_t>(graph->get_length(handle),
+                                                                                          offset + pad_suspicious_anchors_to_length - ref_seq.size())));
+                                        step = path_rev ? graph->get_previous_step(step) : graph->get_next_step(step);
+                                        offset = 0;
+                                    }
+                                }
+#ifdef debug_anchored_surject
+                                cerr << "padded extracted reference sequence to " << ref_seq << endl;
+#endif
+                            }
                             
                             // is the ref sequence of this tail low complexity?
                             SeqComplexity<6> trim_candidate_ref_complexity(ref_seq.begin(), ref_seq.end());
