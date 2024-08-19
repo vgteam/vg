@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/version.cpp File Reference</title>
+<title>vg: src/vg_environment_version.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -67,77 +67,74 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a> &#124;
 <a href="#define-members">Macros</a>  </div>
   <div class="headertitle">
-<div class="title">version.cpp File Reference</div>  </div>
+<div class="title">vg_environment_version.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="version_8hpp.html">version.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vg__git__version_8hpp.html">vg_git_version.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vg__environment__version_8hpp.html">vg_environment_version.hpp</a>&quot;</code><br />
-<code>#include &lt;iostream&gt;</code><br />
-<code>#include &lt;sstream&gt;</code><br />
-</div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
-Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
+<table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a1e7841038b1293b9a250d8999f6c8ac8"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8">QUOTE</a>(arg)&#160;&#160;&#160;#arg</td></tr>
-<tr class="separator:a1e7841038b1293b9a250d8999f6c8ac8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6a96991688ffe6ae2293f0a4b5f813d2"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="version_8cpp.html#a6a96991688ffe6ae2293f0a4b5f813d2">STR</a>(macro)&#160;&#160;&#160;<a class="el" href="version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8">QUOTE</a>(macro)</td></tr>
-<tr class="separator:a6a96991688ffe6ae2293f0a4b5f813d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a923fcc9a50a1ddbec3aa567d4f91d576"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="version_8cpp.html#a923fcc9a50a1ddbec3aa567d4f91d576">VG_STANDARD_LIBRARY_VERSION</a>&#160;&#160;&#160;&quot;unknown standard library&quot;</td></tr>
-<tr class="separator:a923fcc9a50a1ddbec3aa567d4f91d576"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a018858ebcbef9ca466d11e0f9effd990"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vg__environment__version_8hpp.html#a018858ebcbef9ca466d11e0f9effd990">VG_COMPILER_VERSION</a>&#160;&#160;&#160;&quot;g++ (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0&quot;</td></tr>
+<tr class="separator:a018858ebcbef9ca466d11e0f9effd990"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b1110f54b4fd6d1242837dee0dbc820"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vg__environment__version_8hpp.html#a4b1110f54b4fd6d1242837dee0dbc820">VG_OS</a>&#160;&#160;&#160;&quot;Linux&quot;</td></tr>
+<tr class="separator:a4b1110f54b4fd6d1242837dee0dbc820"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95dd87e623e9d0c99f662e3d2ca6676d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vg__environment__version_8hpp.html#a95dd87e623e9d0c99f662e3d2ca6676d">VG_BUILD_USER</a>&#160;&#160;&#160;&quot;root&quot;</td></tr>
+<tr class="separator:a95dd87e623e9d0c99f662e3d2ca6676d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2baea5938fa1a9b70e6a27ccc59c65d9"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vg__environment__version_8hpp.html#a2baea5938fa1a9b70e6a27ccc59c65d9">VG_BUILD_HOST</a>&#160;&#160;&#160;&quot;runner-7l5efqfrq-project-4-concurrent-0&quot;</td></tr>
+<tr class="separator:a2baea5938fa1a9b70e6a27ccc59c65d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a1e7841038b1293b9a250d8999f6c8ac8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e7841038b1293b9a250d8999f6c8ac8">&#9670;&nbsp;</a></span>QUOTE</h2>
+<a id="a2baea5938fa1a9b70e6a27ccc59c65d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2baea5938fa1a9b70e6a27ccc59c65d9">&#9670;&nbsp;</a></span>VG_BUILD_HOST</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define QUOTE</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">arg</td><td>)</td>
-          <td>&#160;&#160;&#160;#arg</td>
+          <td class="memname">#define VG_BUILD_HOST&#160;&#160;&#160;&quot;runner-7l5efqfrq-project-4-concurrent-0&quot;</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a6a96991688ffe6ae2293f0a4b5f813d2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6a96991688ffe6ae2293f0a4b5f813d2">&#9670;&nbsp;</a></span>STR</h2>
+<a id="a95dd87e623e9d0c99f662e3d2ca6676d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a95dd87e623e9d0c99f662e3d2ca6676d">&#9670;&nbsp;</a></span>VG_BUILD_USER</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define STR</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">macro</td><td>)</td>
-          <td>&#160;&#160;&#160;<a class="el" href="version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8">QUOTE</a>(macro)</td>
+          <td class="memname">#define VG_BUILD_USER&#160;&#160;&#160;&quot;root&quot;</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a923fcc9a50a1ddbec3aa567d4f91d576"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a923fcc9a50a1ddbec3aa567d4f91d576">&#9670;&nbsp;</a></span>VG_STANDARD_LIBRARY_VERSION</h2>
+<a id="a018858ebcbef9ca466d11e0f9effd990"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a018858ebcbef9ca466d11e0f9effd990">&#9670;&nbsp;</a></span>VG_COMPILER_VERSION</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define VG_STANDARD_LIBRARY_VERSION&#160;&#160;&#160;&quot;unknown standard library&quot;</td>
+          <td class="memname">#define VG_COMPILER_VERSION&#160;&#160;&#160;&quot;g++ (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4b1110f54b4fd6d1242837dee0dbc820"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b1110f54b4fd6d1242837dee0dbc820">&#9670;&nbsp;</a></span>VG_OS</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VG_OS&#160;&#160;&#160;&quot;Linux&quot;</td>
         </tr>
       </table>
 </div><div class="memdoc">
