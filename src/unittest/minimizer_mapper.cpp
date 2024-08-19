@@ -9,6 +9,8 @@
 #include "../minimizer_mapper.hpp"
 #include "../build_index.hpp"
 #include "../integrated_snarl_finder.hpp"
+#include "../gbwt_extender.hpp"
+#include "../gbwt_helper.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
 #include "catch.hpp"
@@ -33,6 +35,7 @@ public:
     using MinimizerMapper::longest_detectable_gap_in_range;
     using MinimizerMapper::align_sequence_between;
     using MinimizerMapper::align_sequence_between_consistently;
+    using MinimizerMapper::connect_consistently;
     using MinimizerMapper::to_anchor;
     using MinimizerMapper::fix_dozeu_end_deletions;
 };
@@ -634,59 +637,115 @@ TEST_CASE("MinimizerMapper can align a long tail", "[giraffe][mapping]") {
         REQUIRE(last_edit.to_length() <= std::max(10, last_edit.from_length()));
 }
 
+/// REQUIRE that two Alignments are equal
+static void require_alignments_equal(const Alignment& flipped_aln, const Alignment& aln) {
+    REQUIRE(flipped_aln.path().mapping_size() == aln.path().mapping_size());
+    for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+        const Mapping& flipped_mapping = flipped_aln.path().mapping(i);
+        const Mapping& mapping = aln.path().mapping(i);
+        REQUIRE(flipped_mapping.position().node_id() == mapping.position().node_id());
+        REQUIRE(flipped_mapping.position().offset() == mapping.position().offset());
+        REQUIRE(flipped_mapping.edit_size() == mapping.edit_size());
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            const Edit& flipped_edit = flipped_mapping.edit(j);
+            const Edit& edit = mapping.edit(j);
+            REQUIRE(flipped_edit.from_length() == edit.from_length());
+            REQUIRE(flipped_edit.to_length() == edit.to_length());
+            REQUIRE(flipped_edit.sequence() == edit.sequence());
+        }
+    }
+}
+
 TEST_CASE("MinimizerMapper can produce connecting alignments that are consistent independent of sequence orientation", "[giraffe][mapping]") {
 
     Aligner aligner;
     HashGraph graph;
     
-    // We have a length change and a substitution
-
-    // We have a real path with a mismatch
+    // Make the graph
     auto h1 = graph.create_handle("GAT");
     auto h2 = graph.create_handle("TTTTTTTTT");
     auto h3 = graph.create_handle("TACA");
     graph.create_edge(h1, h2);
     graph.create_edge(h2, h3);
 
-    for (const std::string& test_seq : {"ATTTTTTTTCTTTAC", "ATTTTTTTTTTTTAC", "ATTTTTTTTCTTTTAC", "ATTTTTTTTTTTTTAC", "ATTATTTTAC"}) {
-            
-        Alignment aln;
-        aln.set_sequence(test_seq);
+    // Left anchor should be on start
+    pos_t left_anchor {graph.get_id(h1), false, 1};
+    // Right anchor should be past end
+    pos_t right_anchor {graph.get_id(h3), false, 3};
+    
+    // Make the reverse strand versions of these
+    pos_t rev_left_anchor {graph.get_id(h3), true, 1};
+    pos_t rev_right_anchor {graph.get_id(h1), true, 2};
 
-        Alignment rev_aln;
-        rev_aln.set_sequence(reverse_complement(aln.sequence()));
+    // Make the GBWT
+    std::vector<gbwt::vector_type> paths;
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(graph.get_id(h1), false));
+    paths.back().push_back(gbwt::Node::encode(graph.get_id(h2), false));
+    paths.back().push_back(gbwt::Node::encode(graph.get_id(h3), false));
+    gbwt::GBWT index = get_gbwt(paths);
+
+    // And the GBWTGraph
+    gbwtgraph::SequenceSource source;
+    graph.for_each_handle([&](const handle_t& h) {
+        source.add_node(graph.get_id(h), graph.get_sequence(h));    
+    });
+    gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(index, source);
+
+    // And the extender against it
+    WFAExtender extender(gbwt_graph, aligner);
+
+    std::vector<std::string> test_seqs {"ATTTTTTTTCTTTAC", "ATTTTTTTTTTTTAC", "ATTTTTTTTCTTTTAC", "ATTTTTTTTTTTTTAC", "ATTTTTTCTTAC"};
+
+    SECTION("align_sequence_between_consistently is consistent") {
+        for (const std::string& test_seq : test_seqs) {
+
+            Alignment aln;
+            aln.set_sequence(test_seq);
+
+            Alignment rev_aln;
+            rev_aln.set_sequence(reverse_complement(aln.sequence()));
         
-        // Left anchor should be on start
-        pos_t left_anchor {graph.get_id(h1), false, 1};
-        // Right anchor should be past end
-        pos_t right_anchor {graph.get_id(h3), false, 3};
+            TestMinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+            TestMinimizerMapper::align_sequence_between_consistently(rev_left_anchor, rev_right_anchor, 100, 20, &graph, &aligner, rev_aln);
 
-        pos_t rev_left_anchor {graph.get_id(h3), true, 1};
-        pos_t rev_right_anchor {graph.get_id(h1), true, 2};
-        
-        TestMinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
-        TestMinimizerMapper::align_sequence_between_consistently(rev_left_anchor, rev_right_anchor, 100, 20, &graph, &aligner, rev_aln);
+            // When we flip the reverse-complement alignment forward
+            Alignment flipped_aln = reverse_complement_alignment(rev_aln, [&](id_t node_id) -> int64_t {
+                return graph.get_length(graph.get_handle(node_id));
+            });
 
-        // When we flip the reverse-complement alignment forward
-        Alignment flipped_aln = reverse_complement_alignment(rev_aln, [&](id_t node_id) -> int64_t {
-            return graph.get_length(graph.get_handle(node_id));
-        });
+            // It should be the same alignment
+            require_alignments_equal(flipped_aln, aln);
+        }
+    }
 
-        // It should be the same alignment
-        REQUIRE(flipped_aln.path().mapping_size() == aln.path().mapping_size());
-        for (size_t i = 0; i < aln.path().mapping_size(); i++) {
-            const Mapping& flipped_mapping = flipped_aln.path().mapping(i);
-            const Mapping& mapping = aln.path().mapping(i);
-            REQUIRE(flipped_mapping.position().node_id() == mapping.position().node_id());
-            REQUIRE(flipped_mapping.position().offset() == mapping.position().offset());
-            REQUIRE(flipped_mapping.edit_size() == mapping.edit_size());
-            for (size_t j = 0; j < mapping.edit_size(); j++) {
-                const Edit& flipped_edit = flipped_mapping.edit(j);
-                const Edit& edit = mapping.edit(j);
-                REQUIRE(flipped_edit.from_length() == edit.from_length());
-                REQUIRE(flipped_edit.to_length() == edit.to_length());
-                REQUIRE(flipped_edit.sequence() == edit.sequence());
-            }
+    SECTION("connect_consistently is consistent") {
+        for (const std::string& test_seq : test_seqs) {
+
+            Alignment aln;
+            aln.set_sequence(test_seq);
+
+            Alignment rev_aln;
+            rev_aln.set_sequence(reverse_complement(aln.sequence()));
+
+            // WFA needs a left anchor that starts 1 base earlier
+            pos_t wfa_left_anchor = left_anchor;
+            get_offset(wfa_left_anchor)--;
+            pos_t wfa_rev_left_anchor = rev_left_anchor;
+            get_offset(wfa_rev_left_anchor)--;
+
+            WFAAlignment wfa_aln = TestMinimizerMapper::connect_consistently(aln.sequence(), wfa_left_anchor, right_anchor, extender);
+            *aln.mutable_path() = wfa_aln.to_path(gbwt_graph, aln.sequence());
+            WFAAlignment rev_wfa_aln = TestMinimizerMapper::connect_consistently(rev_aln.sequence(), wfa_rev_left_anchor, rev_right_anchor, extender);
+            *rev_aln.mutable_path() = rev_wfa_aln.to_path(gbwt_graph, rev_aln.sequence());
+
+            // When we flip the reverse-complement alignment forward
+            Alignment flipped_aln = reverse_complement_alignment(rev_aln, [&](id_t node_id) -> int64_t {
+                return graph.get_length(graph.get_handle(node_id));
+            });
+
+            // It should be the same alignment
+            require_alignments_equal(flipped_aln, aln);
         }
     }
 }
