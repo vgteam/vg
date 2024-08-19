@@ -9,6 +9,8 @@ include/
 obj/
 cpp/
 .pre-build
+src/vg_git_version.hpp
+src/vg_environment_version.hpp
 *.o
 vg
 *.a
