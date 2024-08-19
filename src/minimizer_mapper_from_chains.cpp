@@ -2933,7 +2933,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                auto nodes_and_bases = align_sequence_between_consistently(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
@@ -3196,7 +3196,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            auto nodes_and_bases = MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (nodes_and_bases.first > 0) {
@@ -3373,7 +3373,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (stats) {
                     start_time = std::chrono::high_resolution_clock::now();
                 }
-                auto nodes_and_bases = align_sequence_between(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+                auto nodes_and_bases = align_sequence_between_consistently(left_anchor_included, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 if (stats) {
                     stop_time = std::chrono::high_resolution_clock::now();
                     if (nodes_and_bases.first > 0) {
@@ -3687,9 +3687,8 @@ size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, co
 }
 
 std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
-    
-    // TODO: Implement consistent alignment between different orientations of the same problem.
 
+    // This holds node count and node length aligned to.
     std::pair<size_t, size_t> to_return;
 
     // Get the dagified local graph, and the back translation
@@ -3875,7 +3874,54 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     return to_return;
 }
 
+std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+    if (left_anchor < right_anchor) {
+        // Left anchor is unambiguously first, so align as-is
+        return align_sequence_between(left_anchor, right_anchor, max_path_length, max_gap_length, graph, aligner, alignment, alignment_name, max_dp_cells, choose_band_padding);
+    }
+
+    // Otherwise left anchor is equal or greater.
+    // Compute the reverse-complement sequence, which we either need or might break the tie.
+    std::string flipped_sequence = reverse_complement(sequence);
+
+    if (left_anchor == right_anchor && flipped_sequence >= sequence) {
+        // The anchors are tied and the sequence doesn't demand a switch. Align as-is.
+        //
+        // TODO: For palindromic sequences aligned between identical endpoints,
+        // we still might get inconsistencies by read strand in the final
+        // output, since the read around it might be in either orientation
+        // relative to the flow of the reference.
+        return align_sequence_between(left_anchor, right_anchor, max_path_length, max_gap_length, graph, aligner, alignment, alignment_name, max_dp_cells, choose_band_padding);
+    }
+
+    // Now we know a swap is required.
+    
+    // Make a node length getter for flipping alignments
+    auto get_node_length = [&](id_t node_id) -> int64_t {
+        return graph->get_length(graph->get_handle(node_id));
+    };
+    
+    // The anchors face left to right so we need to flip their orientations in addition to swapping them.
+    // align_sequence_between uses between-base positions for anchoring
+    pos_t flipped_left_anchor = is_empty(right_anchor) ? empty_pos_t() : reverse(right_anchor, get_node_length(id(right_anchor)));
+    pos_t flipped_right_anchor = is_empty(left_anchor) ? empty_pos_t() : reverse(left_anchor, get_node_length(id(left_anchor)));
+
+    // Flip the query
+    reverse_complement_alignment_in_place(&alignment, get_node_length); 
+
+    // Do the alignment
+    auto result = align_sequence_between(flipped_left_anchor, flipped_right_anchor, max_path_length, max_gap_length, graph, aligner, alignment, alignment_name, max_dp_cells, choose_band_padding);
+
+    // Flip the answer
+    reverse_complement_alignment_in_place(&alignment, get_node_length);
+
+    // Return the metadata we track
+    return result;
+}
+
 WFAAlignment connect_consistently(const std::string& sequence, const pos_t& left_anchor, const pos_t& right_anchor, const WFAExtender& wfa_extender) {
+
+    // TODO: Deduplicate swap logic with align_sequence_between_consistently
 
     if (left_anchor < right_anchor) {
         // Left anchor is unambiguously first, so align as-is
