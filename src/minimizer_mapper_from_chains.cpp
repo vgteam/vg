@@ -2794,7 +2794,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // We need a WFAExtender to do tail and intervening alignments.
     // Note that the extender expects anchoring matches!!!
-    WFAExtender extender(gbwt_graph, aligner, wfa_error_model); 
+    WFAExtender wfa_extender(gbwt_graph, aligner, wfa_error_model); 
     
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
     auto here_it = chain.begin();
@@ -2845,7 +2845,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            left_alignment = extender.prefix(left_tail, right_anchor);
+            left_alignment = wfa_extender.prefix(left_tail, right_anchor);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 stats->bases.wfa_tail += left_tail_length;
@@ -3086,7 +3086,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            link_alignment = extender.connect(linking_bases, left_anchor, (*next).graph_start());
+            link_alignment = connect_consistently(linking_bases, left_anchor, (*next).graph_start(), wfa_extender);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 stats->bases.wfa_middle += link_length;
@@ -3281,7 +3281,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            right_alignment = extender.suffix(right_tail, left_anchor_excluded);
+            right_alignment = wfa_extender.suffix(right_tail, left_anchor_excluded);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 stats->bases.wfa_tail += right_tail_length;
@@ -3688,6 +3688,8 @@ size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, co
 
 std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     
+    // TODO: Implement consistent alignment between different orientations of the same problem.
+
     std::pair<size_t, size_t> to_return;
 
     // Get the dagified local graph, and the back translation
@@ -3871,6 +3873,48 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     });
 
     return to_return;
+}
+
+WFAAlignment connect_consistently(const std::string& sequence, const pos_t& left_anchor, const pos_t& right_anchor, const WFAExtender& wfa_extender) {
+
+    if (left_anchor < right_anchor) {
+        // Left anchor is unambiguously first, so align as-is
+        return wfa_extender.connect(sequence, left_anchor, right_anchor);
+    }
+
+    // Otherwise left anchor is equal or greater.
+    // Compute the reverse-complement sequence, which we either need or might break the tie.
+    std::string flipped_sequence = reverse_complement(sequence);
+
+    if (left_anchor == right_anchor && flipped_sequence >= sequence) {
+        // The anchors are tied and the sequence doesn't demand a switch. Align as-is.
+        //
+        // TODO: For palindromic sequences aligned between identical endpoints,
+        // we still might get inconsistencies by read strand in the final
+        // output, since the read around it might be in either orientation
+        // relative to the flow of the reference.
+        return wfa_extender.connect(sequence, left_anchor, right_anchor);
+    }
+
+    // Now we know a swap is required.
+    
+    // TODO: We probably don't *really* need to track orientation here
+    handle_t left_handle = wfa_extender.graph->get_handle(id(left_anchor), is_reverse(left_anchor));
+    handle_t right_handle = wfa_extender.graph->get_handle(id(right_anchor), is_reverse(right_anchor));
+    
+    // The anchors face left to right so we need to flip their orientations in addition to swapping them.
+    // Also note that WFAExtender works with base positions and not intervening positions.
+    pos_t flipped_left_anchor = reverse_base_pos(right_anchor, wfa_extender.graph->get_length(right_handle));
+    pos_t flipped_right_anchor = reverse_base_pos(left_anchor, wfa_extender.graph->get_length(left_handle));
+   
+    // Make the reverse alignment
+    WFAAlignment result = wfa_extender.connect(flipped_sequence, flipped_left_anchor, flipped_right_anchor);
+    
+    // Put the alignment back, which needs the final alignment's sequence (see WFAExtender's prefix() implementation)
+    result.flip(wfa_extender.graph, sequence);
+    
+    // And ship it
+    return result;
 }
 
 std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
