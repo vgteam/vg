@@ -3881,10 +3881,17 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(c
     }
 
     // Otherwise left anchor is equal or greater.
-    // Compute the reverse-complement sequence, which we either need or might break the tie.
-    std::string flipped_sequence = reverse_complement(sequence);
 
-    if (left_anchor == right_anchor && flipped_sequence >= sequence) {
+    // Make a node length getter for flipping alignments
+    auto get_node_length = [&](id_t node_id) -> int64_t {
+        return graph->get_length(graph->get_handle(node_id));
+    };
+    
+
+    // Compute the reverse-complement sequence, which we either need or might break the tie.
+    Alignment flipped_query = reverse_complement_alignment(alignment, get_node_length);
+
+    if (left_anchor == right_anchor && flipped_query.sequence() >= alignment.sequence()) {
         // The anchors are tied and the sequence doesn't demand a switch. Align as-is.
         //
         // TODO: For palindromic sequences aligned between identical endpoints,
@@ -3896,30 +3903,24 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(c
 
     // Now we know a swap is required.
     
-    // Make a node length getter for flipping alignments
-    auto get_node_length = [&](id_t node_id) -> int64_t {
-        return graph->get_length(graph->get_handle(node_id));
-    };
     
     // The anchors face left to right so we need to flip their orientations in addition to swapping them.
     // align_sequence_between uses between-base positions for anchoring
     pos_t flipped_left_anchor = is_empty(right_anchor) ? empty_pos_t() : reverse(right_anchor, get_node_length(id(right_anchor)));
     pos_t flipped_right_anchor = is_empty(left_anchor) ? empty_pos_t() : reverse(left_anchor, get_node_length(id(left_anchor)));
 
-    // Flip the query
-    reverse_complement_alignment_in_place(&alignment, get_node_length); 
-
     // Do the alignment
-    auto result = align_sequence_between(flipped_left_anchor, flipped_right_anchor, max_path_length, max_gap_length, graph, aligner, alignment, alignment_name, max_dp_cells, choose_band_padding);
+    auto result = align_sequence_between(flipped_left_anchor, flipped_right_anchor, max_path_length, max_gap_length, graph, aligner, flipped_query, alignment_name, max_dp_cells, choose_band_padding);
 
-    // Flip the answer
-    reverse_complement_alignment_in_place(&alignment, get_node_length);
+    // Flip and send the answer
+    reverse_complement_alignment_in_place(&flipped_query, get_node_length);
+    alignment = std::move(flipped_query);
 
     // Return the metadata we track
     return result;
 }
 
-WFAAlignment connect_consistently(const std::string& sequence, const pos_t& left_anchor, const pos_t& right_anchor, const WFAExtender& wfa_extender) {
+WFAAlignment MinimizerMapper::connect_consistently(const std::string& sequence, const pos_t& left_anchor, const pos_t& right_anchor, const WFAExtender& wfa_extender) {
 
     // TODO: Deduplicate swap logic with align_sequence_between_consistently
 
@@ -3945,8 +3946,8 @@ WFAAlignment connect_consistently(const std::string& sequence, const pos_t& left
     // Now we know a swap is required.
     
     // TODO: We probably don't *really* need to track orientation here
-    handle_t left_handle = wfa_extender.graph->get_handle(id(left_anchor), is_reverse(left_anchor));
-    handle_t right_handle = wfa_extender.graph->get_handle(id(right_anchor), is_reverse(right_anchor));
+    handle_t left_handle = wfa_extender.graph->get_handle(id(left_anchor), is_rev(left_anchor));
+    handle_t right_handle = wfa_extender.graph->get_handle(id(right_anchor), is_rev(right_anchor));
     
     // The anchors face left to right so we need to flip their orientations in addition to swapping them.
     // Also note that WFAExtender works with base positions and not intervening positions.
@@ -3957,7 +3958,7 @@ WFAAlignment connect_consistently(const std::string& sequence, const pos_t& left
     WFAAlignment result = wfa_extender.connect(flipped_sequence, flipped_left_anchor, flipped_right_anchor);
     
     // Put the alignment back, which needs the final alignment's sequence (see WFAExtender's prefix() implementation)
-    result.flip(wfa_extender.graph, sequence);
+    result.flip(*wfa_extender.graph, sequence);
     
     // And ship it
     return result;
