@@ -32,6 +32,7 @@ public:
     using MinimizerMapper::with_dagified_local_graph;
     using MinimizerMapper::longest_detectable_gap_in_range;
     using MinimizerMapper::align_sequence_between;
+    using MinimizerMapper::align_sequence_between_consistently;
     using MinimizerMapper::to_anchor;
     using MinimizerMapper::fix_dozeu_end_deletions;
 };
@@ -631,6 +632,63 @@ TEST_CASE("MinimizerMapper can align a long tail", "[giraffe][mapping]") {
         REQUIRE(last_mapping.edit_size() > 0);
         auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
         REQUIRE(last_edit.to_length() <= std::max(10, last_edit.from_length()));
+}
+
+TEST_CASE("MinimizerMapper can produce connecting alignments that are consistent independent of sequence orientation", "[giraffe][mapping]") {
+
+    Aligner aligner;
+    HashGraph graph;
+    
+    // We have a length change and a substitution
+
+    // We have a real path with a mismatch
+    auto h1 = graph.create_handle("GAT");
+    auto h2 = graph.create_handle("TTTTTTTTT");
+    auto h3 = graph.create_handle("TACA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+
+    for (const std::string& test_seq : {"ATTTTTTTTCTTTAC", "ATTTTTTTTTTTTAC", "ATTTTTTTTCTTTTAC", "ATTTTTTTTTTTTTAC", "ATTATTTTAC"}) {
+            
+        Alignment aln;
+        aln.set_sequence(test_seq);
+
+        Alignment rev_aln;
+        rev_aln.set_sequence(reverse_complement(aln.sequence()));
+        
+        // Left anchor should be on start
+        pos_t left_anchor {graph.get_id(h1), false, 1};
+        // Right anchor should be past end
+        pos_t right_anchor {graph.get_id(h3), false, 3};
+
+        pos_t rev_left_anchor {graph.get_id(h3), true, 1};
+        pos_t rev_right_anchor {graph.get_id(h1), true, 2};
+        
+        TestMinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+        TestMinimizerMapper::align_sequence_between_consistently(rev_left_anchor, rev_right_anchor, 100, 20, &graph, &aligner, rev_aln);
+
+        // When we flip the reverse-complement alignment forward
+        Alignment flipped_aln = reverse_complement_alignment(rev_aln, [&](id_t node_id) -> int64_t {
+            return graph.get_length(graph.get_handle(node_id));
+        });
+
+        // It should be the same alignment
+        REQUIRE(flipped_aln.path().mapping_size() == aln.path().mapping_size());
+        for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+            const Mapping& flipped_mapping = flipped_aln.path().mapping(i);
+            const Mapping& mapping = aln.path().mapping(i);
+            REQUIRE(flipped_mapping.position().node_id() == mapping.position().node_id());
+            REQUIRE(flipped_mapping.position().offset() == mapping.position().offset());
+            REQUIRE(flipped_mapping.edit_size() == mapping.edit_size());
+            for (size_t j = 0; j < mapping.edit_size(); j++) {
+                const Edit& flipped_edit = flipped_mapping.edit(j);
+                const Edit& edit = mapping.edit(j);
+                REQUIRE(flipped_edit.from_length() == edit.from_length());
+                REQUIRE(flipped_edit.to_length() == edit.to_length());
+                REQUIRE(flipped_edit.sequence() == edit.sequence());
+            }
+        }
+    }
 }
 
 TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph without extraneous tips", "[giraffe][mapping]") {
