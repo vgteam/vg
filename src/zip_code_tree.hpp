@@ -602,7 +602,6 @@ class ZipCodeForest {
     ///  The first seed in the chain will need to be found by looping through zip_code_tree
     struct child_info_t {
 
-        ZipCodeTree::tree_item_type_t type;  //the type of the item
 
         //A value associated with the item, either the offset in a chain, index of the snarl 
         //child start
@@ -612,10 +611,18 @@ class ZipCodeForest {
         //added to edges in the snarl
         std::pair<size_t, size_t> distances;
 
+        size_t chain_component : 26; //If the item is a child of a chain, its chain component
+
+        ZipCodeTree::tree_item_type_t type : 5;  //the type of the item
+
+
         //Is the sibling reversed. 
         //This is only used for children of snarls, to indicate that the child is traversed 
         //backwards 
         bool is_reversed = false;
+
+        child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) :
+            type(type), value(value) {}
     };
 
     /// This gets used for sorting. It represents one interval along zipcode_sort_order, which 
