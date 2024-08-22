@@ -96,6 +96,7 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
 
     //Remember the start of the chain and its prefix sum value as a child of the chain
     forest_state.sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0});
+    forest_state.sibling_indices_at_depth[depth].back().chain_component = 0;
 
     //And, if it is the child of a snarl, then remember the chain as a child of the snarl
     if (depth != 0) {
@@ -352,9 +353,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
         //for everything except the first thing in a node/chain, we need to add the edge
 
         size_t distance_between;
-        if (previous_offset > current_offset) {
+        if (!is_trivial_chain && !current_type == ZipCode::ROOT_NODE && forest_state.sibling_indices_at_depth[chain_depth][0].chain_component != current_seed.zipcode.get_chain_component(depth)) {
             //If the parent is a multicomponent chain, then they might be in different components
-            //TODO: This won't catch all cases of different components in the chain
             distance_between = std::numeric_limits<size_t>::max();
         } else {
             distance_between = current_offset - previous_offset;
@@ -395,6 +395,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             //The first sibling in the chain is now the chain start, not the previous seed, so replace it
             forest_state.sibling_indices_at_depth[chain_depth].pop_back();
             forest_state.sibling_indices_at_depth[chain_depth].push_back({ZipCodeTree::CHAIN_START, 0}); 
+            forest_state.sibling_indices_at_depth[chain_depth].back().chain_component = 0;
 
         } else if (distance_between > forest_state.distance_limit) { 
             //If this is too far from the previous thing, but inside a snarl
@@ -547,6 +548,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
          current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE) ? ZipCodeTree::SEED 
                                                                               : ZipCodeTree::SNARL_START,
          current_offset}); 
+    if (!is_trivial_chain && !current_type == ZipCode::ROOT_NODE) {
+        forest_state.sibling_indices_at_depth[chain_depth].back().chain_component = current_seed.zipcode.get_chain_component(depth);
+    }
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Add sibling with type " << current_type << endl;
 #endif
@@ -622,6 +626,10 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                     ? ZipCodeTree::SEED 
                     : ZipCodeTree::SNARL_START,
                 SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge)});
+            //If it was in the first component, then this is correct. If it was in a later component, then it was too 
+            //far away anyway so it doesn't matter
+            //TODO: I think this might cause problems if it was a looping chain
+            forest_state.sibling_indices_at_depth[depth-1].back().chain_component = 0;
 
 
             //At this point, the open_chain for the parent chain is either before the removed snarl, the snarl itself,
@@ -691,6 +699,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
 #endif
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
             forest_state.sibling_indices_at_depth[depth-1].push_back({ ZipCodeTree::CHAIN_START, 0});
+            forest_state.sibling_indices_at_depth[depth-1].back().chain_component = 0;
         }
     } else {
 
@@ -2574,6 +2583,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                 //Remember the start of the chain
                 forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
+                forest_state.sibling_indices_at_depth[0].back().chain_component = 0;
 
                 //If this is a node, then the interval contains everything in it, so add the seeds and close the chain here
                 for (size_t seed_i = current_interval.interval_start ; seed_i < current_interval.interval_end ; seed_i++) {
@@ -2595,6 +2605,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                 //Remember the start of the chain
                 forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
+                forest_state.sibling_indices_at_depth[0].back().chain_component = 0;
+
             }                       
         } else if (forest_state.open_intervals.back().code_type == ZipCode::CHAIN || 
                    forest_state.open_intervals.back().code_type == ZipCode::ROOT_CHAIN ||

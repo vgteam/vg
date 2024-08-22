@@ -670,7 +670,7 @@ class ZipCodeForest {
     struct sort_value_t {
         private:
         size_t sort_value;
-        ZipCode::code_type_t code_type;
+        ZipCode::code_type_t code_type : 5;
 
         // For chains, this is used to indicate the order of the child of a chain
         // Since the offset stored represents the space between nucleotides, two positions on different nodes
