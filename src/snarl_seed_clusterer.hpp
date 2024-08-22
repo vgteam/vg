@@ -70,42 +70,23 @@ class SnarlDistanceIndexClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
-            //TODO: unique_ptr?
-            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
 
             Seed() = default;
-            Seed(pos_t pos, size_t source) : pos(pos), source(source) {}
             Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
-                ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
-                zipcode_decoder.reset(decoder);
-            }
-            Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
-                pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
-                if (zipcode_decoder) {
-                    zipcode_decoder->zipcode = &zipcode;
-                }
+                zipcode.fill_in_full_decoder();
             }
 
             //Move constructor
             Seed (Seed&& other) :
                 pos(std::move(other.pos)),
                 source(std::move(other.source)),
-                zipcode(std::move(other.zipcode)),
-                zipcode_decoder(std::move(other.zipcode_decoder)) {
-                if (zipcode_decoder) {
-                    zipcode_decoder->zipcode = &zipcode;
-                }
-            }
+                zipcode(std::move(other.zipcode)){}
 
             //Move assignment operator
             Seed& operator=(Seed&& other) {
                 pos = std::move(other.pos);
                 source = std::move(other.source);
                 zipcode = std::move(other.zipcode);
-                zipcode_decoder = std::move(other.zipcode_decoder);
-                if (zipcode_decoder) {
-                    zipcode_decoder->zipcode = &zipcode;
-                }
                 return *this;
             }
         };
@@ -116,15 +97,10 @@ class SnarlDistanceIndexClusterer {
         // TODO: This will copy information from the seed, since we need per-seed information anyways
         // and some of it needs to be mutable, it's simpler than keeping around two collections of Seeds
         struct SeedCache{
+            const Seed* seed;
 
-            pos_t pos;
-
-            //TODO: This gets copied because it needs to be mutable
-            //Cached values (zip codes) from the minimizer
-            ZipCode zipcode;
-
-            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
-            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
+            //TODO: I think I can skip the zipcode now since I have the payload
+            MIPayload payload;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -132,7 +108,9 @@ class SnarlDistanceIndexClusterer {
             //to the right side of the node, relative to the chain
             size_t distance_left = std::numeric_limits<size_t>::max();
             size_t distance_right = std::numeric_limits<size_t>::max();
-            size_t chain_component = std::numeric_limits<size_t>::max();
+            //Values from the payload that we're saving
+            size_t payload_prefix_sum = std::numeric_limits<size_t>::max();
+            size_t payload_node_length = std::numeric_limits<size_t>::max();
 
         };
 
@@ -252,14 +230,17 @@ class SnarlDistanceIndexClusterer {
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
+
+
+
             //The parent and grandparent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
             net_handle_t grandparent_net_handle;
 
-            //The boundary node of containing_net_handle, for a snarl or chain
-            //if it is a snarl, then this is the actual node, not the sentinel 
-            net_handle_t end_in;
+            //One representative seed so we can get the zipcode and stuff
+            const SeedCache* seed;
+            size_t zipcode_depth;
 
             //Minimum length of a node or snarl
             //If it is a chain, then it is distance_index.chain_minimum_length(), which is
@@ -288,41 +269,50 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index) :
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, 
+                                  const SeedCache* seed, size_t zipcode_depth) :
                 containing_net_handle(std::move(net)),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                seed(seed),
+                zipcode_depth(zipcode_depth) {
                 read_cluster_heads.reserve(seed_count);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
-            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, size_t node_length, size_t prefix_sum, size_t component) :
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, 
+                                 size_t node_length, size_t prefix_sum, size_t component, const SeedCache* seed, size_t zipcode_depth) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
                 chain_component_start(component),
                 chain_component_end(component),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                seed(seed),
+                zipcode_depth(zipcode_depth) {
                     read_cluster_heads.reserve(seed_count);
             }
 
             //Set the values needed to cluster a chain
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
-                is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
-                node_length = distance_index.chain_minimum_length(containing_net_handle);
-                end_in = distance_index.get_bound(containing_net_handle, true, true);
-                chain_component_end = distance_index.get_chain_component(end_in, true);
+                ZipCode::chain_code_t chain_code = seed->seed->zipcode.unpack_chain_code(zipcode_depth);
+                is_looping_chain = chain_code.get_is_looping_chain();
+                node_length = zipcode_depth == 0 ? distance_index.chain_minimum_length(containing_net_handle)
+                                                 : chain_code.get_length();
+                chain_component_end = chain_code.get_last_component();
+                is_reversed_in_parent = seed->seed->zipcode.get_is_reversed_in_parent(zipcode_depth);
             }
 
             //Set the values needed to cluster a snarl
             void set_snarl_values(const SnarlDistanceIndex& distance_index) {
-                node_length = distance_index.minimum_length(containing_net_handle);
+                ZipCode::snarl_code_t snarl_code = seed->seed->zipcode.unpack_snarl_code(zipcode_depth);
+                node_length = snarl_code.get_length();
+                chain_component_start = snarl_code.get_chain_component();
+                chain_component_end = node_length == std::numeric_limits<size_t>::max() ? chain_component_start+1
+                                                                                      : chain_component_start;
+                prefix_sum_value = snarl_code.get_prefix_sum_or_identifier();
+
                 net_handle_t start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
-                end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
-                chain_component_start = distance_index.get_chain_component(start_in);
-                chain_component_end = distance_index.get_chain_component(end_in);
-                prefix_sum_value = SnarlDistanceIndex::sum(
-                                 distance_index.get_prefix_sum_value(start_in),
-                                 distance_index.minimum_length(start_in));
+                net_handle_t end_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 loop_right = SnarlDistanceIndex::sum(distance_index.get_forward_loop_value(end_in),
                                                              2*distance_index.minimum_length(end_in));
                 //Distance to go backward in the chain and back
@@ -445,6 +435,7 @@ class SnarlDistanceIndexClusterer {
 
                 net_handle_to_node_problem_index.reserve(5*seed_count);
                 all_node_problems.reserve(5*seed_count);
+                parent_snarls.reserve(seed_count);
                 root_children.reserve(seed_count);
             }
         };
