@@ -27,14 +27,12 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
         //graph.to_dot(cerr);
 
         SECTION( "One seed" ) {
  
             id_t seed_nodes[] = {1};
-            //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
@@ -252,7 +250,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -423,7 +420,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -620,7 +616,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
         //graph.to_dot(cerr);
 
@@ -1139,7 +1134,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
         //graph.to_dot(cerr);
 
@@ -1194,7 +1188,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
         //graph.to_dot(cerr);
 
@@ -1251,7 +1244,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
 
       
@@ -1350,7 +1342,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
       
         //graph.to_dot(cerr);
 
@@ -1502,7 +1493,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -1783,8 +1773,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-        cerr << distance_index.net_handle_as_string(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))) << endl;
         
         //graph.to_dot(cerr);
 
@@ -1939,7 +1927,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
        
         //graph.to_dot(cerr);
 
@@ -2006,7 +1993,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
         ofstream out ("testGraph.hg");
         graph.serialize(out);
@@ -2077,7 +2063,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
         //graph.to_dot(cerr);
 
@@ -2187,7 +2172,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
 
         //graph.to_dot(cerr);
@@ -2255,7 +2239,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
 
         //graph.to_dot(cerr);
@@ -2306,7 +2289,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
   
 
@@ -2821,9 +2803,6 @@ namespace unittest {
             positions.emplace_back(make_pos_t(5, false, 0), 17);
             positions.emplace_back(make_pos_t(7, false, 0), 18);
 
-        distance_index.for_each_child(distance_index.get_root(), [&](net_handle_t child) {
-            cerr << distance_index.net_handle_as_string(child) << endl;
-        });
             
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             vector<MinimizerMapper::Minimizer> minimizers;
@@ -2874,7 +2853,6 @@ namespace unittest {
 
 
 
-        vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (auto pos : positions) {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, pos.first);
@@ -2892,6 +2870,67 @@ namespace unittest {
         zip_forest.validate_zip_forest(distance_index, &seeds);
     }
     */
+
+    TEST_CASE( "zipcode tree simple chain with multiple connected components",
+                   "[zip_tree]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("T");
+        Node* n8 = graph.create_node("TTTTTTTTT");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n7);
+        Edge* e8 = graph.create_edge(n6, n7);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster on the same node plus extra node" ) {
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(4, false, 0), 0);
+            positions.emplace_back(make_pos_t(4, false, 1), 1);
+            positions.emplace_back(make_pos_t(4, false, 3), 2);
+            positions.emplace_back(make_pos_t(8, false, 3), 3);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+
+            for (size_t i = 0 ; i < positions.size() ; ++i) {
+                auto pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.print_self(&seeds, &minimizer_vector);
+            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+        }
+    }
+            
 
 
 
@@ -2913,7 +2952,6 @@ namespace unittest {
             IntegratedSnarlFinder snarl_finder(graph);
             SnarlDistanceIndex distance_index;
             fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-            SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
             vector<id_t> all_nodes;
             graph.for_each_handle([&](const handle_t& h)->bool{
