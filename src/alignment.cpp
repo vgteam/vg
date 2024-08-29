@@ -2697,6 +2697,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                 Mapping* last_mapping = aln.mutable_path()->mutable_mapping(aln.path().mapping_size() - 1);
                 *last_mapping->add_edit() = edit;
                 ++edit_idx;
+                continue;
             } else {
                 // We've gone off the end of the contig with something other than a softclip
                 throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
