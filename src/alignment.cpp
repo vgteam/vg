@@ -2689,9 +2689,20 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     size_t node_pos = pos1 - graph->get_position_of_step(step);
     while (edit_idx < cigar_mapping.edit_size()) {
         if (step == graph->path_end(path)) {
-            cerr << "error: walked to end of path before exhausting CIGAR on read:" << endl;
-            cerr << pb2json(cigar_mapping) << endl;
-            exit(1);
+            if (edit.from_length() == 0 && aln.path().mapping_size() != 0) {
+                // This is a softclip off the end of the contig.
+                // We can add it to the last mapping as an edit
+                assert(offset_in_edit == 0);
+                Mapping* last_mapping = aln.mutable_path()->mutable_mapping(aln.path().mapping_size() - 1);
+                *last_mapping->add_edit() = edit;
+                ++edit_idx;
+            } else {
+                // We've gone off the end of the contig with something other than a softclip
+                throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
+                                         " at edit " + std::to_string(edit_idx) +
+                                         "/" + std::to_string(cigar_mapping.edit_size()) +
+                                         " for alignment of feature " + feature);
+            }
         }
         handle_t h = graph->get_handle_of_step(step);
         string seq = graph->get_sequence(h);
