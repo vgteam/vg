@@ -2761,6 +2761,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     size_t node_pos = pos1 - graph->get_position_of_step(step);
     while (edit_idx < cigar_mapping.edit_size()) {
         if (step == graph->path_end(path)) {
+            const auto& edit = cigar_mapping.edit(edit_idx);
             if (edit.from_length() == 0 && aln.path().mapping_size() != 0) {
                 // This is a softclip off the end of the contig.
                 // We can add it to the last mapping as an edit
