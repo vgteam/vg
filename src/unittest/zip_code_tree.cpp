@@ -2676,7 +2676,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
-    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree]") {
+    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree][bug]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGGGGGGG");
@@ -2691,8 +2691,8 @@ namespace unittest {
         Edge* e5 = graph.create_edge(n3, n4, false, true);
        
 
-        //ofstream out ("testGraph.hg");
-        //graph.serialize(out);
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
@@ -2758,6 +2758,26 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
             zip_forest.print_self(&seeds, &minimizers);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+        }
+        SECTION( "Remove one chain" ) {
+            vector<pos_t> positions;
+            positions.emplace_back(4, false, 4);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.print_self(&seeds, &minimizers);
+            REQUIRE(zip_forest.trees.size()==1);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }

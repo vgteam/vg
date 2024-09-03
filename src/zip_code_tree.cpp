@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -185,49 +185,59 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
             //If the distance to the end is greater than the distance limit, and there was something
             // in the chain with a large distance to the thing before it, then splice out a chain slice
 
-            //Add a new tree
-            trees.emplace_back();
 
             if (trees[forest_state.active_tree_index].zip_code_tree.at(forest_state.open_chains.back().first).get_type() 
                     == ZipCodeTree::CHAIN_START) {
                 //If we're copying the entire chain child of a snarl
+
+                //But not if it would leave the snarl empty
+                //depth==1 would mean that it's a root snarl
+                cerr << "Depth " << depth << " latest sibling in parent " << forest_state.sibling_indices_at_depth[0].size() << " " << forest_state.sibling_indices_at_depth[0].back().type << endl; 
+                if (!(depth == 1 && forest_state.sibling_indices_at_depth[0].size() == 1 &&
+                    (forest_state.intervals_to_process.empty()
+                    || forest_state.intervals_to_process.front().depth <= forest_state.open_intervals.at(forest_state.open_intervals.size()-2).depth))) {
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "Copy the entire chain to a new subtree" << endl;
+                    cerr << "Copy the entire chain to a new subtree" << endl;
 #endif
-                if (forest_state.open_chains.back().first != 0) {
+                    //Add a new tree
+                    trees.emplace_back();
+                    if (forest_state.open_chains.back().first != 0) {
 
-                    //Copy everything in the child chain into the new tree
-                    trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
-                        std::make_move_iterator(trees[forest_state.active_tree_index].zip_code_tree.begin() 
-                            + forest_state.open_chains.back().first),
-                        std::make_move_iterator(trees[forest_state.active_tree_index].zip_code_tree.end()));
+                        //Copy everything in the child chain into the new tree
+                        trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
+                            std::make_move_iterator(trees[forest_state.active_tree_index].zip_code_tree.begin() 
+                                + forest_state.open_chains.back().first),
+                            std::make_move_iterator(trees[forest_state.active_tree_index].zip_code_tree.end()));
 
-                    //Remove the child chain from the active tree
-                    trees[forest_state.active_tree_index].zip_code_tree.erase(
-                           trees[forest_state.active_tree_index].zip_code_tree.begin() 
-                                    + forest_state.open_chains.back().first,
-                           trees[forest_state.active_tree_index].zip_code_tree.end());
+                        //Remove the child chain from the active tree
+                        trees[forest_state.active_tree_index].zip_code_tree.erase(
+                               trees[forest_state.active_tree_index].zip_code_tree.begin() 
+                                        + forest_state.open_chains.back().first,
+                               trees[forest_state.active_tree_index].zip_code_tree.end());
 
-                    //The chain no longer exists in the snarl, so forget that it exists
-                    forest_state.sibling_indices_at_depth[depth-1].pop_back();
+                        //The chain no longer exists in the snarl, so forget that it exists
+                        forest_state.sibling_indices_at_depth[depth-1].pop_back();
 
-                    //And remove all the edges
-                    while (trees[forest_state.active_tree_index].zip_code_tree.size() > 0
-                            && trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::EDGE) {
-                        trees[forest_state.active_tree_index].zip_code_tree.pop_back();
+                        //And remove all the edges
+                        while (trees[forest_state.active_tree_index].zip_code_tree.size() > 0
+                                && trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::EDGE) {
+                            trees[forest_state.active_tree_index].zip_code_tree.pop_back();
+                        }
                     }
-                }
 #ifdef DEBUG_ZIP_CODE_TREE
-                 assert((trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_END ||
-                         trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::SNARL_START));
-                 cerr << "Validate the new slice" << endl;
-                VectorView<MinimizerMapper::Minimizer> empty;
-                trees.back().print_self(forest_state.seeds, &empty);
-                trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+                     assert((trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_END ||
+                             trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::SNARL_START));
+                     cerr << "Validate the new slice" << endl;
+                    VectorView<MinimizerMapper::Minimizer> empty;
+                    trees.back().print_self(forest_state.seeds, &empty);
+                    trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
-                 // Since we took out the whole chain, we shouldn't add the distances later
-                 add_distances = false;
+                     // Since we took out the whole chain, we shouldn't add the distances later
+                     add_distances = false;
+                }
              } else {
+                //Add a new tree
+                trees.emplace_back();
 #ifdef DEBUG_ZIP_CODE_TREE
                 cerr << "Copy a slice from the middle of the chain to the end" << endl;
                 assert((trees[forest_state.active_tree_index].zip_code_tree.at(forest_state.open_chains.back().first).get_type() 
@@ -1069,6 +1079,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
     assert(zip_code_tree.size() != 0);
 
     /**********  Make sure that all snarls/chains are opened and closed in a valid order ****************/
+    bool has_seed = false;
     vector<tree_item_type_t> snarl_stack; 
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
         const tree_item_t& item = zip_code_tree[i];
@@ -1086,8 +1097,11 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         } else if (item.get_type() == CHAIN_END) {
             assert(snarl_stack.back() == CHAIN_START);
             snarl_stack.pop_back();
+        } else if (item.get_type() == SEED) {
+            has_seed = true;
         }
     }
+    assert(has_seed);
 
     /************ Make sure that everything is in a valid order ****************/
     size_t previous_seed_index = std::numeric_limits<size_t>::max();
@@ -1401,7 +1415,7 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_it
     //For cyclic snarls, some of the distances are wrong but just check that at least
     //one distance is correct
     std::unordered_set<std::pair<pos_t, pos_t>> correct_positions;
-    std::unordered_set<std::pair<pos_t, pos_t>> incorrect_positions;
+    std::unordered_map<std::pair<pos_t, pos_t>, size_t> incorrect_positions;
     while (zip_iterator->get_type() != NODE_COUNT) {
         if (zip_iterator->get_type() == EDGE) {
             distances.emplace_back(zip_iterator->get_value());
@@ -1440,7 +1454,7 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_it
                                             from_ranks[from_positions.size()-1-i].first, 
                                             from_ranks[from_positions.size()-1-i].second,   
                                             distance_index.get_rank_in_parent(chain_handle),
-                                            seed_is_reversed_at_depth(seeds->at(zip_iterator->get_value()), distance_index.get_depth(chain_handle), distance_index));
+                                            seed_is_reversed_at_depth(seeds->at(zip_iterator->get_value()), distance_index.get_depth(chain_handle) != is_rev(to_pos), distance_index));
 
 #ifdef DEBUG_ZIP_CODE_TREE
                         cerr << "Distance between " << from_pos << " and " << to_pos << " is " << distance 
@@ -1456,13 +1470,15 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_it
                             if(distance == distances[i]){
                                 correct_positions.insert(std::make_pair(from_pos, to_pos));
                             } else {
-                                incorrect_positions.insert(std::make_pair(from_pos, to_pos));
+                                //TODO: Try adding offsets
+                                //incorrect_positions.insert(std::make_pair(std::make_pair(from_pos, to_pos), distance));
                             }
                         } else {
                             if(distance >= distance_limit){
                                 correct_positions.insert(std::make_pair(from_pos, to_pos));
                             } else {
-                                incorrect_positions.insert(std::make_pair(from_pos, to_pos));
+                                //TODO: Try adding offsets
+                                //incorrect_positions.insert(std::make_pair(std::make_pair(from_pos, to_pos), distance));
                             }
                         }
                     }
@@ -1513,11 +1529,12 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_it
 
     }
     for (auto& to_pos : incorrect_positions) {
-        if (correct_positions.count(to_pos) == 0){
-            cerr << "Couldn't find correct distance from " << to_pos.first << " to " << to_pos.second << endl;
+        if (correct_positions.count(to_pos.first) == 0){
+            cerr << "Couldn't find correct distance from " << to_pos.first.first << " to " << to_pos.first.second << endl;
+            cerr << "\tShould be " << to_pos.second << endl;
             cerr << "\twith distance limit " << distance_limit << endl;
         }
-        assert(correct_positions.count(to_pos) != 0);
+        assert(correct_positions.count(to_pos.first) != 0);
     }
     //TODO: Check the distances to the end of the snarl
 
