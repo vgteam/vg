@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -192,7 +192,6 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 
                 //But not if it would leave the snarl empty
                 //depth==1 would mean that it's a root snarl
-                cerr << "Depth " << depth << " latest sibling in parent " << forest_state.sibling_indices_at_depth[0].size() << " " << forest_state.sibling_indices_at_depth[0].back().type << endl; 
                 if (!(depth == 1 && forest_state.sibling_indices_at_depth[0].size() == 1 &&
                     (forest_state.intervals_to_process.empty()
                     || forest_state.intervals_to_process.front().depth <= forest_state.open_intervals.at(forest_state.open_intervals.size()-2).depth))) {
