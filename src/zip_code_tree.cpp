@@ -677,7 +677,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                         previous_index--;
                     }
                 }
-                if (trees[forest_state.active_tree_index].zip_code_tree.at(previous_index-1).get_type() 
+                if (previous_index != 0 && trees[forest_state.active_tree_index].zip_code_tree.at(previous_index-1).get_type() 
                             == ZipCodeTree::CHAIN_START) {
                     previous_index--;
                 }
