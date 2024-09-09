@@ -2282,12 +2282,10 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
             insert_itr->interval_end = i;
 
             
-            if (!previous_is_node) {
-                insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
-                                                                                          child_depth, *distance_index) 
-                                        ? !interval.is_reversed
-                                        : interval.is_reversed;
-            }
+            insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
+                                                                                      child_depth, *distance_index) 
+                                    ? !interval.is_reversed
+                                    : interval.is_reversed;
 
             //Open a new run
             next_intervals.emplace_after(insert_itr, i, i, interval.is_reversed, 
