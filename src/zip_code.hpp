@@ -277,10 +277,10 @@ class ZipCode {
         ZipCode::code_type_t get_code_type(const size_t& depth) const ;
 
         ///Get the length of a snarl tree node given the depth in the snarl tree
-        ///This requires the distance index for irregular snarls (except for a top-level snarl)
-        ///Throws an exception if the distance index is not given when it is needed
-        ///Doesn't use a given distance index if it isn't needed
-        size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr, bool get_chain_component_length = false) const ;
+        ///If get_chain_component_length is true, then return the length of the last component
+        ///of the multicomponent chain. If get_chain_component_length is false for a multi-cmponent
+        ///chain, return max()
+        size_t get_length(const size_t& depth, bool get_chain_component_length = false) const ;
 
         ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
         size_t get_rank_in_snarl(const size_t& depth) const ;

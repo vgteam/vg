@@ -150,6 +150,72 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
     } else {
         //Otherwise, the chain wasn't empty so actually close it
 
+        if (last_seed.zipcode.get_is_looping_chain(depth)){
+            //If the chain is a looping chain
+
+
+            size_t child_last_component = last_seed.zipcode.get_chain_component(depth+1);
+            if (last_seed.zipcode.get_code_type(depth+1) != ZipCode::NODE && last_seed.zipcode.get_length(depth+1) == std::numeric_limits<size_t>::max()) {
+                child_last_component++;
+            }
+            if (last_seed.zipcode.get_last_chain_component(depth, true) == child_last_component) {
+                //If the last child is on the last component of the chain and can loop around
+                size_t distance_to_end = last_seed.zipcode.get_length(depth, true) - forest_state.sibling_indices_at_depth[depth][0].value;
+                if (depth == 0) {
+                    //If this is the root chain, then we didn't save the distance anywhere but the first child will be the first thing in the chain so just check that
+
+                    //Get the first seed in the chain
+                    size_t first_seed_index = 1;
+                    while (trees[forest_state.active_tree_index].zip_code_tree[first_seed_index].get_type() != ZipCodeTree::SEED) {
+                        first_seed_index++;
+                    }
+                    const Seed& first_seed =  forest_state.seeds->at(trees[forest_state.active_tree_index].zip_code_tree[first_seed_index].get_value());
+                    //The top-level chain will always be traversed forwards so the distance to the start of the chain will be the prefix sum value 
+                    //(or max() if the child isn't in the first component
+                    if (first_seed.zipcode.get_chain_component(1) == 0) {
+                        size_t distance_to_first = first_seed.zipcode.get_offset_in_chain(1);
+                        if (first_seed_index == 1) {
+                            //If this was a seed, then add the offset in the position
+                            distance_to_first = SnarlDistanceIndex::sum(distance_to_first, first_seed.zipcode.get_is_reversed_in_parent(1) == is_rev(first_seed.pos) 
+                                                                               ? offset(first_seed.pos) 
+                                                                               : first_seed.zipcode.get_length(1) - offset(first_seed.pos)) ;
+                        }
+                        size_t loop_distance = SnarlDistanceIndex::sum(distance_to_end, distance_to_first);
+                        if (loop_distance != std::numeric_limits<size_t>::max()) {
+                            //Add the "edge" to loop around back to the first thing in the chain
+                            trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::EDGE, 
+                                                                                             loop_distance, 
+                                                                                             false);
+
+                            //The first thing in the chain will always be at index 1 of the current tree
+                            trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_LOOP, 
+                                                                                             1, 
+                                                                                             false);
+                        }
+                    }
+                } else {
+                    //TODO: I'm pretty sure that only a root-level chain can loop so this should never happen
+
+                    //Get the distance to the start of the chain as saved for the snarl distances
+                    size_t distance_to_first = forest_state.sibling_indices_at_depth[depth-1].back().distances.first;
+                    size_t loop_distance = SnarlDistanceIndex::sum(distance_to_end, distance_to_first);
+                    if (loop_distance != std::numeric_limits<size_t>::max()) {
+
+                        //Add the "edge" to loop around back to the first thing in the chain
+                        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::EDGE, 
+                                                                                         loop_distance, 
+                                                                                         false);
+
+                        //The snarl knows the index of the chain start. Plus one to get the first child
+                        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_LOOP, 
+                                                                                         forest_state.sibling_indices_at_depth[depth-1].back().value + 1, 
+                                                                                         false);
+                    }
+
+                }
+            }
+        }
+
         //Add the end of the chain to the zip code tree
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_END, 
                                                                          std::numeric_limits<size_t>::max(), 

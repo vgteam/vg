@@ -415,7 +415,7 @@ ZipCode::code_type_t ZipCode::get_code_type(const size_t& depth) const {
     }
 }
 
-size_t ZipCode::get_length(const size_t& depth, const SnarlDistanceIndex* distance_index, bool get_chain_component_length) const {
+size_t ZipCode::get_length(const size_t& depth, bool get_chain_component_length) const {
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
