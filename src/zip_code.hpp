@@ -150,7 +150,9 @@ class ZipCode {
         const static size_t ROOT_CHAIN_SIZE = 4;
         const static size_t ROOT_CHAIN_COMPONENT_COUNT_OFFSET = 2;
         //This is a bitvector storing if there is connectivity between the bounds of the node/chain
-        const static size_t ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET = 3;
+        //For a root-level looping chain, the only connectivity is through the loop. So store the length of the last
+        //component instead
+        const static size_t ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET = 3;
 
         //If the zipcode is for a root-level node, then there are only three things
         //in the zipcode, and the last is the length of the node

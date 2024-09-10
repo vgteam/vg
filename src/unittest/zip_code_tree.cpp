@@ -2284,7 +2284,10 @@ namespace unittest {
         
         // Load an example graph
         VG graph;
-        io::json2graph(R"({"node":[{"id": "1","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"2","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"63004428","sequence":"T"},{"id":"63004425","sequence":"T"},{"id":"63004426","sequence":"ATATCTATACATATAATACAG"},{"id":"63004421","sequence":"AT"},{"id":"63004422","sequence":"T"},{"id":"63004424","sequence":"A"},{"id":"63004429","sequence":"C"},{"id":"63004430","sequence":"AT"},{"id":"63004427","sequence":"A"},{"id":"63004423","sequence":"C"}],"edge":[{"from":"63004428","to":"63004430"},{"from":"63004425","to":"63004426"},{"from":"63004426","to":"63004427"},{"from":"63004421","to":"63004422"},{"from":"63004422","to":"63004427"},{"from":"63004422","to":"63004423","to_end":true},{"from":"63004422","to":"63004424"},{"from":"63004424","to":"63004425"},{"from":"63004429","to":"63004430"},{"from":"63004427","to":"63004428"},{"from":"63004427","to":"63004429"},{"from":"63004423","from_start":true,"to":"63004428"},{"from":"1","to":"63004421"},{"from":"63004430","to":"2"}]})", &graph);
+        io::json2graph(R"({"node":[{"id": "1","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"2","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"3","sequence":"T"},{"id":"4","sequence":"T"},{"id":"5","sequence":"ATATCTATACATATAATACAG"},{"id":"6","sequence":"AT"},{"id":"7","sequence":"T"},{"id":"8","sequence":"A"},{"id":"9","sequence":"C"},{"id":"10","sequence":"AT"},{"id":"11","sequence":"A"},{"id":"12","sequence":"C"}],"edge":[{"from":"3","to":"10"},{"from":"4","to":"5"},{"from":"5","to":"11"},{"from":"6","to":"7"},{"from":"7","to":"11"},{"from":"7","to":"12","to_end":true},{"from":"7","to":"8"},{"from":"8","to":"4"},{"from":"9","to":"10"},{"from":"11","to":"3"},{"from":"11","to":"9"},{"from":"12","from_start":true,"to":"3"},{"from":"1","to":"6"},{"from":"10","to":"2"}]})", &graph);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
@@ -2293,13 +2296,13 @@ namespace unittest {
   
 
         // I observed:
-        // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 
-        // But we want 63004426+1 to 63004430+1 to be 23 and not 21.
+        // 6+0 2 ( 4 [5+1] 19  2  1) 2 10+1 
+        // But we want 5+1 to 10+1 to be 23 and not 21.
 
         vector<pos_t> positions;
-        positions.emplace_back(63004421, false, 0);
-        positions.emplace_back(63004426, false, 1);
-        positions.emplace_back(63004430, false, 1);
+        positions.emplace_back(6, false, 0);
+        positions.emplace_back(5, false, 1);
+        positions.emplace_back(10, false, 1);
         
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (pos_t pos : positions) {
@@ -2676,7 +2679,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
-    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree][bug]") {
+    TEST_CASE("Remove a child of the top-level snarl", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGGGGGGG");
@@ -2951,7 +2954,68 @@ namespace unittest {
         }
     }
             
+    TEST_CASE( "Looping chain zipcode tree", "[zip_tree][bug]" ) {
+        //TODO: This might change but it's a chain 2rev->2rev
+        VG graph;
 
+        Node* n1 = graph.create_node("ACACGTTGC");
+        Node* n2 = graph.create_node("TCTCCACCGGCAAGTTTCACTTCACTT");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("AT");
+        Node* n5 = graph.create_node("CGTGGGG");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n5);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n4, n5);
+
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+        SECTION( "One cluster on the same node plus extra node" ) {
+            net_handle_t n = dist_index.get_node_net_handle(n3->id());
+            while (!dist_index.is_root(n)) {
+                cerr << dist_index.net_handle_as_string(n) << endl;
+                n = dist_index.get_parent(n);
+            }
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(1, false, 0), 0);
+            positions.emplace_back(make_pos_t(2, false, 0), 1);
+            positions.emplace_back(make_pos_t(3, false, 0), 2);
+            positions.emplace_back(make_pos_t(4, false, 0), 3);
+            positions.emplace_back(make_pos_t(5, false, 0), 4);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+
+            for (size_t i = 0 ; i < positions.size() ; ++i) {
+                auto pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.print_self(&seeds, &minimizer_vector);
+            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+        }
+
+ 
+    }
 
 
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){

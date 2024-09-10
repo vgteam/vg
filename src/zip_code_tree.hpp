@@ -691,13 +691,17 @@ class ZipCodeForest {
 
         size_t chain_order : 3; 
 
+        //For children of chains
+        size_t chain_component : 24;
+
         public:
         //Constructor
         sort_value_t() : sort_value(std::numeric_limits<size_t>::max()),
                          code_type(ZipCode::EMPTY),
-                         chain_order(7) {};
+                         chain_order(7),
+                         chain_component(0) {};
         sort_value_t (size_t sort_value, ZipCode::code_type_t code_type, size_t chain_order) :
-            sort_value(sort_value), code_type(code_type), chain_order(chain_order) {};
+            sort_value(sort_value), code_type(code_type), chain_order(chain_order), chain_component(0) {};
 
         //Get the value used for sorting
         size_t get_sort_value() const {
@@ -713,10 +717,12 @@ class ZipCodeForest {
 
         //Get the code type
         ZipCode::code_type_t get_code_type() const {return code_type;};
+        size_t get_chain_component() const {return chain_component;};
 
         void set_sort_value(size_t value) {sort_value =value;};
         void set_code_type(ZipCode::code_type_t type) {code_type = type;};
         void set_chain_order(size_t order) {chain_order = order;};
+        void set_chain_component(size_t component) {chain_component = component;};
 
     };
 
@@ -739,10 +745,11 @@ class ZipCodeForest {
     /// This should run in linear time, but it is dependent on the values being sorted on to have a
     /// small range
     /// min_ and max_value are the minimum and maximum value being sorted on
+    /// If sort_by_chain_component is true, then sort on the chain component in sort_values
     void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, 
                              const vector<sort_value_t>& sort_values_by_seed,
                              const interval_state_t& interval, bool reverse_order,
-                             size_t min_value, size_t max_value) const; 
+                             size_t min_value, size_t max_value, bool sort_by_chain_component=false) const; 
 
     /// Helper function to sort the seeds using std::sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector 

@@ -62,24 +62,31 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 
             size_t component = distance_index.get_chain_component(distance_index.get_bound(ancestors.back(), true, false), true);
             component = component == std::numeric_limits<size_t>::max() ? 0 : component*2;
-            if (distance_index.is_looping_chain(ancestors.back())) {
+            bool is_looping_chain = distance_index.is_looping_chain(ancestors.back());
+            if (is_looping_chain) {
                 component += 1;
             }
             zipcode.add_value(component);
 
+            size_t connectivity = 0;
+            if (is_looping_chain) {
+                //For a looping chain, the "connectivity" is the length of the last component
+                size_t length = distance_index.chain_minimum_length(ancestors.back());
+                zipcode.add_value(length == std::numeric_limits<size_t>::max() ? 0 : length+1);
+            } else {
+                //For a non-looping chain, it is actually the connectivity
+                if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
+                    connectivity = connectivity | 1;
+                }
+                if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
+                    connectivity = connectivity | 2;
+                }
+                if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
+                    connectivity = connectivity | 4;
+                }
+                zipcode.add_value(connectivity);
+            }
         }
-        size_t connectivity = 0;
-        if ( distance_index.is_externally_start_end_connected(ancestors.back())) {
-            connectivity = connectivity | 1;
-        }
-        if ( distance_index.is_externally_start_start_connected(ancestors.back())) {
-            connectivity = connectivity | 2;
-        }
-        if ( distance_index.is_externally_end_end_connected(ancestors.back())) {
-            connectivity = connectivity | 4;
-        }
- 
-        zipcode.add_value(connectivity);
         ancestors.pop_back();
     }
 
@@ -430,6 +437,22 @@ size_t ZipCode::get_length(const size_t& depth, bool get_chain_component_length)
             return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
 
         } else {
+            //Otherwise, if it is a looping chain then we stored the "chain component length"
+            if (get_chain_component_length) {
+                size_t zip_value;
+                size_t zip_index = decoder[depth].offset;
+                for (size_t i = 0 ; i <= ZipCode::ROOT_CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                }
+                if (zip_value % 2) {
+                    //If it was a looping chain
+                    for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
+                        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+                    }
+                    return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value - 1;
+                }
+            }
+            
             //Otherwise, we didn't store the length
             throw std::runtime_error("zipcodes don't store lengths of top-level chains or snarls");
         }
@@ -867,9 +890,17 @@ size_t ZipCode::get_distance_to_snarl_bound(const size_t& depth, bool snarl_star
 bool ZipCode::is_externally_start_end_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].is_chain);
+    assert(CHAIN_COMPONENT_COUNT_OFFSET < ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET);
     size_t zip_value;
     size_t zip_index = decoder[depth].offset;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
+    if (zip_value % 2) {
+        //If it is a looping chain, then it is technically start-end connected
+        return true;
+    }
+    for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 1) != 0;
@@ -877,9 +908,17 @@ bool ZipCode::is_externally_start_end_connected (const size_t& depth) const {
 bool ZipCode::is_externally_start_start_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].is_chain);
+    assert(CHAIN_COMPONENT_COUNT_OFFSET < ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET);
     size_t zip_value;
     size_t zip_index = decoder[depth].offset;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
+    if (zip_value % 2) {
+        //If it is a looping chain, then it can't be start-start connected
+        return false;
+    }
+    for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 2) != 0;
@@ -887,9 +926,17 @@ bool ZipCode::is_externally_start_start_connected (const size_t& depth) const {
 bool ZipCode::is_externally_end_end_connected (const size_t& depth) const {
     assert(depth == 0);
     assert(decoder[0].is_chain);
+    assert(CHAIN_COMPONENT_COUNT_OFFSET < ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET);
     size_t zip_value;
     size_t zip_index = decoder[depth].offset;
-    for (size_t i = 0 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OFFSET; i++) {
+    for (size_t i = 0 ; i <= ZipCode::CHAIN_COMPONENT_COUNT_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
+    }
+    if (zip_value % 2) {
+        //If it is a looping chain, then it can't be end-end connected
+        return false;
+    }
+    for (size_t i = ZipCode::CHAIN_COMPONENT_COUNT_OFFSET+1 ; i <= ZipCode::ROOT_NODE_OR_CHAIN_CONNECTIVITY_OR_LENGTH_OFFSET; i++) {
         std::tie(zip_value, zip_index) = zipcode.get_value_and_next_index(zip_index);
     }
     return (zip_value & 4) != 0;
