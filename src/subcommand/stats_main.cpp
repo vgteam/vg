@@ -65,6 +65,7 @@ void help_stats(char** argv) {
          << "                          multiple allowed; limit comparison to those provided" << endl
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
+         << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
          << "    -C, --chains          print statistics for each chain" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
@@ -107,9 +108,13 @@ int main_stats(int argc, char** argv) {
     bool overlap_all_paths = false;
     bool snarl_stats = false;
     bool chain_stats = false;
+    bool snarl_contents = false;
     bool format = false;
     bool degree_dist = false;
     string distance_index_filename;
+
+    // Long options with no corresponding short options.
+    constexpr int OPT_SNARL_CONTENTS = 1000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -137,6 +142,7 @@ int main_stats(int argc, char** argv) {
             {"overlap", no_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
+            {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
             {"chains", no_argument, 0, 'C'},            
             {"format", no_argument, 0, 'F'},
             {"degree-dist", no_argument, 0, 'D'},
@@ -236,6 +242,10 @@ int main_stats(int argc, char** argv) {
             snarl_stats = true;
             break;
 
+        case OPT_SNARL_CONTENTS:
+            snarl_contents = true;
+            break;
+            
         case 'C':
             chain_stats = true;
             break;
@@ -305,7 +315,6 @@ int main_stats(int argc, char** argv) {
             exit(1);
         }
     };
-    
 
     if (stats_size) {
         require_graph();
@@ -1130,7 +1139,7 @@ int main_stats(int argc, char** argv) {
     // We will track depth for each snarl (used for both snarl and chains stats)
     unordered_map<const Snarl*, size_t> depth;
     
-    if (snarl_stats || chain_stats) {
+    if (snarl_stats || chain_stats || snarl_contents) {
         // We will go through all the snarls and compute stats.
         
         require_graph();
@@ -1211,6 +1220,35 @@ int main_stats(int argc, char** argv) {
                 // Internal connectivity not important, we just want the size.
                 auto netGraph = manager.net_graph_of(snarl, graph, false);
                 cout << netGraph.get_node_count() << endl;
+            }
+
+            if (snarl_contents) {
+                pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.deep_contents(snarl, *graph, false);
+                contents.second.clear();
+                set<vg::id_t> sorted_nodes(contents.first.begin(), contents.first.end());
+                // don't bother with trivial snarls
+                if (!sorted_nodes.empty()) {
+                    cout << (snarl->start().backward() ? "<" : ">") << snarl->start().node_id()
+                         << (snarl->end().backward() ? "<" : ">") << snarl->end().node_id() << "\t"
+                         << depth[snarl] << "\t";
+                    if (parent) {
+                        cout << (parent->start().backward() ? "<" : ">") << parent->start().node_id()
+                             << (parent->end().backward() ? "<" : ">") << parent->end().node_id() << "\t";
+                    } else {
+                        cout << ".\t";
+                    }
+
+                    bool first = true;
+                    for (vg::id_t node_id : sorted_nodes) {
+                        if (first) {
+                            first = false;
+                        } else {
+                            cout << ",";
+                        }
+                        cout << node_id;
+                    }
+                    cout << "\n";
+                }
             }
         });
         
