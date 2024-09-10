@@ -57,7 +57,7 @@
 	url = https://github.com/jltsiren/gbwt.git
 [submodule "deps/sublinear-Li-Stephens"]
 	path = deps/sublinear-Li-Stephens
-	url = https://github.com/glennhickey/sublinear-Li-Stephens.git
+	url = https://github.com/yoheirosen/sublinear-Li-Stephens.git
 [submodule "deps/backward-cpp"]
 	path = deps/backward-cpp
 	url = https://github.com/adamnovak/backward-cpp.git
