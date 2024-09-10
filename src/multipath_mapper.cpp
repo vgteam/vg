@@ -1836,8 +1836,10 @@ namespace vg {
                     std::swap(rescued_secondaries[i], rescued_secondaries[end - 1]);
                     std::swap(rescued_distances[i], rescued_distances[end - 1]);
                     std::swap(rescued_multiplicities[i], rescued_multiplicities[end - 1]);
-                    std::swap(duplicate[i], duplicate[end - 1]);
-                    
+                    // nb: cant std::swap bool vectors in new c++
+                    bool dupe_i = duplicate[i];
+                    duplicate[i] = duplicate[end - 1];
+                    duplicate[end - 1] = dupe_i;
                     end--;
                 }
                 else {
