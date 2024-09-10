@@ -152,12 +152,11 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
     } else {
         //Otherwise, the chain wasn't empty so actually close it
 
-        if (last_seed.zipcode.get_is_looping_chain(depth)){
+        if (last_seed.zipcode.get_code_type(depth) == ZipCode::ROOT_CHAIN && last_seed.zipcode.get_is_looping_chain(depth)){
             //If the chain is a looping chain
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "The chain loops" << endl;
 #endif
-
 
             size_t child_last_component = last_seed.zipcode.get_chain_component(depth+1);
             if (last_seed.zipcode.get_code_type(depth+1) != ZipCode::NODE && last_seed.zipcode.get_length(depth+1) == std::numeric_limits<size_t>::max()) {
