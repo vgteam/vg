@@ -294,6 +294,7 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
     vector<path_handle_t> trav_paths(path_travs.size());
     vector<bool> trav_reversed(path_travs.size());
 
+
     // organize paths by their alleles strings
     // todo: we could use a fancier index to save memory here (prob not necessary tho)
     unordered_map<string, vector<int64_t>> string_to_travs;
@@ -309,18 +310,15 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
         trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
             graph->get_is_reverse(start_handle);
 #ifdef debug
-        cerr << "trav " << i << ": ";
-        cerr << "n=" << trav_names[i] << " "
-             << "i=" << (graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) ? "<" : ">")
-             << graph->get_id(graph->get_handle_of_step(path_intervals[i].first))
-             << (graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].second)) ? "<" : ">")
-             << graph->get_id(graph->get_handle_of_step(path_intervals[i].second)) << " t=";
-        for (auto xx : trav) {
-            cerr << (graph->get_is_reverse(xx) ? "<" : ">") << graph->get_id(xx);
-        }
-        cerr << " a=" << allele <<  " r=" << trav_reversed[i] << endl;
+        cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl
+             << "trav " << i << ": "
+             << "n=" << trav_names[i] << " "
+             << "i=" << graph_interval_to_string(graph, graph->get_handle_of_step(path_intervals[i].first),
+                                                 graph->get_handle_of_step(path_intervals[i].second))
+             << " t=" << traversal_to_string(graph, trav)
+             << " a=" << allele <<  " r=" << trav_reversed[i] << endl;
 #endif
-    }        
+    }
 
     // rank the traversals, putting selected ones first otherwise alphabetical
     function<bool(int64_t, int64_t)> trav_idx_less = [&](int64_t i, int64_t j) {
@@ -339,13 +337,10 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
             auto canonical_it = std::min_element(eq_travs.begin(), eq_travs.end(), trav_idx_less);
             assert(canonical_it != eq_travs.end());
             int64_t canonical_idx = *canonical_it;
-            Traversal canonical_trav = path_travs[canonical_idx];
-            if (trav_reversed[canonical_idx]) {
-                Traversal flip_trav;
-                for (auto i = canonical_trav.rbegin(); i != canonical_trav.rend(); ++i) {
-                    flip_trav.push_back(graph->flip(*i));
-                }
-                std::swap(canonical_trav, flip_trav);
+            const Traversal& canonical_trav = path_travs[canonical_idx];
+            Traversal canonical_trav_flip;
+            for (auto i = canonical_trav.rbegin(); i != canonical_trav.rend(); ++i) {
+                canonical_trav_flip.push_back(graph->flip(*i));
             }
                 
             // edit it into every other path
@@ -360,18 +355,23 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
                     if (trav_reversed[replace_idx]) {
                         std::swap(interval_to_replace.first, interval_to_replace.second);
                     }
+                    const Traversal& replacement_trav = trav_reversed[replace_idx] ? canonical_trav_flip : canonical_trav;
 #ifdef debug
                     cerr << "editing interval of size " << path_travs[replace_idx].size()
                          << " from path " << trav_names[replace_idx] << " with canonical interval of size "
-                         << path_travs[canonical_idx].size() << " from path "
+                         << replacement_trav.size() << " from path "
                          << trav_names[canonical_idx] << endl;
 
-                    cerr << "interval to replace first " << graph->get_id(graph->get_handle_of_step(interval_to_replace.first))
-                         << " second " << graph->get_id(graph->get_handle_of_step(interval_to_replace.second)) << endl;
+                    cerr << "--interval to replace: "
+                         << graph_interval_to_string(graph, graph->get_handle_of_step(interval_to_replace.first),
+                                                     graph->get_handle_of_step(interval_to_replace.second)) << endl
+                         << "--interval coming in: " << traversal_to_string(graph, replacement_trav) << endl;
 
-#endif                      
+#endif
+                    assert(graph->get_handle_of_step(interval_to_replace.first) == replacement_trav.front());
+                    assert(graph->get_handle_of_step(interval_to_replace.second) == replacement_trav.back());
                     graph->rewrite_segment(interval_to_replace.first, graph->get_next_step(interval_to_replace.second),
-                                           canonical_trav);
+                                           replacement_trav);
                 }
             }
         }
