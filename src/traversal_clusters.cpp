@@ -294,7 +294,10 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
     vector<path_handle_t> trav_paths(path_travs.size());
     vector<bool> trav_reversed(path_travs.size());
 
-
+#ifdef debug
+    cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl;
+#endif
+    
     // organize paths by their alleles strings
     // todo: we could use a fancier index to save memory here (prob not necessary tho)
     unordered_map<string, vector<int64_t>> string_to_travs;
@@ -310,8 +313,7 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
         trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
             graph->get_is_reverse(start_handle);
 #ifdef debug
-        cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl
-             << "trav " << i << ": "
+        cerr << "trav " << i << ": "
              << "n=" << trav_names[i] << " "
              << "i=" << graph_interval_to_string(graph, graph->get_handle_of_step(path_intervals[i].first),
                                                  graph->get_handle_of_step(path_intervals[i].second))
@@ -360,9 +362,8 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
                     cerr << "editing interval of size " << path_travs[replace_idx].size()
                          << " from path " << trav_names[replace_idx] << " with canonical interval of size "
                          << replacement_trav.size() << " from path "
-                         << trav_names[canonical_idx] << endl;
-
-                    cerr << "--interval to replace: "
+                         << trav_names[canonical_idx] << endl
+                         << "--interval to replace: "
                          << graph_interval_to_string(graph, graph->get_handle_of_step(interval_to_replace.first),
                                                      graph->get_handle_of_step(interval_to_replace.second)) << endl
                          << "--interval coming in: " << traversal_to_string(graph, replacement_trav) << endl;
