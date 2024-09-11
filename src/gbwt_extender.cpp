@@ -552,7 +552,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
         };
 
         // Match the initial node and add it to the queue.
-        std::priority_queue<GaplessExtension> extensions;
+        std::priority_queue<std::pair<GaplessExtension, size_t>> extensions;
+        // Each extension gets a unique deduplicating number to break score
+        // ties and make the queue order stable across different backing STL
+        // implementations.
+        size_t extension_number = 0;
+
         {
             size_t read_offset = get_read_offset(seed);
             size_t node_offset = get_node_offset(seed);
@@ -572,13 +577,13 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
                 match.right_maximal = true;
             }
             set_score(match, this->aligner);
-            extensions.push(std::move(match));
+            extensions.emplace(std::move(match), extension_number++);
         }
 
         // Extend the most promising extensions first, using alignment scores for priority.
         // First make the extension right-maximal and then left-maximal.
         while (!extensions.empty()) {
-            GaplessExtension curr = std::move(extensions.top());
+            GaplessExtension curr = std::move(extensions.top().first);
             extensions.pop();
 
             // Case 1: Extend to the right.
@@ -612,7 +617,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
                     }
                     set_score(next, this->aligner);
                     num_extensions += next.state.size();
-                    extensions.push(std::move(next));
+                    extensions.emplace(std::move(next), extension_number++);
                     return true;
                 });
                 // We could not extend all threads in 'curr' to the right. The unextended ones
@@ -620,7 +625,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
                 if (num_extensions < curr.state.size()) {
                     curr.right_maximal = true;
                     curr.old_score = curr.internal_score;
-                    extensions.push(std::move(curr));
+                    extensions.emplace(std::move(curr), extension_number++);
                 }
                 continue;
             }
@@ -656,7 +661,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
                         // No need to set old_score.
                     }
                     set_score(next, this->aligner);
-                    extensions.push(std::move(next));
+                    extensions.emplace(std::move(next), extension_number++);
                     found_extension = true;
                     return true;
                 });

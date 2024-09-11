@@ -107,7 +107,7 @@ double SeqComplexity<MaxOrder>::p_value(int order) const {
 
 template<int MaxOrder>
 double SeqComplexity<MaxOrder>::repetitiveness(int order) const {
-    return double(matches[order - 1]) / double(len - order);
+    return len > order ? double(matches[order - 1]) / double(len - order) : 0.0;
 }
 
 

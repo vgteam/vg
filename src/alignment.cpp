@@ -1798,7 +1798,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = move(normalized);
+        *alignment.mutable_path() = std::move(normalized);
     }
 }
 
@@ -1902,6 +1902,15 @@ void parse_bed_regions(istream& bedstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_bed_regions(bedstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_bed_regions(istream& bedstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+    
     if (!bedstream) {
         cerr << "Unable to open bed file." << endl;
         return;
@@ -2147,8 +2156,7 @@ void parse_bed_regions(istream& bedstream,
         // Make the Alignment
         Alignment alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
         alignment.set_score(score);
-
-        out_alignments->push_back(alignment);
+        callback(alignment);
 
         // if more subpaths need to be written, write them now
         while (!other_seqs.empty()){
@@ -2163,10 +2171,8 @@ void parse_bed_regions(istream& bedstream,
             path_handle = graph->get_path_handle(seq);
             alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
             alignment.set_score(score);
-            out_alignments->push_back(alignment);
+            callback(alignment);
         }
-
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
@@ -2174,6 +2180,16 @@ void parse_gff_regions(istream& gffstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_gff_regions(gffstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_gff_regions(istream& gffstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+
+
     if (!gffstream) {
         cerr << "Unable to open gff3/gtf file." << endl;
         return;
@@ -2431,8 +2447,7 @@ void parse_gff_regions(istream& gffstream,
         }
         
         Alignment alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
-            
-        out_alignments->push_back(alignment);
+        callback(alignment);
 
         // if more subpaths need to be written, write them now
         while (!other_seqs.empty()){
@@ -2445,10 +2460,8 @@ void parse_gff_regions(istream& gffstream,
             other_ends.pop_back();
             // get alignment
             alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
-            out_alignments->push_back(alignment);
+            callback(alignment);
         }
-
-        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
@@ -2525,7 +2538,8 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
-AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph) {
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence) {
+    size_t read_idx = 0;
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         const Mapping& mapping = aln.path().mapping(i);
         if (!hgraph->has_node(mapping.position().node_id())) {
@@ -2548,6 +2562,60 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                 i,
                 ss.str()
             };
+        }
+        if (check_sequence) {
+            size_t node_idx = mapping.position().offset();
+            auto node_seq = hgraph->get_sequence(hgraph->get_handle(mapping.position().node_id(),
+                                                                    mapping.position().is_reverse()));
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                const auto& edit = mapping.edit(j);
+                if (edit.to_length() == edit.from_length() && edit.from_length() != 0) {
+                    assert(edit.sequence().size() == edit.to_length() || edit.sequence().empty());
+                    for (size_t k = 0; k < edit.to_length(); ++k) {
+                        // check match/mismatch state between read and ref
+                        if ((aln.sequence()[read_idx + k] == node_seq[node_idx + k]) != edit.sequence().empty()) {
+                            std::stringstream ss;
+                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch") << " on node " << mapping.position().node_id() << " between node position " << (node_idx + k) << " and edit " << j << ", position " << k << " on " << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                        if (!edit.sequence().empty() && edit.sequence()[k] != aln.sequence()[read_idx + k]) {
+                            // compare mismatched sequence to the read
+                            std::stringstream ss;
+                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k << " does not match read sequence (" << aln.sequence() << ") at position " << (read_idx + k);
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                    }
+                }
+                else if (edit.from_length() == 0 && edit.to_length() != 0) {
+                    // compare inserted sequence to read
+                    assert(edit.sequence().size() == edit.to_length());
+                    for (size_t k = 0; k < edit.to_length(); ++k) {
+                        if (edit.sequence()[k] != aln.sequence()[read_idx + k]) {
+                            std::stringstream ss;
+                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k) << " does not match insert sequence of edit (" << edit.sequence() << ") at position " << k;
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                    }
+                }
+                else {
+                    assert(edit.from_length() != 0 && edit.to_length() == 0);
+                }
+                
+                node_idx += edit.from_length();
+                read_idx += edit.to_length();
+            }
         }
     }
     return {AlignmentValidity::OK};
@@ -2615,118 +2683,99 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     }
     
     step_handle_t step = graph->get_step_at_position(path, pos1);
-    size_t step_start = graph->get_position_of_step(step);
-    handle_t handle = graph->get_handle_of_step(step);
     
-    int64_t trim_start = pos1 - step_start;
-    {
-        Mapping* first_mapping = aln.mutable_path()->add_mapping();
-        first_mapping->mutable_position()->set_node_id(graph->get_id(handle));
-        first_mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
-        first_mapping->mutable_position()->set_offset(trim_start);
-        
-        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle)-trim_start);
-        first_mapping->clear_edit();
-        
-        string from_seq = graph->get_sequence(handle);
-        int from_pos = trim_start;
-        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {// if (mappings.first.edit(j).sequence() != nullptr) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                int last_start = from_pos;
-                int k = 0;
-                Edit* edit;
-                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                        // emit the last "match" region
-                        if (from_pos - last_start > 0) {
-                            edit = first_mapping->add_edit();
-                            edit->set_from_length(from_pos-last_start);
-                            edit->set_to_length(from_pos-last_start);
-                        }
-                        // set up the SNP
-                        edit = first_mapping->add_edit();
-                        edit->set_from_length(1);
-                        edit->set_to_length(1);
-                        edit->set_sequence(from_seq.substr(to_pos,1));
-                        last_start = from_pos+1;
-                    }
-                }
-                // handles the match at the end or the case of no SNP
-                if (from_pos - last_start > 0) {
-                    edit = first_mapping->add_edit();
-                    edit->set_from_length(from_pos-last_start);
-                    edit->set_to_length(from_pos-last_start);
-                }
-                // to_pos += length;
-                // from_pos += length;
+    size_t edit_idx = 0;
+    size_t offset_in_edit = 0;
+    size_t node_pos = pos1 - graph->get_position_of_step(step);
+    while (edit_idx < cigar_mapping.edit_size()) {
+        if (step == graph->path_end(path)) {
+            const auto& edit = cigar_mapping.edit(edit_idx);
+            if (edit.from_length() == 0 && aln.path().mapping_size() != 0) {
+                // This is a softclip off the end of the contig.
+                // We can add it to the last mapping as an edit
+                assert(offset_in_edit == 0);
+                Mapping* last_mapping = aln.mutable_path()->mutable_mapping(aln.path().mapping_size() - 1);
+                *last_mapping->add_edit() = edit;
+                ++edit_idx;
+                continue;
             } else {
-                // Edit* edit = first_mapping->add_edit();
-                // *edit = mappings.first.edit(j);
-                *first_mapping->add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
+                // We've gone off the end of the contig with something other than a softclip
+                throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
+                                         " at edit " + std::to_string(edit_idx) +
+                                         "/" + std::to_string(cigar_mapping.edit_size()) +
+                                         " for alignment of feature " + feature);
             }
         }
-        cigar_mapping = mappings.second;
-    }
-    // get p to point to the next step (or past it, if we're a feature on a single node)
-    int64_t p = step_start + graph->get_length(handle);
-    step = graph->get_next_step(step);
-    while (p < pos2) {
-        handle = graph->get_handle_of_step(step);
-        
-        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle));
-        
-        Mapping m;
-        m.mutable_position()->set_node_id(graph->get_id(handle));
-        m.mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
-        
-        string from_seq = graph->get_sequence(handle);
-        int from_pos = 0;
-        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                int last_start = from_pos;
-                int k = 0;
-                Edit* edit;
-                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                        // emit the last "match" region
-                        if (from_pos - last_start > 0) {
-                            edit = m.add_edit();
-                            edit->set_from_length(from_pos-last_start);
-                            edit->set_to_length(from_pos-last_start);
-                        }
-                        // set up the SNP
-                        edit = m.add_edit();
-                        edit->set_from_length(1);
-                        edit->set_to_length(1);
-                        edit->set_sequence(from_seq.substr(to_pos,1));
-                        last_start = from_pos+1;
+        handle_t h = graph->get_handle_of_step(step);
+        string seq = graph->get_sequence(h);
+
+        auto mapping = aln.mutable_path()->add_mapping();
+
+        mapping->mutable_position()->set_node_id(graph->get_id(h));
+        mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(h));
+        mapping->mutable_position()->set_offset(node_pos);
+        mapping->set_rank(aln.path().mapping_size());
+
+        while (edit_idx < cigar_mapping.edit_size() && node_pos < seq.size()) {
+
+            const auto& edit = cigar_mapping.edit(edit_idx);
+
+            if (edit.from_length() == edit.to_length()) {
+                // match/mismatch -- need to check
+
+                // end at the sooner of 1) the end of the edit and 2) the end of the node
+                size_t node_aln_len = min<size_t>(edit.from_length() - offset_in_edit, seq.size() - node_pos);
+
+                // iterate through node and edit up to the limit
+                Edit* new_edit = nullptr;
+                for (size_t i = 0; i < node_aln_len; ++i, ++offset_in_edit, ++node_pos) {
+
+                    bool match = (edit.sequence()[offset_in_edit] == seq[node_pos]);
+                    if (!new_edit || match != new_edit->sequence().empty()) {
+                        // current edit is of the wrong type or doesn't exist
+                        new_edit = mapping->add_edit();
+                    }
+                    new_edit->set_from_length(new_edit->from_length() + 1);
+                    new_edit->set_to_length(new_edit->to_length() + 1);
+                    if (!match) {
+                        new_edit->mutable_sequence()->push_back(edit.sequence()[offset_in_edit]);
                     }
                 }
-                // handles the match at the end or the case of no SNP
-                if (from_pos - last_start > 0) {
-                    edit = m.add_edit();
-                    edit->set_from_length(from_pos-last_start);
-                    edit->set_to_length(from_pos-last_start);
+                if (offset_in_edit == edit.from_length()) {
+                    ++edit_idx;
+                    offset_in_edit = 0;
                 }
-                // to_pos += length;
-                // from_pos += length;
-            } else {
-                *m.add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
+            }
+            else if (edit.from_length() == 0) {
+                // insertion
+                assert(offset_in_edit == 0);
+                *mapping->add_edit() = edit;
+                ++edit_idx;
+            }
+            else {
+                // deletion
+                auto new_edit = mapping->add_edit();
+                size_t edit_remaining = edit.from_length() - offset_in_edit;
+                size_t node_remaining = seq.size() - node_pos;
+                if (edit_remaining <= node_remaining) {
+                    // we hit the end of the edit before the end of the node
+                    new_edit->set_from_length(edit_remaining);
+                    ++edit_idx;
+                    offset_in_edit = 0;
+                }
+                else {
+                    // we hit the end of the node before the end of the edit
+                    new_edit->set_from_length(node_remaining);
+                    offset_in_edit += new_edit->from_length();
+                }
+                node_pos += new_edit->from_length();
             }
         }
-        cigar_mapping = mappings.second;
-        *aln.mutable_path()->add_mapping() = m;
-        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+
         step = graph->get_next_step(step);
+        node_pos = 0;
     }
+    
     aln.set_name(feature);
     if (is_reverse) {
         reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });

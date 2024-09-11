@@ -25,6 +25,7 @@ void help_annotate(char** argv) {
          << "    -b, --bed-name FILE    a BED file to convert to GAM. May repeat." << endl
          << "    -f, --gff-name FILE    a GFF3 file to convert to GAM. May repeat." << endl
          << "    -g, --ggff             output at GGFF subgraph annotation file instead of GAM (requires -s)" << endl
+         << "    -F, --gaf-output       output in GAF format rather than GAM" << endl
          << "    -s, --snarls FILE      file containing snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl
          << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
@@ -97,6 +98,7 @@ int main_annotate(int argc, char** argv) {
     size_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
+    bool output_gaf = false;
     string snarls_name;
 
     int c;
@@ -112,6 +114,7 @@ int main_annotate(int argc, char** argv) {
             {"bed-name", required_argument, 0, 'b'},
             {"gff-name", required_argument, 0, 'f'},
             {"ggff", no_argument, 0, 'g'},
+            {"gaf-output", no_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"novelty", no_argument, 0, 'n'},
             {"threads", required_argument, 0, 't'},
@@ -120,7 +123,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pml:b:f:gs:nt:h",
+        c = getopt_long (argc, argv, "hx:a:pml:b:f:gFs:nt:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -147,6 +150,10 @@ int main_annotate(int argc, char** argv) {
             
         case 'g':
             output_ggff = true;
+            break;
+                
+        case 'F':
+            output_gaf = true;
             break;
                 
         case 's':
@@ -293,10 +300,7 @@ int main_annotate(int argc, char** argv) {
                 
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     // Load all the BED regions as Alignments embedded in the graph.
-                    vector<Alignment> bed_regions;
-                    parse_bed_regions(bed_stream, xg_index, &bed_regions);
-                    
-                    for (auto& region : bed_regions) {
+                    parse_bed_regions(bed_stream, xg_index, [&](Alignment& region) {
                         // For each region in the BED
                         
                         // Get the cannonical copy of its name (which may be "")
@@ -309,7 +313,7 @@ int main_annotate(int argc, char** argv) {
                             features_on_node[mapping.position().node_id()].emplace_back(mapping_to_range(xg_index, mapping),
                                 interned_name);
                         }
-                    }
+                    });
                 });
             }
             
@@ -461,23 +465,41 @@ int main_annotate(int argc, char** argv) {
             }
         }
         else {
+            // We are converting annotations to GAM/GAF.
+            
+            // Open up a GAM/GAF output stream.
+            // TODO: Make the read parallel so we can actually use all the threads we are configuring for here.
+            unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", output_gaf ? "GAF" : "GAM", {}, vg::get_thread_count(),
+                                                                                                           xg_index);
+            // There's some benefit to batching oursleves since the un-batched
+            // emit will make single-item batches to delegate to the batched
+            // version.
+            std::vector<Alignment> buffer;
+            auto emit_alignment = [&](Alignment& aln) {
+                buffer.emplace_back(std::move(aln));
+                // if we have enough, write them
+                if (buffer.size() > 1000) { 
+                    alignment_emitter->emit_singles(std::move(buffer));
+                    // clear the buffer
+                    buffer.clear();
+                }
+            };
+
             for (auto& bed_name : bed_names) {
-                // Convert each BED file to GAM
+                // Convert each BED file
                 get_input_file(bed_name, [&](istream& bed_stream) {
-                    vector<Alignment> buffer;
-                    parse_bed_regions(bed_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_bed_regions(bed_stream, xg_index, emit_alignment);
                 });
-                
-                // TODO: We'll get an EOF marker per input file.
             }
             
             for (auto& gff_name : gff_names) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
-                    vector<Alignment> buffer;
-                    parse_gff_regions(gff_stream, xg_index, &buffer);
-                    vg::io::write_buffered(cout, buffer, 0); // flush
+                    parse_gff_regions(gff_stream, xg_index, emit_alignment);
                 });
+            }
+
+            if (!buffer.empty()) {
+                alignment_emitter->emit_singles(std::move(buffer));
             }
         }
     }
