@@ -55,7 +55,8 @@ void help_paths(char** argv) {
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
          << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
          << "    -R, --reference-paths    select the reference paths" << endl
-         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl;
+         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl
+         << "    -t, --threads N          number of threads to use [all available]. applies only to snarl finding within -n" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -158,7 +159,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drnaGRHp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drnaGRHp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -284,6 +285,17 @@ int main_paths(int argc, char** argv) {
             selection_criteria++;
             break;
 
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg paths] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
+            
         case 'h':
         case '?':
             help_paths(argv);
