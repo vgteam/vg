@@ -16,6 +16,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
+#include "../traversal_clusters.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -37,6 +38,7 @@ void help_paths(char** argv) {
          << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "    -n, --normalize-paths    output a graph where all equivalent paths in a site a merged (using selected paths to snap to if possible)" << endl 
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -117,6 +119,7 @@ int main_paths(int argc, char** argv) {
     size_t input_formats = 0;
     bool coverage = false;
     const size_t coverage_bins = 10;
+    bool normalize_paths = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -130,6 +133,7 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
+            {"normalize-paths", no_argument, 0, 'n'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
@@ -154,7 +158,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGRHp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drnaGRHp:c",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -189,6 +193,11 @@ int main_paths(int argc, char** argv) {
             retain_paths = true;
             output_formats++;
             break;
+
+        case 'n':
+            normalize_paths = true;
+            output_formats++;
+            break;            
                 
         case 'X':
             extract_as_gam = true;
@@ -309,7 +318,7 @@ int main_paths(int argc, char** argv) {
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
-            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -n, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && !graph_file.empty()) {
@@ -320,7 +329,7 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -335,8 +344,8 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] listing path metadata is not compatible with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded graph paths, not GBWT threads" << std::endl;
+    if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] dropping, retaining or normalizing paths only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (coverage && !gbwt_file.empty()) {
@@ -566,7 +575,7 @@ int main_paths(int argc, char** argv) {
             
         };
         
-        if (drop_paths || retain_paths) {
+        if (drop_paths || retain_paths || normalize_paths) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
             if (!mutable_graph) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
@@ -583,12 +592,21 @@ int main_paths(int argc, char** argv) {
                 for_each_selected_path([&](const path_handle_t& path_handle) {
                     to_destroy.push_back(path_handle);
                 });
-            } else {
+            } else if (retain_paths) {
                 for_each_unselected_path([&](const path_handle_t& path_handle) {
                     to_destroy.push_back(path_handle);
                 });
+            } else {
+                assert(normalize_paths);
+                unordered_set<path_handle_t> selected_paths;
+                for_each_selected_path([&](const path_handle_t& path_handle) {
+                    selected_paths.insert(path_handle);
+                });
+                merge_equivalent_traversals_in_graph(mutable_graph, selected_paths);
             }
-            mutable_graph->destroy_paths(to_destroy);
+            if (!to_destroy.empty()) {
+                mutable_graph->destroy_paths(to_destroy);
+            }
             
             // output the graph
             serializable_graph->serialize(cout);
