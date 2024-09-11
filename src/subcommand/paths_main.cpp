@@ -17,6 +17,7 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -593,11 +594,6 @@ int main_paths(int argc, char** argv) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
                 exit(1);
             }
-            SerializableHandleGraph* serializable_graph = dynamic_cast<SerializableHandleGraph*>(graph.get());
-            if (!serializable_graph) {
-                std::cerr << "error[vg paths]: graph cannot be saved after modification" << std::endl;
-                exit(1);
-            }
 
             vector<path_handle_t> to_destroy;
             if (drop_paths) {
@@ -621,7 +617,7 @@ int main_paths(int argc, char** argv) {
             }
             
             // output the graph
-            serializable_graph->serialize(cout);
+            vg::io::save_handle_graph(mutable_graph, cout);
         }
         else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
