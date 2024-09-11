@@ -1782,7 +1782,7 @@ namespace vg {
                    
         } 
         TEST_CASE( "Snarl decomposition can handle chains with nodes in different directions",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -6678,7 +6678,7 @@ namespace vg {
         
             }
         } //End test case
-        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph][bug]") {
+        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
             VG graph;
         
             Node* n1 = graph.create_node("GCA");
@@ -6712,8 +6712,6 @@ namespace vg {
             Edge* e16 = graph.create_edge(n10, n12);
             Edge* e17 = graph.create_edge(n11, n12);
 
-            ofstream out ("test_graph.vg");
-            graph.serialize(out);
 
         
             IntegratedSnarlFinder snarl_finder(graph);
@@ -6749,9 +6747,6 @@ namespace vg {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 subgraph_in_distance_range(distance_index, path, &graph, 11, 14, sub_graph, true);
-                for (auto& id : sub_graph) {
-                    cerr << id << endl;
-                }
         
                 REQUIRE(!sub_graph.count(3));
                 REQUIRE(!sub_graph.count(8));
@@ -6875,6 +6870,51 @@ namespace vg {
             }
         
         }//end test case
+
+        TEST_CASE( "Loop in chain not connected to snarl", "[snarl_distance]" ) {
+
+            VG graph;
+
+            Node* n1 = graph.create_node("GCAA");
+            Node* n2 = graph.create_node("GCAA");
+            Node* n3 = graph.create_node("AAAT");
+            Node* n4 = graph.create_node("T");
+            Node* n5 = graph.create_node("G");
+            Node* n6 = graph.create_node("AAAA");
+            Node* n7 = graph.create_node("GGAA");
+            Node* n8 = graph.create_node("TTT");
+
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n2, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n6);
+            Edge* e7 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n6, n7);
+            Edge* e9 = graph.create_edge(n6, n6, false, true);
+            Edge* e10 = graph.create_edge(n7, n8);
+
+
+            //get the snarls
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+
+            SECTION("Traversal of chain") {
+                net_handle_t chain1_6 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
+                distance_index.for_each_child(chain1_6, [&](const net_handle_t& child) {
+                    assert(distance_index.get_parent(child) == chain1_6);
+                });
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(n1->id(),false, 0, n1->id(), true, 0) == 30);
+            }
+
+        }
+
 
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 
