@@ -6906,7 +6906,7 @@ namespace vg {
             SECTION("Traversal of chain") {
                 net_handle_t chain1_6 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
                 distance_index.for_each_child(chain1_6, [&](const net_handle_t& child) {
-                    assert(distance_index.get_parent(child) == chain1_6);
+                    assert(distance_index.canonical(distance_index.get_parent(child)) == distance_index.canonical(chain1_6));
                 });
             }
             SECTION("Minimum distances are correct") {
