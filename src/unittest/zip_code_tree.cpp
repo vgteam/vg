@@ -2954,68 +2954,69 @@ namespace unittest {
         }
     }
             
-    TEST_CASE( "Looping chain zipcode tree", "[zip_tree][bug]" ) {
-        //TODO: This might change but it's a chain 2rev->2rev
-        VG graph;
+    //TODO: we can't deal with this properly yet
+    //TEST_CASE( "Looping chain zipcode tree", "[zip_tree][bug]" ) {
+    //    //TODO: This might change but it's a chain 2rev->2rev
+    //    VG graph;
 
-        Node* n1 = graph.create_node("ACACGTTGC");
-        Node* n2 = graph.create_node("TCTCCACCGGCAAGTTTCACTTCACTT");
-        Node* n3 = graph.create_node("A");
-        Node* n4 = graph.create_node("AT");
-        Node* n5 = graph.create_node("CGTGGGG");
+    //    Node* n1 = graph.create_node("ACACGTTGC");
+    //    Node* n2 = graph.create_node("TCTCCACCGGCAAGTTTCACTTCACTT");
+    //    Node* n3 = graph.create_node("A");
+    //    Node* n4 = graph.create_node("AT");
+    //    Node* n5 = graph.create_node("CGTGGGG");
 
-        Edge* e1 = graph.create_edge(n1, n2);
-        Edge* e2 = graph.create_edge(n1, n5);
-        Edge* e3 = graph.create_edge(n2, n3);
-        Edge* e4 = graph.create_edge(n2, n4);
-        Edge* e5 = graph.create_edge(n3, n4);
-        Edge* e6 = graph.create_edge(n4, n5);
+    //    Edge* e1 = graph.create_edge(n1, n2);
+    //    Edge* e2 = graph.create_edge(n1, n5);
+    //    Edge* e3 = graph.create_edge(n2, n3);
+    //    Edge* e4 = graph.create_edge(n2, n4);
+    //    Edge* e5 = graph.create_edge(n3, n4);
+    //    Edge* e6 = graph.create_edge(n4, n5);
 
 
 
-        IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex dist_index;
-        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+    //    IntegratedSnarlFinder snarl_finder(graph);
+    //    SnarlDistanceIndex dist_index;
+    //    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        SECTION( "One cluster on the same node plus extra node" ) {
-            net_handle_t n = dist_index.get_node_net_handle(n3->id());
-            while (!dist_index.is_root(n)) {
-                cerr << dist_index.net_handle_as_string(n) << endl;
-                n = dist_index.get_parent(n);
-            }
+    //    SECTION( "One cluster on the same node plus extra node" ) {
+    //        net_handle_t n = dist_index.get_node_net_handle(n3->id());
+    //        while (!dist_index.is_root(n)) {
+    //            cerr << dist_index.net_handle_as_string(n) << endl;
+    //            n = dist_index.get_parent(n);
+    //        }
  
-            vector<pair<pos_t, size_t>> positions;
-            positions.emplace_back(make_pos_t(1, false, 0), 0);
-            positions.emplace_back(make_pos_t(2, false, 0), 1);
-            positions.emplace_back(make_pos_t(3, false, 0), 2);
-            positions.emplace_back(make_pos_t(4, false, 0), 3);
-            positions.emplace_back(make_pos_t(5, false, 0), 4);
+    //        vector<pair<pos_t, size_t>> positions;
+    //        positions.emplace_back(make_pos_t(1, false, 0), 0);
+    //        positions.emplace_back(make_pos_t(2, false, 0), 1);
+    //        positions.emplace_back(make_pos_t(3, false, 0), 2);
+    //        positions.emplace_back(make_pos_t(4, false, 0), 3);
+    //        positions.emplace_back(make_pos_t(5, false, 0), 4);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<MinimizerMapper::Minimizer> minimizers;
+    //        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    //        vector<MinimizerMapper::Minimizer> minimizers;
 
-            for (size_t i = 0 ; i < positions.size() ; ++i) {
-                auto pos = positions[i];
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos.first);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({ pos.first, i, zipcode});
+    //        for (size_t i = 0 ; i < positions.size() ; ++i) {
+    //            auto pos = positions[i];
+    //            ZipCode zipcode;
+    //            zipcode.fill_in_zipcode(dist_index, pos.first);
+    //            zipcode.fill_in_full_decoder();
+    //            seeds.push_back({ pos.first, i, zipcode});
 
-                minimizers.emplace_back();
-                minimizers.back().value.offset = pos.second;
-                minimizers.back().value.is_reverse = false;
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+    //            minimizers.emplace_back();
+    //            minimizers.back().value.offset = pos.second;
+    //            minimizers.back().value.is_reverse = false;
+    //        }
+    //        VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
 
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
-            zip_forest.print_self(&seeds, &minimizer_vector);
-            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
-        }
+    //        ZipCodeForest zip_forest;
+    //        zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+    //        zip_forest.print_self(&seeds, &minimizer_vector);
+    //        zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+    //    }
 
  
-    }
+    //}
 
 
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){

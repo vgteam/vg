@@ -80,11 +80,6 @@ class ZipCodeTree {
       For a seed at position node 3 +1 (the A oriented forwards), the sequence would be
       "SNARL_START EDGE CHAIN_START SEED", and the edge value would be 1
 
-      For looping chains, if the distance from the last to first thing in the chain is short
-      enough, we store an EDGE with the distance to get back to the first thing in the chain
-      taking the loop and a CHAIN_LOOP with the index of the first thing in the chain to get
-      back to it.
-
 
       A snarl in the vector is bounded by a SNARL_START and a SNARL_END.
       A snarl is comprised of the two bounds, one or more chains, and the distances among them.
@@ -120,7 +115,7 @@ class ZipCodeTree {
     public:
 
     ///The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT, CHAIN_LOOP};
+    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
