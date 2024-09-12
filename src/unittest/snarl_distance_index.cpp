@@ -150,7 +150,7 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
         
             VG graph;
                 
@@ -190,9 +190,9 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index;
-            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traversal of chain") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t chain1_13 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
                 distance_index.for_each_child(chain1_13, [&](const net_handle_t& child) {
                     if (distance_index.is_node(child)) {
@@ -200,6 +200,8 @@ namespace vg {
                 });
             }
             SECTION("Minimum distances are correct") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
                 net_handle_t chain1_13 = distance_index.get_parent(node2);
                 REQUIRE(distance_index.distance_in_parent(chain1_13, distance_index.flip(node2), distance_index.flip(node2)) == 0); 
@@ -211,6 +213,8 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n7->id(),false, 0, n8->id(), true, 0) == 1);
             }
             SECTION("Paths are correct") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 size_t traversal_i = 0;
                 vector<pair<handlegraph::handle_t, size_t>> actual_path;
@@ -231,6 +235,8 @@ namespace vg {
                 //REQUIRE(traversal_i == 7);
             }
             SECTION("Path that leaves lowest common ancestor") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 size_t traversal_i = 0;
                 vector<pair<handlegraph::handle_t, size_t>> actual_path;
@@ -253,6 +259,10 @@ namespace vg {
                 //    return true;
                 //});
                 //REQUIRE(traversal_i == 8);
+            }
+            SECTION("Distanceless index") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
@@ -730,9 +740,9 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index;
-            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traverse the root") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
                 net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
                 net_handle_t chain2 = distance_index.get_parent(node2);
@@ -748,6 +758,8 @@ namespace vg {
                 REQUIRE(found == 2);
             }
             SECTION("into_which_snarl") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 REQUIRE((distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(4, false, true) ||
                         distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(5, true, true)));
                 REQUIRE((distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(4, false, true) ||
@@ -756,6 +768,10 @@ namespace vg {
                         distance_index.into_which_snarl(n5->id(), true));
                 REQUIRE((distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(4, true, false) ||
                         distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(2, false, false)));
+            }
+            SECTION("distanceless index") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
             }
         }
 
