@@ -517,7 +517,7 @@ struct ZipCode::snarl_code_t {
         size_t distance_end_left;
         size_t distance_end_right;
 
-        size_t record_offset : 32;
+        size_t record_offset ;
 
         size_t child_count : 16; 
         size_t chain_component : 16;
