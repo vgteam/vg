@@ -384,8 +384,7 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
     SnarlDistanceIndex distance_index;
     {
         IntegratedSnarlFinder snarl_finder(*graph);
-        // todo: why can't I pass in 0 below -- I don't want any dinstances!
-        fill_in_distance_index(&distance_index, graph, &snarl_finder, 1);
+        fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
     }
 
     // only consider embedded paths that span snarl
