@@ -377,7 +377,7 @@ public:
     
     /// How many DP cells should we be willing to do for an end-pinned
     /// alignment? If we want to do more than this, just leave tail unaligned.
-    static constexpr size_t default_max_dp_cells = (size_t)(1.5 * 1024 * 1024);
+    static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
 
     /// How many gap bases should we allow in a Dozeu tail alignment, max?
