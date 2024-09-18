@@ -3777,13 +3777,49 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
             //
             // We need to pick band padding based on what we are aligning, and
             // we want to use permissive banding.
-            size_t band_padding = choose_band_padding(alignment, dagified_graph);
-#ifdef debug
-            std::cerr << "Aligning with band padding: " << band_padding << " for alignment length " << alignment.sequence().size() << std::endl;
+
+            size_t estimated_cell_count = (dagified_graph.get_total_length() - alignment.sequence().size()) * alignment.sequence().size();
+
+            if (estimated_cell_count < max_dp_cells) {
+                size_t band_padding = choose_band_padding(alignment, dagified_graph);
+#ifdef debug    
+                std::cerr << "Aligning with band padding: " << band_padding << " for alignment length " << alignment.sequence().size() << std::endl;
 #endif
-            aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
-            to_return.first = dagified_graph.get_node_count();
-            to_return.second = dagified_graph.get_total_length();
+                aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
+                to_return.first = dagified_graph.get_node_count();
+                to_return.second = dagified_graph.get_total_length();
+            } else {
+                //If we think we're going to use too much memory, then just leave it unaligned
+
+                //TODO: I want to do pinned alignment from each of the anchors and then 
+                //add a deletion between the two, but idk how to make sure that the two alignments
+                //willl be reachable
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << estimated_cell_count << " DP cells in tail with banded global alignment";
+                    if (alignment_name) {
+                        std::cerr << " for read " << *alignment_name;
+                    }
+                    std::cerr << std::endl;
+                }
+                // Fake a softclip right in input graph space
+                alignment.clear_path();
+                Mapping* m = alignment.mutable_path()->add_mapping();
+
+                // TODO: idk how to do this properly, I just copied what we did for adding an empty pinned alignment but it doesn't include both sides
+                m->mutable_position()->set_node_id(id(left_anchor));
+                m->mutable_position()->set_is_reverse(is_rev(left_anchor));
+                m->mutable_position()->set_offset(offset(left_anchor));
+                Edit* e = m->add_edit();
+                e->set_to_length(alignment.sequence().size());
+                e->set_sequence(alignment.sequence());
+                to_return.first = 0;
+                to_return.second = 0;
+                return;
+
+
+                
+            }
         } else {
             // Do pinned alignment off the anchor we actually have.
             // Work out how big it will be.
