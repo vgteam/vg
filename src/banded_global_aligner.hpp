@@ -25,13 +25,21 @@ using namespace std;
 namespace vg {
     
     /**
-     * This gets thrown when the aligner can't find any valid alignment in
-     * the band that was requested.
+     * This gets thrown when the BandedGlobalAligner can't find any valid
+     * alignment in the band that was requested.
      */
     class NoAlignmentInBandException : public exception {
         virtual const char* what() const noexcept;
         static const string message;
         int get_count();
+    };
+    
+    /**
+     * This gets thrown when a BandedGlobalAligner can't find an alignment because the band matrices would be too big.
+     */
+    class BandMatricesTooBigException : public std::runtime_error {
+    public:
+        using std::runtime_error::runtime_error;
     };
     
     /**
@@ -57,10 +65,12 @@ namespace vg {
         ///  band_padding                width to expand band by
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
         ///  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
+        ///  max_cells                   limit maximum allocated matrix entries or throw BandMatricesTooBigException
         ///
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false);
+                            bool adjust_for_base_quality = false,
+                            uint64_t max_cells = std::numeric_limits<uint64_t>::max());
         
         
         /// Initializes banded multi-alignment, which computes the top scoring alternate alignments in addition
@@ -75,10 +85,12 @@ namespace vg {
         ///  band_padding                width to expand band by
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
         ///  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
+        ///  max_cells                   limit maximum allocated matrix entries or throw BandMatricesTooBigException
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>& alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false);
+                            bool adjust_for_base_quality = false,
+                            uint64_t max_cells = std::numeric_limits<uint64_t>::max());
         
         ~BandedGlobalAligner();
         
@@ -133,7 +145,8 @@ namespace vg {
         BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>* alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
-                            bool adjust_for_base_quality = false);
+                            bool adjust_for_base_quality = false,
+                            uint64_t max_cells = std::numeric_limits<uint64_t>::max());
         
         /// Traceback through dynamic programming matrices to compute alignment
         void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf);

@@ -1923,12 +1923,14 @@ void BandedGlobalAligner<IntType>::BAMatrix::print_band(const HandleGraph& graph
 template <class IntType>
 BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                                                   int64_t band_padding, bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  uint64_t max_cells) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       nullptr, 1,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality)
+                                                                      adjust_for_base_quality,
+                                                                      max_cells)
 {
     // nothing to do, just funnel into internal constructor
 }
@@ -1938,13 +1940,15 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   vector<Alignment>& alt_alignments,
                                                   int64_t max_multi_alns, int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  uint64_t max_cells) :
                                                   BandedGlobalAligner(alignment, g,
                                                                       &alt_alignments,
                                                                       max_multi_alns,
                                                                       band_padding,
                                                                       permissive_banding,
-                                                                      adjust_for_base_quality)
+                                                                      adjust_for_base_quality,
+                                                                      max_cells)
 {
     // check data integrity and funnel into internal constructor
     if (!alt_alignments.empty()) {
@@ -1959,7 +1963,8 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   int64_t max_multi_alns,
                                                   int64_t band_padding,
                                                   bool permissive_banding,
-                                                  bool adjust_for_base_quality) :
+                                                  bool adjust_for_base_quality,
+                                                  uint64_t max_cells) :
                                                   graph(g),
                                                   alignment(alignment),
                                                   alt_alignments(alt_alignments),
@@ -2003,8 +2008,39 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
     // figure out what the bands need to be for alignment and which nodes cannot complete a
     // global alignment within the band
     vector<bool> node_masked;
+    // These are the top and bottom diagonals, inclusive
     vector<pair<int64_t, int64_t>> band_ends;
     find_banded_paths(permissive_banding, band_padding, node_masked, band_ends);
+    
+#ifdef debug_banded_aligner_objects
+    cerr << "[BandedGlobalAligner]: measuring matrices" << endl;
+#endif
+
+    uint64_t total_cells = 0;
+    for (int64_t i = 0; i < topological_order.size(); i++) {
+        if (!node_masked[i])  {
+            const handle_t& node = topological_order[i];
+                
+            int64_t node_seq_len = graph.get_length(node);
+            
+            // Measure the band height, accoutning for inclusiveness
+            uint64_t band_height = band_ends[i].second - band_ends[i].first + 1;
+            
+            // Work out how big the matrix will be
+            uint64_t band_matrix_size = band_height * node_seq_len;
+
+            // And sum it up
+            total_cells += band_matrix_size;
+        }
+    }
+
+#ifdef debug_banded_aligner_objects
+    cerr << "[BandedGlobalAligner]: need to allocate " << total_cells << " matrix cells" << endl;
+#endif
+
+    if (total_cells > max_cells) {
+        throw BandMatricesTooBigException("error:[BandedGlobalAligner] Would need to fill " + std::to_string(total_cells) + " cells but limited to " + std::to_string(max_cells));
+    }
     
 #ifdef debug_banded_aligner_objects
     cerr << "[BandedGlobalAligner]: identifying shortest paths" << endl;

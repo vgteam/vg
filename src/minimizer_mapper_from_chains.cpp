@@ -7,6 +7,7 @@
 #include "minimizer_mapper.hpp"
 
 #include "annotation.hpp"
+#include "banded_global_aligner.hpp"
 #include "crash.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
@@ -3206,6 +3207,20 @@ Alignment MinimizerMapper::find_chain_alignment(
                     stats->invocations.bga_middle += 1;
                 }
             }
+            
+            if (linking_bases.size() > 0 && link_aln.path().mapping_size() == 0) {
+                // Connecting alignment bailed out. Assume that this is due to size.
+                // TODO: Should we let the exceptions propagate up to here instead?
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                }
+
+                // Just jump to right tail
+                break;
+            }
+            
+            // Otherwise we actually have a link alignment result.
             link_alignment_source = "align_sequence_between";
             
             if (show_work) {
@@ -3781,7 +3796,19 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
 #ifdef debug
             std::cerr << "Aligning with band padding: " << band_padding << " for alignment length " << alignment.sequence().size() << std::endl;
 #endif
-            aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
+            try {
+                aligner->align_global_banded(alignment, dagified_graph, band_padding, true, max_dp_cells);
+            } catch (BandMatricesTooBigException& e) {
+                // We would use too many DP cells.
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "warning[MinimizerMapper::align_sequence_between]: " << e.what() << std::endl;
+                }
+                // Clear out the alignment path to indicate that we didn't actually compute an alignment.
+                alignment.mutable_path()->clear_mapping();
+            }
+            // Always report the size of what we were aligning to.
+            // TODO: Do we still need this?
             to_return.first = dagified_graph.get_node_count();
             to_return.second = dagified_graph.get_total_length();
         } else {

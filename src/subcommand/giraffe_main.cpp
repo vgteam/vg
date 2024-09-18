@@ -561,7 +561,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "max-dp-cells",
         &MinimizerMapper::max_dp_cells,
         MinimizerMapper::default_max_dp_cells,
-        "maximum number of alignment cells to allow in a tail"
+        "maximum number of alignment cells to allow in a tail or BGA connection"
     );
     chaining_opts.add_range(
         "max-tail-gap",
@@ -926,6 +926,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-dp-cells", 100000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
@@ -985,6 +986,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-dp-cells", 100000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
