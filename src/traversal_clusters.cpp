@@ -1,9 +1,13 @@
 #include "traversal_clusters.hpp"
+#include "traversal_finder.hpp"
+#include "integrated_snarl_finder.hpp"
+#include "snarl_distance_index.hpp"
 
 //#define debug
 
 namespace vg {
 
+using namespace bdsg;
 
 // specialized version of jaccard_coefficient() that weights jaccard by node lenths. 
 double weighted_jaccard_coefficient(const PathHandleGraph* graph,
@@ -279,9 +283,136 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
     return trav_to_child_snarls;
 }
 
+static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths,
+                                                 PathTraversalFinder& path_trav_finder, 
+                                                 const handle_t& start_handle, const handle_t& end_handle ) {
+    // find the path traversals through the snarl
+    vector<Traversal> path_travs;
+    vector<PathInterval> path_intervals;
+    std::tie(path_travs, path_intervals) = path_trav_finder.find_path_traversals(start_handle, end_handle);
+    vector<string> trav_names(path_travs.size());
+    vector<path_handle_t> trav_paths(path_travs.size());
+    vector<bool> trav_reversed(path_travs.size());
 
+#ifdef debug
+    cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl;
+#endif
+    
+    // organize paths by their alleles strings
+    // todo: we could use a fancier index to save memory here (prob not necessary tho)
+    unordered_map<string, vector<int64_t>> string_to_travs;
+    for (int64_t i = 0; i < path_travs.size(); ++i) {
+        const Traversal& trav = path_travs[i];
+        string allele;
+        for (int64_t j = 1; j < trav.size() - 1; ++j) {
+            allele += toUppercase(graph->get_sequence(trav[j]));
+        }
+        string_to_travs[allele].push_back(i);
+        trav_paths[i] = graph->get_path_handle_of_step(path_intervals[i].first);
+        trav_names[i] = graph->get_path_name(trav_paths[i]);
+        trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
+            graph->get_is_reverse(start_handle);
+#ifdef debug
+        cerr << "trav " << i << ": "
+             << "n=" << trav_names[i] << " "
+             << "i=" << graph_interval_to_string(graph, graph->get_handle_of_step(path_intervals[i].first),
+                                                 graph->get_handle_of_step(path_intervals[i].second))
+             << " t=" << traversal_to_string(graph, trav)
+             << " a=" << allele <<  " r=" << trav_reversed[i] << endl;
+#endif
+    }
 
-   
+    // rank the traversals, putting selected ones first otherwise alphabetical
+    function<bool(int64_t, int64_t)> trav_idx_less = [&](int64_t i, int64_t j) {
+        bool iref = selected_paths.count(trav_paths[i]);
+        bool jref = selected_paths.count(trav_paths[j]);
+        if (iref != jref) {
+            return iref;
+        }
+        return trav_names[i] < trav_names[j];
+    };
 
+    // merge up the paths
+    for (const auto& allele_travs : string_to_travs) {
+        if (allele_travs.first.length() > 0 && allele_travs.second.size() > 1) {
+            const vector<int64_t>& eq_travs = allele_travs.second;
+            auto canonical_it = std::min_element(eq_travs.begin(), eq_travs.end(), trav_idx_less);
+            assert(canonical_it != eq_travs.end());
+            int64_t canonical_idx = *canonical_it;
+            const Traversal& canonical_trav = path_travs[canonical_idx];
+            Traversal canonical_trav_flip;
+            for (auto i = canonical_trav.rbegin(); i != canonical_trav.rend(); ++i) {
+                canonical_trav_flip.push_back(graph->flip(*i));
+            }
+                
+            // edit it into every other path
+            //
+            // WARNING: in the case of loops, we could be editing the same path more than once
+            //          so making the big undocumented assumption that step handles outside edit
+            //          are unaffected!!
+            for (int64_t i = 0; i < eq_travs.size(); ++i) {
+                int64_t replace_idx = eq_travs[i];
+                if (replace_idx != canonical_idx && path_travs[replace_idx] != path_travs[canonical_idx]) {
+                    PathInterval interval_to_replace = path_intervals[replace_idx];
+                    if (trav_reversed[replace_idx]) {
+                        std::swap(interval_to_replace.first, interval_to_replace.second);
+                    }
+                    const Traversal& replacement_trav = trav_reversed[replace_idx] ? canonical_trav_flip : canonical_trav;
+#ifdef debug
+                    cerr << "editing interval of size " << path_travs[replace_idx].size()
+                         << " from path " << trav_names[replace_idx] << " with canonical interval of size "
+                         << replacement_trav.size() << " from path "
+                         << trav_names[canonical_idx] << endl
+                         << "--interval to replace: "
+                         << graph_interval_to_string(graph, graph->get_handle_of_step(interval_to_replace.first),
+                                                     graph->get_handle_of_step(interval_to_replace.second)) << endl
+                         << "--interval coming in: " << traversal_to_string(graph, replacement_trav) << endl;
+
+#endif
+                    assert(graph->get_handle_of_step(interval_to_replace.first) == replacement_trav.front());
+                    assert(graph->get_handle_of_step(interval_to_replace.second) == replacement_trav.back());
+                    graph->rewrite_segment(interval_to_replace.first, graph->get_next_step(interval_to_replace.second),
+                                           replacement_trav);
+                }
+            }
+        }
+    }
+}
+
+void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths) {  
+    // compute the snarls
+    SnarlDistanceIndex distance_index;
+    {
+        IntegratedSnarlFinder snarl_finder(*graph);
+        // todo: why can't I pass in 0 below -- I don't want any dinstances!
+        fill_in_distance_index(&distance_index, graph, &snarl_finder, 1);
+    }
+
+    // only consider embedded paths that span snarl
+    PathTraversalFinder path_trav_finder(*graph);
+
+    // do every snarl top-down.  this is because it's possible (tho probably rare) for a child snarl to
+    // be redundant after normalizing its parent. don't think the opposite (normalizing child)
+    // causes redundant parent.. todo: can we guarantee?!
+    net_handle_t root = distance_index.get_root();
+    deque<net_handle_t> queue = {root};
+    
+    while (!queue.empty()) {
+        net_handle_t net_handle = queue.front();
+        queue.pop_front();
+        if (distance_index.is_snarl(net_handle)) {
+            net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
+            net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
+            handle_t start_handle = distance_index.get_handle(start_bound, graph);
+            handle_t end_handle = distance_index.get_handle(end_bound, graph);
+            merge_equivalent_traversals_in_snarl(graph, selected_paths, path_trav_finder, start_handle, end_handle);
+        }        
+        if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+            distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
+                queue.push_back(child_handle);
+            });
+        }
+    }
+}
 
 }

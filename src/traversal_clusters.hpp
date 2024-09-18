@@ -90,4 +90,15 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
                                                       const vector<Traversal>& traversals,
                                                       const vector<pair<handle_t, handle_t>>& child_snarls);
 
+/// For every top-level snarl in the graph, compute the traversal strings of every embedded path that spans it
+/// If two or more traversals share an allele string, then a "canoncial" path is chosen and all remaining paths
+/// are edited so that they share the exact same interval through the snarl as the canonical path's traversal.
+/// A path is considered "canoncial" if it's in the "selected_paths" and the other paths are not
+/// (otherwise the lowest name is used as a fallback)
+///
+/// Note: this doesn't modify the graph toplogy, so uncovered nodes and edges as a result of path editing
+/// would usually need removale with vg clip afterwards
+///
+void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths);
+
 }
