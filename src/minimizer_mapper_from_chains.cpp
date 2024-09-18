@@ -3779,8 +3779,8 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
             // we want to use permissive banding.
 
             size_t graph_length = dagified_graph.get_total_length();
-            size_t estimated_cell_count = (graph_length > alignment.sequence.size() ? graph_length - alignment.sequence().size() 
-                                                                                    : alignment.sequence.size() - graph_length) 
+            size_t estimated_cell_count = (graph_length > alignment.sequence().size() ? graph_length - alignment.sequence().size() 
+                                                                                    : alignment.sequence().size() - graph_length) 
                                         * alignment.sequence().size();
 
             if (estimated_cell_count < max_dp_cells) {
