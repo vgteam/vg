@@ -26,6 +26,7 @@ ostream& operator<<(ostream& os, const Counts& counts) {
        << "Random Filter:                 " << counts.counts[Counts::FilterName::random] << endl
        << "Annotation Filter:             " << counts.counts[Counts::FilterName::annotation] << endl
        << "Incorrectly Mapped Filter:     " << counts.counts[Counts::FilterName::incorrectly_mapped] << endl
+       << "Max Reads Filter:              " << counts.counts[Counts::FilterName::max_reads] << endl
        << endl;
     return os;
 }

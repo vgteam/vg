@@ -206,12 +206,16 @@ int main_chain(int argc, char** argv) {
                 const char* graph_end_id = nullptr;
                 const char* graph_end_offset = "0";
                 int graph_end_is_reverse = 0;
-                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s?i, s:o, s:o}",
+                const char* read_exclusion_start = nullptr;
+                const char* read_exclusion_end = nullptr;
+                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s?i, s:o, s:o, s:s, s:s}",
                                    "read_start", &read_start, 
                                    "read_end", &read_end,
                                    "score", &score,
                                    "graph_start", &graph_start,
-                                   "graph_end", &graph_end) == 0 &&
+                                   "graph_end", &graph_end,
+                                   "read_exclusion_start", &read_exclusion_start, 
+                                   "read_exclusion_end", &read_exclusion_end) == 0 &&
                     json_unpack_ex(graph_start, &json_error, 0, "{s:s, s?s, s?b}",
                                    "node_id", &graph_start_id, "offset", &graph_start_offset, "is_reverse", &graph_start_is_reverse) == 0 &&
                     json_unpack_ex(graph_end, &json_error, 0, "{s:s, s?s, s?b}",
@@ -222,6 +226,8 @@ int main_chain(int argc, char** argv) {
                     assert(read_end != nullptr);
                     assert(graph_start_id != nullptr);
                     assert(graph_end_id != nullptr);
+                    assert(read_exclusion_start != nullptr);
+                    assert(read_exclusion_end != nullptr);
                     
                     // We can only handle items where they occupy space on just one node.
                     assert(strcmp(graph_start_id, graph_end_id) == 0);
@@ -230,8 +236,12 @@ int main_chain(int argc, char** argv) {
                     size_t start = vg::parse<size_t>(read_start);
                     size_t length = vg::parse<size_t>(read_end) - start;
                     
+                    // Reconstruct the margins
+                    size_t margin_left = start - vg::parse<size_t>(read_exclusion_start);
+                    size_t margin_right = vg::parse<size_t>(read_exclusion_start) - (start + length);
+                    
                     // Pack up into an item
-                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, score);
+                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
                 } else {
                     std::cerr << "warning:[vg chain] Unreadable item object at index " << i << ": " << json_error.text << std::endl;
                 }

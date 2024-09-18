@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # make_pbsim_reads.sh: script to simulate reads with pbsim2.
-# Mostly theoretical; records commands that would have worked better than what was actually run
-# Intended to run on UCSC Courtyard/Plaza systems
+# Intended to run on UCSC behind-the-firewall systems
 # You may also need to CFLAGS=-fPIC pip3 install --user bioconvert
 
 set -ex
@@ -10,9 +9,11 @@ set -ex
 # You can set these in the environment to override them and I don't have to write a CLI option parser.
 # See https://stackoverflow.com/a/28085062
 
-# Graph to simulate from. Can be S3 URLs or local file paths.
+# Graph to simulate from. Can be S3 URLs or local file paths. If GRAPH_GBZ_URL
+# is set, GRAPH_XG_URL and GRAPH_GBWT_URL are not used.
 : "${GRAPH_XG_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.xg}"
 : "${GRAPH_GBWT_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.gbwt}"
+: "${GRAPH_GBZ_URL:=""}"
 # Name to use for graph when downloaded
 : "${GRAPH_NAME:=hprc-v1.0-mc-grch38}"
 # Sample to simulate from
@@ -20,17 +21,22 @@ set -ex
 # Technology name to use in output filenames
 : "${TECH_NAME:=hifi}"
 # FASTQ to use as a template, or "/dev/null"
-: "${SAMPLE_FASTQ:=/public/groups/vg/sjhwang/data/reads/real_HiFi/tmp/HiFi_reads_100k_real.fq}"
+: "${SAMPLE_FASTQ:=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads/real/hifi/HiFi_reads_100k.fq}"
 # HMM model to use instead of a FASTQ, or "/dev/null"
 : "${PBSIM_HMM:=/dev/null}"
-# This needs to be the pbsim2 command, which isn't assumed to be in $PATH
-: "${PBSIM:=/public/groups/vg/sjhwang/tools/bin/pbsim}"
+# This needs to be the pbsim2 binary, which might not be in $PATH.
+# It can be installed with
+# git clone https://github.com/yukiteruono/pbsim2.git
+# cd pbsim2
+# git checkout eeb5a19420534a0f672c81db2670117e62a9ee38
+# autoupdate
+# automake --add-missing
+# autoreconf 
+# ./configure --prefix=$HOME/.local && make
+# The binary will be in src/pbsim
+: "${PBSIM:=pbsim}"
 # Parameters to use with pbsim for simulating reads for each contig. Parameters are space-separated and internal spaces must be escaped.
-: "${PBSIM_PARAMS:=--depth 1 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
-# This needs to be a command line which can execute Stephen's script that adds qualities from a FASTQ back into a SAM that is missing them.
-# Arguments are space-separated and internal spaces must be escaped.
-# This script is at https://gist.github.com/adamnovak/45ae4f500a8ec63ce12ace4ca77afc21
-: "${ADD_QUALITIES:=python3 /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py}"
+: "${PBSIM_PARAMS:=--depth 4 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
 # Directory to save results in
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"
 # Number of MAFs to convert at once
@@ -49,33 +55,48 @@ fi
 # Make sure scratch directory exists
 mkdir -p "${WORK_DIR}"
 
-# Fetch graph
-if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.xg" ]] ; then
-    # This comparison require Bash 3 or later. See <https://stackoverflow.com/a/2172365>
-    if [[ ${GRAPH_XG_URL} =~ ^s3:.* ]]; then
-        # Download from S3
-        aws s3 cp "${GRAPH_XG_URL}" "${WORK_DIR}/${GRAPH_NAME}.xg.tmp"
-        mv "${WORK_DIR}/${GRAPH_NAME}.xg.tmp" "${WORK_DIR}/${GRAPH_NAME}.xg"
-    else
-        # Use local symlink
-        ln -s "$(realpath "${GRAPH_XG_URL}")" "${WORK_DIR}/${GRAPH_NAME}.xg"
-    fi
-fi
-if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbwt" ]] ; then
-    if [[ ${GRAPH_GBWT_URL} =~ ^s3:.* ]]; then
-        # Download from S3
-        aws s3 cp "${GRAPH_GBWT_URL}" "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp"
-        mv "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
-    else
-        # Use local symlink
-        ln -s "$(realpath "${GRAPH_GBWT_URL}")" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
-    fi
-fi
+if [[ -z "${GRAPH_GBZ_URL}" ]] ; then
 
-if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbz" ]] ; then
-    # Make it one file
-    time vg gbwt -x "${WORK_DIR}/${GRAPH_NAME}.xg" "${WORK_DIR}/${GRAPH_NAME}.gbwt" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp"
-    mv "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbz"
+    # Fetch graph
+    if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.xg" ]] ; then
+        # This comparison require Bash 3 or later. See <https://stackoverflow.com/a/2172365>
+        if [[ ${GRAPH_XG_URL} =~ ^s3:.* ]]; then
+            # Download from S3
+            aws s3 cp "${GRAPH_XG_URL}" "${WORK_DIR}/${GRAPH_NAME}.xg.tmp"
+            mv "${WORK_DIR}/${GRAPH_NAME}.xg.tmp" "${WORK_DIR}/${GRAPH_NAME}.xg"
+        else
+            # Use local symlink
+            ln -s "$(realpath "${GRAPH_XG_URL}")" "${WORK_DIR}/${GRAPH_NAME}.xg"
+        fi
+    fi
+    if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbwt" ]] ; then
+        if [[ ${GRAPH_GBWT_URL} =~ ^s3:.* ]]; then
+            # Download from S3
+            aws s3 cp "${GRAPH_GBWT_URL}" "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp"
+            mv "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
+        else
+            # Use local symlink
+            ln -s "$(realpath "${GRAPH_GBWT_URL}")" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
+        fi
+    fi
+
+    if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbz" ]] ; then
+        # Make it one file
+        time vg gbwt -x "${WORK_DIR}/${GRAPH_NAME}.xg" "${WORK_DIR}/${GRAPH_NAME}.gbwt" --gbz-format -g "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp"
+        mv "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbz"
+    fi
+
+elif [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbz" ]] ; then
+    # Fetch the GBZ
+    if [[ ${GRAPH_GBZ_URL} =~ ^s3:.* ]]; then
+        # Download from S3
+        aws s3 cp "${GRAPH_GBZ_URL}" "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp"
+        mv "${WORK_DIR}/${GRAPH_NAME}.gbz.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbz"
+    else
+        # Use local symlink
+        ln -s "$(realpath "${GRAPH_GBZ_URL}")" "${WORK_DIR}/${GRAPH_NAME}.gbz"
+    fi
+
 fi
 
 if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" ]] ; then
@@ -150,7 +171,7 @@ function do_job() {
             mv "${SAM_NAME}.tmp" "${SAM_NAME}"
         fi
         set -o pipefail
-        ${ADD_QUALITIES} -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
+        python3 "$(dirname -- "${BASH_SOURCE[0]}")/reinsert_qualities.py" -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
         set +o pipefail
         mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
     else
@@ -207,14 +228,14 @@ fi
 # Work out howe many reads there are
 TOTAL_READS="$(vg stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
-if [[ "${TOTAL_READS}" -lt 10500 ]] ; then
-    echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 10000 reads with buffer!"
+if [[ "${TOTAL_READS}" -lt 1000500 ]] ; then
+    echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 1000000 reads with buffer!"
     exit 1
 fi
 echo "Simulated ${TOTAL_READS} reads overall"
 
 SUBSAMPLE_SEED=1
-for READ_COUNT in 100 1000 10000 ; do
+for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     # Subset to manageable sizes (always)
     # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
