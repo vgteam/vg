@@ -613,12 +613,11 @@ endif
 
 $(INC_DIR)/kff_io.hpp: $(LIB_DIR)/libkff.a
 
-# We need to drop the hardcoderd CMAKE_CXX_FLAGS. See <https://github.com/Kmer-File-Format/kff-cpp-api/issues/16>
 $(LIB_DIR)/libkff.a: $(KFF_DIR)/kff_io.cpp $(KFF_DIR)/kff_io.hpp.in
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(KFF_DIR) && sed -i.bak '/set(CMAKE_CXX_FLAGS/d' CMakeLists.txt && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cd $(KFF_DIR) && sed -i.bak '/set(CMAKE_CXX_FLAGS/d' CMakeLists.txt && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/BooPHF.h: $(BBHASH_DIR)/BooPHF.h
