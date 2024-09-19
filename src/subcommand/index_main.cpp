@@ -701,7 +701,7 @@ int main_index(int argc, char** argv) {
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, false);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {
