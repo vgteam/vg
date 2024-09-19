@@ -22,7 +22,7 @@ var searchData=
   ['file_5fbase_5fname_8318',['file_base_name',['../namespacevg.html#aeaf52003fcf4fa34ded0aeabafacb3fc',1,'vg']]],
   ['file_5fexists_8319',['file_exists',['../namespacevg.html#abebdd1477a436020f3d3f8368d825054',1,'vg']]],
   ['fill_5fbuffer_8320',['fill_buffer',['../classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f',1,'vg::VcfBuffer']]],
-  ['fill_5fin_5fdistance_5findex_8321',['fill_in_distance_index',['../namespacevg.html#ac146be1a4fdd34ea5731dfa640e21aab',1,'vg']]],
+  ['fill_5fin_5fdistance_5findex_8321',['fill_in_distance_index',['../namespacevg.html#aa614af08093562e4f766ba028eb5d6d2',1,'vg']]],
   ['fill_5fmatrix_8322',['fill_matrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a54be0f91b1460bbd03e87e6da6be6e32',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['fill_5fnode_5fto_5fposition_8323',['fill_node_to_position',['../classvg_1_1Filter.html#ac7216130c6fbd20580901090f8185048',1,'vg::Filter']]],
   ['fill_5fvalue_8324',['fill_value',['../classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd',1,'vg::io::ProtobufIterator']]],

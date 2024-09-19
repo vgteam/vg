@@ -2108,8 +2108,8 @@ Functions</h2></td></tr>
 <tr class="separator:abcbcd550b51078ae43f2b1d87941e1a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a004ed92d4db665ce8ec4e527f150a7c4">maximum_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2)</td></tr>
 <tr class="separator:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac146be1a4fdd34ea5731dfa640e21aab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac146be1a4fdd34ea5731dfa640e21aab">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit)</td></tr>
-<tr class="separator:ac146be1a4fdd34ea5731dfa640e21aab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa614af08093562e4f766ba028eb5d6d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa614af08093562e4f766ba028eb5d6d2">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool silence_warnings)</td></tr>
+<tr class="separator:aa614af08093562e4f766ba028eb5d6d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7eec172f798f421f4d059e5c51d6d9ce"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7eec172f798f421f4d059e5c51d6d9ce">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit)</td></tr>
 <tr class="separator:a7eec172f798f421f4d059e5c51d6d9ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a909f1da1c571aa4c8a82b2e48ac915b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a909f1da1c571aa4c8a82b2e48ac915b2">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt; snarl_index, size_t size_limit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -9428,8 +9428,8 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
-<a id="ac146be1a4fdd34ea5731dfa640e21aab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac146be1a4fdd34ea5731dfa640e21aab">&#9670;&nbsp;</a></span>fill_in_distance_index()</h2>
+<a id="aa614af08093562e4f766ba028eb5d6d2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa614af08093562e4f766ba028eb5d6d2">&#9670;&nbsp;</a></span>fill_in_distance_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9456,7 +9456,13 @@ template&lt;class RandomIt &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>size_limit</em>&#160;</td>
+          <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>silence_warnings</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
