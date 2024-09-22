@@ -149,11 +149,14 @@ namespace vg {
         virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) const = 0;
         
-        /// store optimal global alignment against a graph within a specified band in the Alignment object
-        /// permissive banding auto detects the width of band needed so that paths can travel
-        /// through every node in the graph
+        /// Store optimal global alignment against a graph within a specified band in the Alignment object.
+        /// Permissive banding auto detects the width of band needed so that paths can travel
+        /// through every node in the graph.
+        ///
+        /// Throws BandMatricesTooBigException if the max_cells limit on DP matric size is hit.
         virtual void align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                         int32_t band_padding = 0, bool permissive_banding = true) const = 0;
+                                         int32_t band_padding = 0, bool permissive_banding = true,
+                                         uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const = 0;
         
         /// store top scoring global alignments in the vector in descending score order up to a maximum number
         /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
@@ -359,11 +362,14 @@ namespace vg {
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
         
-        /// store optimal global alignment against a graph within a specified band in the Alignment object
-        /// permissive banding auto detects the width of band needed so that paths can travel
-        /// through every node in the graph
+        /// Store optimal global alignment against a graph within a specified band in the Alignment object.
+        /// Permissive banding auto detects the width of band needed so that paths can travel
+        /// through every node in the graph.
+        ///
+        /// Throws BandMatricesTooBigException if the max_cells limit on DP matric size is hit.
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                 int32_t band_padding = 0, bool permissive_banding = true) const;
+                                 int32_t band_padding = 0, bool permissive_banding = true,
+                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
         
         /// store top scoring global alignments in the vector in descending score order up to a maximum number
         /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
@@ -433,7 +439,8 @@ namespace vg {
         
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                 int32_t band_padding = 0, bool permissive_banding = true) const;
+                                 int32_t band_padding = 0, bool permissive_banding = true,
+                                 uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
                           uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,

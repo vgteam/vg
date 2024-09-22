@@ -1030,7 +1030,12 @@ protected:
      * the other position.
      *
      * For pinned alignment, restricts the alignment to have gaps no longer
-     * than max_gap_length, and to use <= max_dp_cells cells.
+     * than max_gap_length, and to use <= max_dp_cells cells. If too many DP
+     * cells would be used, produces a softclip alignment.
+     *
+     * For connecting alignment, restricts the alignment to use <= max_dp_cells
+     * cells. If too many DP cells would be used, produces an Alignment with
+     * and empty path.
      *
      * Returns the number of nodes and bases in the graph aligned against.
      */
