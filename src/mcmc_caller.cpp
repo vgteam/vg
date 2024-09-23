@@ -96,7 +96,7 @@ namespace vg {
             return false;
         }
         
-        PathTraversalFinder trav_finder(*path_position_handle_graph, snarl_manager, ref_paths);
+        PathTraversalFinder trav_finder(*path_position_handle_graph, ref_paths);
         auto trav_results = trav_finder.find_path_traversals(snarl);
         vector<SnarlTraversal> ref_path = trav_results.first;
 

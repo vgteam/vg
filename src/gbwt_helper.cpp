@@ -261,7 +261,7 @@ std::vector<std::vector<gbwt::size_type>> partition_gbwt_sequences(const gbwt::G
 }
 
 // Build a GBWT by inserting the specified sequences and applying the specified mappings.
-gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job, const std::vector<gbwt::size_type>& sequences, const RebuildParameters& parameters) {
+gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job, size_t job_id, const std::vector<gbwt::size_type>& sequences, const RebuildParameters& parameters) {
 
     // Partition the mappings by the first node and determine node width.
     gbwt::size_type node_width = sdsl::bits::length(gbwt_index.sigma() - 1);
@@ -314,7 +314,18 @@ gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job,
                 i++;
             }
         }
-        builder.insert(mapped, true);
+        if (parameters.dry_run) {
+            std::string msg =
+                "rebuild_gbwt(): Job " + std::to_string(job_id) +
+                ": Sequence " + std::to_string(sequence) + ": " +
+                std::to_string(path.size()) + " -> " + std::to_string(mapped.size()) + " nodes";
+            #pragma omp critical
+            {
+                std::cerr << msg << std::endl;
+            }
+        } else {
+            builder.insert(mapped, true);
+        }
     }
     builder.finish();
 
@@ -374,7 +385,7 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                 std::cerr << "rebuild_gbwt(): Starting job " << job << std::endl;
             }
         }
-        indexes[job] = rebuild_gbwt_job(gbwt_index, jobs[job], sequences_by_job[job], parameters);
+        indexes[job] = rebuild_gbwt_job(gbwt_index, jobs[job], job, sequences_by_job[job], parameters);
         if (parameters.show_progress) {
             #pragma omp critical
             {
@@ -528,6 +539,38 @@ std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_typ
                                           gbwtgraph::get_path_haplotype(metadata, path, PathSense::REFERENCE),
                                           PathMetadata::NO_PHASE_BLOCK,
                                           PathMetadata::NO_SUBRANGE);
+}
+
+//------------------------------------------------------------------------------
+
+void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination) {
+    if (source.tags.contains(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG)) {
+        // Reference samples tag is not copied automatically.
+        destination.tags.set(
+            gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG,
+            source.tags.get(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG)
+        );
+    }
+}
+
+void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination) {
+    std::vector<std::string> reference_samples;
+    source.for_each_path_of_sense(PathSense::REFERENCE, [&](const path_handle_t& path) {
+        std::string sample_name = source.get_sample_name(path);
+        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
+            reference_samples.push_back(sample_name);
+        }
+    });
+
+    if (!reference_samples.empty()) {
+        std::string reference_samples_tag = reference_samples.front();
+        for (size_t i = 1; i < reference_samples.size(); i++) {
+            reference_samples_tag += gbwtgraph::REFERENCE_SAMPLE_LIST_SEPARATOR + reference_samples[i];
+        }
+        destination.tags.set(
+            gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, reference_samples_tag
+        );
+    }
 }
 
 //------------------------------------------------------------------------------

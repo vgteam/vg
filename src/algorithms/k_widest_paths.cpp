@@ -157,7 +157,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                                                            size_t K,
                                                            function<double(const handle_t&)> node_weight_callback,
                                                            function<double(const edge_t&)> edge_weight_callback,
-                                                           bool greedy_avg) {
+                                                           bool greedy_avg,
+                                                           size_t max_path_length) {
 
     vector<pair<double, vector<handle_t>>> best_paths;
     best_paths.reserve(K);
@@ -170,6 +171,18 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
                                          edge_weight_callback, [](handle_t) {return false;},
                                          [](edge_t) {return false;}, greedy_avg));
+
+    // keep track of longest path for early abort (if max_path_length set)
+    bool path_length_exceeded = false;
+    if (max_path_length != numeric_limits<size_t>::max()) {
+        size_t path_length = 0;
+        for (handle_t step : best_paths.back().second) {
+            path_length += g->get_length(step);
+        }
+        if (path_length > max_path_length) {
+            path_length_exceeded = true;
+        }
+    }
 
     // unable to get any kind of path.  this is either a bug in the search or the graph
     if (best_paths.back().second.empty()) {
@@ -186,13 +199,13 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     multimap<double, map<vector<handle_t>, size_t>::iterator> score_to_B;
     
     // start scanning for our k-1 next-widest paths
-    for (size_t k = 1; k < K; ++k) {
+    for (size_t k = 1; k < K && !path_length_exceeded; ++k) {
 
         // we look for a "spur node" in the previous path.  the current path will be the previous path
         // up to that spur node, then a new path to the sink. (i is the index of the spur node in
         // the previous (k - 1) path
         vector<handle_t>& prev_path = best_paths[k - 1].second;
-        for (size_t i = best_spurs[k - 1]; i < prev_path.size() - 1; ++i) {
+        for (size_t i = best_spurs[k - 1]; i < prev_path.size() - 1 && !path_length_exceeded; ++i) {
             
             handle_t spur_node = prev_path[i];
             // root path = prev_path[0 : i]
@@ -233,7 +246,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                 forgotten_nodes.insert(g->flip(prev_path[j]));
             }
 
-            // find our path from the the spur_node to the sink
+            // find our path from the spur_node to the sink
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
                                                                          [&](edge_t e) {return forgotten_edges.count(e);},
@@ -299,6 +312,16 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
         best_spurs.push_back(best_B_it->second->second);
         B.erase(best_B_it->second);
         score_to_B.erase(best_B_it);
+
+        if (max_path_length != numeric_limits<size_t>::max()) {
+            size_t path_length = 0;
+            for (handle_t step : best_paths.back().second) {
+                path_length += g->get_length(step);
+            }
+            if (path_length > max_path_length) {
+                path_length_exceeded = true;
+            }
+        }
 
 #ifdef debug_vg_algorithms
         cerr << "adding best path (w=" << best_paths.back().first << "): ";

@@ -175,6 +175,9 @@ struct RebuildParameters {
     /// Print progress information to stderr.
     bool show_progress = false;
 
+    /// Rebuild the paths but do not insert them into a new GBWT.
+    bool dry_run = false;
+
     /// Size of the GBWT construction buffer in nodes.
     gbwt::size_type batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 
@@ -207,8 +210,11 @@ struct RebuildParameters {
 /// Empty paths go to the first job, but this can be overridden by including
 /// `gbwt::ENDMARKER` in `node_to_job`.
 ///
-/// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
+/// NOTE: Paths may be reordered if there are multiple jobs. Old path ids are
 /// no longer valid after rebuilding the GBWT.
+///
+/// NOTE: This could use the ConstructionJob / MetadataBuilder scheme for
+/// parallelization, but it would change the interface.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                         const std::vector<RebuildJob>& jobs,
                         const std::unordered_map<nid_t, size_t>& node_to_job,
@@ -238,6 +244,16 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 /// GBWT metadata, made of just the sample and contig and haplotype.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
+//------------------------------------------------------------------------------
+
+/// Copies the reference sample tag from the source GBWT index to the destination GBWT index.
+void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination);
+
+/// Copies reference samples from the source graph to the destination GBWT index.
+/// Every sample with at least one reference path in the source graph is considered
+/// a reference sample.
+void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination);
 
 //------------------------------------------------------------------------------
 

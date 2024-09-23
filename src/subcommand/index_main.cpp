@@ -79,7 +79,8 @@ void help_index(char** argv) {
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 10000)" << endl;
+         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 10000)" << endl
+         << "                           if N is 0 then don't store distances, only the snarl tree" << endl;
 }
 
 void multiple_thread_sources() {
@@ -599,7 +600,7 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Building the GCSA2 index..." << endl;
         }
-        gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
+        gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
         if (show_progress) {
@@ -700,7 +701,7 @@ int main_index(int argc, char** argv) {
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, false);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {

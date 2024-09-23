@@ -1,8 +1,6 @@
 /** \file haplotypes_main.cpp
  *
- * Defines the "vg haplotypes" subcommand, which will ultimately sample haplotypes.
- *
- * This is currently highly experimental.
+ * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
  */
 
 #include "subcommand.hpp"
@@ -51,6 +49,10 @@ constexpr size_t haplotypes_default_n() {
     return Recombinator::NUM_HAPLOTYPES;
 }
 
+constexpr size_t haplotypes_default_candidates() {
+    return Recombinator::NUM_CANDIDATES;
+}
+
 constexpr size_t haplotypes_default_coverage() {
     return Recombinator::COVERAGE;
 }
@@ -75,6 +77,7 @@ struct HaplotypesConfig {
         mode_sample_haplotypes,
         mode_map_variants,
         mode_extract,
+        mode_classify,
     };
 
     OperatingMode mode = mode_invalid;
@@ -82,7 +85,7 @@ struct HaplotypesConfig {
 
     // File names.
     std::string graph_name;
-    std::string gbz_output, haplotype_output, score_output;
+    std::string gbz_output, haplotype_output, score_output, kmer_output;
     std::string distance_name, r_index_name;
     std::string haplotype_input, kmer_input, vcf_input;
 
@@ -113,6 +116,8 @@ void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const
 
 void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
+void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+
 //----------------------------------------------------------------------------
 
 int main_haplotypes(int argc, char** argv) {
@@ -136,7 +141,12 @@ int main_haplotypes(int argc, char** argv) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             std::cerr << "Loading haplotype information from " << config.haplotype_input << std::endl;
         }
-        sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+        try {
+            sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     // Save haplotype information if necessary.
@@ -162,6 +172,11 @@ int main_haplotypes(int argc, char** argv) {
         extract_haplotypes(gbz, haplotypes, config);
     }
 
+    // Classify kmers.
+    if (config.mode == HaplotypesConfig::mode_classify) {
+        classify_kmers(gbz, haplotypes, config);
+    }
+
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         double gib = gbwt::inGigabytes(gbwt::memoryUsage());
@@ -170,7 +185,7 @@ int main_haplotypes(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::DEVELOPMENT, main_haplotypes);
+static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::TOOLKIT, main_haplotypes);
 
 //----------------------------------------------------------------------------
 
@@ -202,14 +217,18 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
+    std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
+    std::cerr << "        --preset X            use preset X (default, haploid, diploid)" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
+    std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_default_candidates() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
-    std::cerr << "        --diploid-sampling    choose the best pair from the greedily selected haplotypes" << std::endl;
+    std::cerr << "        --haploid-scoring     use a scoring model without heterozygous kmers" << std::endl;
+    std::cerr << "        --diploid-sampling    choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
@@ -223,6 +242,7 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << "        --extract M:N         extract haplotypes in chain M, subchain N in FASTA format" << std::endl;
         std::cerr << "        --score-output X      write haplotype scores to X" << std::endl;
+        std::cerr << "        --classify X          classify kmers and write output to X" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -233,18 +253,22 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_KMER_LENGTH = 1200;
     constexpr int OPT_WINDOW_LENGTH = 1201;
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
-    constexpr int OPT_COVERAGE = 1300;
-    constexpr int OPT_NUM_HAPLOTYPES = 1301;
-    constexpr int OPT_PRESENT_DISCOUNT = 1302;
-    constexpr int OPT_HET_ADJUSTMENT = 1303;
-    constexpr int OPT_ABSENT_SCORE = 1304;
-    constexpr int OPT_DIPLOID_SAMPLING = 1305;
-    constexpr int OPT_INCLUDE_REFERENCE = 1306;
+    constexpr int OPT_LINEAR_STRUCTURE = 1203;
+    constexpr int OPT_PRESET = 1300;
+    constexpr int OPT_COVERAGE = 1301;
+    constexpr int OPT_NUM_HAPLOTYPES = 1302;
+    constexpr int OPT_PRESENT_DISCOUNT = 1303;
+    constexpr int OPT_HET_ADJUSTMENT = 1304;
+    constexpr int OPT_ABSENT_SCORE = 1305;
+    constexpr int OPT_HAPLOID_SCORING = 1306;
+    constexpr int OPT_DIPLOID_SAMPLING = 1307;
+    constexpr int OPT_INCLUDE_REFERENCE = 1308;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
     constexpr int OPT_EXTRACT = 1600;
     constexpr int OPT_SCORE_OUTPUT = 1601;
+    constexpr int OPT_CLASSIFY = 1602;
 
     static struct option long_options[] =
     {
@@ -257,11 +281,14 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
+        { "linear-structure", no_argument, 0, OPT_LINEAR_STRUCTURE },
+        { "preset", required_argument, 0, OPT_PRESET },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
@@ -271,12 +298,14 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "contig-prefix", required_argument, 0, OPT_CONTIG_PREFIX },
         { "extract", required_argument, 0, OPT_EXTRACT },
         { "score-output", required_argument, 0, OPT_SCORE_OUTPUT },
+        { "classify", required_argument, 0, OPT_CLASSIFY },
         { 0, 0, 0, 0 }
     };
 
     // Process the arguments.
     int c;
     optind = 2; // force optind past command positional argument
+    bool num_haplotypes_set = false;
     while (true) {
         int option_index = 0;
         c = getopt_long(argc, argv, "g:H:d:r:i:k:v:t:h", long_options, &option_index);
@@ -325,11 +354,33 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::exit(EXIT_FAILURE);
             }
             break;
+        case OPT_LINEAR_STRUCTURE:
+            this->partitioner_parameters.linear_structure = true;
+            break;
+
+        case OPT_PRESET:
+            {
+                Recombinator::Parameters::preset_t preset;
+                if (std::string(optarg) == "default") {
+                    preset = Recombinator::Parameters::preset_default;
+                } else if (std::string(optarg) == "haploid") {
+                    preset = Recombinator::Parameters::preset_haploid;
+                } else if (std::string(optarg) == "diploid") {
+                    preset = Recombinator::Parameters::preset_diploid;
+                } else {
+                    std::cerr << "error: [vg haplotypes] unknown preset: " << optarg << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                this->recombinator_parameters = Recombinator::Parameters(preset);
+                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
+                break;
+            }
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;
         case OPT_NUM_HAPLOTYPES:
             this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
+            num_haplotypes_set = true;
             if (this->recombinator_parameters.num_haplotypes == 0) {
                 std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -355,6 +406,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::cerr << "error: [vg haplotypes] absent score must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case OPT_HAPLOID_SCORING:
+            this->recombinator_parameters.haploid_scoring = true;
             break;
         case OPT_DIPLOID_SAMPLING:
             this->recombinator_parameters.diploid_sampling = true;
@@ -406,6 +460,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_SCORE_OUTPUT:
             this->score_output = optarg;
             break;
+        case OPT_CLASSIFY:
+            this->kmer_output = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -433,10 +490,17 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() &&
         this->chain_id < std::numeric_limits<size_t>::max() && this->subchain_id < std::numeric_limits<size_t>::max()) {
         this->mode = mode_extract;
+    } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() && !this->kmer_output.empty()) {
+        this->mode = mode_classify;
     }
     if (this->mode == mode_invalid) {
         help_haplotypes(argv, false);
         std::exit(EXIT_FAILURE);
+    }
+
+    // Use conditional defaults if the user did not override them.
+    if (this->recombinator_parameters.diploid_sampling && !num_haplotypes_set) {
+        this->recombinator_parameters.num_haplotypes = haplotypes_default_candidates();
     }
 }
 
@@ -518,7 +582,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
     }
     catch (const std::runtime_error& e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
@@ -543,8 +607,14 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
-    Recombinator recombinator(gbz, config.verbosity);
-    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
+    gbwt::GBWT merged;
+    try {
+        merged = recombinator.generate_haplotypes(config.kmer_input, config.recombinator_parameters);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     omp_set_num_threads(config.threads); // Restore the number of threads.
 
     // Build and serialize GBWTGraph.
@@ -859,11 +929,16 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         std::cerr << "Extracting haplotypes from chain " << config.chain_id << ", subchain " << config.subchain_id << std::endl;
     }
 
-    Recombinator recombinator(gbz, config.verbosity);
-    auto result = recombinator.extract_sequences(
-        haplotypes, config.kmer_input,
-        config.chain_id, config.subchain_id, config.recombinator_parameters
-    );
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
+    std::vector<Recombinator::LocalHaplotype> result;
+    try {
+        result = recombinator.extract_sequences(
+            config.kmer_input, config.chain_id, config.subchain_id, config.recombinator_parameters
+        );
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (config.verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Found " << result.size() << " haplotypes" << std::endl;
     }
@@ -889,6 +964,28 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
             out << "\n";
         }
     }
+}
+
+//----------------------------------------------------------------------------
+
+void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Classifying kmers" << std::endl;
+    }
+    Recombinator recombinator(gbz, haplotypes, config.verbosity);
+    std::vector<char> classifications = recombinator.classify_kmers(config.kmer_input, config.recombinator_parameters);
+
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Writing " << classifications.size() << " classifications to " << config.kmer_output << std::endl;
+    }
+    std::ofstream out(config.kmer_output, std::ios_base::binary);
+    if (!out) {
+        std::cerr << "error: [vg haplotypes] cannot open kmer classification file " << config.kmer_output << " for writing" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    // Multi-gigabyte writes do not work in every environment, but we assume that
+    // there are only at most a few hundred million kmers.
+    out.write(classifications.data(), classifications.size());
 }
 
 //----------------------------------------------------------------------------

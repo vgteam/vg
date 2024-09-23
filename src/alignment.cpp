@@ -1,8 +1,10 @@
 #include "alignment.hpp"
 #include "vg/io/gafkluge.hpp"
 #include "annotation.hpp"
+#include <vg/io/stream.hpp>
 
 #include <sstream>
+#include <chrono>
 
 using namespace vg::io;
 
@@ -1796,7 +1798,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = move(normalized);
+        *alignment.mutable_path() = std::move(normalized);
     }
 }
 
@@ -1900,6 +1902,15 @@ void parse_bed_regions(istream& bedstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_bed_regions(bedstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_bed_regions(istream& bedstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+    
     if (!bedstream) {
         cerr << "Unable to open bed file." << endl;
         return;
@@ -1910,26 +1921,28 @@ void parse_bed_regions(istream& bedstream,
     size_t sbuf;
     // Record end position
     size_t ebuf;
+    // region information
     string name;
     size_t score = 0;
     string strand;
+
+    // in case we need to look for subpaths, keep the info store for reuse
+    unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
+    // to remember which path we've looked for and didn't find (and avoid relooking over and over again)
+    unordered_map<string, bool> absent_paths;
+    // if the region must be chopped to multiple subranges, use these vector to
+    // remember the other path names, start and end positions
+    vector<size_t> other_starts;
+    vector<size_t> other_ends;
+    vector<string> other_seqs;
 
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
             continue;
         }
         istringstream ss(row);
+            
         ss >> seq;
-        
-        if (!graph->has_path(seq)) {
-            // This path doesn't exist, and we'll get a segfault or worse if
-            // we go look for positions in it.
-            cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
-            continue;
-        }
-        
-        path_handle_t path_handle = graph->get_path_handle(seq);
-        
         ss >> sbuf;
         ss >> ebuf;
 
@@ -1939,6 +1952,95 @@ void parse_bed_regions(istream& bedstream,
             continue;
         } 
         
+        if (!graph->has_path(seq)) {
+            // This path doesn't exist, and we'll get a segfault or worse if
+            // we go look for positions in it.
+            // but maybe it's chopped in subranges?
+            bool subpath_found = false;
+            // first look in our cached subpaths
+            // if not there, look in the graph
+            if(!base_path_to_subpaths.count(seq) && !absent_paths.count(seq)){
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subpath for that base name. save the handle
+                        base_path_to_subpaths[seq].push_back(match);
+                        return true;
+                    });
+                }
+            }
+            if(!base_path_to_subpaths.count(seq)){
+                // we've looked for subpaths and couldn't found anything
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+                // remember that this path is not in the graph (no need to look it up again)
+                absent_paths[seq] = true;
+                continue;
+            } else {
+                // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
+                // look for the subpath containing the range [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // the two subrange formats are using different indexing
+                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
+                    // in path[offset] the offset is "1-based"
+                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        if (subrange.first == PathMetadata::NO_END_POSITION){
+                            subrange.first = 0;
+                        } else {
+                            subrange.first--;
+                        }
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
+                        }
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
+                    }
+                }
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
+                    // we've looked for overlapping subpaths and couldn't found one
+                    cerr << "warning: no overlap found between range " <<
+                        sbuf << "-" << ebuf << " and subpaths of \"" <<
+                        seq << "\", input line " << line << ", skipping" << endl;
+                    continue;
+                }
+            }
+        }
+
+        path_handle_t path_handle = graph->get_path_handle(seq);
+        
         if (sbuf >= ebuf && !graph->get_is_circular(path_handle)) {
             // The start of the region can be after the end of the region only if the underlying path is circular.
             // That's not the case, so complain and skip the region.
@@ -1946,12 +2048,92 @@ void parse_bed_regions(istream& bedstream,
                 << line << ": " << row << endl;
             continue;
         }
-        
+
         if (ebuf > graph->get_path_length(path_handle)) {
-            // Skip ends that are too late
-            cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
-                << " in bed line " << line << ", skipping: " << row << endl;
-            continue;
+            // Could be that the path is chopped but the first subpath is named like the base/full path
+            // if so, it was found in the graph but is shorter than the actual full path
+            // in case that happened, check for other subpaths that might have that base name
+            // if we find one and the range match the queried range, use that
+            bool subpath_found = false;
+            if(!base_path_to_subpaths.count(seq)){
+                // not in our subpath cache, so let's look for subpaths
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
+                
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subrange for this base path
+                        base_path_to_subpaths[seq].push_back(match);
+                        return true;
+                    });
+                }
+            }
+            if(!base_path_to_subpaths.count(seq)){
+                // Skip ends that are too late
+                cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
+                     << " in bed line " << line << ", skipping: " << row << endl;
+                continue;
+            } else {
+                // there are subpaths, let's look for the one containing [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // the two subrange formats are using different indexing
+                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
+                    // in path[offset] the offset is "1-based"
+                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        if (subrange.first == PathMetadata::NO_END_POSITION){
+                            subrange.first = 0;
+                        } else {
+                            subrange.first--;
+                        }
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
+                        }
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
+                    }
+                }
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    path_handle = graph->get_path_handle(seq);
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
+                    // we've looked for overlapping subpaths and couldn't found one
+                    cerr << "warning: no overlap found between range " <<
+                        sbuf << "-" << ebuf << " and subpaths of \"" <<
+                        seq << "\", input line " << line << ", skipping" << endl;
+                    continue;
+                }
+            }
         }
         
         if (sbuf >= graph->get_path_length(path_handle)) {
@@ -1974,8 +2156,23 @@ void parse_bed_regions(istream& bedstream,
         // Make the Alignment
         Alignment alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
         alignment.set_score(score);
+        callback(alignment);
 
-        out_alignments->push_back(alignment);
+        // if more subpaths need to be written, write them now
+        while (!other_seqs.empty()){
+            // extract subpath information
+            seq = other_seqs.back();
+            other_seqs.pop_back();
+            sbuf = other_starts.back();
+            other_starts.pop_back();
+            ebuf = other_ends.back();
+            other_ends.pop_back();
+            // get path handle and corresponding alignment
+            path_handle = graph->get_path_handle(seq);
+            alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
+            alignment.set_score(score);
+            callback(alignment);
+        }
     }
 }
 
@@ -1983,6 +2180,16 @@ void parse_gff_regions(istream& gffstream,
                        const PathPositionHandleGraph* graph,
                        vector<Alignment>* out_alignments) {
     out_alignments->clear();
+    parse_gff_regions(gffstream, graph, [&](Alignment& aln) {
+        out_alignments->emplace_back(std::move(aln));
+    });
+}
+
+void parse_gff_regions(istream& gffstream,
+                       const PathPositionHandleGraph* graph,
+                       const std::function<void(Alignment&)>& callback) {
+
+
     if (!gffstream) {
         cerr << "Unable to open gff3/gtf file." << endl;
         return;
@@ -1999,6 +2206,16 @@ void parse_gff_regions(istream& gffstream,
     string strand;
     string num;
     string annotations;
+
+    // in case we need to look for subpaths, keep the info store for reuse
+    unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
+    // to remember which path we've looked for and didn't find (and avoid relooking over and over again)
+    unordered_map<string, bool> absent_paths;
+    // if the region must be chopped to multiple subranges, use these vector to
+    // remember the other path names, start and end positions
+    vector<size_t> other_starts;
+    vector<size_t> other_ends;
+    vector<string> other_seqs;
 
     for (int line = 1; getline(gffstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -2017,42 +2234,233 @@ void parse_gff_regions(istream& gffstream,
 
         if (ss.fail() || !(sbuf < ebuf)) {
             cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
-        } else {
-            getline(ss, score, '\t');
-            getline(ss, strand, '\t');
-            getline(ss, num, '\t');
-            getline(ss, annotations, '\t');
-            vector<string> vals = split(annotations, ";");
+            continue;
+        }
+        
+        getline(ss, score, '\t');
+        getline(ss, strand, '\t');
+        getline(ss, num, '\t');
+        getline(ss, annotations, '\t');
 
-            string name = "";
+        // look for the "Name" info
+        vector<string> vals = split(annotations, ";");
+        string name = "";
+        for (auto& s : vals) {
+            if (s.find("Name=") == 0) {
+                name = s.substr(5);
+            }
+        }
 
-            for (auto& s : vals) {
-                if (s.find("Name=") == 0) {
-                    name = s.substr(5);
+        // Skips annotations where the name can not be parsed. Empty names can 
+        // results in undefinable behavior downstream. 
+        if (name.empty()) {
+            cerr << "warning: could not parse annotation name (Name=), skipping line " << line << endl;  
+            continue;              
+        }
+
+        bool is_reverse = false;
+        if(!ss.fail() && strand.compare("-") == 0) {
+            is_reverse = true;
+        }
+
+        if (!graph->has_path(seq)) {
+            // This path doesn't exist, and we'll get a segfault or worse if
+            // we go look for positions in it.
+            // but maybe it's chopped in subranges?
+            bool subpath_found = false;
+            // first look in our cached subpaths
+            // if not there, look in the graph
+            if(!base_path_to_subpaths.count(seq) && !absent_paths.count(seq)){
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subpath for that base name. save the handle
+                        base_path_to_subpaths[seq].push_back(match);
+                        return true;
+                    });
                 }
             }
-
-            // Skips annotations where the name can not be parsed. Empty names can 
-            // results in undefinable behavior downstream. 
-            if (name.empty()) {
-                cerr << "warning: could not parse annotation name (Name=), skipping line " << line << endl;  
-                continue;              
-            }
-
-            bool is_reverse = false;
-            if(!ss.fail() && strand.compare("-") == 0) {
-                is_reverse = true;
-            }
-
-            if (!graph->has_path(seq)) {
-                // This path doesn't exist, and we'll get a segfault or worse if
-                // we go look for positions in it.
+            if(!base_path_to_subpaths.count(seq)){
+                // we've looked for subpaths and couldn't found anything
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+                // remember that this path is not in the graph (no need to look it up again)
+                absent_paths[seq] = true;
+                continue;
             } else {
-                Alignment alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
-
-                out_alignments->push_back(alignment);
+                // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
+                // look for the subpath containing the range [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // the two subrange formats are using different indexing
+                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
+                    // in path[offset] the offset is "1-based"
+                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        if (subrange.first == PathMetadata::NO_END_POSITION){
+                            subrange.first = 0;
+                        } else {
+                            subrange.first--;
+                        }
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
+                        }
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
+                    }
+                }
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
+                    // we've looked for overlapping subpaths and couldn't found one
+                    cerr << "warning: no overlap found between range " <<
+                        sbuf << "-" << ebuf << " and subpaths of \"" <<
+                        seq << "\", input line " << line << ", skipping" << endl;
+                    continue;
+                }
             }
+        }
+
+        path_handle_t path_handle = graph->get_path_handle(seq);
+        
+        if (ebuf > graph->get_path_length(path_handle)) {
+            // Could be that the path is chopped but the first subpath is named like the base/full path
+            // if so, it was found in the graph but is shorter than the actual full path
+            // in case that happened, check for other subpaths that might have that base name
+            // if we find one and the range match the queried range, use that
+            bool subpath_found = false;
+            if(!base_path_to_subpaths.count(seq)){
+                // not in our subpath cache, so let's look for subpaths
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq, sense, sample, locus, haplotype, phase_block, subrange);
+                
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subrange for this base path
+                        base_path_to_subpaths[seq].push_back(match);
+                        return true;
+                    });
+                }
+            }
+            if(!base_path_to_subpaths.count(seq)){
+                // Skip ends that are too late
+                cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
+                     << " in bed line " << line << ", skipping: " << row << endl;
+                continue;
+            } else {
+                // there are subpaths, let's look for the one containing [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // the two subrange formats are using different indexing
+                    // in path[start-end] start/end are 0-based and the "end" is not included (like the input sbuf/ebuf from BED)
+                    // in path[offset] the offset is "1-based"
+                    // so to make path[offset] into path[start-end] we need to do path[(offset-1)-(offset-1+path_length)]
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        if (subrange.first == PathMetadata::NO_END_POSITION){
+                            subrange.first = 0;
+                        } else {
+                            subrange.first--;
+                        }
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
+                        }
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
+                    }
+                }
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    path_handle = graph->get_path_handle(seq);
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
+                    // we've looked for overlapping subpaths and couldn't found one
+                    cerr << "warning: no overlap found between range " <<
+                        sbuf << "-" << ebuf << " and subpaths of \"" <<
+                        seq << "\", input line " << line << ", skipping" << endl;
+                    continue;
+                }
+            }
+        }
+        
+        if (sbuf >= graph->get_path_length(path_handle)) {
+            // Skip starts that are too late
+            cerr << "warning: out of range path start " << sbuf << " >= " << graph->get_path_length(path_handle)
+                << " in bed line " << line << ", skipping: " << row << endl;
+            continue;
+        }
+        
+        Alignment alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
+        callback(alignment);
+
+        // if more subpaths need to be written, write them now
+        while (!other_seqs.empty()){
+            // extract subpath information
+            seq = other_seqs.back();
+            other_seqs.pop_back();
+            sbuf = other_starts.back();
+            other_starts.pop_back();
+            ebuf = other_ends.back();
+            other_ends.pop_back();
+            // get alignment
+            alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
+            callback(alignment);
         }
     }
 }
@@ -2130,7 +2538,8 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
-AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph) {
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence) {
+    size_t read_idx = 0;
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         const Mapping& mapping = aln.path().mapping(i);
         if (!hgraph->has_node(mapping.position().node_id())) {
@@ -2153,6 +2562,60 @@ AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hg
                 i,
                 ss.str()
             };
+        }
+        if (check_sequence) {
+            size_t node_idx = mapping.position().offset();
+            auto node_seq = hgraph->get_sequence(hgraph->get_handle(mapping.position().node_id(),
+                                                                    mapping.position().is_reverse()));
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                const auto& edit = mapping.edit(j);
+                if (edit.to_length() == edit.from_length() && edit.from_length() != 0) {
+                    assert(edit.sequence().size() == edit.to_length() || edit.sequence().empty());
+                    for (size_t k = 0; k < edit.to_length(); ++k) {
+                        // check match/mismatch state between read and ref
+                        if ((aln.sequence()[read_idx + k] == node_seq[node_idx + k]) != edit.sequence().empty()) {
+                            std::stringstream ss;
+                            ss << "Edit erroneously claims " << (edit.sequence().empty() ? "match" : "mismatch") << " on node " << mapping.position().node_id() << " between node position " << (node_idx + k) << " and edit " << j << ", position " << k << " on " << (mapping.position().is_reverse() ? "reverse" : "forward") << " strand";
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                        if (!edit.sequence().empty() && edit.sequence()[k] != aln.sequence()[read_idx + k]) {
+                            // compare mismatched sequence to the read
+                            std::stringstream ss;
+                            ss << "Edit sequence (" << edit.sequence() << ") at position " << k << " does not match read sequence (" << aln.sequence() << ") at position " << (read_idx + k);
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                    }
+                }
+                else if (edit.from_length() == 0 && edit.to_length() != 0) {
+                    // compare inserted sequence to read
+                    assert(edit.sequence().size() == edit.to_length());
+                    for (size_t k = 0; k < edit.to_length(); ++k) {
+                        if (edit.sequence()[k] != aln.sequence()[read_idx + k]) {
+                            std::stringstream ss;
+                            ss << "Read sequence (" << aln.sequence() << ") at position " << (read_idx + k) << " does not match insert sequence of edit (" << edit.sequence() << ") at position " << k;
+                            return {
+                                AlignmentValidity::SEQ_DOES_NOT_MATCH,
+                                i,
+                                ss.str()
+                            };
+                        }
+                    }
+                }
+                else {
+                    assert(edit.from_length() != 0 && edit.to_length() == 0);
+                }
+                
+                node_idx += edit.from_length();
+                read_idx += edit.to_length();
+            }
         }
     }
     return {AlignmentValidity::OK};
@@ -2188,7 +2651,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                                 graph->get_path_name(path));
         }
         
-        // Split the proivided Mapping of edits at the path end/start junction
+        // Split the provided Mapping of edits at the path end/start junction
         auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
         
         // We extract from pos1 to the end
@@ -2220,118 +2683,99 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     }
     
     step_handle_t step = graph->get_step_at_position(path, pos1);
-    size_t step_start = graph->get_position_of_step(step);
-    handle_t handle = graph->get_handle_of_step(step);
     
-    int64_t trim_start = pos1 - step_start;
-    {
-        Mapping* first_mapping = aln.mutable_path()->add_mapping();
-        first_mapping->mutable_position()->set_node_id(graph->get_id(handle));
-        first_mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
-        first_mapping->mutable_position()->set_offset(trim_start);
-        
-        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle)-trim_start);
-        first_mapping->clear_edit();
-        
-        string from_seq = graph->get_sequence(handle);
-        int from_pos = trim_start;
-        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {// if (mappings.first.edit(j).sequence() != nullptr) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                int last_start = from_pos;
-                int k = 0;
-                Edit* edit;
-                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                        // emit the last "match" region
-                        if (from_pos - last_start > 0) {
-                            edit = first_mapping->add_edit();
-                            edit->set_from_length(from_pos-last_start);
-                            edit->set_to_length(from_pos-last_start);
-                        }
-                        // set up the SNP
-                        edit = first_mapping->add_edit();
-                        edit->set_from_length(1);
-                        edit->set_to_length(1);
-                        edit->set_sequence(from_seq.substr(to_pos,1));
-                        last_start = from_pos+1;
-                    }
-                }
-                // handles the match at the end or the case of no SNP
-                if (from_pos - last_start > 0) {
-                    edit = first_mapping->add_edit();
-                    edit->set_from_length(from_pos-last_start);
-                    edit->set_to_length(from_pos-last_start);
-                }
-                // to_pos += length;
-                // from_pos += length;
+    size_t edit_idx = 0;
+    size_t offset_in_edit = 0;
+    size_t node_pos = pos1 - graph->get_position_of_step(step);
+    while (edit_idx < cigar_mapping.edit_size()) {
+        if (step == graph->path_end(path)) {
+            const auto& edit = cigar_mapping.edit(edit_idx);
+            if (edit.from_length() == 0 && aln.path().mapping_size() != 0) {
+                // This is a softclip off the end of the contig.
+                // We can add it to the last mapping as an edit
+                assert(offset_in_edit == 0);
+                Mapping* last_mapping = aln.mutable_path()->mutable_mapping(aln.path().mapping_size() - 1);
+                *last_mapping->add_edit() = edit;
+                ++edit_idx;
+                continue;
             } else {
-                // Edit* edit = first_mapping->add_edit();
-                // *edit = mappings.first.edit(j);
-                *first_mapping->add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
+                // We've gone off the end of the contig with something other than a softclip
+                throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
+                                         " at edit " + std::to_string(edit_idx) +
+                                         "/" + std::to_string(cigar_mapping.edit_size()) +
+                                         " for alignment of feature " + feature);
             }
         }
-        cigar_mapping = mappings.second;
-    }
-    // get p to point to the next step (or past it, if we're a feature on a single node)
-    int64_t p = step_start + graph->get_length(handle);
-    step = graph->get_next_step(step);
-    while (p < pos2) {
-        handle = graph->get_handle_of_step(step);
-        
-        auto mappings = cut_mapping_offset(cigar_mapping, graph->get_length(handle));
-        
-        Mapping m;
-        m.mutable_position()->set_node_id(graph->get_id(handle));
-        m.mutable_position()->set_is_reverse(graph->get_is_reverse(handle));
-        
-        string from_seq = graph->get_sequence(handle);
-        int from_pos = 0;
-        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
-            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {
-                // do the sequences match?
-                // emit a stream of "SNPs" and matches
-                int last_start = from_pos;
-                int k = 0;
-                Edit* edit;
-                for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                    if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
-                        // emit the last "match" region
-                        if (from_pos - last_start > 0) {
-                            edit = m.add_edit();
-                            edit->set_from_length(from_pos-last_start);
-                            edit->set_to_length(from_pos-last_start);
-                        }
-                        // set up the SNP
-                        edit = m.add_edit();
-                        edit->set_from_length(1);
-                        edit->set_to_length(1);
-                        edit->set_sequence(from_seq.substr(to_pos,1));
-                        last_start = from_pos+1;
+        handle_t h = graph->get_handle_of_step(step);
+        string seq = graph->get_sequence(h);
+
+        auto mapping = aln.mutable_path()->add_mapping();
+
+        mapping->mutable_position()->set_node_id(graph->get_id(h));
+        mapping->mutable_position()->set_is_reverse(graph->get_is_reverse(h));
+        mapping->mutable_position()->set_offset(node_pos);
+        mapping->set_rank(aln.path().mapping_size());
+
+        while (edit_idx < cigar_mapping.edit_size() && node_pos < seq.size()) {
+
+            const auto& edit = cigar_mapping.edit(edit_idx);
+
+            if (edit.from_length() == edit.to_length()) {
+                // match/mismatch -- need to check
+
+                // end at the sooner of 1) the end of the edit and 2) the end of the node
+                size_t node_aln_len = min<size_t>(edit.from_length() - offset_in_edit, seq.size() - node_pos);
+
+                // iterate through node and edit up to the limit
+                Edit* new_edit = nullptr;
+                for (size_t i = 0; i < node_aln_len; ++i, ++offset_in_edit, ++node_pos) {
+
+                    bool match = (edit.sequence()[offset_in_edit] == seq[node_pos]);
+                    if (!new_edit || match != new_edit->sequence().empty()) {
+                        // current edit is of the wrong type or doesn't exist
+                        new_edit = mapping->add_edit();
+                    }
+                    new_edit->set_from_length(new_edit->from_length() + 1);
+                    new_edit->set_to_length(new_edit->to_length() + 1);
+                    if (!match) {
+                        new_edit->mutable_sequence()->push_back(edit.sequence()[offset_in_edit]);
                     }
                 }
-                // handles the match at the end or the case of no SNP
-                if (from_pos - last_start > 0) {
-                    edit = m.add_edit();
-                    edit->set_from_length(from_pos-last_start);
-                    edit->set_to_length(from_pos-last_start);
+                if (offset_in_edit == edit.from_length()) {
+                    ++edit_idx;
+                    offset_in_edit = 0;
                 }
-                // to_pos += length;
-                // from_pos += length;
-            } else {
-                *m.add_edit() = mappings.first.edit(j);
-                from_pos += mappings.first.edit(j).from_length();
+            }
+            else if (edit.from_length() == 0) {
+                // insertion
+                assert(offset_in_edit == 0);
+                *mapping->add_edit() = edit;
+                ++edit_idx;
+            }
+            else {
+                // deletion
+                auto new_edit = mapping->add_edit();
+                size_t edit_remaining = edit.from_length() - offset_in_edit;
+                size_t node_remaining = seq.size() - node_pos;
+                if (edit_remaining <= node_remaining) {
+                    // we hit the end of the edit before the end of the node
+                    new_edit->set_from_length(edit_remaining);
+                    ++edit_idx;
+                    offset_in_edit = 0;
+                }
+                else {
+                    // we hit the end of the node before the end of the edit
+                    new_edit->set_from_length(node_remaining);
+                    offset_in_edit += new_edit->from_length();
+                }
+                node_pos += new_edit->from_length();
             }
         }
-        cigar_mapping = mappings.second;
-        *aln.mutable_path()->add_mapping() = m;
-        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+
         step = graph->get_next_step(step);
+        node_pos = 0;
     }
+    
     aln.set_name(feature);
     if (is_reverse) {
         reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });

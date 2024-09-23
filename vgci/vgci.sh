@@ -30,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@64774cc76ef117aef705c1b5203450482c6a4b60"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@c9bd6414f935e6095574a41a34addbb8d87b41a6"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
 # or "git+https://github.com/DataBiosphere/toil.git@3ab74776a3adebd6db75de16985ce9d734f60743#egg=toil[aws,mesos]"
@@ -266,9 +266,9 @@ then
         # have priveleges to easily install dependencies
         
         # Build the git version file first, so the Docker knows its version
-        make include/vg_git_version.hpp
+        make version
 
-        docker pull ubuntu:18.04
+        docker pull mirror.gcr.io/library/ubuntu:20.04
         docker build --no-cache -t "${DOCKER_TAG}" -f Dockerfile .
         if [ "$?" -ne 0 ]
         then
@@ -340,12 +340,14 @@ then
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn for
     # running toil-vg mapeval, and dateutils and reqests for
-    # ./mins_since_last_build.py. Make sure to get the giant buildable modules
-    # as binaries only to avoid wasting CI time building some slightly nicer
-    # version Pip prefers.
-    pip3 install pytest timeout_decorator requests dateutils
+    # ./mins_since_last_build.py. Need exactly the right version of requests
+    # for the Python Docker API to work (see
+    # <https://github.com/docker/docker-py/issues/3256>).
+    pip3 install pytest timeout_decorator 'requests==2.31.0' dateutils
     # TODO: To upgrade to Numpy 1.24+, we need to remove usages of `numpy.int`
     # AKA `np.int` from toil-vg. See <https://stackoverflow.com/a/74946903>
+    # Make sure to get the giant buildable modules as binaries only to avoid
+    # wasting CI time building some slightly nicer version Pip prefers.
     pip3 install 'numpy==1.23.5' scipy scikit-learn --only-binary :all:
 
     # Install Toil

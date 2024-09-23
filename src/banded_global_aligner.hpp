@@ -187,7 +187,7 @@ namespace vg {
         int64_t bottom_diag;
         
         handle_t node;
-        
+                
         Alignment& alignment;
         
         /// Length of shortest sequence leading to matrix from a source node

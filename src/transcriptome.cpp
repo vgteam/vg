@@ -400,7 +400,7 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
 }
 
 int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_streams, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths) {
-
+    
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
     cerr << "\tDEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -1313,12 +1313,11 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     assert(haplotype_index.metadata.hasPathNames());
     assert(haplotype_index.metadata.hasContigNames());
 
-    spp::sparse_hash_map<string, map<uint32_t, uint32_t> > haplotype_name_index;
-
     // Parse reference sample tags.
     auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
 
     // Create index mapping haplotype contig names to GBWT sequence ids and offsets.
+    spp::sparse_hash_map<string, map<uint32_t, uint32_t> > haplotype_name_index;
     for (size_t i = 0; i < haplotype_index.sequences(); i++) {
 
         // Skip reverse threads in bidirectional gbwt index.
@@ -1551,7 +1550,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 }
 
 void Transcriptome::project_haplotype_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length) {
-
+    
     list<CompletedTranscriptPath> completed_transcript_paths;
     spp::sparse_hash_map<handle_t, vector<CompletedTranscriptPath *> > completed_transcript_paths_index;
 
@@ -1587,10 +1586,13 @@ void Transcriptome::project_haplotype_transcripts(const vector<Transcript> & tra
 }
 
 void Transcriptome::project_haplotype_transcripts_callback(list<CompletedTranscriptPath> * completed_transcript_paths, spp::sparse_hash_map<handle_t, vector<CompletedTranscriptPath *> > * completed_transcript_paths_index,  mutex * completed_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length) {
-
+    
     list<CompletedTranscriptPath> thread_completed_transcript_paths;
 
     int32_t transcripts_idx = thread_idx;
+    
+    // TODO: Could share this among all threads
+    auto reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
 
     while (transcripts_idx < transcripts.size()) {
 
@@ -1602,7 +1604,7 @@ void Transcriptome::project_haplotype_transcripts_callback(list<CompletedTranscr
         if (!haplotype_index.empty()) { 
 
             // Project transcript onto haplotypes in GBWT index.
-            thread_completed_transcript_paths.splice(thread_completed_transcript_paths.end(), construct_completed_transcript_paths(project_transcript_gbwt(transcript, haplotype_index, mean_node_length)));
+            thread_completed_transcript_paths.splice(thread_completed_transcript_paths.end(), construct_completed_transcript_paths(project_transcript_gbwt(transcript, haplotype_index, reference_samples, mean_node_length)));
         }
 
         if (proj_emded_paths) { 
@@ -1621,18 +1623,23 @@ void Transcriptome::project_haplotype_transcripts_callback(list<CompletedTranscr
     completed_transcript_paths_mutex->unlock();
 }
 
-list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
-
+list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index,
+                                                                  const unordered_set<string>& reference_samples, const float mean_node_length) const {
+    
     assert(haplotype_index.bidirectional());
 
+    // the return value
     list<EditedTranscriptPath> edited_transcript_paths;
 
+    // boundary nodes for the exons (we save them for later while walking out the haplotypes)
     vector<pair<vg::id_t, vg::id_t> > exon_node_ids;
     exon_node_ids.reserve(cur_transcript.exons.size());
 
+    // exon paths for each exon and the threads that follow them, which we will use in the phase of construcint the edited transcript pathsw
     vector<pair<vector<exon_nodes_t>, thread_ids_t> > haplotypes;
+    // for each haplotype, the index of its exons in the haplotypes vector and the next expected exon (only used for constructing haplotypes)
     multimap<int32_t, pair<int32_t, int32_t> > haplotype_id_index;
-
+    
     for (size_t exon_idx = 0; exon_idx < cur_transcript.exons.size(); ++exon_idx) {
 
         const Exon & cur_exon = cur_transcript.exons.at(exon_idx);
@@ -1645,39 +1652,35 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
         // Get all haplotypes in GBWT index between exon start and end border nodes (last position in upstream intron and
         // first position in downstream intron).
-        auto exon_haplotypes = get_exon_haplotypes(exon_node_ids.back().first, exon_node_ids.back().second, haplotype_index, expected_length);
-
+        auto exon_haplotypes = get_exon_haplotypes(exon_node_ids.back().first, exon_node_ids.back().second, haplotype_index,
+                                                   reference_samples, expected_length);
+        
         if (haplotypes.empty()) {
-
             for (auto & exon_haplotype: exon_haplotypes) {
 
                 haplotypes.emplace_back(vector<exon_nodes_t>(1, exon_haplotype.first), exon_haplotype.second);
                 haplotypes.back().first.reserve(cur_transcript.exons.size());
 
                 for (auto & haplotype_id: exon_haplotype.second) {
-
                     haplotype_id_index.emplace(haplotype_id, make_pair(haplotypes.size() - 1, exon_idx + 1));
                 }
             }
-            
-        } else {
 
+        } else {
             for (auto & exon_haplotype: exon_haplotypes) {
 
                 assert(!exon_haplotype.first.empty());
                 spp::sparse_hash_map<int32_t, uint32_t> extended_haplotypes;
 
                 for (auto & haplotype_id: exon_haplotype.second) {
-
+                    
                     auto haplotype_id_index_it_range = haplotype_id_index.equal_range(haplotype_id);
                     auto haplotype_id_index_it = haplotype_id_index_it_range.first;
 
                     while (haplotype_id_index_it != haplotype_id_index_it_range.second) {
-
                         if (exon_idx != haplotype_id_index_it->second.second) {
 
                             assert(haplotype_id_index_it->second.second < exon_idx);
-
                             haplotype_id_index_it = haplotype_id_index.erase(haplotype_id_index_it);
                             continue;
                         }
@@ -1686,36 +1689,36 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                         pair<vector<exon_nodes_t>, thread_ids_t> * cur_haplotype = &haplotypes.at(haplotype_id_index_it->second.first);
 
                         if (extended_haplotypes.find(haplotype_id_index_it->second.first) != extended_haplotypes.end()) {
-
+                            // we have already started to extend the haplotypes from this haplotype's previous exon haplotype set
                             assert(cur_haplotype->first.size() == exon_idx + 1);
                             haplotypes.at(extended_haplotypes.at(haplotype_id_index_it->second.first)).second.emplace_back(haplotype_id);
-                            haplotype_id_index_it->second.first = extended_haplotypes.at(haplotype_id_index_it->second.first);                        
-                        
+                            haplotype_id_index_it->second.first = extended_haplotypes.at(haplotype_id_index_it->second.first);
                         } else if (cur_haplotype->first.size() == exon_idx) {
-
+                            // the next expected exon is this one, so we extend it by this exon and mark the extension as conly containing this thread so far
                             cur_haplotype->first.emplace_back(exon_haplotype.first);
                             cur_haplotype->second = {haplotype_id};
                             assert(extended_haplotypes.emplace(haplotype_id_index_it->second.first, haplotype_id_index_it->second.first).second);
-                        
-                        } else if (cur_haplotype->first.size() == exon_idx + 1) {
 
+                        } else if (cur_haplotype->first.size() == exon_idx + 1) {
+                            // the next expected exon is the following one, so we must have already added this one, so we must need divide this
+                            // haplotype group into two
                             haplotypes.emplace_back(vector<exon_nodes_t>(cur_haplotype->first.begin(), cur_haplotype->first.end() - 1), thread_ids_t(1, haplotype_id));
                             haplotypes.back().first.emplace_back(exon_haplotype.first);
 
                             assert(extended_haplotypes.emplace(haplotype_id_index_it->second.first, haplotypes.size() - 1).second);
-                            haplotype_id_index_it->second.first = haplotypes.size() - 1;                
-                        
-                        } else {
+                            haplotype_id_index_it->second.first = haplotypes.size() - 1;
 
+                        } else {
+                            // we must have missed an exon, so we have to erase this haplotype from the results
                             haplotype_id_index_it = haplotype_id_index.erase(haplotype_id_index_it);
                             continue;
-                        } 
+                        }
 
                         ++haplotype_id_index_it;
                     }
                 }
             }
-        }  
+        }
     }
 
     for (auto & haplotype: haplotypes) {
@@ -1735,11 +1738,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
         edited_transcript_paths.back().haplotype_gbwt_ids.reserve(haplotype.second.size());
 
         ++haplotype_thread_ids_it;
-
+        
         // Add haplotype names as origins.
         while (haplotype_thread_ids_it != haplotype.second.end()) {
-
-            // Convert bidirectional path id before finding name. 
+            
+            // Convert bidirectional path id before finding name.
             edited_transcript_paths.back().haplotype_gbwt_ids.emplace_back(gbwt::Path::id(*haplotype_thread_ids_it), false);
             ++haplotype_thread_ids_it;
         }
@@ -1846,10 +1849,10 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
     return edited_transcript_paths; 
 }
 
-vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const {
+vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const unordered_set<string>& reference_samples, const int32_t expected_length) const {
 
     assert(expected_length > 0);
-
+    
     // Calculate the expected upperbound of the length between the two 
     // nodes (number of nodes). 
     const int32_t expected_length_upperbound = 1.1 * expected_length;
@@ -1861,10 +1864,12 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
     // Get ids for haplotypes that contain the end node.
     spp::sparse_hash_set<int32_t> end_haplotype_ids;
     for (auto & haplotype_id: haplotype_index.locate(haplotype_index.find(gbwt::Node::encode(end_node, false)))) {
-
+        if (gbwtgraph::get_path_sense(haplotype_index, gbwt::Path::id(haplotype_id), reference_samples) != PathSense::HAPLOTYPE) {
+            continue;
+        }
         end_haplotype_ids.emplace(haplotype_id);
     }
-
+    
     vector<pair<exon_nodes_t, thread_ids_t> > exon_haplotypes;
 
     // Initialise haplotype extension queue on the start node.
@@ -1882,12 +1887,24 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
 
         // Stop current extension if end node is reached.
         if (gbwt::Node::id(cur_exon_haplotype.first.back()) == end_node) {
-
+            
             exon_haplotypes.emplace_back(cur_exon_haplotype.first, haplotype_index.locate(cur_exon_haplotype.second));
             assert(exon_haplotypes.back().second.size() <= cur_exon_haplotype.second.size());
-
-            if (exon_haplotypes.back().second.size() == cur_exon_haplotype.second.size()) {
-
+            
+            bool can_pop = (exon_haplotypes.back().second.size() == cur_exon_haplotype.second.size());
+            // Remove non-haplotype sense paths
+            auto new_end = remove_if(exon_haplotypes.back().second.begin(), exon_haplotypes.back().second.end(),
+                                     [&](gbwt::size_type haplotype_id) {
+                return gbwtgraph::get_path_sense(haplotype_index, gbwt::Path::id(haplotype_id), reference_samples) != PathSense::HAPLOTYPE;
+            });
+            exon_haplotypes.back().second.resize(new_end - exon_haplotypes.back().second.begin());
+            
+            if (exon_haplotypes.back().second.empty()) {
+                // There were no haplotype sense paths in this group
+                exon_haplotypes.pop_back();
+            }
+            
+            if (can_pop) {
                 exon_haplotype_queue.pop();
                 continue;   
             }          
@@ -1910,7 +1927,6 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
             }
 
             if (!has_relevant_haplotype) {
-
                 exon_haplotype_queue.pop();
                 continue;                
             }
@@ -1920,13 +1936,12 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
 
         // End current extension if no outgoing edges exist.
         if (out_edges.empty()) {
-
             exon_haplotype_queue.pop();
             continue;
         }
 
         auto out_edges_it = out_edges.begin(); 
-        ++out_edges_it;
+        ++out_edges_it; // skip the first edge (we will follow it in-place on the queue after the following loop)
 
         while (out_edges_it != out_edges.end()) {
 
@@ -1934,9 +1949,8 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
             if (out_edges_it->first != gbwt::ENDMARKER) {
 
                 auto extended_search = haplotype_index.extend(cur_exon_haplotype.second, out_edges_it->first);
-
                 // Add new extension to queue if not empty (haplotypes found).
-                if (!extended_search.empty()) { 
+                if (!extended_search.empty()) {
 
                     exon_haplotype_queue.push(make_pair(cur_exon_haplotype.first, extended_search));
                     exon_haplotype_queue.back().first.emplace_back(out_edges_it->first);
@@ -1948,16 +1962,56 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
 
         // Do not extend haplotypes that end within the exon.
         if (out_edges.begin()->first != gbwt::ENDMARKER) {
-
             cur_exon_haplotype.first.emplace_back(out_edges.begin()->first);
             cur_exon_haplotype.second = haplotype_index.extend(cur_exon_haplotype.second, out_edges.begin()->first);        
 
             // End current extension if empty (no haplotypes found). 
-            if (cur_exon_haplotype.second.empty()) { exon_haplotype_queue.pop(); }
+            if (cur_exon_haplotype.second.empty()) {
+                exon_haplotype_queue.pop(); }
     
         } else {
-
             exon_haplotype_queue.pop();
+        }
+    }
+    
+    // remove haplotypes that visit this exon more than once
+    // FIXME: we should instead use the R-index to get reachability information in addition to thread IDs
+    {
+        unordered_map<gbwt::size_type, pair<size_t, size_t>> seen_position;
+        bool found_duplicate = false;
+        for (size_t i = 0; i < exon_haplotypes.size(); ++i) {
+            
+            auto& exon_haplotype_set = exon_haplotypes[i];
+            
+            for (size_t j = 0; j < exon_haplotype_set.second.size(); ++j) {
+                auto it = seen_position.find(exon_haplotype_set.second[j]);
+                if (it != seen_position.end()) {
+                    // mark this and the previous instance of this haplotype for removal
+                    exon_haplotypes[it->second.first].second[it->second.second] = -1;
+                    exon_haplotype_set.second[j] = -1;
+                    found_duplicate = true;
+                }
+                else {
+                    // there is no previous instance of this haplotype
+                    seen_position[exon_haplotype_set.second[j]] = make_pair(i, j);
+                }
+            }
+        }
+        
+        if (found_duplicate) {
+            // remove any duplicate thread IDs
+            for (auto& exon_haplotype_set : exon_haplotypes) {
+                auto new_end = remove_if(exon_haplotype_set.second.begin(), exon_haplotype_set.second.end(),
+                                         [](gbwt::size_type thread_id) {
+                    return thread_id == (gbwt::size_type) -1;
+                });
+                exon_haplotype_set.second.resize(new_end - exon_haplotype_set.second.begin());
+            }
+            // remove any haplotype sets that are now empty
+            auto new_end = remove_if(exon_haplotypes.begin(), exon_haplotypes.end(), [](const pair<exon_nodes_t, thread_ids_t>& a) {
+                return a.second.empty();
+            });
+            exon_haplotypes.resize(new_end - exon_haplotypes.begin());
         }
     }
 
@@ -2232,10 +2286,10 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     double time_update_1 = gcsa::readTimer();
     cerr << "\t\tDEBUG Updating (GBWT) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
-
+        
         // Update haplotypes in gbwt index to match new augmented graph.
         update_haplotype_index(haplotype_index, translation_index);
-
+        
 #ifdef transcriptome_debug
     cerr << "\t\tDEBUG Updated " << haplotype_index->sequences() / 2 << " haplotype paths: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
@@ -2347,6 +2401,10 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
     // Transfer metadata
     gbwt_builder.index.addMetadata();
     gbwt_builder.index.metadata = haplotype_index->metadata;
+    string ref_samples = haplotype_index->tags.get(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG);
+    if (!ref_samples.empty()) {
+        gbwt_builder.index.tags.set(gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, ref_samples);
+    }
 
     for (size_t i = 0; i < haplotype_index->sequences(); i++) {
 
@@ -2394,7 +2452,7 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
 
     // Finish contruction and recode index.
     gbwt_builder.finish();
-    haplotype_index.reset(new gbwt::GBWT(gbwt_builder.index));   
+    haplotype_index.reset(new gbwt::GBWT(gbwt_builder.index));
 }   
 
 void Transcriptome::update_transcript_paths(const spp::sparse_hash_map<handle_t, vector<pair<int32_t, handle_t> > > & update_index) {
@@ -2924,39 +2982,42 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
 
         assert(!transcript_path.embedded_path_names.empty() || !transcript_path.haplotype_gbwt_ids.empty());
 
-        is_first = true;
-
+        
+        // count how many times we see each ref and haplotype identifier
+        map<string, size_t> ref_name_count, hap_name_count;
         for (auto & name: transcript_path.embedded_path_names) {
-
             if (exclude_reference_transcripts && name.second) {
-
                 continue;
             }
-
-            if (!is_first) {
-
-                *tsv_ostream << ",";
-            } 
-
-            is_first = false;
-            *tsv_ostream << name.first;
+            
+            ref_name_count[name.first]++;
         }
-
         for (auto & id: transcript_path.haplotype_gbwt_ids) {
-
             if (exclude_reference_transcripts && id.second) {
-
                 continue;
             }
 
-            if (!is_first) {
-
-                *tsv_ostream << ",";
-            } 
-
-            is_first = false;             
-
-            *tsv_ostream << get_base_gbwt_path_name(haplotype_index, id.first, gbwt_reference_samples);
+            hap_name_count[get_base_gbwt_path_name(haplotype_index, id.first, gbwt_reference_samples)]++;
+        }
+        
+        is_first = true;
+        for (auto origin_name_count : {&ref_name_count, &hap_name_count}) {
+            for (const auto& name_and_count : *origin_name_count) {
+                // make an origin for each of the times we saw it
+                for (size_t i = 0; i < name_and_count.second; ++i) {
+                    
+                    if (!is_first) {
+                        *tsv_ostream << ",";
+                    }
+                    is_first = false;
+                    
+                    *tsv_ostream << name_and_count.first;
+                    if (name_and_count.second > 1) {
+                        // disambiguate across overlapping phase blocks, passes through the transcript by a haplotype
+                        *tsv_ostream << '#' << i;
+                    }
+                }
+            }
         }
 
         *tsv_ostream << endl;

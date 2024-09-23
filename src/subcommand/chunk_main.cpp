@@ -50,6 +50,7 @@ void help_chunk(char** argv) {
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction (for -T)" << endl
          << "    -a, --gam-name FILE      chunk this gam file instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
+         << "    -F, --in-gaf             input alignment is a sorted bgzipped GAF" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive, multiple allowed)\n"
          << "                             path range TARGET=path[:pos1[-pos2]] to standard output" << endl
@@ -94,6 +95,7 @@ int main_chunk(int argc, char** argv) {
     string gbwt_file;
     vector<string> gam_files;
     bool gam_and_graph = false;
+    bool gam_is_gaf = false;
     vector<string> region_strings;
     string path_list_file;
     int chunk_size = 0;
@@ -129,6 +131,7 @@ int main_chunk(int argc, char** argv) {
             {"gbwt-name", required_argument, 0, 'G'},
             {"gam-name", required_argument, 0, 'a'},
             {"gam-and-graph", no_argument, 0, 'g'},
+            {"in-gaf", no_argument, 0, 'F'},
             {"path", required_argument, 0, 'p'},
             {"path-names", required_argument, 0, 'P'},
             {"chunk-size", required_argument, 0, 's'},
@@ -154,7 +157,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:S:E:b:c:r:R:Tft:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "hx:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tft:n:l:m:CMO:",
                 long_options, &option_index);
 
 
@@ -179,6 +182,10 @@ int main_chunk(int argc, char** argv) {
             
         case 'g':
             gam_and_graph = true;
+            break;            
+
+        case 'F':
+            gam_is_gaf = true;
             break;            
 
         case 'p':
@@ -298,7 +305,7 @@ int main_chunk(int argc, char** argv) {
     }
     // need -a if using -f
     if ((gam_split_size != 0 || fully_contained) && gam_files.empty()) {
-        cerr << "error:[vg chunk] gam file must be specified with -a when using -f or -m" << endl;
+        cerr << "error:[vg chunk] read alignment file (gam or gaf) must be specified with -a when using -f or -m" << endl;
         return 1;
     }
     if (components == true && context_steps >= 0) {
@@ -358,7 +365,7 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::ReferencePathOverlayHelper overlay_helper;
 
-    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0) || components) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0) || (id_range && chunk_gam) || components) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] graph or xg index (-x) required" << endl;
             return 1;
@@ -408,20 +415,50 @@ int main_chunk(int argc, char** argv) {
     
     // We need an index on the GAM to chunk it (if we're not doing components)
     vector<unique_ptr<GAMIndex>> gam_indexes;
+    vector<unique_ptr<tbx_t>> gaf_tbxs;
+    vector<unique_ptr<htsFile>> gaf_fps;
     if (chunk_gam && !components) {
-        for (auto gam_file : gam_files) {
-            try {
-                get_input_file(gam_file + ".gai", [&](istream& index_stream) {
+        if (gam_is_gaf){
+            for (auto gaf_file : gam_files) {
+                try {
+                    tbx_t *gaf_tbx = NULL;
+                    htsFile *gaf_fp = NULL;
+                    if (!gaf_file.empty()){
+                        gaf_tbx = tbx_index_load3(gaf_file.c_str(), NULL, 0);
+                        if ( !gaf_tbx ){
+                            cerr << "Could not load .tbi/.csi index of " << gaf_file << endl;
+                            exit(1);
+                        }
+                        int nseq;
+                        gaf_fp = hts_open(gaf_file.c_str(),"r");
+                        if ( !gaf_fp ) {
+                            cerr << "Could not open " << gaf_file << endl;
+                            exit(1);
+                        }
+                        gaf_fps.push_back(unique_ptr<htsFile>(gaf_fp));
+                        gaf_tbxs.push_back(unique_ptr<tbx_t>(gaf_tbx));
+                    }
+                } catch (...) {
+                    cerr << "error:[vg chunk] unable to load GAF index file: " << gaf_file << "" << endl;
+                    exit(1);
+                }
+            }
+        } else {
+            for (auto gam_file : gam_files) {
+                try {
+                    get_input_file(gam_file + ".gai", [&](istream& index_stream) {
                         gam_indexes.push_back(unique_ptr<GAMIndex>(new GAMIndex()));
                         gam_indexes.back()->load(index_stream);
                     });
-            } catch (...) {
-                cerr << "error:[vg chunk] unable to load GAM index file: " << gam_file << ".gai" << endl
-                     << "                 note: a GAM index is required when *not* chunking by components with -C or -M" << endl;
-                exit(1);
+                } catch (...) {
+                    cerr << "error:[vg chunk] unable to load GAM index file: " << gam_file << ".gai" << endl
+                         << "                 note: a GAM index is required when *not* chunking by components with -C or -M" << endl;
+                    exit(1);
+                }
             }
         }
     }
+    
     // If we're chunking on components with a GAM, this map will be used
     // (instead of an index)
     unordered_map<nid_t, int32_t> node_to_component;
@@ -610,6 +647,10 @@ int main_chunk(int argc, char** argv) {
 
     // now ready to get our chunk on
     if (gam_split_size != 0) {
+        if(gam_is_gaf){
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split. A workaround would be to split the GAF file using split -l/-n which can split text files into chunks." << endl;
+            return 1;
+        }
         for (size_t gi = 0; gi < gam_files.size(); ++gi) {
             ifstream gam_stream;
             string& gam_file = gam_files[gi];
@@ -646,7 +687,7 @@ int main_chunk(int argc, char** argv) {
     vector<list<ifstream>> gam_streams_vec(gam_files.size());
     vector<vector<GAMIndex::cursor_t>> cursors_vec(gam_files.size());
     
-    if (chunk_gam) {
+    if (chunk_gam & !gam_is_gaf) {
         for (size_t gam_i = 0; gam_i < gam_streams_vec.size(); ++gam_i) {
             auto& gam_file = gam_files[gam_i];
             auto& gam_streams = gam_streams_vec[gam_i];
@@ -778,37 +819,68 @@ int main_chunk(int argc, char** argv) {
         // optional gam chunking
         if (chunk_gam) {
             if (!components) {
-                // old way: use the gam index
-                for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
-                    auto& gam_index = gam_indexes[gi];
-                    assert(gam_index.get() != nullptr);
-                    GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
-            
-                    string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi, components);
-                    ofstream out_gam_file(gam_name);
-                    if (!out_gam_file) {
-                        cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
-                        exit(1);
+                // Work out the ID ranges to look up
+                vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
+                if (subgraph) {
+                    // Use the regions from the graph
+                    region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph.get());
+                } else {
+                    // Use the region we were asked for
+                    region_id_ranges = {{region.start, region.end}};
+                }
+
+                if(gam_is_gaf){
+                    // use the indexed bgzipped GAFs
+                    for (size_t gi = 0; gi < gaf_fps.size(); ++gi) {
+                        auto& gaf_fp = gaf_fps[gi];
+                        assert(gaf_fp.get() != nullptr);
+                        auto& gaf_tbx = gaf_tbxs[gi];
+                        assert(gaf_tbx.get() != nullptr);
+
+                        string gaf_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gaf", gi, components);
+                        ofstream out_gaf_file(gaf_name);
+                        if (!out_gaf_file) {
+                            cerr << "error[vg chunk]: can't open output gaf file " << gaf_name << endl;
+                            exit(1);
+                        }
+
+                        // loop over ranges and print GAF records
+                        for (auto range : region_id_ranges) {
+                            string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
+                            hts_itr_t *itr = tbx_itr_querys(gaf_tbx.get(), reg.c_str());
+                            kstring_t str = {0,0,0};
+                            if ( itr ) {
+                                while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &str) >= 0) {
+                                    out_gaf_file << str.s << endl;
+                                }
+                                tbx_itr_destroy(itr);
+                            }
+                        }
+                        out_gaf_file.close();
                     }
+                } else {
+                    // old way: use the gam index
+                    for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
+                        auto& gam_index = gam_indexes[gi];
+                        assert(gam_index.get() != nullptr);
+                        GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
             
-                    // Work out the ID ranges to look up
-                    vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
-                    if (subgraph) {
-                        // Use the regions from the graph
-                        region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph.get());
-                    } else {
-                        // Use the region we were asked for
-                        region_id_ranges = {{region.start, region.end}};
+                        string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi, components);
+                        ofstream out_gam_file(gam_name);
+                        if (!out_gam_file) {
+                            cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
+                            exit(1);
+                        }
+                        
+                        auto emit = vg::io::emit_to<Alignment>(out_gam_file);
+                    
+                        auto handle_read = [&](const Alignment& aln) {
+                            check_read(aln, graph);
+                            emit(aln);
+                        };
+                        
+                        gam_index->find(cursor, region_id_ranges, handle_read, fully_contained);
                     }
-                    
-                    auto emit = vg::io::emit_to<Alignment>(out_gam_file);
-                    
-                    auto handle_read = [&](const Alignment& aln) {
-                        check_read(aln, graph);
-                        emit(aln);
-                    };
-                    
-                    gam_index->find(cursor, region_id_ranges, handle_read, fully_contained);
                 }
             } else {
 #pragma omp critical (node_to_component)
@@ -858,6 +930,10 @@ int main_chunk(int argc, char** argv) {
 
     // write out component gams
     if (chunk_gam && components) {
+        if(gam_is_gaf){
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by chunked by component. A workaround is to query one chromosome-component as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'." << endl;
+            return 1;
+        }
 
         // buffer size of each component, total across threads
         static const size_t output_buffer_total_size = 100000;

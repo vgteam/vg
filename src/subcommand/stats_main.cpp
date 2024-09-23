@@ -64,6 +64,8 @@ void help_stats(char** argv) {
          << "                          multiple allowed; limit comparison to those provided" << endl
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
+         << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
+         << "    -C, --chains          print statistics for each chain" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
          << "    -D, --degree-dist     print degree distribution of the graph." << endl
@@ -102,9 +104,14 @@ int main_stats(int argc, char** argv) {
     vector<string> paths_to_overlap;
     bool overlap_all_paths = false;
     bool snarl_stats = false;
+    bool chain_stats = false;
+    bool snarl_contents = false;
     bool format = false;
     bool degree_dist = false;
     string distance_index_filename;
+
+    // Long options with no corresponding short options.
+    constexpr int OPT_SNARL_CONTENTS = 1000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -132,6 +139,8 @@ int main_stats(int argc, char** argv) {
             {"overlap", no_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
+            {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
+            {"chains", no_argument, 0, 'C'},            
             {"format", no_argument, 0, 'F'},
             {"degree-dist", no_argument, 0, 'D'},
             {"dist-snarls", required_argument, 0, 'b'},
@@ -140,7 +149,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFDb:p:",
+        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORCFDb:p:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -229,6 +238,14 @@ int main_stats(int argc, char** argv) {
             snarl_stats = true;
             break;
 
+        case OPT_SNARL_CONTENTS:
+            snarl_contents = true;
+            break;
+            
+        case 'C':
+            chain_stats = true;
+            break;
+            
         case 'v':
             verbose = true;
             break;
@@ -290,7 +307,6 @@ int main_stats(int argc, char** argv) {
             exit(1);
         }
     };
-    
 
     if (stats_size) {
         require_graph();
@@ -1088,49 +1104,55 @@ int main_stats(int argc, char** argv) {
 
 
     }
+
+    SnarlManager manager; // todo: option to read snarls
+    // We will track depth for each snarl (used for both snarl and chains stats)
+    unordered_map<const Snarl*, size_t> depth;
     
-    if (snarl_stats) {
+    if (snarl_stats || chain_stats || snarl_contents) {
         // We will go through all the snarls and compute stats.
         
         require_graph();
         
         // First compute the snarls
-        auto manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
+        manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
         
-        // We will track depth for each snarl
-        unordered_map<const Snarl*, size_t> depth;
 
-        // TSV header
-        cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+        if (snarl_stats) {
+            // TSV header
+            cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+        }
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
 
-            // snarl
-            cout << snarl->start().node_id() << "\t" << snarl->start().backward() << "\t";
-            cout << snarl->end().node_id() << "\t" << snarl->end().backward() << "\t";
+            if (snarl_stats) {
+                // snarl
+                cout << snarl->start().node_id() << "\t" << snarl->start().backward() << "\t";
+                cout << snarl->end().node_id() << "\t" << snarl->end().backward() << "\t";
             
-            // Snarl metadata
-            cout << (snarl->type() == ULTRABUBBLE) << "\t";
-            cout << (snarl->type() == UNARY) << "\t";
+                // Snarl metadata
+                cout << (snarl->type() == ULTRABUBBLE) << "\t";
+                cout << (snarl->type() == UNARY) << "\t";
 
-            // Snarl size not including boundary nodes
-            pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.shallow_contents(snarl, *graph, false);
-            size_t num_bases = 0;
-            for (vg::id_t node_id : contents.first) {
-                num_bases += graph->get_length(graph->get_handle(node_id));
+                // Snarl size not including boundary nodes
+                pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.shallow_contents(snarl, *graph, false);
+                size_t num_bases = 0;
+                for (vg::id_t node_id : contents.first) {
+                    num_bases += graph->get_length(graph->get_handle(node_id));
+                }
+                cout << contents.first.size() << "\t";
+                cout << contents.second.size() << "\t";
+                cout << num_bases << "\t";
+                contents = manager.deep_contents(snarl, *graph, false);
+                num_bases = 0;
+                for (vg::id_t node_id : contents.first) {
+                    num_bases += graph->get_length(graph->get_handle(node_id));
+                }
+                cout << contents.first.size() << "\t";
+                cout << contents.second.size() << "\t";
+                cout << num_bases << "\t";
             }
-            cout << contents.first.size() << "\t";
-            cout << contents.second.size() << "\t";
-            cout << num_bases << "\t";
-            contents = manager.deep_contents(snarl, *graph, false);
-            num_bases = 0;
-            for (vg::id_t node_id : contents.first) {
-                num_bases += graph->get_length(graph->get_handle(node_id));
-            }
-            cout << contents.first.size() << "\t";
-            cout << contents.second.size() << "\t";
-            cout << num_bases << "\t";
             
             // Compute depth
             auto parent = manager.parent_of(snarl);
@@ -1140,35 +1162,105 @@ int main_stats(int argc, char** argv) {
             } else {
                 depth[snarl] = depth[parent] + 1;
             }
-            cout << depth[snarl] << "\t";
-            
-            // Number of children (looking inside chains)
-            cout << manager.children_of(snarl).size() << "\t";
-            
-            // Number of chains (including unary child snarls)
-            // Will be 0 for leaves
-            auto chains = manager.chains_of(snarl);
-            cout << chains.size() << "\t";
 
-            for (size_t i = 0; i < chains.size(); ++i) {
-                // Number of children in each chain
-                cout << chains[i].size();
-                if (i < chains.size() - 1) {
-                    cout << ",";
+            if (snarl_stats) {
+                cout << depth[snarl] << "\t";
+            
+                // Number of children (looking inside chains)
+                cout << manager.children_of(snarl).size() << "\t";
+            
+                // Number of chains (including unary child snarls)
+                // Will be 0 for leaves
+                auto chains = manager.chains_of(snarl);
+                cout << chains.size() << "\t";
+
+                for (size_t i = 0; i < chains.size(); ++i) {
+                    // Number of children in each chain
+                    cout << chains[i].size();
+                    if (i < chains.size() - 1) {
+                        cout << ",";
+                    }
+                }
+                if (chains.empty()) {
+                    cout << "0";
+                }
+                cout << "\t";
+            
+                // Net graph info
+                // Internal connectivity not important, we just want the size.
+                auto netGraph = manager.net_graph_of(snarl, graph, false);
+                cout << netGraph.get_node_count() << endl;
+            }
+
+            if (snarl_contents) {
+                pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.deep_contents(snarl, *graph, false);
+                contents.second.clear();
+                set<vg::id_t> sorted_nodes(contents.first.begin(), contents.first.end());
+                // don't bother with trivial snarls
+                if (!sorted_nodes.empty()) {
+                    cout << (snarl->start().backward() ? "<" : ">") << snarl->start().node_id()
+                         << (snarl->end().backward() ? "<" : ">") << snarl->end().node_id() << "\t"
+                         << depth[snarl] << "\t";
+                    if (parent) {
+                        cout << (parent->start().backward() ? "<" : ">") << parent->start().node_id()
+                             << (parent->end().backward() ? "<" : ">") << parent->end().node_id() << "\t";
+                    } else {
+                        cout << ".\t";
+                    }
+
+                    bool first = true;
+                    for (vg::id_t node_id : sorted_nodes) {
+                        if (first) {
+                            first = false;
+                        } else {
+                            cout << ",";
+                        }
+                        cout << node_id;
+                    }
+                    cout << "\n";
                 }
             }
-            if (chains.empty()) {
-                cout << "0";
-            }
-            cout << "\t";
-            
-            // Net graph info
-            // Internal connectivity not important, we just want the size.
-            auto netGraph = manager.net_graph_of(snarl, graph, false);
-            cout << netGraph.get_node_count() << endl;
         });
         
     }
+
+    if (chain_stats) {
+        // We will go through all the chains and compute stats.
+        
+
+        // TSV header
+        cout << "Snarl1-Start\tSSnarl1-Start-Reversed\tSnarl1-End\tSnarl1-End-Reversed\tSnarl1-Reversed\tSnarl2-Start\tSSnarl2-Start-Reversed\tSnarl2-End\tSnarl2-End-Reversed\tSnarl2-Reversed\tSnarl-Count\tMax-Depth\tChild-Snarls\tChild-Chains\n";
+        
+        manager.for_each_chain([&](const Chain* chain) {
+            // Loop over all the snarls and print stats.
+
+            // snarl endpoints
+            cout << chain->front().first->start().node_id() << "\t" << chain->front().first->start().backward() << "\t"
+                 << chain->front().first->end().node_id() << "\t" << chain->front().first->end().backward() << "\t"
+                 << chain->front().second << "\t";
+            cout << chain->back().first->start().node_id() << "\t" << chain->back().first->start().backward() << "\t"
+                 << chain->back().first->end().node_id() << "\t" << chain->back().first->end().backward() << "\t"
+                 << chain->back().second << "\t";
+
+            // snarl count
+            cout << chain->size() << "\t";
+
+            int64_t max_depth = 0;
+            int64_t child_snarls = 0;
+            int64_t child_chains = 0;
+            for (const auto& sr : *chain) {
+                const Snarl* snarl = sr.first;
+                max_depth = max(max_depth, (int64_t)depth.at(snarl));
+                child_snarls += manager.children_of(snarl).size();
+                child_chains += manager.chains_of(snarl).size();
+            }
+            cout << max_depth << "\t" << child_snarls << "\t" << child_chains;
+
+            cout << endl;            
+        });
+        
+    }
+    
 
     if (!distance_index_filename.empty()) {
         //Print snarl stats from a distance index

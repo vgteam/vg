@@ -47,15 +47,16 @@ void help_call(char** argv) {
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
        << "    -A, --all-snarls        Genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
-       << "    -c, --min-length N      Genotype only snarls with reference traversal length >= N" << endl
-       << "    -C, --max-length N      Genotype only snarls with reference traversal length <= N" << endl
+       << "    -c, --min-length N      Genotype only snarls with at least one traversal of length >= N" << endl
+       << "    -C, --max-length N      Genotype only snarls where all traversals have length <= N" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
        << "    -z, --gbz               Only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
-       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
+       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
+       << "    -O, --gbz-translation   Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed. defaults to all paths)" << endl
        << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
@@ -66,6 +67,7 @@ void help_call(char** argv) {
        << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
        << "    -n, --nested            Activate nested calling mode (experimental)" << endl
        << "    -I, --chains            Call chains instead of snarls (experimental)" << endl
+       << "        --progress          Show progress" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -105,8 +107,9 @@ int main_call(int argc, char** argv) {
     bool nested = false;
     bool call_chains = false;
     bool all_snarls = false;
-    int64_t min_ref_allele_len = 0;
-    int64_t max_ref_allele_len = numeric_limits<int64_t>::max();    
+    size_t min_allele_len = 0;
+    size_t max_allele_len = numeric_limits<size_t>::max();
+    bool show_progress = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -118,7 +121,7 @@ int main_call(int argc, char** argv) {
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
-    
+    const int OPT_PROGRESS = 1000;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -155,6 +158,7 @@ int main_call(int argc, char** argv) {
             {"nested", no_argument, 0, 'n'},
             {"chains", no_argument, 0, 'I'},            
             {"threads", required_argument, 0, 't'},
+            {"progress", no_argument, 0, OPT_PROGRESS },
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
@@ -195,10 +199,10 @@ int main_call(int argc, char** argv) {
             all_snarls = true;
             break;
         case 'c':
-            min_ref_allele_len = parse<int64_t>(optarg);
+            min_allele_len = parse<size_t>(optarg);
             break;
         case 'C':
-            max_ref_allele_len = parse<int64_t>(optarg);
+            max_allele_len = parse<size_t>(optarg);
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -278,7 +282,10 @@ int main_call(int argc, char** argv) {
             break;
         case 'I':
             call_chains =true;
-            break;            
+            break;
+        case OPT_PROGRESS:
+            show_progress = true;
+            break;
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -358,7 +365,7 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
-    if ((min_ref_allele_len > 0 || max_ref_allele_len < numeric_limits<int64_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
+    if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
     }
@@ -372,13 +379,19 @@ int main_call(int argc, char** argv) {
     unique_ptr<GBZGraph> gbz_graph;
     gbwt::GBWT* gbwt_index = nullptr;
     PathHandleGraph* graph = nullptr;
-    string graph_filename = get_input_file_name(optind, argc, argv);    
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    if (show_progress) cerr << "[vg call]: Loading graph " << graph_filename << endl;
     auto input = vg::io::VPKG::try_load_first<GBZGraph, PathHandleGraph>(graph_filename);
+    if (show_progress) cerr << "[vg call]: Loaded graph" << endl;
     if (get<0>(input)) {        
         gbz_graph = std::move(get<0>(input));
         graph = gbz_graph.get();
+        if (show_progress) cerr << "[vg call]: GBZ input detected" << endl;
         if (gbz_paths) {
+            if (show_progress) cerr << "[vg call]: Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
+        } else {
+            cerr << "[vg call]: You can restrict the search to GBZ haplotypes, often to the benefict of speed and accuracy, with the -z option" << endl;
         }
     } else if (get<1>(input)) {
         path_handle_graph = std::move(get<1>(input));
@@ -426,6 +439,7 @@ int main_call(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper pp_overlay_helper;
     ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
     bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
+    if (show_progress) cerr << "[vg call]: Applying overlays if necessary (ie input not in XG format)" << endl;
     if (need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
     } else if (need_path_positions && !need_vectorizable) {
@@ -433,6 +447,7 @@ int main_call(int argc, char** argv) {
     } else if (!need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
     }
+    if (show_progress) cerr << "[vg call]: Applied overlays" << endl;
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
@@ -581,6 +596,17 @@ int main_call(int argc, char** argv) {
         swap(ref_paths, ref_subpaths);
     }
 
+    // make sure we have some ref paths
+    if (ref_paths.empty()) {
+        if (!ref_sample.empty()) {
+            cerr << "error [vg call]: No paths with selected reference sample \"" << ref_sample << "\" found. "
+                 << "Try using vg paths -M to see which samples are in your graph" << endl;
+            return 1;
+        }
+        cerr << "error [vg call]: No reference paths found" << endl;
+        return 1;
+    }
+
     // build table of ploidys
     vector<int> ref_path_ploidies;
     for (const string& ref_path : ref_paths) {
@@ -602,9 +628,13 @@ int main_call(int argc, char** argv) {
             cerr << "Error [vg call]: Unable to load snarls file: " << snarl_filename << endl;
             return 1;
         }
+        if (show_progress) cerr << "[vg call]: Loading snarls from " << snarl_filename << endl;
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+        if (show_progress) cerr << "[vg call]: Loaded snarls" << endl;
     } else {
+        if (show_progress) cerr << "[vg call]: Computing snarls" << endl;
         IntegratedSnarlFinder finder(*graph);
+        if (show_progress) cerr << "[vg call]: Computed snarls" << endl;
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
@@ -617,7 +647,9 @@ int main_call(int argc, char** argv) {
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
+        if (show_progress) cerr << "[vg call]: Loading pack file " << pack_filename << endl;
         packer->load_from_file(pack_filename);
+        if (show_progress) cerr << "[vg call]: Loaded pack file" << endl;
         if (nested) {
             // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
             support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
@@ -639,8 +671,10 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
+            if (show_progress) cerr << "[vg call]: Computing coverage statistics" << endl;
             depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
+            if (show_progress) cerr << "[vg call]: Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
                                                                 //todo: qualities need to be used better in conjunction with
@@ -749,7 +783,8 @@ int main_call(int argc, char** argv) {
 
             // create the flow traversal finder
             FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
-                                                                                 node_support, edge_support);
+                                                                                 node_support, edge_support,
+                                                                                 max_allele_len);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
@@ -775,7 +810,7 @@ int main_call(int argc, char** argv) {
                                               gaf_output,
                                               trav_padding,
                                               genotype_snarls,
-                                              make_pair(min_ref_allele_len, max_ref_allele_len)));
+                                              make_pair(min_allele_len, max_allele_len)));
         }
     }
 
@@ -801,25 +836,32 @@ int main_call(int argc, char** argv) {
         header = vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
     }
 
+    graph_caller->set_show_progress(show_progress);
+    
     // Call the graph
     if (!call_chains) {
 
         // Call each snarl
         // (todo: try chains in normal mode)
+        if (show_progress) cerr << "[vg call]: Calling top-level snarls" << endl;
         graph_caller->call_top_level_snarls(*graph, all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     } else {
         // Attempt to call chains instead of snarls so that the output traversals are longer
         // Todo: this could probably help in some cases when making VCFs too
+        if (show_progress) cerr << "[vg call]: Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph,  max_chain_edges,  max_chain_trivial_travs,
                                             all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     }
+    if (show_progress) cerr << "[vg call]: Calling complete" << endl;
 
     if (!gaf_output) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
         cout << header << flush;
+        if (show_progress) cerr << "[vg call]: Writing VCF Variants" << endl;
         vcf_caller->write_variants(cout, snarl_manager.get());
+        if (show_progress) cerr << "[vg call]: VCF complete" << endl;        
     }
     
     return 0;

@@ -1,6 +1,3 @@
-// Needed for crash.hpp to work because it uses newer types
-#define _POSIX_C_SOURCE 200809L
-
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -78,7 +75,7 @@ int main(int argc, char *argv[]) {
         vg_help(argv);
         return 1;
     }
-    
+
     auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
     if (subcommand != nullptr) {
         // We found a matching subcommand, so run it
@@ -88,7 +85,12 @@ int main(int argc, char *argv[]) {
         return (*subcommand)(argc, argv);
     } else {
         // No subcommand found
-        string command = argv[1];
+        string command;
+        // note: doing argv[1] = string is producing totally bizarre "error: inlining failed in call to ‘always_inline’ ..."
+        // error when upgrading to Ubuntu 24.04.1 / GCC 13.2.  Doing the base-by-base copy seems to work around it...
+        for (size_t i = 0; i < strlen(argv[1]); ++i) {
+            command += argv[1][i];
+        }
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;

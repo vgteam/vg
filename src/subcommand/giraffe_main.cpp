@@ -410,7 +410,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
-    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl;
+    << "  --named-coordinates           produce GAM/GAF outputs in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr
         << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
@@ -602,7 +602,7 @@ int main_giraffe(int argc, char** argv) {
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
-        {"fast-mode", no_argument, 0, 'b'},
+        {"parameter-preset", required_argument, 0, 'b'},
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -1669,12 +1669,11 @@ string sample_haplotypes(const vector<pair<string, string>>& indexes, string& ba
 
     // Sample haplotypes.
     Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
-    Recombinator recombinator(gbz, verbosity);
-    Recombinator::Parameters parameters;
-    parameters.include_reference = true;
+    Recombinator recombinator(gbz, haplotypes, verbosity);
+    Recombinator::Parameters parameters(Recombinator::Parameters::preset_diploid);
     gbwt::GBWT sampled_gbwt;
     try {
-        sampled_gbwt = recombinator.generate_haplotypes(haplotypes, kff_file, parameters);
+        sampled_gbwt = recombinator.generate_haplotypes(kff_file, parameters);
     } catch (const std::runtime_error& e) {
         std::cerr << "error:[vg giraffe] Haplotype sampling failed: " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);

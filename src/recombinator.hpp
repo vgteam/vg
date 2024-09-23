@@ -188,6 +188,9 @@ public:
     /// Returns the length of the kmers.
     size_t k() const { return this->header.k; }
 
+    /// Returns the number of kmers in the subchains.
+    size_t kmers() const { return this->header.total_kmers; }
+
     Header header;
 
     // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
@@ -266,6 +269,14 @@ public:
         /// End node.
         handle_t end;
 
+        /// Shortest distance from the last base of `start` to the first base of `end`,
+        /// if both are present.
+        std::uint32_t length;
+
+        /// Number of additional snarls included in the subchain to keep reversals
+        /// within the subchain.
+        std::uint32_t extra_snarls;
+
         /// Returns `true` if the subchain has a start node.
         bool has_start() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::suffix); }
 
@@ -285,8 +296,15 @@ public:
         /// Target length for subchains (in bp).
         size_t subchain_length = SUBCHAIN_LENGTH;
 
-        /// Generate approximately this many  jobs.
+        /// Generate approximately this many jobs.
         size_t approximate_jobs = APPROXIMATE_JOBS;
+
+        /// Avoid placing subchain boundaries in places where haplotypes would
+        /// cross them multiple times.
+        bool linear_structure = false;
+
+        /// Print a description of the parameters.
+        void print(std::ostream& out) const;
     };
 
     /**
@@ -299,9 +317,13 @@ public:
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
      * minimum distance over the subchain is at most the target length and there
-     * are GBWT haplotypes that cross the subchain. If there are no snarls in a
-     * top-level chain, it is represented as a single subchain without boundary
-     * nodes.
+     * are GBWT haplotypes that cross the subchain. We also keep extending the
+     * subchain if a haplotype would cross the end in both directions. By doing
+     * this, we can avoid sequence loss with haplotypes reversing their direction,
+     * while keeping kmers specific to each subchain.
+     *
+     * If there are no snarls in a top-level chain, it is represented as a single
+     * subchain without boundary nodes.
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
      * single occurrence in the graph.
@@ -321,6 +343,9 @@ public:
 private:
     // Return the minimum distance from the last base of `from` to the first base of `to`.
     size_t get_distance(handle_t from, handle_t to) const;
+
+    // Returns true if a haplotype visits the node in both orientations.
+    bool contains_reversals(handle_t handle) const;
 
     // Partition the top-level chain into subchains.
     std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const;
@@ -363,6 +388,9 @@ class Recombinator {
 public:
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 4;
+
+    /// A reasonable number of candidates for diploid sampling.
+    constexpr static size_t NUM_CANDIDATES = 32;
 
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
     constexpr static size_t COVERAGE = 0;
@@ -426,11 +454,12 @@ public:
     };
 
     /// Creates a new `Recombinator`.
-    Recombinator(const gbwtgraph::GBZ& gbz, Verbosity verbosity);
+    Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity);
 
     /// Parameters for `generate_haplotypes()`.
     struct Parameters {
-        /// Number of haplotypes to be generated.
+        /// Number of haplotypes to be generated, or the number of candidates
+        /// for diploid sampling.
         size_t num_haplotypes = NUM_HAPLOTYPES;
 
         /// Kmer coverage. Use 0 to estimate from kmer counts.
@@ -453,17 +482,36 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
+        /// Use the haploid scoring model. The most common kmer count is used as
+        /// the coverage estimate. Kmers that would be classified as heterozygous
+        /// are treated as homozygous.
+        bool haploid_scoring = false;
+
         /// After selecting the initial `num_haplotypes` haplotypes, choose the
         /// highest-scoring pair out of them.
         bool diploid_sampling = false;
 
         /// Include named and reference paths.
         bool include_reference = false;
+
+        /// Preset parameters for common use cases.
+        enum preset_t {
+            /// Default parameters.
+            preset_default,
+            /// Best practices for haploid sampling.
+            preset_haploid,
+            /// Best practices for diploid sampling.
+            preset_diploid
+        };
+
+        explicit Parameters(preset_t preset = preset_default);
+
+        /// Print a description of the parameters.
+        void print(std::ostream& out) const;
     };
 
     /**
-     * Generates haplotypes based on the given `Haplotypes` representation and
-     * the kmer counts in the given KFF file.
+     * Generates haplotypes based on the kmer counts in the given KFF file.
      *
      * Runs multiple GBWT construction jobs in parallel using OpenMP threads and
      * generates the specified number of haplotypes in each top-level chain
@@ -478,7 +526,7 @@ public:
      * Throws `std::runtime_error` on error in single-threaded parts and exits
      * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
-    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
+    gbwt::GBWT generate_haplotypes(const std::string& kff_file, const Parameters& parameters) const;
 
     /// A local haplotype sequence within a single subchain.
     struct LocalHaplotype {
@@ -497,27 +545,36 @@ public:
     enum kmer_presence { absent, heterozygous, present, frequent };
 
     /**
+     * Classifies the kmers used for describing the haplotypes according to
+     * their frequency in the KFF file. Uses `A`, `H`, `P`, and `F` to represent
+     * absent, heterozygous, present, and frequent kmers, respectively.
+     *
+     * Throws `std::runtime_error` on error.
+     */
+    std::vector<char> classify_kmers(const std::string& kff_file, const Parameters& parameters) const;
+
+    /**
      * Extracts the local haplotypes in the given subchain. In addition to the
      * haplotype sequence, this also reports the name of the corresponding path
      * as well as (rank, score) for the haplotype in each round of haplotype
-     * selection. The number of rounds is `parameters.num_haplotyeps`, but if
+     * selection. The number of rounds is `parameters.num_haplotypes`, but if
      * the haplotype is selected earlier, it will not get further scores.
      *
      * Throws `std::runtime_error` on error.
      */
     std::vector<LocalHaplotype> extract_sequences(
-        const Haplotypes& haplotypes, const std::string& kff_file,
-        size_t chain_id, size_t subchain_id, const Parameters& parameters
+        const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
     ) const;
 
     const gbwtgraph::GBZ& gbz;
+    const Haplotypes& haplotypes;
     Verbosity verbosity;
 
 private:
     // Generate haplotypes for the given chain.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-        gbwt::GBWTBuilder& builder,
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage) const;
 };
 

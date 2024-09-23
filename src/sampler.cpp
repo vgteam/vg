@@ -1190,9 +1190,10 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     });
     
     for (auto aln : {&aln_pair.first, &aln_pair.second}) {
-        for (const auto& mapping : aln->path().mapping()) {
-            if (mapping.position().offset() < 0) {
-                cerr << "error: invalid alignment!" << endl;
+
+        for (size_t i = 0; i < aln->path().mapping_size(); ++i) {
+            if (aln->path().mapping(i).position().offset() < 0) {
+                cerr << "error: invalid alignment! negative offset on mapping " << i << " on node " << aln->path().mapping(i).position().node_id() << endl;
                 cerr << pb2json(*aln) << endl;
                 exit(1);
             }
@@ -1553,7 +1554,8 @@ void NGSSimulator::apply_aligned_base(Alignment& aln, const pos_t& pos, char gra
     else {
         Mapping* last_mapping = path->mutable_mapping(path->mapping_size() - 1);
         if (last_mapping->position().node_id() == id(pos) &&
-            last_mapping->position().is_reverse() == is_rev(pos)) {
+            last_mapping->position().is_reverse() == is_rev(pos) &&
+            last_mapping->position().offset() + mapping_from_length(*last_mapping) == offset(pos)) { // would be nice not to compute length every time
             
             Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size() - 1);
             if (last_edit->from_length() > 0 && last_edit->to_length() > 0) {
@@ -1612,7 +1614,8 @@ void NGSSimulator::apply_deletion(Alignment& aln, const pos_t& pos) {
     
     Mapping* last_mapping = path->mutable_mapping(path->mapping_size() - 1);
     if (last_mapping->position().node_id() == id(pos) &&
-        last_mapping->position().is_reverse() == is_rev(pos)) {
+        last_mapping->position().is_reverse() == is_rev(pos) &&
+        last_mapping->position().offset() + mapping_from_length(*last_mapping) == offset(pos)) {
         
         Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size() - 1);
         if (last_edit->from_length() > 0 && last_edit->to_length() == 0) {

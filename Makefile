@@ -60,24 +60,23 @@ DEPGEN_FLAGS := -MMD -MP
 
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
-# We make our dependency install directory -isystem; this might not be
-# necessary on all platforms and suppresses warnings.
-# Also, pkg-config flags need to be made -isystem if our dependency install
-# directory is, or they might put a system HTSlib before ours.
-# Also, Protobuf produces an absurd number of these now, so we deduplicate them
+# Also, Protobuf produces an absurd number of pkg-config flags now, so we deduplicate them
 # even though that's not *always* safe. See
 # <https://stackoverflow.com/a/11532197> and
 # <https://github.com/protocolbuffers/protobuf/issues/12998>
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ' | sed 's/ -I/ -isystem /g')
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ')
 
 # Define libraries to link vg against.
+
+# These need to come before library search paths from LDFLAGS or we won't
+# prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
 LD_LIB_FLAGS := -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
-# We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
-LD_STATIC_LIB_FLAGS := -lvgio $(CWD)/$(LIB_DIR)/libtabixpp.a $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
+# We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code. These have both .so/.dylib and .a versions available.
+LD_STATIC_LIB_FLAGS := -lvgio -lhts -ldeflate -lz -lbz2 -llzma
 # Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
@@ -85,6 +84,8 @@ LD_STATIC_LIB_DEPS := -lpthread -lm
 # But only force static linking of the dependencies we want to use non-PIC code for, for speed.
 LD_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_DEPS))
 LD_STATIC_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_STATIC_DEPS))
+# Some libraries need to be linked only into the binary
+LD_EXE_LIB_FLAGS := 
 # We also use plain LDFLAGS to point at system library directories that we want
 # to propagate through to dependencies' builds.
 
@@ -100,7 +101,7 @@ ifeq ($(shell uname -s),Darwin)
     LD_UTIL_RPATH_FLAGS=""
 
     # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
-    CXX_STANDARD=17
+    CXX_STANDARD?=17
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -215,13 +216,17 @@ ifeq ($(shell uname -s),Darwin)
     # We don't actually do any static linking on Mac, so we leave this empty.
     START_STATIC =
     END_STATIC =
+
+    # We need to use special flags to let us rename libraries.
+    # See <https://github.com/Homebrew/legacy-homebrew/issues/20233>
+    LD_RENAMEABLE_FLAGS = -Wl,-headerpad_max_install_names
 else
     # We are not running on OS X
     $(info OS is Linux)
     $(info Compiler $(CXX) is assumed to be GCC)
 
     # Linux can have some old compilers so we want to work back to C++14
-    CXX_STANDARD=14
+    CXX_STANDARD?=14
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
@@ -252,7 +257,8 @@ else
     # Note that END_STATIC is only safe to use in a mostly-dynamic build, and has to appear or we will try to statically link secret trailing libraries.
     END_STATIC = -Wl,-Bdynamic
 
-
+    # We don't need any flags because we don't need to rename libraries with install_name_tool
+    LD_RENAMEABLE_FLAGS =
 endif
 
 # Set the C++ standard we are using
@@ -408,8 +414,17 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
+# Control varialbe for address sanitizer
+# Like valgrind but fast!
+# You can `make clean && make jemalloc=off asan=on` to build with it.
+asan = off
+ifeq ($(asan),on)
+	CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
+endif
+
 # Control variable for allocator
 # On the command line, you can `make jemalloc=off` if you definitely don't want jemalloc.
+# Or you can `make jemalloc=debug` to use a version that tries to find memory errors.
 jemalloc = on
 ifeq ($(shell uname -s),Darwin)
 	jemalloc = off
@@ -423,9 +438,16 @@ ifeq ($(jemalloc),on)
     # Use jemalloc at link time
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
     # We have to use it statically or we can't get at its secret symbols.
-	LD_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
+	LD_EXE_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
 	# Use the config object for jemalloc
     CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o
+else ifeq ($(jemalloc),debug)
+    # Use jemalloc at link time
+	LINK_DEPS += $(LIB_DIR)/libjemalloc_debug.a $(LIB_DIR)/libjemalloc_debug_pic.a
+    # We have to use it statically or we can't get at its secret symbols.
+	LD_EXE_LIB_FLAGS += $(LIB_DIR)/libjemalloc_debug.a
+	# Use the config object for jemalloc
+    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o
 else
 	# Use the config object for the normal allocator
     CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_system.o
@@ -452,7 +474,7 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git
+.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -468,20 +490,20 @@ $(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
 	
 $(LIB_DIR)/libvg.$(SHARED_SUFFIX): $(LIBVG_SHARED_DEPS)
 	rm -f $@
-	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
+	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
 
 # Each test set can have its own binary, and not link everything static
 $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX)
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
-$(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+$(LIB_DIR)/vg_is_static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -506,7 +528,11 @@ deps: $(DEPS)
 
 test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
 	. ./source_me.sh && cd test && prove -v t
-	. ./source_me.sh && doc/test-docs.sh
+	# Hide the compiler configuration from the doc tests, so that the ones that
+	# build code can't pick up libraries out of the bg build itself. Definitely
+	# don't source source_me.sh!
+	# But still supply vg on the PATH. Hope it knows where its own libraries are.
+	CFLAGS= CXXFLAGS= CPPFLAGS= LDFLAGS= INCLUDE_FLAGS= LIBRARY_PATH= LD_LIBRARY_PATH= DYLD_LIBRARY_PATH= DYLD_FALLBACK_LIBRARY_PATH= LD_INCLUDE_PATH= CC= CXX= CXX_STANDARD= PATH=$(CWD)/bin:$(PATH) doc/test-docs.sh
 
 # Somebody has been polluting the test directory with temporary files that are not deleted after the tests.
 # To make git status more useful, we delete everything that looks like a temporary file.
@@ -531,63 +557,67 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
+# TODO: The normal and debug jemalloc builds can't safely be run at the same time.
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+
+$(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
+	+. ./source_me.sh && rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable-fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
 # See https://stackoverflow.com/a/19822767
 $(LIB_DIR)/%sdsl.a $(LIB_DIR)/%divsufsort.a $(LIB_DIR)/%divsufsort64.a : $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
+	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
 else
-	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
+	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
 endif
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
-	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
 
 # We need to hide -Xpreprocessor -fopenmp from Snappy, at least on Mac, because
 # it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
 $(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
-	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
+	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="-fPIC $(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && make directories && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && $(MAKE) clean && make directories && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" AS_INTEGRATED_ASSEMBLER=1 $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && make directories && $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && $(MAKE) clean && make directories && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/gbwt/dynamic_gbwt.h: $(LIB_DIR)/libgbwt.a
 
 $(LIB_DIR)/libgbwt.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GBWT_DIR)/src/*.cpp) $(wildcard $(GBWT_DIR)/include/gbwt/*.h)
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) clean && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwt.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwt.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) clean && $(MAKE) $(FILTER) && mv lib/libgbwt.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && mv lib/libgbwt.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/gbwtgraph/gbwtgraph.h: $(LIB_DIR)/libgbwtgraph.a
 
 $(LIB_DIR)/libgbwtgraph.a: $(LIB_DIR)/libgbwt.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(LIB_DIR)/libhandlegraph.a $(wildcard $(GBWTGRAPH_DIR)/src/*.cpp) $(wildcard $(GBWTGRAPH_DIR)/include/gbwtgraph/*.h)
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/kff_io.hpp: $(LIB_DIR)/libkff.a
 
 $(LIB_DIR)/libkff.a: $(KFF_DIR)/kff_io.cpp $(KFF_DIR)/kff_io.hpp.in
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-fPIC -Wall -Ofast -g $(CXXFLAGS)" .. && $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/BooPHF.h: $(BBHASH_DIR)/BooPHF.h
@@ -604,9 +634,9 @@ $(SHARED_OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRES
 $(INC_DIR)/Fasta.h:  $(FASTAHACK_DIR)/Fasta.h
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h $(FASTAHACK_DIR)/fastahack
+$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h 
 	+. ./source_me.sh && $(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
-$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h $(FASTAHACK_DIR)/fastahack
+$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h
 	+. ./source_me.sh && $(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
 
 # We have this target to clean up the old Protobuf we used to have.
@@ -630,13 +660,13 @@ $(LIB_DIR)/cleaned_old_elfutils:
 	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
 	+touch $(LIB_DIR)/cleaned_old_elfutils
 
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON .. && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r ../src/include/handlegraph $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. && $(MAKE) $(FILTER) && $(MAKE) install
 
 
 # On Linux, libdeflate builds a .so.
@@ -652,7 +682,7 @@ ifeq ($(shell uname -s),Darwin)
 endif
 
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
-	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 LDFLAGS="$(LDFLAGS) $(LD_RENAMEABLE_FLAGS)" $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 
 # We build htslib after libdeflate so it can use libdeflate.
 # We need to do some wizardry to get it to pick up the right build and target system types on modern autotools.
@@ -664,14 +694,14 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 # We also need to make sure that htslib searches itself before system paths, as
 # a system path, in case another htslib is installed on the system. Some HTSlib
 # headers look for the current HTSlib with <>.
-$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
+$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc $(LIB_DIR)/libhts%$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoreconf -i && autoheader && autoconf || true
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && (./configure -n 2>&1 || true) | grep "build system type" | rev | cut -f1 -d' ' | rev >systype.txt
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="$(LDFLAGS) -L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # Build and install tabixpp for vcflib.
 $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)/*.hpp
-	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
+	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
 	+cp $(TABIXPP_DIR)/libtabixpp.a $(LIB_DIR) && cp $(TABIXPP_DIR)/tabix.hpp $(INC_DIR)
 	+echo "Name: tabixpp" > $(LIB_DIR)/pkgconfig/tabixpp.pc
 	+echo "Description: Self-packaged tabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
@@ -687,7 +717,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # We need to use /usr first for CMake search or Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only fully installed in /usr.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build .
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build .
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -704,7 +734,7 @@ $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHAC
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
-	+. ./source_me.sh && cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(GSSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && cp *.h* $(CWD)/$(INC_DIR)/
@@ -719,7 +749,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 	+mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
-	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
@@ -729,16 +759,16 @@ $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
-	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
+	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && $(MAKE) clean && kyotoTycoonLib="" CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
-	+. ./source_me.sh && cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
+	+. ./source_me.sh && cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 # When building raptor we need to make sure to pre-generate and fix up the lexer
 # We also need to clear out its cmake stuff in case it found a wrong Bison and cached it.
 $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(wildcard $(RAPTOR_DIR)/build/*)
 	which bison
-	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
 	+touch $(LIB_DIR)/libraptor2.a
 
 # We need rapper from Raptor for the tests
@@ -782,15 +812,15 @@ $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 # running on.
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils
 	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
-	+. ./source_me.sh && cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && $(MAKE) libelf.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && $(MAKE) libebl.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && $(MAKE) libdwfl.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && $(MAKE) libdwelf.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && $(MAKE) libeu.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && $(MAKE) libcpu.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/backends && $(MAKE) clean && $(MAKE) libebl_backends.a $(FILTER)
-	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libelf.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libebl.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwelf.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libeu.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libcpu.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/backends && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libebl_backends.a $(FILTER)
+	+. ./source_me.sh && cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libdw.a known-dwarf.h $(FILTER)
 	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
@@ -799,14 +829,16 @@ $(SHARED_OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
 
 $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
-	. ./source_me.sh && cd $(FERMI_DIR) && $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
+	. ./source_me.sh && cd $(FERMI_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
+# But we do need to hack out the return type error to work around https://github.com/yoheirosen/sublinear-Li-Stephens/issues/6
+# TODO: This probably means actually calling some things in the library is unsafe!
 $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB_DIR)/libhts.a
-	. ./source_me.sh && cd $(LINLS_DIR) && $(MAKE) clean && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
+	. ./source_me.sh && cd $(LINLS_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(filter-out -Werror=return-type,$(CFLAGS))" CXXFLAGS="-fPIC $(filter-out -Werror=return-type,$(CXXFLAGS))" INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
 
 $(LIB_DIR)/libbdsg.a: $(INC_DIR)/BooPHF.h $(LIBBDSG_DIR)/Makefile $(LIBBDSG_DIR)/bdsg/src/*.cpp $(LIBBDSG_DIR)/bdsg/include/bdsg/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/internal/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/overlays/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/dynamic/dynamic.hpp $(INC_DIR)/mio/mmap.hpp
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && cp -r bdsg/include/* $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) -fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && cp -r bdsg/include/* $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/mio/mmap.hpp: $(MIO_DIR)/include/mio/*
 	+. ./source_me.sh && cp -r $(MIO_DIR)/include/mio $(CWD)/$(INC_DIR)/
@@ -828,56 +860,57 @@ $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 $(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.h
 	+rm -f $@
 	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
-	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
+	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
 	+ar rs $@ $(XG_DIR)/xg.o
 
 # Auto-git-versioning
 
-# We need to scope this variable here
-GIT_VERSION_FILE_DEPS =
+# Can be overridden from the environment to supply a version if none is on disk.
+VG_GIT_VERSION ?= unknown
+# Clean old path
+$(shell rm -f $(INC_DIR)/vg_git_version.hpp)
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
-    # If so, try and make a git version file
-	GIT_VERSION_FILE_DEPS = .check-git
+    # If so, try and make a git version file.
+    # We used to do this by having a phony target to depend on, but Make won't
+    # detect that the phony target is altering a different file, so it would
+    # take 2 make runs to pick up the right version.
+
+    # Build a real git version file.
+    # If it's not the same as the old one, replace the old one.
+    # If it is the same, do nothing and don't rebuild dependent targets.
+    $(info Check Git)
+    $(shell echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(SRC_DIR)/vg_git_version.hpp.tmp)
+    $(shell diff $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_git_version.hpp.tmp $(SRC_DIR)/vg_git_version.hpp)
+    $(shell rm -f $(SRC_DIR)/vg_git_version.hpp.tmp)
 else
-    # Just use the version file we have, if any
-	GIT_VERSION_FILE_DEPS = .no-git
+    # Just use the version file we have, if any.
+    $(info Do not check Git)
+    $(shell if [ ! -e $(SRC_DIR)/vg_git_version.hpp] ; then echo "#define VG_GIT_VERSION \"$(VG_GIT_VERSION)\"" > $(SRC_DIR)/vg_git_version.hpp ; fi)
 endif
 
-# Build a real git version file.
+
+# We have a do-nothing target so we can "make version"
+version:
+	@echo "Version information up to date"
+
+# Build an environment version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
-.check-git:
-	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
-	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null 2>/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
-	@rm -f $(INC_DIR)/vg_git_version.hpp.tmp
-
-# Make sure the version file exists, if we weren't given one in our tarball
-.no-git:
-	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
-		touch $(INC_DIR)/vg_git_version.hpp; \
-	fi;
-
-$(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
-# Build an environment version file with this phony target.
-# If it's not the same as the old one, replace the old one.
-# If it is the same, do nothing and don't rebuild dependent targets.
-.check-environment:
-	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
-	@diff $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp >/dev/null || cp $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp
-	@rm -f $(INC_DIR)/vg_environment_version.hpp.tmp
-
-# The way to get the actual file is to maybe replace it.
-$(INC_DIR)/vg_environment_version.hpp: .check-environment
+# Clean old path
+$(shell rm -f $(INC_DIR)/vg_environment_version.hpp)
+$(shell echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_OS \"$(shell uname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(SRC_DIR)/vg_environment_version.hpp.tmp)
+$(shell diff $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp >/dev/null 2>/dev/null || cp $(SRC_DIR)/vg_environment_version.hpp.tmp $(SRC_DIR)/vg_environment_version.hpp)
+$(shell rm -f $(SRC_DIR)/vg_environment_version.hpp.tmp)
 
 ###################################
 ## VG source code compilation begins here
 ####################################
 
-$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
+$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(SRC_DIR)/vg_git_version.hpp $(SRC_DIR)/vg_environment_version.hpp
 
 ########################
 ## Pattern Rules
@@ -918,6 +951,9 @@ $(UNITTEST_SUPPORT_OBJ): $(UNITTEST_SUPPORT_OBJ_DIR)/%.o : $(UNITTEST_SUPPORT_SR
 	
 # Config objects get individual rules
 $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS) $(LIB_DIR)/libjemalloc.a
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
+$(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc_debug.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.d $(DEPS) $(LIB_DIR)/libjemalloc_debug.a
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(CONFIG_OBJ_DIR)/allocator_config_system.o: $(CONFIG_SRC_DIR)/allocator_config_system.cpp $(CONFIG_OBJ_DIR)/allocator_config_system.d $(DEPS)
@@ -1003,7 +1039,7 @@ clean-vg:
 	$(RM) -f $(ALGORITHMS_SHARED_OBJ_DIR)/*.o $(ALGORITHMS_SHARED_OBJ_DIR)/*.d
 	$(RM) -f $(IO_OBJ_DIR)/*.o $(IO_OBJ_DIR)/*.d
 	$(RM) -f $(IO_SHARED_OBJ_DIR)/*.o $(IO_SHARED_OBJ_DIR)/*.d
-	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
+	$(RM) -f $(SRC_DIR)/vg_git_version.hpp $(SRC_DIR)/vg_environment_version.hpp
 
 clean: clean-vcflib
 	$(RM) -r $(UNITTEST_BIN_DIR)
