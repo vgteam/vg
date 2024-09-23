@@ -150,7 +150,7 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
         
             VG graph;
                 
@@ -190,9 +190,9 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index;
-            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traversal of chain") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t chain1_13 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
                 distance_index.for_each_child(chain1_13, [&](const net_handle_t& child) {
                     if (distance_index.is_node(child)) {
@@ -200,6 +200,8 @@ namespace vg {
                 });
             }
             SECTION("Minimum distances are correct") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
                 net_handle_t chain1_13 = distance_index.get_parent(node2);
                 REQUIRE(distance_index.distance_in_parent(chain1_13, distance_index.flip(node2), distance_index.flip(node2)) == 0); 
@@ -211,6 +213,8 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n7->id(),false, 0, n8->id(), true, 0) == 1);
             }
             SECTION("Paths are correct") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 size_t traversal_i = 0;
                 vector<pair<handlegraph::handle_t, size_t>> actual_path;
@@ -231,6 +235,8 @@ namespace vg {
                 //REQUIRE(traversal_i == 7);
             }
             SECTION("Path that leaves lowest common ancestor") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 size_t traversal_i = 0;
                 vector<pair<handlegraph::handle_t, size_t>> actual_path;
@@ -253,6 +259,10 @@ namespace vg {
                 //    return true;
                 //});
                 //REQUIRE(traversal_i == 8);
+            }
+            SECTION("Distanceless index") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
@@ -730,9 +740,9 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index;
-            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traverse the root") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
                 net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
                 net_handle_t chain2 = distance_index.get_parent(node2);
@@ -748,6 +758,8 @@ namespace vg {
                 REQUIRE(found == 2);
             }
             SECTION("into_which_snarl") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 REQUIRE((distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(4, false, true) ||
                         distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(5, true, true)));
                 REQUIRE((distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(4, false, true) ||
@@ -756,6 +768,10 @@ namespace vg {
                         distance_index.into_which_snarl(n5->id(), true));
                 REQUIRE((distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(4, true, false) ||
                         distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(2, false, false)));
+            }
+            SECTION("distanceless index") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
             }
         }
 
@@ -1782,7 +1798,7 @@ namespace vg {
                    
         } 
         TEST_CASE( "Snarl decomposition can handle chains with nodes in different directions",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -6678,7 +6694,7 @@ namespace vg {
         
             }
         } //End test case
-        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph][bug]") {
+        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
             VG graph;
         
             Node* n1 = graph.create_node("GCA");
@@ -6712,8 +6728,6 @@ namespace vg {
             Edge* e16 = graph.create_edge(n10, n12);
             Edge* e17 = graph.create_edge(n11, n12);
 
-            ofstream out ("test_graph.vg");
-            graph.serialize(out);
 
         
             IntegratedSnarlFinder snarl_finder(graph);
@@ -6749,9 +6763,6 @@ namespace vg {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 subgraph_in_distance_range(distance_index, path, &graph, 11, 14, sub_graph, true);
-                for (auto& id : sub_graph) {
-                    cerr << id << endl;
-                }
         
                 REQUIRE(!sub_graph.count(3));
                 REQUIRE(!sub_graph.count(8));
@@ -6875,6 +6886,51 @@ namespace vg {
             }
         
         }//end test case
+
+        TEST_CASE( "Loop in chain not connected to snarl", "[snarl_distance]" ) {
+
+            VG graph;
+
+            Node* n1 = graph.create_node("GCAA");
+            Node* n2 = graph.create_node("GCAA");
+            Node* n3 = graph.create_node("AAAT");
+            Node* n4 = graph.create_node("T");
+            Node* n5 = graph.create_node("G");
+            Node* n6 = graph.create_node("AAAA");
+            Node* n7 = graph.create_node("GGAA");
+            Node* n8 = graph.create_node("TTT");
+
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n2, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n6);
+            Edge* e7 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n6, n7);
+            Edge* e9 = graph.create_edge(n6, n6, false, true);
+            Edge* e10 = graph.create_edge(n7, n8);
+
+
+            //get the snarls
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+
+            SECTION("Traversal of chain") {
+                net_handle_t chain1_6 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
+                distance_index.for_each_child(chain1_6, [&](const net_handle_t& child) {
+                    assert(distance_index.canonical(distance_index.get_parent(child)) == distance_index.canonical(chain1_6));
+                });
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(n1->id(),false, 0, n1->id(), true, 0) == 30);
+            }
+
+        }
+
 
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 

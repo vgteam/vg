@@ -20,13 +20,13 @@ size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
                                             get_id(pos2), get_is_rev(pos2), get_offset(pos2)); 
 }
 
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit) {
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, bool silence_warnings) {
     distance_index->set_snarl_size_limit(size_limit);
 
     //Build the temporary distance index from the graph
     SnarlDistanceIndex::TemporaryDistanceIndex temp_index = make_temporary_distance_index(graph, snarl_finder, size_limit);
 
-    if (temp_index.use_oversized_snarls) {
+    if (!silence_warnings && temp_index.use_oversized_snarls) {
         cerr << "warning: distance index uses oversized snarls, which may make mapping slow" << endl;
         cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
     }
@@ -767,7 +767,8 @@ void populate_snarl_index(
 
 
     /*Helper function to find the ancestor of a node that is a child of this snarl */
-    auto get_ancestor_of_node = [&](pair<SnarlDistanceIndex::temp_record_t, size_t> curr_index) {
+    auto get_ancestor_of_node = [&](pair<SnarlDistanceIndex::temp_record_t, size_t> curr_index,
+                                    pair<SnarlDistanceIndex::temp_record_t, size_t> ancestor_snarl_index) {
 
         //This is a child that isn't a node, so it must be a chain
         if (curr_index.second == temp_snarl_record.start_node_id || 
@@ -777,7 +778,7 @@ void populate_snarl_index(
 
         //Otherwise, walk up until we hit the current snarl
         pair<SnarlDistanceIndex::temp_record_t, size_t> parent_index = temp_index.temp_node_records.at(curr_index.second-temp_index.min_node_id).parent;
-        while (parent_index != snarl_index) {
+        while (parent_index != ancestor_snarl_index) {
             curr_index=parent_index;
             parent_index = parent_index.first == SnarlDistanceIndex::TEMP_SNARL ? temp_index.temp_snarl_records.at(parent_index.second).parent
                                                             : temp_index.temp_chain_records.at(parent_index.second).parent;
@@ -789,14 +790,277 @@ void populate_snarl_index(
         return curr_index;
     };
 
+    //TODO: Copying the list
+    vector<pair<SnarlDistanceIndex::temp_record_t, size_t>> all_children = temp_snarl_record.children;
 
-    /*Now go through each of the children and add distances from that child to everything reachable from it
+    /*
+     * Do a topological sort of the children and re-assign ranks based on the sort
+     * TODO: Snarls aren't guaranteed to be DAGs, so ideally this will be a sort
+     *       that minimizes back edges and the number of times a node is traversed backwards
+     *       For now though, just do a topological sort and don't take any loops or reversing edges
+     */
+     if (!temp_snarl_record.is_root_snarl) {
+
+         //Is this snarl reversed relative to the top-level chain?
+         bool is_reversed = false;
+         // Walk up the snarl tree and if anything is reversed (or a chain is only reachable backwards in its parent)
+         // then flip is_reversed
+         // Since we don't have distances in snarl ancestors yet, walk out the fronts of chains and see if 
+         // we hit the snarl start or end
+        pair<SnarlDistanceIndex::temp_record_t, size_t> current_index = snarl_index;
+        while (current_index.first != SnarlDistanceIndex::TEMP_ROOT) {
+
+            //Get the parent of the current index
+            pair<SnarlDistanceIndex::temp_record_t, size_t> parent_index = 
+                current_index.first == SnarlDistanceIndex::TEMP_SNARL ? temp_index.temp_snarl_records.at(current_index.second).parent
+                                                            : temp_index.temp_chain_records.at(current_index.second).parent;
+            if (parent_index.first == SnarlDistanceIndex::TEMP_SNARL) {
+                //If the parent is a snarl, then walk out the front of the chain and see if it reaches the start of the ancestor snarl
+                vector<handle_t> to_check;
+                unordered_set<handle_t> seen;
+                to_check.emplace_back(graph->get_handle(temp_index.temp_chain_records[current_index.second].start_node_id, 
+                                                          !temp_index.temp_chain_records[current_index.second].start_node_rev));
+                seen.emplace(to_check.back());
+                bool reaches_start = false;
+                while (!to_check.empty()) {
+                    handle_t current_handle = to_check.back();
+                    to_check.pop_back();
+                    graph->follow_edges(current_handle, false, [&](const handle_t next_handle) {
+                        if (seen.count(next_handle) == 0) {
+                            if (graph->get_id(next_handle) == temp_index.temp_snarl_records[parent_index.second].start_node_id) {
+                                //If this reached the start node, then we consider the chain to be oriented forward 
+                                // so we can stop
+                                reaches_start = true;
+                                //Stop iterating
+                                return false;
+                            } else if (graph->get_id(next_handle) != temp_index.temp_snarl_records[parent_index.second].end_node_id) {
+                                //If this isn't leaving the snarl, then continue traversing
+                                //We need to jump to the end of the current chain
+
+                                //First, find the temp_chain_record for the chain we just entered
+                                pair<SnarlDistanceIndex::temp_record_t, size_t> next_index  = 
+                                    get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle)), parent_index);
+                                
+                                to_check.emplace_back( next_index.first == SnarlDistanceIndex::TEMP_NODE 
+                                    ? next_handle :
+                                      (graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].start_node_id
+                                        ? graph->get_handle(temp_index.temp_chain_records[next_index.second].end_node_id, 
+                                                            temp_index.temp_chain_records[next_index.second].end_node_rev)
+                                        : graph->get_handle(temp_index.temp_chain_records[next_index.second].start_node_id, 
+                                                            !temp_index.temp_chain_records[next_index.second].start_node_rev)));
+
+                            }
+                            seen.emplace(next_handle);
+                        }
+                        return true;
+                    });
+                    if (!reaches_start) {
+                        //If we couldn't reach the start of the parent from the start of the child, then assume the child
+                        //was reversed 
+                        is_reversed = !is_reversed;
+                    }
+                }
+            }
+            current_index=parent_index;
+        }
+#ifdef debug_distance_indexing
+        if (is_reversed) {
+            cerr << "\tsnarl is reversed relative to the top-level chain" << endl;
+        }
+#endif
+
+        //Where do we start the topological sort? The start or end bound
+        handle_t topological_sort_start = is_reversed ? graph->get_handle(temp_snarl_record.end_node_id,!temp_snarl_record.end_node_rev)
+                                                      : graph->get_handle(temp_snarl_record.start_node_id,temp_snarl_record.start_node_rev);
+
+
+        //This will hold the new order of the children. Each value is an index into all_children, which 
+        //matches the ranks(-2) of the children 
+        vector<size_t> topological_sort_order;
+        topological_sort_order.reserve(all_children.size());
+
+        // This holds everything in the topological order, to check which nodes (and therefore edges)
+        // have already been added
+        // Unlike the topological order, this stores the orientation as well.
+        // Each node is only added once to the topological order, but the reverse orientation
+        // may still be traversed to ensure that all nodes are found
+        unordered_set<std::pair<size_t, bool>> visited_nodes;
+        visited_nodes.reserve(all_children.size());
+
+        //All nodes that have no incoming edges
+        vector<pair<size_t, bool>> source_nodes;
+
+        /* Add all sources. This will start out as the start node and any tips or nodes that
+           are only reachable from the end node
+        */
+        //unordered_set<std::pair<size_t, bool>> children_seen_from_start;
+        //vector<pair<size_t, bool>> dfs_stack_from_start
+
+        //// Look for tips and loops from the end node that never reach the start node
+        //vector<pair<size_t, bool>> dfs_stack_from_end;
+        //dfs_stack_from_end.emplace_back(std::numeric_limits<size_t>::max(), false); //To indicate end node
+        //while (dfs_stack_from_end.size() != 0) {
+        //    // Go through all nodes from the end and search for anything that is a tip or that loops without 
+        //    // reaching anything seen on from the start 
+        //}
+
+        //Add max() to indicate that we start at the start node, since the start node doesn't actually have a 
+        //rank. This gets added last so it is traversed first
+        source_nodes.emplace_back(std::numeric_limits<size_t>::max(), false);
+
+        //We'll be done sorting when everything is in the sorted vector
+        while (!source_nodes.empty()) {
+
+            //Pick a child with no incoming edges
+            pair<size_t, bool> current_child_index = source_nodes.back();
+            source_nodes.pop_back();
+
+            //Mark it as being visited
+            assert(visited_nodes.count(current_child_index) == 0);
+            visited_nodes.emplace(current_child_index);
+
+            //Get the graph handle for that child, pointing out from the end of the chain
+            handle_t current_graph_handle;
+            if (current_child_index.first == std::numeric_limits<size_t>::max()) {
+                //If the current child is the start bound, then get the start node pointing in 
+                current_graph_handle = topological_sort_start;
+            } else {
+                pair<SnarlDistanceIndex::temp_record_t, size_t> current_index = all_children[current_child_index.first];
+                if (current_index.first == SnarlDistanceIndex::TEMP_NODE) {
+                    //If the current child is a node, then get the node pointing in the correct direction
+                    current_graph_handle = graph->get_handle(current_index.second, current_child_index.second);
+                } else if (current_child_index.second) {
+                    //If the current child is a chain, and we're traversing the chain backwards
+                    current_graph_handle = graph->get_handle(temp_index.temp_chain_records[current_index.second].start_node_id, 
+                                                  !temp_index.temp_chain_records[current_index.second].start_node_rev);
+                } else {
+                    //Otherwise, the current child is a chain and we're traversing the chain forwards
+                    current_graph_handle = graph->get_handle(temp_index.temp_chain_records[current_index.second].end_node_id, 
+                                                     temp_index.temp_chain_records[current_index.second].end_node_rev);
+                }
+            }
+                 
+            //Add everything reachable from the start boundary node that has no other incoming edges
+            graph->follow_edges(current_graph_handle, false, [&](const handle_t next_handle) {
+#ifdef debug_distance_indexing
+                cerr << "Following forward edges from " << graph->get_id(current_graph_handle) << " to " << graph->get_id(next_handle) << endl;
+#endif
+                if (graph->get_id(next_handle) == temp_snarl_record.start_node_id ||
+                    graph->get_id(next_handle) == temp_snarl_record.end_node_id) {
+                    //If this is trying to leave the snarl, skip it
+                    return true;
+                }
+                //Check the next_handle going in the other direction, to see if it could be a new source node. 
+                //If it reaches anything unseen, then it can't be a source node
+
+                //Get the index of next_handle
+                pair<SnarlDistanceIndex::temp_record_t, size_t> next_index = 
+                    get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle)), snarl_index); 
+                size_t next_rank = next_index.first == SnarlDistanceIndex::TEMP_NODE
+                            ? temp_index.temp_node_records.at(next_index.second-temp_index.min_node_id).rank_in_parent  
+                            : temp_index.temp_chain_records[next_index.second].rank_in_parent;
+                assert(all_children[next_rank-2] == next_index);
+                bool next_rev = next_index.first == SnarlDistanceIndex::TEMP_NODE || temp_index.temp_chain_records[next_index.second].is_trivial 
+                            ? graph->get_is_reverse(next_handle) 
+                            : graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].end_node_id;
+                if (visited_nodes.count(make_pair(next_rank, next_rev)) != 0) {
+                    //If this is a loop, just skip it
+                    return true;
+                }
+
+                //Get the handle from the child represented by next_handle going the other way
+                handle_t reverse_handle = next_index.first == SnarlDistanceIndex::TEMP_NODE ? 
+                            graph->get_handle(next_index.second, !next_rev) :
+                            (next_rev ? graph->get_handle(temp_index.temp_chain_records[next_index.second].end_node_id, 
+                                                          temp_index.temp_chain_records[next_index.second].end_node_rev)
+                                      : graph->get_handle(temp_index.temp_chain_records[next_index.second].start_node_id, 
+                                                          !temp_index.temp_chain_records[next_index.second].start_node_rev));
+
+                //Does this have no unseen incoming edges? Check as we go through incoming edges
+                bool is_source = true;
+
+                //Does this have no unseen incoming edges but including nodes we've seen in the other direction?
+                //TODO: Actually do this
+                graph->follow_edges(reverse_handle, false, [&](const handle_t incoming_handle) {
+#ifdef debug_distance_indexing
+                cerr << "Getting backwards edge to " << graph->get_id(incoming_handle) << endl;
+#endif
+                    if (graph->get_id(incoming_handle) == temp_snarl_record.start_node_id ||
+                        graph->get_id(incoming_handle) == temp_snarl_record.end_node_id) {
+                        //If this is trying to leave the snarl
+                        return true;
+                    }
+                    //The index of the snarl's child that next_handle represents
+                    pair<SnarlDistanceIndex::temp_record_t, size_t> incoming_index = 
+                        get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(incoming_handle)), snarl_index); 
+                    size_t incoming_rank = incoming_index.first == SnarlDistanceIndex::TEMP_NODE
+                                ? temp_index.temp_node_records.at(incoming_index.second-temp_index.min_node_id).rank_in_parent  
+                                : temp_index.temp_chain_records[incoming_index.second].rank_in_parent;
+
+                    bool incoming_rev = incoming_index.first == SnarlDistanceIndex::TEMP_NODE || temp_index.temp_chain_records[incoming_index.second].is_trivial 
+                                ? graph->get_is_reverse(incoming_handle) 
+                                : graph->get_id(incoming_handle) == temp_index.temp_chain_records[incoming_index.second].end_node_id;
+                    //subtract 2 to get the index from the rank
+                    assert(incoming_rank >= 2);
+                    incoming_rank-=2;
+
+                    //If we haven't seen the incoming node before, then this isn't a source so we break out of
+                    //the loop and keep going
+                    if (visited_nodes.count(std::make_pair(incoming_rank, !incoming_rev)) == 0) {
+                        is_source = false;
+                    }
+                    //Keep going
+                    return true;
+                });
+                if (is_source) {
+                    //If this is a new source node, then add it as a source node
+
+                    //subtract 2 to get the index from the rank
+                    assert(next_rank >= 2);
+                    next_rank-=2;
+                    source_nodes.emplace_back(next_rank, next_rev);
+                }
+                return true;
+            });
+            if (current_child_index.first != std::numeric_limits<size_t>::max() &&
+                visited_nodes.count(make_pair(current_child_index.first, !current_child_index.second)) == 0) {
+                //If this node wasn't already added in the other direction, add it to the topological sort
+                topological_sort_order.emplace_back(current_child_index.first);
+            }
+        }
+
+        //TODO: Do this properly
+        // For now, we only really want a topological ordering of DAGs, and I'm going to ignore tips
+        // So if anything is only reachable from the end node, then add it in an arbitrary order
+        vector<bool> check_ranks (all_children.size(), false);
+        for (size_t x : topological_sort_order) {
+            check_ranks[x] = true;
+        }
+        //If anything wasn't in the topological order, add it now
+        for (size_t i = 0 ; i < check_ranks.size() ; i++) {
+            if (!check_ranks[i]) {
+                topological_sort_order.emplace_back(i);
+            }
+        }
+        assert(topological_sort_order.size() == all_children.size());
+
+
+        //We've finished doing to topological sort, so update every child's rank to be the new order
+        for (size_t new_rank = 0 ; new_rank < topological_sort_order.size() ; new_rank++) {
+            size_t old_rank = topological_sort_order[new_rank];
+            if (all_children[old_rank].first == SnarlDistanceIndex::TEMP_NODE) {
+                temp_index.temp_node_records.at(all_children[old_rank].second-temp_index.min_node_id).rank_in_parent = new_rank+2;
+            } else {
+                temp_index.temp_chain_records[all_children[old_rank].second].rank_in_parent = new_rank+2;
+            }
+        }
+     }
+
+    /*
+     * Now go through each of the children and add distances from that child to everything reachable from it
      * Start a dijkstra traversal from each node side in the snarl and record all distances
      */
 
-    //Add the start and end nodes to the list of children so that we include them in the traversal 
-    //TODO: Copying the list
-    vector<pair<SnarlDistanceIndex::temp_record_t, size_t>> all_children = temp_snarl_record.children;
 
     //Reserve enough space to store all possible distances
     temp_snarl_record.distances.reserve( (temp_snarl_record.node_count > size_limit || size_limit == 0) 
@@ -807,8 +1071,8 @@ void populate_snarl_index(
         temp_index.use_oversized_snarls = true;
     }
 
+    //Add the start and end nodes to the list of children so that we include them in the traversal 
     if (!temp_snarl_record.is_root_snarl) {
-
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.end_node_id);
     }
@@ -956,7 +1220,8 @@ void populate_snarl_index(
                     auto& node_record = temp_index.temp_node_records.at(graph->get_id(next_handle)-temp_index.min_node_id);
 
                     //The index of the snarl's child that next_handle represents
-                    pair<SnarlDistanceIndex::temp_record_t, size_t> next_index = get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle))); 
+                    pair<SnarlDistanceIndex::temp_record_t, size_t> next_index = 
+                        get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle)), snarl_index); 
 
                     bool next_is_tip = start_index.first == SnarlDistanceIndex::TEMP_NODE 
                               ? temp_index.temp_node_records.at(start_index.second-temp_index.min_node_id).is_tip 
