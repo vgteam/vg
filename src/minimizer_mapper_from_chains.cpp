@@ -1676,11 +1676,11 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
         for (auto& fragment_num : kv.second) {
             // For each fragment
             auto fragment_score = fragment_scores.at(fragment_num);
-            if (fragment_score >= fragment_score_threshold) {
+            if (fragment_score >= fragment_score_threshold_overall) {
                 // If its score is high enough vs. the best
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.pass("fragment-score-fraction||fragment-max-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
+                    funnel.pass("fragment-score-fraction||fragment-max-min-score||fragment-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
                 }
 
                 if (fragment_score >= fragment_min_score) {
@@ -1705,7 +1705,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 // If its score is not high enough vs. the best
                 if (track_provenance) {
                     // Tell the funnel
-                    funnel.fail("fragment-score-fraction||fragment-max-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
+                    funnel.fail("fragment-score-fraction||fragment-max-min-score||fragment-min-score", fragment_num, best_fragment_score != 0 ? (fragment_score / best_fragment_score) : 0.0);
                 } 
             }
         }
