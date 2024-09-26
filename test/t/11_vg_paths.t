@@ -90,10 +90,10 @@ diff original.fa norm_x4.fa
 is $? 0 "path normalizer doesnt alter path sequences"
 
 # note: x3 is x4 in reverse, so we key on that
-grep x3 norm_x2.gfa | awk '{print $3}' > x4.path
-grep x3 norm_x2.gfa | awk '{print $3}' >> x4.path
-grep x3 norm_x2.gfa | awk '{print $3}'> x4.norm.path
-grep x5 norm_x2.gfa | awk '{print $3}' >> x4.norm.path
+grep x3 norm_x4.gfa | awk '{print $3}' > x4.path
+grep x3 norm_x4.gfa | awk '{print $3}' >> x4.path
+grep x3 norm_x4.gfa | awk '{print $3}'> x4.norm.path
+grep x5 norm_x4.gfa | awk '{print $3}' >> x4.norm.path
 diff x4.path x4.norm.path
 is $? 0 "path normalizere correctly snapped all equivalent paths to x4"
 
