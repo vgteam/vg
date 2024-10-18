@@ -42,16 +42,9 @@ void vg_help(char** argv) {
      cerr << "For technical support, please visit: https://www.biostars.org/tag/vg/" << endl << endl;
  }
 
-// We make sure to compile main for the lowest common denominator architecture.
-// This macro is defined in the preflight header on supported compiler setups.
-// But to use it we have to declare and then define main.
-int main(int argc, char *argv[]) VG_PREFLIGHT_EVERYWHERE;
+/// Main entry point once we know we're on a supported CPU.
+int vg_main(int argc, char *argv[]) {
 
-int main(int argc, char *argv[]) {
-
-    // Make sure the system meets system requirements (i.e. has all the instructions we need)
-    preflight_check();
-    
     // Make sure we configure the memory allocator appropriately for our environment
     AllocatorConfig::configure();
     
@@ -98,4 +91,23 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+}
+
+// We make sure to compile main for the lowest common denominator architecture.
+// This macro is defined in the preflight header on supported compiler setups.
+// But to use it we have to declare and then define main.
+// Note that on GCC 13.1 the always-inline allocator functions can't be inlined
+// into code for architectures this old, causing an error if we try and
+// allocate or use std::string. So the real main() function can't use C++
+// allocators.
+int main(int argc, char *argv[]) VG_PREFLIGHT_EVERYWHERE;
+
+// TODO: What about static initialization code? It might use instructions not
+// supported on the current CPU!
+
+/// Make sure the system meets system requirements (i.e. has all the
+/// instructions we need), then call vg_main
+int main(int argc, char** argv) {
+    preflight_check();
+    return vg_main(argc, argv);
 }
