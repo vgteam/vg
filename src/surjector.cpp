@@ -4038,8 +4038,8 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                if (chunk.first.first == path_chunks.front().first.first && chunk.first.second == path_chunks.back().first.second // TODO: shouldn't this be || if we want to match *either* tail?
-                    && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) {
+                if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
+                    && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
 #ifdef debug_anchored_surject
                     cerr << "anchor " << i << " (read interval " << (chunk.first.first - sequence.begin()) << " : " << (chunk.first.second - sequence.begin()) << ") pruned for being a short tail" << endl;
 #endif
