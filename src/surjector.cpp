@@ -4086,10 +4086,6 @@ using namespace std;
                         auto read_context_begin = chunk.first.first - left_padding;
                         auto read_context_end = chunk.first.second + right_padding;
 
-#ifdef debug_anchored_surject
-                        std::cerr << "For read interval " << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << " length " << (chunk.first.second - chunk.first.first) << " use context " << (read_context_begin - sequence.begin()) << ":" << (read_context_end - sequence.begin()) << " length " << (read_context_end - read_context_begin) << std::endl;
-#endif
-
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
