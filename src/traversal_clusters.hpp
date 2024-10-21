@@ -99,6 +99,9 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
 /// Note: this doesn't modify the graph toplogy, so uncovered nodes and edges as a result of path editing
 /// would usually need removale with vg clip afterwards
 ///
-void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths);
+/// the use_snarl_manager toggles between distnace index and snarl manager for computing snarls
+/// (adding this option to (hopefully) temporarily revert to the snarl manager for performance reasons)
+void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths,
+                                          bool use_snarl_manager=false);
 
 }

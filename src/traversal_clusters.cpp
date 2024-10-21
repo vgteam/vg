@@ -2,6 +2,7 @@
 #include "traversal_finder.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "snarl_distance_index.hpp"
+#include "snarls.hpp"
 
 //#define debug
 
@@ -379,37 +380,64 @@ static void merge_equivalent_traversals_in_snarl(MutablePathHandleGraph* graph, 
     }
 }
 
-void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths) {  
-    // compute the snarls
-    SnarlDistanceIndex distance_index;
-    {
-        IntegratedSnarlFinder snarl_finder(*graph);
-        fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
-    }
+void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths,
+                                          bool use_snarl_manager) {
 
     // only consider embedded paths that span snarl
     PathTraversalFinder path_trav_finder(*graph);
 
-    // do every snarl top-down.  this is because it's possible (tho probably rare) for a child snarl to
-    // be redundant after normalizing its parent. don't think the opposite (normalizing child)
-    // causes redundant parent.. todo: can we guarantee?!
-    net_handle_t root = distance_index.get_root();
-    deque<net_handle_t> queue = {root};
-    
-    while (!queue.empty()) {
-        net_handle_t net_handle = queue.front();
-        queue.pop_front();
-        if (distance_index.is_snarl(net_handle)) {
-            net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
-            net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
-            handle_t start_handle = distance_index.get_handle(start_bound, graph);
-            handle_t end_handle = distance_index.get_handle(end_bound, graph);
+    if (use_snarl_manager) {
+        // compute the snarls using the old snarl manager
+        IntegratedSnarlFinder finder(*graph);
+        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
+
+        deque<const Snarl*> queue;
+        snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) {
+            queue.push_back(snarl);
+        });
+
+        while (!queue.empty()) {
+            const Snarl* snarl = queue.front();
+            queue.pop_front();
+            handle_t start_handle = graph->get_handle(snarl->start().node_id(), snarl->start().backward());
+            handle_t end_handle = graph->get_handle(snarl->end().node_id(), snarl->end().backward());
             merge_equivalent_traversals_in_snarl(graph, selected_paths, path_trav_finder, start_handle, end_handle);
-        }        
-        if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
-            distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
-                queue.push_back(child_handle);
-            });
+            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+            for (const Snarl* child : children) {
+                queue.push_back(child);
+            }
+        }
+    } else {
+        // compute the snarls using the distance index
+        // this is what we want to do going forward since it uses the new api, no protobuf etc,
+        // but unfortunately it seems way slower on some graphs, hence
+        SnarlDistanceIndex distance_index;
+        {
+            IntegratedSnarlFinder snarl_finder(*graph);
+            fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
+        }
+
+        // do every snarl top-down.  this is because it's possible (tho probably rare) for a child snarl to
+        // be redundant after normalizing its parent. don't think the opposite (normalizing child)
+        // causes redundant parent.. todo: can we guarantee?!
+        net_handle_t root = distance_index.get_root();
+        deque<net_handle_t> queue = {root};
+    
+        while (!queue.empty()) {
+            net_handle_t net_handle = queue.front();
+            queue.pop_front();
+            if (distance_index.is_snarl(net_handle)) {
+                net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
+                net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
+                handle_t start_handle = distance_index.get_handle(start_bound, graph);
+                handle_t end_handle = distance_index.get_handle(end_bound, graph);
+                merge_equivalent_traversals_in_snarl(graph, selected_paths, path_trav_finder, start_handle, end_handle);
+            }        
+            if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+                distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
+                    queue.push_back(child_handle);
+                });
+            }
         }
     }
 }
