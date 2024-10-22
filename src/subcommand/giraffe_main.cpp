@@ -623,6 +623,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_sort_by_chain_score,
         "order alignment candidates by chain score instead of base-level score"
     );
+    chaining_opts.add_flag(
+        "break-ties-by-chain-score",
+        &MinimizerMapper::break_ties_by_chain_score,
+        MinimizerMapper::default_break_ties_by_chain_score,
+        "order alignment candidates by base-level score but break ties with the chain score for similar alignments"
+    );
     chaining_opts.add_range(
         "min-unique-node-fraction",
         &MinimizerMapper::min_unique_node_fraction,

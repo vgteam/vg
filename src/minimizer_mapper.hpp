@@ -408,6 +408,10 @@ public:
     static constexpr bool default_sort_by_chain_score = false;
     bool sort_by_chain_score = default_sort_by_chain_score;
 
+    /// Rank alignments by alignment score, but break ties using the chain score if the alignments are too similar
+    static constexpr bool default_break_ties_by_chain_score = false;
+    bool break_ties_by_chain_score = default_break_ties_by_chain_score;
+
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
     static constexpr double default_min_unique_node_fraction = 0.0;
     double min_unique_node_fraction = default_min_unique_node_fraction;

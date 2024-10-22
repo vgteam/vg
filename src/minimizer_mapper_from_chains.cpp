@@ -2604,8 +2604,21 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
     scores.reserve(alignments.size());
     
     // Go through the alignments in descending score order, with ties at the top end shuffled.
-    process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
+    process_until_threshold_c(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return get_sorting_score(i);
+    }, (std::function<bool(size_t, size_t)>) [&](size_t a, size_t b) -> bool {
+        if (this->break_ties_by_chain_score) {
+            //If the scores differ by less than 0.001% of the higher score, then sort by the chain score instead
+            float score_a = get_sorting_score(a);
+            float score_b = get_sorting_score(b);
+            if ((std::max(score_a, score_b) - std::min(score_a, score_b)) / std::max(score_a, score_b) > 0.00001) {
+                return score_a < score_b;
+            } else {
+                return chain_score_estimates.at(a) < chain_score_estimates.at(b);
+            }
+        } else {
+            return get_sorting_score(a) < get_sorting_score(b);
+        }
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
