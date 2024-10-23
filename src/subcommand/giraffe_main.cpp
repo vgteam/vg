@@ -630,6 +630,26 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "minimum fraction of an alignment that must be from distinct oriented nodes for the alignment to be distinct",
         double_is_fraction
     );
+    chaining_opts.add_range(
+        "max-alignments-per-chain",
+        &MinimizerMapper::max_alignments_per_chain,
+        MinimizerMapper::default_max_alignments_per_chain,
+        "maximum number of alignments we attempt per chain"
+    );
+    chaining_opts.add_range(
+        "chain-alignment-fraction",
+        &MinimizerMapper::chain_alignment_fraction,
+        MinimizerMapper::default_chain_alignment_fraction,
+        "fraction of the chain we attempt to align, if we can't align the whole chain in one alignment",
+        double_is_fraction
+    );
+    chaining_opts.add_range(
+        "min-unique-node-fraction",
+        &MinimizerMapper::min_unique_node_fraction,
+        MinimizerMapper::default_min_unique_node_fraction,
+        "minimum fraction of an alignment that must be from distinct oriented nodes for the alignment to be distinct",
+        double_is_fraction
+    );
 
     return parser;
 }

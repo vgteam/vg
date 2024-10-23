@@ -188,6 +188,15 @@ public:
     static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
     size_t max_local_extensions = default_max_local_extensions;
 
+    /// How many alignments should we make per chain
+    /// Alignment is done along the chain left to right along the chain and a new alignment can be done if the gap between seeds in the chain is too large
+    static constexpr size_t default_max_alignments_per_chain = 3;
+    size_t max_alignments_per_chain = default_max_alignments_per_chain;
+
+    /// What fraction of the chain do we try to align before giving up
+    /// Alignment is done up to max_chain_alignments times along the chain until this fraction of the chain is aligned
+    static constexpr double default_chain_alignment_fraction = 0.75;
+    double chain_alignment_fraction = default_chain_alignment_fraction;
     
     /////////////////
     // More shared parameters:

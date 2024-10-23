@@ -2366,10 +2366,10 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                     //Starting from the start of the chain, do dp between seeds and remember how far along the chain we got to
                     size_t last_seed_included_index = 0;
 
-                    //Keep trying to align the chain up to the last two thirds
-                    //At at most three attempts to align TODO: Make this configurable
+                    //Keep trying to align the chain up to max_alignments_per_chain until chain_alignment_fraction of the chain is aligned
                     size_t attempts = 0;
-                    while (attempts < 3 && last_seed_included_index <= chain.size() * 2 / 3) {
+                    while (attempts < this->max_alignments_per_chain && 
+                           last_seed_included_index <= (int) std::floor((float)chain.size() * this->chain_alignment_fraction)) {
 
                         // Collect stats into here
                         aligner_stats_t alignment_stats;
