@@ -2369,7 +2369,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                     //Keep trying to align the chain up to max_alignments_per_chain until chain_alignment_fraction of the chain is aligned
                     size_t attempts = 0;
                     while (attempts < this->max_alignments_per_chain && 
-                           last_seed_included_index <= (int) std::floor((float)chain.size() * this->chain_alignment_fraction)) {
+                           last_seed_included_index <= (int) std::floor((double)chain.size() * this->chain_alignment_fraction)) {
 
                         // Collect stats into here
                         aligner_stats_t alignment_stats;
