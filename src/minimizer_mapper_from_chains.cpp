@@ -2607,18 +2607,18 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
     process_until_threshold_c(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return get_sorting_score(i, this->sort_by_chain_score);
     }, (std::function<bool(size_t, size_t)>) [&](size_t a, size_t b) -> bool {
-        if (this->break_ties_by_chain_score && !this->sort_by_chain_score) {
-            //If the scores differ by less than 0.001% of the higher score, then sort by the chain score instead
+        if (this->break_ties_by_chain_score) {
+            //If the scores differ by less than 0.01% of the higher score, then sort by the other score instead
             float score_a = get_sorting_score(a, this->sort_by_chain_score);
             float score_b = get_sorting_score(b, this->sort_by_chain_score);
-            if ((std::max(score_a, score_b) - std::min(score_a, score_b)) / std::max(score_a, score_b) > 0.00001) {
-                return score_a < score_b;
+            if ((std::max(score_a, score_b) - std::min(score_a, score_b)) / std::max(score_a, score_b) > 0.0001) {
+                return score_a > score_b;
             } else {
-                //If the scores are too similar, then check the chain scores
-                return get_sorting_score(a, true) < get_sorting_score(b, true);
+                //If the scores are too similar, then check the secondary scores
+                return get_sorting_score(a, !this->sort_by_chain_score) > get_sorting_score(b, !this->sort_by_chain_score);
             }
         } else {
-            return get_sorting_score(a, this->sort_by_chain_score) < get_sorting_score(b, this->sort_by_chain_score);
+            return get_sorting_score(a, this->sort_by_chain_score) > get_sorting_score(b, this->sort_by_chain_score);
         }
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it

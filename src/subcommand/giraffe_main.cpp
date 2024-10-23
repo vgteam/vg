@@ -627,7 +627,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "break-ties-by-chain-score",
         &MinimizerMapper::break_ties_by_chain_score,
         MinimizerMapper::default_break_ties_by_chain_score,
-        "order alignment candidates by base-level score but break ties with the chain score for similar alignments"
+        "break ties for similar alignment candidates with a secondary score (base-level score or chain score depending on --sort-by-chain-score)"
     );
     chaining_opts.add_range(
         "min-unique-node-fraction",
