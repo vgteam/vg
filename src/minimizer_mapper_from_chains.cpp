@@ -2246,346 +2246,258 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     // Use pairs since we can't hash tuples.
     std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
 
-    //Instead of using process_until_threshold, we're going to go through the chains manually
-    //This is because we want to be able to add new chains as we process them, in case we hit a chain where we align half of it and want
-    //to continue with the other half as a separate chain
-
-    //Start by sorting the chains by estimated-score order
-    //Make this a list so that we can add partial chains to the front
-    vector<size_t> chain_indexes_in_order;
-    chain_indexes_in_order.reserve(chain_score_estimates.size());
-    for (size_t i = 0 ; i < chain_score_estimates.size() ; i++) {
-        chain_indexes_in_order.push_back(i);
-    }
-
-    //Function for sorting
-    auto compare_chain_scores = [&] (size_t a, size_t b) -> bool{
-        return chain_score_estimates[a] > chain_score_estimates[b];
-    };
-
-    //Sort chains, shuffling ties
-    sort_shuffling_ties(chain_indexes_in_order.begin(), chain_indexes_in_order.end(), compare_chain_scores, rng); 
-
-    //Function for processing an item
-    auto process_chain_item = [&](size_t processed_num, size_t item_count) -> bool {
-        // This chain is good enough.
-        // Called in descending score order.
     
-        if (chain_score_estimates[processed_num] < chain_min_score) {
-            // Actually discard by score
-            discard_chain_by_score(processed_num);
-            return false;
-        }
+    // Go through the chains in estimated-score order.
+    process_until_threshold_b<int>(chain_score_estimates,
+        chain_score_threshold, min_chains, max_alignments, rng, 
+        [&](size_t processed_num, size_t item_count) -> bool {
+            // This chain is good enough.
+            // Called in descending score order.
         
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
-                if (track_correctness && funnel.was_correct(processed_num)) {
-                    cerr << log_name() << "\tCORRECT!" << endl;
+            if (chain_score_estimates[processed_num] < chain_min_score) {
+                // Actually discard by score
+                discard_chain_by_score(processed_num);
+                return false;
+            }
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
                 }
             }
-        }
-        if (track_provenance) {
-            funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
-            funnel.pass("max-alignments", processed_num);
-        }
+            if (track_provenance) {
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("max-alignments", processed_num);
+            }
 
-        for (auto& seed_num : chains[processed_num]) {
-            // Look at the individual pin points and their associated read-node offset
-            size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
-            pos_t graph_pos = seeds.at(seed_num).pos;
+            for (auto& seed_num : chains[processed_num]) {
+                // Look at the individual pin points and their associated read-node offset
+                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
+                pos_t graph_pos = seeds.at(seed_num).pos;
 
-            nid_t node_id = id(graph_pos);
-            bool orientation = is_rev(graph_pos);
-            int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
-            auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
-            if (used_matchings.count(matching)) {
+                nid_t node_id = id(graph_pos);
+                bool orientation = is_rev(graph_pos);
+                int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
+                auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
+                if (used_matchings.count(matching)) {
+                    if (track_provenance) {
+                        funnel.fail("no-chain-overlap", processed_num);
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        }
+                    }
+                    return false;
+                } else {
+#ifdef debug
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Chain " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        }
+                    }
+#endif
+                }
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
+                }
+            }
+            if (track_provenance) {
+                funnel.pass("no-chain-overlap", processed_num);
+            }
+
+            // Make sure we aren't doing too many chains from this one tree.
+            auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
+            if (tree_count >= max_chains_per_tree) {
                 if (track_provenance) {
-                    funnel.fail("no-chain-overlap", processed_num);
+                    funnel.fail("max-chains-per-tree", processed_num, tree_count);
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
                     }
                 }
+                tree_count++;
                 return false;
             } else {
-#ifdef debug
+                if (track_provenance) {
+                    funnel.pass("max-chains-per-tree", processed_num, tree_count);
+                }
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Chain " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
                     }
                 }
+                tree_count++;
+            }
+
+            if (track_provenance) {
+                funnel.processing_input(processed_num);
+            }
+
+            // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
+            vector<Alignment> best_alignments(1, aln);
+
+            // Align from the chained-up seeds
+            if (do_dp) {
+                // We need to do base-level alignment.
+            
+                if (track_provenance) {
+                    funnel.substage("align");
+                }
+                
+                // We currently just have the one best score and chain per zip code tree
+                const vector<size_t>& chain = chains.at(processed_num);
+                
+                try {
+                    // Do the DP between the items in the chain
+
+                    // Collect stats into here
+                    aligner_stats_t alignment_stats;
+                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
+                    alignment_stats.add_annotations(best_alignments[0], "alignment");
+
+                    // Remember the stats' usages
+                    stats += alignment_stats;
+
+                    // Mark the alignment with its chain score
+                    set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
+                } catch (ChainAlignmentFailedError& e) {
+                    // We can't actually make an alignment from this chain
+                    #pragma omp critical (cerr)
+                    cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
+                    // Leave the read unmapped.
+                }
+
+                if (track_provenance) {
+                    funnel.substage_stop();
+                }
+                    
+                // TODO: Come up with a good secondary somehow.
+            } else {
+                // We would do base-level alignment but it is disabled.
+                // Leave best_alignment unaligned
+            }
+           
+            // Have a function to process the best alignments we obtained
+            auto observe_alignment = [&](Alignment& aln) {
+                alignments.emplace_back(std::move(aln));
+                alignments_to_source.push_back(processed_num);
+                multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
+                chain_count_by_alignment.emplace_back(item_count);
+                
+                size_t read_pos = 0;
+                for (auto& mapping : alignments.back().path().mapping()) {
+                    // Mark all the read-node matches it visits used.
+                    pos_t graph_pos = make_pos_t(mapping.position());
+
+                    nid_t node_id = id(graph_pos);
+                    bool orientation = is_rev(graph_pos);
+                    size_t graph_offset = offset(graph_pos);
+
+                    for (auto& edit : mapping.edit()) {
+                        if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
+                            // It's an actual match so make a matching
+                            int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)graph_offset;
+                            auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
+
+#ifdef debug
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << log_name() << "Create matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                                }
+                            }
 #endif
-            }
-        }
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Chain " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
-            }
-        }
-        if (track_provenance) {
-            funnel.pass("no-chain-overlap", processed_num);
-        }
 
-        // Make sure we aren't doing too many chains from this one tree.
-        auto& tree_count = chains_per_tree[chain_source_tree[processed_num]];
-        if (tree_count >= max_chains_per_tree) {
-            if (track_provenance) {
-                funnel.fail("max-chains-per-tree", processed_num, tree_count);
-            }
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is rejected (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                            used_matchings.emplace(std::move(matching));
+                        }
+                        read_pos += edit.to_length();
+                        graph_offset += edit.from_length();
+                    }
+                    
                 }
-            }
-            tree_count++;
-            return false;
-        } else {
-            if (track_provenance) {
-                funnel.pass("max-chains-per-tree", processed_num, tree_count);
-            }
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count << " in its tree " << chain_source_tree[processed_num] << " and is kept" << endl;
+
+                if (track_provenance) {
+                    funnel.project(processed_num);
+                    funnel.score(alignments.size() - 1, alignments.back().score());
                 }
-            }
-            tree_count++;
-        }
-
-        if (track_provenance) {
-            funnel.processing_input(processed_num);
-        }
-
-        // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
-        vector<Alignment> best_alignments(1, aln);
-
-        // Align from the chained-up seeds
-        if (do_dp) {
-            // We need to do base-level alignment.
-        
-            if (track_provenance) {
-                funnel.substage("align");
-            }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Produced alignment from chain " << processed_num
+                            << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
+                    }
+                }
+            };
             
-            // We currently just have the one best score and chain per zip code tree
-            const vector<size_t>& chain = chains.at(processed_num);
-            
-            try {
-                // Do the DP between the items in the chain
-
-                // Collect stats into here
-                aligner_stats_t alignment_stats;
-                size_t last_seed_included_index=0;
-                best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, last_seed_included_index, &alignment_stats);
-                alignment_stats.add_annotations(best_alignments[0], "alignment");
-
-                // Remember the stats' usages
-                stats += alignment_stats;
-
-                // Mark the alignment with its chain score
-                set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
-
-                if (chain.size() - last_seed_included_index >= last_seed_included_index) {
-                    //If we aligned less than half the chain, then try realigning the rest as a new chain
-                    vector<size_t> new_chain( chain.begin() + last_seed_included_index + 1, chain.end()); 
-                    best_alignments.emplace_back(aln);
-                    aligner_stats_t new_alignment_stats;
-                    best_alignments.back() = find_chain_alignment(aln, seed_anchors, new_chain, last_seed_included_index, &new_alignment_stats);
-                    stats += new_alignment_stats;
-                    set_annotation(best_alignments.back(), "chain_score", chain_score_estimates[processed_num]);
+            if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
+                if (show_work) {
+                    // Alignment won't be observed but log it anyway.
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
+                    }
                 }
-            } catch (ChainAlignmentFailedError& e) {
-                // We can't actually make an alignment from this chain
-                #pragma omp critical (cerr)
-                cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
-                // Leave the read unmapped.
+            }
+            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+                //For each additional alignment with score at least 0.8 of the best score
+                observe_alignment(*aln_it);
+            }
+           
+            if (track_provenance) {
+                // We're done with this input item
+                funnel.processed_input();
+            }
+
+            if (track_provenance) {
+                funnel.substage("minimizers_kept");
+            }
+
+            for (size_t i = 0 ; i < minimizer_kept_chain_count[processed_num].size() ; i++) {
+#ifdef print_minimizer_table
+                minimizer_kept_count[i] += minimizer_kept_chain_count[processed_num][i];
+#endif
+                if (use_explored_cap && minimizer_kept_chain_count[processed_num][i] > 0) {
+                    // This minimizer is in a zip code tree that gave rise
+                    // to at least one alignment, so it is explored.
+                    minimizer_explored.insert(i);
+                }
             }
 
             if (track_provenance) {
                 funnel.substage_stop();
             }
-                
-            // TODO: Come up with a good secondary somehow.
-        } else {
-            // We would do base-level alignment but it is disabled.
-            // Leave best_alignment unaligned
-        }
-       
-        // Have a function to process the best alignments we obtained
-        auto observe_alignment = [&](Alignment& aln) {
-            alignments.emplace_back(std::move(aln));
-            alignments_to_source.push_back(processed_num);
-            multiplicity_by_alignment.emplace_back(multiplicity_by_chain[processed_num]);
-            chain_count_by_alignment.emplace_back(item_count);
             
-            size_t read_pos = 0;
-            for (auto& mapping : alignments.back().path().mapping()) {
-                // Mark all the read-node matches it visits used.
-                pos_t graph_pos = make_pos_t(mapping.position());
-
-                nid_t node_id = id(graph_pos);
-                bool orientation = is_rev(graph_pos);
-                size_t graph_offset = offset(graph_pos);
-
-                for (auto& edit : mapping.edit()) {
-                    if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
-                        // It's an actual match so make a matching
-                        int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)graph_offset;
-                        auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
-
-#ifdef debug
-                        if (show_work) {
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << log_name() << "Create matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                            }
-                        }
-#endif
-
-                        used_matchings.emplace(std::move(matching));
-                    }
-                    read_pos += edit.to_length();
-                    graph_offset += edit.from_length();
-                }
-                
-            }
-
+            return true;
+        }, [&](size_t processed_num) -> void {
+            // There are too many sufficiently good chains
             if (track_provenance) {
-                funnel.project(processed_num);
-                funnel.score(alignments.size() - 1, alignments.back().score());
+                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.fail("max-alignments", processed_num);
             }
+            
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Produced alignment from chain " << processed_num
-                        << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
+                    cerr << log_name() << "chain " << processed_num << " failed because there were too many good chains (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
                 }
             }
-        };
-        
-        if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
-            if (show_work) {
-                // Alignment won't be observed but log it anyway.
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
-                }
-            }
-        }
-        for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
-            //For each additional alignment with score at least 0.8 of the best score
-            observe_alignment(*aln_it);
-        }
-       
-        if (track_provenance) {
-            // We're done with this input item
-            funnel.processed_input();
-        }
-
-        if (track_provenance) {
-            funnel.substage("minimizers_kept");
-        }
-
-        for (size_t i = 0 ; i < minimizer_kept_chain_count[processed_num].size() ; i++) {
-#ifdef print_minimizer_table
-            minimizer_kept_count[i] += minimizer_kept_chain_count[processed_num][i];
-#endif
-            if (use_explored_cap && minimizer_kept_chain_count[processed_num][i] > 0) {
-                // This minimizer is in a zip code tree that gave rise
-                // to at least one alignment, so it is explored.
-                minimizer_explored.insert(i);
-            }
-        }
-
-        if (track_provenance) {
-            funnel.substage_stop();
-        }
-        
-        return true;
-    };
-
-    //Function to discard an item if there are too many
-    auto discard_chain_item_by_count = [&](size_t processed_num) -> void {
-        // There are too many sufficiently good chains
-        if (track_provenance) {
-            funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
-            funnel.fail("max-alignments", processed_num);
-        }
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "chain " << processed_num << " failed because there were too many good chains (score=" << chain_score_estimates[processed_num] << ")" << endl;
-                if (track_correctness && funnel.was_correct(processed_num)) {
-                    cerr << log_name() << "\tCORRECT!" << endl;
-                }
-            }
-        }
-    };
-
-    // Find how many items have a better or equal score
-    vector<size_t> better_or_equal_count(chain_score_estimates.size(), chain_score_estimates.size());
-    for (int i = chain_score_estimates.size()-2 ; i >= 0 ; --i) {
-        //Starting from the second to last item, use the comparator to determine if it has the same
-        // or lower score than the item after it
-        if (compare_chain_scores(chain_indexes_in_order[i], chain_indexes_in_order[i+1])){
-            //If the score is less than the item after it
-            better_or_equal_count[i] = i+1;
-        } else {
-            //Otherwise, they must be equal since they are ordered
-            better_or_equal_count[i] = better_or_equal_count[i+1];
-        }
-    }
-
-
-    // Retain items only if their score is at least as good as this
-    double cutoff_chains = chain_score_estimates.size() == 0 ? 0 : chain_score_estimates.at(chain_indexes_in_order[0]) - chain_score_threshold;
-    
-    // Count up non-skipped items for min_count and max_count
-    size_t unskipped_chains = 0;
-
-    // Go through the items in descending score order.
-    for (size_t i = 0; i < chain_indexes_in_order.size(); i++) {
-        // Find the item we are talking about
-        size_t& item_num = chain_indexes_in_order[i];
-    
-        if (chain_score_threshold != 0 && chain_score_estimates.at(item_num) <= cutoff_chains) {
-            // Item would fail the score threshold
-    
-            if (unskipped_chains < min_chains) {
-                // But we need it to make up the minimum number.
-    
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped_chains += (size_t) process_chain_item(item_num, better_or_equal_count[i]);
-            } else {
-                // We will reject it for score
-                discard_chain_by_score(item_num);
-            }
-        } else {
-            // The item has a good enough score
-    
-            if (unskipped_chains < max_alignments) {
-                // We have room for it, so accept it.
-    
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped_chains += (size_t) process_chain_item(item_num, better_or_equal_count[i]);
-            } else {
-                // We are out of room! Reject for count.
-                discard_chain_item_by_count(item_num);
-            }
-        }
-    }
+        }, discard_chain_by_score);
 
     // We want to be able to feed in an unaligned alignment on the normal
     // codepath, but we don't want it to really participate in the funnel
@@ -2845,7 +2757,6 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
-    size_t& last_seed_included,
     aligner_stats_t* stats
 ) const {
     
@@ -3330,15 +3241,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cerr << log_name() << "Aligned and added link of " << link_length << " via " << link_alignment_source << std::endl;
             }
         }
-
         
-        // Advance here to next and start considering the next after it 
+        // Advance here to next and start considering the next after it
         here_it = next_it;
         ++next_it;
         here = next;
     }
-    // Remember that we included this chain
-    last_seed_included = next_it - chain.begin();
 
     if (next_it == chain.end()) {
         // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
