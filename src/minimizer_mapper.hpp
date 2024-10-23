@@ -911,8 +911,10 @@ protected:
      * optimal Alignment.
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
+     * 
+     * last_seed_included gets set to the index of the last seed in the chain that was included in the alignment
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, size_t& last_seed_included, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the

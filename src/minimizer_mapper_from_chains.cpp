@@ -2382,7 +2382,8 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
 
                 // Collect stats into here
                 aligner_stats_t alignment_stats;
-                best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
+                size_t last_seed_included_index=0;
+                best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, last_seed_included_index, &alignment_stats);
                 alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                 // Remember the stats' usages
@@ -2390,6 +2391,16 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
 
                 // Mark the alignment with its chain score
                 set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
+
+                if (chain.size() - last_seed_included_index >= last_seed_included_index) {
+                    //If we aligned less than half the chain, then try realigning the rest as a new chain
+                    vector<size_t> new_chain( chain.begin() + last_seed_included_index + 1, chain.end()); 
+                    best_alignments.emplace_back(aln);
+                    aligner_stats_t new_alignment_stats;
+                    best_alignments.back() = find_chain_alignment(aln, seed_anchors, new_chain, last_seed_included_index, &new_alignment_stats);
+                    stats += new_alignment_stats;
+                    set_annotation(best_alignments.back(), "chain_score", chain_score_estimates[processed_num]);
+                }
             } catch (ChainAlignmentFailedError& e) {
                 // We can't actually make an alignment from this chain
                 #pragma omp critical (cerr)
@@ -2834,6 +2845,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
+    size_t& last_seed_included,
     aligner_stats_t* stats
 ) const {
     
@@ -3318,12 +3330,15 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cerr << log_name() << "Aligned and added link of " << link_length << " via " << link_alignment_source << std::endl;
             }
         }
+
         
-        // Advance here to next and start considering the next after it
+        // Advance here to next and start considering the next after it 
         here_it = next_it;
         ++next_it;
         here = next;
     }
+    // Remember that we included this chain
+    last_seed_included = next_it - chain.begin();
 
     if (next_it == chain.end()) {
         // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
