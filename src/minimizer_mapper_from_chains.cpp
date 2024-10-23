@@ -2346,8 +2346,8 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                 funnel.processing_input(processed_num);
             }
 
-            // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
-            vector<Alignment> best_alignments(1, aln);
+            // Collect the top alignments
+            vector<Alignment> best_alignments;
 
             // Align from the chained-up seeds
             if (do_dp) {
@@ -2363,16 +2363,27 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                 try {
                     // Do the DP between the items in the chain
 
-                    // Collect stats into here
-                    aligner_stats_t alignment_stats;
-                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
-                    alignment_stats.add_annotations(best_alignments[0], "alignment");
+                    //Starting from the start of the chain, do dp between seeds and remember how far along the chain we got to
+                    size_t last_seed_included_index = 0;
 
-                    // Remember the stats' usages
-                    stats += alignment_stats;
+                    //Keep trying to align the chain up to the last two thirds
+                    //At at most three attempts to align TODO: Make this configurable
+                    size_t attempts = 0;
+                    while (attempts < 3 && last_seed_included_index <= chain.size() * 2 / 3) {
 
-                    // Mark the alignment with its chain score
-                    set_annotation(best_alignments[0], "chain_score", chain_score_estimates[processed_num]);
+                        // Collect stats into here
+                        aligner_stats_t alignment_stats;
+                        best_alignments.emplace_back(aln);
+                        best_alignments.back() = find_chain_alignment(aln, seed_anchors, chain, last_seed_included_index, &alignment_stats);
+                        alignment_stats.add_annotations(best_alignments.back(), "alignment");
+
+                        // Remember the stats' usages
+                        stats += alignment_stats;
+
+                        // Mark the alignment with its chain score
+                        set_annotation(best_alignments.back(), "chain_score", chain_score_estimates[processed_num]);
+                        attempts++;
+                    }
                 } catch (ChainAlignmentFailedError& e) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
@@ -2388,6 +2399,11 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
             } else {
                 // We would do base-level alignment but it is disabled.
                 // Leave best_alignment unaligned
+            }
+
+            //Make sure we always have at least one alignment
+            if (best_alignments.size() == 0) {
+                best_alignments.emplace_back(aln);
             }
            
             // Have a function to process the best alignments we obtained
@@ -2757,6 +2773,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
+    size_t& chain_start,
     aligner_stats_t* stats
 ) const {
     
@@ -2798,7 +2815,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     WFAExtender wfa_extender(gbwt_graph, aligner, wfa_error_model); 
     
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
-    auto here_it = chain.begin();
+    auto here_it = chain.begin()+chain_start;
     auto next_it = here_it;
     ++next_it;
     
@@ -3247,6 +3264,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         ++next_it;
         here = next;
     }
+    chain_start = next_it - chain.begin();
 
     if (next_it == chain.end()) {
         // We didn't bail out to treat a too-long connection as a tail. We still need to add the final extension anchor.
