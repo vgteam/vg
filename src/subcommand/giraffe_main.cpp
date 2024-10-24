@@ -643,6 +643,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "fraction of the chain we attempt to align, if we can't align the whole chain in one alignment",
         double_is_fraction
     );
+    chaining_opts.add_range(
+        "chain-alignment--scorefraction",
+        &MinimizerMapper::chain_alignment_score_fraction,
+        MinimizerMapper::default_chain_alignment_score_fraction,
+        "keep an alignment if its score is within this fraction of the best-scoring alignment from the same chain",
+        double_is_fraction
+    );
 
     return parser;
 }

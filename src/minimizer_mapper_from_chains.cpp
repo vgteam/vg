@@ -2470,7 +2470,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
 
             process_until_threshold_a(best_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
                 return best_alignments.at(i).score();
-            }, best_alignment_score * 0.8, 1, this->max_alignments_per_chain, rng,
+            }, best_alignment_score * this->chain_alignment_score_fraction, 1, this->max_alignments_per_chain, rng,
             [&] (size_t alignment_num, size_t alignment_item_count) {
                 // Remember the stats' usages
                 stats += best_alignment_stats.at(alignment_num);
@@ -2489,6 +2489,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
             },
             [&] (size_t i) -> void {
                 //discard item by score
+                funnel.fail("chain-alignment-score-fraction", i, best_alignments.at(i).score());
                 return;
             });
            

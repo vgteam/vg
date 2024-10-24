@@ -193,6 +193,10 @@ public:
     static constexpr size_t default_max_alignments_per_chain = 1;
     size_t max_alignments_per_chain = default_max_alignments_per_chain;
 
+    /// Keep alignments if they are within this fraction of the score of the best scoring alignment from the same chain
+    static constexpr double default_chain_alignment_score_fraction = 0.8;
+    double chain_alignment_score_fraction = default_chain_alignment_score_fraction;
+
     /// What fraction of the chain do we try to align before giving up
     /// Alignment is done up to max_chain_alignments times along the chain until this fraction of the chain is aligned
     static constexpr double default_chain_alignment_fraction = 0.75;
