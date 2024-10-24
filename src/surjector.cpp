@@ -6,6 +6,7 @@
 
 #include "surjector.hpp"
 
+#include "crash.hpp"
 #include "sequence_complexity.hpp"
 #include "alignment.hpp"
 #include "utility.hpp"
@@ -91,7 +92,7 @@ using namespace std;
         path_name_out = get<0>(position.front());
         path_pos_out = get<1>(position.front());
         path_rev_out = get<2>(position.front());
-        return move(surjected.front());
+        return std::move(surjected.front());
     }
 
     vector<Alignment> Surjector::multi_surject(const Alignment& source,
@@ -115,11 +116,11 @@ using namespace std;
         surject_internal(nullptr, &source, nullptr, &surjected, paths, position,
                          false, allow_negative_scores, preserve_deletions);
         
-        path_name_out = move(get<0>(position.front()));
+        path_name_out = std::move(get<0>(position.front()));
         path_pos_out = get<1>(position.front());
         path_rev_out = get<2>(position.front());
         
-        return move(surjected.front());
+        return std::move(surjected.front());
     }
 
     vector<multipath_alignment_t> Surjector::multi_surject(const multipath_alignment_t& source,
@@ -271,7 +272,7 @@ using namespace std;
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first.first, surj_record.first.second,
                                                      surj_record.second.first, surj_record.second.second, path_range, allow_negative_scores);
                 if (surjection.path().mapping_size() != 0) {
-                    aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                    aln_surjections[surj_record.first] = make_pair(std::move(surjection), path_range);
                 }
             }
             else if (source_aln) {
@@ -305,7 +306,7 @@ using namespace std;
                     transfer_read_metadata(*source_mp_aln, surjection);
                     
                     // record the result for this path
-                    mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                    mp_aln_surjections[surj_record.first] = make_pair(std::move(surjection), path_range);
                 }
             }
         }
@@ -398,7 +399,7 @@ using namespace std;
                 initial_pos = initial_position(surjection.first.path());
                 final_pos = final_position(surjection.first.path());
                 path_range = surjection.second;
-                alns_out->emplace_back(move(surjection.first));
+                alns_out->emplace_back(std::move(surjection.first));
                 
                 if (i != 0 || source_aln->is_secondary()) {
                     alns_out->back().set_is_secondary(true);
@@ -413,7 +414,7 @@ using namespace std;
                 initial_pos = initial_position(surjection.first.subpath().front().path());
                 final_pos = final_position(surjection.first.subpath().back().path());
                 path_range = surjection.second;
-                mp_alns_out->emplace_back(move(surjection.first));
+                mp_alns_out->emplace_back(std::move(surjection.first));
                 
                 if (i != 0) {
                     mp_alns_out->back().set_annotation("secondary", true);
@@ -640,9 +641,9 @@ using namespace std;
                 }
                 else {
                     if (removed_before[i]) {
-                        fwd_adj[i - removed_before[i]] = move(fwd_adj[i]);
-                        path_chunks[i - removed_before[i]] = move(path_chunks[i]);
-                        ref_chunks[i - removed_before[i]] = move(ref_chunks[i]);
+                        fwd_adj[i - removed_before[i]] = std::move(fwd_adj[i]);
+                        path_chunks[i - removed_before[i]] = std::move(path_chunks[i]);
+                        ref_chunks[i - removed_before[i]] = std::move(ref_chunks[i]);
                     }
                     removed_before[i + 1] = removed_before[i];
                 }
@@ -750,10 +751,10 @@ using namespace std;
                 size_t removed_so_far = removed[i];
                 removed[i + 1] = removed_so_far;
                 if (removed_so_far) {
-                    adj[i - removed_so_far] = move(adj[i]);
-                    splice_adj[i - removed_so_far] = move(splice_adj[i]);
-                    path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                    ref_chunks[i - removed_so_far] = move(ref_chunks[i]);
+                    adj[i - removed_so_far] = std::move(adj[i]);
+                    splice_adj[i - removed_so_far] = std::move(splice_adj[i]);
+                    path_chunks[i - removed_so_far] = std::move(path_chunks[i]);
+                    ref_chunks[i - removed_so_far] = std::move(ref_chunks[i]);
                     component[i - removed_so_far] = component[i];
                 }
             }
@@ -1872,15 +1873,15 @@ using namespace std;
                     cerr << "\t" << debug_string(path_chunks[i].second) << endl;
                     cerr << "\t" << graph->get_position_of_step(ref_chunks[i].first) << " : " << graph->get_position_of_step(ref_chunks[i].second) << endl;
 #endif
-                    split_path_chunks.emplace_back(move(path_chunks[i]));
-                    split_ref_chunks.emplace_back(move(ref_chunks[i]));
+                    split_path_chunks.emplace_back(std::move(path_chunks[i]));
+                    split_ref_chunks.emplace_back(std::move(ref_chunks[i]));
                     
                 }
             }
             
             // replace the original path chunks and ref chunks with the split ones
-            path_chunks = move(split_path_chunks);
-            ref_chunks = move(split_ref_chunks);
+            path_chunks = std::move(split_path_chunks);
+            ref_chunks = std::move(split_ref_chunks);
             
             // and update the indexes of the connections
             for (auto& connection : connections) {
@@ -1973,8 +1974,8 @@ using namespace std;
                 }
                 else {
                     if (removed_so_far[i]) {
-                        path_chunks[i - removed_so_far[i]] = move(path_chunks[i]);
-                        ref_chunks[i - removed_so_far[i]] = move(ref_chunks[i]);
+                        path_chunks[i - removed_so_far[i]] = std::move(path_chunks[i]);
+                        ref_chunks[i - removed_so_far[i]] = std::move(ref_chunks[i]);
                     }
                     removed_so_far[i + 1] = removed_so_far[i];
                 }
@@ -2048,8 +2049,8 @@ using namespace std;
             else {
                 insertions_removed[i + 1] = insertions_removed[i];
                 if (insertions_removed[i]) {
-                    path_chunks[i - insertions_removed[i]] = move(path_chunks[i]);
-                    ref_chunks[i - insertions_removed[i]] = move(ref_chunks[i]);
+                    path_chunks[i - insertions_removed[i]] = std::move(path_chunks[i]);
+                    ref_chunks[i - insertions_removed[i]] = std::move(ref_chunks[i]);
                 }
             }
         }
@@ -2093,7 +2094,7 @@ using namespace std;
             surjected.set_mapping_quality(src_mapping_quality);
             
             auto surj_subpath = surjected.add_subpath();
-            *surj_subpath->mutable_path() = move(path_chunks.front().second);
+            *surj_subpath->mutable_path() = std::move(path_chunks.front().second);
             
             Alignment aln;
             aln.set_sequence(src_sequence);
@@ -2923,7 +2924,7 @@ using namespace std;
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()
                         << " length " << source.sequence().size() << "; suppressing further warnings." << endl;
                 }
-                surjected = move(make_null_alignment(source));
+                surjected = std::move(make_null_alignment(source));
                 return surjected;
             }
             
@@ -2947,7 +2948,7 @@ using namespace std;
 
             // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
             if (mp_aln_graph.empty()) {
-                surjected = move(make_null_alignment(source));
+                surjected = std::move(make_null_alignment(source));
                 return surjected;
             }
             
@@ -3927,8 +3928,8 @@ using namespace std;
                 ++removed_before[i];
             }
             else if (removed_before[i]) {
-                path_chunks[i - removed_before[i]] = move(path_chunks[i]);
-                ref_chunks[i - removed_before[i]] = move(ref_chunks[i]);
+                path_chunks[i - removed_before[i]] = std::move(path_chunks[i]);
+                ref_chunks[i - removed_before[i]] = std::move(ref_chunks[i]);
             }
             removed_before[i + 1] = removed_before[i];
         }
@@ -3951,7 +3952,7 @@ using namespace std;
                 get<0>(connection) -= removed_before[get<0>(connection)];
                 get<1>(connection) -= removed_before[get<1>(connection)];
                 if (removed_so_far) {
-                    connections[i - removed_so_far] = move(connection);
+                    connections[i - removed_so_far] = std::move(connection);
                 }
             }
         }
@@ -4038,6 +4039,8 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
+                
+                // Short tails
                 if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
                     && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
 #ifdef debug_anchored_surject
@@ -4047,6 +4050,51 @@ using namespace std;
                     keep[i] = false;
                     continue;
                 }
+
+                // Simple slide in either direction
+                size_t max_slide = std::min<size_t>(max_suspicious_slide, chunk.first.second - chunk.first.first);
+                for (int slide_distance = -(int)max_slide; slide_distance < (int)max_slide + 1; slide_distance++) {
+                    if (slide_distance == 0) {
+                        continue;
+                    }
+
+                    // Prune the anchor if we can shift by slide_distance and find it again
+                    
+                    auto current_start = chunk.first.first;
+                    auto current_end = chunk.first.second;
+
+                    // TODO: check if the anchor still equals the *target path* when slid by this distance.
+                    // For now we just check if the anchor still equals the *read* when slid by this distance.
+                    // So check that is fits in the read.
+                    size_t start_offset = current_start - sequence.begin();
+                    size_t remaining_until_end = sequence.end() - current_end;
+
+                    if ((slide_distance < 0 && start_offset < -slide_distance) || (slide_distance > 0 && remaining_until_end < slide_distance)) {
+                        // Slid window would be out of range. Skip it.
+                        continue;
+                    }
+                    
+                    // Construct the slid sequence iterators
+                    auto slid_start = current_start + slide_distance;
+                    auto slid_end = current_end + slide_distance;
+
+                    //cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(current_start, current_end) << " vs. seq " << string(slid_start, slid_end) << std::endl;
+
+                    if (std::equal(current_start, current_end, slid_start, slid_end)) {
+#ifdef debug_anchored_surject
+                        std::cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(current_start, current_end) << " pruned for existing again at offset " << slide_distance << " in read" << std::endl;
+#endif
+                        keep[i] = false;
+                        break;
+                    }
+                }
+                if (!keep[i]) {
+                    // Don't do the statistical checks if we're already not keeping the anchor.
+                    continue;
+                }
+
+
+                // Low statistical complexity
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
@@ -4154,8 +4202,8 @@ using namespace std;
                 ++removed_so_far;
             }
             else if (removed_so_far) {
-                path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                path_chunks[i - removed_so_far] = std::move(path_chunks[i]);
+                step_ranges[i - removed_so_far] = std::move(step_ranges[i]);
             }
         }
         if (removed_so_far) {
