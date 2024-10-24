@@ -2348,6 +2348,8 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
 
             // Collect the top alignments
             vector<Alignment> best_alignments;
+            vector<aligner_stats_t> best_alignment_stats;
+            int best_alignment_score = 0;
 
             // Align from the chained-up seeds
             if (do_dp) {
@@ -2372,13 +2374,11 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                            last_seed_included_index <= (int) std::floor((double)chain.size() * this->chain_alignment_fraction)) {
 
                         // Collect stats into here
-                        aligner_stats_t alignment_stats;
                         best_alignments.emplace_back(aln);
-                        best_alignments.back() = find_chain_alignment(aln, seed_anchors, chain, last_seed_included_index, &alignment_stats);
-                        alignment_stats.add_annotations(best_alignments.back(), "alignment");
+                        best_alignment_stats.emplace_back();
+                        best_alignments.back() = find_chain_alignment(aln, seed_anchors, chain, last_seed_included_index, &best_alignment_stats.back());
+                        best_alignment_stats.back().add_annotations(best_alignments.back(), "alignment");
 
-                        // Remember the stats' usages
-                        stats += alignment_stats;
 
                         // Mark the alignment with its chain score
                         set_annotation(best_alignments.back(), "chain_score", chain_score_estimates[processed_num]);
@@ -2467,10 +2467,30 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                     }
                 }
             }
-            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
-                //For each additional alignment with score at least 0.8 of the best score
-                observe_alignment(*aln_it);
-            }
+
+            process_until_threshold_a(best_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
+                return best_alignments.at(i).score();
+            }, best_alignment_score * 0.8, 1, this->max_alignments_per_chain, rng,
+            [&] (size_t alignment_num, size_t alignment_item_count) {
+                // Remember the stats' usages
+                stats += best_alignment_stats.at(alignment_num);
+                if (track_provenance) {
+                    funnel.pass("max-alignments-per-chain", alignment_num);
+                }
+                observe_alignment(best_alignments.at(alignment_num));
+                return true;
+            }, 
+            [&] (size_t i) -> void {
+                //discard item by count
+                if (track_provenance) {
+                    funnel.fail("max-alignments-per-chain", i);
+                }
+                return;
+            },
+            [&] (size_t i) -> void {
+                //discard item by score
+                return;
+            });
            
             if (track_provenance) {
                 // We're done with this input item

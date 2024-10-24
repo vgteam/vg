@@ -190,7 +190,7 @@ public:
 
     /// How many alignments should we make per chain
     /// Alignment is done along the chain left to right along the chain and a new alignment can be done if the gap between seeds in the chain is too large
-    static constexpr size_t default_max_alignments_per_chain = 3;
+    static constexpr size_t default_max_alignments_per_chain = 1;
     size_t max_alignments_per_chain = default_max_alignments_per_chain;
 
     /// What fraction of the chain do we try to align before giving up
