@@ -3707,7 +3707,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     std::pair<size_t, size_t> to_return;
 
     // Get the dagified local graph, and the back translation
-    MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
+    MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length+max_gap_length, *graph,
         [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
 
 #ifdef debug
