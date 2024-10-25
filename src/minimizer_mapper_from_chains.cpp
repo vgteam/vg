@@ -3197,7 +3197,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (nodes_and_bases.first > 0) {
