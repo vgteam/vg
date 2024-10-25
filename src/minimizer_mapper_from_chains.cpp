@@ -3197,7 +3197,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
-            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
+            auto nodes_and_bases = MinimizerMapper::align_sequence_between_consistently((*here).graph_end(), (*next).graph_start(), path_length+max_gap_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             if (stats) {
                 stop_time = std::chrono::high_resolution_clock::now();
                 if (nodes_and_bases.first > 0) {
@@ -3707,7 +3707,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
     std::pair<size_t, size_t> to_return;
 
     // Get the dagified local graph, and the back translation
-    MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length+max_gap_length, *graph,
+    MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
         [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
 
 #ifdef debug
