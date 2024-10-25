@@ -50,6 +50,7 @@ void help_surject(char** argv) {
          << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
          << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -I, --max-slide N        look for offset duplicates of anchors up to N bp away when pruning (default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
          << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
@@ -103,6 +104,7 @@ int main_surject(int argc, char** argv) {
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
     bool prune_anchors = false;
+    int64_t max_slide = Surjector::DEFAULT_MAX_SLIDE;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
@@ -131,6 +133,7 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
             {"sample", required_argument, 0, 'N'},
@@ -144,7 +147,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPa:ALMVw:",
+        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPI:a:ALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -213,6 +216,10 @@ int main_surject(int argc, char** argv) {
                 
         case 'P':
             prune_anchors = true;
+            break;
+
+        case 'I':
+            max_slide = parse<int64_t>(optarg);
             break;
             
         case 'a':
@@ -315,6 +322,7 @@ int main_surject(int argc, char** argv) {
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
     surjector.prune_suspicious_anchors = prune_anchors;
+    surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
     if (spliced) {
         surjector.min_splice_length = min_splice_length;

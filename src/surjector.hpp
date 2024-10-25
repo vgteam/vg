@@ -134,9 +134,10 @@ using namespace std;
         
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
+        static constexpr int64_t DEFAULT_MAX_SLIDE = 6;
         /// Declare an anchor suspicious if it appears again at any offset up
         /// to this limit or the anchor length.
-        int64_t max_suspicious_slide = 6;
+        int64_t max_slide = DEFAULT_MAX_SLIDE;
         double low_complexity_p_value = .0075;
         int64_t max_low_complexity_anchor_prune = 40;
         int64_t max_low_complexity_anchor_trim = 65;

@@ -4052,8 +4052,8 @@ using namespace std;
                 }
 
                 // Simple slide in either direction
-                size_t max_slide = std::min<size_t>(max_suspicious_slide, chunk.first.second - chunk.first.first);
-                for (int slide_distance = -(int)max_slide; slide_distance < (int)max_slide + 1; slide_distance++) {
+                size_t slide_limit = std::min<size_t>(max_slide, chunk.first.second - chunk.first.first);
+                for (int slide_distance = -(int)slide_limit; slide_distance < (int)slide_limit + 1; slide_distance++) {
                     if (slide_distance == 0) {
                         continue;
                     }
