@@ -86,8 +86,6 @@ local-build-test-job:
   script:
     - THREADS=8
     - nvm version
-    - python3 ./configure.py
-    - source ./source_me.sh
     - make get-deps
     - make -j${THREADS}
     - echo Testing
