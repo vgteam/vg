@@ -614,7 +614,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Indexes of minimizers, sorted into score order, best score first
-    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
+    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
@@ -1454,7 +1454,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     std::array<VectorView<Minimizer>, 2> minimizers_by_read;
     for (auto r : {0, 1}) {
         minimizers_in_read_by_read[r] = this->find_minimizers(alns[r]->sequence(), funnels[r]);
-        minimizer_score_order_by_read[r] = sort_minimizers_by_score(minimizers_in_read_by_read[r]);
+        minimizer_score_order_by_read[r] = sort_minimizers_by_score(minimizers_in_read_by_read[r], rng);
         minimizers_by_read[r] = {minimizers_in_read_by_read[r], minimizer_score_order_by_read[r]};
     }
 
@@ -3429,9 +3429,17 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
-std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers) const {
-    // We defined operator< so the minimizers always sort descening by score by default.
-    return sort_permutation(minimizers.begin(), minimizers.end());
+std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers, LazyRNG& rng) const {
+    vector<size_t> minimizer_sort_order(minimizers.size());
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
+        minimizer_sort_order[i] = i;
+    }
+    sort_shuffling_ties(minimizer_sort_order.begin(), minimizer_sort_order.end(), [&](const size_t& a, const size_t& b) {
+        return minimizers[a].score > minimizers[b].score;
+        },
+        rng);
+    return minimizer_sort_order;
+
 }
 
 std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {

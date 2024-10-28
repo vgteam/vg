@@ -668,7 +668,7 @@ protected:
     /**
      * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.
      */
-    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order) const;
+    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order, LazyRNG& rng) const;
 
     /**
      * Find seeds for all minimizers passing the filters. Takes in minimizers

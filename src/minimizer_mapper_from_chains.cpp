@@ -609,7 +609,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Indexes of minimizers, sorted into score order, best score first
-    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
+    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
