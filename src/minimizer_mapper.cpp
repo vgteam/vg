@@ -3581,6 +3581,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             std::cerr << log_name() << "Total minimizers with hits after downsampling: " << with_hits << std::endl;
         }
     }
+
+    //TODO: We probably want to make all of this adjustable
+    //How much of the read is covered by a kept seed?
+    //Count the coverage of a seed as its minimizer's agglomeration
+    std::vector<bool> read_coverage (aln.sequence().size(), false);
+    size_t target_read_coverage = aln.sequence().size() * 0.9; 
+
     
     // Define the filters for minimizers.
     //
@@ -3642,7 +3649,28 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
-                return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
+                if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
+                    return true;
+                } else {
+                    //TODO: Fix funnel stuff 
+                    //We can still keep a minimizer if it covers part of the read that we haven't covered yet
+                    bool covered = true;
+                    for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ;i++) {
+                        if (!read_coverage[i]) {
+                            covered = false;
+                            break;
+                        }
+                    }
+                    if (covered) {
+                        //Don't keep it
+                        return false;
+                    } else {
+                        for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
+                            read_coverage[i] = true;
+                        }
+                        return true;
+                    }
+                }
             },
             [](const Minimizer& m) { return nan(""); },
             [](const Minimizer& m) {},
