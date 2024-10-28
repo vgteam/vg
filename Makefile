@@ -27,6 +27,9 @@ PKG_CONFIG ?= pkg-config
 SFX :=
 EXE:=vg$(SFX)
 
+# Expose compiler we want to use to all build commands as an environment variable.
+export CC CXX
+
 all: $(BIN_DIR)/$(EXE)
 
 # Magic dependencies (see <http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr>)
@@ -569,9 +572,9 @@ $(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
 # See https://stackoverflow.com/a/19822767
 $(LIB_DIR)/%sdsl.a $(LIB_DIR)/%divsufsort.a $(LIB_DIR)/%divsufsort64.a : $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
-	+cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" CC=$(CC) CXX=$(CXX) ./install.sh $(CWD) $(FILTER)
+	+cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
 else
-	+cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" CC=$(CC) CXX=$(CXX) ./install.sh $(CWD) $(FILTER)
+	+cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="-fPIC $(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
 endif
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
