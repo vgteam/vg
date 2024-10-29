@@ -18,6 +18,7 @@
 #include "../gbwt_helper.hpp"
 #include "../traversal_clusters.hpp"
 #include "../io/save_handle_graph.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -57,6 +58,8 @@ void help_paths(char** argv) {
          << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
          << "    -R, --reference-paths    select the reference paths" << endl
          << "    -H, --haplotype-paths    select the haplotype paths paths" << endl
+         << "  configuration:" << endl
+         << "    -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "    -t, --threads N          number of threads to use [all available]. applies only to snarl finding within -n" << endl;
 }
 
@@ -122,6 +125,7 @@ int main_paths(int argc, char** argv) {
     bool coverage = false;
     const size_t coverage_bins = 10;
     bool normalize_paths = false;
+    bool overlay = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -151,6 +155,7 @@ int main_paths(int argc, char** argv) {
             {"reference-paths", no_argument, 0, 'R'},
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
+            {"overlay", no_argument, 0, 'o'},
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -160,7 +165,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drnaGRHp:ct:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -276,6 +281,10 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
+        case 'o':
+            overlay = true;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -375,11 +384,23 @@ int main_paths(int argc, char** argv) {
     
     // Load whatever indexes we were given
     // Note: during handlifiction, distinction between -v and -x options disappeared.
-    unique_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> path_handle_graph;
     if (!graph_file.empty()) {
         // Load the graph
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    PathHandleGraph* graph = nullptr;
+    if (path_handle_graph) {
+        if (overlay) {
+            // Try to apply the overlay if the user wanted it and this isn't
+            // already a graph implementing position lookups.
+            graph = overlay_helper.apply(path_handle_graph.get());
+        } else {
+            graph = path_handle_graph.get();
+        }
+    }
+
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
@@ -418,7 +439,7 @@ int main_paths(int argc, char** argv) {
     if (extract_as_gam || extract_as_gaf) {
         // Open up a GAM/GAF output stream
         aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
-                                                            graph.get());
+                                                            graph);
     } else if (extract_as_vg) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
@@ -589,7 +610,7 @@ int main_paths(int argc, char** argv) {
         };
         
         if (drop_paths || retain_paths || normalize_paths) {
-            MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
+            MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
             if (!mutable_graph) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
                 exit(1);

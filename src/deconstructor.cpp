@@ -1168,9 +1168,10 @@ string Deconstructor::get_vcf_header() {
     }
 
     if (sample_to_haps.empty()) {
-        cerr << "Error [vg deconstruct]: No paths found for alt alleles in the graph. Note that "
-             << "exhaustive path-free traversal finding is no longer supported, and vg deconstruct "
-             << "now only works on embedded paths and GBWT threads." << endl;
+        cerr << "Error [vg deconstruct]: No paths other than selected reference(s) found in the graph, "
+             << "so no alt alleles can be generated. Note that exhaustive path-free traversal finding "
+             << "is no longer supported, and vg deconstruct now only works on embedded paths and GBWT "
+             << "threads." << endl;
         exit(1);
     }
 
