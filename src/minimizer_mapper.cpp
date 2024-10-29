@@ -3586,6 +3586,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     //How much of the read is covered by a kept seed?
     //Count the coverage of a seed as its minimizer's agglomeration
     std::vector<bool> read_coverage (aln.sequence().size(), false);
+    //What is the seed's footprint in the read for the sake of counting coverage?
+    size_t seed_coverage_flank = 150;
     size_t target_read_coverage = aln.sequence().size() * 0.9; 
     size_t read_covered_bps = 0;
 
@@ -3650,11 +3652,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
+                //When looking for the coverage of the seeds in the read, how much do we count this seed?
+                size_t seed_coverage_start = m.forward_offset() < seed_coverage_flank ? 0 : m.forward_offset()-seed_coverage_flank ;
+                size_t seed_coverage_end = std::min(read_coverage.size(), m.forward_offset() + m.length + seed_coverage_flank);
+
                 if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
-                    for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
+                    //If we haven't seen enough minimizers yet, always keep it and remember the coverage
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         read_coverage[i] = true;
                     }
-                    read_covered_bps += m.agglomeration_length;
+                    read_covered_bps += (m.length + (seed_coverage_end - seed_coverage_start));
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
@@ -3663,22 +3670,19 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     }
                     //TODO: Fix funnel stuff 
                     //We can still keep a minimizer if it covers part of the read that we haven't covered yet
-                    bool covered = false;
-                    for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ;i++) {
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         if (read_coverage[i]) {
-                            covered = true;
+                            //If anything is already covered by a seed, don't return this seed
+                            return false;
                         }
                     }
-                    if (covered) {
-                        //Don't keep it
-                        return false;
-                    } else {
-                        for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
-                            read_coverage[i] = true;
-                        }
-                        read_covered_bps += m.agglomeration_length;
-                        return true;
+
+                    //If this seed covers a completely new part of the read, then remember it
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
+                        read_coverage[i] = true;
                     }
+                    read_covered_bps += (m.length + (seed_coverage_end - seed_coverage_start));
+                    return true;
                 }
             },
             [](const Minimizer& m) { return nan(""); },
