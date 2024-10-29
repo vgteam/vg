@@ -3652,6 +3652,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
                     return true;
                 } else {
+                    //If this would put us over the limit and we've already covered enough of the read
+                    if (std::accumulate(read_coverage.begin(), read_coverage.end(), 0) >= target_read_coverage) {
+                        return false;
+                    }
                     //TODO: Fix funnel stuff 
                     //We can still keep a minimizer if it covers part of the read that we haven't covered yet
                     bool covered = true;
