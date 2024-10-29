@@ -3661,7 +3661,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         read_coverage[i] = true;
                     }
-                    read_covered_bps += (m.length + (seed_coverage_end - seed_coverage_start));
+                    read_covered_bps += seed_coverage_end - seed_coverage_start);
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
@@ -3681,7 +3681,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         read_coverage[i] = true;
                     }
-                    read_covered_bps += (m.length + (seed_coverage_end - seed_coverage_start));
+                    read_covered_bps += seed_coverage_end - seed_coverage_start;
                     return true;
                 }
             },
