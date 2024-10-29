@@ -3654,6 +3654,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
                         read_coverage[i] = true;
                     }
+                    read_covered_bps += m.agglomeration_length;
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
