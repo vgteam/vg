@@ -3651,6 +3651,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
                 if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
+                    for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
+                        read_coverage[i] = true;
+                    }
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
