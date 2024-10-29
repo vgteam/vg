@@ -101,7 +101,7 @@ Note that a 64-bit OS is required. Ubuntu 20.04 should work.
 
 #### Linux: Build
 
-When you are ready, build with `. ./source_me.sh && make`. You can use `make -j16` to run 16 build threads at a time, which greatly accelerates the process. If you have more CPU cores, you can use higher numbers.
+When you are ready, build with `make`. You can use `make -j16` to run 16 build threads at a time, which greatly accelerates the process. If you have more CPU cores, you can use higher numbers.
 
 Note that vg can take anywhere from 10 minutes to more than an hour to compile depending on your machine and the number of threads used. 
 
@@ -161,7 +161,7 @@ Homebrew provides another package management solution for OSX, and may be prefer
 
 With dependencies installed, VG can now be built:
 
-    . ./source_me.sh && make
+    make
 
 As with Linux, you can add `-j16` or other numbers at the end to run multiple build tasks at once, if your computer can handle them.
     

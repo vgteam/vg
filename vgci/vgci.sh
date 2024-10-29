@@ -252,7 +252,6 @@ then
     if [ "${LOCAL_BUILD}" == "1" ]
     then
         # Just build vg here
-        . ./source_me.sh
         make -j ${NUM_CORES}
 
         if [ "$?" -ne 0 ]
