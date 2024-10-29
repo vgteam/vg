@@ -3587,6 +3587,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     //Count the coverage of a seed as its minimizer's agglomeration
     std::vector<bool> read_coverage (aln.sequence().size(), false);
     size_t target_read_coverage = aln.sequence().size() * 0.9; 
+    size_t read_covered_bps = 0;
 
     
     // Define the filters for minimizers.
@@ -3653,16 +3654,15 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
-                    if (std::accumulate(read_coverage.begin(), read_coverage.end(), 0) >= target_read_coverage) {
+                    if (read_covered_bps >= target_read_coverage) {
                         return false;
                     }
                     //TODO: Fix funnel stuff 
                     //We can still keep a minimizer if it covers part of the read that we haven't covered yet
-                    bool covered = true;
+                    bool covered = false;
                     for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ;i++) {
-                        if (!read_coverage[i]) {
-                            covered = false;
-                            break;
+                        if (read_coverage[i]) {
+                            covered = true;
                         }
                     }
                     if (covered) {
@@ -3672,6 +3672,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                         for (size_t i = m.agglomeration_start ; i < m.agglomeration_start + m.agglomeration_length ; i++) {
                             read_coverage[i] = true;
                         }
+                        read_covered_bps += m.agglomeration_length;
                         return true;
                     }
                 }
