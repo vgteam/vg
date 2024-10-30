@@ -125,7 +125,7 @@ int main_validate(int argc, char** argv) {
     if (!gam_only) {
         VG* vg_graph = dynamic_cast<VG*>(graph.get());
         if (vg_graph != nullptr) {
-            if (!vg_graph->is_valid(true, true, check_orphans, true)) {
+            if (!vg_graph->is_valid(true, true, true, check_orphans)) {
                 valid_graph = false;
             }
         }
