@@ -44,6 +44,7 @@
 //#define debug_validate_index_references
 // Make sure seeds are properly found for gapless extensions
 //#define debug_seed_extension
+//#define debug_minimizers
 
 namespace vg {
 
@@ -3588,7 +3589,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     std::vector<bool> read_coverage (aln.sequence().size(), false);
     //What is the seed's footprint in the read for the sake of counting coverage?
     size_t seed_coverage_flank = 150;
-    size_t target_read_coverage = aln.sequence().size() * 0.9; 
+    size_t target_read_coverage = aln.sequence().size() * 0.95;
     size_t read_covered_bps = 0;
 
     
@@ -3659,13 +3660,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
                     //If we haven't seen enough minimizers yet, always keep it and remember the coverage
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
-                        read_coverage[i] = true;
+                        if (!read_coverage[i]) {
+                            read_coverage[i] = true;
+                            read_covered_bps ++;
+                        }
                     }
-                    read_covered_bps += seed_coverage_end - seed_coverage_start);
                     return true;
                 } else {
                     //If this would put us over the limit and we've already covered enough of the read
                     if (read_covered_bps >= target_read_coverage) {
+#ifdef debug_minimizers
+                    cerr << "\tMinimizer at read offset " << m.forward_offset() << " fails because we have enough coverage " << seed_coverage_start << " to " << seed_coverage_end << endl;
+#endif
                         return false;
                     }
                     //TODO: Fix funnel stuff 
@@ -3673,6 +3679,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         if (read_coverage[i]) {
                             //If anything is already covered by a seed, don't return this seed
+#ifdef debug_minimizers
+                        cerr << "\tMinimizer at read offset " << m.forward_offset() << " fails because we already covered it " << seed_coverage_start << " to " << seed_coverage_end << endl;
+#endif
                             return false;
                         }
                     }
@@ -3766,6 +3775,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     funnel.fail(filter_name, i, stat);
                 }
                 filter_fail_function(minimizer);
+#ifdef debug_minimizers
+                    cerr << "Minimizer at read offset " << minimizer.forward_offset() << " failed filter " << filter_name  << endl;
+#endif
                 // Don't do later filters
                 break;
             }
