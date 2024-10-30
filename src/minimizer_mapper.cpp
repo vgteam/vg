@@ -3588,9 +3588,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     //Count the coverage of a seed as its minimizer's agglomeration
     std::vector<bool> read_coverage (aln.sequence().size(), false);
     //What is the seed's footprint in the read for the sake of counting coverage?
-    size_t seed_coverage_flank = 150;
-    size_t target_read_coverage = aln.sequence().size() * 0.95;
-    size_t read_covered_bps = 0;
+    size_t seed_coverage_flank = 500;
 
     
     // Define the filters for minimizers.
@@ -3662,21 +3660,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         if (!read_coverage[i]) {
                             read_coverage[i] = true;
-                            read_covered_bps ++;
                         }
                     }
                     return true;
                 } else {
-                    //If this would put us over the limit and we've already covered enough of the read
-                    if (read_covered_bps >= target_read_coverage) {
-#ifdef debug_minimizers
-                    cerr << "\tMinimizer at read offset " << m.forward_offset() << " fails because we have enough coverage " << seed_coverage_start << " to " << seed_coverage_end << endl;
-#endif
-                        return false;
-                    }
                     //TODO: Fix funnel stuff 
                     //We can still keep a minimizer if it covers part of the read that we haven't covered yet
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
+                        //TODO: I think I can just check the first and last?
                         if (read_coverage[i]) {
                             //If anything is already covered by a seed, don't return this seed
 #ifdef debug_minimizers
@@ -3690,7 +3681,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
                         read_coverage[i] = true;
                     }
-                    read_covered_bps += seed_coverage_end - seed_coverage_start;
                     return true;
                 }
             },
@@ -3784,6 +3774,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
         
         if (passing) {
+#ifdef debug_minimizers
+                    cerr << "Minimizer at read offset " << minimizer.forward_offset() << " kept"  << endl;
+#endif
             // We passed all filters.
             // So we are taking this item and ought to take the others in the same run in most cases.
             taking_run = true;
