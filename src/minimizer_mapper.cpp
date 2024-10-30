@@ -3585,10 +3585,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
     //TODO: We probably want to make all of this adjustable
     //How much of the read is covered by a kept seed?
-    //Count the coverage of a seed as its minimizer's agglomeration
+    //The coverage of the seed is its sequence plus minimizer_coverage_flank on either end
     std::vector<bool> read_coverage (aln.sequence().size(), false);
-    //What is the seed's footprint in the read for the sake of counting coverage?
-    size_t seed_coverage_flank = 500;
 
     
     // Define the filters for minimizers.
@@ -3652,8 +3650,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
                 //When looking for the coverage of the seeds in the read, how much do we count this seed?
-                size_t seed_coverage_start = m.forward_offset() < seed_coverage_flank ? 0 : m.forward_offset()-seed_coverage_flank ;
-                size_t seed_coverage_end = std::min(read_coverage.size(), m.forward_offset() + m.length + seed_coverage_flank);
+                size_t seed_coverage_start = m.forward_offset() < this->minimizer_coverage_flank ? 0 : m.forward_offset()-this->minimizer_coverage_flank ;
+                size_t seed_coverage_end = std::min(read_coverage.size(), m.forward_offset() + m.length + this->minimizer_coverage_flank);
 
                 if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
                     //If we haven't seen enough minimizers yet, always keep it and remember the coverage

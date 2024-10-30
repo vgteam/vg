@@ -178,6 +178,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use at most INT minimizers, 0 for no limit"
     );
     comp_opts.add_range(
+        "min-coverage-flank",
+        &MinimizerMapper::minimizer_coverage_flank,
+        MinimizerMapper::default_minimizer_coverage_flank,
+        "when trying to cover the read with minimizers, count INT towards the coverage of each minimizer on each side"
+    );
+    comp_opts.add_range(
         "num-bp-per-min",
         &MinimizerMapper::num_bp_per_min,
         MinimizerMapper::default_num_bp_per_min,

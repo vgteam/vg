@@ -123,6 +123,13 @@ public:
     static constexpr size_t default_minimizer_downsampling_max_window_length = std::numeric_limits<size_t>::max();
     size_t minimizer_downsampling_max_window_length = default_minimizer_downsampling_max_window_length;
 
+    //We allow additional seeds past the maximum number of seeds allowed if they cover a region of the read that
+    //was not covered by accepted seeds.
+    //The coverage of a seed is its sequence plus the seed_coverage_flank on either end
+    static constexpr size_t default_minimizer_coverage_flank = 500;
+    size_t minimizer_coverage_flank = default_minimizer_coverage_flank;
+
+
     /// Maximum number of distinct minimizers to take
     static constexpr size_t default_max_unique_min = 500;
     size_t max_unique_min = default_max_unique_min;
