@@ -3192,7 +3192,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             // Guess how long of a graph path we ought to allow in the alignment.
-            size_t max_gap_length = longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner());
+            size_t max_gap_length = std::min(this->max_middle_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner()));
             size_t path_length = std::max(graph_length, link_length);
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();

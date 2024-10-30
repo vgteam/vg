@@ -576,6 +576,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum number of gap bases to allow in a Dozeu tail"
     );
     chaining_opts.add_range(
+        "max-middle-gap",
+        &MinimizerMapper::max_middle_gap,
+        MinimizerMapper::default_max_middle_gap,
+        "maximum number of gap bases to allow in a middle connection"
+    );
+    chaining_opts.add_range(
         "max-tail-dp-length",
         &MinimizerMapper::max_tail_dp_length,
         MinimizerMapper::default_max_tail_dp_length,

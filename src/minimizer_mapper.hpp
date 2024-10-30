@@ -390,6 +390,10 @@ public:
     /// How many gap bases should we allow in a Dozeu tail alignment, max?
     static constexpr size_t default_max_tail_gap = std::numeric_limits<size_t>::max();
     size_t max_tail_gap = default_max_tail_gap;
+
+    /// How many gap bases should we allow in a between-seed alignment, max?
+    static constexpr size_t default_max_middle_gap = std::numeric_limits<size_t>::max();
+    size_t max_middle_gap = default_max_middle_gap;
     
     /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails?
     static constexpr int default_wfa_max_mismatches = 2;
