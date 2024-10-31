@@ -126,7 +126,7 @@ public:
     //We allow additional seeds past the maximum number of seeds allowed if they cover a region of the read that
     //was not covered by accepted seeds.
     //The coverage of a seed is its sequence plus the seed_coverage_flank on either end
-    static constexpr size_t default_minimizer_coverage_flank = 500;
+    static constexpr size_t default_minimizer_coverage_flank = 250;
     size_t minimizer_coverage_flank = default_minimizer_coverage_flank;
 
 
