@@ -330,11 +330,11 @@ void help_gbwt(char** argv) {
     std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
     std::cerr << "    -S, --samples           print the number of samples" << std::endl;
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
-    std::cerr << "    -T, --thread-names      list path names" << std::endl; // FIXME change to --path-names; make --thread-names a deprecated alias
+    std::cerr << "    -T, --path-names        list path names" << std::endl;
     std::cerr << "        --tags              list GBWT tags" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 8: Paths (one input GBWT):" << std::endl;
-    std::cerr << "    -c, --count-threads     print the number of paths" << std::endl; // FIXME also here, change to --count-paths
+    std::cerr << "    -c, --count-paths       print the number of paths" << std::endl;
     std::cerr << "    -e, --extract FILE      extract paths in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
 }
@@ -424,7 +424,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
     constexpr int OPT_TAGS = 1700;
-    
+
+    // Deprecated options.
+    constexpr int OPT_THREAD_NAMES = 2000;
+    constexpr int OPT_COUNT_THREADS = 2001;
+
     // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
     // Values are description and list of prohibited characters.
     const std::map<std::string, std::pair<std::string, std::unordered_set<char>>> KNOWN_TAGS = {
@@ -519,11 +523,13 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "haplotypes", no_argument, 0, 'H' },
         { "samples", no_argument, 0, 'S' },
         { "list-names", no_argument, 0, 'L' },
-        { "thread-names", no_argument, 0, 'T' }, // FIXME
+        { "path-names", no_argument, 0, 'T' },
+        { "thread-names", no_argument, 0, OPT_THREAD_NAMES },
         { "tags", no_argument, 0, OPT_TAGS },
 
         // Paths
-        { "count-threads", no_argument, 0, 'c' }, // FIXME
+        { "count-paths", no_argument, 0, 'c' },
+        { "count-threads", no_argument, 0, OPT_COUNT_THREADS },
         { "extract", required_argument, 0, 'e' },
 
         { "help", no_argument, 0, 'h' },
@@ -867,6 +873,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.path_names = true;
             config.metadata_mode = true;
             break;
+        case OPT_THREAD_NAMES:
+            std::cerr << "warning: [vg gbwt] option --thread-names is deprecated; use --path-names instead" << std::endl;
+            config.path_names = true;
+            config.metadata_mode = true;
+            break;
         case OPT_TAGS:
             config.tags = true;
             config.metadata_mode = true;
@@ -874,6 +885,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Paths
         case 'c':
+            config.count_paths = true;
+            config.path_mode = true;
+            break;
+        case OPT_COUNT_THREADS:
+            std::cerr << "warning: [vg gbwt] option --count-threads is deprecated; use --count-paths instead" << std::endl;
             config.count_paths = true;
             config.path_mode = true;
             break;
