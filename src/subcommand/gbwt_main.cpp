@@ -37,7 +37,7 @@ struct GBWTConfig {
     build_mode build = build_none;
     merge_mode merge = merge_none;
     path_cover_mode path_cover = path_cover_none;
-    bool metadata_mode = false, thread_mode = false;
+    bool metadata_mode = false, path_mode = false;
 
     // Input GBWT construction.
     HaplotypeIndexer haplotype_indexer;
@@ -55,8 +55,8 @@ struct GBWTConfig {
 
     // Other parameters and flags.
     bool show_progress = false;
-    bool count_threads = false;
-    bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false, tags = false;
+    bool count_paths = false;
+    bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, path_names = false, tags = false;
     bool include_named_paths = false;
     size_t num_paths = default_num_paths(), context_length = default_context_length();
     bool num_paths_set = false;
@@ -70,7 +70,7 @@ struct GBWTConfig {
 
     // File names.
     std::string gbwt_output; // Output GBWT.
-    std::string thread_output; // Threads in SDSL format.
+    std::string path_output; // Paths in SDSL format.
     std::string graph_output; // Output GBWTGraph.
     std::string segment_translation; // Segment to node translation output.
     std::string r_index_name; // Output r-index.
@@ -163,7 +163,7 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
 void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config);
 void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config);
-void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config);
+void step_8_paths(GBWTHandler& gbwts, GBWTConfig& config);
 
 void report_time_memory(const std::string& what, double start_time, const GBWTConfig& config);
 void print_metadata(std::ostream& out, const GBWTHandler& gbwts);
@@ -233,9 +233,9 @@ int main_gbwt(int argc, char** argv) {
         step_7_metadata(gbwts, config);
     }
 
-    // Thread options.
-    if (config.thread_mode) {
-        step_8_threads(gbwts, config);
+    // Path options.
+    if (config.path_mode) {
+        step_8_paths(gbwts, config);
     }
 
     return 0;
@@ -260,7 +260,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Multithreading:" << std::endl;
-    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v, -G, -l, -P; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
+    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v, -G, -A, -l, -P; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
     std::cerr << "        --num-threads N     use N parallel search threads (for -b and -r; default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
@@ -330,12 +330,12 @@ void help_gbwt(char** argv) {
     std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
     std::cerr << "    -S, --samples           print the number of samples" << std::endl;
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
-    std::cerr << "    -T, --thread-names      list thread names" << std::endl;
+    std::cerr << "    -T, --thread-names      list path names" << std::endl; // FIXME change to --path-names; make --thread-names a deprecated alias
     std::cerr << "        --tags              list GBWT tags" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 8: Threads (one input GBWT):" << std::endl;
-    std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
-    std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
+    std::cerr << "Step 8: Paths (one input GBWT):" << std::endl;
+    std::cerr << "    -c, --count-threads     print the number of paths" << std::endl; // FIXME also here, change to --count-paths
+    std::cerr << "    -e, --extract FILE      extract paths in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -519,11 +519,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "haplotypes", no_argument, 0, 'H' },
         { "samples", no_argument, 0, 'S' },
         { "list-names", no_argument, 0, 'L' },
-        { "thread-names", no_argument, 0, 'T' },
+        { "thread-names", no_argument, 0, 'T' }, // FIXME
         { "tags", no_argument, 0, OPT_TAGS },
 
-        // Threads
-        { "count-threads", no_argument, 0, 'c' },
+        // Paths
+        { "count-threads", no_argument, 0, 'c' }, // FIXME
         { "extract", required_argument, 0, 'e' },
 
         { "help", no_argument, 0, 'h' },
@@ -864,7 +864,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.metadata_mode = true;
             break;
         case 'T':
-            config.thread_names = true;
+            config.path_names = true;
             config.metadata_mode = true;
             break;
         case OPT_TAGS:
@@ -872,14 +872,14 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.metadata_mode = true;
             break;
 
-        // Threads
+        // Paths
         case 'c':
-            config.count_threads = true;
-            config.thread_mode = true;
+            config.count_paths = true;
+            config.path_mode = true;
             break;
         case 'e':
-            config.thread_output = optarg;
-            config.thread_mode = true;
+            config.path_output = optarg;
+            config.path_mode = true;
             break;
 
         case 'h':
@@ -1077,9 +1077,9 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
     }
 
-    if (config.thread_mode) {
+    if (config.path_mode) {
         if (!one_input_gbwt) {
-            std::cerr << "error: [vg gbwt] thread operations require one input GBWT" << std::endl;
+            std::cerr << "error: [vg gbwt] path operations require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -1373,6 +1373,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         if (config.show_progress) {
             std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
         }
+        // FIXME: Parallelize this.
         std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"));
         gbwts.use(*temp);
     }
@@ -1458,7 +1459,7 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
 
     gbwts.use_dynamic();
     if (!(gbwts.dynamic.hasMetadata() && gbwts.dynamic.metadata.hasPathNames() && gbwts.dynamic.metadata.hasSampleNames())) {
-        std::cerr << "error: [vg gbwt] the index does not contain metadata with thread and sample names" << std::endl;
+        std::cerr << "error: [vg gbwt] the index does not contain metadata with path and sample names" << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
@@ -1471,11 +1472,11 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
         }
         std::vector<gbwt::size_type> path_ids = gbwts.dynamic.metadata.removeSample(sample_id);
         if (path_ids.empty()) {
-            std::cerr << "warning: [vg gbwt] no threads associated with sample " << sample_name << std::endl;
+            std::cerr << "warning: [vg gbwt] no paths associated with sample " << sample_name << std::endl;
             continue;
         }
         if (config.show_progress) {
-            std::cerr << "Removing " << path_ids.size() << " threads for sample " << sample_name << std::endl;
+            std::cerr << "Removing " << path_ids.size() << " paths for sample " << sample_name << std::endl;
         }
         gbwts.dynamic.remove(path_ids);
     }
@@ -1666,7 +1667,7 @@ void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
         }
     }
 
-    if (config.thread_names) {
+    if (config.path_names) {
         auto& metadata = get_metadata();
         if (metadata.hasPathNames()) {
             // Precompute some metadata
@@ -1676,7 +1677,7 @@ void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
                 std::cout << gbwtgraph::compose_path_name(gbwts.compressed, i, sense) << std::endl;
             }
         } else {
-            std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
+            std::cerr << "error: [vg gbwt] the metadata does not contain path names" << std::endl;
         }
     }
     
@@ -1692,19 +1693,19 @@ void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
 
 //----------------------------------------------------------------------------
 
-void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config) {
-    // Extract threads in SDSL format.
-    if (!config.thread_output.empty()) {
+void step_8_paths(GBWTHandler& gbwts, GBWTConfig& config) {
+    // Extract paths in SDSL format.
+    if (!config.path_output.empty()) {
         double start = gbwt::readTimer();
         if (config.show_progress) {
-            std::cerr << "Extracting threads to " << config.thread_output << std::endl;
+            std::cerr << "Extracting paths to " << config.path_output << std::endl;
         }
         gbwts.use_compressed();
         if (config.show_progress) {
             std::cerr << "Starting the extraction" << std::endl;
         }
         gbwt::size_type node_width = gbwt::bit_length(gbwts.compressed.sigma() - 1);
-        gbwt::text_buffer_type out(config.thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
+        gbwt::text_buffer_type out(config.path_output, std::ios::out, gbwt::MEGABYTE, node_width);
         for (gbwt::size_type id = 0; id < gbwts.compressed.sequences(); id += 2) { // Ignore reverse complements.
             gbwt::vector_type sequence = gbwts.compressed.extract(id);
             for (auto node : sequence) {
@@ -1713,11 +1714,11 @@ void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config) {
             out.push_back(gbwt::ENDMARKER);
         }
         out.close();
-        report_time_memory("Threads extracted", start, config);
+        report_time_memory("Paths extracted", start, config);
     }
 
-    // There are two sequences for each thread.
-    if (config.count_threads) {
+    // There are two sequences for each path.
+    if (config.count_paths) {
         gbwts.use_compressed();
         std::cout << (gbwts.compressed.sequences() / 2) << std::endl;
     }
