@@ -3431,15 +3431,37 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
 }
 
 std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers, LazyRNG& rng) const {
-    vector<size_t> minimizer_sort_order(minimizers.size());
-    for (size_t i = 0 ; i < minimizers.size() ; i++) {
-        minimizer_sort_order[i] = i;
+
+    //Do an unshuffled sort of the minimizers to get the runs together
+    vector<size_t> minimizer_sort_order = sort_permutation(minimizers.begin(), minimizers.end());
+
+    //To keep minimizers with the same key together, sort the runs and then fill in the actual minimizers later
+    //Runs point to the index in minimizer_sort_order of the first minimizer of a run
+    vector<size_t> run_sort_order;
+    run_sort_order.reserve(minimizer_sort_order.size());
+    for (size_t i=0 ; i < minimizer_sort_order.size() ; i++) {
+        if (i == 0 || minimizers[minimizer_sort_order[i-1]].value.key != minimizers[minimizer_sort_order[i]].value.key) {
+            run_sort_order.emplace_back(i);
+        }
     }
-    sort_shuffling_ties(minimizer_sort_order.begin(), minimizer_sort_order.end(), [&](const size_t& a, const size_t& b) {
-        return minimizers[a].score > minimizers[b].score;
+    sort_shuffling_ties(run_sort_order.begin(), run_sort_order.end(), [&](const size_t& a, const size_t& b) {
+        return minimizers[minimizer_sort_order[a]].score > minimizers[minimizer_sort_order[b]].score;
         },
         rng);
-    return minimizer_sort_order;
+
+    //i is the index in minimizer_sort_order of the first minimizer in the run
+    vector<size_t> minimizer_sort_order_by_key;
+    minimizer_sort_order_by_key.reserve(minimizers.size());
+    for (size_t& i : run_sort_order) {
+        auto& key = minimizers[minimizer_sort_order[i]].value.key;
+        size_t j = i;
+        while (j < minimizer_sort_order.size() && minimizers[minimizer_sort_order[j]].value.key == key) {
+            minimizer_sort_order_by_key.emplace_back(minimizer_sort_order[j]);
+            j++;
+        }
+
+    }
+    return minimizer_sort_order_by_key;
 
 }
 
