@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 54
+plan tests 45
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -39,9 +39,6 @@ rm -f x3.gcsa x3.gcsa.lcp
 # Single graph with haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 
-vg index -G x.gbwt -v small/x.vcf.gz x.vg
-is $? 0 "building a GBWT index of a graph with haplotypes"
-
 vg index -x x.xg x.vg
 is $? 0 "building an XG index of a graph with haplotypes"
 
@@ -55,51 +52,25 @@ is $(vg paths -x x-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index do
 vg index -g x.gcsa x.vg
 is $? 0 "building a GCSA index of a graph with haplotypes"
 
-vg index -x x2.xg -G x2.gbwt -v small/x.vcf.gz -g x2.gcsa x.vg
+vg index -x x2.xg -g x2.gcsa x.vg
 is $? 0 "building all indexes at once"
 
-cmp x.xg x2.xg && cmp x.gbwt x2.gbwt && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
+cmp x.xg x2.xg && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
 is $? 0 "the indexes are identical"
 
-vg index -x x2-ap.xg -G x2-ap.gbwt -v small/x.vcf.gz -g x2-ap.gcsa x.vg -L
+vg index -x x2-ap.xg -g x2-ap.gcsa x.vg -L
 is $? 0 "building all indexes at once, while leaving alt paths in xg"
 
-cmp x.gbwt x2-ap.gbwt && cmp x.gcsa x2-ap.gcsa && cmp x.gcsa.lcp x2-ap.gcsa.lcp
+cmp x.gcsa x2-ap.gcsa && cmp x.gcsa.lcp x2-ap.gcsa.lcp
 is $? 0 "the indexes are identical with -L"
 
 is $(vg paths -x x2-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index does contains alt paths with index -L all at once"
 
-# Exclude a sample from the GBWT index
-vg index -G empty.gbwt -v small/x.vcf.gz --exclude 1 x.vg
-is $? 0 "samples can be excluded from haplotype indexing"
-is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
-
-# Make GBWT from GAM
-vg paths -v x.vg -X -Q _alt > x-alts.gam
-vg index x.vg -M x-alts.gam -G x-gam.gbwt
-# Make GBWT from GAF
-vg convert x.vg -G x-alts.gam > x-alts.gaf
-vg index x.vg -F x-alts.gaf -G x-gaf.gbwt
-cmp x-gaf.gbwt x-gam.gbwt
-is $? 0 "GBWT from GAF same as from GAM"
-
 rm -f x.vg
-rm -f x.xg x-ap.xg x.gbwtx.gcsa x.gcsa.lcp
-rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
-rm -f x2-ap.xg x2-ap.gbwt x2-ap.gcsa x2-ap.gcsa.lcp
-rm -f empty.gbwt
-rm -f x-alts.gam x-alts.gaf x-gam.gbwt x-gaf.gbwt
-
-
-# Subregion graph with haplotypes
-vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
-
-vg index -x x.part.xg -G x.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2>log.txt
-is $? 0 "building GBWT index for a regional graph"
-
-is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
-
-rm -f x.part.vg x.part.xg x.part.gbwt log.txt
+rm -f x.xg x-ap.xg x.gcsa x.gcsa.lcp
+rm -f x2.xg x2.gcsa x2.gcsa.lcp
+rm -f x2-ap.xg x2-ap.gcsa x2-ap.gcsa.lcp
+rm -f x-alts.gam x-alts.gaf
 
 
 # Multiple graphs without haplotypes
@@ -129,9 +100,6 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j x.vg y.vg
 
-vg index -G x.gbwt -v small/xy2.vcf.gz x.vg && vg index -G y.gbwt -v small/xy2.vcf.gz y.vg && vg gbwt -m -f -o xy.gbwt x.gbwt y.gbwt
-is $? 0 "building a GBWT index of multiple graphs with haplotypes"
-
 vg index -x xy.xg x.vg y.vg
 is $? 0 "building an XG index of multiple graphs with haplotypes"
 
@@ -144,30 +112,13 @@ is $? 0 "building XG and GCSA indexes at once"
 vg index -x xy-alt.xg -L x.vg y.vg
 is $? 0 "building an XG index with alt paths"
 
-vg index -G xy2.gbwt -v small/xy2.vcf.gz xy-alt.xg
-is $? 0 "building a GBWT index from an XG index"
-
-cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
+cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp
 is $? 0 "the indexes are identical"
 
 rm -f x.vg y.vg
-rm -f x.gbwt y.gbwt
-rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
-rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
+rm -f xy.xg xy.gcsa xy.gcsa.lcp
+rm -f xy2.xg xy2.gcsa xy2.gcsa.lcp
 rm -f xy-alt.xg
-
-
-# GBWT construction options
-vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
-
-vg index -G x_ref.gbwt -T x.vg
-is $? 0 "GBWT can be built for paths"
-
-rm -f x_ref.gbwt
-
-# We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
-# We do not test chromosome-length path generation (-P, -o) for the same reason.
-
 
 # Other tests
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg

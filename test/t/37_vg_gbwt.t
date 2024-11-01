@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 159
+plan tests 149
 
 
 # Build vg graphs for two chromosomes
@@ -21,10 +21,6 @@ vg index -x xy-alt.xg -L x.vg y.vg
 # Single chromosome: haplotypes
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 is $? 0 "chromosome X GBWT with vg gbwt"
-vg index -G x2.gbwt -v small/xy2.vcf.gz x.vg
-is $? 0 "chromosome X GBWT with vg index"
-cmp x.gbwt x2.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 vg gbwt -x x.vg -o parse --parse-only -v small/xy2.vcf.gz
 is $? 0 "chromosome X VCF parse"
 ../deps/gbwt/bin/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
@@ -41,20 +37,16 @@ is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome X: 2 path names"
 is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome X: 1 contig name"
 is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome X: 1 sample name"
 
-rm -f x.gbwt x2.gbwt parse_x.gbwt
+rm -f x.gbwt parse_x.gbwt
 rm -f parse_x parse_x_0_1
 
 
 # Single chromosome: paths
 vg gbwt -E -o x.ref.gbwt -x x.vg
 is $? 0 "chromosome X reference GBWT with vg gbwt"
-vg index -G x2.ref.gbwt -T x.vg
-is $? 0 "chromosome X reference GBWT with vg index"
-cmp x.ref.gbwt x2.ref.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 is $(vg gbwt -c x.ref.gbwt) 1 "chromosome X reference: 1 path"
 
-rm -f x.ref.gbwt x2.ref.gbwt
+rm -f x.ref.gbwt
 
 
 # Single chromosome: alignments
@@ -62,17 +54,13 @@ vg paths -v x.vg -X -Q _alt > x.alts.gam
 vg convert -G x.alts.gam x.vg > x.alts.gaf
 vg gbwt -A -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
 is $? 0 "chromosome X GAF with vg gbwt"
-vg index -F x.alts.gaf -G x2.alts.gaf.gbwt x.vg
-is $? 0 "chromosome X GAF with vg index"
-cmp x.alts.gaf.gbwt x2.alts.gaf.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 vg gbwt -A --gam-format -o x.alts.gam.gbwt -x x.vg x.alts.gam
 is $? 0 "chromosome X GAM with vg gbwt"
 cmp x.alts.gaf.gbwt x.alts.gaf.gbwt
 is $? 0 "identical construction results from GAF and GAM"
 
 rm -f x.alts.gam x.alts.gaf
-rm -f x.alts.gaf.gbwt x2.alts.gaf.gbwt x.alts.gam.gbwt
+rm -f x.alts.gaf.gbwt x.alts.gam.gbwt
 
 
 # Graph region: haplotypes
@@ -80,12 +68,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
 vg gbwt -x x.part.vg -o x.part.gbwt --vcf-region x:100-200 -v small/x.vcf.gz 2> log.txt
 is $? 0 "chromosome X subgraph GBWT with vg gbwt"
 is "$(cat log.txt | wc -c)" 0 "no warnings about missing variants"
-vg index -G x2.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2> log.txt
-is $? 0 "chromosome X subgraph GBWT with vg index"
-cmp x.part.gbwt x2.part.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 
-rm -f x.part.vg x.part.gbwt x2.part.gbwt log.txt
+rm -f x.part.vg x.part.gbwt log.txt
 
 
 # Multiple chromosomes: haplotypes
@@ -127,16 +111,12 @@ rm -f xy.1000gp.gbwt
 # Multiple chromosomes: paths as contigs
 vg gbwt -E -o xy.contigs.gbwt -x xy.xg
 is $? 0 "paths as contigs with vg gbwt"
-vg index -G xy2.contigs.gbwt -T xy.xg
-is $? 0 "paths as contigs with vg index"
-cmp xy.contigs.gbwt xy2.contigs.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 is $(vg gbwt -c xy.contigs.gbwt) 2 "paths as contigs: 2 paths"
 is $(vg gbwt -C xy.contigs.gbwt) 2 "paths as contigs: 2 contigs"
 is $(vg gbwt -H xy.contigs.gbwt) 1 "paths as contigs: 1 haplotype"
 is $(vg gbwt -S xy.contigs.gbwt) 1 "paths as contigs: 1 sample"
 
-rm -f xy.contigs.gbwt xy2.contigs.gbwt 
+rm -f xy.contigs.gbwt
 
 
 # Build an r-index
