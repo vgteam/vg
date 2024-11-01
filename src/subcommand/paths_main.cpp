@@ -16,6 +16,9 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
+#include "../traversal_clusters.hpp"
+#include "../io/save_handle_graph.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -37,6 +40,7 @@ void help_paths(char** argv) {
          << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "    -n, --normalize-paths    output a graph where all equivalent paths in a site a merged (using selected paths to snap to if possible)" << endl 
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -53,7 +57,10 @@ void help_paths(char** argv) {
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
          << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
          << "    -R, --reference-paths    select the reference paths" << endl
-         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl;
+         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl
+         << "  configuration:" << endl
+         << "    -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
+         << "    -t, --threads N          number of threads to use [all available]. applies only to snarl finding within -n" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -117,6 +124,8 @@ int main_paths(int argc, char** argv) {
     size_t input_formats = 0;
     bool coverage = false;
     const size_t coverage_bins = 10;
+    bool normalize_paths = false;
+    bool overlay = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -130,6 +139,7 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
+            {"normalize-paths", no_argument, 0, 'n'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
@@ -145,6 +155,7 @@ int main_paths(int argc, char** argv) {
             {"reference-paths", no_argument, 0, 'R'},
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
+            {"overlay", no_argument, 0, 'o'},
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -154,7 +165,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGRHp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -189,6 +200,11 @@ int main_paths(int argc, char** argv) {
             retain_paths = true;
             output_formats++;
             break;
+
+        case 'n':
+            normalize_paths = true;
+            output_formats++;
+            break;            
                 
         case 'X':
             extract_as_gam = true;
@@ -265,6 +281,10 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
+        case 'o':
+            overlay = true;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -275,6 +295,17 @@ int main_paths(int argc, char** argv) {
             selection_criteria++;
             break;
 
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg paths] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
+            
         case 'h':
         case '?':
             help_paths(argv);
@@ -309,7 +340,7 @@ int main_paths(int argc, char** argv) {
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
-            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -n, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && !graph_file.empty()) {
@@ -320,7 +351,7 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -335,8 +366,8 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] listing path metadata is not compatible with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded graph paths, not GBWT threads" << std::endl;
+    if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] dropping, retaining or normalizing paths only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (coverage && !gbwt_file.empty()) {
@@ -353,11 +384,23 @@ int main_paths(int argc, char** argv) {
     
     // Load whatever indexes we were given
     // Note: during handlifiction, distinction between -v and -x options disappeared.
-    unique_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> path_handle_graph;
     if (!graph_file.empty()) {
         // Load the graph
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    PathHandleGraph* graph = nullptr;
+    if (path_handle_graph) {
+        if (overlay) {
+            // Try to apply the overlay if the user wanted it and this isn't
+            // already a graph implementing position lookups.
+            graph = overlay_helper.apply(path_handle_graph.get());
+        } else {
+            graph = path_handle_graph.get();
+        }
+    }
+
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
@@ -396,7 +439,7 @@ int main_paths(int argc, char** argv) {
     if (extract_as_gam || extract_as_gaf) {
         // Open up a GAM/GAF output stream
         aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
-                                                            graph.get());
+                                                            graph);
     } else if (extract_as_vg) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
@@ -566,15 +609,10 @@ int main_paths(int argc, char** argv) {
             
         };
         
-        if (drop_paths || retain_paths) {
-            MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
+        if (drop_paths || retain_paths || normalize_paths) {
+            MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
             if (!mutable_graph) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
-                exit(1);
-            }
-            SerializableHandleGraph* serializable_graph = dynamic_cast<SerializableHandleGraph*>(graph.get());
-            if (!serializable_graph) {
-                std::cerr << "error[vg paths]: graph cannot be saved after modification" << std::endl;
                 exit(1);
             }
 
@@ -583,15 +621,24 @@ int main_paths(int argc, char** argv) {
                 for_each_selected_path([&](const path_handle_t& path_handle) {
                     to_destroy.push_back(path_handle);
                 });
-            } else {
+            } else if (retain_paths) {
                 for_each_unselected_path([&](const path_handle_t& path_handle) {
                     to_destroy.push_back(path_handle);
                 });
+            } else {
+                assert(normalize_paths);
+                unordered_set<path_handle_t> selected_paths;
+                for_each_selected_path([&](const path_handle_t& path_handle) {
+                    selected_paths.insert(path_handle);
+                });
+                merge_equivalent_traversals_in_graph(mutable_graph, selected_paths);
             }
-            mutable_graph->destroy_paths(to_destroy);
+            if (!to_destroy.empty()) {
+                mutable_graph->destroy_paths(to_destroy);
+            }
             
             // output the graph
-            serializable_graph->serialize(cout);
+            vg::io::save_handle_graph(mutable_graph, cout);
         }
         else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one

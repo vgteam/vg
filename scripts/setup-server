@@ -36,7 +36,7 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 100 --slave
 git clone --recursive https://github.com/vgteam/vg.git
 
 # build vg
-cd vg && source ./source_me.sh && make -j 32 static && sudo cp bin/vg /usr/local/bin/
+cd vg && make -j 32 static && sudo cp bin/vg /usr/local/bin/
 sudo cp scripts/vg_sim_pos_compare.py /usr/local/bin/
 cd ~
 

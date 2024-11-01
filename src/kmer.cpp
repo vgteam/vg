@@ -348,7 +348,15 @@ string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, size
         temp_file::remove(tmpfile);
         throw ex;
     }
+    if (!out) {
+        std::cerr << "error[write_gcsa_kmers_to_tmpfile]: I/O error while writing kmers to " << tmpfile << std::endl;
+        exit(1);
+    }
     out.close();
+    if (!out) {
+        std::cerr << "error[write_gcsa_kmers_to_tmpfile]: I/O error while closing kmer file " << tmpfile << std::endl;
+        exit(1);
+    }
     return tmpfile;
 }
 

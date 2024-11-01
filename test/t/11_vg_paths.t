@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 20
+plan tests 26
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -60,5 +60,48 @@ diff q.cov.len q.len
 is $? 0 "vg path coverage reports correct lengths in first column"
 
 rm -f q.vg q.cov.len q.len
+
+# redundant paths are x2,x3,x4,x5 but not x1
+vg paths -x graphs/path_norm_test.gfa -n -Q x2 > norm_x2.gfa
+vg validate norm_x2.gfa
+is $? 0 "path normalizer produces valid graph"
+
+vg paths -x graphs/path_norm_test.gfa -F | sort > original.fa
+vg paths -x norm_x2.gfa -F | sort > norm_x2.fa
+diff original.fa norm_x2.fa
+is $? 0 "path normalizer doesnt alter path sequences"
+
+grep x2 norm_x2.gfa | awk '{print $3}' > x2.path
+grep x2 norm_x2.gfa | awk '{print $3}' >> x2.path
+grep x3 norm_x2.gfa | awk '{print $3}'> x2.norm.path
+grep x5 norm_x2.gfa | awk '{print $3}' >> x2.norm.path
+diff x2.path x2.norm.path
+is $? 0 "path normalizere correctly snapped all equivalent paths to x2"
+
+rm -f norm_x2.gfa original.fa norm_x2.fa x2.path x2.norm.path
+
+vg paths -x graphs/path_norm_test.gfa -n -Q x4 > norm_x4.gfa
+vg validate norm_x4.gfa
+is $? 0 "path normalizer produces valid graph"
+
+vg paths -x graphs/path_norm_test.gfa -F | sort > original.fa
+vg paths -x norm_x4.gfa -F | sort > norm_x4.fa
+diff original.fa norm_x4.fa
+is $? 0 "path normalizer doesnt alter path sequences"
+
+# note: x3 is x4 in reverse, so we key on that
+grep x3 norm_x4.gfa | awk '{print $3}' > x4.path
+grep x3 norm_x4.gfa | awk '{print $3}' >> x4.path
+grep x3 norm_x4.gfa | awk '{print $3}'> x4.norm.path
+grep x5 norm_x4.gfa | awk '{print $3}' >> x4.norm.path
+diff x4.path x4.norm.path
+is $? 0 "path normalizere correctly snapped all equivalent paths to x4"
+
+rm -f norm_x4.gfa original.fa norm_x4.fa x4.path x4.norm.path
+
+
+   
+   
+
 
 
