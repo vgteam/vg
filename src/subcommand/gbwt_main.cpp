@@ -1389,8 +1389,8 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         if (config.show_progress) {
             std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
         }
-        // FIXME: Parallelize this.
-        std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"));
+        std::unique_ptr<gbwt::GBWT> temp =
+            config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"), config.build_jobs);
         gbwts.use(*temp);
     }
 

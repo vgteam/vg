@@ -52,9 +52,9 @@ rm -f x.ref.gbwt
 # Single chromosome: alignments
 vg paths -v x.vg -X -Q _alt > x.alts.gam
 vg convert -G x.alts.gam x.vg > x.alts.gaf
-vg gbwt -A -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
+vg gbwt -A --num-jobs 1 -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
 is $? 0 "chromosome X GAF with vg gbwt"
-vg gbwt -A --gam-format -o x.alts.gam.gbwt -x x.vg x.alts.gam
+vg gbwt -A --num-jobs 1 --gam-format -o x.alts.gam.gbwt -x x.vg x.alts.gam
 is $? 0 "chromosome X GAM with vg gbwt"
 cmp x.alts.gaf.gbwt x.alts.gaf.gbwt
 is $? 0 "identical construction results from GAF and GAM"
