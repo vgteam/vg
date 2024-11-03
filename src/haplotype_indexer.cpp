@@ -2,8 +2,9 @@
  * \file haplotype_indexer.cpp: implementations of haplotype indexing with the GBWT
  */
 
+#include "haplotype_indexer.hpp"
+
 #include <iostream>
-#include <map>
 #include <mutex>
 #include <vector>
 #include <string>
@@ -14,10 +15,9 @@
 
 #include "gbwt_helper.hpp"
 
-#include "haplotype_indexer.hpp"
-
-#include "path.hpp"
 #include "alignment.hpp"
+#include "hash_map.hpp"
+#include "path.hpp"
 
 using namespace std;
 
@@ -442,7 +442,9 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     // GBWT construction.
     std::vector<std::mutex> builder_mutexes(jobs.size());
     std::vector<std::unique_ptr<gbwt::GBWTBuilder>> builders(jobs.size());
-    std::vector<std::vector<std::string>> read_names(jobs.size()); // TODO: Concatenated strings + starting offsets may save space.
+    // This is a bit inefficient, as read names are often longer than the SSO threshold for GCC (but not for Clang).
+    // TODO: Maybe use concatenated 0-terminated names?
+    std::vector<std::vector<std::string>> read_names(jobs.size());
     for (size_t i = 0; i < jobs.size(); i++) {
         builders[i].reset(new gbwt::GBWTBuilder(gbwt_node_width(graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval));
     }
@@ -504,7 +506,6 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     partial_indexes.clear();
 
     // Create the metadata.
-    // TODO: This is quite slow.
     if (this->show_progress) {
         #pragma omp critical
         {
@@ -514,14 +515,15 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     result->addMetadata();
     result->metadata.setContigs({ "unknown" });
     {
-        std::map<std::string, std::pair<size_t, size_t>> read_info; // name -> (sample id, fragment count)
+        // We can use 32-bit values, as GBWT metadata uses them as well.
+        string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>> read_info; // name -> (sample id, fragment count)
         for (auto& names : read_names) {
             for (const std::string& name : names) {
-                size_t sample_id = 0, fragment_count = 0;
+                std::uint32_t sample_id = 0, fragment_count = 0;
                 auto iter = read_info.find(name);
                 if (iter == read_info.end()) {
                     sample_id = read_info.size();
-                    read_info[name] = std::pair<size_t, size_t>(sample_id, fragment_count);
+                    read_info[name] = std::make_pair(sample_id, fragment_count);
                 } else {
                     sample_id = iter->second.first;
                     fragment_count = iter->second.second;
@@ -535,7 +537,7 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
         for (auto& p : read_info) {
             sample_names[p.second.first] = p.first;
         }
-        read_info.clear();
+        read_info = string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>>();
         result->metadata.setSamples(sample_names);
         result->metadata.setHaplotypes(sample_names.size());
     }
