@@ -631,7 +631,7 @@ int main_paths(int argc, char** argv) {
                 for_each_selected_path([&](const path_handle_t& path_handle) {
                     selected_paths.insert(path_handle);
                 });
-                merge_equivalent_traversals_in_graph(mutable_graph, selected_paths);
+                merge_equivalent_traversals_in_graph(mutable_graph, selected_paths, true);
             }
             if (!to_destroy.empty()) {
                 mutable_graph->destroy_paths(to_destroy);
