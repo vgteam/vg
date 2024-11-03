@@ -2427,8 +2427,8 @@ Functions</h2></td></tr>
 <tr class="separator:a392e3bc708a380e7a3d9b3a669aaf2a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ac7d2a0833215a0628a25c8195a70ab">assign_child_snarls_to_traversals</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt; &amp;traversals, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;child_snarls)</td></tr>
 <tr class="separator:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7548e624cfa580a585f79d9027cf2e96"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7548e624cfa580a585f79d9027cf2e96">merge_equivalent_traversals_in_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *graph, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;selected_paths)</td></tr>
-<tr class="separator:a7548e624cfa580a585f79d9027cf2e96"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adcc7a98e5291c4354fc575289cc50fe1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adcc7a98e5291c4354fc575289cc50fe1">merge_equivalent_traversals_in_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *graph, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;selected_paths, bool use_snarl_manager)</td></tr>
+<tr class="separator:adcc7a98e5291c4354fc575289cc50fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplParams" colspan="2">template&lt;typename T , typename U &gt; </td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff10785a6df2466c851785b406172e89">jaccard_coefficient</a> (const T &amp;target, const U &amp;query)</td></tr>
 <tr class="separator:aff10785a6df2466c851785b406172e89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -16195,8 +16195,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="a7548e624cfa580a585f79d9027cf2e96"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7548e624cfa580a585f79d9027cf2e96">&#9670;&nbsp;</a></span>merge_equivalent_traversals_in_graph()</h2>
+<a id="adcc7a98e5291c4354fc575289cc50fe1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adcc7a98e5291c4354fc575289cc50fe1">&#9670;&nbsp;</a></span>merge_equivalent_traversals_in_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -16211,7 +16211,13 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>selected_paths</em>&#160;</td>
+          <td class="paramname"><em>selected_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>use_snarl_manager</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -16221,7 +16227,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
       </table>
 </div><div class="memdoc">
 <p>For every top-level snarl in the graph, compute the traversal strings of every embedded path that spans it If two or more traversals share an allele string, then a "canoncial" path is chosen and all remaining paths are edited so that they share the exact same interval through the snarl as the canonical path's traversal. A path is considered "canoncial" if it's in the "selected_paths" and the other paths are not (otherwise the lowest name is used as a fallback)</p>
-<p>Note: this doesn't modify the graph toplogy, so uncovered nodes and edges as a result of path editing would usually need removale with vg clip afterwards </p>
+<p>Note: this doesn't modify the graph toplogy, so uncovered nodes and edges as a result of path editing would usually need removale with vg clip afterwards</p>
+<p>the use_snarl_manager toggles between distnace index and snarl manager for computing snarls (adding this option to (hopefully) temporarily revert to the snarl manager for performance reasons) </p>
 
 </div>
 </div>

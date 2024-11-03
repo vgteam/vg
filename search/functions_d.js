@@ -183,7 +183,7 @@ var searchData=
   ['merge_5fadjacent_5fedits_9466',['merge_adjacent_edits',['../namespacevg.html#a30a83a9e127a0c7d75118dc14a8985f6',1,'vg::merge_adjacent_edits(const Mapping &amp;m)'],['../namespacevg.html#a2c9985bf70965bd36bb54f910ab74e3b',1,'vg::merge_adjacent_edits(const Path &amp;m)']]],
   ['merge_5falignments_9467',['merge_alignments',['../namespacevg.html#afa2d2a5d955cff1e7a99369055ebe75d',1,'vg::merge_alignments(const vector&lt; Alignment &gt; &amp;alns)'],['../namespacevg.html#a9d71527a132d7e6bf364d2108b269e09',1,'vg::merge_alignments(const Alignment &amp;a1, const Alignment &amp;a2, bool debug)']]],
   ['merge_5fedits_5fin_5fplace_9468',['merge_edits_in_place',['../namespacevg.html#a20ebf02d59df03f906550e695a1aa00d',1,'vg']]],
-  ['merge_5fequivalent_5ftraversals_5fin_5fgraph_9469',['merge_equivalent_traversals_in_graph',['../namespacevg.html#a7548e624cfa580a585f79d9027cf2e96',1,'vg']]],
+  ['merge_5fequivalent_5ftraversals_5fin_5fgraph_9469',['merge_equivalent_traversals_in_graph',['../namespacevg.html#adcc7a98e5291c4354fc575289cc50fe1',1,'vg']]],
   ['merge_5ffrom_5fdynamic_9470',['merge_from_dynamic',['../classvg_1_1Packer.html#a79ce5d54645f6d124c710b86b666f5d7',1,'vg::Packer']]],
   ['merge_5ffrom_5ffiles_9471',['merge_from_files',['../classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb',1,'vg::Packer']]],
   ['merge_5fgroup_9472',['merge_group',['../classvg_1_1Funnel.html#a585c5484ef877a1ede56ed4467e32312',1,'vg::Funnel']]],
