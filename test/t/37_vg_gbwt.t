@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 149
+plan tests 155
 
 
 # Build vg graphs for two chromosomes
@@ -50,7 +50,7 @@ rm -f x.ref.gbwt
 
 
 # Single chromosome: alignments
-vg paths -v x.vg -X -Q _alt > x.alts.gam
+vg paths -x x.vg -X -Q _alt > x.alts.gam
 vg convert -G x.alts.gam x.vg > x.alts.gaf
 vg gbwt -A --num-jobs 1 -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
 is $? 0 "chromosome X GAF with vg gbwt"
@@ -106,6 +106,25 @@ is $(vg gbwt -S xy.merge.gbwt) 1 "multiple chromosomes: 1 sample"
 
 rm -f x.gbwt y.gbwt xy.merge.gbwt xy.fast.gbwt xy.parallel.gbwt xy.direct.gbwt xy.multi.gbwt
 rm -f xy.1000gp.gbwt
+
+
+# Multiple chromosomes: alignments
+vg paths -x xy-alt.xg -X -Q _alt > xy.alts.gam
+vg convert -G xy.alts.gam xy.xg > xy.alts.gaf
+vg gbwt -A --num-jobs 1 -o xy.alts.gaf.gbwt -x xy.xg xy.alts.gaf
+is $? 0 "multi-chromosome GAF with vg gbwt"
+vg gbwt -A --num-jobs 1 --gam-format -o xy.alts.gam.gbwt -x xy.xg xy.alts.gam
+is $? 0 "multi-chromosome GAM with vg gbwt"
+cmp xy.alts.gaf.gbwt xy.alts.gaf.gbwt
+is $? 0 "identical construction results from GAF and GAM"
+
+vg gbwt -A --num-jobs 2 -o multi.gbwt -x xy.xg xy.alts.gaf
+is $? 0 "multi-chromosome GAF with vg gbwt using multiple jobs"
+is $(vg gbwt -c xy.alts.gaf.gbwt) 58 "single job: 58 paths"
+is $(vg gbwt -c multi.gbwt) 58 "multiple jobs: 58 paths"
+
+rm -f xy.alts.gam xy.alts.gaf
+rm -f xy.alts.gaf.gbwt xy.alts.gam.gbwt multi.gbwt
 
 
 # Multiple chromosomes: paths as contigs
