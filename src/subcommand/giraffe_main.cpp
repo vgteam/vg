@@ -178,6 +178,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use at most INT minimizers, 0 for no limit"
     );
     comp_opts.add_range(
+        "min-coverage-flank",
+        &MinimizerMapper::minimizer_coverage_flank,
+        MinimizerMapper::default_minimizer_coverage_flank,
+        "when trying to cover the read with minimizers, count INT towards the coverage of each minimizer on each side"
+    );
+    comp_opts.add_range(
         "num-bp-per-min",
         &MinimizerMapper::num_bp_per_min,
         MinimizerMapper::default_num_bp_per_min,
@@ -570,6 +576,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "maximum number of gap bases to allow in a Dozeu tail"
     );
     chaining_opts.add_range(
+        "max-middle-gap",
+        &MinimizerMapper::max_middle_gap,
+        MinimizerMapper::default_max_middle_gap,
+        "maximum number of gap bases to allow in a middle connection"
+    );
+    chaining_opts.add_range(
         "max-tail-dp-length",
         &MinimizerMapper::max_tail_dp_length,
         MinimizerMapper::default_max_tail_dp_length,
@@ -926,6 +938,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
@@ -986,6 +999,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)

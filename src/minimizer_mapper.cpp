@@ -44,6 +44,7 @@
 //#define debug_validate_index_references
 // Make sure seeds are properly found for gapless extensions
 //#define debug_seed_extension
+//#define debug_minimizers
 
 namespace vg {
 
@@ -614,7 +615,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
     // Indexes of minimizers, sorted into score order, best score first
-    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
+    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
@@ -1454,7 +1455,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     std::array<VectorView<Minimizer>, 2> minimizers_by_read;
     for (auto r : {0, 1}) {
         minimizers_in_read_by_read[r] = this->find_minimizers(alns[r]->sequence(), funnels[r]);
-        minimizer_score_order_by_read[r] = sort_minimizers_by_score(minimizers_in_read_by_read[r]);
+        minimizer_score_order_by_read[r] = sort_minimizers_by_score(minimizers_in_read_by_read[r], rng);
         minimizers_by_read[r] = {minimizers_in_read_by_read[r], minimizer_score_order_by_read[r]};
     }
 
@@ -3429,9 +3430,39 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
-std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers) const {
-    // We defined operator< so the minimizers always sort descening by score by default.
-    return sort_permutation(minimizers.begin(), minimizers.end());
+std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers, LazyRNG& rng) const {
+
+    //Do an unshuffled sort of the minimizers to get the runs together
+    vector<size_t> minimizer_sort_order = sort_permutation(minimizers.begin(), minimizers.end());
+
+    //To keep minimizers with the same key together, sort the runs and then fill in the actual minimizers later
+    //Runs point to the index in minimizer_sort_order of the first minimizer of a run
+    vector<size_t> run_sort_order;
+    run_sort_order.reserve(minimizer_sort_order.size());
+    for (size_t i=0 ; i < minimizer_sort_order.size() ; i++) {
+        if (i == 0 || minimizers[minimizer_sort_order[i-1]].value.key != minimizers[minimizer_sort_order[i]].value.key) {
+            run_sort_order.emplace_back(i);
+        }
+    }
+    sort_shuffling_ties(run_sort_order.begin(), run_sort_order.end(), [&](const size_t& a, const size_t& b) {
+        return minimizers[minimizer_sort_order[a]].score > minimizers[minimizer_sort_order[b]].score;
+        },
+        rng);
+
+    //i is the index in minimizer_sort_order of the first minimizer in the run
+    vector<size_t> minimizer_sort_order_by_key;
+    minimizer_sort_order_by_key.reserve(minimizers.size());
+    for (size_t& i : run_sort_order) {
+        auto& key = minimizers[minimizer_sort_order[i]].value.key;
+        size_t j = i;
+        while (j < minimizer_sort_order.size() && minimizers[minimizer_sort_order[j]].value.key == key) {
+            minimizer_sort_order_by_key.emplace_back(minimizer_sort_order[j]);
+            j++;
+        }
+
+    }
+    return minimizer_sort_order_by_key;
+
 }
 
 std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
@@ -3573,6 +3604,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             std::cerr << log_name() << "Total minimizers with hits after downsampling: " << with_hits << std::endl;
         }
     }
+
+    //TODO: We probably want to make all of this adjustable
+    //How much of the read is covered by a kept seed?
+    //The coverage of the seed is its sequence plus minimizer_coverage_flank on either end
+    std::vector<bool> read_coverage (aln.sequence().size(), false);
+    size_t worst_kept_hits = 0;
+
     
     // Define the filters for minimizers.
     //
@@ -3634,7 +3672,41 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "max-min||num-bp-per-min",
             [&](const Minimizer& m) {
-                return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
+                //When looking for the coverage of the seeds in the read, how much do we count this seed?
+                size_t seed_coverage_start = m.forward_offset() < this->minimizer_coverage_flank ? 0 : m.forward_offset()-this->minimizer_coverage_flank ;
+                size_t seed_coverage_end = std::min(read_coverage.size(), m.forward_offset() + m.length + this->minimizer_coverage_flank);
+
+                if (num_minimizers < std::max(this->max_unique_min, num_min_by_read_len)){ 
+                    //If we haven't seen enough minimizers yet, always keep it and remember the coverage
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
+                        if (!read_coverage[i]) {
+                            read_coverage[i] = true;
+                        }
+                    }
+                    worst_kept_hits = std::max(m.hits, worst_kept_hits);
+                    return true;
+                } else if (m.hits > worst_kept_hits+1) {
+                    return false;
+                } else {
+                    //TODO: Fix funnel stuff 
+                    //We can still keep a minimizer if it covers part of the read that we haven't covered yet
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
+                        //TODO: I think I can just check the first and last?
+                        if (read_coverage[i]) {
+                            //If anything is already covered by a seed, don't return this seed
+#ifdef debug_minimizers
+                        cerr << "\tMinimizer at read offset " << m.forward_offset() << " fails because we already covered it " << seed_coverage_start << " to " << seed_coverage_end << endl;
+#endif
+                            return false;
+                        }
+                    }
+
+                    //If this seed covers a completely new part of the read, then remember it
+                    for (size_t i = seed_coverage_start ; i < seed_coverage_end ; i++) {
+                        read_coverage[i] = true;
+                    }
+                    return true;
+                }
             },
             [](const Minimizer& m) { return nan(""); },
             [](const Minimizer& m) {},
@@ -3717,12 +3789,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     funnel.fail(filter_name, i, stat);
                 }
                 filter_fail_function(minimizer);
+#ifdef debug_minimizers
+                    cerr << "Minimizer at read offset " << minimizer.forward_offset() << " failed filter " << filter_name  << endl;
+#endif
                 // Don't do later filters
                 break;
             }
         }
         
         if (passing) {
+#ifdef debug_minimizers
+                    cerr << "Minimizer at read offset " << minimizer.forward_offset() << " kept"  << endl;
+#endif
             // We passed all filters.
             // So we are taking this item and ought to take the others in the same run in most cases.
             taking_run = true;

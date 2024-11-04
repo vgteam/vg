@@ -123,6 +123,13 @@ public:
     static constexpr size_t default_minimizer_downsampling_max_window_length = std::numeric_limits<size_t>::max();
     size_t minimizer_downsampling_max_window_length = default_minimizer_downsampling_max_window_length;
 
+    //We allow additional seeds past the maximum number of seeds allowed if they cover a region of the read that
+    //was not covered by accepted seeds.
+    //The coverage of a seed is its sequence plus the seed_coverage_flank on either end
+    static constexpr size_t default_minimizer_coverage_flank = 250;
+    size_t minimizer_coverage_flank = default_minimizer_coverage_flank;
+
+
     /// Maximum number of distinct minimizers to take
     static constexpr size_t default_max_unique_min = 500;
     size_t max_unique_min = default_max_unique_min;
@@ -383,6 +390,10 @@ public:
     /// How many gap bases should we allow in a Dozeu tail alignment, max?
     static constexpr size_t default_max_tail_gap = std::numeric_limits<size_t>::max();
     size_t max_tail_gap = default_max_tail_gap;
+
+    /// How many gap bases should we allow in a between-seed alignment, max?
+    static constexpr size_t default_max_middle_gap = std::numeric_limits<size_t>::max();
+    size_t max_middle_gap = default_max_middle_gap;
     
     /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails?
     static constexpr int default_wfa_max_mismatches = 2;
@@ -668,7 +679,7 @@ protected:
     /**
      * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.
      */
-    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order) const;
+    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order, LazyRNG& rng) const;
 
     /**
      * Find seeds for all minimizers passing the filters. Takes in minimizers
