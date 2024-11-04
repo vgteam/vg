@@ -3609,6 +3609,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     //How much of the read is covered by a kept seed?
     //The coverage of the seed is its sequence plus minimizer_coverage_flank on either end
     std::vector<bool> read_coverage (aln.sequence().size(), false);
+    size_t worst_kept_hits = 0;
 
     
     // Define the filters for minimizers.
@@ -3682,7 +3683,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                             read_coverage[i] = true;
                         }
                     }
+                    worst_kept_hits = std::max(m.hits, worst_kept_hits);
                     return true;
+                } else if (m.hits > worst_kept_hits+1) {
+                    return false;
                 } else {
                     //TODO: Fix funnel stuff 
                     //We can still keep a minimizer if it covers part of the read that we haven't covered yet
