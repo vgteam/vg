@@ -297,19 +297,53 @@ void extract_path_range(const PathPositionHandleGraph& source, path_handle_t pat
 /// in the source graph (unless the subpath was not cut up at all)
 void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
                               bool subpath_naming) {
-    std::unordered_map<std::string, std::map<uint64_t, handle_t> > subpaths;
+
+    // We want to organize all visits by base path. This key type holds the
+    // sense, sample and locus names, haplotype, and phase block.
+    using base_metadata_t = std::tuple<PathSense, string, string, size_t, size_t>;
+
+    // This stores, for each source graph base path, for each start offset, the handle at that offset on the path.
+    std::unordered_map<base_metadata_t, std::map<uint64_t, handle_t> > subpaths;
+
+    // This stores information about base paths that don't have subranges, and
+    // their full lengths, so we can avoid generating new subrange metadata
+    // when we just have all of a path.
+    std::unordered_map<base_metadata_t, size_t> full_path_lengths;
+
     subgraph.for_each_handle([&](const handle_t& h) {
             handlegraph::nid_t id = subgraph.get_id(h);
             if (source.has_node(id)) {
                 handle_t handle = source.get_handle(id);
                 source.for_each_step_position_on_handle(handle, [&](const step_handle_t& step, const bool& is_rev, const uint64_t& pos) {
                         path_handle_t path = source.get_path_handle_of_step(step);
-                        std::string path_name = source.get_path_name(path);
-                        subpaths[path_name][pos] = is_rev ? subgraph.flip(h) : h;
+                        // Figure out the base path this visit is on
+                        base_metadata_t key = {source.get_sense(path), source.get_sample_name(path), source.get_contig_name(path), source.get_haplotype(path), source.get_phase_block(path)};
+                        // Figure out the subrange of the base path it is relative to
+                        subrange_t path_subrange = source.get_subrange(path);
+                        uint64_t visit_offset = pos;
+                        if (path_subrange != PathMetadata:NO_SUBRANGE) {
+                            // If we have the position relative to a subrange, adjust by that subrange's offset.
+                            visit_offset += path_subrange.first;
+                        }
+                        subpaths[key][visit_offset] = is_rev ? subgraph.flip(h) : h;
+                        
+                        if (path_subrange == PathMetadata:NO_SUBRANGE) {
+                            // There's no subrange set, so this path is full-length in the source graph.
+                            // See if we know of this path as a full-length path or not
+                            auto it = full_path_lengths.find(key);
+                            if (it == full_path_lengths.end()) {
+                                // We haven't recorded its length yet, so do it.
+                                full_path_lengths.emplace_hint(it, key, source.get_path_length(path));
+                            }
+                        }
                         return true;
                     });
             }
         });
+
+    // TODO: Rewrite to find continuous subpath pieces and copy into the new graph with MutablePathMetadata::create_path
+    // But only use the subpaths if we aren't a complete full-length span of a base path.
+    // We will do this by extracting each contiguous subrange into a vector of handles, then computing metadata for it based on its length and whether it is a full-length span of a path that was a full path in the base graph, and then creating it and filling it in.
 
     function<path_handle_t(const string&, bool, size_t)> new_subpath =
         [&subgraph](const string& path_name, bool is_circular, size_t subpath_offset) {
