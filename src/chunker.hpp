@@ -49,14 +49,14 @@ public:
                         MutablePathMutableHandleGraph& subgraph);
 
     /**
-     * Extract a connected component containing a given path
+     * Extract a connected component containing a given path. Processes path metadata and creates subpaths.
      */
     void extract_path_component(const string& path_name, MutablePathMutableHandleGraph& subgraph, Region& out_region);
    
     /**
-     * Extract a connected component starting from an id set
+     * Extract a connected component starting from an id set. Processes path metadata and creates subpaths.
      */
-    void extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph, bool subpath_naming);   
+    void extract_component(const unordered_set<nid_t>& node_ids, MutablePathMutableHandleGraph& subgraph);   
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.

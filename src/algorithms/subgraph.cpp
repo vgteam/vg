@@ -1,5 +1,6 @@
 #include "subgraph.hpp"
 #include "../path.hpp"
+#include "../crash.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -290,13 +291,7 @@ void extract_path_range(const PathPositionHandleGraph& source, path_handle_t pat
     }
 }
 
-/// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
-/// based on their order in the path position index provided by the source graph
-/// will clear any path found in both graphs before writing the new steps into it
-/// if subpath_naming is true, a suffix will be added to each path in the subgraph denoting its offset
-/// in the source graph (unless the subpath was not cut up at all)
-void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
-                              bool subpath_naming) {
+void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph) {
 
     // We want to organize all visits by base path. This key type holds the
     // sense, sample and locus names, haplotype, and phase block.
@@ -306,9 +301,9 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
     std::unordered_map<base_metadata_t, std::map<uint64_t, handle_t> > subpaths;
 
     // This stores information about base paths that don't have subranges, and
-    // their full lengths, so we can avoid generating new subrange metadata
-    // when we just have all of a path.
-    std::unordered_map<base_metadata_t, size_t> full_path_lengths;
+    // their full lengths and circularity flags, so we can avoid generating new
+    // subrange metadata when we just have all of a path.
+    std::unordered_map<base_metadata_t, std::pair<size_t, bool>> full_path_info;
 
     subgraph.for_each_handle([&](const handle_t& h) {
             handlegraph::nid_t id = subgraph.get_id(h);
@@ -317,23 +312,23 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
                 source.for_each_step_position_on_handle(handle, [&](const step_handle_t& step, const bool& is_rev, const uint64_t& pos) {
                         path_handle_t path = source.get_path_handle_of_step(step);
                         // Figure out the base path this visit is on
-                        base_metadata_t key = {source.get_sense(path), source.get_sample_name(path), source.get_contig_name(path), source.get_haplotype(path), source.get_phase_block(path)};
+                        base_metadata_t key = {source.get_sense(path), source.get_sample_name(path), source.get_locus_name(path), source.get_haplotype(path), source.get_phase_block(path)};
                         // Figure out the subrange of the base path it is relative to
                         subrange_t path_subrange = source.get_subrange(path);
                         uint64_t visit_offset = pos;
-                        if (path_subrange != PathMetadata:NO_SUBRANGE) {
+                        if (path_subrange != PathMetadata::NO_SUBRANGE) {
                             // If we have the position relative to a subrange, adjust by that subrange's offset.
                             visit_offset += path_subrange.first;
                         }
                         subpaths[key][visit_offset] = is_rev ? subgraph.flip(h) : h;
                         
-                        if (path_subrange == PathMetadata:NO_SUBRANGE) {
+                        if (path_subrange == PathMetadata::NO_SUBRANGE) {
                             // There's no subrange set, so this path is full-length in the source graph.
                             // See if we know of this path as a full-length path or not
-                            auto it = full_path_lengths.find(key);
-                            if (it == full_path_lengths.end()) {
-                                // We haven't recorded its length yet, so do it.
-                                full_path_lengths.emplace_hint(it, key, source.get_path_length(path));
+                            auto it = full_path_info.find(key);
+                            if (it == full_path_info.end()) {
+                                // We haven't recorded its length and circularity yet, so do it.
+                                full_path_info.emplace_hint(it, key, std::make_pair(source.get_path_length(path), source.get_is_circular(path)));
                             }
                         }
                         return true;
@@ -341,66 +336,71 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
             }
         });
 
-    // TODO: Rewrite to find continuous subpath pieces and copy into the new graph with MutablePathMetadata::create_path
-    // But only use the subpaths if we aren't a complete full-length span of a base path.
-    // We will do this by extracting each contiguous subrange into a vector of handles, then computing metadata for it based on its length and whether it is a full-length span of a path that was a full path in the base graph, and then creating it and filling it in.
+    for (auto& base_and_visits : subpaths) {
+        // For each base path
+        const base_metadata_t& base_path_metadata = base_and_visits.first;
+        const auto& start_to_handle = base_and_visits.second;
+        // If we didn't put anything in the visit collection, it shouldn't be here.
+        crash_unless(!start_to_handle.empty());
 
-    function<path_handle_t(const string&, bool, size_t)> new_subpath =
-        [&subgraph](const string& path_name, bool is_circular, size_t subpath_offset) {
-        PathSense sense;
-        string sample;
-        string locus;
-        size_t haplotype;
-        size_t phase_block;
-        subrange_t subrange;
-        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
-        if (subrange == PathMetadata::NO_SUBRANGE) {
-            subrange.first = subpath_offset;
-        } else {
-            subrange.first += subpath_offset;
-        }
-        subrange.first = subpath_offset;
-        subrange.second = PathMetadata::NO_END_POSITION;
-        string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
-        if (subgraph.has_path(subpath_name)) {
-            subgraph.destroy_path(subgraph.get_path_handle(subpath_name));
-        }
-        return subgraph.create_path_handle(subpath_name, is_circular);
-    };
+        // We're going to walk over all the visits and find contiguous runs
+        auto run_start = start_to_handle.begin();
+        auto run_end = run_start;
+        size_t start_coordinate = run_start->first;
+        while (run_end != start_to_handle.end()) {
+            // Until we run out of runs
+            // Figure out where this node ends on the path
+            size_t stop_coordinate = run_end->first + subgraph.get_length(run_end->second);
+            
+            // Look ahead
+            ++run_end;
 
-    for (auto& subpath : subpaths) {
-        const std::string& path_name = subpath.first;
-        path_handle_t source_path_handle = source.get_path_handle(path_name);
-        // destroy the path if it exists
-        if (subgraph.has_path(path_name)) {
-            subgraph.destroy_path(subgraph.get_path_handle(path_name));
-        }
-        // create a new path.  give it a subpath name if the flag's on and its smaller than original
-        path_handle_t path;
-        if (!subpath_naming || subpath.second.size() == source.get_step_count(source_path_handle) ||
-            subpath.second.empty()) {
-            path = subgraph.create_path_handle(path_name, source.get_is_circular(source_path_handle));
-        } else {
-            path = new_subpath(path_name, source.get_is_circular(source_path_handle), subpath.second.begin()->first);
-        }
-        for (auto p = subpath.second.begin(); p != subpath.second.end(); ++p) {
-            const handle_t& handle = p->second;
-            if (p != subpath.second.begin() && subpath_naming) {
-                auto prev = p;
-                --prev;
-                const handle_t& prev_handle = prev->second;
-                // distance from map
-                size_t delta = p->first - prev->first;
-                // what the distance should be if they're contiguous depends on relative orienations
-                size_t cont_delta = subgraph.get_length(prev_handle);
-                if (delta != cont_delta) {
-                    // we have a discontinuity!  we'll make a new path can continue from there
-                    assert(subgraph.get_step_count(path) > 0);
-                    path = new_subpath(path_name, subgraph.get_is_circular(path), p->first);
+            if (run_end != start_to_handle.end() && run_end->first == stop_coordinate) {
+                // The next visit is still contiguous, so advance.
+                continue;
+            }
+
+            // Otherwise we've reached a break in continuity. We have a
+            // contiguous run from run_start to run_end, visiting the subrange
+            // start_coordinate to stop_coordinate.
+
+            // Find out if we cover a full source graph path.
+            subrange_t run_subrange = {start_coordinate, stop_coordinate};
+            bool is_circular = false;
+            if (start_coordinate == 0) {
+                // We might be a full path
+                auto found_length_and_circularity = full_path_info.find(base_path_metadata);
+                if (found_length_and_circularity != full_path_info.end() && found_length_and_circularity->second.first == stop_coordinate) {
+                    // We are a full path
+                    run_subrange = PathMetadata::NO_SUBRANGE;
+                    // We can be circular.
+                    is_circular = found_length_and_circularity->second.second;
                 }
             }
-            //fill in the path information
-            subgraph.append_step(path, handle);
+            
+            // Make a path with all the metadata
+            path_handle_t new_path = subgraph.create_path(
+                std::get<0>(base_path_metadata),
+                std::get<1>(base_path_metadata),
+                std::get<2>(base_path_metadata),
+                std::get<3>(base_path_metadata),
+                std::get<4>(base_path_metadata),
+                run_subrange,
+                is_circular
+            );
+
+            for (auto it = run_start; it != run_end; ++it) {
+                // Copy the path's visits
+                subgraph.append_step(new_path, it->second);
+            }
+
+            // Set up the next subpath.
+            // Set where it starts.
+            run_start = run_end;
+            if (run_start != start_to_handle.end()) {
+                // And if it will exist, set its start coordinate.
+                start_coordinate = run_start->first;
+            }
         }
     }
 }
