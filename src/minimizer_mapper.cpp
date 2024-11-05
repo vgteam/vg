@@ -3685,7 +3685,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     }
                     worst_kept_hits = std::max(m.hits, worst_kept_hits);
                     return true;
-                } else if (m.hits > worst_kept_hits+1) {
+                } else if (m.hits > worst_kept_hits) {
                     return false;
                 } else {
                     //TODO: Fix funnel stuff 
