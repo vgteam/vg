@@ -305,10 +305,7 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
     // subrange metadata when we just have all of a path.
     std::unordered_map<base_metadata_t, std::pair<size_t, bool>> full_path_info;
 
-    size_t subgraph_handles = 0;
-
     subgraph.for_each_handle([&](const handle_t& h) {
-            subgraph_handles++;
             handlegraph::nid_t id = subgraph.get_id(h);
             if (source.has_node(id)) {
                 handle_t handle = source.get_handle(id);
