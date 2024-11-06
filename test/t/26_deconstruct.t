@@ -123,7 +123,8 @@ is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 rm -f tiny_names.gfa tiny_names.vg tiny_names.xg tiny_names_decon.vcf tiny_names_decon_vg.vcf
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
-vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
+vg index -x x.xg x.vg
+vg gbwt -v small/x.vcf.gz -o x.gbwt -x x.vg
 vg deconstruct x.xg -g x.gbwt | bgzip > x.decon.vcf.gz
 tabix -f -p vcf  x.decon.vcf.gz
 cat small/x.fa |  bcftools consensus small/x.vcf.gz -s 1 -H 1 > small.s1.h1.fa

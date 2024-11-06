@@ -152,7 +152,8 @@ is $? 1 "error on vg map -f <nonexistent-file> (paired, RHS)"
 
 # Now do the GBWT
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg -g x.gcsa -v small/x.vcf.gz --gbwt-name x.gbwt -k 16 x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+vg gbwt -v small/x.vcf.gz -o x.gbwt -x x.vg
 
 # This read is all ref which matches no haplotype in x.vcf.gz and visits some unused nodes
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.unvisited.fq -j | jq -r '.score')" "36" "mapping a read that touches unused nodes gets the base score"

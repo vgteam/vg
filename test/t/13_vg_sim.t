@@ -11,7 +11,7 @@ plan tests 36
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x2.vg
 vg index -x x.xg x.vg
-vg index -G x.gbwt -v small/x.vcf.gz x2.vg
+vg gbwt -o x.gbwt -v small/x.vcf.gz -x x2.vg
 
 is $(vg sim -l 100 -n 100 -x x.xg | wc -l) 100 \
     "vg sim creates the correct number of reads"
@@ -58,7 +58,7 @@ rm -f x.vg x2.vg x.xg x.gbwt n.vg n.fa n.xg
 
 vg construct -r small/xy.fa -v small/x.vcf.gz -a >xy.vg
 vg index -x xy.xg xy.vg
-vg index -G xy.gbwt -v small/x.vcf.gz xy.vg
+vg gbwt -o xy.gbwt -v small/x.vcf.gz -x xy.vg
 
 vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 --any-path >/dev/null
 is $? "0" "Sample simulation works along with --any-path"

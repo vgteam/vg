@@ -62,8 +62,10 @@ rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.gg x.gbz
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j x.vg y.vg
-vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
-vg index -x y.xg -G y.gbwt -v small/xy2.vcf.gz y.vg
+vg index -x x.xg x.vg
+vg gbwt -o x.gbwt -x x.vg -v small/xy2.vcf.gz
+vg index -x y.xg y.vg
+vg gbwt -o y.gbwt -x y.vg -v small/xy2.vcf.gz
 
 # Appending to the index
 vg minimizer --no-dist -t 1 -o x.mi -g x.gbwt x.xg
