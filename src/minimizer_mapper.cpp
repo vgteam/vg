@@ -3291,10 +3291,10 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     crash_unless(aln1.path().mapping_size() != 0); 
     crash_unless(aln2.path().mapping_size() != 0); 
      
-    pos_t pos1 = initial_position(aln1.path()); 
-    pos_t pos2 = final_position(aln2.path());
+    pos_t pos1 = final_position(aln1.path()); 
+    pos_t pos2 = initial_position(aln2.path());
 
-    return distance_between(pos1, pos2);
+    return SnarlDistanceIndex::sum(distance_between(pos1, pos2), aln1.sequence().size() + aln2.sequence().size());
 }
 
 void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
