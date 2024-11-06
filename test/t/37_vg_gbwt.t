@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 159
+plan tests 155
 
 
 # Build vg graphs for two chromosomes
@@ -21,10 +21,6 @@ vg index -x xy-alt.xg -L x.vg y.vg
 # Single chromosome: haplotypes
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 is $? 0 "chromosome X GBWT with vg gbwt"
-vg index -G x2.gbwt -v small/xy2.vcf.gz x.vg
-is $? 0 "chromosome X GBWT with vg index"
-cmp x.gbwt x2.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 vg gbwt -x x.vg -o parse --parse-only -v small/xy2.vcf.gz
 is $? 0 "chromosome X VCF parse"
 ../deps/gbwt/bin/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
@@ -33,46 +29,38 @@ cmp x.gbwt parse_x.gbwt
 is $? 0 "identical construction results with vg gbwt and from VCF parse"
 
 # Single chromosome: metadata for haplotypes
-is $(vg gbwt -c x.gbwt) 2 "chromosome X: 2 threads"
+is $(vg gbwt -c x.gbwt) 2 "chromosome X: 2 paths"
 is $(vg gbwt -C x.gbwt) 1 "chromosome X: 1 contig"
 is $(vg gbwt -H x.gbwt) 2 "chromosome X: 2 haplotypes"
 is $(vg gbwt -S x.gbwt) 1 "chromosome X: 1 sample"
-is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome X: 2 thread names"
+is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome X: 2 path names"
 is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome X: 1 contig name"
 is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome X: 1 sample name"
 
-rm -f x.gbwt x2.gbwt parse_x.gbwt
+rm -f x.gbwt parse_x.gbwt
 rm -f parse_x parse_x_0_1
 
 
 # Single chromosome: paths
 vg gbwt -E -o x.ref.gbwt -x x.vg
 is $? 0 "chromosome X reference GBWT with vg gbwt"
-vg index -G x2.ref.gbwt -T x.vg
-is $? 0 "chromosome X reference GBWT with vg index"
-cmp x.ref.gbwt x2.ref.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
-is $(vg gbwt -c x.ref.gbwt) 1 "chromosome X reference: 1 thread"
+is $(vg gbwt -c x.ref.gbwt) 1 "chromosome X reference: 1 path"
 
-rm -f x.ref.gbwt x2.ref.gbwt
+rm -f x.ref.gbwt
 
 
 # Single chromosome: alignments
-vg paths -v x.vg -X -Q _alt > x.alts.gam
+vg paths -x x.vg -X -Q _alt > x.alts.gam
 vg convert -G x.alts.gam x.vg > x.alts.gaf
-vg gbwt -A -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
+vg gbwt -A --num-jobs 1 -o x.alts.gaf.gbwt -x x.vg x.alts.gaf
 is $? 0 "chromosome X GAF with vg gbwt"
-vg index -F x.alts.gaf -G x2.alts.gaf.gbwt x.vg
-is $? 0 "chromosome X GAF with vg index"
-cmp x.alts.gaf.gbwt x2.alts.gaf.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
-vg gbwt -A --gam-format -o x.alts.gam.gbwt -x x.vg x.alts.gam
+vg gbwt -A --num-jobs 1 --gam-format -o x.alts.gam.gbwt -x x.vg x.alts.gam
 is $? 0 "chromosome X GAM with vg gbwt"
 cmp x.alts.gaf.gbwt x.alts.gaf.gbwt
 is $? 0 "identical construction results from GAF and GAM"
 
 rm -f x.alts.gam x.alts.gaf
-rm -f x.alts.gaf.gbwt x2.alts.gaf.gbwt x.alts.gam.gbwt
+rm -f x.alts.gaf.gbwt x.alts.gam.gbwt
 
 
 # Graph region: haplotypes
@@ -80,12 +68,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
 vg gbwt -x x.part.vg -o x.part.gbwt --vcf-region x:100-200 -v small/x.vcf.gz 2> log.txt
 is $? 0 "chromosome X subgraph GBWT with vg gbwt"
 is "$(cat log.txt | wc -c)" 0 "no warnings about missing variants"
-vg index -G x2.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2> log.txt
-is $? 0 "chromosome X subgraph GBWT with vg index"
-cmp x.part.gbwt x2.part.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
 
-rm -f x.part.vg x.part.gbwt x2.part.gbwt log.txt
+rm -f x.part.vg x.part.gbwt log.txt
 
 
 # Multiple chromosomes: haplotypes
@@ -115,7 +99,7 @@ vg gbwt -x xy-alt.xg -o xy.1000gp.gbwt --preset 1000gp -v small/xy2.vcf.gz
 is $? 0 "construction preset: 1000gp"
 
 # Multiple chromosomes: metadata for haplotypes
-is $(vg gbwt -c xy.merge.gbwt) 4 "multiple chromosomes: 4 threads"
+is $(vg gbwt -c xy.merge.gbwt) 4 "multiple chromosomes: 4 paths"
 is $(vg gbwt -C xy.merge.gbwt) 2 "multiple chromosomes: 2 contigs"
 is $(vg gbwt -H xy.merge.gbwt) 2 "multiple chromosomes: 2 haplotypes"
 is $(vg gbwt -S xy.merge.gbwt) 1 "multiple chromosomes: 1 sample"
@@ -124,19 +108,34 @@ rm -f x.gbwt y.gbwt xy.merge.gbwt xy.fast.gbwt xy.parallel.gbwt xy.direct.gbwt x
 rm -f xy.1000gp.gbwt
 
 
+# Multiple chromosomes: alignments
+vg paths -x xy-alt.xg -X -Q _alt > xy.alts.gam
+vg convert -G xy.alts.gam xy.xg > xy.alts.gaf
+vg gbwt -A --num-jobs 1 -o xy.alts.gaf.gbwt -x xy.xg xy.alts.gaf
+is $? 0 "multi-chromosome GAF with vg gbwt"
+vg gbwt -A --num-jobs 1 --gam-format -o xy.alts.gam.gbwt -x xy.xg xy.alts.gam
+is $? 0 "multi-chromosome GAM with vg gbwt"
+cmp xy.alts.gaf.gbwt xy.alts.gaf.gbwt
+is $? 0 "identical construction results from GAF and GAM"
+
+vg gbwt -A --num-jobs 2 -o multi.gbwt -x xy.xg xy.alts.gaf
+is $? 0 "multi-chromosome GAF with vg gbwt using multiple jobs"
+is $(vg gbwt -c xy.alts.gaf.gbwt) 58 "single job: 58 paths"
+is $(vg gbwt -c multi.gbwt) 58 "multiple jobs: 58 paths"
+
+rm -f xy.alts.gam xy.alts.gaf
+rm -f xy.alts.gaf.gbwt xy.alts.gam.gbwt multi.gbwt
+
+
 # Multiple chromosomes: paths as contigs
 vg gbwt -E -o xy.contigs.gbwt -x xy.xg
 is $? 0 "paths as contigs with vg gbwt"
-vg index -G xy2.contigs.gbwt -T xy.xg
-is $? 0 "paths as contigs with vg index"
-cmp xy.contigs.gbwt xy2.contigs.gbwt
-is $? 0 "identical construction results with vg gbwt and vg index"
-is $(vg gbwt -c xy.contigs.gbwt) 2 "paths as contigs: 2 threads"
+is $(vg gbwt -c xy.contigs.gbwt) 2 "paths as contigs: 2 paths"
 is $(vg gbwt -C xy.contigs.gbwt) 2 "paths as contigs: 2 contigs"
 is $(vg gbwt -H xy.contigs.gbwt) 1 "paths as contigs: 1 haplotype"
 is $(vg gbwt -S xy.contigs.gbwt) 1 "paths as contigs: 1 sample"
 
-rm -f xy.contigs.gbwt xy2.contigs.gbwt 
+rm -f xy.contigs.gbwt
 
 
 # Build an r-index
@@ -194,35 +193,35 @@ rm -f x.gbwt empty.gbwt x2.gbwt
 vg gbwt -x xy-alt.xg -o xy.gbwt -v small/xy2.vcf.gz
 vg gbwt -E -o xy.ref.gbwt -x xy.xg
 vg gbwt -m -o xy.both.gbwt xy.gbwt xy.ref.gbwt
-is $(vg gbwt -c xy.both.gbwt) 6 "haplotypes and paths: 6 threads"
+is $(vg gbwt -c xy.both.gbwt) 6 "haplotypes and paths: 6 paths"
 
 # Remove the reference sample that GBWTs use for paths
 vg gbwt -R _gbwt_ref -o xy.removed.gbwt xy.both.gbwt
 is $? 0 "samples can be removed from a GBWT index"
-is $(vg gbwt -c xy.removed.gbwt) 4 "haplotypes only: 4 threads"
+is $(vg gbwt -c xy.removed.gbwt) 4 "haplotypes only: 4 paths"
 
 rm -f xy.gbwt xy.ref.gbwt xy.both.gbwt xy.removed.gbwt
 
 
 # Build a three-sample GBWT from a simple GFA
 vg gbwt -o all.gbwt -G graphs/three_samples.gfa
-is $(vg gbwt -c all.gbwt) 12 "all samples: 12 threads"
+is $(vg gbwt -c all.gbwt) 12 "all samples: 12 paths"
 is $(vg gbwt -H all.gbwt) 6 "all samples: 6 haplotypes"
 
 # Remove samples 1 and 3
 vg gbwt -R sample1 -R sample3 -o removed.gbwt all.gbwt
 is $? 0 "multiple samples can be removed from a GBWT index"
-is $(vg gbwt -c removed.gbwt) 4 "sample 2: 4 threads"
+is $(vg gbwt -c removed.gbwt) 4 "sample 2: 4 paths"
 is $(vg gbwt -H removed.gbwt) 2 "sample 2: 2 haplotypes"
 
 rm -f all.gbwt removed.gbwt
 
 
-# Extract threads from GBWT
+# Extract paths from GBWT
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg gbwt -e x.extract x.gbwt
-is $? 0 "threads can be extracted from GBWT"
-is $(cat x.extract | wc -c) 121 "correct size for the thread file"
+is $? 0 "paths can be extracted from GBWT"
+is $(cat x.extract | wc -c) 121 "correct size for the paths file"
 
 rm -f x.gbwt x.extract
 
@@ -271,7 +270,7 @@ rm -f extracted.gbwt extracted2.gbwt extracted2.gg
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gg -o xy.cover.gbwt
 is $? 0 "Path cover GBWTGraph construction"
 is $(md5sum xy.cover.gg | cut -f 1 -d\ ) 6a2738f51472e0ba1553a815a005b157 "GBWTGraph was serialized correctly"
-is $(vg gbwt -c xy.cover.gbwt) 32 "path cover: 32 threads"
+is $(vg gbwt -c xy.cover.gbwt) 32 "path cover: 32 paths"
 is $(vg gbwt -C xy.cover.gbwt) 2 "path cover: 2 contigs"
 is $(vg gbwt -H xy.cover.gbwt) 16 "path cover: 16 haplotypes"
 is $(vg gbwt -S xy.cover.gbwt) 16 "path cover: 16 samples"
@@ -282,10 +281,10 @@ rm -f xy.cover.gg xy.cover.gbwt
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gg -o xy.cover.gbwt --pass-paths
 is $? 0 "Path cover GBWTGraph construction"
 is $(md5sum xy.cover.gg | cut -f 1 -d\ ) 6a2738f51472e0ba1553a815a005b157 "GBWTGraph was serialized correctly"
-is $(vg gbwt -c xy.cover.gbwt) 34 "path cover w/ paths: 34 threads"
-is $(vg gbwt -C xy.cover.gbwt) 2 "path cover w/ paths: 2 contigs"
-is $(vg gbwt -H xy.cover.gbwt) 17 "path cover w/ paths: 17 haplotypes"
-is $(vg gbwt -S xy.cover.gbwt) 17 "path cover w/ paths: 17 samples"
+is $(vg gbwt -c xy.cover.gbwt) 34 "path cover w/ reference paths: 34 paths"
+is $(vg gbwt -C xy.cover.gbwt) 2 "path cover w/ reference paths: 2 contigs"
+is $(vg gbwt -H xy.cover.gbwt) 17 "path cover w/ reference paths: 17 haplotypes"
+is $(vg gbwt -S xy.cover.gbwt) 17 "path cover w/ reference paths: 17 samples"
 
 rm -f xy.cover.gg xy.cover.gbwt
 
@@ -293,7 +292,7 @@ rm -f xy.cover.gg xy.cover.gbwt
 vg gbwt -x xy-alt.xg -g xy.local.gg -l -n 16 -o xy.local.gbwt -v small/xy2.vcf.gz
 is $? 0 "Local haplotypes GBWTGraph construction"
 is $(md5sum xy.local.gg | cut -f 1 -d\ ) 00429586246711abcf1367a97d3c468c "GBWTGraph was serialized correctly"
-is $(vg gbwt -c xy.local.gbwt) 32 "local haplotypes: 32 threads"
+is $(vg gbwt -c xy.local.gbwt) 32 "local haplotypes: 32 paths"
 is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"
 is $(vg gbwt -S xy.local.gbwt) 16 "local haplotypes: 16 samples"
@@ -314,10 +313,10 @@ rm -f xy.local.gg xy.local.gbwt xy.local.gbz
 vg gbwt -x xy-alt.xg -g xy.local.gg -l -n 16 -o xy.local.gbwt -v small/xy2.vcf.gz --pass-paths
 is $? 0 "Local haplotypes GBWTGraph construction"
 is $(md5sum xy.local.gg | cut -f 1 -d\ ) 6a2738f51472e0ba1553a815a005b157 "GBWTGraph was serialized correctly"
-is $(vg gbwt -c xy.local.gbwt) 34 "local haplotypes w/ paths: 34 threads"
-is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes w/ paths: 2 contigs"
-is $(vg gbwt -H xy.local.gbwt) 17 "local haplotypes w/ paths: 17 haplotypes"
-is $(vg gbwt -S xy.local.gbwt) 17 "local haplotypes w/ paths: 17 samples"
+is $(vg gbwt -c xy.local.gbwt) 34 "local haplotypes w/ reference paths: 34 paths"
+is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes w/ reference paths: 2 contigs"
+is $(vg gbwt -H xy.local.gbwt) 17 "local haplotypes w/ reference paths: 17 haplotypes"
+is $(vg gbwt -S xy.local.gbwt) 17 "local haplotypes w/ reference paths: 17 samples"
 
 rm -f xy.local.gg xy.local.gbwt
 
@@ -325,11 +324,11 @@ rm -f xy.local.gg xy.local.gbwt
 vg gbwt -G haplotype-sampling/micb-kir3dl1.gfa -g large.gbz --gbz-format
 vg gbwt -Z large.gbz -l -n 16 --pass-paths -o large.local.gbwt
 is $? 0 "Local haplotypes with reference paths from a larger GBZ"
-is $(vg gbwt -c large.local.gbwt) 36 "local haplotypes w/ paths: 36 threads"
-is $(vg gbwt -C large.local.gbwt) 2 "local haplotypes w/ paths: 2 contigs"
-is $(vg gbwt -H large.local.gbwt) 18 "local haplotypes w/ paths: 18 haplotypes"
-is $(vg gbwt -S large.local.gbwt) 18 "local haplotypes w/ paths: 18 samples"
-is $(vg gbwt --tags large.local.gbwt | grep -c reference_samples) 1 "local haplotypes w/ paths: reference_samples set"
+is $(vg gbwt -c large.local.gbwt) 36 "local haplotypes w/ reference paths: 36 paths"
+is $(vg gbwt -C large.local.gbwt) 2 "local haplotypes w/ reference paths: 2 contigs"
+is $(vg gbwt -H large.local.gbwt) 18 "local haplotypes w/ reference paths: 18 haplotypes"
+is $(vg gbwt -S large.local.gbwt) 18 "local haplotypes w/ reference paths: 18 samples"
+is $(vg gbwt --tags large.local.gbwt | grep -c reference_samples) 1 "local haplotypes w/ reference paths: reference_samples set"
 
 rm -f large.gbz large.local.gbwt
 
@@ -339,7 +338,7 @@ vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg gbwt -a -n 16 -x xy.xg -g augmented.gg -o augmented.gbwt x.gbwt
 is $? 0 "Augmented GBWTGraph construction"
 is $(md5sum augmented.gg | cut -f 1 -d\ ) 00429586246711abcf1367a97d3c468c "GBWTGraph was serialized correctly"
-is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 threads"
+is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 paths"
 is $(vg gbwt -C augmented.gbwt) 2 "augmented: 2 contigs"
 is $(vg gbwt -H augmented.gbwt) 18 "augmented: 18 haplotypes"
 is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
@@ -355,7 +354,7 @@ rm -f x.vg y.vg x.xg xy.xg xy-alt.xg
 vg gbwt -o gfa.gbwt -G graphs/components_walks.gfa
 is $? 0 "GBWT construction from GFA"
 is $(md5sum gfa.gbwt | cut -f 1 -d\ ) 44c27c37c7af6911c26aea2a41008460 "GBWT was serialized correctly"
-is $(vg gbwt -c gfa.gbwt) 4 "gfa: 4 threads"
+is $(vg gbwt -c gfa.gbwt) 4 "gfa: 4 paths"
 is $(vg gbwt -C gfa.gbwt) 2 "gfa: 2 contigs"
 is $(vg gbwt -H gfa.gbwt) 2 "gfa: 2 haplotypes"
 is $(vg gbwt -S gfa.gbwt) 1 "gfa: 1 sample"
@@ -376,7 +375,7 @@ is $(md5sum gfa2.gbz | cut -f 1 -d\ ) ab241a3f79a781a367b701cb8888bf01 "GBZ was 
 # Build GBWT and GBWTGraph from GFA with node chopping
 vg gbwt -o chopping.gbwt -g chopping.gg --translation chopping.trans --max-node 2 -G graphs/chopping_walks.gfa
 is $? 0 "GBWT+GBWTGraph construction from GFA with chopping"
-is $(vg gbwt -c chopping.gbwt) 3 "chopping: 3 threads"
+is $(vg gbwt -c chopping.gbwt) 3 "chopping: 3 paths"
 is $(vg gbwt -C chopping.gbwt) 1 "chopping: 1 contig"
 is $(vg gbwt -H chopping.gbwt) 3 "chopping: 3 haplotypes"
 is $(vg gbwt -S chopping.gbwt) 2 "chopping: 2 samples"
@@ -391,7 +390,7 @@ is $(wc -l < from_gbz.trans) 8 "from GBZ: 8 translations"
 # Build GBWT and GBWTGraph from GFA with both paths and walks
 vg gbwt -o ref_paths.gbwt -g ref_paths.gg --translation ref_paths.trans -G graphs/components_paths_walks.gfa
 is $? 0 "GBWT+GBWTGraph construction from GFA with reference paths"
-is $(vg gbwt -c ref_paths.gbwt) 6 "ref paths: 6 threads"
+is $(vg gbwt -c ref_paths.gbwt) 6 "ref paths: 6 paths"
 is $(vg gbwt -C ref_paths.gbwt) 2 "ref paths: 2 contigs"
 is $(vg gbwt -H ref_paths.gbwt) 3 "ref paths: 3 haplotypes"
 is $(vg gbwt -S ref_paths.gbwt) 2 "ref paths: 2 samples"
