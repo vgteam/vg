@@ -631,6 +631,7 @@ void VG::destroy_edge(const handle_t& left, const handle_t& right) {
 }
     
 void VG::clear() {
+    clear_paths();
     graph.mutable_node()->Clear();
     graph.mutable_edge()->Clear();
     clear_indexes();
