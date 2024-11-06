@@ -31,9 +31,12 @@ public:
 
     /** Extract subgraph corresponding to given path region into its 
      * own vg graph, and send it to out_stream.  The boundaries of the
-     * extracted graph (which can be different because we expand context and don't
-     * cut nodes) are written to out_region.  If forward_only set, context
-     * is only expanded in the forward direction
+     * extracted region of the target path (which can be different because we
+     * expand context and don't cut nodes) are written to out_region. If the
+     * target path goes through the extracted region multiple times, only the
+     * extended bounds of the visit containing the target region are produced.
+     *
+     * If forward_only set, context is only expanded in the forward direction
      *
      * NOTE: we follow convention of Region coordinates being 0-based 
      * inclusive. 

@@ -64,6 +64,13 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     }
     algorithms::add_subpaths_to_subgraph(*graph, subgraph); 
    
+    // Now we need to figure out how we expanded the target path region we
+    // asked for.
+    //
+    // We don't just want the lowest and highest bounds of any subpath, we want
+    // the lowest and highest bound of the subpaths that actually overlap the
+    // targeted region.
+
     // Find the lowest and highest offsets visited by any subpath of the target path we extracted on.
     PathSense sense = graph->get_sense(path_handle);
     std::string sample = graph->get_sample_name(path_handle);
@@ -97,6 +104,13 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
             subpath_subrange.second = subpath_subrange.first + path_length;
         }
 
+        if (subpath_subrange.first > region.end || subpath_subrange.second <= region.start) {
+            // This subpath doesn't actually overlap the selected target path
+            // region (which is 0-based, end-inclusive), and so shouldn't count
+            // for extending the selected region along the target path.
+            return true;
+        }
+
         // Min/max in the subrange bounds
         min_start = std::min(min_start, subpath_subrange.first);
         max_end = std::max(max_end, subpath_subrange.second);
@@ -118,10 +132,13 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         max_end -= source_subrange.first;
     }
 
-    // Produce the output region.
+    // We can't represent a region with a 0 end-exclusive coordinate.
+    crash_unless(max_end != 0);
+
+    // Produce the output region. Convert coordinates to be 0-based, end-inclusive.
     out_region.seq = region.seq;
     out_region.start = min_start;
-    out_region.end = max_end;
+    out_region.end = max_end - 1;
 }
 
 void PathChunker::extract_snarls(const Region& region, SnarlManager& snarl_manager, MutablePathMutableHandleGraph& subgraph) {
