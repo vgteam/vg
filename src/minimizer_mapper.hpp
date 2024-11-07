@@ -555,6 +555,7 @@ public:
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+        bool is_repetitive; //Is this minimizer in a repetitive region of the read based on its neighbors
 
         // Sort the minimizers in descending order by score and group identical minimizers together.
         inline bool operator< (const Minimizer& another) const {
@@ -675,6 +676,11 @@ protected:
      * return them sorted in read order.
      */
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Flag minimizers as being in repetitive regions of the read
+     */
+    void flag_repetitive_minimizers(std::vector<Minimizer>& minimizers_in_read_order) const;
     
     /**
      * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.
