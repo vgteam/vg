@@ -55,7 +55,7 @@ var searchData=
   ['add_5fstart_7529',['add_start',['../classvg_1_1multipath__alignment__t.html#a793ba830eaa6fd21ec7af7c7fc12cfed',1,'vg::multipath_alignment_t']]],
   ['add_5fstart_5fend_5fmarkers_7530',['add_start_end_markers',['../classvg_1_1VG.html#a91eaa395f197ca65f38c6139bc57d161',1,'vg::VG']]],
   ['add_5fsubpath_7531',['add_subpath',['../classvg_1_1multipath__alignment__t.html#ad313d9942fcd375b7b073fa2d5276fe7',1,'vg::multipath_alignment_t']]],
-  ['add_5fsubpaths_5fto_5fsubgraph_7532',['add_subpaths_to_subgraph',['../namespacevg_1_1algorithms.html#ad37fc704de99f02f0bf767d6ab41fe4e',1,'vg::algorithms']]],
+  ['add_5fsubpaths_5fto_5fsubgraph_7532',['add_subpaths_to_subgraph',['../namespacevg_1_1algorithms.html#a90946d442f4b518bb61154cde44d109c',1,'vg::algorithms']]],
   ['add_5fthread_5fedges_5fto_5fset_7533',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset_7534',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],
   ['add_5ftranscripts_5fto_5fgbwt_7535',['add_transcripts_to_gbwt',['../classvg_1_1Transcriptome.html#ab7fbe9d1f6688cc06381ff863a345dc4',1,'vg::Transcriptome']]],

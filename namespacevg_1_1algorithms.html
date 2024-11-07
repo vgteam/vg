@@ -371,8 +371,8 @@ Functions</h2></td></tr>
 <tr class="separator:ac53dd7f2ff1b53bec309f368a79db951"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6da60961fae57a5568354ef5b541bcf7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6da60961fae57a5568354ef5b541bcf7">extract_path_range</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;source, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, int64_t start, int64_t end, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph)</td></tr>
 <tr class="separator:a6da60961fae57a5568354ef5b541bcf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad37fc704de99f02f0bf767d6ab41fe4e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad37fc704de99f02f0bf767d6ab41fe4e">add_subpaths_to_subgraph</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;source, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> &amp;subgraph, bool subpath_naming)</td></tr>
-<tr class="separator:ad37fc704de99f02f0bf767d6ab41fe4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90946d442f4b518bb61154cde44d109c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a90946d442f4b518bb61154cde44d109c">add_subpaths_to_subgraph</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;source, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> &amp;subgraph)</td></tr>
+<tr class="separator:a90946d442f4b518bb61154cde44d109c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6347e00229560b4adb7cc7cb6332b21a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6347e00229560b4adb7cc7cb6332b21a">add_connecting_edges_to_subgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph)</td></tr>
 <tr class="separator:a6347e00229560b4adb7cc7cb6332b21a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4d4b7c6814fb1f53a83c2e8355d72efa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4d4b7c6814fb1f53a83c2e8355d72efa">three_edge_connected_component_merges_dense</a> (size_t node_count, size_t first_root, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(size_t, size_t)&gt; &amp;same_component)</td></tr>
@@ -532,8 +532,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="ad37fc704de99f02f0bf767d6ab41fe4e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad37fc704de99f02f0bf767d6ab41fe4e">&#9670;&nbsp;</a></span>add_subpaths_to_subgraph()</h2>
+<a id="a90946d442f4b518bb61154cde44d109c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90946d442f4b518bb61154cde44d109c">&#9670;&nbsp;</a></span>add_subpaths_to_subgraph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -548,13 +548,7 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>subgraph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>subpath_naming</em>&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -563,7 +557,8 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph based on their order in the path position index provided by the source graph will clear any path found in both graphs before writing the new steps into it if subpath_naming is true, a suffix will be added to each path in the subgraph denoting its offset in the source graph (unless the subpath was not cut up at all) </p>
+<p>Add subpaths to the subgraph for all paths visiting its nodes in the source graph.</p>
+<p>Always generates correct path metadata, and a path for each contiguous fragment of any base path. Assumes the source graph does not contain any overlapping path fragments on a given base path, and that the subgraph does not already contain any paths on a base path also present in the source graph. </p>
 
 </div>
 </div>

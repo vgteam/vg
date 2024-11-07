@@ -227,7 +227,7 @@ var searchData=
   ['extract_1462',['extract',['../classvg_1_1algorithms_1_1GFAParser.html#af845e3a9176f98ccbb7c04b31f4f6dc0',1,'vg::algorithms::GFAParser']]],
   ['extract_5fas_5fgbwt_5fpath_1463',['extract_as_gbwt_path',['../namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61',1,'vg']]],
   ['extract_5fcluster_5fgraph_1464',['extract_cluster_graph',['../classvg_1_1MultipathMapper.html#a411882d1f1f4908582333944ac346443',1,'vg::MultipathMapper']]],
-  ['extract_5fcomponent_1465',['extract_component',['../classvg_1_1PathChunker.html#ae971765e047d0f1747b7f481003c73c7',1,'vg::PathChunker']]],
+  ['extract_5fcomponent_1465',['extract_component',['../classvg_1_1PathChunker.html#a99497d311a2a2adfc4d7a78f8b6d7f54',1,'vg::PathChunker']]],
   ['extract_5fconnecting_5fgraph_1466',['extract_connecting_graph',['../namespacevg_1_1algorithms.html#ac0d0446bde00e10bd77816c968ae97b0',1,'vg::algorithms']]],
   ['extract_5fconnecting_5fgraph_2ecpp_1467',['extract_connecting_graph.cpp',['../extract__connecting__graph_8cpp.html',1,'']]],
   ['extract_5fconnecting_5fgraph_2ehpp_1468',['extract_connecting_graph.hpp',['../extract__connecting__graph_8hpp.html',1,'']]],
