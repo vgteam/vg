@@ -3504,8 +3504,22 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
         while (min_i >= 0 && minimizers_in_read_order[min_i].hits == 0){
             min_i--;
         }
-        //Set it as repetitive or not
-        minimizers_in_read_order[min_i].is_repetitive = is_repetitive;
+
+        //Set it as repetitive or not, and also set the two neighbors
+        if (min_i == minimizers_in_read_order.size()-1) {
+            //If this is the last minimizer, then start it as whatever the value is
+            minimizers_in_read_order[min_i].is_repetitive = is_repetitive;
+        } else {
+            //Otherwise, or it with what was there, from the next minimizer in the list
+            minimizers_in_read_order[min_i].is_repetitive |= is_repetitive;
+            //Also set the next one to be repetitive if this one is repetitive
+            minimizers_in_read_order[min_i+1].is_repetitive |= is_repetitive;
+        }
+        //Set the previous minimizer to be repetitive if this one is repetitive
+        if (min_i != 0) {
+            minimizers_in_read_order[min_i-1].is_repetitive |= is_repetitive;
+        }
+
 
         //Check the traceback to get if the previous one is repetitive or not
         is_repetitive = is_repetitive ? prev_best_repetitive[score_i] : prev_best_unique[score_i];
