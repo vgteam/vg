@@ -3003,25 +3003,36 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         //Next, go through and find the next anchor that is not repetitive, if it is close enough to be connected
-        while (next_it != chain.end() && next_it+1 != chain.end()) {
-            next = &to_chain[*next_it];
+        bool found_gap = false;
+        auto& next_unique_it = next_it;
+        while (next_it != chain.end()) {
+            next = &to_chain[*next_unique_it];
             // Try and find a next thing to connect to
             
             //TODO idk what a good limit is
-            if (next->is_skippable() && algorithms::get_read_distance(*here, to_chain[*(next_it+1)]) < this->max_lookback_bases) {
+            size_t read_distance = algorithms::get_read_distance(*here, to_chain[*(next_unique_it+1)]);
+            if (next->is_skippable() && next_unique_it+1 != chain.end() && read_distance < this->max_lookback_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because it is repetitive" << endl;
+                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_unique_it << " because it is repetitive" << endl;
                     }
                 }
 #endif
+
+                //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+                if (read_distance != algorithms::get_graph_distance(*here, to_chain[*(next_unique_it+1)], *distance_index, gbwt_graph)) {
+                    found_gap = true;
+                }
             
-                ++next_it;
+                ++next_unique_it;
             } else {
-                // No overlap, so try it.
+                // The next one is not in a repetitive region
+                if (found_gap) {
+                    next_it = next_unique_it;
+                }
                 break;
             }
         }
