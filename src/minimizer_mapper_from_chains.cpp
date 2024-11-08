@@ -3003,7 +3003,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         //Next, go through and find the next anchor that is not repetitive, if it is close enough to be connected
-        while (next_it != chain.end()) {
+        while (next_it != chain.end() && next_it+1 != chain.end()) {
             next = &to_chain[*next_it];
             // Try and find a next thing to connect to
             
