@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 35
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -66,8 +66,8 @@ is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l
 
 # Check that traces work on a GBWT
 is $(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
-is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
-is "$(vg chunk -x x.xg -G x.haps.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
+is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name | startswith("x[0") | not)' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
+is "$(vg chunk -x x.xg -G x.haps.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name | startswith("x[0") | not)' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
 is "$(vg chunk -x x.gbz -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBZ"
 is "$(vg chunk -x x.gbz -r 1:1 -c 2 -T --no-embedded-haplotypes | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" "" "chunker doesn't see haplotypes in the GBZ if asked not to"
@@ -125,6 +125,16 @@ diff comp_nodes.txt nodes.txt
 is "$?" 0 "components finds subgraphs"
 
 rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.vg  convert path_chunk_y.vg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt x.gam y.gam xy.gam path_chunk_x.gam path_chunk_y.gam
+
+vg gbwt --gbz-format --graph-name graph.gbz --gfa-input graphs/gfa_with_reference.gfa
+vg chunk -x graph.gbz -p sample1#1#chr1#0:1-2 -c 1 >part.vg 2>log.txt
+grep "out_of_range" log.txt
+is "$?" "1" "chunking on a haplotype path does not produce an out of range error"
+grep "not found in" log.txt
+is "$?" "1" "chunking on a haplotype path does not produce a path not found error"
+is "$(vg stats -z part.vg | grep nodes | cut -f2)" "4" "chunking on a haplotype produces the correct size graph"
+
+rm -f graph.gbz part.vg log.txt
 
 
 

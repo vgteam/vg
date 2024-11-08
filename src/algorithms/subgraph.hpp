@@ -34,13 +34,15 @@ void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& 
 /// if end < 0, then it will walk to the end of the path
 void extract_path_range(const PathPositionHandleGraph& source, path_handle_t path_handle, int64_t start, int64_t end, MutableHandleGraph& subgraph);
 
-/// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
-/// based on their order in the path position index provided by the source graph
-/// will clear any path found in both graphs before writing the new steps into it
-/// if subpath_naming is true, a suffix will be added to each path in the subgraph denoting its offset
-/// in the source graph (unless the subpath was not cut up at all)
-void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph,
-                              bool subpath_naming = false);
+/// Add subpaths to the subgraph for all paths visiting its nodes in the source
+/// graph.
+///
+/// Always generates correct path metadata, and a path for each contiguous
+/// fragment of any base path. Assumes the source graph does not contain any
+/// overlapping path fragments on a given base path, and that the subgraph does
+/// not already contain any paths on a base path also present in the source
+/// graph.
+void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePathHandleGraph& subgraph);
 
 /// We can accumulate a subgraph without accumulating all the edges between its nodes
 /// this helper ensures that we get the full set

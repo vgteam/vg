@@ -11,7 +11,8 @@ plan tests 26
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
-vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
+vg index -x x.xg x.vg
+vg gbwt -v small/x.vcf.gz -o x.gbwt -x x.vg
 
 # List path/thread names from various input formats
 is "$(vg paths --list -v x2.vg)" "x" "path listing works from vg"
@@ -90,10 +91,10 @@ diff original.fa norm_x4.fa
 is $? 0 "path normalizer doesnt alter path sequences"
 
 # note: x3 is x4 in reverse, so we key on that
-grep x3 norm_x2.gfa | awk '{print $3}' > x4.path
-grep x3 norm_x2.gfa | awk '{print $3}' >> x4.path
-grep x3 norm_x2.gfa | awk '{print $3}'> x4.norm.path
-grep x5 norm_x2.gfa | awk '{print $3}' >> x4.norm.path
+grep x3 norm_x4.gfa | awk '{print $3}' > x4.path
+grep x3 norm_x4.gfa | awk '{print $3}' >> x4.path
+grep x3 norm_x4.gfa | awk '{print $3}'> x4.norm.path
+grep x5 norm_x4.gfa | awk '{print $3}' >> x4.norm.path
 diff x4.path x4.norm.path
 is $? 0 "path normalizere correctly snapped all equivalent paths to x4"
 
