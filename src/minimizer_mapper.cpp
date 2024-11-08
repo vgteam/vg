@@ -3439,15 +3439,15 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
     //The first value for each of these is the starting condition
     vector<double> score_repetitive;
     vector<double> score_unique;
-    score_repetitive.reserve(minimizers_in_read_order.size();
-    score_unique.reserve(minimizers_in_read_order.size();
+    score_repetitive.reserve(minimizers_in_read_order.size());
+    score_unique.reserve(minimizers_in_read_order.size());
 
     //For each minimizer in each state, did the best score come from the previous minimizer being repetitive or unique? (True for repetitive)
     //The first value for each of these is the first minimizer with hits
     vector<bool> prev_best_repetitive;
     vector<bool> prev_best_unique;
-    prev_best_repetitive.reserve(minimizers_in_read_order);
-    prev_best_unique.reserve(minimizers_in_read_order);
+    prev_best_repetitive.reserve(minimizers_in_read_order.size());
+    prev_best_unique.reserve(minimizers_in_read_order.size());
 
 
     //The transition and emission probabilities
@@ -3467,8 +3467,8 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
 
         //The score for emitting this minimizer from unique or repetitive states
         //If there is one hit, then this is a unique minimizer
-        double emit_unique_score = minimizer_hits == 1 ? emit_same_score : emit_diff_score;
-        double emit_repetitive_score = minimizer_hits == 1 ? emit_diff_score : emit_same_score;
+        double emit_unique_score = minimizer.hits == 1 ? emit_same_score : emit_diff_score;
+        double emit_repetitive_score = minimizer.hits == 1 ? emit_diff_score : emit_same_score;
 
         //The score for each state from each other state
         double score_from_repetitive_to_unique = score_repetitive.back() + switch_score + emit_unique_score;
@@ -3492,7 +3492,7 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
             prev_best_repetitive.emplace_back(true);
         } else {
             score_repetitive.emplace_back(score_from_unique_to_repetitive);
-            prev_best_repetitive.empalce_back(false);
+            prev_best_repetitive.emplace_back(false);
         }
     }
 
