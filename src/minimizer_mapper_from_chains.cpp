@@ -3005,13 +3005,14 @@ Alignment MinimizerMapper::find_chain_alignment(
         //Next, go through and find the next anchor that is not repetitive, if it is close enough to be connected
         bool found_gap = false;
         auto& next_unique_it = next_it;
-        while (next_it != chain.end()) {
+        while (next_unique_it != chain.end()) {
             next = &to_chain[*next_unique_it];
             // Try and find a next thing to connect to
             
             //TODO idk what a good limit is
-            size_t read_distance = algorithms::get_read_distance(*here, to_chain[*(next_unique_it+1)]);
-            if (next->is_skippable() && next_unique_it+1 != chain.end() && read_distance < this->max_lookback_bases) {
+            size_t read_distance = next_unique_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
+                                                                   : algorithms::get_read_distance(*here, to_chain[*(next_unique_it+1)]);
+            if (next->is_skippable() && read_distance < this->max_lookback_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
