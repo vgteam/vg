@@ -3474,8 +3474,8 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
         double score_from_repetitive_to_unique = score_repetitive.back() + switch_score + emit_unique_score;
         double score_from_unique_to_unique = score_unique.back() + no_switch_score + emit_unique_score;
 
-        double score_from_repetitive_to_repetitive = score_repetitive.back() + switch_score + emit_repetitive_score;
-        double score_from_unique_to_repetitive = score_unique.back() + no_switch_score + emit_repetitive_score;
+        double score_from_repetitive_to_repetitive = score_repetitive.back() + no_switch_score + emit_repetitive_score;
+        double score_from_unique_to_repetitive = score_unique.back() + switch_score + emit_repetitive_score;
 
         //Set the best scores and where they came from for this minimizer
         //Break ties by setting them as unique
