@@ -3003,16 +3003,23 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         //Next, go through and find the next anchor that is not repetitive, if it is close enough to be connected
-        bool found_gap = false;
-        auto& next_unique_it = next_it;
+
+        //The sum of the gaps between read and graph lengths
+        size_t gap_lengths=0;
+        size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+        auto next_unique_it = next_it;
         while (next_unique_it != chain.end()) {
-            next = &to_chain[*next_unique_it];
+            const algorithms::Anchor* next_unique = &to_chain[*next_unique_it];
             // Try and find a next thing to connect to
             
-            //TODO idk what a good limit is
             size_t read_distance = next_unique_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                                   : algorithms::get_read_distance(*here, to_chain[*(next_unique_it+1)]);
-            if (next->is_skippable() && read_distance < this->max_lookback_bases) {
+                                                                   : algorithms::get_read_distance(*next_unique, to_chain[*(next_unique_it+1)]);
+            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+            size_t graph_distance = next_unique_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
+                                                                    : algorithms::get_graph_distance(*next_unique, to_chain[*(next_unique_it+1)], *distance_index, gbwt_graph);
+            total_graph_distance += graph_distance;
+            //TODO idk what a good limit is
+            if (next_unique->is_skippable() && read_distance != std::numeric_limits<size_t>::max() && total_graph_distance < this->max_lookback_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
@@ -3023,16 +3030,17 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
 #endif
 
-                //TODO: Getting the graph distance is probably slow, might want to save it from chaining
-                if (read_distance != algorithms::get_graph_distance(*here, to_chain[*(next_unique_it+1)], *distance_index, gbwt_graph)) {
-                    found_gap = true;
-                }
+
+                //Add the absolute values of the gaps
+                gap_lengths += (std::max(graph_distance, read_distance) - std::min(graph_distance, read_distance));
             
                 ++next_unique_it;
             } else {
-                // The next one is not in a repetitive region
-                if (found_gap) {
+                //The next one is not in a repetitive region
+                if (gap_lengths > 50) {
+                    //If there was a big gap
                     next_it = next_unique_it;
+                    next = next_unique;
                 }
                 break;
             }
