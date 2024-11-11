@@ -373,6 +373,11 @@ public:
     /// Limit the min chain score to no more than this.
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
+
+    /// When turning chains into alignments, we can skip seeds to create gaps up to this
+    /// length in the graph
+    static constexpr size_t default_max_skipped_bases = 1000;
+    size_t max_skipped_bases = default_max_skipped_bases;
     
     /// How long of a DP can we do before Dozeu gets lost at traceback due to
     /// 16-bit score overflow?

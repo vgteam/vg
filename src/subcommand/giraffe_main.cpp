@@ -544,6 +544,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         int_is_nonnegative
     );
     chaining_opts.add_range(
+        "max-skipped-bases",
+        &MinimizerMapper::max_skipped_bases,
+        MinimizerMapper::default_max_skipped_bases,
+        "when skipping seeds in a chain for alignment, allow a gap of at most INT in the graph"
+    );
+    chaining_opts.add_range(
         "max-chains-per-tree",
         &MinimizerMapper::max_chains_per_tree,
         MinimizerMapper::default_max_chains_per_tree,

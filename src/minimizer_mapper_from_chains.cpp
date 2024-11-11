@@ -3002,46 +3002,53 @@ Alignment MinimizerMapper::find_chain_alignment(
                 break;
             }
         }
-        //Next, go through and find the next anchor that is not repetitive, if it is close enough to be connected
 
-        //The sum of the gaps between read and graph lengths
-        size_t gap_lengths=0;
+        //Next, we want to skip seeds that are in repetitive regions of the read
+        //Since skipping all repetitive seeds would leave too many gaps in the chain, only skip seeds if they are involved in gaps,
+        //i.e. the distances in the read and graph are different
+
+        //Keep track of the total distance from the previous seed to the next one we choose in the graph
         size_t total_graph_distance = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
-        auto next_unique_it = next_it;
-        while (next_unique_it != chain.end()) {
-            const algorithms::Anchor* next_unique = &to_chain[*next_unique_it];
+        size_t prev_read_distance = algorithms::get_read_distance(*here, *next);
+
+        //The sum of the differences between read and graph lengths
+        size_t gap_lengths=std::max(total_graph_distance, prev_read_distance) - std::min(total_graph_distance, prev_read_distance);
+
+        auto next_skippable_it = next_it;
+
+        while (next_skippable_it != chain.end()) {
+            const algorithms::Anchor* next_skippable = &to_chain[*next_skippable_it];
             // Try and find a next thing to connect to
             
-            size_t read_distance = next_unique_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                                   : algorithms::get_read_distance(*next_unique, to_chain[*(next_unique_it+1)]);
-            //TODO: Getting the graph distance is probably slow, might want to save it from chaining
-            size_t graph_distance = next_unique_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
-                                                                    : algorithms::get_graph_distance(*next_unique, to_chain[*(next_unique_it+1)], *distance_index, gbwt_graph);
-            total_graph_distance += graph_distance;
-            //TODO idk what a good limit is
-            if (next_unique->is_skippable() && read_distance != std::numeric_limits<size_t>::max() && total_graph_distance < this->max_lookback_bases) {
+           //TODO: Getting the graph distance is probably slow, might want to save it from chaining
+           size_t graph_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
+                                                               : algorithms::get_graph_distance(*next_skippable, to_chain[*(next_skippable_it+1)], *distance_index, gbwt_graph);
+
+            if (next_skippable->is_skippable() && next_skippable_it+1 != chain.end() && 
+                total_graph_distance+graph_distance < this->max_skipped_bases) {
                 // This anchor is repetitive and the next one is close enough to connect
 #ifdef debug_chain_alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_unique_it << " because it is repetitive" << endl;
+                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_skippable_it << " because it is repetitive" << endl;
                     }
                 }
 #endif
-
-
-                //Add the absolute values of the gaps
-                gap_lengths += (std::max(graph_distance, read_distance) - std::min(graph_distance, read_distance));
+                size_t read_distance = next_skippable_it+1 == chain.end() ? std::numeric_limits<size_t>::max()
+                                                                       : algorithms::get_read_distance(*next_skippable, to_chain[*(next_skippable_it+1)]);
+                total_graph_distance += graph_distance;
+                gap_lengths += (std::max(read_distance, graph_distance) - std::min(read_distance, graph_distance));
             
-                ++next_unique_it;
+                ++next_skippable_it;
             } else {
-                //The next one is not in a repetitive region
+                //The next_skippable_it is either not skippable or too far away so stop
                 if (gap_lengths > 50) {
                     //If there was a big gap
-                    next_it = next_unique_it;
-                    next = next_unique;
+                    next_it = next_skippable_it;
+                    next = &to_chain[*next_skippable_it];
                 }
+                //If there wasn't a gap then don't skip anything
                 break;
             }
         }
