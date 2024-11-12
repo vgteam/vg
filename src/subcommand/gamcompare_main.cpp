@@ -222,8 +222,10 @@ int main_gamcompare(int argc, char** argv) {
                 }
             }
 
-#pragma omp critical (truth_table)
-            true_path_positions[aln.name()] = val;
+            if (!val.empty()) {
+                #pragma omp critical (truth_table)
+                true_path_positions[aln.name()] = val;
+            }
         }
     };
 
