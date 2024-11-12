@@ -373,6 +373,11 @@ public:
     /// Limit the min chain score to no more than this.
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
+
+    /// When turning chains into alignments, we can skip seeds to create gaps up to this
+    /// length in the graph
+    static constexpr size_t default_max_skipped_bases = 0;
+    size_t max_skipped_bases = default_max_skipped_bases;
     
     /// How long of a DP can we do before Dozeu gets lost at traceback due to
     /// 16-bit score overflow?
@@ -555,6 +560,7 @@ public:
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+        bool is_repetitive; //Is this minimizer in a repetitive region of the read based on its neighbors
 
         // Sort the minimizers in descending order by score and group identical minimizers together.
         inline bool operator< (const Minimizer& another) const {
@@ -675,6 +681,11 @@ protected:
      * return them sorted in read order.
      */
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Flag minimizers as being in repetitive regions of the read
+     */
+    void flag_repetitive_minimizers(std::vector<Minimizer>& minimizers_in_read_order) const;
     
     /**
      * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.

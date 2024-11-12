@@ -3430,6 +3430,104 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
+void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimizers_in_read_order) const {
+
+    //Use an HMM to decide if the minimizers came from a repetitive or unique region of the read
+
+    //For each minimizer, what is the best score (log of the probability) to get this number of hits from a unique or repetitive region
+    //All vectors are actually for each minimizer with hits- skip anything with 0 hits
+    //The first value for each of these is the starting condition
+    vector<double> score_repetitive;
+    vector<double> score_unique;
+    score_repetitive.reserve(minimizers_in_read_order.size());
+    score_unique.reserve(minimizers_in_read_order.size());
+
+    //For each minimizer in each state, did the best score come from the previous minimizer being repetitive or unique? (True for repetitive)
+    //The first value for each of these is the first minimizer with hits
+    vector<bool> prev_best_repetitive;
+    vector<bool> prev_best_unique;
+    prev_best_repetitive.reserve(minimizers_in_read_order.size());
+    prev_best_unique.reserve(minimizers_in_read_order.size());
+
+
+    //The transition and emission probabilities
+    double switch_score = std::log(0.1);
+    double no_switch_score = std::log(0.9);
+    double emit_diff_score = std::log(0.1);
+    double emit_same_score = std::log(0.9);
+
+    //Initial probabilities of being repetitive or not
+    score_repetitive.emplace_back(std::log(0.05));
+    score_unique.emplace_back(std::log(0.95));
+
+    for (const auto& minimizer : minimizers_in_read_order) {
+        if (minimizer.hits == 0) {
+            continue;
+        }
+
+        //The score for emitting this minimizer from unique or repetitive states
+        //If there is one hit, then this is a unique minimizer
+        double emit_unique_score = minimizer.hits == 1 ? emit_same_score : emit_diff_score;
+        double emit_repetitive_score = minimizer.hits == 1 ? emit_diff_score : emit_same_score;
+
+        //The score for each state from each other state
+        double score_from_repetitive_to_unique = score_repetitive.back() + switch_score + emit_unique_score;
+        double score_from_unique_to_unique = score_unique.back() + no_switch_score + emit_unique_score;
+
+        double score_from_repetitive_to_repetitive = score_repetitive.back() + no_switch_score + emit_repetitive_score;
+        double score_from_unique_to_repetitive = score_unique.back() + switch_score + emit_repetitive_score;
+
+        //Set the best scores and where they came from for this minimizer
+        //Break ties by setting them as unique
+        if (score_from_repetitive_to_unique > score_from_unique_to_unique) {
+            score_unique.emplace_back(score_from_repetitive_to_unique);
+            prev_best_unique.emplace_back(true);
+        } else {
+            score_unique.emplace_back(score_from_unique_to_unique);
+            prev_best_unique.emplace_back(false);
+        }
+
+        if (score_from_repetitive_to_repetitive > score_from_unique_to_repetitive) {
+            score_repetitive.emplace_back(score_from_repetitive_to_repetitive);
+            prev_best_repetitive.emplace_back(true);
+        } else {
+            score_repetitive.emplace_back(score_from_unique_to_repetitive);
+            prev_best_repetitive.emplace_back(false);
+        }
+    }
+
+    //Now walk backwards through the minimizers and HMM and mark minimizers as repetitive or not
+    bool is_repetitive = score_repetitive.back() > score_unique.back();
+    int min_i = minimizers_in_read_order.size()-1;
+    for (int score_i = prev_best_unique.size()-1 ; score_i >= 0 ; score_i --) {
+        //Jump to the next minimizer with hits
+        while (min_i >= 0 && minimizers_in_read_order[min_i].hits == 0){
+            min_i--;
+        }
+
+        //Set it as repetitive or not, and also set the two neighbors
+        if (min_i == minimizers_in_read_order.size()-1) {
+            //If this is the last minimizer, then start it as whatever the value is
+            minimizers_in_read_order[min_i].is_repetitive = is_repetitive;
+        } else {
+            //Otherwise, or it with what was there, from the next minimizer in the list
+            minimizers_in_read_order[min_i].is_repetitive |= is_repetitive;
+            //Also set the next one to be repetitive if this one is repetitive
+            minimizers_in_read_order[min_i+1].is_repetitive |= is_repetitive;
+        }
+        //Set the previous minimizer to be repetitive if this one is repetitive
+        if (min_i != 0) {
+            minimizers_in_read_order[min_i-1].is_repetitive |= is_repetitive;
+        }
+
+
+        //Check the traceback to get if the previous one is repetitive or not
+        is_repetitive = is_repetitive ? prev_best_repetitive[score_i] : prev_best_unique[score_i];
+
+        min_i--;
+    }
+}
+
 std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers, LazyRNG& rng) const {
 
     //Do an unshuffled sort of the minimizers to get the runs together
