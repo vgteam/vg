@@ -1,4 +1,4 @@
-//#define debug_distance_indexing
+#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 //#define debug_subgraph
@@ -435,6 +435,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         }
         temp_snarl_record.node_count = temp_snarl_record.children.size();
     }
+
 
     /*Now go through the decomposition again to fill in the distances
      * This traverses all chains in reverse order that we found them in, so bottom up
@@ -1071,6 +1072,9 @@ void populate_snarl_index(
         temp_index.use_oversized_snarls = true;
     }
 
+    if (size_limit == 0) {
+        all_children.clear();
+    }
     //Add the start and end nodes to the list of children so that we include them in the traversal 
     if (!temp_snarl_record.is_root_snarl) {
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
@@ -1432,9 +1436,14 @@ void populate_snarl_index(
         }
     }
 
+    //If we aren't keeping track of distances, then we didn't actually go through the snarl so we don't know if the snarl was simple or not
+    if (size_limit == 0) {
+        temp_snarl_record.is_simple = false;
+    }
+
     //If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
     // we want to remember if the child nodes are reversed 
-    if (temp_snarl_record.is_simple) {
+    if (size_limit != 0 && temp_snarl_record.is_simple) {
         for (size_t i = 0 ; i < temp_snarl_record.node_count ; i++) {
             //Get the index of the child
             const pair<SnarlDistanceIndex::temp_record_t, size_t>& child_index = temp_snarl_record.children[i];
