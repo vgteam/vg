@@ -2953,9 +2953,107 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
+    TEST_CASE( "zipcode tree multicomponent chain nested in irregular snarl",
+                   "[zip_tree][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAAAAA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("T");
+        Node* n8 = graph.create_node("TTTTTTTTT");
+        Node* n9 = graph.create_node("TTTTTTTTT");
+        Node* n10 = graph.create_node("GCAAAAAAAAAAAAA");
+        Node* n11 = graph.create_node("TTT");
+        Node* n12 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+        Node* n13 = graph.create_node("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n12);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n10);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n7, true, false);
+        Edge* e9 = graph.create_edge(n7, n8);
+        Edge* e10 = graph.create_edge(n7, n9);
+        Edge* e11 = graph.create_edge(n8, n9);
+        Edge* e12 = graph.create_edge(n9, n11);
+        Edge* e13 = graph.create_edge(n10, n11);
+        Edge* e14 = graph.create_edge(n10, n10, false, true);
+        Edge* e15 = graph.create_edge(n11, n12);
+        Edge* e16 = graph.create_edge(n12, n13);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "Cross unreachable chain" ) {
+            net_handle_t n = dist_index.get_node_net_handle(n6->id());
+            while(!dist_index.is_root(n)) {
+                cerr << dist_index.net_handle_as_string(n) << endl;
+                n = dist_index.get_parent(n);
+            }
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(n3->id(), false, 0), 0);
+            positions.emplace_back(make_pos_t(n4->id(), false, 0), 0);
+            positions.emplace_back(make_pos_t(n5->id(), false, 1), 1);
+            positions.emplace_back(make_pos_t(n6->id(), false, 0), 2);
+            positions.emplace_back(make_pos_t(n7->id(), false, 0), 3);
+            positions.emplace_back(make_pos_t(n8->id(), false, 0), 4);
+            positions.emplace_back(make_pos_t(n9->id(), false, 0), 5);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+
+            for (size_t i = 0 ; i < positions.size() ; ++i) {
+                auto pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.print_self(&seeds, &minimizer_vector);
+            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+            vector<size_t> seed_order;
+            for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
+                if (zip_forest.trees[0].get_item_at_index(i).get_type() == ZipCodeTree::SEED) {
+                    seed_order.emplace_back(zip_forest.trees[0].get_item_at_index(i).get_value());
+                }
+            }
+            //The seeds should be in order of the chain, which is the order I put them in
+            if (seed_order.front() == 0) {
+                for (size_t i = 0 ; i < seed_order.size() ; i++) {
+                    REQUIRE(seed_order[i] == i);
+                }
+            } else if (seed_order.front() == 6) {
+                for (size_t i = 0 ; i < seed_order.size() ; i++) {
+                    REQUIRE(seed_order[i] == 6-i);
+                }
+            } else {
+                REQUIRE((seed_order.front() == 0 || seed_order.front() == 6));
+            }
+        }
+    }
             
     //TODO: we can't deal with this properly yet
-    //TEST_CASE( "Looping chain zipcode tree", "[zip_tree][bug]" ) {
+    //TEST_CASE( "Looping chain zipcode tree", "[zip_tree]" ) {
     //    //TODO: This might change but it's a chain 2rev->2rev
     //    VG graph;
 

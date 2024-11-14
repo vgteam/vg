@@ -14,6 +14,8 @@ using namespace sdsl;
 using namespace handlegraph;
 using namespace bdsg;
 
+//TODO: If anyone ever remakes the distance index, it would be really helpful for the multicomponent chains to know the lengths of each component
+
 //Minimum distance taking a pos instead of id/orientation/offset
 size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
                         bool unoriented_distance = false, const HandleGraph* graph=nullptr); 
