@@ -2954,7 +2954,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "zipcode tree multicomponent chain nested in irregular snarl",
-                   "[zip_tree][bug]" ) {
+                   "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -2995,11 +2995,6 @@ namespace unittest {
         //graph.to_dot(cerr);
 
         SECTION( "Cross unreachable chain" ) {
-            net_handle_t n = dist_index.get_node_net_handle(n6->id());
-            while(!dist_index.is_root(n)) {
-                cerr << dist_index.net_handle_as_string(n) << endl;
-                n = dist_index.get_parent(n);
-            }
  
             vector<pair<pos_t, size_t>> positions;
             positions.emplace_back(make_pos_t(n3->id(), false, 0), 0);
