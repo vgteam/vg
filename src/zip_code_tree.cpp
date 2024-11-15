@@ -3208,6 +3208,10 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
 
                 //Now decide which direction the run is traversed in
                 bool run_is_traversed_backwards = run_correlation < 0.0;
+                //If the chain is reversed, then the prefix sum values are all flipped, so the correlation is flipped
+                if (run.is_reversed) {
+                    run_is_traversed_backwards = !run_is_traversed_backwards;
+                }
                 reverse_run = run_is_traversed_backwards != snarl_is_traversed_backwards;
             }
 
