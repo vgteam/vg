@@ -3209,6 +3209,7 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
                 //Now decide which direction the run is traversed in
                 bool run_is_traversed_backwards = run_correlation < 0.0;
                 //If the chain is reversed, then the prefix sum values are all flipped, so the correlation is flipped
+                //I'm not sure if the chain will ever be reversed though, I can't seem to make a unit test that makes it reversed in a snarl
                 if (run.is_reversed) {
                     run_is_traversed_backwards = !run_is_traversed_backwards;
                 }
@@ -3218,6 +3219,10 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
         }
 
         if (!reverse_run) {
+#ifdef DEBUG_ZIP_CODE_TREE
+            cerr << "Go through the run forwards" << endl;
+#endif
+
             //If we can only go forwards through the run or
             //if the read is going through the snarl and partition in the same direction
             for (size_t sort_i : run_seeds) {
@@ -3239,6 +3244,9 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             }
 
         } else {
+#ifdef DEBUG_ZIP_CODE_TREE
+            cerr << "Go through the run backwards" << endl;
+#endif
             //If the read is going through the run in the opposite direction as the snarl, then flip it
             for (int i = run_seeds.size()-1 ; i >= 0 ; --i) {
                 new_sort_order.push_back(zipcode_sort_order[snarl_interval.interval_start+run_seeds[i]]);
