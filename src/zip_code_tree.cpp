@@ -3005,8 +3005,20 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             bool is_reversed_read = minimizer.value.is_reverse;
             size_t read_offset = minimizer.value.offset;
             size_t chain_offset = sort_values_by_seed[zipcode_sort_order[sort_i]].get_distance_value(); 
+            size_t chain_offset_plus_snarl = chain_offset;
+
+            //If the child interval is 
+            ZipCode::code_type_t chain_child_type = seed.zipcode.get_code_type(snarl_interval.depth+2);
+            if (chain_child_type == ZipCode::REGULAR_SNARL || chain_child_type == ZipCode::IRREGULAR_SNARL ||
+                chain_child_type == ZipCode::CYCLIC_SNARL ) {
+                //If we're traversing the chain backwards, get the offset as the distance to the other end of the snarl
+                size_t child_length = seed.zipcode.get_length(snarl_interval.depth+2);
+
+                chain_offset_plus_snarl = SnarlDistanceIndex::sum(chain_offset, child_length);
+                chain_offset = chain_offset_plus_snarl;
+            }
 #ifdef DEBUG_ZIP_CODE_TREE
-            cerr << "AT SEED: " << seed.pos << " with chain offset " << chain_offset << " and read offset " << read_offset << endl;
+            cerr << "AT SEED: " << seed.pos << " with chain offset " << chain_offset << " to " << chain_offset_plus_snarl << " and read offset " << read_offset << endl;
 #endif
 
             //Remember the values for finding the correlation later
@@ -3020,7 +3032,8 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             //Make a new run for the seed, to be updated with anything combined with it
             run_t seed_run({sort_i - snarl_interval.interval_start,
                             read_offset, read_offset,
-                            chain_offset, chain_offset,
+                            std::min(chain_offset, chain_offset_plus_snarl), 
+                            std::max(chain_offset, chain_offset_plus_snarl),
                             interval_i,
                             child_interval.depth,
                             child_interval.code_type,
