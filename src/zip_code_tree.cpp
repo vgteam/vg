@@ -3015,7 +3015,6 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
                 size_t child_length = seed.zipcode.get_length(snarl_interval.depth+2);
 
                 chain_offset_plus_snarl = SnarlDistanceIndex::sum(chain_offset, child_length);
-                chain_offset = chain_offset_plus_snarl;
             }
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "AT SEED: " << seed.pos << " with chain offset " << chain_offset << " to " << chain_offset_plus_snarl << " and read offset " << read_offset << endl;
