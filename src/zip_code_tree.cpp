@@ -356,6 +356,10 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
 
         current_offset = current_seed.zipcode.get_offset_in_chain(depth);
     }
+    if (chain_is_reversed && !(current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE || is_trivial_chain)) {
+        //If we are adding a snarl and the chain is being traversed backwards, then make sure the prefix sum is going to the right end of the snarl
+        current_offset =  SnarlDistanceIndex::sum(current_offset, current_seed.zipcode.get_length(depth));
+    }
 
 
     /////////////////////// Get the offset of the previous thing in the parent chain/node
@@ -579,8 +583,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
         //For finding the distance to the next thing in the chain, the offset
         //stored should be the offset of the end bound of the snarl, so add the 
         //length of the snarl
-        current_offset = SnarlDistanceIndex::sum(current_offset,
-            current_seed.zipcode.get_length(depth));
+        current_offset = chain_is_reversed 
+                       ? SnarlDistanceIndex::minus(current_offset, current_seed.zipcode.get_length(depth))
+                       : SnarlDistanceIndex::sum(current_offset, current_seed.zipcode.get_length(depth));
 
     }
 
