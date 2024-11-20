@@ -1072,12 +1072,6 @@ void populate_snarl_index(
         temp_index.use_oversized_snarls = true;
     }
 
-    //If we aren't interested in internal distances, then don't start a traversal from internal nodes
-    //We still need to do the traversal from the bounds in order to find the minimum length of the snarl
-    //for an oversized snarl, and to find tips for the distanceless index
-    if (temp_snarl_record.node_count > size_limit || size_limit == 0) {
-        all_children.clear();
-    }
     //Add the start and end nodes to the list of children so that we include them in the traversal 
     if (!temp_snarl_record.is_root_snarl) {
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
@@ -1217,15 +1211,21 @@ void populate_snarl_index(
 #endif
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
                     if (graph->get_id(current_end_handle) == graph->get_id(next_handle)){
-                        //If there are any loops then this isn't a simple snarl
+                        //If this loops onto the same node side then this isn't a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if ((current_index.first == SnarlDistanceIndex::TEMP_NODE ? current_index.second 
+                                                                                     : (current_rev ? temp_index.temp_chain_records[current_index.second].end_node_id
+                                                                                                    : temp_index.temp_chain_records[current_index.second].start_node_id))
+                                    == graph->get_id(next_handle)){
+                        //If this loops to the other end of the chain then this isn't a simple snarl
                         temp_snarl_record.is_simple = false;
                     } else if (!temp_snarl_record.is_root_snarl && start_rank == 0 && 
-                               current_index.second != temp_snarl_record.start_node_id && graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
+                               current_index != start_index && graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
                         //If the starting point of this traversal was the start of the snarl, the current starting point is not the start node,
                         //and we found another child, then this is not a simple snarl
                         temp_snarl_record.is_simple = false;
                     } else if (!temp_snarl_record.is_root_snarl && start_rank == 1 && 
-                               current_index.second != temp_snarl_record.end_node_id && graph->get_id(next_handle) != temp_snarl_record.start_node_id) {
+                               current_index != start_index && graph->get_id(next_handle) != temp_snarl_record.start_node_id) {
                         //If the starting point of this traversal was the end of the snarl, the current starting point is not the end node,
                         //and we found another child, then this is not a simple snarl
                         temp_snarl_record.is_simple = false;
@@ -1450,14 +1450,10 @@ void populate_snarl_index(
         }
     }
 
-    //If we aren't keeping track of distances, then we didn't actually go through the snarl so we don't know if the snarl was simple or not
-    if (size_limit == 0) {
-        temp_snarl_record.is_simple = false;
-    }
 
     //If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
     // we want to remember if the child nodes are reversed 
-    if (size_limit != 0 && temp_snarl_record.is_simple) {
+    if (temp_snarl_record.is_simple) {
         for (size_t i = 0 ; i < temp_snarl_record.node_count ; i++) {
             //Get the index of the child
             const pair<SnarlDistanceIndex::temp_record_t, size_t>& child_index = temp_snarl_record.children[i];
