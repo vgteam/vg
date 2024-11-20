@@ -3008,7 +3008,9 @@ void ZipCodeForest::get_cyclic_snarl_intervals( forest_growing_state_t& forest_s
             size_t chain_offset_plus_snarl = chain_offset;
 
             //If the child interval is 
-            ZipCode::code_type_t chain_child_type = seed.zipcode.get_code_type(snarl_interval.depth+2);
+            ZipCode::code_type_t chain_child_type = seed.zipcode.max_depth() < snarl_interval.depth+2 
+                                                  ? ZipCode::NODE
+                                                  : seed.zipcode.get_code_type(snarl_interval.depth+2);
             if (chain_child_type == ZipCode::REGULAR_SNARL || chain_child_type == ZipCode::IRREGULAR_SNARL ||
                 chain_child_type == ZipCode::CYCLIC_SNARL ) {
                 //If we're traversing the chain backwards, get the offset as the distance to the other end of the snarl
