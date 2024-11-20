@@ -1072,7 +1072,10 @@ void populate_snarl_index(
         temp_index.use_oversized_snarls = true;
     }
 
-    if (size_limit == 0) {
+    //If we aren't interested in internal distances, then don't start a traversal from internal nodes
+    //We still need to do the traversal from the bounds in order to find the minimum length of the snarl
+    //for an oversized snarl, and to find tips for the distanceless index
+    if (temp_snarl_record.node_count > size_limit || size_limit == 0) {
         all_children.clear();
     }
     //Add the start and end nodes to the list of children so that we include them in the traversal 
@@ -1141,8 +1144,9 @@ void populate_snarl_index(
           //}
 
         if ( (temp_snarl_record.node_count > size_limit || size_limit == 0) && (temp_snarl_record.is_root_snarl || (!start_is_tip &&
-             !start_rank == 0 && ! start_rank == 1))) {
+             start_rank != 0 && start_rank != 1))) {
             //If we don't care about internal distances, and we also are not at a boundary or tip
+            //TODO: Why do we care about tips specifically?
             continue;
         }
 
@@ -1214,6 +1218,16 @@ void populate_snarl_index(
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
                     if (graph->get_id(current_end_handle) == graph->get_id(next_handle)){
                         //If there are any loops then this isn't a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if (!temp_snarl_record.is_root_snarl && start_rank == 0 && 
+                               current_index.second != temp_snarl_record.start_node_id && graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
+                        //If the starting point of this traversal was the start of the snarl, the current starting point is not the start node,
+                        //and we found another child, then this is not a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if (!temp_snarl_record.is_root_snarl && start_rank == 1 && 
+                               current_index.second != temp_snarl_record.end_node_id && graph->get_id(next_handle) != temp_snarl_record.start_node_id) {
+                        //If the starting point of this traversal was the end of the snarl, the current starting point is not the end node,
+                        //and we found another child, then this is not a simple snarl
                         temp_snarl_record.is_simple = false;
                     }
 
@@ -1328,7 +1342,7 @@ void populate_snarl_index(
                             }
                         } else if (!next_is_boundary && !temp_snarl_record.distances.count(make_pair(start, next))) {
                             //Otherwise the snarl stores it in its distance
-                            //If the distance isn't from an internal node to a bound and we haven't stored the distance yets
+                            //If the distance isn't from an internal node to a bound and we haven't stored the distance yet
 
                             temp_snarl_record.distances[make_pair(start, next)] = current_distance;
                             added_new_distance = true;
