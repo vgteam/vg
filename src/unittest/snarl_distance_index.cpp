@@ -266,7 +266,14 @@ namespace vg {
 
                 for (auto& id : {n1->id(), n2->id(), n3->id(), n4->id(), n5->id(), n6->id(), n7->id(), n8->id(), n9->id(), n10->id(), n11->id(), n12->id(), n13->id()}) { 
                     net_handle_t n = distance_index.get_node_net_handle(id);
-                    distance_index.get_parent(n);
+                    net_handle_t parent = distance_index.get_parent(n);
+                    try {
+                        distance_index.minimum_length(n);
+                        distance_index.minimum_length(parent);
+                        REQUIRE(false);
+                    } catch (const std::runtime_error& err) {
+                        REQUIRE(true);
+                    }
                 }
             }
         }
