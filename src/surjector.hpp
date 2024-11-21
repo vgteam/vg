@@ -24,7 +24,14 @@
 namespace vg {
 
 using namespace std;
-
+    
+    /**
+     * Widget to surject alignments down to linear paths in the graph.
+     *
+     * Assumes the alignments actually go with the graph; the caller is
+     * repsonsible for ensuring that e.g. all nodes referenced by the
+     * alignments actually exist.
+     */
     class Surjector : public AlignerClient {
     public:
         

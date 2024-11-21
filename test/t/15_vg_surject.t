@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 48
+plan tests 52
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -196,7 +196,15 @@ is "$(vg surject -x x.xg -s -m -t 1 mapped.gamp | grep -v '@' | wc -l)" 40 "GAMP
 is "$(vg surject -x x.xg -M -m -s -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
 is "$(vg surject -x x.xg -M -m -s -i -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
 
-rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp
+vg construct -r tiny/tiny.fa > tiny.vg
+vg surject -x tiny.vg -s -t 1 mapped.gam >/dev/null 2>err.txt
+is "${?}" "1" "Surjection fails when using the wrong graph for GAM"
+is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAM to the wrong graph reports the problem"
+vg surject -x tiny.vg -s -t 1 -m mapped.gamp >/dev/null 2>err.txt
+is "${?}" "1" "Surjection fails when using the wrong graph for GAMP"
+is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAMP to the wrong graph reports the problem"
+
+rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp tiny.vg err.txt
 
 is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf | grep -v "^@" | cut -f3-12 | sort | uniq | wc -l)" "1" "vg surject low compelxity pruning gets the same alignment regardless of read orientation"
 
