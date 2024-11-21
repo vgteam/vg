@@ -533,6 +533,11 @@ string alignment_to_sam_internal(const Alignment& alignment,
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
+    if (has_annotation(alignment, "tags")) {
+        for (const auto& tag : get_annotation<vector<string>>(alignment, "tags")) {
+            sam << '\t' << tag;
+        }
+    }
     sam << "\n";
     return sam.str();
 }
@@ -611,6 +616,46 @@ string alignment_to_sam(const Alignment& alignment,
     
     return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
+}
+
+vector<tuple<string, char, string>> parse_sam_tags(const vector<string>& tags) {
+    
+    vector<tuple<string, char, string>> parsed;
+    // split by whitespace
+    for (const auto& tag : tags) {
+        if (tag.empty()) {
+            continue;
+        }
+        if (tag.size() < 6 || tag[2] != ':' || tag[4] != ':') {
+            std::cerr << ("error: failed to parse malformed SAM tag '" + tag + "'\n");
+            exit(1);
+        }
+        parsed.emplace_back(tag.substr(0, 2), tag[3], tag.substr(5, string::npos));
+    }
+    return parsed;
+}
+
+// template to reduce redunant code parsing and writing B type SAM tags
+template<typename T>
+void write_array_to_aux(bam1_t* bam, const char* tag_name, const string& arr_string) {
+    
+    vector<T> parsed;
+    for (const auto& token : split_delims(arr_string.substr(1, string::npos), ",")) {
+        parsed.push_back(parse<T>(token));
+    }
+    // size includes array type and length
+    size_t data_size = parsed.size() * sizeof(T) + 5;
+    uint8_t* data = (uint8_t*) malloc(data_size);
+    // add the type
+    data[0] = arr_string[0];
+    // add the length
+    *((uint32_t*) (data + 1)) = (uint32_t) parsed.size();
+    // add the array
+    for (size_t i = 0, j = 5; i < parsed.size(); ++i, j += sizeof(T)) {
+        *((T*) (data + j)) = parsed[i];
+    }
+    bam_aux_append(bam, tag_name, 'B', data_size, data);
+    free(data);
 }
 
 // Internal conversion function for both paired and unpaired codepaths
@@ -821,6 +866,93 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     if (has_annotation(alignment, "all_scores")) {
         string all_scores = get_annotation<string>(alignment, "all_scores");
         bam_aux_append(bam, "SS", 'Z', all_scores.size() + 1, (uint8_t*) all_scores.c_str());
+    }
+    
+    // TODO: it would be nice wrap htslib and set the other tags this way as well
+    if (has_annotation(alignment, "tags")) {
+        auto parsed_tags = parse_sam_tags(get_annotation<vector<string>>(alignment, "tags"));
+        for (const auto& tag : parsed_tags) {
+            
+            const char* tag_id = get<0>(tag).c_str();
+            char tag_type = get<1>(tag);
+            const string& tag_val = get<2>(tag);
+            if (get<0>(tag).size() != 2) {
+                cerr << ("error: SAM tag label " + get<0>(tag) + " is not 2 characters long\n");
+                exit(1);
+            }
+            if (tag_val.empty()) {
+                cerr << ("error: SAM tag " + get<0>(tag) + " is missing a value\n");
+                exit(1);
+            }
+            
+            switch (tag_type) {
+                case 'A':
+                    // character
+                    if (tag_val.size() != 1) {
+                        cerr << ("error: SAM tag of type 'A' is not a single character: " + tag_val + "\n");
+                        exit(1);
+                    }
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(char), (uint8_t*) &tag_val[0]);
+                    break;
+                case 'i':
+                    // integer
+                {
+                    int32_t val = parse<int32_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(int32_t), (uint8_t*) &val);
+                    break;
+                }
+                case 'f':
+                    // float
+                {
+                    float val = parse<float>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(float), (uint8_t*) &val);
+                    break;
+                }
+                case 'Z':
+                    // string
+                case 'H':
+                    // hex strings are copied as raw strings
+                    bam_aux_append(bam, tag_id, tag_type, tag_val.size() + 1, (uint8_t*) tag_val.c_str());
+                    break;
+                case 'B':
+                {
+                    // the array of values has its own sub-type for entries
+                    char subtype = tag_val.front();
+                    switch (subtype) {
+                        case 'c':
+                            write_array_to_aux<int8_t>(bam, tag_id, tag_val);
+                            break;
+                        case 'C':
+                            write_array_to_aux<uint8_t>(bam, tag_id, tag_val);
+                            break;
+                        case 's':
+                            write_array_to_aux<int16_t>(bam, tag_id, tag_val);
+                            break;
+                        case 'S':
+                            write_array_to_aux<uint16_t>(bam, tag_id, tag_val);
+                            break;
+                        case 'i':
+                            write_array_to_aux<int32_t>(bam, tag_id, tag_val);
+                            break;
+                        case 'I':
+                            write_array_to_aux<uint32_t>(bam, tag_id, tag_val);
+                            break;
+                        case 'f':
+                            write_array_to_aux<float>(bam, tag_id, tag_val);
+                            break;
+                        default:
+                            cerr << ("error: unrecognized array type '" + string(1, subtype) + "' in 'B' type SAM tag\n");
+                            exit(1);
+                            break;
+                    }
+                    break;
+                }
+                default:
+                    cerr << ("error: unrecognized SAM tag type '" + string(1, tag_type) + "'\n");
+                    exit(1);
+                    break;
+            }
+        }
     }
     
     // TODO: this does not seem to be a standardized field (https://samtools.github.io/hts-specs/SAMtags.pdf)

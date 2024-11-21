@@ -865,9 +865,11 @@ bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsign
     return(after == arg.size());    
 }              
 
-// We also have an implementation for doubles (defined in the cpp)
+// We also have an implementation for doubles and floats (defined in the cpp)
 template<>
 bool parse(const string& arg, double& dest);
+template<>
+bool parse(const string& arg, float& dest);
 
 // And one for regular expressions
 template<>
