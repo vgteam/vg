@@ -2180,6 +2180,16 @@ namespace vg {
         });
     }
 
+    // TODO: our proto annotation system actually doesn't seem to allow null annotations...
+    template<class ProtoAlignment1, class ProtoAlignment2>
+    void transfer_between_proto_annotation(const ProtoAlignment1& from, ProtoAlignment2& to) {
+        for_each_basic_annotation(from,
+                                  [&to](const string& name) { return; },
+                                  [&to](const string& name, double value) { set_annotation(to, name, value); },
+                                  [&to](const string& name, bool value) { set_annotation(to, name, value); },
+                                  [&to](const string& name, const string& value) { set_annotation(to, name, value); });
+    }
+
     // transfers the metadata that is shared across all formats
     template<class Alignment1, class Alignment2>
     void transfer_uniform_metadata(const Alignment1& from, Alignment2& to) {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 50
+plan tests 54
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -67,6 +67,19 @@ vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
 LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l)"
 is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
 
+
+printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
+printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
+
+is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
+is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 2"
+is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 1"
+is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
+
+rm t1.bam t2.bam t3.bam tagged1.fq tagged2.fq
 rm -f read.fq read.gam
 rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
