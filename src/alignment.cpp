@@ -130,25 +130,32 @@ bam_hdr_t* hts_string_header(string& header,
     return h;
 }
 
-bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment) {
+bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment, bool comment_as_tags) {
 
     alignment.Clear();
     bool is_fasta = false;
     // handle name
-    string name;
+    string name_line;
     if (gzgets(fp,buffer,len) != 0) {
         buffer[strlen(buffer)-1] = '\0';
-        name = buffer;
-        if (name[0] == '@') {
+        name_line = buffer;
+        if (name_line[0] == '@') {
             is_fasta = false;
-        } else if (name[0] == '>') {
+        } else if (name_line[0] == '>') {
             is_fasta = true;
         } else {
-            throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
+            throw runtime_error("Found unexpected delimiter " + name_line.substr(0,1) + " in fastq/fasta input");
         }
-        name = name.substr(1, name.find(' ') - 1); // trim off leading @ and things after the first whitespace
-        // keep trailing /1 /2
-        alignment.set_name(name);
+        // trim off leading @ and things after the first whitespace, keep trailing /1 /2
+        auto div = name_line.find_first_of(whitespace);
+        alignment.set_name(name_line.substr(1, div - 1));
+        if (comment_as_tags && div < name_line.size()) {
+            // interpret comments as SAM-style tags
+            auto tags = split_delims(name_line.substr(div + 1, string::npos), whitespace);
+            auto new_end = remove_if(tags.begin(), tags.end(), [](const string& str) { return str.empty(); });
+            tags.resize(new_end - tags.begin());
+            set_annotation(alignment, "tags", tags);
+        }
     }
     else {
         // no more to get
@@ -161,7 +168,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         if (gzgets(fp,buffer,len) == 0) {
             if (sequence.empty()) {
                 // there was no sequence
-                throw runtime_error("[vg::alignment.cpp] incomplete fastq/fasta record " + name);
+                throw runtime_error("[vg::alignment.cpp] incomplete fastq/fasta record " + alignment.name());
             }
             else {
                 // we hit the end of the file
@@ -202,7 +209,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     if (!is_fasta) {
         if (0!=gzgets(fp,buffer,len)) {
         } else {
-            cerr << "[vg::alignment.cpp] error: incomplete fastq record " << name << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: incomplete fastq record " << alignment.name() << endl; exit(1);
         }
         // handle quality
         if (0!=gzgets(fp,buffer,len)) {
@@ -211,7 +218,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
             //cerr << string_quality_short_to_char(quality) << endl;
             alignment.set_quality(quality);
         } else {
-            cerr << "[vg::alignment.cpp] error: fastq record missing base quality " << name << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: fastq record missing base quality " <<  alignment.name() << endl; exit(1);
         }
     }
 
@@ -219,15 +226,15 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
 
 }
 
-bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
-    return get_next_alignment_from_fastq(fp, buffer, len, mate1) && get_next_alignment_from_fastq(fp, buffer, len, mate2);
+bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2, bool comment_as_tags) {
+    return get_next_alignment_from_fastq(fp, buffer, len, mate1, comment_as_tags) && get_next_alignment_from_fastq(fp, buffer, len, mate2, comment_as_tags);
 }
 
-bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
-    return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
+bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2, bool comment_as_tags) {
+    return get_next_alignment_from_fastq(fp1, buffer, len, mate1, comment_as_tags) && get_next_alignment_from_fastq(fp2, buffer, len, mate2, comment_as_tags);
 }
 
-size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda, uint64_t batch_size) {
+size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda, bool comment_as_tags, uint64_t batch_size) {
     
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
@@ -238,7 +245,7 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     char* buf = new char[len];
     
     function<bool(Alignment&)> get_read = [&](Alignment& aln) {
-        return get_next_alignment_from_fastq(fp, buf, len, aln);;
+        return get_next_alignment_from_fastq(fp, buf, len, aln, comment_as_tags);
     };
     
     
@@ -250,17 +257,18 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     
 }
 
-size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda, uint64_t batch_size) {
-    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;}, batch_size);
+size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags, uint64_t batch_size) {
+    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;}, comment_as_tags, batch_size);
 }
     
-size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda, uint64_t batch_size) {
-    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;}, batch_size);
+size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags, uint64_t batch_size) {
+    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;}, comment_as_tags, batch_size);
 }
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
                                                              function<bool(void)> single_threaded_until_true,
+                                                             bool comment_as_tags,
                                                              uint64_t batch_size) {
     
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
@@ -272,7 +280,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     char* buf = new char[len];
     
     function<bool(Alignment&, Alignment&)> get_pair = [&](Alignment& mate1, Alignment& mate2) {
-        return get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
+        return get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2, comment_as_tags);
     };
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true, batch_size);
@@ -285,6 +293,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
                                                            function<bool(void)> single_threaded_until_true,
+                                                           bool comment_as_tags,
                                                            uint64_t batch_size) {
     
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
@@ -300,7 +309,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     char* buf = new char[len];
     
     function<bool(Alignment&, Alignment&)> get_pair = [&](Alignment& mate1, Alignment& mate2) {
-        return get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
+        return get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2, comment_as_tags);
     };
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true, batch_size);
@@ -311,7 +320,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     return nLines;
 }
 
-size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda) {
+size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda, bool comment_as_tags) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
@@ -320,7 +329,7 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
     size_t nLines = 0;
     char *buffer = new char[len];
     Alignment alignment;
-    while(get_next_alignment_from_fastq(fp, buffer, len, alignment)) {
+    while(get_next_alignment_from_fastq(fp, buffer, len, alignment, comment_as_tags)) {
         lambda(alignment);
         nLines++;
     }
@@ -329,7 +338,7 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
     return nLines;
 }
 
-size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
+size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
@@ -338,7 +347,7 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
     size_t nLines = 0;
     char *buffer = new char[len];
     Alignment mate1, mate2;
-    while(get_next_interleaved_alignment_pair_from_fastq(fp, buffer, len, mate1, mate2)) {
+    while(get_next_interleaved_alignment_pair_from_fastq(fp, buffer, len, mate1, mate2, comment_as_tags)) {
         lambda(mate1, mate2);
         nLines++;
     }
@@ -348,7 +357,7 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
 }
 
 
-size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
+size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
         cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
@@ -361,7 +370,7 @@ size_t fastq_paired_two_files_for_each(const string& file1, const string& file2,
     size_t nLines = 0;
     char *buffer = new char[len];
     Alignment mate1, mate2;
-    while(get_next_alignment_pair_from_fastqs(fp1, fp2, buffer, len, mate1, mate2)) {
+    while(get_next_alignment_pair_from_fastqs(fp1, fp2, buffer, len, mate1, mate2, comment_as_tags)) {
         lambda(mate1, mate2);
         nLines++;
     }

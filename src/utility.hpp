@@ -44,6 +44,8 @@ void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
+// all whitespace characters
+const std::string whitespace = " \t\n\v\f\r";
 // split a string on any character found in the string of delimiters (delims)
 // if max_cuts specified, only split at the first <max_cuts> delimiter occurrences
 std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems,
