@@ -621,7 +621,6 @@ string alignment_to_sam(const Alignment& alignment,
 vector<tuple<string, char, string>> parse_sam_tags(const vector<string>& tags) {
     
     vector<tuple<string, char, string>> parsed;
-    // split by whitespace
     for (const auto& tag : tags) {
         if (tag.empty()) {
             continue;
@@ -1322,6 +1321,23 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
+vector<string> bam_tag_strings(const bam1_t* b) {
+    
+    vector<string> tag_strings;
+    for (uint8_t* iter = bam_aux_first(b); iter != NULL; iter = bam_aux_next(b, iter)) {
+        // tag name
+        char name[2];
+        name[0] = iter[0];
+        name[1] = iter[1];
+        kstring_t kstr;
+        ks_initialize(&kstr);
+        bam_aux_get_str(b, name, &kstr);
+        tag_strings.emplace_back(ks_c_str(&kstr));
+        ks_release(&kstr);
+    }
+    return tag_strings;
+}
+
 Alignment bam_to_alignment(const bam1_t *b,
                            const map<string, string>& rg_sample,
                            const map<int, path_handle_t>& tid_path_handle,
@@ -1342,18 +1358,6 @@ Alignment bam_to_alignment(const bam1_t *b,
     uint8_t* seqptr = bam_get_seq(b);
     for (int i = 0; i < lqseq; ++i) {
         sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
-    }
-
-    // get the read group and sample name
-    uint8_t *rgptr = bam_aux_get(b, "RG");
-    string read_group;
-    string sname;
-    if (rgptr && !rg_sample.empty()) {
-        read_group = string((char*) (rgptr+1));
-        auto found = rg_sample.find(read_group);
-        if (found != rg_sample.end()) {
-            sname = found->second; 
-        }
     }
 
     // Now name the read after the scaffold
@@ -1389,9 +1393,11 @@ Alignment bam_to_alignment(const bam1_t *b,
         alignment.set_quality(quality);
         
     }
+    alignment.set_read_paired((b->core.flag & BAM_FPAIRED) != 0);
     
     if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
         alignment.set_mapping_quality(b->core.qual);
+        alignment.set_read_mapped(true);
         // Look for the path handle this is against.
         auto found = tid_path_handle.find(b->core.tid);
         if (found == tid_path_handle.end()) {
@@ -1404,10 +1410,39 @@ Alignment bam_to_alignment(const bam1_t *b,
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
-    if (!sname.empty()) {
-        alignment.set_sample_name(sname);
-        // We know the sample name came from a read group
-        alignment.set_read_group(read_group);
+    
+    // get the tags
+    auto tags = bam_tag_strings(b);
+    // handle the tags that are given special fields in GAM
+    size_t removed = 0;
+    for (size_t i = 0; i < tags.size(); ++i) {
+        auto& tag = tags[i];
+        auto tag_name = tag.substr(0, 2);
+        if (tag_name == "RG") {
+            string read_group = tag.substr(5, string::npos);
+            alignment.set_read_group(read_group);
+            auto it = rg_sample.find(read_group);
+            if (it != rg_sample.end()) {
+                alignment.set_sample_name(it->second);
+            }
+            ++removed;
+        }
+        else if (tag_name == "AS") {
+            alignment.set_score(parse<int64_t>(tag.substr(5, string::npos)));
+            ++removed;
+        }
+        else if (removed != 0) {
+            tags[i - removed] = std::move(tag);
+        }
+    }
+    
+    if (removed != 0) {
+        tags.resize(tags.size() - removed);
+    }
+    
+    // save the other tags as an annotation
+    if (!tags.empty()) {
+        set_annotation(alignment, "tags", tags);
     }
 
     return alignment;
