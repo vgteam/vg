@@ -89,7 +89,7 @@ is "${REF_COUNT_V}" "${REF_COUNT_A}" "Same number of reference calls with -a as 
 
 # Output snarl traversals into a GBWT then genotype that
 vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -T | gzip > HGSVC_travs.gaf.gz
-vg index HGSVC_alts.xg -F HGSVC_travs.gaf.gz -G HGSVC_travs.gbwt
+vg gbwt -o HGSVC_travs.gbwt -x HGSVC_alts.xg -A HGSVC_travs.gaf.gz
 vg call HGSVC_alts.xg -k HGSVC_alts.pack  -g HGSVC_travs.gbwt -s HG00514 > HGSVC_travs.vcf
 vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 > HGSVC_direct.vcf
 # extract the called genotypes

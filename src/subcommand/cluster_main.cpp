@@ -470,7 +470,11 @@ int main_cluster(int argc, char** argv) {
                 //Find the minimizers and then the seeds using the minimizer mapper
                 minimizers_in_read = minimizer_mapper.find_minimizers(aln.sequence(), funnel);
                 // Indexes of minimizers, sorted into score order, best score first
-                std::vector<size_t> minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read);
+                LazyRNG rng([&]() {
+                    return aln.sequence();
+                });
+                std::vector<size_t> minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read, rng);
+
                 // Minimizers sorted by best score first
                 minimizers = {minimizers_in_read, minimizer_score_order};
                 

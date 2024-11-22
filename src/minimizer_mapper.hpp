@@ -123,6 +123,13 @@ public:
     static constexpr size_t default_minimizer_downsampling_max_window_length = std::numeric_limits<size_t>::max();
     size_t minimizer_downsampling_max_window_length = default_minimizer_downsampling_max_window_length;
 
+    //We allow additional seeds past the maximum number of seeds allowed if they cover a region of the read that
+    //was not covered by accepted seeds.
+    //The coverage of a seed is its sequence plus the seed_coverage_flank on either end
+    static constexpr size_t default_minimizer_coverage_flank = 250;
+    size_t minimizer_coverage_flank = default_minimizer_coverage_flank;
+
+
     /// Maximum number of distinct minimizers to take
     static constexpr size_t default_max_unique_min = 500;
     size_t max_unique_min = default_max_unique_min;
@@ -366,6 +373,11 @@ public:
     /// Limit the min chain score to no more than this.
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;
+
+    /// When turning chains into alignments, we can skip seeds to create gaps up to this
+    /// length in the graph
+    static constexpr size_t default_max_skipped_bases = 0;
+    size_t max_skipped_bases = default_max_skipped_bases;
     
     /// How long of a DP can we do before Dozeu gets lost at traceback due to
     /// 16-bit score overflow?
@@ -383,6 +395,10 @@ public:
     /// How many gap bases should we allow in a Dozeu tail alignment, max?
     static constexpr size_t default_max_tail_gap = std::numeric_limits<size_t>::max();
     size_t max_tail_gap = default_max_tail_gap;
+
+    /// How many gap bases should we allow in a between-seed alignment, max?
+    static constexpr size_t default_max_middle_gap = std::numeric_limits<size_t>::max();
+    size_t max_middle_gap = default_max_middle_gap;
     
     /// How many mismatch bases (or equivalent score of indels) should we allow in WFA connections and tails?
     static constexpr int default_wfa_max_mismatches = 2;
@@ -548,6 +564,7 @@ public:
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+        bool is_repetitive; //Is this minimizer in a repetitive region of the read based on its neighbors
 
         // Sort the minimizers in descending order by score and group identical minimizers together.
         inline bool operator< (const Minimizer& another) const {
@@ -668,11 +685,16 @@ protected:
      * return them sorted in read order.
      */
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Flag minimizers as being in repetitive regions of the read
+     */
+    void flag_repetitive_minimizers(std::vector<Minimizer>& minimizers_in_read_order) const;
     
     /**
      * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.
      */
-    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order) const;
+    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order, LazyRNG& rng) const;
 
     /**
      * Find seeds for all minimizers passing the filters. Takes in minimizers

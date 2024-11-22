@@ -29,6 +29,7 @@ void help_gamcompare(char** argv) {
          << "    -d, --distance-index FILE  use distances from this distance index instead of path position annotations" << endl
          << "    -r, --range N              distance within which to consider reads correct" << endl
          << "    -n, --rename Q=T           interpret the given query contig name as the given truth contig (may repeat)" << endl
+         << "    -I, --ignore T             ignore the given truth contig name (may repeat)" << endl
          << "    -o, --output-gam FILE      output GAM annotated with correctness to FILE instead of standard output" << endl
          << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R to standard output" << endl
          << "    -a, --aligner              aligner name for TSV output [\"vg\"]" << endl
@@ -102,6 +103,8 @@ int main_gamcompare(int argc, char** argv) {
     string distance_name;
     // Map from query contigs to corresponding truth contigs
     std::unordered_map<string, string> renames;
+    // Keep a set of ignored truth contigs
+    std::unordered_set<std::string> ignores;
 
     int c;
     optind = 2;
@@ -112,6 +115,7 @@ int main_gamcompare(int argc, char** argv) {
             {"distance-index", required_argument, 0, 'd'},
             {"range", required_argument, 0, 'r'},
             {"rename", required_argument, 0, 'n'},
+            {"ignore", required_argument, 0, 'I'},
             {"output-gam", required_argument, 0, 'o'},
             {"tsv", no_argument, 0, 'T'},
             {"aligner", required_argument, 0, 'a'},
@@ -121,7 +125,7 @@ int main_gamcompare(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:r:n:o:Ta:st:",
+        c = getopt_long (argc, argv, "hd:r:I:n:o:Ta:st:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -149,6 +153,10 @@ int main_gamcompare(int argc, char** argv) {
                 // Add the name mapping
                 renames.emplace(query_contig, truth_contig);
             }
+            break;
+
+        case 'I':
+            ignores.insert(optarg);
             break;
 
         case 'd':
@@ -194,12 +202,30 @@ int main_gamcompare(int argc, char** argv) {
     // True path positions. For each alignment name, store a mapping from reference path names
     // to sets of (sequence offset, is_reverse). There is usually either one position per
     // alignment or one position per node.
-    vg::string_hash_map<string, map<string, vector<pair<size_t, bool> > > > true_path_positions;
-    function<void(Alignment&)> record_path_positions = [&true_path_positions](Alignment& aln) {
+    vg::string_hash_map<string, map<string, vector<pair<size_t, bool>>>> true_path_positions;
+    function<void(Alignment&)> record_path_positions = [&true_path_positions,&ignores](Alignment& aln) {
         if (aln.refpos_size() > 0) {
-            auto val = alignment_refpos_to_path_offsets(aln);
-#pragma omp critical (truth_table)
-            true_path_positions[aln.name()] = val;
+            std::map<std::string, std::vector<std::pair<size_t, bool>>> val = alignment_refpos_to_path_offsets(aln);
+
+            // TODO: Is it faster to poll all the contigs against the ignores
+            // list and drop them as we go, or look up and remove each ignored
+            // contig?
+            auto it = val.begin();
+            while(it != val.end()) {
+                // See if each contig we have a position on is ignored.
+                if (ignores.count(it->first)) {
+                    // Drop this contig
+                    it = val.erase(it);
+                } else {
+                    // Keep this contig
+                    ++it;
+                }
+            }
+
+            if (!val.empty()) {
+                #pragma omp critical (truth_table)
+                true_path_positions[aln.name()] = val;
+            }
         }
     };
 

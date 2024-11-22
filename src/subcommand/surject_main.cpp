@@ -3,7 +3,9 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <ctime>
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <set>
@@ -50,6 +52,7 @@ void help_surject(char** argv) {
          << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
          << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -I, --max-slide N        look for offset duplicates of anchors up to N bp away when pruning (default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
          << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
@@ -59,7 +62,8 @@ void help_surject(char** argv) {
          << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
          << "  -C, --compression N      level for compression [0-9]" << endl
          << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
-         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl;
+         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl
+         << "  -r, --progress           show progress" << endl;
 }
 
 /// If the given alignment doesn't make sense against the given graph (i.e.
@@ -103,10 +107,12 @@ int main_surject(int argc, char** argv) {
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
     bool prune_anchors = false;
+    int64_t max_slide = Surjector::DEFAULT_MAX_SLIDE;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
     bool validate = true;
+    bool show_progress = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -131,6 +137,7 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
             {"sample", required_argument, 0, 'N'},
@@ -140,11 +147,12 @@ int main_surject(int argc, char** argv) {
             {"compress", required_argument, 0, 'C'},
             {"no-validate", required_argument, 0, 'V'},
             {"watchdog-timeout", required_argument, 0, 'w'},
+            {"progress", no_argument, 0, 'r'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPa:ALMVw:",
+        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPI:a:ALMVw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -214,6 +222,10 @@ int main_surject(int argc, char** argv) {
         case 'P':
             prune_anchors = true;
             break;
+
+        case 'I':
+            max_slide = parse<int64_t>(optarg);
+            break;
             
         case 'a':
             max_anchors = parse<size_t>(optarg);
@@ -245,6 +257,10 @@ int main_surject(int argc, char** argv) {
             
         case 'w':
             watchdog_timeout = parse<size_t>(optarg);
+            break;
+
+        case 'r':
+            show_progress = true;
             break;
             
         case 't':
@@ -290,7 +306,13 @@ int main_surject(int argc, char** argv) {
     // use with reference paths.
     bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
+        if (show_progress) {
+            cerr << "Loading graph..." << endl;
+        }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        if (show_progress) {
+            cerr << "Applying overlay..." << endl;
+        }
         xgidx = overlay_helper.apply(path_handle_graph.get());
     } else {
         // We need an XG index for the rest of the algorithm
@@ -298,6 +320,10 @@ int main_surject(int argc, char** argv) {
         exit(1);
     }
     
+    if (show_progress) {
+        cerr << "Finding paths..." << endl;
+    }
+
     // Get the paths to surject into and their length information, either from
     // the given file, or from the provided list, or from sniffing the graph.
     vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *xgidx);
@@ -310,11 +336,16 @@ int main_surject(int argc, char** argv) {
     for (auto& entry : sequence_dictionary) {
         paths.insert(get<0>(entry));
     }
-    
+
+    if (show_progress) {
+        cerr << "Building Surjector for " << paths.size() << " paths..." << endl;
+    }
+
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
     surjector.prune_suspicious_anchors = prune_anchors;
+    surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
     if (spliced) {
         surjector.min_splice_length = min_splice_length;
@@ -337,6 +368,14 @@ int main_surject(int argc, char** argv) {
     
     // Prepare the watchdog
     unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(watchdog_timeout)));
+
+    std::atomic<size_t> total_reads_surjected(0);
+
+    if (show_progress) {
+        cerr << "Surjecting on " << thread_count << " threads..." << endl;
+    }
+
+    clock_t cpu_time_before = clock();
     
     if (input_format == "GAM" || input_format == "GAF") {
         
@@ -438,18 +477,18 @@ int main_surject(int argc, char** argv) {
                             auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
                             if (it != strand_idx2.end()) {
                                 // the alignments are paired on this strand
-                                alignment_emitter->emit_pair(move(surjected1[i]), move(surjected2[it->second]), max_frag_len);
+                                alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[it->second]), max_frag_len);
                             }
                             else {
                                 // this strand's surjection is unpaired
-                                alignment_emitter->emit_single(move(surjected1[i]));
+                                alignment_emitter->emit_single(std::move(surjected1[i]));
                             }
                         }
                         for (size_t i = 0; i < surjected2.size(); ++i) {
                             const auto& pos = surjected2[i].refpos(0);
                             if (!strand_idx1.count(make_pair(pos.name(), !pos.is_reverse()))) {
                                 // this strand's surjection is unpaired
-                                alignment_emitter->emit_single(move(surjected2[i]));
+                                alignment_emitter->emit_single(std::move(surjected2[i]));
                             }
                         }
                     }
@@ -459,6 +498,7 @@ int main_surject(int argc, char** argv) {
                                                      surjector.surject(src2, paths, subpath_global, spliced),
                                                      max_frag_len);
                     }
+                    total_reads_surjected += 2;
                     if (watchdog) {
                         watchdog->check_out(thread_num);
                     }
@@ -503,6 +543,7 @@ int main_surject(int argc, char** argv) {
                     else {
                         alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
                     }
+                    total_reads_surjected++;
                     if (watchdog) {
                         watchdog->check_out(thread_num);
                     }
@@ -602,7 +643,7 @@ int main_surject(int argc, char** argv) {
                                 if (it != strand_idx2.end()) {
                                     // the alignments are paired on this strand
                                     size_t j = it->second;
-                                    surjected.emplace_back(move(surjected1[i]), move(surjected2[j]));
+                                    surjected.emplace_back(std::move(surjected1[i]), std::move(surjected2[j]));
                                     
                                     // reorder the positions to deal with the mismatch in the interfaces
                                     positions.emplace_back();
@@ -615,11 +656,11 @@ int main_surject(int argc, char** argv) {
                                 }
                                 else {
                                     // this strand's surjection is unpaired
-                                    surjected_unpaired1.emplace_back(move(surjected1[i]));
+                                    surjected_unpaired1.emplace_back(std::move(surjected1[i]));
                                     
                                     // reorder the position to deal with the mismatch in the interfaces
                                     positions_unpaired1.emplace_back();
-                                    get<0>(positions_unpaired1.back()) = move(get<0>(positions1[i]));
+                                    get<0>(positions_unpaired1.back()) = std::move(get<0>(positions1[i]));
                                     get<1>(positions_unpaired1.back()) = get<2>(positions1[i]);
                                     get<2>(positions_unpaired1.back()) = get<1>(positions1[i]);
                                 }
@@ -627,11 +668,11 @@ int main_surject(int argc, char** argv) {
                             for (size_t i = 0; i < surjected2.size(); ++i) {
                                 if (!strand_idx1.count(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])))) {
                                     // this strand's surjection is unpaired
-                                    surjected_unpaired2.emplace_back(move(surjected2[i]));
+                                    surjected_unpaired2.emplace_back(std::move(surjected2[i]));
                                     
                                     // reorder the position to deal with the mismatch in the interfaces
                                     positions_unpaired2.emplace_back();
-                                    get<0>(positions_unpaired2.back()) = move(get<0>(positions2[i]));
+                                    get<0>(positions_unpaired2.back()) = std::move(get<0>(positions2[i]));
                                     get<1>(positions_unpaired2.back()) = get<2>(positions2[i]);
                                     get<2>(positions_unpaired2.back()) = get<1>(positions2[i]);
                                 }
@@ -651,10 +692,12 @@ int main_surject(int argc, char** argv) {
                                             
                         // write to output
                         vector<int64_t> tlen_limits(surjected.size(), max_frag_len);
-                        mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
-                        mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
-                        mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);
+                        mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), std::move(surjected), &positions, &tlen_limits);
+                        mp_alignment_emitter.emit_singles(src1.name(), std::move(surjected_unpaired1), &positions_unpaired1);
+                        mp_alignment_emitter.emit_singles(src2.name(), std::move(surjected_unpaired2), &positions_unpaired2);
                         
+                        total_reads_surjected += 2;
+
                         if (watchdog) {
                             watchdog->check_out(thread_num);
                         }
@@ -687,7 +730,7 @@ int main_surject(int argc, char** argv) {
                             
                             // positions are in different orders in these two interfaces
                             for (auto& position : multi_positions) {
-                                positions.emplace_back(move(get<0>(position)), get<2>(position), get<1>(position));
+                                positions.emplace_back(std::move(get<0>(position)), get<2>(position), get<1>(position));
                             }
                         }
                         else {
@@ -698,8 +741,10 @@ int main_surject(int argc, char** argv) {
                         }
                         
                         // write to output
-                        mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
+                        mp_alignment_emitter.emit_singles(src.name(), std::move(surjected), &positions);
                     
+                        total_reads_surjected++;
+
                         if (watchdog) {
                             watchdog->check_out(thread_num);
                         }
@@ -716,6 +761,19 @@ int main_surject(int argc, char** argv) {
     }
     
     cout.flush();
+
+    clock_t cpu_time_after = clock();
+
+    // Compute CPU time elapsed
+    double cpu_seconds = (cpu_time_after - cpu_time_before) / (double)CLOCKS_PER_SEC;
+
+    if (show_progress) {
+        // Log to standard error
+        cerr << "Surjected " << total_reads_surjected << " reads in " << cpu_seconds << " CPU-seconds" << endl;
+        if (cpu_seconds > 0) {
+            cerr << "Surjected at " << total_reads_surjected / cpu_seconds << " RPS per thread" << endl;
+        }
+    }
     
     return 0;
 }

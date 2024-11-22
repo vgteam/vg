@@ -178,6 +178,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "use at most INT minimizers, 0 for no limit"
     );
     comp_opts.add_range(
+        "min-coverage-flank",
+        &MinimizerMapper::minimizer_coverage_flank,
+        MinimizerMapper::default_minimizer_coverage_flank,
+        "when trying to cover the read with minimizers, count INT towards the coverage of each minimizer on each side"
+    );
+    comp_opts.add_range(
         "num-bp-per-min",
         &MinimizerMapper::num_bp_per_min,
         MinimizerMapper::default_num_bp_per_min,
@@ -538,6 +544,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         int_is_nonnegative
     );
     chaining_opts.add_range(
+        "max-skipped-bases",
+        &MinimizerMapper::max_skipped_bases,
+        MinimizerMapper::default_max_skipped_bases,
+        "when skipping seeds in a chain for alignment, allow a gap of at most INT in the graph"
+    );
+    chaining_opts.add_range(
         "max-chains-per-tree",
         &MinimizerMapper::max_chains_per_tree,
         MinimizerMapper::default_max_chains_per_tree,
@@ -568,6 +580,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         &MinimizerMapper::max_tail_gap,
         MinimizerMapper::default_max_tail_gap,
         "maximum number of gap bases to allow in a Dozeu tail"
+    );
+    chaining_opts.add_range(
+        "max-middle-gap",
+        &MinimizerMapper::max_middle_gap,
+        MinimizerMapper::default_max_middle_gap,
+        "maximum number of gap bases to allow in a middle connection"
     );
     chaining_opts.add_range(
         "max-tail-dp-length",
@@ -928,10 +946,12 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("min-chain-score-per-base", 0.06)
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<int>("max-min-chain-score", 100)
+        .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
@@ -988,10 +1008,12 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<double>("min-chain-score-per-base", 0.06)
         .add_entry<int>("max-min-chain-score", 500.0)
+        .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
         .add_entry<size_t>("max-tail-length", 68)
         .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
