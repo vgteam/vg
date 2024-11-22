@@ -2587,8 +2587,8 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
     };
 
     // Have a way to get the score to use to sort alignments, which is configurable
-    auto get_sorting_score = [&](size_t alignment_number, bool get_chain_score) -> double {
-        if (get_chain_score) {
+    auto get_sorting_score = [&](size_t alignment_number) -> double {
+        if (this->sort_by_chain_score) {
             // Use the chain's score to rank the alignments
             size_t chain_number = alignments_to_source.at(alignment_number);
             if (chain_number == std::numeric_limits<size_t>::max()) {
@@ -2606,22 +2606,8 @@ void MinimizerMapper::pick_mappings_from_alignments(Alignment& aln, const std::v
     scores.reserve(alignments.size());
     
     // Go through the alignments in descending score order, with ties at the top end shuffled.
-    process_until_threshold_c(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        return get_sorting_score(i, this->sort_by_chain_score);
-    }, (std::function<bool(size_t, size_t)>) [&](size_t a, size_t b) -> bool {
-        if (this->break_ties_by_chain_score) {
-            //If the scores differ by less than 0.01% of the higher score, then sort by the other score instead
-            float score_a = get_sorting_score(a, this->sort_by_chain_score);
-            float score_b = get_sorting_score(b, this->sort_by_chain_score);
-            if ((std::max(score_a, score_b) - std::min(score_a, score_b)) / std::max(score_a, score_b) > 0.0001) {
-                return score_a > score_b;
-            } else {
-                //If the scores are too similar, then check the secondary scores
-                return get_sorting_score(a, !this->sort_by_chain_score) > get_sorting_score(b, !this->sort_by_chain_score);
-            }
-        } else {
-            return get_sorting_score(a, this->sort_by_chain_score) > get_sorting_score(b, this->sort_by_chain_score);
-        }
+    process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
+        return get_sorting_score(i);
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
