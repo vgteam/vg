@@ -543,7 +543,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("GBZ", "gbz");
     registry.register_index("Giraffe GBZ", "giraffe.gbz");
     
-    registry.register_index("Minimizers", "min");
+    registry.register_index("Minimizers", "withzip.min");
+    registry.register_index("Zipcodes", "zipcodes");
     
     /*********************
      * Register all recipes
@@ -4069,13 +4070,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+    registry.register_recipe({"Minimizers", "Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing minimizer index." << endl;
+            cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
         }
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?
@@ -4088,9 +4089,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto dist_filename = dist_filenames.front();
         auto gbz_filename = gbz_filenames.front();
                 
-        assert(constructing.size() == 1);
+        assert(constructing.size() == 2);
         vector<vector<string>> all_outputs(constructing.size());
         auto minimizer_output = *constructing.begin();
+        auto zipcode_output = *constructing.rbegin();
         auto& output_names = all_outputs[0];
         
 
@@ -4107,16 +4109,57 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
+        //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
+        ZipCodeCollection oversized_zipcodes;
+        
+        //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
+        //only get stored once. This maps node id to the index in oversized_zipcodes
+        hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::Payload {
             ZipCode zip;
             zip.fill_in_zipcode(*distance_index, pos);
-            return zip.get_payload_from_zip();
+
+            auto payload = zip.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                //If the zipcode is small enough to store in the payload
+                return payload;
+            } else {
+                //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
+                //And remember the zipcode
+            
+                //Fill in the decoder to be saved too
+                zip.fill_in_full_decoder();
+            
+            
+                size_t zip_index;
+                #pragma omp critical
+                {
+                if (node_id_to_zipcode_index.count(id(pos))) {
+                    zip_index = node_id_to_zipcode_index.at(id(pos));
+                } else {
+                    oversized_zipcodes.emplace_back(zip);
+                    zip_index = oversized_zipcodes.size() - 1;
+                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
+                }
+                }
+                return {0, zip_index};
+            }
+
+
         });
         
         string output_name = plan->output_filepath(minimizer_output);
         save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        string zipcodes_output_name = plan->output_filepath(zipcode_output);
+        //Write the larger zipcodes to a file
+        ofstream zip_out (zipcodes_output_name);
+        oversized_zipcodes.serialize(zip_out);
+        zip_out.close();
         
         output_names.push_back(output_name);
+        output_names.push_back(zipcodes_output_name);
         return all_outputs;
     });
     
@@ -4155,7 +4198,8 @@ vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
         "Giraffe Distance Index",
         "Giraffe GBZ",
-        "Minimizers"
+        "Minimizers",
+        "Zipcodes"
     };
     return indexes;
 }
