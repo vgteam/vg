@@ -151,10 +151,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         alignment.set_name(name_line.substr(1, div - 1));
         if (comment_as_tags && div < name_line.size()) {
             // interpret comments as SAM-style tags
-            auto tags = split_delims(name_line.substr(div + 1, string::npos), whitespace);
-            auto new_end = remove_if(tags.begin(), tags.end(), [](const string& str) { return str.empty(); });
-            tags.resize(new_end - tags.begin());
-            set_annotation(alignment, "tags", tags);
+            set_annotation(alignment, "tags", name_line.substr(div + 1, string::npos));
         }
     }
     else {
@@ -485,7 +482,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const int32_t tlen,
                                  bool paired,
                                  const int32_t tlen_max) {
-
+    
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
     
@@ -543,9 +540,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
     if (has_annotation(alignment, "tags")) {
-        for (const auto& tag : get_annotation<vector<string>>(alignment, "tags")) {
-            sam << '\t' << tag;
-        }
+        sam << '\t' << get_annotation<string>(alignment, "tags");
     }
     sam << "\n";
     return sam.str();
@@ -627,10 +622,10 @@ string alignment_to_sam(const Alignment& alignment,
 
 }
 
-vector<tuple<string, char, string>> parse_sam_tags(const vector<string>& tags) {
+vector<tuple<string, char, string>> parse_sam_tags(const string& tags) {
     
     vector<tuple<string, char, string>> parsed;
-    for (const auto& tag : tags) {
+    for (const auto& tag : split_delims(tags, whitespace)) {
         if (tag.empty()) {
             continue;
         }
@@ -649,6 +644,10 @@ void write_array_to_aux(bam1_t* bam, const char* tag_name, const string& arr_str
     
     vector<T> parsed;
     for (const auto& token : split_delims(arr_string.substr(1, string::npos), ",")) {
+        if (token.empty()) {
+            // there is a leading ','
+            continue;
+        }
         parsed.push_back(parse<T>(token));
     }
     // size includes array type and length
@@ -878,8 +877,14 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
-        auto parsed_tags = parse_sam_tags(get_annotation<vector<string>>(alignment, "tags"));
+        // encode the alignments SAM tags
+        auto parsed_tags = parse_sam_tags(get_annotation<string>(alignment, "tags"));
         for (const auto& tag : parsed_tags) {
+            
+            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS") {
+                // we handle these tags separately
+                continue;
+            }
             
             const char* tag_id = get<0>(tag).c_str();
             char tag_type = get<1>(tag);
@@ -1451,7 +1456,14 @@ Alignment bam_to_alignment(const bam1_t *b,
     
     // save the other tags as an annotation
     if (!tags.empty()) {
-        set_annotation(alignment, "tags", tags);
+        string joined_tags;
+        for (size_t i = 0; i < tags.size(); ++i) {
+            if (i) {
+                joined_tags.push_back('\t');
+            }
+            joined_tags.append(tags[i]);
+        }
+        set_annotation(alignment, "tags", joined_tags);
     }
 
     return alignment;

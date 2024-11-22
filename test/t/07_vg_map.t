@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 55
+plan tests 59
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -197,4 +197,19 @@ vg view -Fv graphs/revdrop.gfa >x.vg
 vg index -x x.xg -g x.gcsa x.vg
 is $(vg map -s GGTAGGGAACATTAAGGGTATGGAATTGGCAGGACAAGGCACCTGACTGGATTGGGAGAGATAAAGAGGAAAAGCGTCGAGAATGAGCTTGGTGCACTTTGGGCACAGGTGAGTATGCAGAGCGCAACAGGAGGCCTTGGGAACTCATAA -d x -j --xdrop | jq .score) 130 "xdrop works on a reversed read"
 
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+
+printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
+printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
+vg map -x x.xg  -g x.gcsa --comments-as-tags -f tagged1.fq --surject-to bam > t1.bam
+vg map -x x.xg  -g x.gcsa --comments-as-tags -f tagged2.fq --surject-to bam > t2.bam
+vg map -x x.xg  -g x.gcsa --comments-as-tags -f tagged1.fq -f tagged2.fq --surject-to bam > t3.bam
+
+is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on read 1"
+is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on read 2"
+is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on paired read 1"
+is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on paired read 2"
+
+rm tagged1.fq tagged2.fq t1.bam t2.bam t3.bam
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp

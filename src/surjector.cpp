@@ -427,6 +427,9 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     mp_alns_out->back().set_annotation("all_scores", annotation_string);
                 }
+#ifdef debug_anchored_surject
+                cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
+#endif
             }
             
             // use this info to set the path position
