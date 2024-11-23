@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 54
+plan tests 55
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -35,7 +35,7 @@ is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 
-is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l)" "1" "Mapping logs runtime per read"
+is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l | sed 's/^[[:space:]]*//')" "1" "Mapping logs runtime per read"
 
 is "$(vg view -aj mapped1.gam | jq '.score')" "73" "Mapping produces the correct score"
 
@@ -64,7 +64,7 @@ echo "+" >>read.fq
 echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
-LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l)"
+LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l | sed 's/^[[:space:]]*//')"
 is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
 
 
@@ -73,13 +73,17 @@ printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGT
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
+
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
 is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 2"
 is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 1"
 is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on paired read 2"
+is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "GAF tags are preserved on read 1"
 
-rm t1.bam t2.bam t3.bam tagged1.fq tagged2.fq
+
+rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
 rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
@@ -115,16 +119,16 @@ is "$(jq '.path' mapped1.json)" "$(jq '.path' mapped.sync.json)" "mapping with s
 rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
-is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l)" "1000" "unpaired reads lack cross-references"
+is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "1000" "unpaired reads lack cross-references"
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-mean 300 --fragment-stdev 100 > paired.gam
-is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l)" "0" "paired reads have cross-references"
+is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "0" "paired reads have cross-references"
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
-is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
+is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's/^[[:space:]]*//')" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces correct pair partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '163\n83')" "surjection of paired reads to SAM produces correct flags"
 
@@ -132,7 +136,7 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '163\n8
 vg giraffe x.fa x.vcf.gz -G <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of unpaired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '0\n0')" "surjection of unpaired reads to SAM yields correct pair partner positions"
-is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "2" "surjection of unpaired reads to SAM yields distinct QNAMEs"
+is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's/^[[:space:]]*//')" "2" "surjection of unpaired reads to SAM yields distinct QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
@@ -189,15 +193,15 @@ is $? "0" "provenance tracking succeeds for paired reads"
 vg giraffe xy.fa xy.vcf.gz -G x.gam -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --track-correctness -o json >xy.json
 is $? "0" "correctness tracking succeeds for paired reads"
 
-is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l)" "2000" "paired reads are annotated with minimizer coverage"
-is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l)" "2000" "paired reads all have nonzero correct minimizer coverage"
+is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads are annotated with minimizer coverage"
+is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
 rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
-is "$(samtools view xy.bam | wc -l)" "2000" "GBZ-based BAM contains the expected number of reads"
+is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based BAM contains the expected number of reads"
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
@@ -206,8 +210,8 @@ vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
 vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
 is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
-is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l)" "200" "Reads are all mapped"
-is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l)" "0" "GFA segment names are all set"
+is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l | sed 's/^[[:space:]]*//')" "200" "Reads are all mapped"
+is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l | sed 's/^[[:space:]]*//')" "0" "GFA segment names are all set"
 
 vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
@@ -226,8 +230,8 @@ vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraf
 vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains
 # This is an 8001 bp read with 1 insert and 1 substitution
 is "$(vg view -aj longread.gam | jq -r '.score')" "7999" "A long read can be correctly aligned"
-is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l)" "2" "A long read has the correct edits found"
-is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l)" "1" "Long read minimizer set is correctly restricted"
+is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l | sed 's/^[[:space:]]*//')" "2" "A long read has the correct edits found"
+is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l | sed 's/^[[:space:]]*//')" "1" "Long read minimizer set is correctly restricted"
 
 rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt
 
