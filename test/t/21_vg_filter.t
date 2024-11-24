@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 15
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -15,7 +15,7 @@ vg sim -x x.xg -l 100 -n 5000 -e 0.01 -i 0.001 -a > x.gam
 is $(vg filter x.gam | vg view -a - | jq . | grep mapping | wc -l) 5000 "vg filter with no options preserves input."
 
 # Downsampling works
-SAMPLED_COUNT=$(vg filter x.gam --downsample 0.5 | vg view -a - | jq . | grep mapping | wc -l)
+SAMPLED_COUNT=$(vg filter x.gam --downsample 0.5 | vg view -aj - | wc -l)
 OUT_OF_RANGE=0
 if [[ "${SAMPLED_COUNT}" -lt 2000 || "${SAMPLED_COUNT}" -gt 3000 ]]; then
     # Make sure it's in a reasonable range for targeting 50%.
@@ -27,6 +27,8 @@ fi
 
 is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
+is "$(vg filter x.gam --max-reads 4999 | vg view -aj - | wc -l)" "4999" "vg filter can limit max reads"
+is "$(vg filter x.gam --max-reads 4999 -i | vg view -aj - | wc -l)" "4998" "vg filter can limit max reads when paired"
 
 cp small/x-s1-l100-n100-p50.gam paired.gam
 cp small/x-s1-l100-n100.gam single.gam

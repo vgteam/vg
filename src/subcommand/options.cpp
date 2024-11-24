@@ -8,21 +8,34 @@
 namespace vg {
 namespace subcommand {
 
+void TickChainLink::reset_along_chain() {
+    reset_along_chain_parent();
+}
+
+bool TickChainLink::tick_along_chain() {
+    return tick_along_chain_parent();
+}
+
 void TickChainLink::reset_chain() {
-    reset_chain_parent();
+    reset_along_chain();
 }
 
 bool TickChainLink::tick_chain() {
-    return tick_chain_parent();
+    return tick_along_chain();
+}
+
+bool TickChainLink::is_static() const {
+    return true;
 }
 
 TickChainLink& TickChainLink::chain(TickChainLink& next) {
+
     // Attach next to us
-    next.reset_chain_parent = [&]() {
-        this->reset_chain();
+    next.reset_along_chain_parent = [&]() {
+        this->reset_along_chain();
     };
-    next.tick_chain_parent = [&]() {
-        return this->tick_chain();
+    next.tick_along_chain_parent = [&]() {
+        return this->tick_along_chain();
     };
     
     // And return it for a nice chain of chain calls.
@@ -93,9 +106,24 @@ const ValidatorFunction<double> double_is_nonnegative = [](const double& d) {
     }
 };
 
+const ValidatorFunction<double> double_is_fraction = [](const double& d) {
+    if (d < 0) {
+        throw std::domain_error("cannot be negative");
+    }
+    if (d > 1) {
+        throw std::domain_error("cannot be more than 1.0");
+    }
+};
+
 const ValidatorFunction<size_t> size_t_is_nonzero = [](const size_t& s) {
     if (s == 0) {
         throw std::domain_error("cannot be zero");
+    }
+};
+
+const ValidatorFunction<size_t> size_t_is_positive = [](const size_t& s) {
+    if (s <= 0) {
+        throw std::domain_error("must be strictly positive");
     }
 };
 
@@ -110,11 +138,27 @@ TickChainLink& GroupedOptionGroup::chain(TickChainLink& next) {
         // Just chain through
         return TickChainLink::chain(next);
     } else {
-        // Chain us to first subgroup, and last subgroup to next.
-        TickChainLink::chain(*subgroups.front());
+        // We are already chained to first subgroup, so chain last subgroup to next.
         subgroups.back()->chain(next);
         return next;
     }
+}
+
+void GroupedOptionGroup::reset_chain() {
+    if (subgroups.empty()) {
+        TickChainLink::reset_chain();
+    } else {
+        // Delegate tick to the real end of the chain
+        subgroups.back()->reset_chain();
+    } 
+}
+
+bool GroupedOptionGroup::tick_chain() {
+    if (!subgroups.empty()) {
+        // Delegate tick to the real end of the chain
+        return subgroups.back()->tick_chain();
+    }
+    return false;
 }
 
 bool GroupedOptionGroup::parse(int option_id, const char* optarg) {
@@ -157,10 +201,16 @@ bool GroupedOptionGroup::query(BaseValuation& entry) const {
     return false;
 }
 
-void GroupedOptionGroup::print_options(ostream& out, bool slug) const {
+void GroupedOptionGroup::print_options(ostream& out, OptionFormat format) const {
+    bool first = true;
     for (auto& group : subgroups) {
         // Print options from all groups in order
-        group->print_options(out, slug);
+        if (format == OptionFormat::JSON && !first) {
+            // Add the separating comma
+            out << ",";
+        }
+        group->print_options(out, format);
+        first = false;
     }
 }
 

@@ -6,6 +6,8 @@
 // Do the same for the build environment info
 #include "vg_environment_version.hpp"
 
+#include <htslib/hts.h>
+
 #include <iostream>
 #include <sstream>
 
@@ -32,6 +34,11 @@
     #define VG_STANDARD_LIBRARY_VERSION "unknown standard library"
 #endif
 
+// And the version of htslib
+#ifndef VG_HTSLIB_VERSION
+    #define VG_HTSLIB_VERSION STR(HTS_VERSION)
+#endif
+
 namespace vg {
 
 using namespace std;
@@ -40,6 +47,8 @@ using namespace std;
 const string Version::VERSION = VG_GIT_VERSION;
 const string Version::COMPILER = VG_COMPILER_VERSION;
 const string Version::STANDARD_LIBRARY = VG_STANDARD_LIBRARY_VERSION;
+const string Version::HTSLIB_HEADERS = VG_HTSLIB_VERSION;
+const string Version::HTSLIB_LIBRARY(hts_version());
 const string Version::OS = VG_OS;
 const string Version::BUILD_USER = VG_BUILD_USER;
 const string Version::BUILD_HOST = VG_BUILD_HOST;
@@ -165,6 +174,7 @@ string Version::get_long() {
     s << "vg version " << get_short() << endl;
     s << "Compiled with " << COMPILER << " on " << OS << endl;
     s << "Linked against " << STANDARD_LIBRARY << endl;
+    s << "Using HTSlib headers " << HTSLIB_HEADERS << ", library " << HTSLIB_LIBRARY << endl;
     s << "Built by " << BUILD_USER << "@" << BUILD_HOST;
     return s.str();
 }

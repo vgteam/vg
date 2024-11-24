@@ -22,6 +22,10 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # We expect GITLAB_SECRET_FILE_DOCS_SSH_KEY to come in from the environment,
 # specifying the private deploy key we will use to get at the docs repo.
 
+# Make sure no submodules have untracked files from caching
+# See <https://gist.github.com/nicktoumpelis/11214362#file-repo-rinse-sh-L2>
+git submodule foreach --recursive git clean -xfd
+
 # Find all the submodules that Doxygen wants to look at and make sure we have
 # those.
 cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git submodule update --init --recursive

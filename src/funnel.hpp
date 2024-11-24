@@ -12,6 +12,7 @@
 #include <limits>
 #include <vg/vg.pb.h>
 #include "annotation.hpp"
+#include "handle.hpp"
 
 
 /** 
@@ -106,7 +107,7 @@ public:
     /// current-stage item group size by the number of previous-stage items
     /// added.
     ///
-    /// Propagates tagging.
+    /// Propagates tagging and positions.
     template<typename Iterator>
     void also_merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
     
@@ -115,7 +116,7 @@ public:
     /// current-stage item group size by the number of previous-stage items
     /// added.
     ///
-    /// Propagates tagging.
+    /// Propagates tagging and positions.
     ///
     /// earlier_stage_lookback determines how many stages to look back and must be
     /// 1 or more.
@@ -150,6 +151,11 @@ public:
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
+
+
+    ///////
+    // Tagging system
+    ///////
     
     /// We can tag items as having one of these states.
     enum class State {
@@ -202,12 +208,29 @@ public:
     /// TODO: Make worse tag ranges not match queries for better tags!
     string last_tagged_stage(State tag, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max()) const;
     
+    
+    ///////
+    // Effective position system
+    ///////
+
+    /// Note an effective position for an item created in the current stage,
+    /// along a path. Positions will be tracked through lineages.
+    void position(size_t item, const path_handle_t& path, size_t offset);
+
+    /// Get min and max effective positions along paths for an item in the current stage.
+    std::unordered_map<path_handle_t, std::pair<size_t, size_t>> get_positions(size_t item) const;
+
+
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
     
-    /// Call the given callback with stage name, and vector of result item
-    /// sizes at that stage, and a duration in seconds, for each stage.
-    void for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const;
+    /// Call the given callback with stage name, a vector of result item sizes
+    /// at that stage, a vector of correct item scores at that stage (if any),
+    /// a vector of non-correct item scores at that stage (if any), a duration
+    /// in seconds, and a map from substage name to duration in seconds, for
+    /// each stage.
+    /// TODO: Just expose the item and stage types?
+    void for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const;
     
     /// Represents the performance of a filter, for either item counts or total item sizes.
     /// Note that passing_correct and failing_correct will always be 0 if nothing is tagged correct.
@@ -238,6 +261,10 @@ public:
     /// tracking correctness all along
     void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) const;
     
+    /// For each item in a given stage, what are the indices of the items of the
+    /// previous stage that gave rise to it?
+    vector<vector<size_t>> map_stage_results_to_previous_stage(string stage_name) const;
+    
 protected:
     
     /// Pick a clock to use for measuring stage duration
@@ -262,6 +289,9 @@ protected:
     
     /// What's the name of the current substage? Will be empty if no substage is running.
     string substage_name;
+
+    /// At what time did the substage start?
+    time_point substage_start_time;
     
     /// What's the current prev-stage input we are processing?
     /// Will be numeric_limits<size_t>::max() if none.
@@ -284,6 +314,12 @@ protected:
         /// Store start position and length for all painted intervals.
         std::map<size_t, size_t> regions;
     };
+
+    /// Tracks effective positions along paths
+    using effective_position_t = std::unordered_map<path_handle_t, std::pair<size_t, size_t>>;
+
+    /// Merge one set of effective positions into another
+    static void effective_position_union(effective_position_t& dest, const effective_position_t& other);
     
     /// Represents an Item whose provenance we track
     struct Item {
@@ -295,6 +331,8 @@ protected:
         /// When projecting, intervals are combined by min/maxing the bounds.
         size_t tag_start = std::numeric_limits<size_t>::max();
         size_t tag_length = 0;
+        /// Where is this item in linear space?
+        effective_position_t effective_position;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
         /// And what items from stages before that? Recorded as (stage offset,
@@ -309,13 +347,15 @@ protected:
         /// And what statistic did it fail with (or NaN)?
         double failed_statistic = nan("");
     };
-    
+
     /// Represents a Stage which is a series of Items, which track their own provenance.
     struct Stage {
         string name;
         vector<Item> items;
         /// How long did the stage last, in seconds?
-        float duration;
+        double duration;
+        /// How long did any substages of the stage last, in seconds?
+        std::unordered_map<std::string, double> sub_durations;
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;
@@ -398,6 +438,8 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
     // Make a new item to combine all the given items.
     size_t index = create_item();
 
+    auto& item = get_item(index);
+
     for (Iterator& it = prev_stage_items_begin; it != prev_stage_items_end; ++it) {
         // For each prev stage item
         size_t prev_stage_item = *it;
@@ -406,7 +448,7 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
         assert(prev_stage.items.size() > prev_stage_item);
 
         // Record the dependency
-        get_item(index).prev_stage_items.push_back(prev_stage_item);
+        item.prev_stage_items.push_back(prev_stage_item);
         
         // Propagate tags
         auto& old = prev_stage.items[prev_stage_item];
@@ -414,6 +456,9 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
             // Tag the new item if it came from something tagged.
             tag(index, old.tag, old.tag_start, old.tag_length);
         }
+
+        // Propagate positions
+        effective_position_union(item.effective_position, old.effective_position);
     }
 }
 
@@ -454,6 +499,9 @@ void Funnel::also_merge_group(size_t earlier_stage_lookback, Iterator earlier_st
             // Tag the new item if it came from something tagged.
             tag(latest(), old.tag, old.tag_start, old.tag_length);
         }
+
+        // Propagate positions
+        effective_position_union(item.effective_position, old.effective_position);
     }
 }
 
