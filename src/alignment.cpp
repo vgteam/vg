@@ -665,6 +665,7 @@ void write_array_to_aux(bam1_t* bam, const char* tag_name, const string& arr_str
     free(data);
 }
 
+
 // Internal conversion function for both paired and unpaired codepaths
 bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   const Alignment& alignment,
@@ -1335,19 +1336,111 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-vector<string> bam_tag_strings(const bam1_t* b) {
+template<typename T>
+string aux_array_to_string(const uint8_t*& aux_arr, int32_t arr_len) {
     
+    const T* t_arr = (const T*) aux_arr;
+    
+    stringstream strm;
+    strm << setprecision(8); // lossless for 32-bit float
+    for (int32_t i = 0; i < arr_len; ++i) {
+        strm << ',' << t_arr[i];
+    }
+    aux_arr = (const uint8_t*) (t_arr + arr_len);
+    return strm.str();
+}
+
+template<typename T>
+string aux_val_to_string(const uint8_t*& aux_arr) {
+    string str = to_string(*(const T*) aux_arr);
+    aux_arr += sizeof(T);
+    return str;
+}
+
+vector<string> bam_tag_strings(const bam1_t* b) {
     vector<string> tag_strings;
-    for (uint8_t* iter = bam_aux_first(b); iter != NULL; iter = bam_aux_next(b, iter)) {
-        // tag name
-        char name[2];
-        name[0] = iter[0];
-        name[1] = iter[1];
-        kstring_t kstr;
-        ks_initialize(&kstr);
-        bam_aux_get_str(b, name, &kstr);
-        tag_strings.emplace_back(ks_c_str(&kstr));
-        ks_release(&kstr);
+    const uint8_t* aux = bam_get_aux(b);
+    const uint8_t* end = b->data + b->l_data;
+    while (aux != end) {
+        tag_strings.emplace_back();
+        auto& tag_string = tag_strings.back();
+        tag_string.reserve(6);
+        tag_string.push_back(aux[0]);
+        tag_string.push_back(aux[1]);
+        tag_string.push_back(':');
+        tag_string.push_back(aux[2]);
+        tag_string.push_back(':');
+        char type = aux[2];
+        aux += 3;
+        switch (type) {
+            case 'A':
+                tag_string.append(aux_val_to_string<char>(aux));
+                break;
+            case 'c':
+                tag_string.append(aux_val_to_string<int8_t>(aux));
+                break;
+            case 'C':
+                tag_string.append(aux_val_to_string<uint8_t>(aux));
+                break;
+            case 's':
+                tag_string.append(aux_val_to_string<int16_t>(aux));
+                break;
+            case 'S':
+                tag_string.append(aux_val_to_string<uint16_t>(aux));
+                break;
+            case 'i':
+                tag_string.append(aux_val_to_string<int32_t>(aux));
+                break;
+            case 'I':
+                tag_string.append(aux_val_to_string<uint32_t>(aux));
+                break;
+            case 'f':
+                tag_string.append(aux_val_to_string<float>(aux));
+                break;
+            case 'H':
+            case 'Z':
+                tag_string.append((const char*) aux);
+                aux += strlen((const char*) aux) + 1;
+                break;
+            case 'B':
+            {
+                char arr_type = *aux;
+                int32_t arr_len = bam_auxB_len(aux);
+                aux += 5;
+                switch (arr_type) {
+                    case 'c':
+                        tag_string.append(aux_array_to_string<int8_t>(aux, arr_len));
+                        break;
+                    case 'C':
+                        tag_string.append(aux_array_to_string<uint8_t>(aux, arr_len));
+                        break;
+                    case 's':
+                        tag_string.append(aux_array_to_string<int16_t>(aux, arr_len));
+                        break;
+                    case 'S':
+                        tag_string.append(aux_array_to_string<uint16_t>(aux, arr_len));
+                        break;
+                    case 'i':
+                        tag_string.append(aux_array_to_string<int32_t>(aux, arr_len));
+                        break;
+                    case 'I':
+                        tag_string.append(aux_array_to_string<uint32_t>(aux, arr_len));
+                        break;
+                    case 'f':
+                        tag_string.append(aux_array_to_string<float>(aux, arr_len));
+                        break;
+                    default:
+                        cerr << "error: unrecognized array type " << arr_type << " for 'B' type SAM tag" << endl;
+                        exit(1);
+                        break;
+                }
+                break;
+            }
+            default:
+                cerr << "error: invalid BAM tag " << type << '\n';
+                exit(1);
+                break;
+        }
     }
     return tag_strings;
 }
