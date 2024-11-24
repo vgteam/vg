@@ -729,6 +729,11 @@ class ZipCodeForest {
     /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given
     /// depth)  Sorting is roughly linear along the top-level chains, in a topological-ish order in
     /// snarls. Uses radix_sort_zipcodes and default_sort_zipcodes
+    /// For chains, everything is sorted with the prefix sum value of the chain itself from the distance index,
+    /// not the order in the chain in the zip code tree. Everything will be sorted in the order of the zip 
+    /// code tree, but the values will be set from the distance index. This means that later, the values
+    /// may be out of order or may need to be subtracted from the length of the chain to get the distances
+    /// to the ends of the chain
     void sort_one_interval(forest_growing_state_t& forest_state, 
                            const interval_state_t& interval) const;
 
