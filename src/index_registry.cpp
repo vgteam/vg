@@ -4080,6 +4080,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing minimizer index and associated zipcodes." << endl;
+            cerr << "\tuse parameters -k " << IndexingParameters::minimizer_k << " -w " << IndexingParameters::minimizer_w << (IndexingParameters::minimizer_W ? " -W " : "") << endl;
         }
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?

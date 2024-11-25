@@ -1367,6 +1367,13 @@ int main_giraffe(int argc, char** argv) {
                     } else {
                         // Apply the preset values.
                         found->second.apply(*parser);
+
+                        if (param_preset == "hifi" || param_preset == "r10") {
+                            //Set the minimizer parameters for the index registry to make minimizers for long reads
+                            IndexingParameters::minimizer_k=31;
+                            IndexingParameters::minimizer_w=50;
+                            IndexingParameters::minimizer_W=true;
+                        }
                     }
                 }
                 break;
