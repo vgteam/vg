@@ -108,6 +108,7 @@ string IndexingParameters::gff_transcript_tag = "transcript_id";
 bool IndexingParameters::use_bounded_syncmers = false;
 int IndexingParameters::minimizer_k = 29;
 int IndexingParameters::minimizer_w = 11;
+bool IndexingParameters::minimizer_W = false;
 int IndexingParameters::minimizer_s = 18;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
@@ -3847,7 +3848,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
-        unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+        cerr << "LOad gbz from " << gbz_filename << endl;
+        unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(gbz_filename);
+        cerr << "Finished loading gbz" << endl;
         
         return make_distance_index(gbz->graph, plan, constructing);
     });
@@ -4108,6 +4111,26 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_s :
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
+
+
+        // Find frequent kmers.
+        std::vector<gbwtgraph::Key64> frequent_kmers;
+        //TODO: maybe we want to add this too? I left it as the default
+        bool space_efficient_counting=false;
+        size_t threshold = 500;
+        if (IndexingParameters::minimizer_W) {
+            double checkpoint = gbwt::readTimer();
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                std::string algorithm = (space_efficient_counting ? "space-efficient" : "fast");
+                std::cerr << "[IndexRegistry]: Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
+            }
+            frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
+                gbz->graph, IndexingParameters::minimizer_k, threshold, space_efficient_counting
+            );
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                std::cerr << "[IndexRegistry]: Found " << frequent_kmers.size() << " kmers with more than " << threshold << " hits" << std::endl;
+            }
+        }
                 
         //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
         ZipCodeCollection oversized_zipcodes;

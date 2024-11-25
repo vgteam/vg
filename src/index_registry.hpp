@@ -100,6 +100,8 @@ struct IndexingParameters {
     static int minimizer_k;
     // length of window if using minimizers [11]
     static int minimizer_w;
+    // minimizer weighting [false]
+    static bool minimizer_W;
     // length of internal s-mer if using bounded syncmers [18]
     static int minimizer_s;
     // the number of paths that will make up the path cover GBWT [16]

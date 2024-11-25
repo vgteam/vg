@@ -103,7 +103,7 @@ void help_autoindex(char** argv) {
     << "  output:" << endl
     << "    -p, --prefix PREFIX    prefix to use for all output (default: index)" << endl
     << "    -w, --workflow NAME    workflow to produce indexes for, can be provided multiple" << endl
-    << "                           times. options: map, mpmap, rpvg, giraffe (default: map)" << endl
+    << "                           times. options: map, mpmap, rpvg, giraffe, lr-giraffe (default: map)" << endl
     << "  input data:" << endl
     << "    -r, --ref-fasta FILE   FASTA file containing the reference sequence (may repeat)" << endl
     << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
@@ -211,6 +211,14 @@ int main_autoindex(int argc, char** argv) {
                     for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
                         targets.emplace_back(move(target));
                     }
+                }
+                else if (optarg == string("lr-giraffe")) {
+                    for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
+                    IndexingParameters::minimizer_k = 31;
+                    IndexingParameters::minimizer_w = 50;
+                    IndexingParameters::minimizer_W = true;
                 }
                 else if (optarg == string("rpvg")) {
                     for (auto& target : VGIndexes::get_default_rpvg_indexes()) {
