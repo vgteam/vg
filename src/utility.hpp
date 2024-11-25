@@ -44,6 +44,8 @@ void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
+// all whitespace characters
+const std::string whitespace = " \t\n\v\f\r";
 // split a string on any character found in the string of delimiters (delims)
 // if max_cuts specified, only split at the first <max_cuts> delimiter occurrences
 std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems,
@@ -865,9 +867,11 @@ bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsign
     return(after == arg.size());    
 }              
 
-// We also have an implementation for doubles (defined in the cpp)
+// We also have an implementation for doubles and floats (defined in the cpp)
 template<>
 bool parse(const string& arg, double& dest);
+template<>
+bool parse(const string& arg, float& dest);
 
 // And one for regular expressions
 template<>

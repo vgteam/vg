@@ -861,6 +861,14 @@ bool parse(const string& arg, double& dest) {
 }
 
 template<>
+bool parse(const string& arg, float& dest) {
+    size_t after;
+    dest = std::stof(arg, &after);
+    return(after == arg.size());
+}
+
+
+template<>
 bool parse(const string& arg, std::regex& dest) {
     // This throsw std::regex_error if it can't parse.
     // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
