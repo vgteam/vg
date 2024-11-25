@@ -4096,7 +4096,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<vector<string>> all_outputs(constructing.size());
         auto minimizer_output = *constructing.begin();
         auto zipcode_output = *constructing.rbegin();
-        auto& output_names = all_outputs[0];
+        auto& output_name_minimizer = all_outputs[0];
+        auto& output_name_zipcodes = all_outputs[1];
         
 
         ifstream infile_gbz;
@@ -4181,8 +4182,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         oversized_zipcodes.serialize(zip_out);
         zip_out.close();
         
-        output_names.push_back(output_name);
-        output_names.push_back(zipcodes_output_name);
+        output_name_minimizer.push_back(output_name);
+        output_name_zipcodes.push_back(zipcodes_output_name);
         return all_outputs;
     });
     
