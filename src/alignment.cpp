@@ -908,15 +908,43 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                     }
                     bam_aux_append(bam, tag_id, tag_type, sizeof(char), (uint8_t*) &tag_val[0]);
                     break;
+                case 'c':
+                {
+                    int8_t val = parse<int8_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(int8_t), (uint8_t*) &val);
+                    break;
+                }
+                case 'C':
+                {
+                    uint8_t val = parse<uint8_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(uint8_t), (uint8_t*) &val);
+                    break;
+                }
+                case 's':
+                {
+                    int16_t val = parse<int16_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(int16_t), (uint8_t*) &val);
+                    break;
+                }
+                case 'S':
+                {
+                    uint16_t val = parse<uint16_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(uint16_t), (uint8_t*) &val);
+                    break;
+                }
                 case 'i':
-                    // integer
                 {
                     int32_t val = parse<int32_t>(tag_val);
                     bam_aux_append(bam, tag_id, tag_type, sizeof(int32_t), (uint8_t*) &val);
                     break;
                 }
+                case 'I':
+                {
+                    uint32_t val = parse<uint32_t>(tag_val);
+                    bam_aux_append(bam, tag_id, tag_type, sizeof(uint32_t), (uint8_t*) &val);
+                    break;
+                }
                 case 'f':
-                    // float
                 {
                     float val = parse<float>(tag_val);
                     bam_aux_append(bam, tag_id, tag_type, sizeof(float), (uint8_t*) &val);
