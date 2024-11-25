@@ -684,7 +684,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (";
@@ -871,9 +870,6 @@ int main_giraffe(int argc, char** argv) {
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
-    //The name of the file that holds extra zipcodes
-    string zipcode_name;
-    
     // Map preset names to presets
     std::map<std::string, Preset> presets;
     // We have a fast preset that sets a bunch of stuff
@@ -1254,7 +1250,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open zipcode index file " << optarg << endl;
                     exit(1); 
                 }
-                zipcode_name = optarg;
+                provided_indexes.emplace_back("Zipcodes", optarg);
                 break;
             case 'd':
                 if (!optarg || !*optarg) {
@@ -1563,7 +1559,8 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
         {"Giraffe Distance Index", {"dist"}},
-        {"Minimizers", {"min"}}
+        {"Minimizers", {"withzip.min", "min"}},
+        {"Zipcodes", {"zipcodes"}}
     };
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
@@ -1635,13 +1632,10 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Loading Zipcodes" << endl;
     }
-    ZipCodeCollection oversized_zipcodes;
-    if (!zipcode_name.empty()) {
-
-        ifstream zip_in (zipcode_name);
-        oversized_zipcodes.deserialize(zip_in);
-        zip_in.close();
-    }
+    ZipCodeCollection oversized_zipcodes;        
+    ifstream zip_in (registry.require("Zipcodes").at(0));
+    oversized_zipcodes.deserialize(zip_in);
+    zip_in.close();
 
 
     // Grab the GBZ
