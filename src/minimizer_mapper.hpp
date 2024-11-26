@@ -293,7 +293,7 @@ public:
     
     static constexpr size_t default_max_multimaps = 1;
     size_t max_multimaps = default_max_multimaps;
-    static constexpr size_t default_distance_limit = 200;
+    static constexpr size_t default_distance_limit = 0;
     size_t distance_limit = default_distance_limit;
     
     /// If false, skip computing base-level alignments.
@@ -381,7 +381,7 @@ public:
      * Get the distance limit for the given read length
      */
     size_t get_distance_limit(size_t read_length) const {
-        return max(distance_limit, read_length + 50);
+        return max(distance_limit, (size_t) ((int)read_length * 1.5));
     }
 
     /// The information we store for each seed.
