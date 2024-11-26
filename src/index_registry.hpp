@@ -258,6 +258,9 @@ public:
     /// Return true if the given index is available and can be require()'d, and
     /// false otherwise.
     bool available(const IndexName& identifier) const;
+
+    /// Get the possible filename(s) associated with the given index with the given prefix.
+    vector<string> get_possible_filenames(const IndexName& identifier) const;
     
     /// Get the filename(s) associated with the given index. Aborts if the
     /// index is not a known type, or if it is not provided or made.

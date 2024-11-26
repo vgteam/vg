@@ -354,6 +354,7 @@ int main_autoindex(int argc, char** argv) {
         registry.provide("GBZ", gbz_name);
     }
 
+
     if (print_dot) {
         // don't index, just visualize the plan
         cout << registry.to_dot(targets);
@@ -369,6 +370,21 @@ int main_autoindex(int argc, char** argv) {
     // deduplicate
     sort(targets.begin(), targets.end());
     targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
+
+    //Check if we can automatically load other indexes in the plan based on the names
+    for (const IndexName& target : targets) {
+        if (!registry.available(target)) {
+            vector<string> inferred_file_names = registry.get_possible_filenames(target);
+            for (const string& filename : inferred_file_names) {
+                if (ifstream(filename).is_open()) {
+                    cerr << "[vg autoindex] Guessing that " << filename << " is " << target << endl;
+                    registry.provide(target, filename);
+                    break;
+                }
+            }
+        }
+
+    }
     
     try {
         registry.make_indexes(targets);

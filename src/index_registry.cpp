@@ -4564,6 +4564,15 @@ bool IndexRegistry::available(const IndexName& identifier) const {
     return true;
 }
 
+vector<string> IndexRegistry::get_possible_filenames(const IndexName& identifier) const {
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
+        exit(1);
+    }
+    const IndexFile* index = get_index(identifier);
+    return {get_prefix() + "." + index->get_suffix()};
+}
+
 vector<string> IndexRegistry::require(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
         cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
