@@ -4208,8 +4208,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
-        return construct_minimizers(inputs, plan, constructing, IndexingParameters::short_read_minimizer_k, 
-                                    IndexingParameters::short_read_minimizer_w, IndexingParameters::short_read_minimizer_W);
+        return construct_minimizers(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
+                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W);
     });
     
     return registry;
