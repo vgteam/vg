@@ -1375,7 +1375,7 @@ int main_giraffe(int argc, char** argv) {
                         found->second.apply(*parser);
                     }
                 }
-                if (param_preset == std::string("hifi") || param_preset == std::string("r10")) {
+                if (param_preset == "hifi" || param_preset == "r10") {
                     map_long_reads = true;
                 }
                 break;
