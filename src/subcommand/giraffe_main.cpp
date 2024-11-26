@@ -1367,13 +1367,6 @@ int main_giraffe(int argc, char** argv) {
                     } else {
                         // Apply the preset values.
                         found->second.apply(*parser);
-
-                        if (param_preset == "hifi" || param_preset == "r10") {
-                            //Set the minimizer parameters for the index registry to make minimizers for long reads
-                            IndexingParameters::minimizer_k=31;
-                            IndexingParameters::minimizer_w=50;
-                            IndexingParameters::minimizer_W=true;
-                        }
                     }
                 }
                 break;
@@ -1566,8 +1559,8 @@ int main_giraffe(int argc, char** argv) {
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
         {"Giraffe Distance Index", {"dist"}},
-        {"Minimizers", {"withzip.min", "min"}},
-        {"Zipcodes", {"zipcodes"}}
+        {"Minimizers", {"shortread.withzip.min","longread.withzip.min","withzip.min", "min"}},
+        {"Zipcodes", {"shortread.zipcodes", "longread.zipcodes", "zipcodes"}}
     };
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
@@ -1600,7 +1593,9 @@ int main_giraffe(int argc, char** argv) {
     // TODO: add memory options like autoindex?
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
     
-    auto index_targets = VGIndexes::get_default_giraffe_indexes();
+    auto index_targets = param_preset == "hifi"  || param_preset == "r10" 
+                       ? VGIndexes::get_default_long_giraffe_indexes()
+                       : VGIndexes::get_default_short_giraffe_indexes();
 
 #ifdef debug
     for (auto& needed : index_targets) {

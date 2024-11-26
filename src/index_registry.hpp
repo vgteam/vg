@@ -97,11 +97,17 @@ struct IndexingParameters {
     // if true, minimizer index uses bounded syncmers, otherwise uses minimizers [false]
     static bool use_bounded_syncmers;
     // length of k-mer used in minimizer index [29]
-    static int minimizer_k;
+    static int short_read_minimizer_k;
     // length of window if using minimizers [11]
-    static int minimizer_w;
+    static int short_read_minimizer_w;
     // minimizer weighting [false]
-    static bool minimizer_W;
+    static bool short_read_minimizer_W;
+    // length of k-mer used in minimizer index [31]
+    static int long_read_minimizer_k;
+    // length of window if using minimizers [50]
+    static int long_read_minimizer_w;
+    // minimizer weighting [true]
+    static bool long_read_minimizer_W;
     // For minimizer weighting, do we use space efficient counting? [false]
     static bool space_efficient_counting;
     // For minimizer weighting, downweight kmers with more than N hit [500]
@@ -136,8 +142,10 @@ struct VGIndexes {
     static vector<IndexName> get_default_mpmap_indexes();
     /// A list of the identifiers of the default indexes to run rpvg
     static vector<IndexName> get_default_rpvg_indexes();
-    /// A list of the identifiers of the default indexes to run vg giraffe
-    static vector<IndexName> get_default_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg giraffe on short reads
+    static vector<IndexName> get_default_short_giraffe_indexes();
+    /// A list of the identifiers of the default indexes to run vg giraffe on long reads
+    static vector<IndexName> get_default_long_giraffe_indexes();
 };
 
 /**
