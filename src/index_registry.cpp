@@ -110,6 +110,8 @@ int IndexingParameters::minimizer_k = 29;
 int IndexingParameters::minimizer_w = 11;
 bool IndexingParameters::minimizer_W = false;
 int IndexingParameters::minimizer_s = 18;
+bool space_efficient_counting = false;
+int minimizer_downweight_threshold = 500;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
 int IndexingParameters::downsample_threshold = 3;
@@ -3848,9 +3850,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
-        cerr << "LOad gbz from " << gbz_filename << endl;
         unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(gbz_filename);
-        cerr << "Finished loading gbz" << endl;
         
         return make_distance_index(gbz->graph, plan, constructing);
     });
@@ -4118,19 +4118,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Find frequent kmers.
         std::vector<gbwtgraph::Key64> frequent_kmers;
         //TODO: maybe we want to add this too? I left it as the default
-        bool space_efficient_counting=false;
-        size_t threshold = 500;
         if (IndexingParameters::minimizer_W) {
             double checkpoint = gbwt::readTimer();
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                std::string algorithm = (space_efficient_counting ? "space-efficient" : "fast");
+                std::string algorithm = (IndexingParameters::space_efficient_counting ? "space-efficient" : "fast");
                 std::cerr << "[IndexRegistry]: Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
             }
             frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-                gbz->graph, IndexingParameters::minimizer_k, threshold, space_efficient_counting
+                gbz->graph, IndexingParameters::minimizer_k, IndexingParameters::threshold, IndexingParameters::space_efficient_counting
             );
             if (IndexingParameters::verbosity != IndexingParameters::None) {
-                std::cerr << "[IndexRegistry]: Found " << frequent_kmers.size() << " kmers with more than " << threshold << " hits" << std::endl;
+                std::cerr << "[IndexRegistry]: Found " << frequent_kmers.size() << " kmers with more than " << IndexingParameters::threshold << " hits" << std::endl;
             }
         }
                 

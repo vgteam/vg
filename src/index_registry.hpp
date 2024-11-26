@@ -102,6 +102,10 @@ struct IndexingParameters {
     static int minimizer_w;
     // minimizer weighting [false]
     static bool minimizer_W;
+    // For minimizer weighting, do we use space efficient counting? [false]
+    static bool space_efficient_counting;
+    // For minimizer weighting, downweight kmers with more than N hit [500]
+    static int minimizer_downweight_threshold; 
     // length of internal s-mer if using bounded syncmers [18]
     static int minimizer_s;
     // the number of paths that will make up the path cover GBWT [16]
