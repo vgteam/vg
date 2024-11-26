@@ -109,6 +109,7 @@ void help_autoindex(char** argv) {
     << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
     << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE         GFA file to make a graph from" << endl
+    << "    -G, --gbz FILE         GBZ file to make indexes from" << endl
     << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
     << "    -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations of a named haplotype (may repeat)" << endl
     << "  configuration:" << endl
@@ -151,6 +152,7 @@ int main_autoindex(int argc, char** argv) {
     int64_t target_mem_usage = IndexRegistry::get_system_memory() / 2;
     
     string gfa_name;
+    string gbz_name;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -163,6 +165,7 @@ int main_autoindex(int argc, char** argv) {
             {"vcf", required_argument, 0, 'v'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
+            {"gbz", required_argument, 0, 'G'},
             {"tx-gff", required_argument, 0, 'x'},
             {"hap-tx-gff", required_argument, 0, 'H'},
             {"gff-feature", required_argument, 0, 'f'},
@@ -184,7 +187,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:H:a:P:R:f:M:T:t:dV:h",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:a:P:R:f:M:T:t:dV:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -238,6 +241,9 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'g':
                 gfa_name = optarg;
+                break;
+            case 'G':
+                gbz_name = optarg;
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -343,6 +349,9 @@ int main_autoindex(int argc, char** argv) {
         else {
             registry.provide("Reference GFA", gfa_name);
         }
+    }
+    if (!gbz_name.empty()) {
+        registry.provide("GBZ", gbz_name);
     }
 
     if (print_dot) {
