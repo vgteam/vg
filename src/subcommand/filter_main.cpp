@@ -143,6 +143,7 @@ int main_filter(int argc, char** argv) {
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"no-output", no_argument, 0, 'V'},
                 {"tsv-out",  no_argument, 0, 'T'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
