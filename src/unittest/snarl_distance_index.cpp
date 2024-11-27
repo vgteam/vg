@@ -150,7 +150,7 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
         
             VG graph;
                 
@@ -188,6 +188,7 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
+                                graph.serialize_to_file("test_graph.vg");
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SECTION("Traversal of chain") {
@@ -274,6 +275,40 @@ namespace vg {
                     } catch (const std::runtime_error& err) {
                         REQUIRE(true);
                     }
+                }
+            }
+            SECTION("Top-level distances only index") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder, 500, true);
+
+                //Nodes on the top-level chain have distances
+                for (auto& id : {n1->id(), n2->id(), n4->id(), n5->id(), n12->id(), n13->id()}) { 
+                    net_handle_t n = distance_index.get_node_net_handle(id);
+                    net_handle_t parent = distance_index.get_parent(n);
+                    assert(distance_index.is_root(distance_index.get_parent(parent)));
+                    distance_index.minimum_length(n);
+                    distance_index.minimum_length(parent);
+                    REQUIRE(true);
+                }
+
+                //Nested nodes don't have distances
+                for (auto& id : {n3->id(), n6->id(), n7->id(), n8->id(), n9->id(), n10->id(), n11->id()}) { 
+                    net_handle_t n = distance_index.get_node_net_handle(id);
+                    net_handle_t parent = distance_index.get_parent(n);
+                    assert(!distance_index.is_root(distance_index.get_parent(parent)));
+                    try {
+                        distance_index.minimum_length(n);
+                        distance_index.minimum_length(parent);
+                        REQUIRE(false);
+                    } catch (const std::runtime_error& err) {
+                        REQUIRE(true);
+                    }
+                }
+
+                SECTION("Find minimum distances along the top-level chain") {
+                    REQUIRE(distance_index.minimum_distance(n2->id(),true, 0, n2->id(), false, 0) == 1);
+                    REQUIRE(distance_index.minimum_distance(n4->id(),true, 0, n5->id(), true, 0) == 19);
+                    REQUIRE(distance_index.minimum_distance(n5->id(),false, 0, n5->id(), true, 0) == 9);
                 }
             }
         }
@@ -7143,7 +7178,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 0; repeat++) {
+            for (size_t repeat = 0; repeat < 100; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
