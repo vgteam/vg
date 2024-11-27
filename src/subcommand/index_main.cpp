@@ -159,7 +159,7 @@ int main_index(int argc, char** argv) {
             //Snarl distance index
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
-            {"no-nested-distance", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
+            {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
             {0, 0, 0, 0}
         };
 
