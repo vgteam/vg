@@ -90,13 +90,3 @@ format conversions for graphs and alignments
 # filter
 
 Filter alignments by properties.
-
-`vg filter --tsv-out` can be used to produce a TSV file of user-specified fields from the GAM file. For example, 
-
-`vg filter --tsv-out "name;mapping_quality" <alignment.gam>`
-
-is the equivalent of 
-
-`vg view -aj <alignment.gam> | jq -r '[.name,.mapping_quality] | @tsv'`
-
-To find which fields are stored in a GAM file, use [`vg view`](#view) to view the GAM as a JSON file. 

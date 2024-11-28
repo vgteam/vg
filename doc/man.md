@@ -351,16 +351,6 @@ options:
 
 Filter alignments by properties.
 
-`vg filter --tsv-out` can be used to produce a TSV file of user-specified fields from the GAM file. For example, 
-
-`vg filter --tsv-out "name;mapping_quality" <alignment.gam>`
-
-is the equivalent of 
-
-`vg view -aj <alignment.gam> | jq -r '[.name,.mapping_quality] | @tsv'`
-
-To find which fields are stored in a GAM file, use [`vg view`](#view) to view the GAM as a JSON file. 
-
 
 
 
@@ -794,6 +784,20 @@ snarl distance index options
         --snarl-limit N       don't store snarl distances for snarls with more than N nodes (default 10000)
                               if N is 0 then don't store distances, only the snarl tree
         --no-nested-distance  only store distances along the top-level chain
+
+```
+
+
+## inject
+
+
+```
+usage: vg inject -x graph.xg [options] input.[bam|sam|cram] >output.gam
+
+options:
+    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)
+    -o, --output-format NAME output the alignments in NAME format (gam / gaf / json) [gam]
+    -t, --threads N          number of threads to use
 
 ```
 
