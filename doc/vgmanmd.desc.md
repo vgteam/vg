@@ -25,7 +25,7 @@ For more in-depth explanations of tools and workflows, see the [vg wiki page](ht
 - **Downstream analyses**
     - [`vg pack`](#pack) convert alignments to a compact coverage index. Used with [vg call](#call)
     - [`vg call`](#call) call or genotype VCF variants. Uses [vg pack](#pack). [wiki page](https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling)
-    - [`vg rna`](#rna) transciptomic analyses. [wiki page](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses). Also see [rpvg](https://github.com/jonassibbesen/rpvg) 
+    - [`vg rna`](#rna) construct splicing graphs and pantranscriptomes. [wiki page](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses). Also see [rpvg](https://github.com/jonassibbesen/rpvg) 
     - [`vg deconstruct`](#deconstruct) create a VCF from variation in the graph. [wiki page](https://github.com/vgteam/vg/wiki/VCF-export-with-vg-deconstruct)
 - **Working with read alignments**
     - [`vg gamsort`](#gamsort) sort a GAM/GAF file or index a sorted GAM file.
