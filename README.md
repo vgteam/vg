@@ -501,6 +501,8 @@ Most commands allow the streaming of graphs into and out of `vg`.
 
 ### Command line interface
 
+See the [man-page](https://github.com/vgteam/vg/blob/docmd/doc/man.md)
+
 A variety of commands are available:
 
 - *autoindex*: construct graphs and indexes for other tools from common interchange file formats
