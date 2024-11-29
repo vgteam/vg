@@ -27,7 +27,7 @@ desc[cur_header] = cur_desc
 desc_inf.close()
 
 # start page
-print('# vg manpage')
+#print('# vg manpage')
 
 # get vg version
 ret = subprocess.run(['vg', 'version'], capture_output=True)
