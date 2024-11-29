@@ -20,7 +20,7 @@ $(vg):
 	cd .. && $(MAKE) bin/vg
 
 build_graph: build_graph.cpp
-	cd .. && . ./source_me.sh && $(MAKE) test/build_graph
+	cd .. && $(MAKE) test/build_graph
 
 clean:
 	rm -f build_graph

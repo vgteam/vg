@@ -1,4 +1,5 @@
 #include "subcommand.hpp"
+#include "../crash.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
@@ -683,8 +684,9 @@ int main_find(int argc, char** argv) {
                     ofstream out(s.str().c_str());
                     vg::io::save_handle_graph(&graph, out);
                     out.close();
-                    // reset our graph
-                    dynamic_cast<DeletableHandleGraph&>(graph).clear();
+                    // reset our graph so it has no nodes or paths anymore
+                    graph.clear();
+                    crash_unless(graph.get_path_count() == 0);
                 }
                 if (subgraph_k) {
                     prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[

@@ -3407,6 +3407,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         read2_max_score = max(p->second.score(), read2_max_score);
         results.first.push_back(p->first);
         results.second.push_back(p->second);
+        // FIXME: this can clobber the annotations about the haplotype scoring, but I think we've abandoned that
+        *results.first.back().mutable_annotation() = first_mate.annotation();
+        *results.second.back().mutable_annotation() = second_mate.annotation();
         possible_pairs += p->first.score() > 0 && p->second.score() > 0;
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
@@ -4486,7 +4489,12 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     clean_aln.set_sequence(aln.sequence());
     clean_aln.set_quality(aln.quality());
     clean_aln.clear_refpos();
-    return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr, xdrop_alignment);
+    auto alns = align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr, xdrop_alignment);
+    for (auto& result : alns) {
+        // FIXME: this can clobber the haplotype score annotations, but i think we've abandoned them
+        *result.mutable_annotation() = aln.annotation();
+    }
+    return alns;
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,

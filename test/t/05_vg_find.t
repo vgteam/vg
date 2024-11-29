@@ -112,7 +112,7 @@ rm -f t.xg t.vg t.x:30:35.vg t.x:10:20.vg q.x:30:35.vg q.x:10:20.vg t.bed
 
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg x.vg
-vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg gbwt -v small/xy2.vcf.gz -o x.gbwt -x x.vg
 is $(vg find -p x -x x.xg -K 16 -H x.gbwt | cut -f 5 | sort | uniq -c  | tail -n 1 | awk '{ print $1 }') 1510 "we find the expected number of kmers with haplotype frequency equal to 2"
 rm -f x.vg x.xg x.gbwt
 
@@ -124,7 +124,7 @@ is $? 0 "GFA i/o for find -n consistent with converting both ways"
 
 # Find nodes that map to the provided ids
 vg construct -m 32 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
-vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg gbwt -v small/xy2.vcf.gz -o x.gbwt -x x.vg
 vg prune -u -m x.mapping -g x.gbwt -e 1 x.vg > x.unfolded.vg
 
 rm -f expected.gfa

@@ -427,6 +427,9 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     mp_alns_out->back().set_annotation("all_scores", annotation_string);
                 }
+#ifdef debug_anchored_surject
+                cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
+#endif
             }
             
             // use this info to set the path position
@@ -4038,8 +4041,8 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                if (chunk.first.first == path_chunks.front().first.first && chunk.first.second == path_chunks.back().first.second
-                    && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) {
+                if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
+                    && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
 #ifdef debug_anchored_surject
                     cerr << "anchor " << i << " (read interval " << (chunk.first.first - sequence.begin()) << " : " << (chunk.first.second - sequence.begin()) << ") pruned for being a short tail" << endl;
 #endif
@@ -4050,19 +4053,49 @@ using namespace std;
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
                     SeqComplexity<6> chunk_complexity(chunk.first.first, chunk.first.second);
                     if (chunk.first.second - chunk.first.first < pad_suspicious_anchors_to_length) {
-                        auto read_context_begin = max(sequence.begin(), chunk.first.first - (pad_suspicious_anchors_to_length - (chunk.first.second - chunk.first.first)) / 2);
-                        auto read_context_end = min(sequence.end(), read_context_begin + pad_suspicious_anchors_to_length);
-                        if (read_context_end == sequence.end()) {
-                            // try to ensure enough bases if we're near the end of the read
-                            read_context_begin = max(sequence.begin(), read_context_end - pad_suspicious_anchors_to_length);
+                        // We need to fetch out a sequence at least pad_suspicious_anchors_to_length bp long (unless the whole sequence is shorter) and analyze that.
+                        
+                        // There's no way to symmetrically (and thus
+                        // independently of orientation) get an even-length
+                        // window around an odd-length window, or visa versa.
+                        // So express everything as per-side padding, and round it up.
+                        size_t chunk_length = chunk.first.second - chunk.first.first;
+                        size_t padding_per_side = (pad_suspicious_anchors_to_length - chunk_length + 1) / 2;
+
+                        // Pad separately on each side to avoid read bounds
+                        size_t left_padding = padding_per_side;
+                        size_t right_padding = padding_per_side;
+
+                        // Shift the padded window right if we hit the start
+                        size_t start_offset = chunk.first.first - sequence.begin();
+                        if (start_offset < left_padding) {
+                            right_padding += (left_padding - start_offset);
+                            left_padding = start_offset;
                         }
+
+                        // Shift the padded window left if we hit the end
+                        size_t remaining_until_end = sequence.end() - chunk.first.second;
+                        if (remaining_until_end < right_padding) {
+                            left_padding += (right_padding - remaining_until_end);
+                            right_padding = remaining_until_end;
+                        }
+
+                        // If we hit the start again, clip since the whole window doesn't fit.
+                        left_padding = min(left_padding, start_offset);
+
+                        // TODO: Is there a more closed-form way to budge the padding?
+
+                        // Now expand the iterator range without ever constructing pre-begin iterators
+                        auto read_context_begin = chunk.first.first - left_padding;
+                        auto read_context_end = chunk.first.second + right_padding;
+
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
                             //cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
                             if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
-                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned being for having context with low complexity at order " << order << ", p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+                                cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for having context with low complexity at order " << order << ", p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
 #endif
                                 // the sequences is repetitive at this order
                                 keep[i] = false;

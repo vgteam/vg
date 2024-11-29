@@ -86,8 +86,6 @@ local-build-test-job:
   script:
     - THREADS=8
     - nvm version
-    - python3 ./configure.py
-    - source ./source_me.sh
     - make get-deps
     - make -j${THREADS}
     - echo Testing
@@ -96,6 +94,8 @@ local-build-test-job:
     - make test
     - make static -j${THREADS}
     # Also test as a backend for the tube map
+    # Tube map expects vg on PATH
+    - export PATH="$(pwd)/bin:${PATH}"
     - git clone https://github.com/vgteam/sequenceTubeMap.git
     - cd sequenceTubeMap
     # Tube map expects local IPv6 but Kubernetes won't let us have it

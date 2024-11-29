@@ -103,6 +103,7 @@ void help_mpmap(char** argv) {
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved         input contains interleaved paired ends" << endl
+    << "  -C, --comments-as-tags    intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl
     << "algorithm presets:" << endl
     << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [RNA]" << endl
     << "  -l, --read-length TYPE    read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
@@ -154,7 +155,7 @@ void help_mpmap(char** argv) {
     //<< "  --always-check-population    always try to population-score reads, even if there is only a single mapping" << endl
     //<< "  --delay-population           do not apply population scoring at intermediate stages of the mapping algorithm" << endl
     //<< "  --force-haplotype-count INT  assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
-    //<< "  -C, --drop-subgraph FLOAT    drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
+    //<< "  --drop-subgraph FLOAT    drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     //<< "  --prune-exp FLOAT            prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
     << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments even when base qualities are available" << endl
@@ -216,6 +217,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_RESEED_LENGTH 1035
     #define OPT_MAX_MOTIF_PAIRS 1036
     #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
+    #define OPT_DROP_SUBGRAPH 1038
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -366,6 +368,7 @@ int main_mpmap(int argc, char** argv) {
     int min_splice_length = 20;
     int mem_accelerator_length = 12;
     bool no_output = false;
+    bool comments_as_tags = false;
     string out_format = "GAMP";
 
     // default presets
@@ -394,6 +397,7 @@ int main_mpmap(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"interleaved", no_argument, 0, 'i'},
+            {"comments-as-tags", no_argument, 0, 'C'},
             {"same-strand", no_argument, 0, 'T'},
             {"ref-paths", required_argument, 0, 'S'},
             {"output-fmt", required_argument, 0, 'F'},
@@ -445,7 +449,7 @@ int main_mpmap(int argc, char** argv) {
             {"greedy-min-dist", no_argument, 0, OPT_GREEDY_MIN_DIST},
             {"component-min-dist", no_argument, 0, OPT_COMPONENT_MIN_DIST},
             {"no-cluster", no_argument, 0, OPT_NO_CLUSTER},
-            {"drop-subgraph", required_argument, 0, 'C'},
+            {"drop-subgraph", required_argument, 0, OPT_DROP_SUBGRAPH},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
             {"not-spliced", no_argument, 0, 'X'},
@@ -469,7 +473,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vXu:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:a",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vXu:b:I:D:BP:Q:UpM:r:W:K:F:c:CR:En:l:e:q:z:w:o:y:L:mAt:a",
                          long_options, &option_index);
 
 
@@ -585,6 +589,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'i':
                 interleaved_input = true;
+                break;
+                
+            case 'C':
+                comments_as_tags = true;
                 break;
                 
             case 'T':
@@ -792,7 +800,7 @@ int main_mpmap(int argc, char** argv) {
                 no_clustering = true;
                 break;
                 
-            case 'C':
+            case OPT_DROP_SUBGRAPH:
                 cluster_ratio = parse<double>(optarg);
                 break;
                 
@@ -2357,14 +2365,14 @@ int main_mpmap(int argc, char** argv) {
         
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
-                                                                  multi_threaded_condition);
+                                                                  multi_threaded_condition, comments_as_tags);
         }
         else if (fastq_name_2.empty()) {
-            fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
+            fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments, comments_as_tags);
         }
         else {
             fastq_paired_two_files_for_each_parallel_after_wait(fastq_name_1, fastq_name_2, do_paired_alignments,
-                                                                multi_threaded_condition);
+                                                                multi_threaded_condition, comments_as_tags);
         }
     }
     
@@ -2380,10 +2388,10 @@ int main_mpmap(int argc, char** argv) {
             
             if (interleaved_input) {
                 vg::io::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
-                                                                      multi_threaded_condition);
+                                                                      multi_threaded_condition, comments_as_tags);
             }
             else {
-                vg::io::for_each_parallel(gam_in, do_unpaired_alignments);
+                vg::io::for_each_parallel(gam_in, do_unpaired_alignments, comments_as_tags);
             }
         };
         get_input_file(gam_file_name, execute);

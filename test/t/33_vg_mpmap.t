@@ -5,13 +5,14 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 25
 
 
 # Exercise the GBWT
 # Index a couple of nearly identical contigs
 vg construct -m 1000 -a -r small/xy.fa -v small/xy2.vcf.gz >xy2.vg
-vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy2.vg
+vg index -x xy2.xg -g xy2.gcsa -k 16 xy2.vg
+vg gbwt -v small/xy2.vcf.gz -o xy2.gbwt -x xy2.vg
 
 # We turn off the background model calibration with -B and ignore it with -P 1
 
@@ -64,7 +65,7 @@ rm -f temp_paired_alignment.json temp_distant_alignment.json temp_independent_al
 vg sim -x graphs/refonly-lrc_kir.vg.xg -n 1000 -p 500 -l 100 -a > input.gam
 
 vg mpmap -B -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -I 500 -D 100 -n dna -i -F GAM --no-qual-adjust > output.gam
-is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragment_prev == null)' | wc -l)" "0" "small batches are still all paired in the output"
+is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragment_prev == null)' | wc -l | sed 's/^[[:space:]]*//')" "0" "small batches are still all paired in the output"
 
 rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp input.gam output.gam
 
@@ -86,7 +87,7 @@ CAAATAAGGT
 +
 HHHHHHHHHH" > t.fq
 
-is "$(vg mpmap -B -n dna -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
+is "$(vg mpmap -B -n dna -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l | sed 's/^[[:space:]]*//')" "3" "multipath mapping works in scenarios that trigger branch point trimming"
 
 rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq
 
@@ -114,7 +115,7 @@ TCATCTCCCCGCACCTTTGTCCTTAGTCCACAGGAAACTCTGCTGTCAGTAGTATCATCTCCATATTAGAGATA
 HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
 
 
-is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 350 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 1"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 350 -D 10 | vg view -Kj - | grep connection | wc -l | sed 's/^[[:space:]]*//')" "1" "paired mapping can identify a splice junction on read 1"
 
 echo "@read1
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT
@@ -125,9 +126,9 @@ TCATCTCCCCGCACCTTTGTCCTTAGTCCACAGGAAACTTAAAATGGCCTGGGTAGCTTTGGATGTGGAGTAGTTAAAGG
 +
 HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
 
-is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 2"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 | vg view -Kj - | grep connection | wc -l | sed 's/^[[:space:]]*//')" "1" "paired mapping can identify a splice junction on read 2"
 
-is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 -F SAM --report-group-mapq | grep GM:i: | wc -l)" "2" "HTS output contains group mapq annotation"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 -F SAM --report-group-mapq | grep GM:i: | wc -l | sed 's/^[[:space:]]*//')" "2" "HTS output contains group mapq annotation"
 
 rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
 
@@ -140,7 +141,7 @@ vg snarls -T xy.vg > xy.snarls
 vg index xy.vg -x xy.xg -g xy.gcsa
 vg index xy.vg -j xy.dist 
 
-vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 -M 1 >xy.sam
+vg mpmap -B -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 -M 1 >xy.sam
 X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
 if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
     IN_RANGE="1"
@@ -158,6 +159,19 @@ else
 fi
 is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
 
+printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
+printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -M 1 -B --comments-as-tags -f tagged1.fq -F BAM > t1.bam
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -M 1 -B --comments-as-tags -f tagged2.fq -F BAM > t2.bam
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -M 1 -B --comments-as-tags -f tagged1.fq -f tagged2.fq -F BAM > t3.bam
+is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on read 1"
+is "$(samtools view t2.bam | grep T4 | grep T5 | grep T6 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on read 2"
+is "$(samtools view t3.bam | grep T1 | grep T2 | grep T3 | grep read1 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on paired read 1"
+is "$(samtools view t3.bam | grep T4 | grep T5 | grep T6 | grep read2 | wc -l | sed 's/^[[:space:]]*//')" "1" "SAM tags are preserved on paired read 2"
+
+
+
+rm tagged1.fq tagged2.fq t1.bam t2.bam t3.bam
 rm x.vg x.gam xy.vg xy.xg xy.gcsa xy.snarls xy.dist xy.sam
 
 

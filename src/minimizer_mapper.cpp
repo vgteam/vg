@@ -781,13 +781,11 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     alignments_to_source.reserve(cluster_extensions.size());
 
     // Create a new alignment object to get rid of old annotations.
-    {
-      Alignment temp;
-      temp.set_sequence(aln.sequence());
-      temp.set_name(aln.name());
-      temp.set_quality(aln.quality());
-      aln = std::move(temp);
-    }
+    aln.clear_refpos();
+    aln.clear_path();
+    aln.set_score(0);
+    aln.set_identity(0);
+    aln.set_mapping_quality(0);
 
     // Annotate the read with metadata
     if (!sample_name.empty()) {

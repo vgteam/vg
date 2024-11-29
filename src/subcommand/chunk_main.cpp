@@ -349,6 +349,36 @@ int main_chunk(int argc, char** argv) {
     bool chunk_gam = !gam_files.empty() && gam_split_size == 0;
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
+    // parse the regions into a list before loading the graph, if we're
+    // specifying regions by path name.
+    vector<Region> regions;
+    if (!region_strings.empty()) {
+        for (auto& region_string : region_strings) {
+            Region region;
+            parse_region(region_string, region);
+            regions.push_back(region);
+        }
+    }
+    if (!path_list_file.empty()) {
+        ifstream pr_stream(path_list_file.c_str());
+        if (!pr_stream) {
+            cerr << "error:[vg chunk] unable to open path regions: " << path_list_file << endl;
+            return 1;
+        }
+        while (pr_stream) {
+            string buf;
+            std::getline(pr_stream, buf);
+            if (!buf.empty()) {
+                Region region;
+                parse_region(buf, region);
+                regions.push_back(region);
+            }
+        }
+    }
+    if (!in_bed_file.empty()) {
+        parse_bed_regions(in_bed_file, regions);
+    }
+
     // Load the snarls
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarl_filename.empty()) {
@@ -377,9 +407,17 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         in.close();
+
+        // To support the regions we were asked for, we might need to ensure
+        // the paths they are on are actually indexed for reference style
+        // offset lookups.
+        std::unordered_set<std::string> ensure_indexed;
+        for (auto& region : regions) {
+            ensure_indexed.insert(region.seq);
+        }
         
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
-        graph = overlay_helper.apply(path_handle_graph.get());
+        graph = overlay_helper.apply(path_handle_graph.get(), ensure_indexed);
         in.close();
     }
 
@@ -463,35 +501,7 @@ int main_chunk(int argc, char** argv) {
     // (instead of an index)
     unordered_map<nid_t, int32_t> node_to_component;
     
-    // parse the regions into a list
-    vector<Region> regions;
-    if (!region_strings.empty()) {
-        for (auto& region_string : region_strings) {
-            Region region;
-            parse_region(region_string, region);
-            regions.push_back(region);
-        }
-    }
-    else if (!path_list_file.empty()) {
-        ifstream pr_stream(path_list_file.c_str());
-        if (!pr_stream) {
-            cerr << "error:[vg chunk] unable to open path regions: " << path_list_file << endl;
-            return 1;
-        }
-        while (pr_stream) {
-            string buf;
-            std::getline(pr_stream, buf);
-            if (!buf.empty()) {
-                Region region;
-                parse_region(buf, region);
-                regions.push_back(region);
-            }
-        }
-    }
-    else if (!in_bed_file.empty()) {
-        parse_bed_regions(in_bed_file, regions);
-    }
-    else if (id_range) {
+    if (id_range) {
         if (n_chunks) {
             // Determine the ranges from the source graph itself.
             // how many nodes per range?
@@ -556,9 +566,9 @@ int main_chunk(int argc, char** argv) {
             delete range_stream;
         }
     }
-    else if (graph != nullptr && (!components || path_components)) {
-        // every path
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
+    if (graph != nullptr && path_components) {
+        // every reference or generic path (guaranteed to be reference indexed)
+        graph->for_each_path_matching({PathSense::REFERENCE, PathSense::GENERIC}, {}, {}, [&](path_handle_t path_handle) {
                 Region region;
                 region.seq = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(region.seq)) {
@@ -596,7 +606,7 @@ int main_chunk(int argc, char** argv) {
     if (!id_range) {
         for (auto& region : regions) {
             if (!graph->has_path(region.seq)) {
-                cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
+                cerr << "error[vg chunk]: input path " << region.seq << " not found in graph" << endl;
                 return 1;
             }
             region.start = max((int64_t)0, region.start);
@@ -716,7 +726,7 @@ int main_chunk(int argc, char** argv) {
         map<string, int> trace_thread_frequencies;
         if (!component_ids.empty()) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
-            chunker.extract_component(component_ids[i], *subgraph, false);
+            chunker.extract_component(component_ids[i], *subgraph);
             output_regions[i] = region;
         }
         else if (id_range == false) {

@@ -24,7 +24,14 @@
 namespace vg {
 
 using namespace std;
-
+    
+    /**
+     * Widget to surject alignments down to linear paths in the graph.
+     *
+     * Assumes the alignments actually go with the graph; the caller is
+     * repsonsible for ensuring that e.g. all nodes referenced by the
+     * alignments actually exist.
+     */
     class Surjector : public AlignerClient {
     public:
         
@@ -132,6 +139,10 @@ using namespace std;
         double low_complexity_p_value = .0075;
         int64_t max_low_complexity_anchor_prune = 40;
         int64_t max_low_complexity_anchor_trim = 65;
+        /// When examining anchors for suspiciousness, try and make them at
+        /// least this long. To ensure orientation symmetry, we will make
+        /// anchors with the oppsite parity (even if this is odd, or odd if
+        /// this is even) 1bp longer.
         int64_t pad_suspicious_anchors_to_length = 12;
         
         // A function for computing band padding

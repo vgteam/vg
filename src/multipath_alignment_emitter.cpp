@@ -313,8 +313,7 @@ void MultipathAlignmentEmitter::convert_to_alignment(const multipath_alignment_t
 void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const multipath_alignment_t& mp_aln,
                                                       Alignment& shim, const string* prev_name, const string* next_name) const {
     
-    shim.set_sequence(mp_aln.sequence());
-    shim.set_quality(mp_aln.quality());
+    transfer_read_metadata(mp_aln, shim);
     shim.set_name(name);
     if (prev_name) {
         shim.mutable_fragment_prev()->set_name(*prev_name);
@@ -344,12 +343,6 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
         shim.set_score(optimal_alignment_score(mp_aln, true));
     }
     
-    // this tag comes from surject and is used in both
-    if (mp_aln.has_annotation("all_scores")) {
-        auto anno = mp_aln.get_annotation("all_scores");
-        assert(anno.first == multipath_alignment_t::String);
-        set_annotation(&shim, "all_scores", *((const string*) anno.second));
-    }
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,

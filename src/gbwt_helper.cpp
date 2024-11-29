@@ -88,26 +88,6 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph) {
     return gbwt::bit_length(gbwt::Node::encode(graph.max_node_id(), true));
 }
 
-void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
-    const std::vector<std::string>& sample_names,
-    const std::vector<std::string>& contig_names,
-    size_t haplotype_count, bool print_metadata,
-    const std::string& header) {
-
-    builder.finish();
-    builder.index.metadata.setSamples(sample_names);
-    builder.index.metadata.setHaplotypes(haplotype_count);
-    builder.index.metadata.setContigs(contig_names);
-    if (print_metadata) {
-        #pragma omp critical
-        {
-            std::cerr << header << ": ";
-            gbwt::operator<<(std::cerr, builder.index.metadata);
-            std::cerr << std::endl;
-        }
-    }
-}
-
 //------------------------------------------------------------------------------
 
 void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progress) {

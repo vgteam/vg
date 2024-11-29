@@ -436,6 +436,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_snarl_record.node_count = temp_snarl_record.children.size();
     }
 
+
     /*Now go through the decomposition again to fill in the distances
      * This traverses all chains in reverse order that we found them in, so bottom up
      * Each chain and snarl already knows its parents and children, except for single nodes
@@ -1137,8 +1138,9 @@ void populate_snarl_index(
           //}
 
         if ( (temp_snarl_record.node_count > size_limit || size_limit == 0) && (temp_snarl_record.is_root_snarl || (!start_is_tip &&
-             !start_rank == 0 && ! start_rank == 1))) {
+             start_rank != 0 && start_rank != 1))) {
             //If we don't care about internal distances, and we also are not at a boundary or tip
+            //TODO: Why do we care about tips specifically?
             continue;
         }
 
@@ -1209,7 +1211,23 @@ void populate_snarl_index(
 #endif
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
                     if (graph->get_id(current_end_handle) == graph->get_id(next_handle)){
-                        //If there are any loops then this isn't a simple snarl
+                        //If this loops onto the same node side then this isn't a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if ((current_index.first == SnarlDistanceIndex::TEMP_NODE ? current_index.second 
+                                                                                     : (current_rev ? temp_index.temp_chain_records[current_index.second].end_node_id
+                                                                                                    : temp_index.temp_chain_records[current_index.second].start_node_id))
+                                    == graph->get_id(next_handle)){
+                        //If this loops to the other end of the chain then this isn't a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if (!temp_snarl_record.is_root_snarl && start_rank == 0 && 
+                               current_index != start_index && graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
+                        //If the starting point of this traversal was the start of the snarl, the current starting point is not the start node,
+                        //and we found another child, then this is not a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    } else if (!temp_snarl_record.is_root_snarl && start_rank == 1 && 
+                               current_index != start_index && graph->get_id(next_handle) != temp_snarl_record.start_node_id) {
+                        //If the starting point of this traversal was the end of the snarl, the current starting point is not the end node,
+                        //and we found another child, then this is not a simple snarl
                         temp_snarl_record.is_simple = false;
                     }
 
@@ -1324,7 +1342,7 @@ void populate_snarl_index(
                             }
                         } else if (!next_is_boundary && !temp_snarl_record.distances.count(make_pair(start, next))) {
                             //Otherwise the snarl stores it in its distance
-                            //If the distance isn't from an internal node to a bound and we haven't stored the distance yets
+                            //If the distance isn't from an internal node to a bound and we haven't stored the distance yet
 
                             temp_snarl_record.distances[make_pair(start, next)] = current_distance;
                             added_new_distance = true;
@@ -1431,6 +1449,7 @@ void populate_snarl_index(
             }
         }
     }
+
 
     //If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
     // we want to remember if the child nodes are reversed 
