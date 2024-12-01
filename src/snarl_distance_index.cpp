@@ -1064,10 +1064,13 @@ void populate_snarl_index(
      */
 
 
-    //Reserve enough space to store all possible distances
-    temp_snarl_record.distances.reserve( (temp_snarl_record.node_count > size_limit || size_limit == 0) 
-            ? temp_snarl_record.node_count * 2
-            : temp_snarl_record.node_count * temp_snarl_record.node_count);
+    if (size_limit != 0 && !only_top_level_chain_distances) { 
+        //If we are saving distances
+        //Reserve enough space to store all possible distances
+        temp_snarl_record.distances.reserve( temp_snarl_record.node_count > size_limit
+                ? temp_snarl_record.node_count * 2
+                : temp_snarl_record.node_count * temp_snarl_record.node_count);
+    }
 
     if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {
         temp_index.use_oversized_snarls = true;
@@ -1138,7 +1141,7 @@ void populate_snarl_index(
           //  assert(start_rank != 0 && start_rank != 1);
           //}
 
-        if ( (temp_snarl_record.node_count > size_limit || size_limit == 0) && (temp_snarl_record.is_root_snarl || (!start_is_tip &&
+        if ( (temp_snarl_record.node_count > size_limit || size_limit == 0 || only_top_level_chain_distances) && (temp_snarl_record.is_root_snarl || (!start_is_tip &&
              start_rank != 0 && start_rank != 1))) {
             //If we don't care about internal distances, and we also are not at a boundary or tip
             //TODO: Why do we care about tips specifically?
