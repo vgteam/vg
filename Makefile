@@ -544,10 +544,13 @@ docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 	
-man: doc/wiki/vg-manpage.md
+man: doc/wiki/vg-manpage.md doc/man/vg.1
 
 doc/wiki/vg-manpage.md: $(BIN_DIR)/$(EXE) doc/vgmanmd.desc.md doc/vgmanmd.py
-	cd doc && ./vgmanmd.py > wiki/vg-manpage.md.tmp && mv wiki/vg-manpage.md.tmp wiki/vg-manpage.md
+	cd doc && ./vgmanmd.py > $@.tmp && mv $@.tmp $@
+
+doc/man/vg.1: doc/wiki/vg-manpage.md
+	mkdir -p doc/man && pandoc --standalone --to man $< -o $@
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
