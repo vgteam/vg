@@ -4,10 +4,10 @@ Make a markdown document with the usage messages of (selected) `vg` subcommands.
 Calls the `vg` command, so it will match the version available in the command line.
 
 ```sh
-python3 vgmanmd.py > man.md
+python3 vgmanmd.py > wiki/vg-manpage.md
 ```
 
-Then copy the markdown content to a wiki page, for example, or move the markdown page to somewhere in the vg repo?
+Then commit and push the changes to the wiki submodule, or copy the markdown content to the [wiki page](https://github.com/vgteam/vg/wiki/vg-manpage).
 
 ## Edit descriptions
 
