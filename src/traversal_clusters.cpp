@@ -235,10 +235,10 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
                                                       const vector<pair<handle_t, handle_t>>& child_snarls) {
 
     // index the child snarls
-    unordered_map<handle_t, int> handle_to_child;
+    unordered_map<handle_t, vector<int>> handle_to_child;
     for (int64_t i = 0; i < child_snarls.size(); ++i) {
-        handle_to_child[child_snarls[i].first] = i;
-        handle_to_child[child_snarls[i].second] = i;
+        handle_to_child[child_snarls[i].first].push_back(i);
+        handle_to_child[child_snarls[i].second].push_back(i);
     }
 
     // use the index to find which snarls are fully contained in a given traversal
@@ -248,11 +248,15 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
         map<int, int> rv_count;
         for (const handle_t& handle : trav) {
             if (handle_to_child.count(handle)) {
-                fw_count[handle_to_child[handle]] += 1;
+                for (int child : handle_to_child[handle]) {                    
+                    fw_count[child] += 1;
+                }
             }
             handle_t rhandle = graph->flip(handle);
             if (handle_to_child.count(rhandle)) {
-                rv_count[handle_to_child[rhandle]] += 1;
+                for (int child : handle_to_child[handle]) {
+                    rv_count[child] += 1;
+                }
             }
         }
         vector<int> contained_snarls;
