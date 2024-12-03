@@ -211,9 +211,12 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             temp_chain_record.end_node_id = node_id;
             temp_chain_record.end_node_rev = graph->get_is_reverse(chain_end_handle);
             temp_chain_record.end_node_length = graph->get_length(chain_end_handle);
+            
+            bool is_root_chain = false;
 
             if (stack.empty()) {
                 //If this was the last thing on the stack, then this was a root
+                is_root_chain = true;
 
                 //Check to see if there is anything connected to the ends of the chain
                 vector<nid_t> reachable_nodes;
@@ -280,7 +283,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                 parent_snarl_record.children.emplace_back(chain_index);
             }
 
-        temp_index.max_index_size += temp_chain_record.get_max_record_length();
+            temp_index.max_index_size += temp_chain_record.get_max_record_length(!only_top_level_chain_distances || is_root_chain ? true : false );
 #ifdef debug_distance_indexing
             cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << temp_index.structure_start_end_as_string(chain_index)
               << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_chain_record.parent) << endl;
@@ -1070,6 +1073,8 @@ void populate_snarl_index(
         temp_snarl_record.distances.reserve( temp_snarl_record.node_count > size_limit
                 ? temp_snarl_record.node_count * 2
                 : temp_snarl_record.node_count * temp_snarl_record.node_count);
+    } else {
+        temp_snarl_record.include_distances = false;
     }
 
     if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {
