@@ -66,7 +66,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Subchain& subchain = chain.subchains[subchain_id];
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                result[subchain.kmers[kmer_id].first] = 0;
+                result[subchain.kmers[kmer_id]] = 0;
             }
         }
     }
@@ -151,46 +151,79 @@ void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->start, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->end, out);
     sdsl::simple_sds::serialize_vector(this->kmers, out);
+    this->kmer_counts.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->sequences, out);
     this->kmers_present.simple_sds_serialize(out);
 }
 
-void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
+void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in) {
     std::uint64_t temp = sdsl::simple_sds::load_value<std::uint64_t>(in);
     switch (temp) {
-    case normal: // Fall through.
-    case prefix: // Fall through.
-    case suffix: // Fall through.
-    case full_haplotype:
-        this->type = static_cast<subchain_t>(temp);
+    case Haplotypes::Subchain::normal: // Fall through.
+    case Haplotypes::Subchain::prefix: // Fall through.
+    case Haplotypes::Subchain::suffix: // Fall through.
+    case Haplotypes::Subchain::full_haplotype:
+        subchain.type = static_cast<Haplotypes::Subchain::subchain_t>(temp);
         break;
     default:
         throw sdsl::simple_sds::InvalidData("Invalid subchain type: " + std::to_string(temp));
     }
 
-    this->start = sdsl::simple_sds::load_value<gbwt::node_type>(in);
-    this->end = sdsl::simple_sds::load_value<gbwt::node_type>(in);
-    bool should_have_start = (this->type == normal || this->type == suffix);
-    bool should_have_end = (this->type == normal || this->type == prefix);
-    if ((this->start != gbwt::ENDMARKER) != should_have_start) {
-        throw sdsl::simple_sds::InvalidData("Subchain start node " + std::to_string(this->start) + " does not match type " + std::to_string(temp));
+    subchain.start = sdsl::simple_sds::load_value<gbwt::node_type>(in);
+    subchain.end = sdsl::simple_sds::load_value<gbwt::node_type>(in);
+    bool should_have_start = (subchain.type == Haplotypes::Subchain::normal || subchain.type == Haplotypes::Subchain::suffix);
+    bool should_have_end = (subchain.type == Haplotypes::Subchain::normal || subchain.type == Haplotypes::Subchain::prefix);
+    if ((subchain.start != gbwt::ENDMARKER) != should_have_start) {
+        throw sdsl::simple_sds::InvalidData("Subchain start node " + std::to_string(subchain.start) + " does not match type " + std::to_string(temp));
     }
-    if ((this->end != gbwt::ENDMARKER) != should_have_end) {
-        throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(this->end) + " does not match type" + std::to_string(temp));
+    if ((subchain.end != gbwt::ENDMARKER) != should_have_end) {
+        throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(subchain.end) + " does not match type" + std::to_string(temp));
+    }
+}
+
+void load_subchain_kmers_present(Haplotypes::Subchain& subchain, std::istream& in) {
+    subchain.kmers_present.simple_sds_load(in);
+    if (subchain.kmers_present.size() != subchain.kmers.size() * subchain.sequences.size()) {
+        throw sdsl::simple_sds::InvalidData("Invalid length for the kmer presence bitvector in subchain from " +
+            std::to_string(subchain.start) + " to " + std::to_string(subchain.end));
+    }
+}
+
+void Haplotypes::Subchain::load_v1(std::istream& in) {
+    load_subchain_header(*this, in);
+
+    // Kmer and sequence information must be converted to a more compact format.
+    auto kmers_counts = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
+    auto seqs = sdsl::simple_sds::load_vector<sequence_type>(in);
+    this->kmers = std::vector<kmer_type>(kmers_counts.size());
+    this->kmer_counts = sdsl::int_vector<0>(kmers_counts.size(), 0, sdsl::bits::length(this->sequences.size()));
+    for (size_t i = 0; i < kmers_counts.size(); i++) {
+        this->kmers[i] = kmers_counts[i].first;
+        this->kmer_counts[i] = kmers_counts[i].second;
+    }
+    this->sequences = std::vector<compact_sequence_type>(seqs.size());
+    for (size_t i = 0; i < seqs.size(); i++) {
+        this->sequences[i].first = seqs[i].first;
+        this->sequences[i].second = seqs[i].second;
     }
 
-    this->kmers = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
-    this->sequences = sdsl::simple_sds::load_vector<sequence_type>(in);
-    this->kmers_present.simple_sds_load(in);
-    if (kmers_present.size() != kmers.size() * sequences.size()) {
-        throw sdsl::simple_sds::InvalidData("Invalid length for the kmer presence bitvector in subchain from " +
-            std::to_string(this->start) + " to " + std::to_string(this->end));
-    }
+    load_subchain_kmers_present(*this, in);
+}
+
+void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
+    load_subchain_header(*this, in);
+
+    this->kmers = sdsl::simple_sds::load_vector<kmer_type>(in);
+    this->kmer_counts.simple_sds_load(in);
+    this->sequences = sdsl::simple_sds::load_vector<compact_sequence_type>(in);
+
+    load_subchain_kmers_present(*this, in);
 }
 
 size_t Haplotypes::Subchain::simple_sds_size() const {
     size_t result = sdsl::simple_sds::value_size<std::uint64_t>() + 2 * sdsl::simple_sds::value_size<gbwt::node_type>();
     result += sdsl::simple_sds::vector_size(this->kmers);
+    result += this->kmer_counts.simple_sds_size();
     result += sdsl::simple_sds::vector_size(this->sequences);
     result += this->kmers_present.simple_sds_size();
     return result;
@@ -217,14 +250,25 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
     }
 }
 
-void Haplotypes::TopLevelChain::load_old(std::istream& in) {
+void Haplotypes::TopLevelChain::load_v1(std::istream& in) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
     this->contig_name = "component_" + std::to_string(this->offset);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
     for (size_t i = 0; i < subchain_count; i++) {
-        this->subchains[i].simple_sds_load(in);
+        this->subchains[i].load_v1(in);
+    }
+}
+
+void Haplotypes::TopLevelChain::load_v2(std::istream& in) {
+    this->offset = sdsl::simple_sds::load_value<size_t>(in);
+    this->job_id = sdsl::simple_sds::load_value<size_t>(in);
+    this->contig_name = sdsl::simple_sds::load_string(in);
+    size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
+    this->subchains.resize(subchain_count);
+    for (size_t i = 0; i < subchain_count; i++) {
+        this->subchains[i].load_v1(in);
     }
 }
 
@@ -263,8 +307,10 @@ void Haplotypes::simple_sds_load(std::istream& in) {
     for (auto& chain : this->chains) {
         if (this->header.version == Header::VERSION) {
             chain.simple_sds_load(in);
+        } else if (this->header.version == 2) {
+            chain.load_v2(in);
         } else {
-            chain.load_old(in);
+            chain.load_v1(in);
         }
     }
 
@@ -720,7 +766,8 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
   empty.
 */
 void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
-    std::vector<std::pair<HaplotypePartitioner::kmer_type, size_t>>& all_kmers,
+    std::vector<HaplotypePartitioner::kmer_type>& all_kmers,
+    sdsl::int_vector<0>& kmer_counts,
     sdsl::bit_vector& kmers_present) {
 
     // Build a map of distinct kmers. For each kmer, record the largest sequence
@@ -744,10 +791,12 @@ void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type
     // Now take those kmers that occur in some but not in all sequences.
     // Use the first field for storing the offset of the kmer in the vector.
     all_kmers.reserve(present.size());
+    kmer_counts = sdsl::int_vector<0>(present.size(), 0, sdsl::bits::length(sequences.size()));
     size_t offset = 0;
     for (auto iter = present.begin(); iter != present.end(); ++iter) {
         if (iter->second.second < sequences.size()) {
-            all_kmers.push_back({ iter->first, iter->second.second });
+            all_kmers.push_back(iter->first);
+            kmer_counts[offset] = iter->second.second;
             iter->second.first = offset;
             offset++;
         }
@@ -810,7 +859,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             output.subchains.push_back({
                 iter->first.type,
                 gbwtgraph::GBWTGraph::handle_to_node(iter->first.start), gbwtgraph::GBWTGraph::handle_to_node(iter->first.end),
-                {}, {}, sdsl::bit_vector()
+                {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
             });
             Haplotypes::Subchain& subchain = output.subchains.back();
             std::vector<std::vector<kmer_type>> kmers_by_sequence;
@@ -818,8 +867,11 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             for (sequence_type sequence : iter->second) {
                 kmers_by_sequence.emplace_back(this->unique_minimizers(sequence, iter->first));
             }
-            present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
-            subchain.sequences = std::move(iter->second);
+            present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmer_counts, subchain.kmers_present);
+            subchain.sequences = std::vector<Haplotypes::compact_sequence_type>(iter->second.size());
+            for (size_t i = 0; i < iter->second.size(); i++) {
+                subchain.sequences[i] = Haplotypes::compact_sequence_type(iter->second[i].first, iter->second[i].second);
+            }
         }
     }
 
@@ -830,7 +882,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
             gbwt::ENDMARKER, gbwt::ENDMARKER,
-            {}, {}, sdsl::bit_vector()
+            {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
         });
         Haplotypes::Subchain& subchain = output.subchains.back();
         gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(chain.handle);
@@ -840,10 +892,10 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         for (auto seq_id : sequences) {
             kmers_by_sequence.emplace_back(this->unique_minimizers(seq_id));
         }
-        present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
+        present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmer_counts, subchain.kmers_present);
         subchain.sequences.reserve(sequences.size());
         for (size_t i = 0; i < sequences.size(); i++) {
-            subchain.sequences.push_back({ sequences[i], 0 });
+            subchain.sequences.push_back(Haplotypes::compact_sequence_type(sequences[i], 0));
         }
     }
 }
@@ -1372,7 +1424,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types;
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-        double count = kmer_counts.at(subchain.kmers[kmer_id].first);
+        double count = kmer_counts.at(subchain.kmers[kmer_id]);
         if (count < absent_threshold) {
             kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
             selected_kmers++;
