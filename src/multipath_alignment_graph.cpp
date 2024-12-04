@@ -12,7 +12,7 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/pad_band.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 //#define debug_shift_pruning
 
@@ -5340,16 +5340,27 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         intervening_sequence.clear_path();
                         
 #ifdef debug_multipath_alignment
-                        cerr << "making " << num_alns_iter << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
-                        connecting_graph.for_each_handle([&](const handle_t& handle) {
-                            cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
-                            connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                                cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        cerr << "making " << num_alns_iter << " alignments of sequence ";
+                        if (intervening_sequence.sequence().size() < 150) {
+                            cerr << intervening_sequence.sequence();
+                        } else {
+                            cerr << "(length " << intervening_sequence.sequence().size() << " bp at " << (src_path_node.end - alignment.sequence().begin()) << ")";
+                        }
+                        cerr << " to connecting graph" << endl;
+                        size_t connecting_nodes = connecting_graph.get_node_count();
+                        if (connecting_nodes < 100) {
+                            connecting_graph.for_each_handle([&](const handle_t& handle) {
+                                cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                                connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                                    cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                                });
+                                connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                    cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                                });
                             });
-                            connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << connecting_graph.get_id(next) << endl;
-                            });
-                        });
+                        } else {
+                            cerr << "(" << connecting_nodes << " nodes from " << connecting_graph.min_node_id() << " to " << connecting_graph.max_node_id() << ")" << endl;
+                        }
 #endif
                         
                         // possibly the reverse the sequence
