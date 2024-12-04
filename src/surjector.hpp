@@ -112,6 +112,9 @@ using namespace std;
 
         /// the maximum length of a tail that we will try to align
         size_t max_tail_length = 10000;
+
+        // the maximum number of estimated band cells that we are willing to try to fill when connecting anchors
+        size_t max_band_cells = 4 * 1024 * 1024;
         
         /// We have a different default max_subgraph_bases_per_read_base to use for spliced alignment.
         static constexpr double SPLICED_DEFAULT_SUBGRAPH_LIMIT = 16 * 1024 * 1024 / 125.0;

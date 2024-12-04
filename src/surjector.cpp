@@ -3000,7 +3000,8 @@ using namespace std;
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
                                allow_negative_scores,                    // subpath local
-                               rev_strand);                              // left/right align
+                               rev_strand,                               // left/right align
+                               max_band_cells);                          // computation limit for banded global aligner
             
             topologically_order_subpaths(mp_aln);
             

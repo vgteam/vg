@@ -12,7 +12,7 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/pad_band.hpp"
 
-#define debug_multipath_alignment
+//#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 //#define debug_shift_pruning
 
@@ -4231,7 +4231,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     size_t unmergeable_len, size_t band_padding,
                                     multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                    bool allow_negative_scores, bool align_in_reverse) {
+                                    bool allow_negative_scores, bool align_in_reverse, size_t max_band_cells) {
         
         align(alignment,
               align_graph,
@@ -4250,7 +4250,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               dist_index,
               project,
               allow_negative_scores,
-              align_in_reverse);
+              align_in_reverse,
+              max_band_cells);
     }
 
     void MultipathAlignmentGraph::deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns,
@@ -5187,7 +5188,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                        bool allow_negative_scores, bool align_in_reverse) {
+                                        bool allow_negative_scores, bool align_in_reverse, size_t max_band_cells) {
         
         // TODO: magic number
         // how many tails we need to have before we try the more complicated but
@@ -5293,9 +5294,22 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     edge.second :
                     intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
+                size_t min_gap = (edge.second > intervening_length) ? edge.second - intervening_length : intervening_length - edge.second;
+                size_t band_cell_estimate = min(edge.second, intervening_length) * min_gap;
+
 #ifdef debug_multipath_alignment
                 cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
+                cerr << "min gap: " << min_gap << " band cell estimate: " << band_cell_estimate << endl;
 #endif
+
+                if (band_cell_estimate > max_band_cells) {
+                    // the MEMs weren't connectable with a positive score after all, mark the edge for removal
+#ifdef debug_multipath_alignment
+                    cerr << "Remove edge " << j << " -> " << edge.first << " because it might use too many BGA cells" << endl;
+#endif            
+                    edges_for_removal.insert(edge);
+                    continue;
+                }
                 
                 // extract the graph between the matches
                 bdsg::HashGraph connecting_graph;
