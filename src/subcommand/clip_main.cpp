@@ -40,7 +40,7 @@ void help_clip(char** argv) {
        << "    -D, --max-deletion-edge N Clip out all edges whose endpoints have distance > N on a reference path" << endl
        << "    -c, --context N           Search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
        << "general options: " << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
+       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -d or -b). Multiple allowed" << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
        << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
        << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
