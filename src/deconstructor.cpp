@@ -1493,7 +1493,7 @@ static string resolve_path_name(const PathPositionHandleGraph* graph,
     out_end = graph->get_position_of_step(step2);
     // until now, everything is oriented on the snarl
     // but here we flip so that we're oriented on the path
-    out_reversed = out_start > out_start;
+    out_reversed = out_start > out_end;
     if (out_reversed) {
         swap(step1, step2);
         swap(out_start, out_end);
