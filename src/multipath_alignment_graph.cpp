@@ -5,6 +5,7 @@
 #include "multipath_alignment_graph.hpp"
 #include "sequence_complexity.hpp"
 #include "reverse_graph.hpp"
+#include "banded_global_aligner.hpp"
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -4231,7 +4232,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     size_t unmergeable_len, size_t band_padding,
                                     multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                     SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                    bool allow_negative_scores, bool align_in_reverse, size_t max_band_cells) {
+                                    bool allow_negative_scores, bool align_in_reverse, uint64_t max_band_cells) {
         
         align(alignment,
               align_graph,
@@ -5188,7 +5189,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
                                         SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
-                                        bool allow_negative_scores, bool align_in_reverse, size_t max_band_cells) {
+                                        bool allow_negative_scores, bool align_in_reverse, uint64_t max_band_cells) {
         
         // TODO: magic number
         // how many tails we need to have before we try the more complicated but
@@ -5295,21 +5296,11 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
                 size_t min_gap = (edge.second > intervening_length) ? edge.second - intervening_length : intervening_length - edge.second;
-                size_t band_cell_estimate = min(edge.second, intervening_length) * min_gap;
 
 #ifdef debug_multipath_alignment
                 cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
-                cerr << "min gap: " << min_gap << " band cell estimate: " << band_cell_estimate << endl;
+                cerr << "min gap: " << min_gap << endl;
 #endif
-
-                if (band_cell_estimate > max_band_cells) {
-                    // the MEMs weren't connectable with a positive score after all, mark the edge for removal
-#ifdef debug_multipath_alignment
-                    cerr << "Remove edge " << j << " -> " << edge.first << " because it might use too many BGA cells" << endl;
-#endif            
-                    edges_for_removal.insert(edge);
-                    continue;
-                }
                 
                 // extract the graph between the matches
                 bdsg::HashGraph connecting_graph;
@@ -5385,8 +5376,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             aln_connecting_graph = &reverse_graph;
                         }
                         vector<Alignment> alt_alignments;
-                        aligner->align_global_banded_multi(intervening_sequence, alt_alignments, *aln_connecting_graph, num_alns_iter,
-                                                           band_padding_function(intervening_sequence, connecting_graph), true);
+                        try {
+                            aligner->align_global_banded_multi(intervening_sequence, alt_alignments, *aln_connecting_graph, num_alns_iter,
+                                                               band_padding_function(intervening_sequence, connecting_graph), true, max_band_cells);
+                        } catch(BandMatricesTooBigException& e) {
+                            // the MEMs weren't connectable with a positive score after all, mark the edge for removal
+#ifdef debug_multipath_alignment
+                            cerr << "Remove edge " << j << " -> " << edge.first << " because it used too many BGA cells" << endl;
+#endif            
+                            edges_for_removal.insert(edge);
+                            deduplicated.clear();
+                            break;
+                        }
+
+
                         if (align_in_reverse) {
                             for (auto& aln : alt_alignments) {
                                 reverse_alignment(aln);

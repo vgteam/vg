@@ -198,7 +198,7 @@ namespace vg {
                    bool simplify_topologies, size_t unmergeable_len, size_t band_padding, multipath_alignment_t& multipath_aln_out,
                    SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
                    const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false, bool align_in_reverse = false,
-                   size_t max_band_cells = std::numeric_limits<size_t>::max());
+                   uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
@@ -217,7 +217,7 @@ namespace vg {
                    bool simplify_topologies, size_t unmergeable_len, const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
                    const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false, bool align_in_reverse = false,
-                   size_t max_band_cells = std::numeric_limits<size_t>::max());
+                   uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         /// If given the Alignment query we are working on, can produce information about subpath iterators.

@@ -161,10 +161,13 @@ namespace vg {
         /// store top scoring global alignments in the vector in descending score order up to a maximum number
         /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
         /// number of alignments in the return value, then the vector contains all possible alignments. the
-        /// optimal alignment will be stored in both the vector and the original alignment object
+        /// optimal alignment will be stored in both the vector and the original alignment object.
+        ///
+        /// Throws BandMatricesTooBigException if the max_cells limit on DP matric size is hit.
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
-                                               bool permissive_banding = true) const = 0;
+                                               bool permissive_banding = true,
+                                               uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const = 0;
         /// xdrop aligner
         virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                                  bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
@@ -375,8 +378,11 @@ namespace vg {
         /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
         /// number of alignments in the return value, then the vector contains all possible alignments. the
         /// optimal alignment will be stored in both the vector and the original alignment object
+        ///
+        /// Throws BandMatricesTooBigException if the max_cells limit on DP matric size is hit.
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
+                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true,
+                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
 
         /// xdrop aligner
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
@@ -444,7 +450,8 @@ namespace vg {
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
                           uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
+                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true,
+                                       uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
                                 
