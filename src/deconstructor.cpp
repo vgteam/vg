@@ -1557,8 +1557,36 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
         return pos1 < pos2;
     });
 
-    for (const auto i : sorted_map) {
-        const PathInterval& path_interval = i->first;
+    // merge the intervals if they overlap
+    // this can happen, ex, in consecutive snarls along a chain where
+    // they one snarl starts where the previous ends, and keeping them
+    // separate would lead to an overlap between the two paths
+    vector<pair<PathInterval, const NestingInfo*>> merged_intervals;    
+    for (const auto& i : sorted_map) {
+        bool merged = false;
+        const PathInterval& cur_interval = i->first;
+        if (!merged_intervals.empty()) {
+            PathInterval& prev_interval = merged_intervals.back().first;
+            if (cur_interval.first == prev_interval.second) {
+                assert(i->second.parent_path_interval == merged_intervals.back().second->parent_path_interval);
+                prev_interval.second = cur_interval.second;
+                merged = true;
+            } else if (cur_interval.second == prev_interval.first) {
+                assert(i->second.parent_path_interval == merged_intervals.back().second->parent_path_interval);
+                prev_interval.first = cur_interval.first;
+                merged = true;
+            } else {
+                assert(cur_interval.first != prev_interval.first);
+                assert(cur_interval.second != prev_interval.second);
+            }
+        }
+        if (!merged) {
+            merged_intervals.push_back(make_pair(cur_interval, &i->second));
+        }
+    }
+
+    for (const auto i : merged_intervals) {
+        const PathInterval& path_interval = i.first;
         int64_t pos1;
         int64_t pos2;
         bool is_reversed;
@@ -1577,7 +1605,7 @@ void Deconstructor::save_off_ref_sequences(const string& out_fasta_filename) con
                                                      graph->get_handle_of_step(path_interval.second));
 
         // write a corresponding metadata record in the tsv with the nesting info in it
-        const NestingInfo& nesting_info = i->second;
+        const NestingInfo& nesting_info = *i.second;
         int64_t par_pos1;
         int64_t par_pos2;
         bool par_reversed;
