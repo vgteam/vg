@@ -295,10 +295,12 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
-	/// Checks whether any adjacent exons are out of (strictly increasing) order
+	/// Checks whether any adjacent exons are out of order
+	/// Assumes exons are in increasing order (to be correct)
 	bool has_incorrect_order_exons(const vector<Exon> & exons) const;
 
         /// Checks whether any adjacent exons overlap.
+	/// Assumes exons are in increasing order
         bool has_overlapping_exons(const vector<Exon> & exons) const;
 
         /// Constructs edited reference transcript paths from a set of 
