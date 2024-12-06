@@ -647,8 +647,24 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
         transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
 
         string transcript_id = "";
-        getline(transcript_line_ss, attribute, ';');
-        transcript_id = parse_attribute_value(attribute, transcript_tag);
+        while (getline(transcript_line_ss, attribute, ';')) {
+
+            if (attribute.empty()) {
+
+                break;
+            }
+
+            // Parse transcript ID.
+            if (transcript_id.empty()) {
+
+                transcript_id = parse_attribute_value(attribute, transcript_tag);
+            }
+
+            if (!transcript_id.empty()) {
+
+                break;
+            }
+        }
 
         if (transcript_id.empty()) {
 
