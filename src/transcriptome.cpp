@@ -582,10 +582,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
     string feature;
     string pos;
     string strand;
-    string attributes;
     string attribute;
-
-    bool zero_based_exon_number = false;
 
     while (transcript_stream->good()) {
 
@@ -650,58 +647,8 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
         transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
 
         string transcript_id = "";
-        int32_t exon_number = -1;  
-
-        while (getline(transcript_line_ss, attribute, ';')) {
-
-            if (attribute.empty()) {
-
-                break;
-            }
-
-            // Parse transcript ID.
-            if (transcript_id.empty()) {
-
-                transcript_id = parse_attribute_value(attribute, transcript_tag);
-            }
-
-            // Parse exon number.
-            if (exon_number < 0) {
-
-                auto exon_number_str = parse_attribute_value(attribute, "exon_number");
-
-                if (exon_number_str.empty()) {
-
-                    // If not exon_number attribute try ID.
-                    auto exon_id = parse_attribute_value(attribute, "ID");
-
-                    if (count(exon_id.begin(), exon_id.end(), ':') == 2) {
-
-                        auto exon_id_ss = stringstream(exon_id);
-
-                        string element;
-                        getline(exon_id_ss, element, ':');   
-                        
-                        if (element == "exon") {
-
-                            getline(exon_id_ss, element, ':');
-                            getline(exon_id_ss, element);   
-
-                            exon_number = stoi(element);
-                        }  
-                    }   
-
-                } else {
-
-                    exon_number = stoi(exon_number_str);
-                }
-            }
-
-            if (!transcript_id.empty() && exon_number >= 0) {
-
-                break;
-            }
-        }
+        getline(transcript_line_ss, attribute, ';');
+        transcript_id = parse_attribute_value(attribute, transcript_tag);
 
         if (transcript_id.empty()) {
 
@@ -728,25 +675,18 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
             // Add exon to current transcript.
             add_exon(transcript, make_pair(spos, epos), graph_path_pos_overlay);
         }
-
-        // Check if exons are in correct order in file. 
-        if (exon_number >= 0) {
-
-            // If first transcript and exon, set whether exon numbering is zero-based. 
-            if (parsed_transcripts.size() == 1 && transcript->exons.size() == 1) {
-
-                zero_based_exon_number = (exon_number == 0) ? true : false;
-            }
-
-            if (transcript->exons.size() - static_cast<uint32_t>(zero_based_exon_number) != exon_number) {
-
-                // Exclude transcripts with exons in incorrect order according to attributes.
-                excluded_transcripts.emplace(transcript_id);
-            } 
-        }
     }
 
     for (auto & transcript: parsed_transcripts) {
+        // Reorder reversed order exons.
+        reorder_exons(&(transcript.second));
+
+        // Exclude transcripts with exons in incorrect order according to bp.
+        if (has_incorrect_order_exons(transcript.second.exons)) {
+
+
+            excluded_transcripts.emplace(transcript.first);
+        }
 
         // Exclude transcripts with overlapping exons.
         if (has_overlapping_exons(transcript.second.exons)) {
@@ -759,12 +699,10 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
     transcripts->reserve(transcripts->size() + parsed_transcripts.size() - excluded_transcripts.size());
 
+    // Populate transcripts with parsed_transcripts not in excluded_transcripts.
     for (auto & transcript: parsed_transcripts) {
 
         if (excluded_transcripts.find(transcript.first) == excluded_transcripts.end()) {
-
-            // Reorder reversed order exons.
-            reorder_exons(&(transcript.second));
 
             transcripts->emplace_back(move(transcript.second));
         }
@@ -884,7 +822,7 @@ void Transcriptome::reorder_exons(Transcript * transcript) const {
 
     if (transcript->is_reverse) {
 
-        // Is exons in reverse order.
+        // Are exons in reverse order?
         bool is_reverse_order = true;
         for (size_t i = 1; i < transcript->exons.size(); i++) {
 
@@ -905,21 +843,24 @@ void Transcriptome::reorder_exons(Transcript * transcript) const {
 bool Transcriptome::has_overlapping_exons(const vector<Exon> & exons) const {
 
     for (size_t i = 1; i < exons.size(); ++i) {
+	    // Assumes that exons are in increasing coordinate order.
+        if (exons.at(i - 1).coordinates.second >= exons.at(i).coordinates.first) {
+            
+	        return true;
+        }
+    }
 
-        // Is exons in reverse order.
-        if (exons.at(i - 1).coordinates.first <= exons.at(i).coordinates.first) {
+    return false;
+}
 
-            if (exons.at(i - 1).coordinates.second >= exons.at(i).coordinates.first) {
+bool Transcriptome::has_incorrect_order_exons(const vector<Exon> & exons) const {
 
-                return true;
-            }
-        
-        } else {
-
-            if (exons.at(i).coordinates.second >= exons.at(i - 1).coordinates.first) {
-
-                return true;
-            }     
+    for (size_t i = 1; i < exons.size(); ++i) {
+        // Assumes that exons are in increasing coordinate order.
+        if (exons.at(i - 1).coordinates.first > exons.at(i).coordinates.first
+	     || exons.at(i - 1).coordinates.second > exons.at(i).coordinates.second) {
+	    
+	        return true;
         }
     }
 
