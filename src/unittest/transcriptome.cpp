@@ -503,9 +503,12 @@ namespace vg {
                 transcript_stream2 << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id=transcript1;exon_number=1" << endl;
                 transcript_stream2 << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id=transcript1;exon_number=3" << endl;
                 transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\tID=exon:transcript2:0;transcript_id=transcript2;" << endl;
-                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\tID=exon:transcript2:1;transcript_id=transcript2" << endl;
-                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\texon_number=2;transcript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t8\t9\t.\t-\t.\tID=exon:transcript2:1;transcript_id=transcript2" << endl;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\tID=exon:transcript2:2;transcript_id=transcript2" << endl;
                 transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\texon_number=1;transcript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\texon_number=2;transcript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t8\t10\t.\t+\t.\ttranscript_id=transcript4" << endl;
+                transcript_stream2 << "path1\t.\texon\t3\t6\t.\t+\t.\ttranscript_id=transcript4" << endl;
 
                 transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), empty_haplotype_index, false, false);
 
