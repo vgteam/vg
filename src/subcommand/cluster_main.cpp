@@ -351,7 +351,7 @@ int main_cluster(int argc, char** argv) {
         // TODO: add memory options like autoindex?
         registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
 
-        auto index_targets = VGIndexes::get_default_giraffe_indexes();
+        auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
 
         //Make sure we have all necessary indexes
         try {
