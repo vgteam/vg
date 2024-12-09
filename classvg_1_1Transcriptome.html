@@ -164,8 +164,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:af764ab28d6d866807d09a4482dd96523"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae6f600db9b276fe332d4f14919bba983"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983">reorder_exons</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript) const</td></tr>
 <tr class="separator:ae6f600db9b276fe332d4f14919bba983"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4cba921dae9fe3eae2361b0b7391b7b3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a4cba921dae9fe3eae2361b0b7391b7b3">has_incorrect_order_exons</a> (const vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt; &amp;exons) const</td></tr>
+<tr class="separator:a4cba921dae9fe3eae2361b0b7391b7b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a405f6a2b87ab7d919d0cb8780b1362a5">has_overlapping_exons</a> (const vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt; &amp;exons) const</td></tr>
-<tr class="memdesc:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks whether any adjacent exons overlap.  <a href="classvg_1_1Transcriptome.html#a405f6a2b87ab7d919d0cb8780b1362a5">More...</a><br /></td></tr>
+<tr class="memdesc:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assumes exons are in increasing order.  <a href="classvg_1_1Transcriptome.html#a405f6a2b87ab7d919d0cb8780b1362a5">More...</a><br /></td></tr>
 <tr class="separator:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab8e9e4cf0cf855de888086388577d56"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#aab8e9e4cf0cf855de888086388577d56">construct_reference_transcript_paths_embedded</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
 <tr class="separator:aab8e9e4cf0cf855de888086388577d56"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1105,6 +1107,33 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4cba921dae9fe3eae2361b0b7391b7b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4cba921dae9fe3eae2361b0b7391b7b3">&#9670;&nbsp;</a></span>has_incorrect_order_exons()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Transcriptome::has_incorrect_order_exons </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>exons</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Checks whether any adjacent exons are out of order Assumes exons are in increasing order (to be correct) </p>
+
+</div>
+</div>
 <a id="aaf34b6da5110fa44f787994be4ea2791"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aaf34b6da5110fa44f787994be4ea2791">&#9670;&nbsp;</a></span>has_novel_exon_boundaries()</h2>
 
@@ -1167,6 +1196,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>Assumes exons are in increasing order. </p>
 <p>Checks whether any adjacent exons overlap. </p>
 
 </div>
