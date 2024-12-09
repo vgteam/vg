@@ -45,7 +45,7 @@ var searchData=
   ['filename_1539',['filename',['../structvg_1_1GBWTHandler.html#a551e856227d00e32f1c66691d44ec502',1,'vg::GBWTHandler::filename()'],['../structjob__type.html#a9453f5bf04ab3780dcb2fa1c8264eb65',1,'job_type::filename()']]],
   ['filenames_1540',['filenames',['../classvg_1_1IndexFile.html#ac839a4016a34b52e297f8159d0de9e76',1,'vg::IndexFile::filenames()'],['../structvg_1_1temp__file_1_1Handler.html#a31034b76a60ff07d49afc2979084ed13',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
   ['fill_5fbuffer_1541',['fill_buffer',['../classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f',1,'vg::VcfBuffer']]],
-  ['fill_5fin_5fdistance_5findex_1542',['fill_in_distance_index',['../namespacevg.html#aa614af08093562e4f766ba028eb5d6d2',1,'vg']]],
+  ['fill_5fin_5fdistance_5findex_1542',['fill_in_distance_index',['../namespacevg.html#ac7b8c3e17638ecacbdf519c4095bc20e',1,'vg']]],
   ['fill_5fmatrix_1543',['fill_matrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a54be0f91b1460bbd03e87e6da6be6e32',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['fill_5fnode_5fto_5fposition_1544',['fill_node_to_position',['../classvg_1_1Filter.html#ac7216130c6fbd20580901090f8185048',1,'vg::Filter']]],
   ['fill_5fvalue_1545',['fill_value',['../classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd',1,'vg::io::ProtobufIterator']]],

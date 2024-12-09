@@ -2116,12 +2116,12 @@ Functions</h2></td></tr>
 <tr class="separator:abcbcd550b51078ae43f2b1d87941e1a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a004ed92d4db665ce8ec4e527f150a7c4">maximum_distance</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos1, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> pos2)</td></tr>
 <tr class="separator:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa614af08093562e4f766ba028eb5d6d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa614af08093562e4f766ba028eb5d6d2">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool silence_warnings)</td></tr>
-<tr class="separator:aa614af08093562e4f766ba028eb5d6d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7eec172f798f421f4d059e5c51d6d9ce"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7eec172f798f421f4d059e5c51d6d9ce">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit)</td></tr>
-<tr class="separator:a7eec172f798f421f4d059e5c51d6d9ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a909f1da1c571aa4c8a82b2e48ac915b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a909f1da1c571aa4c8a82b2e48ac915b2">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt; snarl_index, size_t size_limit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:a909f1da1c571aa4c8a82b2e48ac915b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac7b8c3e17638ecacbdf519c4095bc20e">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
+<tr class="separator:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae55954f00a00c8b34d20966f7d9fe72a">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances)</td></tr>
+<tr class="separator:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7c9f1f64df265187309db52705a1bef7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7c9f1f64df265187309db52705a1bef7">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt; snarl_index, size_t size_limit, bool only_top_level_chain_distances, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a7c9f1f64df265187309db52705a1bef7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff8a7aca57dd525bc2def1369abae3fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff8a7aca57dd525bc2def1369abae3fe">subgraph_in_distance_range</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, size_t min_distance, size_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, bool look_forward)</td></tr>
 <tr class="separator:aff8a7aca57dd525bc2def1369abae3fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0312bffc43a4f4176aad1c37073b59df"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0312bffc43a4f4176aad1c37073b59df">subgraph_in_distance_range_walk_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, size_t min_distance, size_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;start_nodes, <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;seen_nodes, const pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &amp;traversal_start)</td></tr>
@@ -9529,8 +9529,8 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
-<a id="aa614af08093562e4f766ba028eb5d6d2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa614af08093562e4f766ba028eb5d6d2">&#9670;&nbsp;</a></span>fill_in_distance_index()</h2>
+<a id="ac7b8c3e17638ecacbdf519c4095bc20e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7b8c3e17638ecacbdf519c4095bc20e">&#9670;&nbsp;</a></span>fill_in_distance_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9558,6 +9558,12 @@ template&lt;class RandomIt &gt; </div>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>only_top_level_chain_distances</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -15050,8 +15056,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a7eec172f798f421f4d059e5c51d6d9ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7eec172f798f421f4d059e5c51d6d9ce">&#9670;&nbsp;</a></span>make_temporary_distance_index()</h2>
+<a id="ae55954f00a00c8b34d20966f7d9fe72a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae55954f00a00c8b34d20966f7d9fe72a">&#9670;&nbsp;</a></span>make_temporary_distance_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -15072,7 +15078,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>size_limit</em>&#160;</td>
+          <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>only_top_level_chain_distances</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -20212,8 +20224,8 @@ template&lt;typename TracebackIterator &gt; </div>
 
 </div>
 </div>
-<a id="a909f1da1c571aa4c8a82b2e48ac915b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a909f1da1c571aa4c8a82b2e48ac915b2">&#9670;&nbsp;</a></span>populate_snarl_index()</h2>
+<a id="a7c9f1f64df265187309db52705a1bef7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7c9f1f64df265187309db52705a1bef7">&#9670;&nbsp;</a></span>populate_snarl_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20235,6 +20247,12 @@ template&lt;typename TracebackIterator &gt; </div>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>only_top_level_chain_distances</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
