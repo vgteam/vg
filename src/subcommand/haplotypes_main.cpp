@@ -78,6 +78,7 @@ struct HaplotypesConfig {
         mode_map_variants,
         mode_extract,
         mode_classify,
+        mode_statistics,
     };
 
     OperatingMode mode = mode_invalid;
@@ -101,6 +102,9 @@ struct HaplotypesConfig {
     size_t chain_id = std::numeric_limits<size_t>::max();
     size_t subchain_id = std::numeric_limits<size_t>::max();
 
+    // For subchain statistics.
+    std::string ref_sample;
+
     // Other parameters.
     size_t threads = haplotypes_default_threads();
     bool validate = false;
@@ -117,6 +121,8 @@ void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const
 void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+
+void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 //----------------------------------------------------------------------------
 
@@ -177,6 +183,11 @@ int main_haplotypes(int argc, char** argv) {
         classify_kmers(gbz, haplotypes, config);
     }
 
+    // Output statistics on subchain lengths and kmer counts.
+    if (config.mode == HaplotypesConfig::mode_statistics) {
+        subchain_statistics(gbz, haplotypes, config);
+    }
+
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         double gib = gbwt::inGigabytes(gbwt::memoryUsage());
@@ -198,6 +209,8 @@ void help_haplotypes(char** argv, bool developer_options) {
     if (developer_options) {
         std::cerr << usage << "-i graph.hapl --vcf-input variants.vcf graph.gbz > output.tsv" << std::endl;
         std::cerr << usage << "-i graph.hapl -k kmers.kff --extract M:N graph.gbz > output.fa" << std::endl;
+        std::cerr << usage << "-i graph.hapl -k kmers.kff --classify output.kmers graph.gbz" << std::endl;
+        std::cerr << usage << "-i graph.hapl --statistics ref_sample graph.gbz > output.tsv" << std::endl;
     }
     std::cerr << std::endl;
 
@@ -241,8 +254,9 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "        --vcf-input X         map the variants in VCF file X to subchains" << std::endl;
         std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << "        --extract M:N         extract haplotypes in chain M, subchain N in FASTA format" << std::endl;
-        std::cerr << "        --score-output X      write haplotype scores to X" << std::endl;
+        std::cerr << "        --score-output X      write haplotype scores to X (use with --extract)" << std::endl;
         std::cerr << "        --classify X          classify kmers and write output to X" << std::endl;
+        std::cerr << "        --statistics X        output subchain statistics over reference sample X" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -269,6 +283,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_EXTRACT = 1600;
     constexpr int OPT_SCORE_OUTPUT = 1601;
     constexpr int OPT_CLASSIFY = 1602;
+    constexpr int OPT_STATISTICS = 1603;
 
     static struct option long_options[] =
     {
@@ -299,6 +314,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "extract", required_argument, 0, OPT_EXTRACT },
         { "score-output", required_argument, 0, OPT_SCORE_OUTPUT },
         { "classify", required_argument, 0, OPT_CLASSIFY },
+        { "statistics", required_argument, 0, OPT_STATISTICS },
         { 0, 0, 0, 0 }
     };
 
@@ -463,6 +479,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_CLASSIFY:
             this->kmer_output = optarg;
             break;
+        case OPT_STATISTICS:
+            this->ref_sample = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -492,6 +511,8 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         this->mode = mode_extract;
     } else if (!this->haplotype_input.empty() && !this->kmer_input.empty() && !this->kmer_output.empty()) {
         this->mode = mode_classify;
+    } else if (!this->haplotype_input.empty() && !this->ref_sample.empty()) {
+        this->mode = mode_statistics;
     }
     if (this->mode == mode_invalid) {
         help_haplotypes(argv, false);
@@ -655,26 +676,33 @@ gbwt::size_type path_for_contig(const gbwtgraph::GBZ& gbz, gbwt::size_type conti
     return path_id;
 }
 
-std::pair<gbwt::size_type, size_t> seq_chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type path_id, const std::string& contig_name) {
+// Returns the GBWT sequence id for the given path in the orientation it appears in this top-level chain.
+// Returns `gbwt::invalid_sequence()` if the path is not found.
+gbwt::size_type seq_for_chain(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type path_id, size_t chain_id) {
     gbwt::size_type sequence_id = gbwt::Path::encode(path_id, false);
     gbwt::size_type reverse_id = gbwt::Path::encode(path_id, true);
+    for (const Haplotypes::Subchain& subchain : haplotypes.chains[chain_id].subchains) {
+        for (const std::pair<gbwt::size_type, size_t>& sequence : subchain.sequences) {
+            if (sequence.first == sequence_id) {
+                return sequence.first;
+            }
+            if (sequence.first == reverse_id) {
+                return sequence.first;
+            }
+        }
+    }
+    return gbwt::invalid_sequence();
+}
+
+std::pair<gbwt::size_type, size_t> seq_chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type path_id, const std::string& contig_name) {
     size_t found_chains = 0;
     std::pair<gbwt::size_type, size_t> result(gbwt::invalid_sequence(), haplotypes.components());
     for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
-        const Haplotypes::Subchain& subchain = haplotypes.chains[chain_id].subchains.front();
-        for (size_t i = 0; i < subchain.sequences.size(); i++) {
-            if (subchain.sequences[i].first == sequence_id) {
-                result.first = sequence_id;
-                result.second = chain_id;
-                found_chains++;
-                break;
-            }
-            if (subchain.sequences[i].first == reverse_id) {
-                result.first = reverse_id;
-                result.second = chain_id;
-                found_chains++;
-                break;
-            }
+        gbwt::size_type seq_id = seq_for_chain(gbz, haplotypes, path_id, chain_id);
+        if (seq_id != gbwt::invalid_sequence()) {
+            result.first = seq_id;
+            result.second = chain_id;
+            found_chains++;
         }
     }
     if (found_chains != 1) {
@@ -709,29 +737,32 @@ struct ReferenceInterval {
         return this->end - this->start;
     }
 
-    std::string to_string() const {
-        std::string result;
+    char type_as_char() const {
         switch (this->type) {
             case Haplotypes::Subchain::normal:
-                result.push_back('N');
-                break;
+                return 'N';
             case Haplotypes::Subchain::prefix:
-                result.push_back('P');
-                break;
+                return 'P';
             case Haplotypes::Subchain::suffix:
-                result.push_back('S');
-                break;
+                return 'S';
             case Haplotypes::Subchain::full_haplotype:
-                result.push_back('F');
-                break;
+                return 'F';
         }
+        return '?';
+    }
+
+    std::string to_string() const {
+        std::string result;
+        result.push_back(this->type_as_char());
         result += std::to_string(this->id) + "(" + std::to_string(this->start) + ".." + std::to_string(this->end) + ")";
         return result;
     }
 };
 
-std::vector<ReferenceInterval> subchain_intervals(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type sequence_id, size_t chain_id, bool reverse) {
-    gbwt::size_type actual_sequence_id = (reverse ? gbwt::Path::reverse(sequence_id) : sequence_id);
+// Also returns the total length of the path / GBWT sequence in bp.
+std::pair<std::vector<ReferenceInterval>, size_t> subchain_intervals(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type sequence_id, size_t chain_id) {
+    bool reverse = gbwt::Path::is_reverse(sequence_id);
+    gbwt::size_type actual_sequence_id = gbwt::Path::encode(gbwt::Path::id(sequence_id), false);
     gbwt::vector_type path = gbz.index.extract(actual_sequence_id);
     size_t total_length = 0;
     for (auto gbwt_node : path) {
@@ -778,7 +809,7 @@ std::vector<ReferenceInterval> subchain_intervals(const gbwtgraph::GBZ& gbz, con
             interval.start = seq_offset;
         } else if (subchain.type == Haplotypes::Subchain::prefix) {
             // If a prefix follows a suffix, they cover the same interval.
-            interval.start = result.back().start;
+            interval.start = (result.empty() ? 0 : result.back().start);
         }
         if (subchain.has_end()) {
             while (node_offset < path.size() && path[node_offset] != subchain.end) {
@@ -787,14 +818,14 @@ std::vector<ReferenceInterval> subchain_intervals(const gbwtgraph::GBZ& gbz, con
             }
             interval.end = seq_offset;
             // If a prefix follows a suffix, they cover the same interval.
-            if (subchain.type == Haplotypes::Subchain::prefix) {
+            if (subchain.type == Haplotypes::Subchain::prefix && !result.empty()) {
                 result.back().end = interval.end;
             }
         }
         result.push_back(interval);
     }
 
-    return result;
+    return { result, total_length };
 }
 
 void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
@@ -868,7 +899,10 @@ void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const
         size_t offset = iter->second;
         gbwt::size_type sequence_id = offset_to_seq_chain[offset].first;
         gbwt::size_type chain_id = offset_to_seq_chain[offset].second;
-        auto ref_intervals = subchain_intervals(gbz, haplotypes, sequence_id, chain_id, gbwt::Path::is_reverse(sequence_id));
+        std::vector<ReferenceInterval> ref_intervals;
+        size_t total_length;
+        std::tie(ref_intervals, total_length) =
+            subchain_intervals(gbz, haplotypes, sequence_id, chain_id);
         for (auto interval : variant_positions[offset]) {
             size_t low = 0, high = ref_intervals.size();
             bool found = false;
@@ -986,6 +1020,62 @@ void classify_kmers(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, con
     // Multi-gigabyte writes do not work in every environment, but we assume that
     // there are only at most a few hundred million kmers.
     out.write(classifications.data(), classifications.size());
+}
+
+//----------------------------------------------------------------------------
+
+gbwt::size_type path_for_sample_contig(
+    const gbwtgraph::GBZ& gbz,
+    const std::string& sample_name, const std::string& contig_name
+) {
+    gbwt::size_type sample_id = gbz.index.metadata.sample(sample_name);
+    if (sample_id >= gbz.index.metadata.samples()) {
+        std::cerr << "error: [vg haplotypes] sample " << sample_name << " not found" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    gbwt::size_type contig_id = gbz.index.metadata.contig(contig_name);
+    if (contig_id >= gbz.index.metadata.contigs()) {
+        std::cerr << "error: [vg haplotypes] contig " << contig_name << " not found" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    auto paths = gbz.index.metadata.findPaths(sample_id, contig_id);
+    if (paths.size() != 1) {
+        std::cerr << "error: [vg haplotypes] found " << paths.size() << " paths for sample " << sample_name << ", contig " << contig_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    return paths.front();
+}
+
+void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+    gbwt::size_type sample_id = gbz.index.metadata.sample(config.ref_sample);
+    if (sample_id >= gbz.index.metadata.samples()) {
+        std::cerr << "error: [vg haplotypes] sample " << config.ref_sample << " not found in the graph" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Header line: graph name, sample name.
+    std::cout << "#\t" << config.graph_name << "\t" << config.ref_sample << std::endl;
+
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        gbwt::size_type path_id = path_for_sample_contig(gbz, config.ref_sample, haplotypes.chains[chain_id].contig_name);
+        gbwt::size_type seq_id = seq_for_chain(gbz, haplotypes, path_id, chain_id);
+        if (seq_id == gbwt::invalid_sequence()) {
+            std::cerr << "error: [vg haplotypes] could not determine reference orientation in chain " << chain_id << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        std::vector<ReferenceInterval> ref_intervals;
+        size_t total_length;
+        std::tie(ref_intervals, total_length) = subchain_intervals(gbz, haplotypes, seq_id, chain_id);
+
+        // Header line: contig name, total length.
+        std::cout << "#\t" << haplotypes.chains[chain_id].contig_name << "\t" << total_length << std::endl;
+        // For each subchain: type, start, end, number of kmers.
+        for (size_t i = 0; i < ref_intervals.size(); i++) {
+            size_t kmers = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].kmers.size();
+            std::cout << ref_intervals[i].type_as_char() << "\t" << ref_intervals[i].start << "\t" << ref_intervals[i].end << "\t" << kmers << std::endl;
+        }
+    }
 }
 
 //----------------------------------------------------------------------------
