@@ -1068,12 +1068,22 @@ void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes
         size_t total_length;
         std::tie(ref_intervals, total_length) = subchain_intervals(gbz, haplotypes, seq_id, chain_id);
 
-        // Contig line: contig name, total length.
-        std::cout << "C\t" << haplotypes.chains[chain_id].contig_name << "\t" << total_length << std::endl;
-        // For each subchain: type, start, end, number of kmers.
+        // Contig line: chain id, contig name, total length.
+        std::cout
+            << "C\t"
+            << chain_id << "\t"
+            << haplotypes.chains[chain_id].contig_name << "\t"
+            << total_length << std::endl;
+        // For each subchain: type, id, start, end, length, number of kmers.
         for (size_t i = 0; i < ref_intervals.size(); i++) {
             size_t kmers = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].kmers.size();
-            std::cout << ref_intervals[i].type_as_char() << "\t" << ref_intervals[i].start << "\t" << ref_intervals[i].end << "\t" << kmers << std::endl;
+            std::cout
+                << ref_intervals[i].type_as_char() << "\t"
+                << ref_intervals[i].id << "\t"
+                << ref_intervals[i].start << "\t"
+                << ref_intervals[i].end << "\t"
+                << ref_intervals[i].length() << "\t"
+                << kmers << std::endl;
         }
     }
 }
