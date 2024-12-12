@@ -604,6 +604,15 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
         auto chrom_lengths_it = chrom_lengths.find(chrom);
 
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');         
+        assert(getline(transcript_line_ss, feature, '\t'));
+
+        // Select only relevant feature types.
+        if (feature != feature_type && !feature_type.empty()) {
+
+            continue;
+        }
+	
         if (chrom_lengths_it == chrom_lengths.end()) {
 
             if (error_on_missing_path) {
@@ -616,15 +625,6 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
                 // Seek to the end of the line.
                 continue;
             }
-        }
-
-        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');         
-        assert(getline(transcript_line_ss, feature, '\t'));
-
-        // Select only relevant feature types.
-        if (feature != feature_type && !feature_type.empty()) {
-
-            continue;
         }
 
         // Parse start and end exon position and convert to 0-base.
