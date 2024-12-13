@@ -81,6 +81,27 @@ static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGrap
     }
 }
 
+/// If the given multipath alignment doesn't make sense against the given graph (i.e.
+/// doesn't agree with the nodes in the graph), print a message and stop the
+/// program. Is thread-safe.
+static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const HandleGraph& graph) {
+    // For multipaht alignments we just check node existence.
+    for (auto& subpath : aln.subpath()) {
+        for (auto& mapping : subpath.path().mapping()) {
+            nid_t node_id = mapping.position().node_id();
+            if (!graph.has_node(node_id)) {
+                // Something is wrong with this alignment.
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "error:[vg surject] MultipathAlignment " << aln.name() << " cannot be interpreted against this graph: node " << node_id << " does not exist!" << std::endl;
+                    std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
+                }
+                exit(1);
+            }
+        }
+    }
+}
+
 int main_surject(int argc, char** argv) {
     
     if (argc == 2) {
@@ -607,6 +628,11 @@ int main_surject(int argc, char** argv) {
                             
                             exit(1);
                         }
+
+                        if (validate) {
+                            ensure_alignment_is_for_graph(src1, *xgidx);
+                            ensure_alignment_is_for_graph(src2, *xgidx);
+                        }
                         
                         // convert out of protobuf
                         multipath_alignment_t mp_src1, mp_src2;
@@ -714,6 +740,10 @@ int main_surject(int argc, char** argv) {
                         size_t thread_num = omp_get_thread_num();
                         if (watchdog) {
                             watchdog->check_in(thread_num, src.name());
+                        }
+
+                        if (validate) {
+                            ensure_alignment_is_for_graph(src, *xgidx);
                         }
 
                         multipath_alignment_t mp_src;

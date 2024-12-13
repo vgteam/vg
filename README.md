@@ -12,7 +12,7 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 
 * _nodes_, which are labeled by sequences and ids
 * _edges_, which connect two nodes via either of their respective ends
-* _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
+* _paths_, which describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
 This model is similar to sequence graphs that have been used in assembly and multiple sequence alignment.
 
@@ -64,10 +64,10 @@ First, obtain the repo and its submodules:
 
 #### Linux: Install Dependencies
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need:
+Then, install VG's dependencies. You'll need the Protobuf and Jansson development libraries installed, and to run the tests you will need:
 * `jq`, `bc`, `rs`, and `parallel`
 * `hexdump` and `column` from `bsdmainutils`
-* [`npm` for testing documentation examples](https://github.com/anko/txm)).
+* [`npm` for testing documentation examples](https://github.com/anko/txm).
 
 On Ubuntu, you should be able to do:
 
@@ -189,13 +189,13 @@ Then close your terminal and open a new one. Run `vg` to make sure it worked.
 
 The Mac platform is moving to ARM, with Apple's M1, M1 Pro, M1 Max, and subsequent chip designs. The vg codebase supports ARM on Mac as well as on Linux. **The normal installation instructions work on a factory-fresh ARM Mac**.
 
-However, it is easy to run into problems when **migrating a working vg build environment** or **migrating Macports or Homebrew** from x86_64 to ARM. The ARM machine can successfully run x86_64 tools installed via Macports or Homebrew on the old machine, but vg can only build properly on ARM if you are using ARM versions of the build tools, like `make` and CMake.
+However, it is easy to run into problems when **migrating a working vg build environment** or **migrating MacPorts or Homebrew** from x86_64 to ARM. The ARM machine can successfully run x86_64 tools installed via Macports or Homebrew on the old machine, but vg can only build properly on ARM if you are using ARM versions of the build tools, like `make` and CMake.
 
 So, after migrating to an ARM Mac using e.g. Apple's migration tools:
 
-1. Uninstall Macports and its packages, if they were migrated from the old machine. Only an ARM Macports install can be used to provide dependencies for vg on ARM.
+1. Uninstall MacPorts and its packages, if they were migrated from the old machine. Only an ARM MacPorts install can be used to provide dependencies for vg on ARM.
 2. Uninstall Homebrew and its packages, if they were migrated. Similarly, only an ARM Homebrew install will work.
-3. Reinstall one of Macports or Homebrew. Make sure to use the M1 or ARM version.
+3. Reinstall one of MacPorts or Homebrew. Make sure to use the M1 or ARM version.
 4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#install-dependencies).
 5. Clean vg with `make clean`. This *should* remove all build artefacts.
 6. Build vg again with `make`.
@@ -230,15 +230,15 @@ You can also build a graph (and indexes for mapping with vg) from a set of genom
 
 `vg` supports [many formats](https://github.com/vgteam/vg/wiki/File-Formats), the three most important are:
 
-* `PackedGraph (.vg)` : This is `vg's` native format. It supports edits of all kinds (to topology and paths), but can be inefficient at large scales, especially with many paths.
-* `GFA (.gfa)` : [GFA](https://github.com/GFA-spec/GFA-spec) is standard text-based format and usually the best way to exchange graphs between `vg` and other pangenome tools. `vg` can also operate on (**uncompressed**) GFA files directly, by way of using a `PackedGraph` representation in memory (and therefore shares that format's scaling concerns and edit-ability).
+* `PackedGraph (.vg)` : This is `vg`'s native format. It supports edits of all kinds (to topology and paths), but can be inefficient at large scales, especially with many paths.
+* `GFA (.gfa)` : [GFA](https://github.com/GFA-spec/GFA-spec) is a standard text-based format and usually the best way to exchange graphs between `vg` and other pangenome tools. `vg` can also operate on (**uncompressed**) GFA files directly, by way of using a `PackedGraph` representation in memory (and therefore sharing that format's scaling concerns and edit-ability).
 * `GBZ (.gbz)` : [GBZ](https://github.com/jltsiren/gbwtgraph/blob/master/SERIALIZATION.md) is a highly-compressed format that uses much less space to store paths than the above formats, but at the cost of not allowing general edits to the graph.
 
 You can query the format of any graph using `vg stats -F`.
 
 #### Importing
 
-In general, you will build and index `vg` graphs using `vg autoindex` (from GFA or VCF) or `Minigraph-Cactus` (FASTAs). You can also import `GFA` files from other tools such as [ODGI](https://github.com/pangenome/odgi) and [PGGB](https://github.com/pangenome/pggb) using `vg convert -g`.
+In general, you will build and index `vg` graphs using `vg autoindex` (from GFA or VCF) or Minigraph-Cactus (FASTAs). You can also import `GFA` files from other tools such as [ODGI](https://github.com/pangenome/odgi) and [PGGB](https://github.com/pangenome/pggb) using `vg convert -g`.
 
 #### Exporting
 
@@ -246,14 +246,14 @@ You can convert any graph to `GFA` using `vg convert -f`.  By default, `vg` uses
 
 #### Path Types
 
-The `GBZ` format makes the distinction between `REFERENCE` and `HAPLOTYPE` paths. `REFERENCE` paths can be used as coordinate systems but are more expensive to store. `HAPLOTYPE` paths are highly compressed but cannot be used for position lookups. In the [HPRC](https://github.com/human-pangenomics/hpp_pangenome_resources/) graphs for example, contigs from `GRCh38` and `CHM13(T2T)` are `REFERENCE` paths and all other samples `HAPLOTYPE` paths.
+The `GBZ` format makes a distinction between `REFERENCE` and `HAPLOTYPE` paths. `REFERENCE` paths can be used as coordinate systems but are more expensive to store. `HAPLOTYPE` paths are highly compressed but cannot be used for position lookups. In the [HPRC](https://github.com/human-pangenomics/hpp_pangenome_resources/) graphs for example, contigs from `GRCh38` and `CHM13(T2T)` are `REFERENCE` paths and all other samples are `HAPLOTYPE` paths.
 
 The distinction between `REFERENCE` and `HAPLOTYPE` paths is carried over into the other formats such as `.vg` and `.gfa` to facilitate conversion and inter-operation. In `.gfa`, `REFERENCE` paths are P-Lines, or W-lines whose sample names are flagged in the header. W-lines whose names are not flagged in the header are `HAPLOTYPE` paths. In `.vg` they are denoted using a naming convention.  
 
 See the [Path Metadata WIKI](https://github.com/vgteam/vg/wiki/Path-Metadata-Model) for more details.
 
 > **Warning**
-> `GBZ` is the only format that supports efficient loading large numbers of `HAPLOTYPE` paths in `vg`.  You may run into issues trying to load whole-genome graphs with thousands of `HAPLOTYPE` from `.vg` or `.gfa` files.  `vg convert -H` can be used to drop `HAPLOTYPE` paths, allowing the graph to be more easily loaded in other formats. 
+> `GBZ` is the only format that supports efficiently loading large numbers of `HAPLOTYPE` paths in `vg`.  You may run into issues trying to load whole-genome graphs with thousands of `HAPLOTYPE` paths from `.vg` or `.gfa` files.  `vg convert -H` can be used to drop `HAPLOTYPE` paths, allowing the graph to be more easily loaded in other formats. 
 
 ### Viewing
 
@@ -303,11 +303,11 @@ vg sim -n 1000 -l 150 -x x.giraffe.gbz -a > x.sim.gam
 vg giraffe -Z x.giraffe.gbz -G x.sim.gam -o BAM > aln.bam
 ```
 
-[More information on using `vg girafe` can be found on the `vg` wiki.](https://github.com/vgteam/vg/wiki/Mapping-short-reads-with-Giraffe)
+[More information on using `vg giraffe` can be found on the `vg` wiki.](https://github.com/vgteam/vg/wiki/Mapping-short-reads-with-Giraffe)
 
 #### Mapping with `vg map`
 
-If your graph is large, you want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
+If your graph is large, you will want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
 
 <!-- !test check Simulate and map back with surjection with map -->
 ```sh
@@ -339,7 +339,7 @@ vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 Variation from alignments can be embedded back into the graph.  This process is called augmentation and can be used for *de novo* variant calling, for example (see below).
 
 > **Warning**
-> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to `BAM` and running a linear variant caller such as DeepVariant. 
+> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to BAM and running a linear variant caller such as DeepVariant. 
 
 <!-- !test check Augment a graph -->
 ```sh
@@ -365,7 +365,7 @@ Call only variants that are present in the graph:
 
 <!-- !test check Pack and call -->
 ```sh
-# Compute the read support from the gam
+# Compute the read support from the GAM
 # -Q 5: ignore mapping and base qualitiy < 5
 vg pack -x x.xg -g aln.gam -Q 5  -o aln.pack
 
@@ -379,24 +379,24 @@ By default, `vg call` omits `0/0` variants and tries to normalize alleles to mak
 vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the "Augmentation" example using `vg augment -A`):
+In order to also consider *novel* variants from the reads, use the augmented graph and GAM (as created in the "Augmentation" example using `vg augment -A`):
 
 > **Warning**
-> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to `BAM` and running a linear variant caller such as DeepVariant. 
+> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to BAM and running a linear variant caller such as DeepVariant. 
 
 <!-- !test check Call from augmentation -->
 ```sh
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (ignoring qualitiy < 5, and 1st and last 5bp of each read)
+# Compute the read support from the augmented GAM (ignoring qualitiy < 5, and 1st and last 5bp of each read)
 vg pack -x aug.xg -g aug.gam -Q 5 -s 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf
 ```
 
-A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a` (graphs from other sources such as `vg autoindex` and `Minigraph-Cactus` cannot be used):
+A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a` (graphs from other sources such as `vg autoindex` and Minigraph-Cactus cannot be used):
 
 <!-- !test check Genotype -->
 ```sh
@@ -417,7 +417,7 @@ Pre-filtering the GAM before computing support can improve precision of SNP call
 
 <!-- !test check Pre-filter GAM and call -->
 ```sh
-# filter secondary and ambiguous read mappings out of the gam
+# filter secondary and ambiguous read mappings out of the GAM
 vg filter aln.gam -r 0.90 -fu -m 1 -q 15 -D 999 -x x.xg > aln.filtered.gam
 
 # then compute the support from aln.filtered.gam instead of aln.gam in above etc.
@@ -435,11 +435,11 @@ vg snarls x.xg > x.snarls
 vg call x.xg -k aln.pack -r x.snarls > calls.vcf
 ```
 
-Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex '.gbz', '.gfa', `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` or '.gfa' uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
+Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.gbz`, `.gfa`, `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` or '.gfa' uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
 
 #### Calling variants from paths in the graph
 
-Infer variants from from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
+Infer variants from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
 
 <!-- !test check MSGA and deconstruct -->
 ```sh
@@ -453,7 +453,7 @@ vg index hla.vg -x hla.xg
 vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
 ```
 
-Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g', respectively.
+Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g`, respectively.
 
 As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.
 
@@ -479,7 +479,7 @@ RNA-seq reads can be mapped to the spliced pangenome graph using `vg mpmap` with
 vg mpmap -n rna -t 4 -x vg_rna.spliced.xg -g vg_rna.spliced.gcsa -d vg_rna.spliced.dist -f small/x_rna_1.fq -f small/x_rna_2.fq > mpmap.gamp
 ```
 
-This will produce alignments in the multipath format. For more information on the multipath alignment format and `vg mpmap` see [wiki page on mpmap](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
+This will produce alignments in the multipath format. For more information on the multipath alignment format and `vg mpmap` see the [wiki page on mpmap](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
 
 ### Alignment
 
@@ -505,25 +505,25 @@ A variety of commands are available:
 
 - *autoindex*: construct graphs and indexes for other tools from common interchange file formats
 - *construct*: graph construction
-- *index*: index features of the graph in a disk-backed key/value store
-- *map*: mapp reads to a graph
+- *index*: index features of a graph in a disk-backed key/value store
+- *map*: map reads to a graph
 - *giraffe*: fast, haplotype-based mapping of reads to a graph
 - *mpmap*: short read mapping and multipath alignment (optionally spliced)
 - *surject*: project graph alignments onto a linear reference
-- *augment*: adds variation from aligned reads into the graph
+- *augment*: add variation from aligned reads into a graph
 - *call*: call variants from an augmented graph
 - *rna*: construct splicing graphs and pantranscriptomes
 - *convert*: convert graph and alignment formats
 - *combine*: combine graphs
 - *chunk*: extract or break into subgraphs
 - *ids*: node ID manipulation
-- *sim*: simulate reads by walking paths in the graph
+- *sim*: simulate reads by walking paths in a graph
 - *prune*: prune graphs to restrict their path complexity
 - *snarls*: find bubble-like motifs in a graph
 - *mod*: various graph transformations
 - *filter*: filter reads out of an alignment
-- *deconstruct*: create a VCF from variation in the graph
-- *paths*: traverse paths in the graph
+- *deconstruct*: create a VCF from variation in a graph
+- *paths*: traverse paths in a graph
 - *stats*: metrics describing graph properties
 
 ## Implementation notes

@@ -78,6 +78,7 @@ void help_map(char** argv) {
          << "    -G, --gam-input FILE          realign GAM input" << endl
          << "    -f, --fastq FILE              input fastq or (2-line format) fasta, possibly compressed, two are allowed, one for each mate" << endl
          << "    -F, --fasta FILE              align the sequences in a FASTA file that may have multiple lines per reference sequence" << endl
+         << "    --comments-as-tags            intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl
          << "    -i, --interleaved             fastq or GAM is interleaved paired-ended" << endl
          << "    -N, --sample NAME             for --reads input, add this sample" << endl
          << "    -R, --read-group NAME         for --reads input, add this read group" << endl
@@ -111,6 +112,7 @@ int main_map(int argc, char** argv) {
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_EXCLUDE_UNALIGNED 1002
     #define OPT_REF_PATHS 1003
+    #define OPT_COMMENTS_AS_TAGS 1004
     string matrix_file_name;
     string seq;
     string qual;
@@ -189,6 +191,7 @@ int main_map(int argc, char** argv) {
     bool xdrop_alignment = false;
     uint32_t max_gap_length = 40;
     bool log_time = false;
+    bool comments_as_tags = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -267,6 +270,7 @@ int main_map(int argc, char** argv) {
                 {"xdrop-alignment", no_argument, 0, 2},
                 {"gaf", no_argument, 0, '%'},
                 {"log-time", no_argument, 0, '^'},
+                {"comments-as-tags", no_argument, 0, OPT_COMMENTS_AS_TAGS},
                 {0, 0, 0, 0}
             };
 
@@ -588,6 +592,10 @@ int main_map(int argc, char** argv) {
 
         case '^':
             log_time = true;
+            break;
+            
+        case OPT_COMMENTS_AS_TAGS:
+            comments_as_tags = true;
             break;
 
         case 'h':
@@ -1038,7 +1046,7 @@ int main_map(int argc, char** argv) {
 
                 reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
-            fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
+            fastq_paired_interleaved_for_each_parallel(fastq1, lambda, comments_as_tags);
 #pragma omp parallel
             { // clean up buffered alignments that weren't perfect
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -1071,7 +1079,7 @@ int main_map(int argc, char** argv) {
                         output_alignments(alignments, empty_alns);
                         reads_mapped_by_thread[tid] += 1;
                     };
-            fastq_unpaired_for_each_parallel(fastq1, lambda);
+            fastq_unpaired_for_each_parallel(fastq1, lambda, comments_as_tags);
         } else {
             // paired two-file
             auto output_func = [&](Alignment& aln1,
@@ -1114,7 +1122,7 @@ int main_map(int argc, char** argv) {
 
                 reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
-            fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
+            fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda, comments_as_tags);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -1186,7 +1194,7 @@ int main_map(int argc, char** argv) {
                 }
                 reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
-            vg::io::for_each_interleaved_pair_parallel(gam_in, lambda);
+            vg::io::for_each_interleaved_pair_parallel(gam_in, lambda, comments_as_tags);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -1222,7 +1230,7 @@ int main_map(int argc, char** argv) {
                 output_alignments(alignments, empty_alns);
                 reads_mapped_by_thread[tid] += 1;
             };
-            vg::io::for_each_parallel(gam_in, lambda);
+            vg::io::for_each_parallel(gam_in, lambda, comments_as_tags);
         }
         gam_in.close();
     }
