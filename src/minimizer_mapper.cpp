@@ -1630,6 +1630,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     alignments.resize(max_fragment_num + 2);
     alignment_indices.resize(max_fragment_num + 2);
 
+    // For each read, we need to know how many alignments are in the funnel, so
+    // we can track whether we said we filtered each of them later.
+    std::array<size_t, 2> num_alignments_of_read {0, 0};
+
     //Now that we've scored each of the clusters, extend and align them
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
         Alignment& aln = *alns[read_num];
@@ -1950,8 +1954,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
             });
         
-    }
+        num_alignments_of_read[read_num] = curr_funnel_index;
 
+    }
 
     //Now that we have alignments, figure out how to pair them up
     
@@ -1998,6 +2003,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     vector<alignment_index_t> unpaired_alignments;
     std::array<size_t, 2> unpaired_count {0, 0};
 
+    // To make the max-rescue-attempts filter work, we need to pass or fail
+    // each read exactly once, even if it doesn't participate in rescue but
+    // does participate in multiple possible pairs. So we need to track if we
+    // passed the filter already by virtue of being in at least one pair.
+    // Unpaired reads are the only ones that actually go to rescue, so we only
+    // use these flagd for paired reads.
+    std::array<std::vector<bool>, 2> passed_rescue_filter;
+    if (track_provenance) {
+        for (auto r : {0, 1}) {
+            // The bool vecotr will default to false
+            passed_rescue_filter[r].resize(num_alignments_of_read[r]);
+        }
+    }
+
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
         //Get pairs of plausible alignments
         for (auto r : {0, 1}) {
@@ -2016,15 +2035,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             for (aln_index[0] = 0 ; aln_index[0] < fragment_alignments[0].size() ; aln_index[0]++)  {
                 alignment[0] = &fragment_alignments[0][aln_index[0]];
                 funnel_index[0] = alignment_indices[fragment_num][0][aln_index[0]];
-                if (track_provenance) {
-                    funnels[0].pass("max-rescue-attempts", funnel_index[0]);
-                }
+               
                 for (aln_index[1] = 0 ; aln_index[1] < fragment_alignments[1].size() ; aln_index[1]++) {
                     alignment[1] = &fragment_alignments[1][aln_index[1]];
                     funnel_index[1] = alignment_indices[fragment_num][1][aln_index[1]];
-                    if (track_provenance) {
-                        funnels[1].pass("max-rescue-attempts", funnel_index[1]);
-                    }
 
                     //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(*alignment[0], *alignment[1]); 
@@ -2066,6 +2080,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         for (auto r : {0, 1}) {
                             funnels[r].processing_input(funnel_index[r]);
                             funnels[r].substage("pair-clusters");
+                            if(!passed_rescue_filter[r][funnel_index[r]]) {
+                                funnels[r].pass("max-rescue-attempts", funnel_index[r]);
+                                passed_rescue_filter[r][funnel_index[r]] = true;
+                            }
                             funnels[r].project(funnel_index[r]);
                             funnels[r].score(funnels[r].latest(), score);
                             funnels[r].substage_stop();
