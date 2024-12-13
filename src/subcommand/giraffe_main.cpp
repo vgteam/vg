@@ -1837,7 +1837,7 @@ int main_giraffe(int argc, char** argv) {
         
         // For timing, we may run one thread first and then switch to all threads. So track both start times.
         std::chrono::time_point<std::chrono::system_clock> first_thread_start;
-        std::chrono::time_point<std::chrono::system_clock> all_threads_start;
+        std::chrono::time_point<std::chrono::system_clock> all_threads_start = std::chrono::time_point<std::chrono::system_clock>::min();
         
         // We also time in terms of CPU time
         clock_t cpu_time_before;
@@ -1984,7 +1984,7 @@ int main_giraffe(int argc, char** argv) {
                     }
                     return is_ready;
                 };
-                
+
                 // Define a way to force the distribution ready
                 auto require_distribution_finalized = [&]() {
                     if (!minimizer_mapper.fragment_distr_is_finalized()){
@@ -2182,8 +2182,8 @@ int main_giraffe(int argc, char** argv) {
 #endif
         
         // Compute wall clock elapsed
-        std::chrono::duration<double> all_threads_seconds = end - all_threads_start;
-        std::chrono::duration<double> first_thread_additional_seconds = all_threads_start - first_thread_start;
+        std::chrono::duration<double> all_threads_seconds = (all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()) ? std::chrono::duration<double>(0.0) : end - all_threads_start;
+        std::chrono::duration<double> first_thread_additional_seconds = (all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()) ? end - first_thread_start : all_threads_start - first_thread_start;
         
         // Compute CPU time elapsed
         double cpu_seconds = (cpu_time_after - cpu_time_before) / (double)CLOCKS_PER_SEC;
