@@ -2016,9 +2016,15 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             for (aln_index[0] = 0 ; aln_index[0] < fragment_alignments[0].size() ; aln_index[0]++)  {
                 alignment[0] = &fragment_alignments[0][aln_index[0]];
                 funnel_index[0] = alignment_indices[fragment_num][0][aln_index[0]];
+                if (track_provenance) {
+                    funnels[0].pass("max-rescue-attempts", funnel_index[0]);
+                }
                 for (aln_index[1] = 0 ; aln_index[1] < fragment_alignments[1].size() ; aln_index[1]++) {
                     alignment[1] = &fragment_alignments[1][aln_index[1]];
                     funnel_index[1] = alignment_indices[fragment_num][1][aln_index[1]];
+                    if (track_provenance) {
+                        funnels[1].pass("max-rescue-attempts", funnel_index[1]);
+                    }
 
                     //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(*alignment[0], *alignment[1]); 
@@ -2060,7 +2066,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         for (auto r : {0, 1}) {
                             funnels[r].processing_input(funnel_index[r]);
                             funnels[r].substage("pair-clusters");
-                            funnels[r].pass("max-rescue-attempts", funnel_index[r]);
                             funnels[r].project(funnel_index[r]);
                             funnels[r].score(funnels[r].latest(), score);
                             funnels[r].substage_stop();

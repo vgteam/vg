@@ -1,5 +1,7 @@
 #include "funnel.hpp"
 
+#include "crash.hpp"
+
 #include <cassert>
 #include <cstring>
 
@@ -305,6 +307,11 @@ void Funnel::pass(const char* filter, size_t prev_stage_item, double statistic) 
     auto& prev_stage = stages[stages.size() - 2];
 
     // Record the item as having passed this filter
+    if (prev_stage.items[prev_stage_item].passed_filters.size() > 0) {
+        // Make sure we're not using the same filter multiple times.
+        const char* last_filter = prev_stage.items[prev_stage_item].passed_filters.back();
+        crash_unless(filter != last_filter && strcmp(filter, last_filter) != 0);
+    }
     prev_stage.items[prev_stage_item].passed_filters.emplace_back(filter);
     prev_stage.items[prev_stage_item].passed_statistics.emplace_back(statistic);
 }
