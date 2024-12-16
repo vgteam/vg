@@ -454,7 +454,7 @@ size_t ZipCode::get_length(const size_t& depth, bool get_chain_component_length)
             }
             
             //Otherwise, we didn't store the length
-            throw std::runtime_error("zipcodes don't store lengths of top-level chains or snarls");
+            throw std::runtime_error("zipcodes don't store lengths of top-level chains or snarls. Do your zipcode, minimizer, and graph files match?");
         }
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
@@ -501,13 +501,13 @@ size_t ZipCode::get_rank_in_snarl(const size_t& depth) const {
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
-        throw std::runtime_error("zipcodes don't store ranks of top-level chains or snarls");
+        throw std::runtime_error("zipcodes don't store ranks of top-level chains or snarls. Do your zipcode, minimizer, and graph files match?");
 
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
 
         if (decoder[depth-1].is_chain) {
-            throw std::runtime_error("zipcodes trying to find the rank in snarl of a node in a chain");
+            throw std::runtime_error("zipcodes trying to find the rank in snarl of a node in a chain. Do your zipcode, minimizer, and graph files match?");
         }
 
         size_t zip_value;
@@ -518,7 +518,7 @@ size_t ZipCode::get_rank_in_snarl(const size_t& depth) const {
         return zip_value;
     } else {
         //If this is a snarl
-        throw std::runtime_error("zipcodes don't store snarl ranks for snarls");
+        throw std::runtime_error("zipcodes don't store snarl ranks for snarls. Do your zipcode, minimizer, and graph files match?");
     }
 }
 
@@ -545,7 +545,7 @@ size_t ZipCode::get_snarl_child_count(const size_t& depth, const SnarlDistanceIn
         return zip_value;
     } else {
         //If this is not a snarl
-        throw std::runtime_error("trying to get the snarl child count of a non-snarl zipcode");
+        throw std::runtime_error("trying to get the snarl child count of a non-snarl zipcode. Do your zipcode, minimizer, and graph files match?");
     }
 }
 
@@ -554,13 +554,13 @@ size_t ZipCode::get_offset_in_chain(const size_t& depth, const SnarlDistanceInde
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
-        throw std::runtime_error("zipcodes don't have chain offsets for roots");
+        throw std::runtime_error("zipcodes don't have chain offsets for roots. Do your zipcode, minimizer, and graph files match?");
 
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
 
         if (!decoder[depth-1].is_chain) {
-            throw std::runtime_error("zipcodes trying to find the offset in child of a snarl");
+            throw std::runtime_error("zipcodes trying to find the offset in child of a snarl. Do your zipcode, minimizer, and graph files match?");
         }
         size_t zip_value;
         size_t zip_index = decoder[depth].offset;
@@ -586,13 +586,13 @@ size_t ZipCode::get_chain_component(const size_t& depth) const {
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
-        throw std::runtime_error("zipcodes don't have chain offsets for roots");
+        throw std::runtime_error("zipcodes don't have chain offsets for roots. Do your zipcode, minimizer, and graph files match?");
 
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
 
         if (!decoder[depth-1].is_chain) {
-            throw std::runtime_error("zipcodes trying to find the offset in child of a snarl");
+            throw std::runtime_error("zipcodes trying to find the offset in child of a snarl. Do your zipcode, minimizer, and graph files match?");
         }
         size_t zip_value;
         size_t zip_index = decoder[depth].offset;
@@ -617,7 +617,7 @@ size_t ZipCode::get_chain_component(const size_t& depth) const {
 size_t ZipCode::get_last_chain_component(const size_t& depth, bool get_end) const {
 
     if (!decoder[depth].is_chain) {
-        throw std::runtime_error("zipcodes trying to find the last chain component a snarl");
+        throw std::runtime_error("zipcodes trying to find the last chain component a snarl. Do your zipcode, minimizer, and graph files match?");
     }
     size_t zip_value;
     size_t zip_index = decoder[depth].offset;
@@ -638,7 +638,7 @@ size_t ZipCode::get_last_chain_component(const size_t& depth, bool get_end) cons
 bool ZipCode::get_is_looping_chain(const size_t& depth) const {
 
     if (!decoder[depth].is_chain) {
-        throw std::runtime_error("zipcodes trying to find the last chain component a snarl");
+        throw std::runtime_error("zipcodes trying to find the last chain component a snarl. Do your zipcode, minimizer, and graph files match?");
     }
     size_t zip_value;
     size_t zip_index = decoder[depth].offset;
@@ -709,7 +709,7 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
 
-        throw std::runtime_error("zipcodes trying to get a handle of a chain or node");
+        throw std::runtime_error("zipcodes trying to get a handle of a chain or node. Do your zipcode, minimizer, and graph files match?");
     } else {
         //If this is a snarl
 
@@ -722,7 +722,7 @@ net_handle_t ZipCode::get_net_handle(const size_t& depth, const SnarlDistanceInd
         if (zip_value == 1) {
             //If this is a regular snarl
 
-            throw std::runtime_error("zipcodes trying to get a handle of a regular snarl");
+            throw std::runtime_error("zipcodes trying to get a handle of a regular snarl. Do your zipcode, minimizer, and graph files match?");
         } else {
             //Irregular snarl
 
@@ -816,7 +816,7 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
     } else if (decoder[depth].is_chain) {
         //If this is a chain/node
 
-        throw std::runtime_error("zipcodes trying to get a handle of a chain or node");
+        throw std::runtime_error("zipcodes trying to get a handle of a chain or node. Do your zipcode, minimizer, and graph files match?");
     } else {
         //If this is a snarl
 
@@ -829,7 +829,7 @@ size_t ZipCode::get_distance_index_address(const size_t& depth) const {
         if (zip_value == 1) {
             //If this is a regular snarl
 
-            throw std::runtime_error("zipcodes trying to get a handle of a regular ansl");
+            throw std::runtime_error("zipcodes trying to get a handle of a regular snarl. Do your zipcode, minimizer, and graph files match?");
         } else {
             //Irregular snarl
 
@@ -2504,7 +2504,7 @@ net_identifier_t ZipCode::get_identifier(size_t depth) const {
 
 const net_identifier_t ZipCode::get_parent_identifier(const net_identifier_t& child) {
     if (child == "ROOT") {
-        throw std::runtime_error("error: trying to get the parent of the root net_identifier_t");
+        throw std::runtime_error("error: trying to get the parent of the root net_identifier_t. Do your zipcode, minimizer, and graph files match?");
     }
     for (int i = child.size()-1 ; i >= 0 ; i--) {
         if (child[i] == '.') {
