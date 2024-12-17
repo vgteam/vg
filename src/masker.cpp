@@ -130,12 +130,13 @@ void Masker::mask_sequences(const std::vector<std::tuple<std::string, size_t, si
             }
             else {
 #ifdef debug
-                std::cerr << "possible overlap at path interval " << p_idx << " and region " << r_idx << std::endl ;
+                std::cerr << "possible overlap at path interval " << p_idx << " (" << graph->get_path_name(std::get<2>(path_interval_here)) << ") and region " << r_idx << std::endl ;
 #endif
                 // we may have reached an overlap, scan the path
                 size_t offset = std::get<1>(path_interval_here);
                 bool inside_region = false;
                 auto step = graph->path_begin(std::get<2>(path_interval_here));
+                auto prev_step = step; // just a placeholder for now
                 auto end = graph->path_end(std::get<2>(path_interval_here));
                 while (step != end && r_idx < sorted_regions.size() && std::get<1>(sorted_regions[r_idx]) < p_end) {
 
@@ -163,6 +164,7 @@ void Masker::mask_sequences(const std::vector<std::tuple<std::string, size_t, si
                         ++r_idx;
                     }
                     else {
+                        prev_step = step;
                         step = graph->get_next_step(step);
                         offset = end_offset;
                     }
@@ -170,8 +172,8 @@ void Masker::mask_sequences(const std::vector<std::tuple<std::string, size_t, si
                 
                 // we never left and closed out this region (it must end after this path fragment)
                 if (inside_region) {
-                    std::get<2>(step_intervals.back()) = graph->get_previous_step(end);
-                    std::get<3>(step_intervals.back()) = offset;
+                    std::get<2>(step_intervals.back()) = prev_step;
+                    std::get<3>(step_intervals.back()) = graph->get_length(graph->get_handle_of_step(prev_step));
                 }
                 
                 ++p_idx;
