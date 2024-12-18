@@ -360,6 +360,7 @@ int main_minimizer(int argc, char** argv) {
 
     //Map node id to what gets stored in the payload - either the zipcode or index into oversized_zipcodes
     hash_map<vg::id_t, gbwtgraph::Payload> node_id_to_payload;
+    node_id_to_payload.reserve(gbz->graph.max_node_id() - gbz->graph.min_node_id());
 
     // Build the index.
     if (progress) {
