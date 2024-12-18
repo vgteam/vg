@@ -1,18 +1,23 @@
 #include "funnel.hpp"
 
+#include "crash.hpp"
+
 #include <cassert>
 #include <cstring>
 
 /**
  * \file funnel.hpp: implementation of the Funnel class
  */
+
+//#define debug
  
 namespace vg {
 using namespace std;
 
 void Funnel::PaintableSpace::paint(size_t start, size_t length) {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
@@ -35,7 +40,7 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
         }
     }
     
-    // Find the first interval starting at or after start
+    // Find the first interval starting strictly after start
     auto successor = regions.upper_bound(start);
     auto range_first = regions.end();
     auto range_last = regions.end();
@@ -61,20 +66,31 @@ void Funnel::PaintableSpace::paint(size_t start, size_t length) {
 }
 
 bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
-    // Find the last interval starting strictly before start
-    auto predecessor = regions.lower_bound(start);
+#ifdef debug
+    std::cerr << "Checking for painting " << start << "+" << length << " in " << regions.size() << " regions" << std::endl;
+#endif
+    // Find the last interval starting at or before start, by finding the first
+    // one starting strictly after start and going left.
+    auto predecessor = regions.upper_bound(start);
     if (predecessor != regions.begin()) {
         --predecessor;
         // We have one.
+#ifdef debug
+        std::cerr << "Predecessor of " << start << "+" << length << " is " << predecessor->first << "+" << predecessor->second << std::endl;
+#endif
         if (predecessor->first + predecessor->second > start) {
             // It covers our start, so we overlap
             return true;
         }
     }
-    
+   
+    // Find the first interval starting strictly after start.
     auto successor = regions.upper_bound(start);
     if (successor != regions.end()) {
-        // There's something starting at or after us
+#ifdef debug
+        std::cerr << "Succesor of " << start << "+" << length << " is " << successor->first << "+" << successor->second << std::endl;
+#endif
+        // There's something starting after us
         if (start + length > successor->first) {
             // And we overlap it
             return true;
@@ -154,6 +170,9 @@ void Funnel::substage(const string& name) {
     
     // Save the name 
     substage_name = name;
+
+    // Record the start time
+    substage_start_time = clock::now();
 }
     
 void Funnel::substage_stop() {
@@ -161,6 +180,11 @@ void Funnel::substage_stop() {
         // A substage was running.
         
         // Substages don't bound produce/process.
+
+        // Record the duration in seconds
+        auto substage_stop_time = clock::now();
+        // Add it in. TODO: Might add small and large floats in any order!
+        stages.back().sub_durations[substage_name] += chrono::duration_cast<chrono::duration<double>>(substage_stop_time - substage_start_time).count();
         
         // Say the stage is stopped 
         substage_name.clear();
@@ -283,6 +307,11 @@ void Funnel::pass(const char* filter, size_t prev_stage_item, double statistic) 
     auto& prev_stage = stages[stages.size() - 2];
 
     // Record the item as having passed this filter
+    if (prev_stage.items[prev_stage_item].passed_filters.size() > 0) {
+        // Make sure we're not using the same filter multiple times.
+        const char* last_filter = prev_stage.items[prev_stage_item].passed_filters.back();
+        crash_unless(filter != last_filter && strcmp(filter, last_filter) != 0);
+    }
     prev_stage.items[prev_stage_item].passed_filters.emplace_back(filter);
     prev_stage.items[prev_stage_item].passed_statistics.emplace_back(statistic);
 }
@@ -321,6 +350,9 @@ void Funnel::tag(size_t item, State state, size_t tag_start, size_t tag_length) 
     
     // Say the stage has tag over this interval.
     stages.back().tag = std::max(stages.back().tag, state);
+#ifdef debug
+    std::cerr << "\tTag stage overall as " << stages.back().tag << " on " << tag_start << "-" << tag_start + tag_length << std::endl;
+#endif
     stages.back().tag_space.paint(tag_start, tag_length);
 }
 
@@ -348,10 +380,24 @@ bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name,
 string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
+#ifdef debug
+        std::cerr << "Check stage " << it->name << " from " << tag_start << " length " << tag_length << std::endl;
+#endif
         if (it->tag >= tag && it->tag_space.is_any_painted(tag_start, tag_length)) {
             // If we are tagged good enough and have a tag in part of that
             // area, then we are a matching stage.
+#ifdef debug
+            std::cerr << "Stage matches!" << std::endl;
+#endif
             return it->name;
+        } else if (it->tag < tag) {
+#ifdef debug
+            std::cerr << "Stage tag of " << (int)it->tag << " is less than " << (int)tag << std::endl;
+#endif
+        } else {
+#ifdef debug
+            std::cerr << "Stage doesn't overlap query range" << std::endl;
+#endif
         }
     }
     return "none";
@@ -361,22 +407,47 @@ string Funnel::last_correct_stage(size_t tag_start, size_t tag_length) const {
     return last_tagged_stage(State::CORRECT, tag_start, tag_length); 
 }
 
+void Funnel::position(size_t item, const path_handle_t& path, size_t offset) {
+    // Figure out which item to add the position to
+    auto& to_mark = get_item(item);
+    // Pack up the one position into a map
+    std::unordered_map<path_handle_t, std::pair<size_t, size_t>> to_merge;
+    to_merge[path] = std::make_pair(offset, offset);
+    // Apply it
+    effective_position_union(to_mark.effective_position, to_merge);
+}
+
+std::unordered_map<path_handle_t, std::pair<size_t, size_t>> Funnel::get_positions(size_t item) const {
+    assert(!stages.empty());
+    return stages.back().items.at(item).effective_position;
+}
+
 size_t Funnel::latest() const {
     assert(!stages.empty());
     assert(!stages.back().items.empty());
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const vector<double>&, const vector<double>&, const double&, const std::unordered_map<std::string, double>&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes
         vector<size_t> item_sizes;
         item_sizes.reserve(stage.items.size());
+        // And correct item scores
+        vector<double> correct_scores;
+        // And noncorrect item scores
+        vector<double> noncorrect_scores;
+        noncorrect_scores.reserve(stage.items.size());
         for (auto& item : stage.items) {
             item_sizes.push_back(item.group_size);
+            if (item.tag >= State::CORRECT) {
+                correct_scores.push_back(item.score); 
+            } else {
+                noncorrect_scores.push_back(item.score);
+            }
         }
-        // Report the name and item count of each stage.
-        callback(stage.name, item_sizes, stage.duration);
+        // Report the name and item count of each stage, along with timings.
+        callback(stage.name, item_sizes, correct_scores, noncorrect_scores, stage.duration, stage.sub_durations);
     }
 }
 
@@ -590,18 +661,35 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
     // Save the total duration in the field set asside for it
     aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
     
-    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration) {
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const vector<double>& correct_scores, const vector<double>& noncorrect_scores, const double& duration, const std::unordered_map<std::string, double>& sub_durations) {
         // Save the number of items
-        set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
+        set_annotation(aln, "stage." + stage + ".results", (double)result_sizes.size());
         // And the per-stage duration
-        set_annotation(aln, "stage_" + stage + "_time", duration);
+        set_annotation(aln, "stage." + stage + ".time", duration);
+        for (auto& kv : sub_durations) {
+            // And the substage durations
+            set_annotation(aln, "stage." + stage + ".sub." + kv.first + ".time", kv.second);
+        }
+        if (annotate_correctness) {
+            // And the correct scores
+            set_compressed_annotation(aln, "stage." + stage + ".correct_scores", correct_scores);
+            // And the non-correct scores
+            set_compressed_annotation(aln, "stage." + stage + ".noncorrect_scores", noncorrect_scores);
+        }
     });
     
     set_annotation(aln, "last_placed_stage", last_tagged_stage(State::PLACED));
-    for (size_t i = 0; i < aln.sequence().size(); i += 500) {
-        // For each 500 bp window, annotate with the last stage that had something placed in or spanning the window.
-        // TODO: This is terrible, use an array or something.
-        set_annotation(aln, "last_placed_stage_" + std::to_string(i) + "bp", last_tagged_stage(State::PLACED, i, 500));
+    // Mark every point where the last placed stage in a 500 bp window changes.
+    size_t resolution = 500;
+    size_t offset = 0;
+    std::string prev_window_stage;
+    while (offset < aln.sequence().size()) {
+        std::string stage = last_tagged_stage(State::PLACED, offset, resolution);
+        if (stage != prev_window_stage) { 
+            set_annotation(aln, "last_placed_stage_" + std::to_string(offset) + "bp", stage);
+            prev_window_stage = stage;
+        }
+        offset += resolution;
     }
     
     if (annotate_correctness) {
@@ -616,19 +704,22 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
         const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
 
-            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
-
+            string filter_id = to_string(filter_num);
+            // Save the metadata
+            set_annotation(aln, "filter." + filter_id + ".name", filter);
+            set_annotation(aln, "filter." + filter_id + ".stage", stage);
+            
             // Save the stats
-            set_annotation(aln, "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-            set_annotation(aln, "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-            set_annotation(aln, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-            set_annotation(aln, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+            set_annotation(aln, "filter." + filter_id + ".passed.count_total", (double) by_count.passing);
+            set_annotation(aln, "filter." + filter_id + ".failed.count_total", (double) by_count.failing);
+            set_annotation(aln, "filter." + filter_id + ".passed.size_total", (double) by_size.passing);
+            set_annotation(aln, "filter." + filter_id + ".failed.size_total", (double) by_size.failing);
             
             if (annotate_correctness) {
-                set_annotation(aln, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                set_annotation(aln, "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                set_annotation(aln, "filter." + filter_id + ".passed.count_correct", (double) by_count.passing_correct);
+                set_annotation(aln, "filter." + filter_id + ".failed.count_correct", (double) by_count.failing_correct);
+                set_annotation(aln, "filter." + filter_id + ".passed.size_correct", (double) by_size.passing_correct);
+                set_annotation(aln, "filter." + filter_id + ".failed.size_correct", (double) by_size.failing_correct);
             }
             
             // Save the correct and non-correct filter statistics, even if
@@ -642,9 +733,9 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             }
             if (all_nan) {
                 // Elide all-nan vector
-                set_annotation(aln, "filterstats_" + filter_id + "_correct", std::vector<double>());
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".correct", std::vector<double>());
             } else {
-                set_annotation(aln, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".correct", filter_statistics_correct);
             }
             all_nan = true;
             for (auto& v : filter_statistics_non_correct) {
@@ -655,12 +746,43 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             }
             if (all_nan) {
                 // Elide all-nan vector
-                set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", std::vector<double>());
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".noncorrect", std::vector<double>());
             } else {
-                set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                set_compressed_annotation(aln, "filterstats." + filter_id + ".noncorrect", filter_statistics_non_correct);
             }
             filter_num++;
         });
+}
+
+vector<vector<size_t>> Funnel::map_stage_results_to_previous_stage(string stage_name) const {
+    vector<vector<size_t>> result;
+    for (auto& stage : stages) {
+        if (stage.name == stage_name) {
+            for (auto& item : stage.items) {
+                result.emplace_back();
+                for (auto x : item.prev_stage_items) {
+                    result.back().emplace_back(x);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+void Funnel::effective_position_union(effective_position_t& dest, const effective_position_t& other) {
+    for (auto& kv : other) {
+        // For every range in the thing to add in
+        // See if we have that path already
+        auto found = dest.find(kv.first);
+        if (found == dest.end()) {
+            // If not, just copy the range
+            dest.insert(found, kv);
+        } else {
+            // Otherwise, min and max in
+            found->second.first = std::min(found->second.first, kv.second.first);
+            found->second.second = std::max(found->second.second, kv.second.second);
+        }
+    }
 }
 
 Funnel::Item& Funnel::get_item(size_t index) {

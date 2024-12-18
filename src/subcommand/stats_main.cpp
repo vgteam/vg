@@ -33,6 +33,7 @@
 #include "../io/converted_hash_graph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
+#include "../progressive.hpp"
 #include "../traversal_finder.hpp"
 
 using namespace std;
@@ -73,7 +74,8 @@ void help_stats(char** argv) {
          << "    -D, --degree-dist     print degree distribution of the graph." << endl
          << "    -b, --dist-snarls FILE print the sizes and depths of the snarls in a given distance index." << endl
          << "    -p, --threads N       number of threads to use [all available]" << endl
-         << "    -v, --verbose         output longer reports" << endl;
+         << "    -v, --verbose         output longer reports" << endl
+         << "    -P, --progress        show progress" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -97,6 +99,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool verbose = false;
+    bool show_progress = false;
     bool is_acyclic = false;
     bool stats_range = false;
     set<vg::id_t> ids;
@@ -151,11 +154,12 @@ int main_stats(int argc, char** argv) {
             {"degree-dist", no_argument, 0, 'D'},
             {"dist-snarls", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 'p'},
+            {"progress", no_argument, 0, 'P'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORCFDb:p:",
+        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vPAro:ORCFDb:p:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -258,6 +262,10 @@ int main_stats(int argc, char** argv) {
             
         case 'v':
             verbose = true;
+            break;
+
+        case 'P':
+            show_progress = true;
             break;
 
         case 'F':
@@ -611,9 +619,6 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!alignments_filename.empty()) {
-        // Read in the given GAM
-        ifstream alignment_stream(alignments_filename);
-
         // We need some allele parsing functions
 
         // This one gets the site name from an allele path name
@@ -640,7 +645,8 @@ int main_stats(int argc, char** argv) {
             size_t total_perfect = 0; // Number of reads with no indels or substitutions relative to their paths
             size_t total_gapless = 0; // Number of reads with no indels relative to their paths
 
-            // These are for tracking which nodes are covered and which are not
+            // These are for tracking which nodes are covered and which are not.
+            // Only used if a graph is used.
             map<vg::id_t, size_t> node_visit_counts;
 
             // And for counting indels
@@ -814,7 +820,8 @@ int main_stats(int argc, char** argv) {
                 stats.total_secondary++;
             } else {
                 stats.total_primary++;
-                bool has_alignment = aln.score() > 0;
+                // Injected alignments may have paths but no scores.
+                bool has_alignment = aln.score() > 0 || aln.path().mapping_size() > 0;
                 if (has_alignment) {
                     // We only count aligned primary reads in "total aligned";
                     // the primary can't be unaligned if the secondary is
@@ -855,9 +862,11 @@ int main_stats(int argc, char** argv) {
                         // read.
                         alleles_supported.insert(allele_path_for_node.at(node_id));
                     }
-
-                    // Record that there was a visit to this node.
-                    stats.node_visit_counts[node_id]++;
+                    
+                    if (graph != nullptr) {
+                        // Record that there was a visit to this node.
+                        stats.node_visit_counts[node_id]++;
+                    }
 
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
                         // Go through edits and look for each type.
@@ -932,14 +941,28 @@ int main_stats(int argc, char** argv) {
             }
 
         };
-
-        // Actually go through all the reads and count stuff up.
-        vg::io::for_each_parallel(alignment_stream, lambda);
         
+        get_input_file(alignments_filename, [&](istream& alignment_stream) {
+            // Read in the given GAM
+            // Actually go through all the reads and count stuff up.
+            vg::Progressive::with_progress(show_progress, "Read reads", [&](const std::function<void(size_t, size_t)>& progress) {
+                vg::io::for_each_parallel(alignment_stream, lambda, 256, progress);
+            });
+        });
+
         // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
-        for (auto& per_thread : read_stats) {
-            combined += per_thread;
+        vg::Progressive::with_progress(show_progress, "Combine thread results", [&](const std::function<void(size_t, size_t)>& progress) {
+            progress(0, read_stats.size());
+            for(size_t i = 0; i < read_stats.size(); i++) {
+                combined += read_stats[i];
+                progress(i + 1, read_stats.size());
+            }
+        });
+        if (show_progress) {
+            std::cerr << "Destroy per-thread data structures" << std::endl;
         }
+        // This can take a long time because we need to deallocate all this
+        // stuff allocated by other threads, such as per-node count maps.
         read_stats.clear();
 
         // Go through all the nodes again and sum up unvisited nodes
@@ -965,6 +988,9 @@ int main_stats(int argc, char** argv) {
         size_t significantly_biased_hets = 0;
 
         if (graph != nullptr) {
+            if (show_progress) {
+                std::cerr << "Account for graph" << std::endl;
+            }
 
             // Calculate stats about the reads per allele data
             for(auto& site_and_alleles : combined.reads_on_allele) {
@@ -1036,6 +1062,10 @@ int main_stats(int argc, char** argv) {
                 }
             });
             
+        }
+
+        if (show_progress) {
+            std::cerr << "Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
