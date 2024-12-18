@@ -39,7 +39,6 @@
 
 #include <gbwtgraph/index.h>
 
-//#define WRITE_MINIMIZER_ZIPCODES
 using namespace vg;
 
 // Using too many threads just wastes CPU time without speeding up the construction.
@@ -359,9 +358,9 @@ int main_minimizer(int argc, char** argv) {
     //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
     ZipCodeCollection oversized_zipcodes;
 
-    //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
-    //only get stored once. This maps node id to the index in oversized_zipcodes 
-    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+    //Map node id to what gets stored in the payload - either the zipcode or index into oversized_zipcodes
+    hash_map<vg::id_t, gbwtgraph::Payload> node_id_to_payload;
+    node_id_to_payload.reserve(gbz->graph.max_node_id() - gbz->graph.min_node_id());
 
     // Build the index.
     if (progress) {
@@ -379,26 +378,30 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
+            gbwtgraph::Payload payload = MIPayload::NO_CODE;
+
+            #pragma omp critical 
+            {
+            //If we've already seen this node before, then return the saved payload
+            if (node_id_to_payload.count(id(pos))) {
+                payload =  node_id_to_payload[id(pos)];
+            }
+            }
+            if (payload != MIPayload::NO_CODE) {
+                return payload;
+            }
+           
+
             ZipCode zipcode;
             zipcode.fill_in_zipcode(*distance_index, pos);
-            #ifdef WRITE_MINIMIZER_ZIPCODES
-                        //TODO: this is only for testing, can be taken out once the zip codes are done
-                        //This should only be used single threaded.
-                        //For each minimizer, writes the size of the zip code and then the zip code as a tsv
-                        pair<size_t, size_t> value (0, 0);
-            
-                        //How many bytes get used
-                        cout << zipcode.zipcode.byte_count();
-                        //Each integer saved
-                        while (value.second != std::numeric_limits<size_t>::max()) {
-                            value = zipcode.zipcode.get_value_and_next_index(value.second);
-                            cout << "\t" << value.first;
-                        }
-                        cout << endl;
-            #endif
-            auto payload = zipcode.get_payload_from_zip();
+
+            payload = zipcode.get_payload_from_zip();
             if (payload != MIPayload::NO_CODE) {
                 //If the zipcode is small enough to store in the payload
+                #pragma omp critical 
+                {
+                node_id_to_payload.emplace(id(pos), payload);
+                }
                 return payload;
             } else if (!zipcode_name.empty()) {
                 //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
@@ -406,22 +409,23 @@ int main_minimizer(int argc, char** argv) {
 
                 //Fill in the decoder to be saved too
                 zipcode.fill_in_full_decoder();
-
                 
-                size_t zip_index;
                 #pragma omp critical 
                 {
-                if (node_id_to_zipcode_index.count(id(pos))) {
-                    zip_index = node_id_to_zipcode_index.at(id(pos));
-                } else {
-                    oversized_zipcodes.emplace_back(zipcode);
-                    zip_index = oversized_zipcodes.size() - 1;
-                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
+                oversized_zipcodes.emplace_back(zipcode);
+                size_t zip_index = oversized_zipcodes.size() - 1;
+                payload= {0, zip_index};
+                node_id_to_payload.emplace(id(pos), payload);
                 }
-                }
-                return {0, zip_index};
+                return payload;
             } else {
-                return MIPayload::NO_CODE;
+                //If the zipcode is too big and we don't have a file to save the big zipcodes
+                #pragma omp critical 
+                {
+                payload = MIPayload::NO_CODE;
+                node_id_to_payload.emplace(id(pos), payload);
+                }
+                return payload;
             }
         });
     }
