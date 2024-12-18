@@ -34,6 +34,7 @@
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
 #include "../progressive.hpp"
+#include "../traversal_finder.hpp"
 
 using namespace std;
 using namespace vg;
@@ -66,6 +67,7 @@ void help_stats(char** argv) {
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
          << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
+         << "        --snarl-sample    print out reference coordinates on given sample" << endl
          << "    -C, --chains          print statistics for each chain" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
@@ -109,12 +111,15 @@ int main_stats(int argc, char** argv) {
     bool snarl_stats = false;
     bool chain_stats = false;
     bool snarl_contents = false;
+    string snarl_sample;
     bool format = false;
     bool degree_dist = false;
     string distance_index_filename;
 
     // Long options with no corresponding short options.
     constexpr int OPT_SNARL_CONTENTS = 1000;
+    constexpr int OPT_SNARL_SAMPLE = 1001;
+    constexpr int64_t snarl_search_context = 100;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -143,6 +148,7 @@ int main_stats(int argc, char** argv) {
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
             {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
+            {"snarl-sample", required_argument, 0, OPT_SNARL_SAMPLE},
             {"chains", no_argument, 0, 'C'},            
             {"format", no_argument, 0, 'F'},
             {"degree-dist", no_argument, 0, 'D'},
@@ -245,6 +251,10 @@ int main_stats(int argc, char** argv) {
         case OPT_SNARL_CONTENTS:
             snarl_contents = true;
             break;
+
+        case OPT_SNARL_SAMPLE:
+            snarl_sample = optarg;
+            break;
             
         case 'C':
             chain_stats = true;
@@ -288,6 +298,11 @@ int main_stats(int argc, char** argv) {
         default:
             abort ();
         }
+    }
+
+    if (!snarl_sample.empty() && !snarl_stats) {
+        cerr << "error [vg stats]: --snarl-sample can only be used with --snarls/-R" << endl;
+        exit(1);
     }
 
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -1140,23 +1155,139 @@ int main_stats(int argc, char** argv) {
     unordered_map<const Snarl*, size_t> depth;
     
     if (snarl_stats || chain_stats || snarl_contents) {
-        // We will go through all the snarls and compute stats.
-        
+        // We will go through all the snarls and compute stats.        
         require_graph();
         
         // First compute the snarls
         manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
-        
+
+        // additional indexes only needed when finding --snarl-sample coordinates
+        unique_ptr<PathTraversalFinder> path_trav_finder;
+        bdsg::PathPositionOverlayHelper overlay_helper;
+        PathPositionHandleGraph* pp_graph = dynamic_cast<PathPositionHandleGraph*>(graph);;
+        unordered_map<const Snarl*, PathInterval> snarl_to_ref;
 
         if (snarl_stats) {
             // TSV header
+            if (!snarl_sample.empty()) {
+                // optionally prefix with bed-like refpath coordinates if --snarl-sample given
+                cout <<"Contig\tStartPos\tEndPos\t";
+                
+                if (pp_graph == nullptr) {
+                    pp_graph = overlay_helper.apply(graph);
+                }
+                vector<string> ref_path_names;
+                pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
+                    ref_path_names.push_back(graph->get_path_name(path_handle));
+                });
+                if (ref_path_names.empty()) {
+                    cerr << "error [vg stats]: unable to find any paths of --snarl-sample " << snarl_sample << endl;
+                    exit(1);
+                }
+                path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
+            }
             cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
         }
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
-
             if (snarl_stats) {
+                if (!snarl_sample.empty()) {
+                    // find the reference interval from path index if snarl lies directly on reference path
+                    vector<PathInterval> travs;
+                    std::tie(std::ignore, travs) = path_trav_finder->find_path_traversals(
+                        pp_graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                        pp_graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+                    if (travs.empty() && snarl_to_ref.count(manager.parent_of(snarl))) {
+                        // snarl's not on the reference path, us its parent interval
+                        travs.push_back(snarl_to_ref.at(manager.parent_of(snarl)));
+                    }
+                    if (travs.empty()) {
+                        // search toward the reference path
+                        unordered_map<path_handle_t, vector<step_handle_t>> start_steps;
+                        unordered_map<path_handle_t, vector<step_handle_t>> end_steps;
+                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                 [&](const handle_t& found_handle, size_t dist) {
+                                     graph->for_each_step_on_handle(found_handle, [&](step_handle_t step) {
+                                         if (graph->get_sample_name(graph->get_path_handle_of_step(step)) == snarl_sample) {
+                                             start_steps[graph->get_path_handle_of_step(step)].push_back(step);
+                                         }
+                                     });
+                                     return start_steps.empty() && dist < snarl_search_context;
+                                 }, true);
+                        handlegraph::algorithms::dijkstra(pp_graph, pp_graph->get_handle(snarl->end().node_id(), snarl->end().backward()),
+                                 [&](const handle_t& found_handle, size_t dist) {
+                                     graph->for_each_step_on_handle(found_handle, [&](step_handle_t step) {
+                                         if (graph->get_sample_name(graph->get_path_handle_of_step(step)) == snarl_sample) {
+                                             end_steps[graph->get_path_handle_of_step(step)].push_back(step);
+                                         }
+                                     });
+                                     return end_steps.empty() && dist < snarl_search_context;
+                                 });
+                        for (const auto& start_path_steps : start_steps) {
+                            if (end_steps.count(start_path_steps.first)) {
+                                unordered_map<nid_t, step_handle_t> end_ids;
+                                for (const step_handle_t& step : end_steps[start_path_steps.first]) {
+                                    end_ids[graph->get_id(graph->get_handle_of_step(step))] = step;
+                                }
+                                // search forward (in looping path we want to pull out contiguous steps to form a
+                                // meaningful interval)
+                                for (step_handle_t step = graph->get_next_step(start_path_steps.second[0]);
+                                     step != graph->path_end(graph->get_path_handle_of_step(start_path_steps.second[0]));
+                                     step = graph->get_next_step(step)) {
+                                    if (end_ids.count(graph->get_id(graph->get_handle_of_step(step)))) {
+                                        travs.push_back(make_pair(start_path_steps.second[0],
+                                                                  end_ids[graph->get_id(graph->get_handle_of_step(step))]));
+                                        break;                                        
+                                    }
+                                }
+                                // search backward
+                                if (travs.empty()) {
+                                    for (step_handle_t step = graph->get_previous_step(start_path_steps.second[0]);
+                                         step != graph->path_front_end(graph->get_path_handle_of_step(start_path_steps.second[0]));
+                                         step = graph->get_previous_step(step)) {
+                                        if (end_ids.count(graph->get_id(graph->get_handle_of_step(step)))) {
+                                            travs.push_back(make_pair(start_path_steps.second[0],
+                                                                      end_ids[graph->get_id(graph->get_handle_of_step(step))]));
+                                            break;                                        
+                                        }
+                                    }                                    
+                                }
+                            }
+                            if (!travs.empty()) {
+                                break;
+                            }
+                        }                        
+                        // unlikely, but maybe only one end of the snarl reaches the reference.  in that case
+                        // we just consider it both ends of the interval
+                        if (travs.empty() && !start_steps.empty()) {
+                            travs.push_back(make_pair(start_steps.begin()->second.front(), start_steps.begin()->second.front()));
+                        }
+                        if (travs.empty() && !end_steps.empty()) {
+                            travs.push_back(make_pair(end_steps.begin()->second.front(), end_steps.begin()->second.front()));
+                        }
+                    }
+                    if (travs.empty()) {
+                        cout << ".\t.\t.\t";
+                    } else {
+                        // note: in case of a cycle, we're just taking the first found
+                        step_handle_t start_step = travs.front().first;
+                        step_handle_t end_step = travs.front().second;
+                        int64_t start_pos = pp_graph->get_position_of_step(start_step);
+                        int64_t end_pos = pp_graph->get_position_of_step(end_step);
+                        if (end_pos < start_pos) {
+                            swap(start_pos, end_pos);
+                            swap(start_step, end_step);                            
+                        }
+                        end_pos += graph->get_length(pp_graph->get_handle_of_step(end_step));
+                        cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
+                             << end_pos << "\t";
+
+                        // use this interval for off-reference children
+                        snarl_to_ref[snarl] = travs.front();
+                    }
+                }
+                
                 // snarl
                 cout << snarl->start().node_id() << "\t" << snarl->start().backward() << "\t";
                 cout << snarl->end().node_id() << "\t" << snarl->end().backward() << "\t";
