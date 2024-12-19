@@ -35,7 +35,8 @@ desc_inf.close()
 ret = subprocess.run(['vg', 'version'], capture_output=True)
 vg_v = ret.stdout.decode().split('\n')[0]
 
-print("% vg()  | Variation Graph Toolkit\n\n")
+#Metadata
+print("% vg(1)  | Variation Graph Toolkit\n\n")
 
 #Start with the name
 print("NAME")
