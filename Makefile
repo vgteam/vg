@@ -546,11 +546,15 @@ docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS
 	
 man: doc/wiki/vg-manpage.md doc/man/vg.1
 
-doc/wiki/vg-manpage.md: $(BIN_DIR)/$(EXE) doc/vgmanmd.desc.md doc/vgmanmd.py
-	./doc/vgmanmd.py > $@.tmp && mv $@.tmp $@
+#The manpage markdown has an extra line needed for the actual manpage format
+doc/man/vg-manpage.md: $(BIN_DIR)/$(EXE) doc/vgmanmd.desc.md doc/vgmanmd.py
+	mkdir -p doc/man && ./doc/vgmanmd.py > $@.tmp && mv $@.tmp $@
 
-doc/man/vg.1: doc/wiki/vg-manpage.md
-	mkdir -p doc/man && pandoc --standalone --to man $< -o $@
+doc/wiki/vg-manpage.md: doc/man/vg-manpage.md
+	sed 1d doc/man/vg-manpage.md > $@
+
+doc/man/vg.1: doc/man/vg-manpage.md
+	pandoc --standalone --to man $< -o $@
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
