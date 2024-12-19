@@ -10,6 +10,7 @@ cmds = ['index', 'view', 'autoindex', 'pack', 'giraffe', 'map', 'call',
         'gamsort', 'inject', 'surject', 'mod', 'prune', 'ids', 'sim', 'annotate']
 cmds.sort()
 
+
 # parse short descriptions
 desc_inf = open('./doc/vgmanmd.desc.md', 'rt')
 desc = {}
@@ -34,11 +35,23 @@ desc_inf.close()
 ret = subprocess.run(['vg', 'version'], capture_output=True)
 vg_v = ret.stdout.decode().split('\n')[0]
 
-print('\n*Automatically made for ' + vg_v + '.*\n\n')
+print("% vg()  | Variation Graph Toolkit\n\n")
 
-# add intro text
-if 'intro' in desc:
-    print(desc['intro'])
+#Start with the name
+print("NAME")
+print("====")
+print('vg - variation graph tool, ' + vg_v + '.\n\n') 
+
+if 'description' in desc:
+    print("DESCRIPTION")
+    print("====")
+    print(desc['description'])
+    print('\n\n')
+
+if 'synopsis' in desc:
+    print("SYNOPSIS")
+    print("====")
+    print(desc['synopsis'])
     print('\n\n')
 
 # table of contents
@@ -47,14 +60,23 @@ if 'intro' in desc:
 #
 #print('\n\n')
 
+print("COMMANDS")
+print("====")
+
 # help for each cmd
 for cmd in cmds:
     print('## {cmd}\n\n'.format(cmd=cmd))
-    if cmd in desc:
-        print(desc[cmd])
-        print('\n\n')
     # run subcommand with -h
     ret = subprocess.run(['vg', cmd, '-h'], capture_output=True)
     print('```')
+    if cmd in desc:
+        print(desc[cmd])
+        print('\n\n')
     print(ret.stderr.decode())
     print('```\n\n')
+
+if 'bugs' in desc:
+    print("BUGS")
+    print("====")
+    print(desc['bugs'])
+    print('\n\n')
