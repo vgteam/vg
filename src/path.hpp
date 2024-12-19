@@ -289,8 +289,15 @@ void reverse_complement_path_in_place(Path* path,
                                       const function<int64_t(id_t)>& node_length);
 /// Simplify the path for addition as new material in the graph. Remove any
 /// mappings that are merely single deletions, merge adjacent edits of the same
-/// type, strip leading and trailing deletion edits on mappings, and make sure no
-/// mappings have missing positions.
+/// type, strip leading and trailing deletion edits on mappings (adjusting
+/// positions), and make sure no mappings have missing positions.
+///
+/// Note that this removes deletions at the start and end of Mappings, so code
+/// that handles simplified Alignments needs to handle offsets on internal
+/// Mappings.
+///
+/// If trim_internal_deletions is false, refrains from creating internal skips
+/// of deleted sequence. 
 Path simplify(const Path& p, bool trim_internal_deletions = true);
 /// Merge adjacent edits of the same type, strip leading and trailing deletion
 /// edits (while updating positions if necessary), and makes sure position is
@@ -320,7 +327,10 @@ pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos);
 // divide mapping at reference-relative offset (as measure in from_length)
 pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset);
 pair<mapping_t, mapping_t> cut_mapping_offset(const mapping_t& m, size_t offset);
-// divide mapping at target-relative offset (as measured in to_length)
+/// Divide mapping at target-relative offset (as measured in to_length).
+///
+/// Deletions at the cut point (which are 0 target-relative bases long) always
+/// end up in the first piece.
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset);
 pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, size_t offset);
 // divide path at reference-relative position

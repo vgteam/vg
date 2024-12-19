@@ -53,6 +53,9 @@ public:
     /// Both ends of each pair must have the same number of mappings.
     virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
         vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
+
+    /// Emit some extra type-tagged data, if the backing format supports it.
+    virtual void emit_extra_message(const std::string& tag, std::string&& data);
     
 protected:
     /// Translation to use to translate node IDs to pieces of named segments.

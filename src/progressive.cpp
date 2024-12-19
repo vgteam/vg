@@ -1,10 +1,41 @@
 #include "progressive.hpp"
 
+#include <vg/io/stream.hpp>
 #include <iostream>
+#include <chrono>
 
 namespace vg {
 
 using namespace std;
+
+void Progressive::with_progress(bool show_progress, const std::string& task, const std::function<void(const std::function<void(size_t, size_t)>& progress)>& callback) {
+    if (!show_progress) {
+        // Use the handy no-op function from libvgio.
+        callback(vg::io::NO_PROGRESS);
+    } else {
+        // We really do need to show progress.
+        Progressive progressive;
+        progressive.show_progress = show_progress;
+        progressive.preload_progress(task);
+        bool first_progress_update = true;
+
+        callback([&](size_t completed, size_t total) {
+            if (completed != std::numeric_limits<size_t>::max() && total != std::numeric_limits<size_t>::max()) {
+                // This is a real update;
+                if (first_progress_update) {
+                    // This is the first update. Make the bar.
+                    progressive.create_progress(total);
+                    first_progress_update = false;
+                }
+                // Tell the bar how big to be.
+                progressive.update_progress(completed);
+            }
+        });
+
+        progressive.destroy_progress();
+    }
+}
+
 
 void Progressive::create_progress(const string& message, long count) {
     if (show_progress) {

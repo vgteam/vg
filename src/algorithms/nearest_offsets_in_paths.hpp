@@ -27,7 +27,7 @@ using namespace std;
 using path_offset_collection_t = unordered_map<path_handle_t, vector<pair<size_t, bool>>>;
     
 /// Return, for the nearest position in a path to the given position,
-/// subject to the given max search distance, a mapping from path name to
+/// subject to the given max search distance, a mapping from path handle to
 /// all positions on each path where that pos_t occurs.
 /// Stops search when path(s) are ancountered.
 ///

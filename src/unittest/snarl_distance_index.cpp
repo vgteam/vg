@@ -47,41 +47,47 @@ namespace vg {
         TEST_CASE( "Load",
                   "[load]" ) {
             SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist.new");
+            distance_index.deserialize("/private/groups/patenlab/xhchang/graphs/hprc_1.1_d9/hprc-v1.1-mc-chm13.d9.dist");
 
 
-            HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
+            auto graph = vg::io::VPKG::load_one<HandleGraph>("/private/groups/patenlab/xhchang/graphs/hprc_1.1_d9/hprc-v1.1-mc-chm13.d9.gbz");
 
-            distance_index.for_each_child(distance_index.get_root(), [&](const net_handle_t& child) {
-                if (distance_index.is_chain(child) && !distance_index.is_trivial_chain(child)) {
-                    net_handle_t start = distance_index.get_bound(child, false, true);
-                    net_handle_t current = start;
-                    net_handle_t end = distance_index.get_bound(child, true, false);
-                    cerr << distance_index.net_handle_as_string(child) << endl;
-
-                    while ( current != end ) {
-                        net_handle_t next_current;
-                        distance_index.follow_net_edges(current, graph, false, [&](const net_handle_t& next) {
-                            cerr << "From " << distance_index.net_handle_as_string(start) << " reached " << distance_index.net_handle_as_string(next) << endl;
-                            if (distance_index.is_node(next)) {
-                                REQUIRE(distance_index.minimum_distance(distance_index.node_id(start),
-                                                                        distance_index.ends_at(start) == SnarlDistanceIndex::START,
-                                                                        0,
-                                                                        distance_index.node_id(next),
-                                                                        distance_index.ends_at(next) == SnarlDistanceIndex::START,
-                                                                        0 ) != std::numeric_limits<size_t>::max());
-                            }
-                            next_current = next;
-                        });
-                        current = next_current;
-                    }
+            net_handle_t n = distance_index.get_node_net_handle(3604315);
+            net_handle_t snarl;
+            while (!distance_index.is_root(n)) {
+                cerr << distance_index.net_handle_as_string(n) << " " << distance_index.minimum_length(n);
+                if (distance_index.is_snarl(n) && ! distance_index.is_dag(n)) {
+                    cerr << "CYCLIC";
+                    snarl = n;
                 }
+                cerr << endl;
+                n = distance_index.get_parent(n);
+            }
+
+            distance_index.for_each_child(snarl, [&](const net_handle_t child) {
+                cerr << "SNARL CHILD: "<< distance_index.net_handle_as_string(child) 
+                     << " " << distance_index.minimum_length(child) << endl;
+                cerr << "FD:" << endl;
+                distance_index.follow_net_edges(child,  graph.get(), false, [&](net_handle_t next) {
+                    cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+                });
+                cerr << "BK: " << endl;
+                distance_index.follow_net_edges(child,  graph.get(), true, [&](net_handle_t next) {
+                    cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+                });
             });
-
-
-            //HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
-            //cerr << "Distance: " << distance_index.minimum_distance(77136065, false, 24, 77136058, true, 28, true) << endl;
-//
+            net_handle_t sentinel = distance_index.get_bound(snarl, false, true);
+            cerr << "from start sentinel:" << endl;
+            distance_index.follow_net_edges(sentinel,  graph.get(), false, [&](net_handle_t next) {
+                cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+            });
+            cerr << "DISTANCE START START" << distance_index.distance_in_snarl(snarl, 0, false, 0, false) << endl;
+            sentinel = distance_index.get_bound(snarl, true, true);
+            cerr << "from end sentinel:" << endl;
+            distance_index.follow_net_edges(sentinel,  graph.get(), false, [&](net_handle_t next) {
+                cerr << "\t" << distance_index.net_handle_as_string(next) << endl;
+            });
+            cerr << "DISTANCE END END" << distance_index.distance_in_snarl(snarl, 1, false, 1, false) << endl;
             
         }
         */
@@ -383,6 +389,31 @@ namespace vg {
                 REQUIRE(distance_index.into_which_snarl(n3->id(), true) == std::make_tuple(0, false, false));
                 REQUIRE(distance_index.into_which_snarl(n5->id(), false) == std::make_tuple(0, false, false));
             }
+            SECTION("Find snarl children") {
+                net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+                net_handle_t chain2 = distance_index.get_parent(node2);
+                net_handle_t snarl1 = distance_index.get_parent(chain2);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl1, distance_index.get_rank_in_parent(chain2))) ==
+                        distance_index.canonical(chain2));
+
+                net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+                net_handle_t chain3 = distance_index.get_parent(node3);
+                net_handle_t snarl2 = distance_index.get_parent(chain3);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl2, distance_index.get_rank_in_parent(chain3))) ==
+                        distance_index.canonical(chain3));
+
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                net_handle_t snarl3 = distance_index.get_parent(chain4);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl3, distance_index.get_rank_in_parent(chain4))) ==
+                        distance_index.canonical(chain4));
+            }
             SECTION("Root has three children") {
                 net_handle_t root = distance_index.get_root();
                 size_t child_count = 0;
@@ -401,6 +432,14 @@ namespace vg {
                 REQUIRE(distance_index.maximum_length(chain4) == 4);
                 net_handle_t snarl4 = distance_index.get_parent(chain4);
                 REQUIRE(distance_index.is_simple_snarl(snarl4));
+            }
+            SECTION("Get child from its rank in the snarl") {
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                net_handle_t snarl4 = distance_index.get_parent(chain4);
+                size_t rank = distance_index.get_rank_in_parent(chain4);
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl4, rank)) ==
+                        distance_index.canonical(chain4));
             }
 
             //Handle for first node facing in
@@ -620,6 +659,25 @@ namespace vg {
                 REQUIRE(distance_index.is_root(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))))); 
 
 
+
+            }
+            SECTION("Get children of a snarl from their ranks") {
+                net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
+                net_handle_t n6_as_chain = distance_index.get_parent(node6);
+                net_handle_t snarl27 = distance_index.get_parent(n6_as_chain);
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+
+                net_handle_t chain35 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(n6_as_chain))) ==
+                        distance_index.canonical(n6_as_chain));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain35))) ==
+                        distance_index.canonical(chain35));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl18, distance_index.get_rank_in_parent(chain27))) ==
+                        distance_index.canonical(chain27));
 
             }
             SECTION("Minimum distances are correct") {
@@ -3540,6 +3598,57 @@ namespace vg {
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                SECTION ("Snarl has the right children") {
+                    net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                    net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+                    net_handle_t chain5 = distance_index.get_parent(distance_index.get_node_net_handle(n5->id()));
+                    net_handle_t chain6 = distance_index.get_parent(distance_index.get_node_net_handle(n6->id()));
+                    net_handle_t chain9 = distance_index.get_parent(distance_index.get_node_net_handle(n9->id()));
+
+                    net_handle_t snarl27 = distance_index.get_parent(chain3);
+                    size_t child_count = 0;
+                    distance_index.for_each_child(snarl27, [&](const net_handle_t& child) {
+                        child_count++;
+                    });
+                    REQUIRE(child_count == 5);
+
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain3))) ==
+                            distance_index.canonical(chain3));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain4))) ==
+                            distance_index.canonical(chain4));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain5))) ==
+                            distance_index.canonical(chain5));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain6))) ==
+                            distance_index.canonical(chain6));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain9))) ==
+                            distance_index.canonical(chain9));
+                    
+                }
+                SECTION ("Distances in snarl using child ranks") {
+                    net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                    size_t rank3 = distance_index.get_rank_in_parent(chain3);
+                    net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+                    size_t rank4 = distance_index.get_rank_in_parent(chain4);
+                    net_handle_t chain5 = distance_index.get_parent(distance_index.get_node_net_handle(n5->id()));
+                    size_t rank5 = distance_index.get_rank_in_parent(chain5);
+                    net_handle_t chain6 = distance_index.get_parent(distance_index.get_node_net_handle(n6->id()));
+                    size_t rank6 = distance_index.get_rank_in_parent(chain6);
+                    net_handle_t chain9 = distance_index.get_parent(distance_index.get_node_net_handle(n9->id()));
+                    size_t rank9 = distance_index.get_rank_in_parent(chain9);
+
+                    net_handle_t snarl27 = distance_index.get_parent(chain3);
+
+                    bool snarl_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
+                    
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank3, true, rank4, false) == 0); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank3, true, rank5, false) == 4); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank9, true, rank3, true) == std::numeric_limits<size_t>::max()); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank9, false, rank3, true) == 4);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, rank4, false) == 0);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, rank5, false) == 4);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, snarl_is_reversed ? 0 : 1, false) == 5);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, true, snarl_is_reversed ? 0 : 1, false) == 5);
+                }
 
         }
         
@@ -6943,6 +7052,75 @@ namespace vg {
         
         }//end test case
 
+        TEST_CASE( "Check snarl dags", "[snarl_distance]" ) {
+        
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("GGCTGACTGA");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            Node* n10 = graph.create_node("T");
+            Node* n11 = graph.create_node("G");
+            Node* n12 = graph.create_node("CTGA");
+            Node* n13 = graph.create_node("GCA");
+            Node* n14 = graph.create_node("CTGA");
+            Node* n15 = graph.create_node("GCA");
+            Node* n16 = graph.create_node("CTGA");
+            Node* n17 = graph.create_node("GCA");
+
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n3);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n6);
+            Edge* e8 = graph.create_edge(n5, n10);
+            Edge* e9 = graph.create_edge(n5, n9, false, true);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n6, n8);
+            Edge* e12 = graph.create_edge(n7, n9);
+            Edge* e13 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n9, n10);
+            Edge* e15 = graph.create_edge(n10, n11);
+            Edge* e16 = graph.create_edge(n10, n14);
+            Edge* e17 = graph.create_edge(n11, n12);
+            Edge* e18 = graph.create_edge(n11, n13);
+            Edge* e19 = graph.create_edge(n12, n13);
+            Edge* e20 = graph.create_edge(n13, n14);
+            Edge* e21 = graph.create_edge(n13, n17);
+            Edge* e22 = graph.create_edge(n14, n15);
+            Edge* e23 = graph.create_edge(n14, n16);
+            Edge* e24 = graph.create_edge(n15, n16);
+            Edge* e25 = graph.create_edge(n16, n17);
+
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+            SECTION("Check for dag-ness") {
+
+                //snarl 1-4 is a dag
+                net_handle_t snarl14 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
+                REQUIRE(distance_index.is_dag(snarl14));
+
+                // snarl 4-10 is not a dag
+                net_handle_t snarl410 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n5->id())));
+                REQUIRE(!distance_index.is_dag(snarl410));
+
+                //snarl 10-17 is a dag with nested chains
+                net_handle_t snarl1017 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n14->id())));
+                REQUIRE(distance_index.is_dag(snarl1017));
+            }
+        }
+
         TEST_CASE( "Loop in chain not connected to snarl", "[snarl_distance]" ) {
 
             VG graph;
@@ -7178,7 +7356,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 0; repeat++) {
+            for (size_t repeat = 0; repeat < 1000; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
@@ -7252,6 +7430,7 @@ namespace vg {
                         size_t max_distance = distance_index.maximum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
@@ -7310,6 +7489,7 @@ namespace vg {
                         size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;

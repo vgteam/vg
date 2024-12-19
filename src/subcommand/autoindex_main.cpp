@@ -103,12 +103,13 @@ void help_autoindex(char** argv) {
     << "  output:" << endl
     << "    -p, --prefix PREFIX    prefix to use for all output (default: index)" << endl
     << "    -w, --workflow NAME    workflow to produce indexes for, can be provided multiple" << endl
-    << "                           times. options: map, mpmap, rpvg, giraffe (default: map)" << endl
+    << "                           times. options: map, mpmap, rpvg, giraffe, sr-giraffe, lr-giraffe (default: map)" << endl
     << "  input data:" << endl
     << "    -r, --ref-fasta FILE   FASTA file containing the reference sequence (may repeat)" << endl
     << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
     << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE         GFA file to make a graph from" << endl
+    << "    -G, --gbz FILE         GBZ file to make indexes from" << endl
     << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
     << "    -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations of a named haplotype (may repeat)" << endl
     << "  configuration:" << endl
@@ -151,6 +152,7 @@ int main_autoindex(int argc, char** argv) {
     int64_t target_mem_usage = IndexRegistry::get_system_memory() / 2;
     
     string gfa_name;
+    string gbz_name;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -163,6 +165,7 @@ int main_autoindex(int argc, char** argv) {
             {"vcf", required_argument, 0, 'v'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
+            {"gbz", required_argument, 0, 'G'},
             {"tx-gff", required_argument, 0, 'x'},
             {"hap-tx-gff", required_argument, 0, 'H'},
             {"gff-feature", required_argument, 0, 'f'},
@@ -184,7 +187,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:H:a:P:R:f:M:T:t:dV:h",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:a:P:R:f:M:T:t:dV:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -207,8 +210,13 @@ int main_autoindex(int argc, char** argv) {
                         targets.emplace_back(move(target));
                     }
                 }
-                else if (optarg == string("giraffe")) {
-                    for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
+                else if (optarg == string("giraffe") || optarg == string("sr-giraffe")) {
+                    for (auto& target : VGIndexes::get_default_short_giraffe_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
+                }
+                else if (optarg == string("lr-giraffe")) {
+                    for (auto& target : VGIndexes::get_default_long_giraffe_indexes()) {
                         targets.emplace_back(move(target));
                     }
                 }
@@ -233,6 +241,9 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'g':
                 gfa_name = optarg;
+                break;
+            case 'G':
+                gbz_name = optarg;
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -339,6 +350,10 @@ int main_autoindex(int argc, char** argv) {
             registry.provide("Reference GFA", gfa_name);
         }
     }
+    if (!gbz_name.empty()) {
+        registry.provide("GBZ", gbz_name);
+    }
+
 
     if (print_dot) {
         // don't index, just visualize the plan
@@ -355,6 +370,21 @@ int main_autoindex(int argc, char** argv) {
     // deduplicate
     sort(targets.begin(), targets.end());
     targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
+
+    //Check if we can automatically load other indexes in the plan based on the names
+    for (const IndexName& target : targets) {
+        if (!registry.available(target)) {
+            vector<string> inferred_file_names = registry.get_possible_filenames(target);
+            for (const string& filename : inferred_file_names) {
+                if (ifstream(filename).is_open()) {
+                    cerr << "[vg autoindex] Guessing that " << filename << " is " << target << endl;
+                    registry.provide(target, filename);
+                    break;
+                }
+            }
+        }
+
+    }
     
     try {
         registry.make_indexes(targets);

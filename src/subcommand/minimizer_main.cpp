@@ -35,6 +35,7 @@
 #include "../utility.hpp"
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
+#include "../zip_code.hpp"
 
 #include <gbwtgraph/index.h>
 
@@ -68,8 +69,8 @@ void help_minimizer(char** argv) {
     std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::minimizer_w << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::short_read_minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::short_read_minimizer_w << ")" << std::endl;
     std::cerr << "    -c, --closed-syncmers   index closed syncmers instead of minimizers" << std::endl;
     std::cerr << "    -s, --smer-length N     use smers of length N in closed syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
     std::cerr << std::endl;
@@ -82,6 +83,8 @@ void help_minimizer(char** argv) {
     std::cerr << "        --hash-table N      use 2^N-cell hash tables for kmer counting (default: guess)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
+    std::cerr << "    -z, --zipcode-name X    store the distances that are too big to file X" << std::endl;
+    std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
     std::cerr << "                            (overrides minimizer / weighted minimizer options)" << std::endl;
     std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (required with a non-GBZ graph)" << std::endl;
@@ -100,7 +103,7 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    std::string output_name, distance_name, load_index, gbwt_name, graph_name;
+    std::string output_name, distance_name, zipcode_name, load_index, gbwt_name, graph_name;
     bool use_syncmers = false;
     bool weighted = false, space_efficient_counting = false;
     size_t threshold = DEFAULT_THRESHOLD, iterations = DEFAULT_ITERATIONS, hash_table_size = 0;
@@ -135,6 +138,7 @@ int main_minimizer(int argc, char** argv) {
             { "fast-counting", no_argument, 0, OPT_FAST_COUNTING },
             { "save-memory", no_argument, 0, OPT_SAVE_MEMORY },
             { "hash-table", required_argument, 0, OPT_HASH_TABLE },
+            { "zipcode-index", required_argument, 0, 'z' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' }, // deprecated
             { "progress", no_argument, 0, 'p' },
@@ -144,7 +148,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:d:o:i:k:w:bcs:Wl:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:d:o:i:k:w:bcs:Wz:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -164,10 +168,10 @@ int main_minimizer(int argc, char** argv) {
             break;
 
         case 'k':
-            IndexingParameters::minimizer_k = parse<size_t>(optarg);
+            IndexingParameters::short_read_minimizer_k = parse<size_t>(optarg);
             break;
         case 'w':
-            IndexingParameters::minimizer_w = parse<size_t>(optarg);
+            IndexingParameters::short_read_minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
             std::cerr << "[vg minimizer] warning: --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
@@ -206,6 +210,9 @@ int main_minimizer(int argc, char** argv) {
             }
             break;
 
+        case 'z':
+            zipcode_name = optarg;
+            break;
         case 'l':
             load_index = optarg;
             break;
@@ -311,7 +318,7 @@ int main_minimizer(int argc, char** argv) {
             hash_table_size = estimate_hash_table_size(*gbz, progress);
         }
         frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, IndexingParameters::minimizer_k, threshold, space_efficient_counting, hash_table_size
+            gbz->graph, IndexingParameters::short_read_minimizer_k, threshold, space_efficient_counting, hash_table_size
         );
         if (progress) {
             double seconds = gbwt::readTimer() - start;
@@ -322,8 +329,8 @@ int main_minimizer(int argc, char** argv) {
     // Minimizer index.
     std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
     if (load_index.empty()) {
-        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::minimizer_k, 
-            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::minimizer_w),
+        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::short_read_minimizer_k, 
+            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
             use_syncmers);
         if (weighted && !frequent_kmers.empty()) {
             index->add_frequent_kmers(frequent_kmers, iterations);
@@ -346,6 +353,15 @@ int main_minimizer(int argc, char** argv) {
         distance_index->preload(true);
     }
 
+    //Zipcodes
+
+    //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
+    ZipCodeCollection oversized_zipcodes;
+
+    //Map node id to what gets stored in the payload - either the zipcode or index into oversized_zipcodes
+    hash_map<vg::id_t, gbwtgraph::Payload> node_id_to_payload;
+    node_id_to_payload.reserve(gbz->graph.max_node_id() - gbz->graph.min_node_id());
+
     // Build the index.
     if (progress) {
         std::cerr << "Building MinimizerIndex with k = " << index->k();
@@ -362,7 +378,55 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
-            return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
+            gbwtgraph::Payload payload = MIPayload::NO_CODE;
+
+            #pragma omp critical 
+            {
+            //If we've already seen this node before, then return the saved payload
+            if (node_id_to_payload.count(id(pos))) {
+                payload =  node_id_to_payload[id(pos)];
+            }
+            }
+            if (payload != MIPayload::NO_CODE) {
+                return payload;
+            }
+           
+
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(*distance_index, pos);
+
+            payload = zipcode.get_payload_from_zip();
+            if (payload != MIPayload::NO_CODE) {
+                //If the zipcode is small enough to store in the payload
+                #pragma omp critical 
+                {
+                node_id_to_payload.emplace(id(pos), payload);
+                }
+                return payload;
+            } else if (!zipcode_name.empty()) {
+                //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
+                //And remember the zipcode
+
+                //Fill in the decoder to be saved too
+                zipcode.fill_in_full_decoder();
+                
+                #pragma omp critical 
+                {
+                oversized_zipcodes.emplace_back(zipcode);
+                size_t zip_index = oversized_zipcodes.size() - 1;
+                payload= {0, zip_index};
+                node_id_to_payload.emplace(id(pos), payload);
+                }
+                return payload;
+            } else {
+                //If the zipcode is too big and we don't have a file to save the big zipcodes
+                #pragma omp critical 
+                {
+                payload = MIPayload::NO_CODE;
+                node_id_to_payload.emplace(id(pos), payload);
+                }
+                return payload;
+            }
         });
     }
 
@@ -377,6 +441,15 @@ int main_minimizer(int argc, char** argv) {
 
     // Serialize the index.
     save_minimizer(*index, output_name);
+
+    //If using it, write the larger zipcodes to a file
+    if (!zipcode_name.empty()) { 
+        ofstream zip_out (zipcode_name);
+        oversized_zipcodes.serialize(zip_out);
+        zip_out.close();
+
+    }
+
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
