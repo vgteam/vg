@@ -684,7 +684,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (";
@@ -862,6 +861,9 @@ int main_giraffe(int argc, char** argv) {
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
 
+    // Are we mapping long reads or short reads? According to the parameter preset
+    bool map_long_reads = false;
+
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
         { "none", MinimizerMapper::rescue_none },
@@ -875,9 +877,6 @@ int main_giraffe(int argc, char** argv) {
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
-    //The name of the file that holds extra zipcodes
-    string zipcode_name;
-    
     // Map preset names to presets
     std::map<std::string, Preset> presets;
     // We have a fast preset that sets a bunch of stuff
@@ -1247,7 +1246,8 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open minimizer file " << optarg << endl;
                     exit(1); 
                 }
-                provided_indexes.emplace_back("Minimizers", optarg);
+                provided_indexes.emplace_back("Long Read Minimizers", optarg);
+                provided_indexes.emplace_back("Short Read Minimizers", optarg);
                 break;
                 
             case 'z':
@@ -1259,7 +1259,8 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open zipcode index file " << optarg << endl;
                     exit(1); 
                 }
-                zipcode_name = optarg;
+                provided_indexes.emplace_back("Long Read Zipcodes", optarg);
+                provided_indexes.emplace_back("Short Read Zipcodes", optarg);
                 break;
             case 'd':
                 if (!optarg || !*optarg) {
@@ -1369,6 +1370,7 @@ int main_giraffe(int argc, char** argv) {
             case OPT_REPORT_NAME:
                 report_name = optarg;
                 break;
+
             case 'b':
                 param_preset = optarg;
                 {
@@ -1381,6 +1383,9 @@ int main_giraffe(int argc, char** argv) {
                         // Apply the preset values.
                         found->second.apply(*parser);
                     }
+                }
+                if (param_preset == "hifi" || param_preset == "r10") {
+                    map_long_reads = true;
                 }
                 break;
 
@@ -1571,9 +1576,15 @@ int main_giraffe(int argc, char** argv) {
         {"XG", {"xg"}},
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
-        {"Giraffe Distance Index", {"dist"}},
-        {"Minimizers", {"min"}}
+        {"Giraffe Distance Index", {"dist"}}
     };
+    if (map_long_reads) {
+        indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
+        indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
+    } else {
+        indexes_and_extensions.emplace(std::string("Short Read Minimizers"), std::vector<std::string>({"shortread.withzip.min","withzip.min", "min"}));
+        indexes_and_extensions.emplace(std::string("Short Read Zipcodes"), std::vector<std::string>({"shortread.zipcodes", "zipcodes"}));
+    }
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
@@ -1605,7 +1616,9 @@ int main_giraffe(int argc, char** argv) {
     // TODO: add memory options like autoindex?
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
     
-    auto index_targets = VGIndexes::get_default_giraffe_indexes();
+    auto index_targets = map_long_reads
+                       ? VGIndexes::get_default_long_giraffe_indexes()
+                       : VGIndexes::get_default_short_giraffe_indexes();
 
 #ifdef debug
     for (auto& needed : index_targets) {
@@ -1638,16 +1651,24 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Loading Minimizer Index" << endl;
     }
-    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
+    if (map_long_reads) {
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Long Read Minimizers").at(0));
+    } else {
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Short Read Minimizers").at(0));
+    }
 
     // Grab the zipcodes
     if (show_progress) {
         cerr << "Loading Zipcodes" << endl;
     }
-    ZipCodeCollection oversized_zipcodes;
-    if (!zipcode_name.empty()) {
-
-        ifstream zip_in (zipcode_name);
+    ZipCodeCollection oversized_zipcodes;        
+    if (map_long_reads) {
+        ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
+        oversized_zipcodes.deserialize(zip_in);
+        zip_in.close();
+    } else {
+        ifstream zip_in (registry.require("Short Read Zipcodes").at(0));
         oversized_zipcodes.deserialize(zip_in);
         zip_in.close();
     }

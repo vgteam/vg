@@ -69,8 +69,8 @@ void help_minimizer(char** argv) {
     std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::minimizer_w << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::short_read_minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::short_read_minimizer_w << ")" << std::endl;
     std::cerr << "    -c, --closed-syncmers   index closed syncmers instead of minimizers" << std::endl;
     std::cerr << "    -s, --smer-length N     use smers of length N in closed syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
     std::cerr << std::endl;
@@ -168,10 +168,10 @@ int main_minimizer(int argc, char** argv) {
             break;
 
         case 'k':
-            IndexingParameters::minimizer_k = parse<size_t>(optarg);
+            IndexingParameters::short_read_minimizer_k = parse<size_t>(optarg);
             break;
         case 'w':
-            IndexingParameters::minimizer_w = parse<size_t>(optarg);
+            IndexingParameters::short_read_minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
             std::cerr << "[vg minimizer] warning: --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
@@ -318,7 +318,7 @@ int main_minimizer(int argc, char** argv) {
             hash_table_size = estimate_hash_table_size(*gbz, progress);
         }
         frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
-            gbz->graph, IndexingParameters::minimizer_k, threshold, space_efficient_counting, hash_table_size
+            gbz->graph, IndexingParameters::short_read_minimizer_k, threshold, space_efficient_counting, hash_table_size
         );
         if (progress) {
             double seconds = gbwt::readTimer() - start;
@@ -329,8 +329,8 @@ int main_minimizer(int argc, char** argv) {
     // Minimizer index.
     std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
     if (load_index.empty()) {
-        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::minimizer_k, 
-            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::minimizer_w),
+        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::short_read_minimizer_k, 
+            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
             use_syncmers);
         if (weighted && !frequent_kmers.empty()) {
             index->add_frequent_kmers(frequent_kmers, iterations);
