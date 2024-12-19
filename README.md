@@ -2,7 +2,8 @@
 # vg
 
 [![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) 
-[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
+[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-firebrick.svg)](https://vgteam.github.io/vg/)
+[![vg man page](https://img.shields.io/badge/manpage-seagreen.svg)](https://github.com/vgteam/vg/wiki/vg-manpage)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -500,6 +501,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGC
 Most commands allow the streaming of graphs into and out of `vg`.
 
 ### Command line interface
+
+See the [man-page](https://github.com/vgteam/vg/wiki/vg-manpage)
 
 A variety of commands are available:
 
