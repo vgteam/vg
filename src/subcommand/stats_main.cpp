@@ -34,6 +34,7 @@
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
 #include "../traversal_finder.hpp"
+#include "../traversal_clusters.hpp"
 
 using namespace std;
 using namespace vg;
@@ -66,7 +67,8 @@ void help_stats(char** argv) {
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
          << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
-         << "        --snarl-sample    print out reference coordinates on given sample" << endl
+         << "        --snarl-sample S  print out reference coordinates on given sample S" << endl
+         << "        --snarl-outlier   print most diverged path from reference (--snarl-sample required)" << endl
          << "    -C, --chains          print statistics for each chain" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
@@ -109,6 +111,7 @@ int main_stats(int argc, char** argv) {
     bool chain_stats = false;
     bool snarl_contents = false;
     string snarl_sample;
+    bool snarl_outlier = false;
     bool format = false;
     bool degree_dist = false;
     string distance_index_filename;
@@ -116,6 +119,7 @@ int main_stats(int argc, char** argv) {
     // Long options with no corresponding short options.
     constexpr int OPT_SNARL_CONTENTS = 1000;
     constexpr int OPT_SNARL_SAMPLE = 1001;
+    constexpr int OPT_SNARL_OUTLIER = 1002;
     constexpr int64_t snarl_search_context = 100;
 
     int c;
@@ -146,6 +150,7 @@ int main_stats(int argc, char** argv) {
             {"snarls", no_argument, 0, 'R'},
             {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
             {"snarl-sample", required_argument, 0, OPT_SNARL_SAMPLE},
+            {"snarl-outlier", no_argument, 0, OPT_SNARL_OUTLIER},
             {"chains", no_argument, 0, 'C'},            
             {"format", no_argument, 0, 'F'},
             {"degree-dist", no_argument, 0, 'D'},
@@ -251,6 +256,10 @@ int main_stats(int argc, char** argv) {
         case OPT_SNARL_SAMPLE:
             snarl_sample = optarg;
             break;
+
+        case OPT_SNARL_OUTLIER:
+            snarl_outlier = true;
+            break;
             
         case 'C':
             chain_stats = true;
@@ -294,6 +303,11 @@ int main_stats(int argc, char** argv) {
 
     if (!snarl_sample.empty() && !snarl_stats) {
         cerr << "error [vg stats]: --snarl-sample can only be used with --snarls/-R" << endl;
+        exit(1);
+    }
+
+    if (snarl_outlier && snarl_sample.empty()) {
+        cerr << "error [vg stats]: --snarl-outlier can only be used with --snarl-sample" << endl;
         exit(1);
     }
 
@@ -1142,17 +1156,23 @@ int main_stats(int argc, char** argv) {
             if (!snarl_sample.empty()) {
                 // optionally prefix with bed-like refpath coordinates if --snarl-sample given
                 cout <<"Contig\tStartPos\tEndPos\t";
+                if (snarl_outlier) {
+                    cout << "OutlierName\tOutlierJaccard\tOutlierLen\t";
+                }
                 
                 if (pp_graph == nullptr) {
                     pp_graph = overlay_helper.apply(graph);
                 }
                 vector<string> ref_path_names;
                 pp_graph->for_each_path_of_sample(snarl_sample, [&](path_handle_t path_handle) {
-                    ref_path_names.push_back(graph->get_path_name(path_handle));
+                    ref_path_names.push_back(pp_graph->get_path_name(path_handle));
                 });
                 if (ref_path_names.empty()) {
                     cerr << "error [vg stats]: unable to find any paths of --snarl-sample " << snarl_sample << endl;
                     exit(1);
+                }
+                if (snarl_outlier) {
+                    ref_path_names.clear(); // if searching for outliers, we want all traversals
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }
@@ -1164,15 +1184,26 @@ int main_stats(int argc, char** argv) {
             if (snarl_stats) {
                 if (!snarl_sample.empty()) {
                     // find the reference interval from path index if snarl lies directly on reference path
-                    vector<PathInterval> travs;
-                    std::tie(std::ignore, travs) = path_trav_finder->find_path_traversals(
+                    vector<Traversal> travs;
+                    vector<PathInterval> trav_intervals;
+                    std::tie(travs, trav_intervals) = path_trav_finder->find_path_traversals(
                         pp_graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
                         pp_graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
-                    if (travs.empty() && snarl_to_ref.count(manager.parent_of(snarl))) {
+                    for (int64_t i = 0; i < trav_intervals.size(); ++i) {
+                        // make sure ref trav is first
+                        if (pp_graph->get_sample_name(pp_graph->get_path_handle_of_step(trav_intervals[i].first)) == snarl_sample) {
+                            if (i > 1) {
+                                swap(travs[0], travs[1]);                                
+                                swap(trav_intervals[0], trav_intervals[i]);
+                            }
+                            break;
+                        }
+                    }                    
+                    if (trav_intervals.empty() && snarl_to_ref.count(manager.parent_of(snarl))) {
                         // snarl's not on the reference path, us its parent interval
-                        travs.push_back(snarl_to_ref.at(manager.parent_of(snarl)));
+                        trav_intervals.push_back(snarl_to_ref.at(manager.parent_of(snarl)));
                     }
-                    if (travs.empty()) {
+                    if (trav_intervals.empty()) {
                         // search toward the reference path
                         unordered_map<path_handle_t, vector<step_handle_t>> start_steps;
                         unordered_map<path_handle_t, vector<step_handle_t>> end_steps;
@@ -1206,43 +1237,43 @@ int main_stats(int argc, char** argv) {
                                      step != graph->path_end(graph->get_path_handle_of_step(start_path_steps.second[0]));
                                      step = graph->get_next_step(step)) {
                                     if (end_ids.count(graph->get_id(graph->get_handle_of_step(step)))) {
-                                        travs.push_back(make_pair(start_path_steps.second[0],
+                                        trav_intervals.push_back(make_pair(start_path_steps.second[0],
                                                                   end_ids[graph->get_id(graph->get_handle_of_step(step))]));
                                         break;                                        
                                     }
                                 }
                                 // search backward
-                                if (travs.empty()) {
+                                if (trav_intervals.empty()) {
                                     for (step_handle_t step = graph->get_previous_step(start_path_steps.second[0]);
                                          step != graph->path_front_end(graph->get_path_handle_of_step(start_path_steps.second[0]));
                                          step = graph->get_previous_step(step)) {
                                         if (end_ids.count(graph->get_id(graph->get_handle_of_step(step)))) {
-                                            travs.push_back(make_pair(start_path_steps.second[0],
+                                            trav_intervals.push_back(make_pair(start_path_steps.second[0],
                                                                       end_ids[graph->get_id(graph->get_handle_of_step(step))]));
                                             break;                                        
                                         }
                                     }                                    
                                 }
                             }
-                            if (!travs.empty()) {
+                            if (!trav_intervals.empty()) {
                                 break;
                             }
                         }                        
                         // unlikely, but maybe only one end of the snarl reaches the reference.  in that case
                         // we just consider it both ends of the interval
-                        if (travs.empty() && !start_steps.empty()) {
-                            travs.push_back(make_pair(start_steps.begin()->second.front(), start_steps.begin()->second.front()));
+                        if (trav_intervals.empty() && !start_steps.empty()) {
+                            trav_intervals.push_back(make_pair(start_steps.begin()->second.front(), start_steps.begin()->second.front()));
                         }
-                        if (travs.empty() && !end_steps.empty()) {
-                            travs.push_back(make_pair(end_steps.begin()->second.front(), end_steps.begin()->second.front()));
+                        if (trav_intervals.empty() && !end_steps.empty()) {
+                            trav_intervals.push_back(make_pair(end_steps.begin()->second.front(), end_steps.begin()->second.front()));
                         }
                     }
-                    if (travs.empty()) {
+                    if (trav_intervals.empty()) {
                         cout << ".\t.\t.\t";
                     } else {
                         // note: in case of a cycle, we're just taking the first found
-                        step_handle_t start_step = travs.front().first;
-                        step_handle_t end_step = travs.front().second;
+                        step_handle_t start_step = trav_intervals.front().first;
+                        step_handle_t end_step = trav_intervals.front().second;
                         int64_t start_pos = pp_graph->get_position_of_step(start_step);
                         int64_t end_pos = pp_graph->get_position_of_step(end_step);
                         if (end_pos < start_pos) {
@@ -1254,7 +1285,40 @@ int main_stats(int argc, char** argv) {
                              << end_pos << "\t";
 
                         // use this interval for off-reference children
-                        snarl_to_ref[snarl] = travs.front();
+                        snarl_to_ref[snarl] = trav_intervals.front();
+
+                        // print the outlier of snarl (only works if snarl is exactly on reference since it
+                        // requires the full traversal list)
+                        if (snarl_outlier) {
+                            int64_t outlier_idx = -1;
+                            double outlier_jaccard = numeric_limits<double>::max();
+                            int64_t outlier_len = -1;
+                            if (trav_intervals.size() > 1) {
+                                vector<double> jaccards(trav_intervals.size());
+                                multiset<handle_t> refset;
+                                for (handle_t handle : travs[0]) {
+                                    refset.insert(handle);
+                                }
+                                for (int64_t i = 1; i < trav_intervals.size(); ++i) {
+                                    multiset<handle_t> travset;
+                                    int64_t travlen = 0;
+                                    for (handle_t handle : travs[i]) {
+                                        travset.insert(handle);
+                                        travlen += pp_graph->get_length(handle);
+                                    }
+                                    double jaccard = weighted_jaccard_coefficient(pp_graph, refset, travset);
+                                    if (jaccard < outlier_jaccard) {
+                                        outlier_idx = i;
+                                        outlier_jaccard = jaccard;
+                                        outlier_len = travlen;
+                                    }
+                                }
+                                cout << pp_graph->get_path_name(pp_graph->get_path_handle_of_step(trav_intervals[outlier_idx].first))
+                                     << "\t" << outlier_jaccard << "\t" << outlier_len << "\t";
+                            } else {
+                                cout << ".\t.\t.\t";
+                            }
+                        }
                     }
                 }
                 
