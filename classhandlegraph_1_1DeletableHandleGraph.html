@@ -94,6 +94,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a62ed805e124ceb05cfa98d4e631a9ebd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06d4d3ecda0694d5045c457f3eecd8e3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a06d4d3ecda0694d5045c457f3eecd8e3">destroy_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)=0</td></tr>
 <tr class="separator:a06d4d3ecda0694d5045c457f3eecd8e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a074aa4e0604e7b89e111c3bb71864f4c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a074aa4e0604e7b89e111c3bb71864f4c">change_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::string &amp;sequence)</td></tr>
+<tr class="separator:a074aa4e0604e7b89e111c3bb71864f4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a285ac35e805eab548c4106ee534d79f2"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a285ac35e805eab548c4106ee534d79f2">destroy_edge</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;right)=0</td></tr>
 <tr class="separator:a285ac35e805eab548c4106ee534d79f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65cef3b3261f8d1bc2057c5f2ee100a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#aa65cef3b3261f8d1bc2057c5f2ee100a">truncate_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool trunc_left, size_t offset)</td></tr>
@@ -235,6 +237,45 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a074aa4e0604e7b89e111c3bb71864f4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a074aa4e0604e7b89e111c3bb71864f4c">&#9670;&nbsp;</a></span>change_sequence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handlegraph::DeletableHandleGraph::change_sequence </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Change the sequence of handle's forward orientation to a new sequence. Returns a (possibly altered) handle to the node with the new sequence. The returned handle has the same orientation as the handle provided as an argument. May invalidate existing handles to the node. Updates paths to follow the new node if called through a class inheriting a <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> interface. </p>
+
+<p>Reimplemented in <a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html#a496296d7be48b5d6de5635002b1c0226">handlegraph::MutablePathDeletableHandleGraph</a>.</p>
+
+</div>
+</div>
 <a id="a6e1a83e72b47643e43c6176f39d8db5e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6e1a83e72b47643e43c6176f39d8db5e">&#9670;&nbsp;</a></span>clear()</h2>
 

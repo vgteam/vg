@@ -101,6 +101,8 @@ Inheritance diagram for handlegraph::MutablePathDeletableHandleGraph:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a2d936ce540af42363619ebb77c60a4ff"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html#a2d936ce540af42363619ebb77c60a4ff">~MutablePathDeletableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:a2d936ce540af42363619ebb77c60a4ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a496296d7be48b5d6de5635002b1c0226"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html#a496296d7be48b5d6de5635002b1c0226">change_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::string &amp;sequence)</td></tr>
+<tr class="separator:a496296d7be48b5d6de5635002b1c0226"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1MutablePathMutableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1MutablePathMutableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">handlegraph::MutablePathMutableHandleGraph</a></td></tr>
 <tr class="memitem:a55379ced0e4f2952ca3353c558affc44 inherit pub_methods_classhandlegraph_1_1MutablePathMutableHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html#a55379ced0e4f2952ca3353c558affc44">~MutablePathMutableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:a55379ced0e4f2952ca3353c558affc44 inherit pub_methods_classhandlegraph_1_1MutablePathMutableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -412,8 +414,49 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="a496296d7be48b5d6de5635002b1c0226"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a496296d7be48b5d6de5635002b1c0226">&#9670;&nbsp;</a></span>change_sequence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handlegraph::MutablePathDeletableHandleGraph::change_sequence </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Change the sequence of handle's forward orientation to a new sequence. Returns a (possibly altered) handle to the node with the new sequence. The returned handle has the same orientation as the handle provided as an argument. May invalidate existing handles to the node. Updates paths to follow the new node if called through a class inheriting a <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> interface. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a074aa4e0604e7b89e111c3bb71864f4c">handlegraph::DeletableHandleGraph</a>.</p>
+
+</div>
+</div>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="mutable__path__deletable__handle__graph_8hpp.html">mutable_path_deletable_handle_graph.hpp</a></li>
+<li>deps/libhandlegraph/src/<a class="el" href="mutable__path__deletable__handle__graph_8cpp.html">mutable_path_deletable_handle_graph.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
