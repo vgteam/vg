@@ -11,7 +11,7 @@ cmds = ['index', 'view', 'autoindex', 'pack', 'giraffe', 'map', 'call',
 cmds.sort()
 
 # parse short descriptions
-desc_inf = open('vgmanmd.desc.md', 'rt')
+desc_inf = open('./doc/vgmanmd.desc.md', 'rt')
 desc = {}
 cur_desc = ''
 cur_header = ''
