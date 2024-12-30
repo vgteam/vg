@@ -20,7 +20,7 @@ void help_primers(char** argv) {
          << "    -s, --snarl-index FILE             use this snarl index" << endl
          << "    -r, --r-index FILE                 use this r index" << endl
          << "    -g, --gbz FILE                     use this gbz file" << endl
-         << "    -v, --variation-threshold DOUBLE   output primers that work for at least this percentage of haplotypes (default: 0.8)"
+         << "    -v, --variation-threshold DOUBLE   output primers that work for at least this percentage of haplotypes (default: 0.8)" << endl
          << "    -l, --tolerance INT                allow this much difference between minimum and maximum sizes compared to the linear product size (default: 10)" << endl
          << "    -n, --minimum-size INT             minimum product size allowed (has precedence over --tolerance)" << endl
          << "    -m, --maximum-size INT             maximum product size allowed (has precedence over --tolerance)" << endl

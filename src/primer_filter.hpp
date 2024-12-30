@@ -192,4 +192,4 @@ private:
 
 }
 
-#endif /* primder_filter_hpp */
+#endif /* primer_filter_hpp */
