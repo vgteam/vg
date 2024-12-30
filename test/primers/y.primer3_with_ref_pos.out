@@ -1,0 +1,97 @@
+PRIMER PICKING RESULTS FOR y|gene|feature|0
+
+No mispriming library specified
+Using 0-based sequence positions
+OLIGO            start  len      tm     gc%  any_th  3'_th hairpin seq
+LEFT PRIMER        362   20   60.11   55.00   19.30   0.00   31.71 TGCCTGGCATAGAGGAAAGC
+RIGHT PRIMER       485   20   60.11   60.00    0.00   0.00   37.39 GCCAGAAGAGCCTCAAGGAG
+SEQUENCE SIZE: 1001
+INCLUDED REGION SIZE: 1001
+
+PRODUCT SIZE: 124, PAIR ANY_TH COMPL: 6.57, PAIR 3'_TH COMPL: 4.13
+
+    0 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTG
+                                                                  
+
+   60 CTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAG
+                                                                  
+
+  120 TGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTG
+                                                                  
+
+  180 GAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA
+                                                                  
+
+  240 ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTA
+                                                                  
+
+  300 CTGACAGCAGAGGTTTGCTGTGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAAT
+                                                                  
+
+  360 AGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTTACTGTTATTTACTATGAATC
+        >>>>>>>>>>>>>>>>>>>>                                      
+
+  420 CTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT
+                                                    <<<<<<<<<<<<<<
+
+  480 TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGT
+      <<<<<<                                                      
+
+  540 AGCTCAGAGATCTCTCTGCTCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTA
+                                                                  
+
+  600 AGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGT
+                                                                  
+
+  660 GTATACGATGTAACTCTGTTCGGGCACTGGTGAAAGATAACAGAGGAAATGCCTGGCTTT
+                                                                  
+
+  720 TTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCCAGCTCTCCTTGTCCCTCCCAAGAT
+                                                                  
+
+  780 CTCTTCACTGGCCTCTTATCTTTACTGTTACCAAATCTTTCCAGAAGCTGCTCTTTCCCT
+                                                                  
+
+  840 CAATTGTTCATTTGTCTTCTTGTCCAGGAATGAACCACTGCTCTCTTCTTGTCAGATCAG
+                                                                  
+
+  900 CTTCTCATCCCTCCTCAAGGGCCTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTT
+                                                                  
+
+  960 TAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATGA
+                                               
+
+KEYS (in order of precedence):
+>>>>>> left primer
+<<<<<< right primer
+
+ADDITIONAL OLIGOS
+                    start  len      tm     gc%  any_th  3'_th hairpin seq
+
+ 1 LEFT PRIMER        620   20   59.83   60.00   15.95   0.00   35.67 GAGTCGAGGCTCAAGGACAG
+   RIGHT PRIMER       764   20   60.18   55.00    0.00   0.00    0.00 AGGAGAGCTGGGAAAAGGGA
+   PRODUCT SIZE: 145, PAIR ANY_TH COMPL: 0.00, PAIR 3'_TH COMPL: 0.00
+
+ 2 LEFT PRIMER        618   20   59.83   60.00   15.95  13.47   37.94 CAGAGTCGAGGCTCAAGGAC
+   RIGHT PRIMER       764   20   60.18   55.00    0.00   0.00    0.00 AGGAGAGCTGGGAAAAGGGA
+   PRODUCT SIZE: 147, PAIR ANY_TH COMPL: 0.00, PAIR 3'_TH COMPL: 0.00
+
+ 3 LEFT PRIMER        625   20   59.82   60.00   10.25   0.00   37.05 GAGGCTCAAGGACAGCTCTC
+   RIGHT PRIMER       764   20   60.18   55.00    0.00   0.00    0.00 AGGAGAGCTGGGAAAAGGGA
+   PRODUCT SIZE: 140, PAIR ANY_TH COMPL: 26.57, PAIR 3'_TH COMPL: 26.57
+
+ 4 LEFT PRIMER        819   20   59.67   55.00    1.00   0.00   34.56 TCCAGAAGCTGCTCTTTCCC
+   RIGHT PRIMER       954   20   60.03   55.00    0.00   0.00    0.00 GCCTGGGTAGCTTTGGATGT
+   PRODUCT SIZE: 136, PAIR ANY_TH COMPL: 13.72, PAIR 3'_TH COMPL: 10.53
+
+Statistics
+         con   too    in    in   not          no    tm    tm   high  high  high        high      
+         sid  many   tar  excl    ok   bad    GC   too   too any_th 3'_th hair-  poly   end      
+        ered    Ns   get   reg   reg   GC% clamp   low  high  compl compl   pin     X  stab    ok
+Left    4586     0     0     0     0    41     0  3329    93      0     0     6    15     0  1102
+Right   4585     0     0     0     0    40     0  3257   106      0     0     0    15     0  1167
+Pair Stats:
+considered 106, unacceptable product size 101, ok 5
+libprimer3 release 2.6.1
+
+
