@@ -16,10 +16,11 @@ void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-path FILE                 use this xg graph" << endl
-         << "    -s, --snarl-index FILE             use this snarl index" << endl
-         << "    -r, --r-index FILE                 use this r index" << endl
-         << "    -g, --gbz FILE                     use this gbz file" << endl
+         << "    -x, --xg-path FILE                 use this xg graph (required)" << endl
+         << "    -s, --snarl-index FILE             use this snarl index (required)" << endl
+         << "    -r, --r-index FILE                 use this r index (required)" << endl
+         << "    -g, --gbz FILE                     use this gbz file (required)" << endl
+         << "    -M, --minimizers FILE              use this minimizer file for mapping the template sequence, if necessary" << endl
          << "    -v, --variation-threshold DOUBLE   output primers that work for at least this percentage of haplotypes (default: 0.8)" << endl
          << "    -l, --tolerance INT                allow this much difference between minimum and maximum sizes compared to the linear product size (default: 10)" << endl
          << "    -n, --minimum-size INT             minimum product size allowed (has precedence over --tolerance)" << endl
@@ -73,6 +74,7 @@ int main_primers(int argc, char** argv) {
     string snarl_index_path;
     string ri_path;
     string gbz_path;
+    string min_path;
     bool zero_variation = false;
     bool all_primers   = false;
     int  tolerance     = 10;
@@ -91,6 +93,7 @@ int main_primers(int argc, char** argv) {
           {"snarl-index",         required_argument, 0, 's'},
           {"ri-path",             required_argument, 0, 'r'},
           {"gbz-path",            required_argument, 0, 'g'},
+          {"minimizers",          required_argument, 0, 'M'},
           {"variation-threshold", required_argument, 0, 'v'},
           {"tolerance",           required_argument, 0, 'l'},
           {"minimum-size",        required_argument, 0, 'n'},
@@ -100,7 +103,7 @@ int main_primers(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:s:r:g:l:n:m:a", long_options, &option_index);
+        c = getopt_long (argc, argv, "hx:s:r:g:M:v:l:n:m:a", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1) break;
@@ -121,6 +124,10 @@ int main_primers(int argc, char** argv) {
         
         case 'g':
             gbz_path = optarg;
+            break;
+        
+        case 'M':
+            min_path = optarg;
             break;
         
         case 'v':
@@ -188,7 +195,13 @@ int main_primers(int argc, char** argv) {
     distance_index.deserialize(snarl_index_path);
     graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_path);
     ifstream file_handle(primers_path);
-    PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index);
+    MinimizerMapper* giraffe_mapper = nullptr;
+    if (!min_path.empty()) {
+        unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(min_path);
+        MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index);
+        giraffe_mapper = &minimizer_mapper;
+    }
+    PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index, giraffe_mapper);
 
     cout << "chrom\ttplfeat\ttplpos\tlpseq\trpseq\tlppostpl\trppostmp\tlpposchrom\trpposchrom\t"
          << "lpnid\trpnid\tlplen\trplen\tlinsize\tminsize\tmaxsize\tvarlevel" << endl;

@@ -1,5 +1,7 @@
 #include "primer_filter.hpp"
 #include <unordered_set>
+#include "surjector.hpp"
+#include "hts_alignment_emitter.hpp"
 
 namespace vg {
 
@@ -11,12 +13,13 @@ using namespace std;
 PrimerFinder::PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
     const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle,
     const gbwtgraph::GBWTGraph& gbwt_graph_param, const gbwt::GBWT& gbwt_index_param,
-    const gbwt::FastLocate& r_index_param)
+    const gbwt::FastLocate& r_index_param, MinimizerMapper* giraffe_mapper_param)
     : graph(graph_param.get()),
       distance_index(distance_index_param),
       gbwt_graph(gbwt_graph_param),
       gbwt_index(gbwt_index_param),
-      r_index(r_index_param) {
+      r_index(r_index_param),
+      giraffe_mapper(giraffe_mapper_param) {
 
     load_primers(primers_file_handle);
 }
@@ -70,6 +73,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
     string chromosome_name = "";
     string template_feature = "";
     size_t template_position = std::numeric_limits<size_t>::max();
+    bool has_path = false;
 
     string line;
     while (getline(file_handle, line)) {
@@ -80,6 +84,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
             chromosome_name = "";
             template_feature = "";
             template_position = std::numeric_limits<size_t>::max();
+            has_path = false;
         } else if (startswith(line, "SEQUENCE_ID")) {
             //Get the path, path offset, and features from the sequence_id of the primer pair
             //This will be the same for all primer pairs up to the next "="
@@ -88,14 +93,21 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
             chromosome_name = cur_fields[0];
             template_feature = cur_fields[1] + "|" + cur_fields[2];
             template_position = stoi(cur_fields[3]);
+            has_path = graph->has_path(chromosome_name);
+            if (!has_path) {
+                cerr << "warning: primer finder can't find a path named " << chromosome_name << " in the graph" << endl << "\tfalling back on mapping the template sequence" << endl;
+            }
 #ifdef DEBUG_PRIMER_FILTER
             cerr << "FIND PRIMERS FOR INPUT " << line << ": " << chromosome_name << ", " << template_feature << ", " << template_position << endl;
 #endif
 
-        } else if (startswith(line, "SEQUENCE_TEMPLATE")) {
+        } else if (startswith(line, "SEQUENCE_TEMPLATE") && !has_path) {
             //If the path from the sequence id isn't in the graph, then get the path and path offset by mapping the sequence
             string seq = split(line,'=')[1];
-            //TODO: Actually do this
+            if (giraffe_mapper == nullptr) {
+                throw std::runtime_error("error: primer filter doesn't have a minimizer file to map the template");
+            }
+            std::tie(chromosome_name, template_position) = get_graph_coordinates_from_sequence(seq);
 
         } else if (startswith(line, "PRIMER_PAIR_NUM_RETURNED")) {
             //How many primer pairs for this sequence template?
@@ -243,6 +255,51 @@ static string get_haplotype_sequence(gbwt::size_type sequence_visit_offset, hand
     }
     return haplotype;
 }
+
+std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(const string& seq) {
+    string ref_name;
+    int64_t ref_offset;
+    bool ref_rev;
+
+    //Make an alignment from the sequence
+    Alignment aln;
+    aln.set_sequence(seq);
+    aln.set_name("primer_template");
+
+    //Map the alignment
+    vector<Alignment> mapped = giraffe_mapper->map(aln);
+
+    //If there wasn't an alignment, error
+    if (mapped.empty()) {
+        throw std::runtime_error("error: Primer filter could not map template sequence");
+    }
+
+
+
+    //Get the reference paths we want to align to
+    //This is done automatically
+    //TODO: These are empty but they could be command line arguments
+    string path_file;
+    vector<string> path_names;
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *graph);
+    unordered_set<path_handle_t> reference_paths;
+    reference_paths.reserve(sequence_dictionary.size());
+    for (auto& entry : sequence_dictionary) {
+        reference_paths.insert(get<0>(entry));
+    }
+
+    //Surject the alignment onto the reference paths
+    Surjector surjector(graph);
+    surjector.surject(mapped.front(), reference_paths, ref_name, ref_offset, ref_rev);
+
+    //TODO: Double check that this is correct. idk why ref_offset is an int and not a size_t
+    if (ref_rev) {
+        ref_offset -= seq.size();
+    }
+
+    return std::make_pair(ref_name, (size_t)ref_offset);
+}
+
 
 void PrimerFinder::update_min_max_product_size(PrimerPair& primer_pair) {
     const auto& sequence_visits = primer_pair.sequence_visits;

@@ -18,6 +18,7 @@
 #include <vg/vg.pb.h>
 #include "utility.hpp"
 #include "snarl_distance_index.hpp"
+#include "minimizer_mapper.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "genotypekit.hpp"
 #include "traversal_finder.hpp"
@@ -70,6 +71,7 @@ private:
     unordered_map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
+    MinimizerMapper* giraffe_mapper; 
     const gbwtgraph::GBWTGraph& gbwt_graph;
     const gbwt::GBWT& gbwt_index;
     const gbwt::FastLocate& r_index;
@@ -83,9 +85,10 @@ public:
      * and pointer to SnarlDistanceIndex
      */
     PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-        const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle,
+        const SnarlDistanceIndex* distance_index_param,
+        ifstream& primers_file_handle,
         const gbwtgraph::GBWTGraph& gbwt_graph, const gbwt::GBWT& gbwt_index,
-        const gbwt::FastLocate& r_index);
+        const gbwt::FastLocate& r_index, MinimizerMapper* giraffe_mapper_param=nullptr);
 
     /**
      * Destructor
@@ -126,6 +129,15 @@ private:
     /**
      * Private functions used by public or private functions.
      */
+
+    /**
+     * Get the graph coordinates by mapping and surjecting the template
+     * To be used if the chromosome_name isn't a valid path
+     * Returns a pair of the path/chromosome name and the offset of the template in the path
+     * Used in: load_primers
+     */
+     std::pair<string, size_t> get_graph_coordinates_from_sequence(const string& seq);
+
 
     /**
      * Update minimum and maximum prodcut to a primer pair object.
