@@ -29,8 +29,6 @@ They are the reference path name in the graph, the name of the gene, the exon or
 The names of the reference paths in the graph can be found with `vg paths -L -R`.
 The `SEQUENCE_TEMPLATE` is the nucleotide sequence the primers are found from.
 
-`primer3` must be run with the `--format_output` flag.
-
 # Filtering primers with `vg primers`
 
 `vg primers` requires the following indexes of the pangenome:

@@ -5,6 +5,8 @@ namespace vg {
 
 using namespace std;
 
+//#define DEBUG_PRIMER_FILTER
+
 // Constructor
 PrimerFinder::PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
     const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle,
@@ -56,64 +58,108 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
     //ifstream file_handle(path_to_primers);
     assert(file_handle.is_open());
     
-    vector<string> cur_fields;
-    size_t cur_template_offset;
-    string cur_template_info;
-    string cur_template_feature;
-    string cur_path;
+
+    // Regular expressions for matching fields with numbers
+    std::regex left_seq ("^PRIMER_LEFT_[0-9]*_SEQUENCE.*");
+    std::regex right_seq ("^PRIMER_RIGHT_[0-9]*_SEQUENCE.*");
+    std::regex left_primer_position ("^PRIMER_LEFT_[0-9]*=.*");
+    std::regex right_primer_position ("^PRIMER_RIGHT_[0-9]*=.*");
+
+    vector<PrimerPair>::iterator curr_primer_iterator;
+
+    string chromosome_name = "";
+    string template_feature = "";
+    size_t template_position = std::numeric_limits<size_t>::max();
+
     string line;
     while (getline(file_handle, line)) {
         line = strip(line);
-        size_t left_primer_line_start  = line.find("LEFT PRIMER");
-        size_t right_primer_line_start = line.find("RIGHT PRIMER");
-        
-        if (startswith(line, "PRIMER PICKING RESULTS FOR")) {
-            if (chroms.size() != 0) {
-                assert(chroms[cur_path].back().right_primer.sequence.empty());
-                chroms[cur_path].pop_back();
-            }
-            cur_fields           = move(split(line));
-            cur_template_info    = cur_fields[cur_fields.size()-1];
-            cur_fields           = move(split(cur_template_info,'|'));
-            cur_template_feature = cur_fields[1] + "|" + cur_fields[2];
-            cur_template_offset  = stoi(cur_fields[3]);
-            cur_path             = cur_fields[0];
-            chroms[cur_path].emplace_back();
-            chroms[cur_path].back().chromosome_name   = cur_path;
-            chroms[cur_path].back().template_position = cur_template_offset;
-            chroms[cur_path].back().template_feature  = cur_template_feature;
-            chroms[cur_path].back().right_primer.left = false;
-        } else if (left_primer_line_start != string::npos) {
-            cur_fields = move(split(line.substr(left_primer_line_start, line.size())));
-            PrimerPair& primer_pair = chroms[cur_path].back();
-            primer_pair.left_primer.position_chromosome = stoi(cur_fields[2]) + cur_template_offset;
-            primer_pair.left_primer.position_template   = stoi(cur_fields[2]);
-            primer_pair.left_primer.sequence            = cur_fields[9];
-            primer_pair.left_primer.length              = stoi(cur_fields[3]);
-        } else if (startswith(line, "RIGHT PRIMER")) {
-            cur_fields = move(split(line.substr(right_primer_line_start, line.size())));
-            PrimerPair& primer_pair = chroms[cur_path].back();
-            primer_pair.right_primer.position_chromosome = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1 + cur_template_offset;
-            primer_pair.right_primer.position_template   = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1;
-            primer_pair.right_primer.sequence            = cur_fields[9];
-            primer_pair.right_primer.length              = stoi(cur_fields[3]);
 
-            assert(!primer_pair.left_primer.sequence.empty());
-            map_to_nodes(primer_pair.left_primer, cur_path);
-            map_to_nodes(primer_pair.right_primer, cur_path);
-            primer_pair.linear_product_size = primer_pair.right_primer.position_template
-                - primer_pair.left_primer.position_template + primer_pair.right_primer.length;
-            update_variation(primer_pair, cur_path);
-            update_min_max_product_size(primer_pair);
-            chroms[cur_path].emplace_back();
-            chroms[cur_path].back().chromosome_name   = cur_path;
-            chroms[cur_path].back().template_position = cur_template_offset;
-            chroms[cur_path].back().template_feature  = cur_template_feature;
-            chroms[cur_path].back().right_primer.left = false;
+        if (line == "=") {
+            //End of the record for one primer pair
+            chromosome_name = "";
+            template_feature = "";
+            template_position = std::numeric_limits<size_t>::max();
+        } else if (startswith(line, "SEQUENCE_ID")) {
+            //Get the path, path offset, and features from the sequence_id of the primer pair
+            //This will be the same for all primer pairs up to the next "="
+            vector<string> cur_fields = move(split(split(line,'=')[1], '|'));
+
+            chromosome_name = cur_fields[0];
+            template_feature = cur_fields[1] + "|" + cur_fields[2];
+            template_position = stoi(cur_fields[3]);
+#ifdef DEBUG_PRIMER_FILTER
+            cerr << "FIND PRIMERS FOR INPUT " << line << ": " << chromosome_name << ", " << template_feature << ", " << template_position << endl;
+#endif
+
+        } else if (startswith(line, "SEQUENCE_TEMPLATE")) {
+            //If the path from the sequence id isn't in the graph, then get the path and path offset by mapping the sequence
+            string seq = split(line,'=')[1];
+            //TODO: Actually do this
+
+        } else if (startswith(line, "PRIMER_PAIR_NUM_RETURNED")) {
+            //How many primer pairs for this sequence template?
+
+            size_t primer_pair_count = stoi(split(line,'=')[1]);
+            size_t new_vector_start = chroms[chromosome_name].size();
+
+            //Add all new primer pairs for this template
+            chroms.reserve(new_vector_start + primer_pair_count);
+            for (size_t i = 0 ; i < primer_pair_count ; i++) {
+                chroms[chromosome_name].emplace_back();
+                chroms[chromosome_name].back().chromosome_name   = chromosome_name;
+                chroms[chromosome_name].back().template_position = template_position;
+                chroms[chromosome_name].back().template_feature  = template_feature;
+                chroms[chromosome_name].back().right_primer.left = false;
+            }
+
+            //Set the current primer pair iterator to the first new pair
+            curr_primer_iterator = chroms[chromosome_name].begin() + new_vector_start; 
+        } else if (std::regex_match(line, left_seq)) {
+            curr_primer_iterator->left_primer.sequence = split(line, '=')[1];
+#ifdef DEBUG_PRIMER_FILTER
+            cerr << "\tGet left sequence " << line << ": " << curr_primer_iterator->left_primer.sequence << endl;
+#endif
+        } else if (std::regex_match(line, right_seq)) {
+            curr_primer_iterator->right_primer.sequence = split(line, '=')[1];
+#ifdef DEBUG_PRIMER_FILTER
+            cerr << "\tGet right sequence " << line << ": " << curr_primer_iterator->left_primer.sequence << endl;
+#endif
+        } else if (std::regex_match(line, left_primer_position)) {
+            //Start position and length of the left primer
+            curr_primer_iterator->left_primer.position_template   = stoi(split(split(line, '=')[1], ',')[0]);
+            curr_primer_iterator->left_primer.length              = stoi(split(split(line, '=')[1], ',')[1]);
+            curr_primer_iterator->left_primer.position_chromosome = curr_primer_iterator->left_primer.position_template + template_position;
+#ifdef DEBUG_PRIMER_FILTER
+            cerr << "old template position " << template_position << endl;
+            cerr << "\tGet left primer position" << line << ": " << curr_primer_iterator->left_primer.position_template << ", " 
+                                                                 << curr_primer_iterator->left_primer.length << ", " 
+                                                                 << curr_primer_iterator->left_primer.position_chromosome << endl;
+#endif
+        } else if (std::regex_match(line, right_primer_position)) {
+#ifdef DEBUG_PRIMER_FILTER
+            cerr << "\tGet right primer position" << line << ": " <<  curr_primer_iterator->left_primer.position_chromosome << endl;
+#endif
+            //Start position and length of the right primer
+            size_t right_primer_offset = stoi(split(split(line, '=')[1], ',')[0]);
+            curr_primer_iterator->right_primer.length              = stoi(split(split(line, '=')[1], ',')[1]);
+            curr_primer_iterator->right_primer.position_chromosome = right_primer_offset - curr_primer_iterator->right_primer.length + 1 + template_position;
+            curr_primer_iterator->right_primer.position_template   = right_primer_offset - curr_primer_iterator->right_primer.length + 1;
+
+            //This is the last thing for this primer pair, so update the primer pair
+            map_to_nodes(curr_primer_iterator->left_primer, chromosome_name);
+            map_to_nodes(curr_primer_iterator->right_primer, chromosome_name);
+
+            curr_primer_iterator->linear_product_size = curr_primer_iterator->right_primer.position_template
+                - curr_primer_iterator->left_primer.position_template + curr_primer_iterator->right_primer.length;
+            update_variation(*curr_primer_iterator, chromosome_name);
+            update_min_max_product_size(*curr_primer_iterator);
+
+            //Iterator to the new primer pair
+            curr_primer_iterator++;
         }
+
     }
-    assert(chroms[cur_path].back().right_primer.sequence.empty());
-    chroms[cur_path].pop_back();
 }
 
 const size_t PrimerFinder::total_reference_paths() const {
@@ -227,6 +273,9 @@ void PrimerFinder::update_min_max_product_size(PrimerPair& primer_pair) {
 }
 
 void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
+#ifdef DEBUG_PRIMER_FILTER
+    cerr << "Map to nodes for primer " << primer.sequence << endl;
+#endif
     path_handle_t reference_path_handle = graph->get_path_handle(path_name);
     string primer_seq;
     if (primer.left) {
@@ -335,6 +384,9 @@ static void sa_to_da(std::vector<HaplotypePartitioner::sequence_type>& sequences
 }
 
 void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_name) {
+#ifdef DEBUG_PRIMER_FILTER
+    cerr << "Update variation" << endl;
+#endif
     const vector<size_t>& left_primer_node_ids  = primer_pair.left_primer.mapped_nodes_ids;
     const vector<size_t>& right_primer_node_ids = primer_pair.right_primer.mapped_nodes_ids;
     vector<size_t> nodes_id;
