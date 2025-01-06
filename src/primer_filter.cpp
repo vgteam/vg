@@ -274,7 +274,7 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     aln.set_name("primer_template");
 
     //Map the alignment
-    vector<Alignment> mapped = giraffe_mapper->map_from_chains(aln);
+    vector<Alignment> mapped = giraffe_mapper->map(aln);
 
     //If there wasn't an alignment, error
     if (mapped.empty() && mapped.front().mapping_quality() == 0) {

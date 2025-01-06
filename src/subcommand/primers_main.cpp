@@ -21,6 +21,7 @@ void help_primers(char** argv) {
          << "    -r, --r-index FILE                 use this r index (required)" << endl
          << "    -g, --gbz FILE                     use this gbz file (required)" << endl
          << "    -M, --minimizers FILE              use this minimizer file for mapping the template sequence, if necessary" << endl
+         << "    -Z, --zipcodes FILE                use this zipcode file for mapping the template sequence, if necessary" << endl
          << "    -v, --variation-threshold DOUBLE   output primers that work for at least this percentage of haplotypes (default: 0.8)" << endl
          << "    -l, --tolerance INT                allow this much difference between minimum and maximum sizes compared to the linear product size (default: 10)" << endl
          << "    -n, --minimum-size INT             minimum product size allowed (has precedence over --tolerance)" << endl
@@ -75,6 +76,7 @@ int main_primers(int argc, char** argv) {
     string ri_path;
     string gbz_path;
     string min_path;
+    string zip_path;
     bool zero_variation = false;
     bool all_primers   = false;
     int  tolerance     = 10;
@@ -94,6 +96,7 @@ int main_primers(int argc, char** argv) {
           {"ri-path",             required_argument, 0, 'r'},
           {"gbz-path",            required_argument, 0, 'g'},
           {"minimizers",          required_argument, 0, 'M'},
+          {"zipcodes",            required_argument, 0, 'Z'},
           {"variation-threshold", required_argument, 0, 'v'},
           {"tolerance",           required_argument, 0, 'l'},
           {"minimum-size",        required_argument, 0, 'n'},
@@ -103,7 +106,7 @@ int main_primers(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:s:r:g:M:v:l:n:m:a", long_options, &option_index);
+        c = getopt_long (argc, argv, "hx:s:r:g:M:Z:v:l:n:m:a", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1) break;
@@ -128,6 +131,10 @@ int main_primers(int argc, char** argv) {
         
         case 'M':
             min_path = optarg;
+            break;
+        
+        case 'Z':
+            zip_path = optarg;
             break;
         
         case 'v':
@@ -198,7 +205,17 @@ int main_primers(int argc, char** argv) {
     MinimizerMapper* giraffe_mapper = nullptr;
     if (!min_path.empty()) {
         unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(min_path);
-        MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index);
+        ZipCodeCollection zipcodes;
+        if (!zip_path.empty()) {
+            ifstream zip_in (zip_path);
+            zipcodes.deserialize(zip_in);
+            zip_in.close();
+        }
+
+        MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index, &zipcodes);
+        //Set parameters
+        //TODO: I'm not actually sure about this because the sequence is long but it should match a path exactly so it should get the whole alignment at gapless extension
+        minimizer_mapper.align_from_chains = true;
         giraffe_mapper = &minimizer_mapper;
     }
     PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index, giraffe_mapper);
