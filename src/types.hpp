@@ -95,6 +95,12 @@ inline pos_t reverse_base_pos(const pos_t& pos, size_t node_length) {
     return rev;
 }
 
+/// Return a copy of the given pos_t with its offset advanced by the given
+/// number of bases in the local forward direction.
+inline pos_t advance(const pos_t& pos, size_t distance) {
+    return make_pos_t(id(pos), is_rev(pos), offset(pos) + distance);
+}
+
 /// Print a pos_t to a stream.
 inline std::ostream& operator<<(std::ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);

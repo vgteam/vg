@@ -74,7 +74,10 @@ bam_hdr_t* hts_string_header(string& header,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+/// Add a mapping to a CIGAR string. The mismatch operation character may be
+/// 'M' (the default) to roll them into matches, or 'X' to mark mismatches as a
+/// different operation.
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar, char mismatch_operation = 'M');
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
@@ -334,6 +337,8 @@ struct AlignmentValidity {
         OK,
         NODE_MISSING,
         NODE_TOO_SHORT,
+        READ_TOO_SHORT,
+        BAD_EDIT,
         SEQ_DOES_NOT_MATCH
     };
     
@@ -341,6 +346,10 @@ struct AlignmentValidity {
     Problem problem = OK;
     /// The mapping in the alignment's path at which the problem was encountered.
     size_t bad_mapping_index = 0;
+    /// The edit within the mapping at which the problem was encountered.
+    size_t bad_edit_index = 0;
+    /// The position in the alignment's read sequence at which the problem was encountered.
+    size_t bad_read_position  = 0;
     /// An explanation for the problem.
     std::string message = "";
     

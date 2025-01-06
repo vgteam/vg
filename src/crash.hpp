@@ -34,10 +34,10 @@ void with_exception_handling(const std::function<void(void)>& body);
 void report_exception(const std::exception& ex);
 
 /// User code should call this instead of assert
-#define crash_unless(condition) crash_unless_impl((condition), #condition, __FILE__, __LINE__, __func__); 
+#define crash_unless(condition) {if (!(condition)) crash_unless_failed(#condition, __FILE__, __LINE__, __func__);} 
 
-/// crash_unless calls into this function for a real implementation.
-void crash_unless_impl(bool condition, const std::string& condition_string, const std::string& file, int line, const std::string& function);
+/// crash_unless calls into this function for a real implementation, only when the condition has failed.
+void crash_unless_failed(const char* condition_string, const char* file, int line, const char* function);
 
 
 }

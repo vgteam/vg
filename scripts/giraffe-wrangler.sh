@@ -195,7 +195,7 @@ if [[ ! -z "${SIM_GAM}" ]] ; then
 
     # Compute loss stages
     # Let giraffe facts errors out
-    vg view -aj "${WORK}/mapped.gam" | scripts/giraffe-facts.py "${WORK}/facts" >"${WORK}/facts.txt"
+    scripts/giraffe-facts.py "${WORK}/mapped.gam" "${WORK}/facts" >"${WORK}/facts.txt"
 fi
 
 if [[ ! -z "${REAL_FASTQ}" ]] ; then
