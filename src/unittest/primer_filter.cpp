@@ -280,7 +280,11 @@ using namespace std;
             string primers_path = "test/primers/y.primer3_with_ref_pos_11.nopath.out";
             ifstream file_handle(primers_path);
             unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>("test/primers/y.min"); 
-            MinimizerMapper giraffe_mapper(gbwt_graph, *minimizer_index, &distance_index);
+            ZipCodeCollection oversized_zipcodes;
+            ifstream zip_in ("test/primers/y.zipcodes");
+            oversized_zipcodes.deserialize(zip_in);
+            zip_in.close();
+            MinimizerMapper giraffe_mapper(gbwt_graph, *minimizer_index, &distance_index, &oversized_zipcodes);
             PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index, &giraffe_mapper);
 
             SECTION("Loads the correct number of chromosomes") {
