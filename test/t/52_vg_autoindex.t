@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 49
+plan tests 55
 
 rm auto.*
 
@@ -153,7 +153,7 @@ rm g.xg
 vg autoindex -p auto -w giraffe -g graphs/named_with_walk.gfa 
 is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and W-lines"
 printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
-vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
+vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -d auto.dist -f read.fq --named-coordinates > read.gam
 is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when a walk exists"
 
 rm auto.*
@@ -162,16 +162,20 @@ rm read.fq read.gam
 vg autoindex -p auto -w giraffe -g graphs/named.gfa 
 is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and no W-lines"
 printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
-vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
+vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -d auto.dist -f read.fq --named-coordinates > read.gam
 is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when no walks exist"
 
 # reduce disk limit to 1MB to trigger it during k-mer generation
 is "$(vg autoindex -p auto -w map --gcsa-size-limit 1000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during k-mer enumeration triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from k-mer generation"
 
+rm -f auto.gcsa auto.gcsa.lcp
+
 # reduce disk limit to 2MB to trigger it during doubling steps
 is "$(vg autoindex -p auto -w map --gcsa-size-limit 2000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during GCSA2 indexing triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
+
+rm -f auto.gcsa auto.gcsa.lcp
 
 # use the memory limit to trigger a rewide
 is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of memory during GCSA2 indexing triggers a rewind"
