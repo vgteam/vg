@@ -97,7 +97,7 @@ is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//'
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
-rm -f x.vg x.xg x.gbwt x.shortread.withzip.min x.sync x.dist x.gg
+rm -f x.vg x.xg x.gbwt x.shortread.zipcodes x.shortread.withzip.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
 
@@ -152,7 +152,7 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.xg x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
 rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
