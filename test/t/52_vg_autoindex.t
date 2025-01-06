@@ -118,6 +118,28 @@ is $(echo $?) 0 "basic autoindexing results can be used by vg giraffe"
 rm auto.*
 rm t.*
 
+vg autoindex -p auto -w sr-giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
+is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for short read vg giraffe"
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
+vg index -x t.xg t.vg
+vg sim -x t.xg -n 20 -a -l 10 | vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -z auto.shortread.zipcodes -d auto.dist -G - > /dev/null
+is $(echo $?) 0 "basic autoindexing results can be used by vg giraffe"
+
+rm auto.*
+rm t.*
+
+vg autoindex -p auto -w lr-giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
+is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for long read vg giraffe"
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
+vg index -x t.xg t.vg
+vg sim -x t.xg -n 20 -a -l 10 | vg giraffe -Z auto.giraffe.gbz -m auto.longread.withzip.min -z auto.longread.zipcodes -d auto.dist -G - > /dev/null
+is $(echo $?) 0 "basic autoindexing results can be used by vg giraffe"
+
+rm auto.*
+rm t.*
+
 vg autoindex -p auto -w giraffe -g graphs/gfa_with_w_lines.gfa 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with GFA input with W-lines"
 is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for vg giraffe from GFA input"
