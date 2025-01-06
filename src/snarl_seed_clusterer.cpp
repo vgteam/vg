@@ -39,6 +39,8 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
         seed_caches[i].seed = &(seeds[i]);
         if (seeds[i].zipcode.byte_count() != 0) {
             seed_caches[i].payload = seeds[i].zipcode.get_payload_from_zipcode(id(seeds[i].pos), distance_index, &component_to_net_handle);
+        } else {
+            throw std::runtime_error("error: snarl seed clusterer requires zipcodes in its seeds");
         }
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
@@ -86,6 +88,8 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
             all_seed_caches[read_num][i].seed = &(all_seeds[read_num][i]);
             if (all_seeds[read_num][i].zipcode.byte_count() != 0) {
                 all_seed_caches[read_num][i].payload = all_seeds[read_num][i].zipcode.get_payload_from_zipcode(id(all_seeds[read_num][i].pos), distance_index, &component_to_net_handle);
+            } else {
+                throw std::runtime_error("error: snarl seed clusterer requires zipcodes in its seeds");
             }
         }
     }

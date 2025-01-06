@@ -69,7 +69,10 @@ class SnarlDistanceIndexClusterer {
             /// *forward* direction.
             pos_t  pos;
             size_t source; // Source minimizer.
-            ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+
+            //zipcode for distance information, optionally stored in the minimizer payload
+            // Clustering requires that the zipcode and its decoder are filled in
+            ZipCode zipcode; 
 
             Seed() = default;
             Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
@@ -134,6 +137,8 @@ class SnarlDistanceIndexClusterer {
          *between them (including both of the positions) is less than
          *the distance limit are in the same cluster
          *This produces a vector of clusters
+         *
+         * Requires that the zipcodes and decoders in the seeds are filled in
          */
         vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, size_t read_distance_limit) const;
         
@@ -143,8 +148,11 @@ class SnarlDistanceIndexClusterer {
          * fragment_distance_limit must be greater than read_distance_limit
          * Returns a vector clusters for each read, where each cluster also has an assignment
          * to a fragment cluster
+         *
          * Requires that there are only two reads per fragment (all_seeds.size() == 2, meaning paired end reads)
          *    this requirement is just because I used std::pairs to represent two reads, but could be changed to a vector if we every have to map more than two reads per fragment
+         *
+         * Requires that the zipcodes and decoders in the seeds are filled in
          */
 
         vector<vector<Cluster>> cluster_seeds ( 
