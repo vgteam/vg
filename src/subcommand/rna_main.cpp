@@ -92,6 +92,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     string hap_gbwt_out_filename = "";
     int32_t num_threads = 1;
     bool show_progress = false;
+    string gz_suffix = ".gz";
 
     int32_t c;
     optind = 2;
@@ -248,6 +249,28 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         cerr << "[vg rna] ERROR: No transcripts or introns were given. Use --transcripts FILE and/or --introns FILE." << endl;
         return 1;       
+    }
+
+    // taken from https://stackoverflow.com/a/20446239/
+    for (auto & filename: transcript_filenames) {
+
+        if (filename.size() >= gz_suffix.size() &&
+            filename.compare(filename.size() - gz_suffix.size(), gz_suffix.size(), gz_suffix) == 0) {
+
+            cerr << "[vg rna] ERROR: Transcript file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
+            return 1;
+        }
+    }
+
+    // I wish this wasn't copy-pasted but I don't know where a function would go
+    for (auto & filename: intron_filenames) {
+
+        if (filename.size() >= gz_suffix.size() &&
+            filename.compare(filename.size() - gz_suffix.size(), gz_suffix.size(), gz_suffix) == 0) {
+
+            cerr << "[vg rna] ERROR: Intron file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
+            return 1;
+        }
     }
 
     if (!haplotypes_filename.empty() && gbz_format) {
