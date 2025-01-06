@@ -67,7 +67,7 @@ vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > 
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
 
 chmod 400 x.dist
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
 is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
 echo "@read" >read.fq
@@ -75,17 +75,17 @@ echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n
 echo "+" >>read.fq
 echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
 
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f read.fq > read.gam
 LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l | sed 's/^[[:space:]]*//')"
 is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
 
 
 printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
 printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
 
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
@@ -97,7 +97,7 @@ is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//'
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
-rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
+rm -f x.vg x.xg x.gbwt x.shortread.withzip.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
 
@@ -137,7 +137,7 @@ vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-
 is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "0" "paired reads have cross-references"
 
 # Test paired surjected mapping
-vg giraffe x.fa x.vcf.gz -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
+vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's/^[[:space:]]*//')" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
@@ -220,7 +220,7 @@ rm -f xy.giraffe.gbz
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
-vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates > mapped.gam
 is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
 is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l | sed 's/^[[:space:]]*//')" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l | sed 's/^[[:space:]]*//')" "0" "GFA segment names are all set"
@@ -248,5 +248,5 @@ is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
-rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt
+rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min log.txt
 
