@@ -544,10 +544,17 @@ docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 	
-man: $(patsubst doc/asciidoc/man/%.adoc,doc/man/%.1,$(wildcard doc/asciidoc/man/*.adoc))
+man: doc/wiki/vg-manpage.md doc/man/vg.1
 
-doc/man/%.1: doc/asciidoc/man/%.adoc
-	asciidoctor -b manpage -d manpage -o $@ $<
+#The manpage markdown has an extra line needed for the actual manpage format
+doc/man/vg-manpage.md: $(BIN_DIR)/$(EXE) doc/vgmanmd.desc.md doc/vgmanmd.py
+	mkdir -p doc/man && ./doc/vgmanmd.py > $@.tmp && mv $@.tmp $@
+
+doc/wiki/vg-manpage.md: doc/man/vg-manpage.md
+	sed 1d doc/man/vg-manpage.md > $@
+
+doc/man/vg.1: doc/man/vg-manpage.md
+	pandoc --standalone --to man $< -o $@
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
