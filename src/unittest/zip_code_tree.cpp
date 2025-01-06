@@ -2244,8 +2244,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
 
 
         //graph.to_dot(cerr);
@@ -3204,7 +3202,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "zipcode tree multicomponent chain nested in irregular snarl",
-                   "[zip_tree]" ) {
+                   "[zip_tree][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -3244,13 +3242,15 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
         SECTION( "Cross unreachable chain" ) {
  
             vector<pair<pos_t, size_t>> positions;
             positions.emplace_back(make_pos_t(n3->id(), false, 0), 0);
             positions.emplace_back(make_pos_t(n4->id(), false, 0), 0);
             positions.emplace_back(make_pos_t(n5->id(), false, 1), 1);
-            positions.emplace_back(make_pos_t(n6->id(), false, 0), 2);
             positions.emplace_back(make_pos_t(n7->id(), false, 0), 3);
             positions.emplace_back(make_pos_t(n8->id(), false, 0), 4);
             positions.emplace_back(make_pos_t(n9->id(), false, 0), 5);
@@ -3294,6 +3294,39 @@ namespace unittest {
             } else {
                 REQUIRE((seed_order.front() == 0 || seed_order.front() == 6));
             }
+        }
+        SECTION( "Cross unreachable chain including snarl that is not start-end reachable" ) {
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(n3->id(), false, 0), 0);
+            positions.emplace_back(make_pos_t(n4->id(), false, 0), 0);
+            positions.emplace_back(make_pos_t(n5->id(), false, 1), 1);
+            positions.emplace_back(make_pos_t(n6->id(), false, 0), 2);
+            positions.emplace_back(make_pos_t(n7->id(), false, 0), 3);
+            positions.emplace_back(make_pos_t(n8->id(), false, 0), 4);
+            positions.emplace_back(make_pos_t(n9->id(), false, 0), 5);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+
+            for (size_t i = 0 ; i < positions.size() ; ++i) {
+                auto pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.print_self(&seeds, &minimizer_vector);
+            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
             
