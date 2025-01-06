@@ -14,21 +14,21 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.min x.xg
+vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min x.xg
 
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
 rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
-vg giraffe -Z x.giraffe.gbz -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + dist specified without crashing"
 
 rm -f x.giraffe.gbz
 vg gbwt -x x.xg -g x.gg x.gbwt
-vg giraffe -g x.gg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -g x.gg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gg + gbwt + min + dist specified without crashing"
 
-rm -f x.min
+rm -f x.shortread.withzip.min
 vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
 
@@ -155,7 +155,7 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16'
 rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
-rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
@@ -209,7 +209,7 @@ is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | sed 's/^[[:space
 is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
-rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
@@ -217,6 +217,7 @@ is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
@@ -225,7 +226,7 @@ is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without wa
 is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l | sed 's/^[[:space:]]*//')" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l | sed 's/^[[:space:]]*//')" "0" "GFA segment names are all set"
 
-vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
