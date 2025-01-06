@@ -48,7 +48,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             REQUIRE(zip_tree.get_tree_size() == 3);
@@ -93,7 +92,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             REQUIRE(zip_tree.get_tree_size() == 5);
@@ -164,7 +162,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             REQUIRE(zip_tree.get_tree_size() == 7);
@@ -274,7 +271,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             REQUIRE(zip_tree.get_tree_size() == 7);
@@ -397,7 +393,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
             REQUIRE(zip_forest.trees.size() == 2);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -442,7 +437,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 2);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
 
@@ -506,7 +500,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 2);
 
-            zip_forest.print_self(&seeds, &minimizers);
 
 
                 //The tree should be:
@@ -591,7 +584,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
             REQUIRE(zip_forest.trees.size() == 4);
 
-            zip_forest.print_self(&seeds, &minimizers);
         }
     }
     TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree]" ) {
@@ -640,7 +632,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -774,7 +765,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -849,7 +839,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -887,7 +876,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -925,7 +913,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -962,7 +949,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             //The tree should be:
@@ -996,7 +982,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
             REQUIRE(zip_forest.trees.size() == 2);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -1022,7 +1007,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
             REQUIRE(zip_forest.trees.size() == 2);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -1049,7 +1033,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 1);
             REQUIRE(zip_forest.trees.size() == 3);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -1076,7 +1059,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
             REQUIRE(zip_forest.trees.size() == 2);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -1102,7 +1084,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1159,7 +1140,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             zip_forest.validate_zip_forest(distance_index, &seeds, 4);
         }
@@ -1220,7 +1200,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max(), 4);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds, 4);
         }
     }
@@ -1281,7 +1260,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
 
@@ -1346,7 +1324,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
 
@@ -1439,7 +1416,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
 
@@ -1527,7 +1503,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
             bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
@@ -1628,7 +1603,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
@@ -1689,7 +1663,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
             REQUIRE(zip_forest.trees.size() == 3);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
         }
 
@@ -1780,7 +1753,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
@@ -1813,7 +1785,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizers);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
@@ -1843,7 +1814,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
             REQUIRE(zip_forest.trees.size() == 3);
-            zip_forest.print_self(&seeds, &minimizers);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
             }
@@ -1868,7 +1838,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1896,7 +1865,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1924,7 +1892,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1951,7 +1918,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2052,7 +2018,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2084,7 +2049,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 4);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2114,7 +2078,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2146,7 +2109,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2209,7 +2171,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
@@ -2277,7 +2238,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
@@ -2347,7 +2307,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             assert(zip_tree.get_tree_size() == 31);
@@ -2391,7 +2350,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
@@ -2468,7 +2426,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
         }
@@ -2522,7 +2479,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
         }
@@ -2566,7 +2522,6 @@ namespace unittest {
         zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
         REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
-        zip_forest.print_self(&seeds, &minimizers);
         zip_tree.validate_zip_tree(distance_index, &seeds);
     }
 
@@ -2609,7 +2564,6 @@ namespace unittest {
         zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
         REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
-        zip_forest.print_self(&seeds, &minimizers);
         //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
         //zip_tree.validate_zip_tree(distance_index, &seeds);
     }
@@ -2657,7 +2611,6 @@ namespace unittest {
 
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 61);
-        zip_forest.print_self(&seeds, &minimizers);
         zip_forest.validate_zip_forest(distance_index, &seeds, 61);
     }
     TEST_CASE("Components of root", "[zip_tree]") {
@@ -2714,7 +2667,6 @@ namespace unittest {
 
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max(), 5);
-        zip_forest.print_self(&seeds, &minimizer_vector);
         REQUIRE(zip_forest.trees.size() == 6);
         for (auto& tree : zip_forest.trees) {
             tree.validate_zip_tree(distance_index, &seeds);
@@ -2778,7 +2730,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
@@ -2839,7 +2790,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Snarl first" ) {
@@ -2860,7 +2810,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
@@ -2903,7 +2852,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove second child of snarl" ) {
@@ -2923,7 +2871,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
@@ -2968,7 +2915,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove second child of snarl" ) {
@@ -2988,7 +2934,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove first child of snarl" ) {
@@ -3008,7 +2953,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove one chain" ) {
@@ -3027,7 +2971,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
-            zip_forest.print_self(&seeds, &minimizers);
             REQUIRE(zip_forest.trees.size()==1);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
@@ -3094,7 +3037,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 100, 100);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(distance_index, &seeds, 100);
         }
 
@@ -3197,7 +3139,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
@@ -3274,7 +3215,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
             vector<size_t> seed_order;
             for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
@@ -3325,7 +3265,6 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
-            zip_forest.print_self(&seeds, &minimizer_vector);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
@@ -3387,7 +3326,6 @@ namespace unittest {
 
     //        ZipCodeForest zip_forest;
     //        zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
-    //        zip_forest.print_self(&seeds, &minimizer_vector);
     //        zip_forest.validate_zip_forest(dist_index, &seeds, 100);
     //    }
 
@@ -3459,7 +3397,6 @@ namespace unittest {
 
                 ZipCodeForest zip_forest;
                 zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, limit, limit);
-                zip_forest.print_self(&seeds, &minimizer_vector);
                 zip_forest.validate_zip_forest(distance_index, &seeds, limit);
                 REQUIRE(true); //Just to count
             }
