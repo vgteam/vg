@@ -90,12 +90,19 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
             //This will be the same for all primer pairs up to the next "="
             vector<string> cur_fields = move(split(split(line,'=')[1], '|'));
 
-            chromosome_name = cur_fields[0];
-            template_feature = cur_fields[1] + "|" + cur_fields[2];
-            template_position = stoi(cur_fields[3]);
-            has_path = graph->has_path(chromosome_name);
-            if (!has_path) {
-                cerr << "warning: primer finder can't find a path named " << chromosome_name << " in the graph" << endl << "\tfalling back on mapping the template sequence" << endl;
+            if (cur_fields.size() == 4) {
+                //If the sequence id is correctly formatted
+                chromosome_name = cur_fields[0];
+                template_feature = cur_fields[1] + "|" + cur_fields[2];
+                template_position = stoi(cur_fields[3]);
+                has_path = graph->has_path(chromosome_name);
+                if (!has_path) {
+                    cerr << "warning: primer finder can't find a path named " << chromosome_name << " in the graph" << endl << "\tfalling back on mapping the template sequence" << endl;
+                }
+            } else {
+                template_feature = line;
+                has_path = false;
+                cerr << "warning: primer finder " << line << " is not formatted with a path and offset" << endl << "\tfalling back on mapping the template sequence" << endl;
             }
 #ifdef DEBUG_PRIMER_FILTER
             cerr << "FIND PRIMERS FOR INPUT " << line << ": " << chromosome_name << ", " << template_feature << ", " << template_position << endl;
@@ -270,10 +277,9 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     vector<Alignment> mapped = giraffe_mapper->map(aln);
 
     //If there wasn't an alignment, error
-    if (mapped.empty()) {
+    if (mapped.empty() && mapped.front().mapping_quality() == 0) {
         throw std::runtime_error("error: Primer filter could not map template sequence");
     }
-
 
 
     //Get the reference paths we want to align to
@@ -296,6 +302,9 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     if (ref_rev) {
         ref_offset -= seq.size();
     }
+#ifdef DEBUG_PRIMER_FILTER
+    cerr << "\tmapped sequence to " << ref_name << " at offset " << ref_offset << endl;
+#endif
 
     return std::make_pair(ref_name, (size_t)ref_offset);
 }
