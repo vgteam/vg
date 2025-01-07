@@ -251,8 +251,8 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
-    // taken from https://stackoverflow.com/a/64794991/
-    for (const auto & f : {std::cref(transcript_filenames), std::cref(intron_filenames)}) {
+    for (const auto& filenames : {std::cref(transcript_filenames), std::cref(intron_filenames)}) {
+        // For each collection of filenames (see https://stackoverflow.com/a/64794991/)
 
         for (auto filename : f.get()) {
 
