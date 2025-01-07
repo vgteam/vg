@@ -251,25 +251,18 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
-    // taken from https://stackoverflow.com/a/20446239/
-    for (auto & filename: transcript_filenames) {
+    // taken from https://stackoverflow.com/a/64794991/
+    for (const auto & f : {std::cref(transcript_filenames), std::cref(intron_filenames)}) {
 
-        if (filename.size() >= gz_suffix.size() &&
-            filename.compare(filename.size() - gz_suffix.size(), gz_suffix.size(), gz_suffix) == 0) {
+        for (auto filename : f.get()) {
 
-            cerr << "[vg rna] ERROR: Transcript file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
-            return 1;
-        }
-    }
+            // taken from https://stackoverflow.com/a/20446239/
+            if (filename.size() >= gz_suffix.size() &&
+                filename.compare(filename.size() - gz_suffix.size(), gz_suffix.size(), gz_suffix) == 0) {
 
-    // I wish this wasn't copy-pasted but I don't know where a function would go
-    for (auto & filename: intron_filenames) {
-
-        if (filename.size() >= gz_suffix.size() &&
-            filename.compare(filename.size() - gz_suffix.size(), gz_suffix.size(), gz_suffix) == 0) {
-
-            cerr << "[vg rna] ERROR: Intron file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
-            return 1;
+                cerr << "[vg rna] ERROR: Annotation file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
+                return 1;
+            }
         }
     }
 
