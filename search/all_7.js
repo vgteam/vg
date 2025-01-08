@@ -491,5 +491,6 @@ var searchData=
   ['gssw_5fmapping_5fto_5falignment_2327',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#ab45f7399b68bdc980499d4384515b9b7',1,'vg::GSSWAligner']]],
   ['gsswaligner_2328',['GSSWAligner',['../classvg_1_1GSSWAligner.html',1,'vg::GSSWAligner'],['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner::GSSWAligner()=default'],['../classvg_1_1GSSWAligner.html#a6c3f1338e6a66850b779e8331a65a61c',1,'vg::GSSWAligner::GSSWAligner(const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int8_t _full_length_bonus, double _gc_content)']]],
   ['guess_5fparallel_5fgbwt_5fjobs_2329',['guess_parallel_gbwt_jobs',['../namespacevg.html#a70ebd70e5b26c5fefe30895fa313f3b9',1,'vg']]],
-  ['protobuf_2330',['protobuf',['../namespacegoogle_1_1protobuf.html',1,'google']]]
+  ['gz_5fsuffix_2330',['GZ_SUFFIX',['../rna__main_8cpp.html#a79e5666abc1e2270209776bd472798e7',1,'rna_main.cpp']]],
+  ['protobuf_2331',['protobuf',['../namespacegoogle_1_1protobuf.html',1,'google']]]
 ];

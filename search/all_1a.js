@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['z_6217',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
-  ['zip_5falignments_6218',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]],
-  ['zstdutil_6219',['zstdutil',['../namespacezstdutil.html',1,'']]],
-  ['zstdutil_2ecpp_6220',['zstdutil.cpp',['../zstdutil_8cpp.html',1,'']]],
-  ['zstdutil_2ehpp_6221',['zstdutil.hpp',['../zstdutil_8hpp.html',1,'']]]
+  ['z_6218',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
+  ['zip_5falignments_6219',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]],
+  ['zstdutil_6220',['zstdutil',['../namespacezstdutil.html',1,'']]],
+  ['zstdutil_2ecpp_6221',['zstdutil.cpp',['../zstdutil_8cpp.html',1,'']]],
+  ['zstdutil_2ehpp_6222',['zstdutil.hpp',['../zstdutil_8hpp.html',1,'']]]
 ];

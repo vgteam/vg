@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['zstdutil_6960',['zstdutil',['../namespacezstdutil.html',1,'']]]
+  ['zstdutil_6961',['zstdutil',['../namespacezstdutil.html',1,'']]]
 ];
