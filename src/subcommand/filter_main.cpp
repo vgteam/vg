@@ -482,6 +482,7 @@ int main_filter(int argc, char** argv) {
         }
         filter.annotation_to_match = annotation;
         filter.only_correctly_mapped = correctly_mapped;
+        filter.only_first_alignment = first_alignment;
         filter.complement_filter = complement_filter;
         filter.batch_size = batch_size;
         filter.threads = get_thread_count();

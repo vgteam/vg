@@ -128,7 +128,7 @@ public:
 
     /// Filter to only keep the first alignment for each read
     // This must be done single-threaded
-    bool keep_first = false;
+    bool only_first_alignment = false;
     /// If we are picking only the first alignment for each read, keep track of what we've seen
     unordered_set<string> seen_read_names;
       
@@ -713,8 +713,8 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
         }
     }
 
-    if ((keep || verbose) && keep_first) {
-        assert(threads <= 1);
+    if ((keep || verbose) && only_first_alignment) {
+        assert(threads == 1);
         if (seen_read_names.count(read.name()) != 0) {
             ++counts.counts[Counts::FilterName::first_alignment];
             keep = false;
