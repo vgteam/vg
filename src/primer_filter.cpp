@@ -277,8 +277,9 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     vector<Alignment> mapped = giraffe_mapper->map(aln);
 
     //If there wasn't an alignment, error
-    if (mapped.empty() && mapped.front().mapping_quality() == 0) {
-        throw std::runtime_error("error: Primer filter could not map template sequence");
+    if (mapped.empty() || mapped.front().mapping_quality() < 30) {
+        cerr << "error: Primer filter could not map template sequence " << seq << endl;
+        return std::make_pair(ref_name, std::numeric_limits<size_t>::max());
     }
 
 
@@ -312,6 +313,9 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
 
 
 void PrimerFinder::update_min_max_product_size(PrimerPair& primer_pair) {
+    if (primer_pair.chromosome_name.empty()) {
+        return;
+    }
     const auto& sequence_visits = primer_pair.sequence_visits;
 
     handle_t start_handle = gbwt_graph.get_handle(primer_pair.left_primer.mapped_nodes_ids.front());
@@ -343,6 +347,9 @@ void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
 #ifdef DEBUG_PRIMER_FILTER
     cerr << "Map to nodes for primer " << primer.sequence << endl;
 #endif
+    if (path_name.empty()) {
+        return;
+    }
     path_handle_t reference_path_handle = graph->get_path_handle(path_name);
     string primer_seq;
     if (primer.left) {
@@ -454,6 +461,9 @@ void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_
 #ifdef DEBUG_PRIMER_FILTER
     cerr << "Update variation" << endl;
 #endif
+    if (path_name.empty()) {
+        return;
+    }
     const vector<size_t>& left_primer_node_ids  = primer_pair.left_primer.mapped_nodes_ids;
     const vector<size_t>& right_primer_node_ids = primer_pair.right_primer.mapped_nodes_ids;
     vector<size_t> nodes_id;
