@@ -41,7 +41,7 @@ void help_view(char** argv) {
          << "    -V, --vg-in                input VG format only" << endl
 
          << "    -j, --json                 output JSON format" << endl
-         << "    -J, --json-in              input JSON format (use with e.g. -a as necessary) << endl
+         << "    -J, --json-in              input JSON format (use with e.g. -a as necessary)" << endl
          << "    -c, --json-stream          streaming conversion of a VG format graph in line delimited JSON format" << endl
          << "                               (this cannot be loaded directly via -J)" << endl
 
