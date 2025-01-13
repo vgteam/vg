@@ -41,7 +41,7 @@ void help_view(char** argv) {
          << "    -V, --vg-in                input VG format only" << endl
 
          << "    -j, --json                 output JSON format" << endl
-         << "    -J, --json-in              input JSON format" << endl
+         << "    -J, --json-in              input JSON format (use with e.g. -a as necessary)" << endl
          << "    -c, --json-stream          streaming conversion of a VG format graph in line delimited JSON format" << endl
          << "                               (this cannot be loaded directly via -J)" << endl
 
@@ -52,11 +52,11 @@ void help_view(char** argv) {
          << "    -T, --turtle-in            input turtle format." << endl
          << "    -r, --rdf_base_uri         set base uri for the RDF output" << endl
 
-         << "    -a, --align-in             input GAM format" << endl
+         << "    -a, --align-in             input GAM format, or JSON version of GAM format" << endl
          << "    -A, --aln-graph GAM        add alignments from GAM to the graph" << endl
 
-         << "    -q, --locus-in             input stream is Locus format" << endl
-         << "    -z, --locus-out            output stream Locus format" << endl
+         << "    -q, --locus-in             input is Locus format, or JSON version of Locus format" << endl
+         << "    -z, --locus-out            output is Locus format" << endl
          << "    -Q, --loci FILE            input is Locus format for use by dot output" << endl
 
          << "    -d, --dot                  output dot format" << endl
@@ -81,12 +81,12 @@ void help_view(char** argv) {
          << "    -i, --interleaved          fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup               output VG Pileup format" << endl
-         << "    -l, --pileup-in            input VG Pileup format" << endl
+         << "    -l, --pileup-in            input VG Pileup format, or JSON version of VG Pileup format" << endl
 
          << "    -B, --distance-in          input distance index" << endl
          << "    -R, --snarl-in             input VG Snarl format" << endl
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
-         << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
+         << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP), or JSON version of GAMP format" << endl
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
          << "    -x, --extract-tag TAG      extract and concatenate messages with the given tag" << endl
