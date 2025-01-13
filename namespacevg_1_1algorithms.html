@@ -106,6 +106,10 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
+<tr class="memitem:ad64245b7dca5a8144ae8720a92b65685"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad64245b7dca5a8144ae8720a92b65685">transition_iteratee</a> = std::function&lt; void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)&gt;</td></tr>
+<tr class="separator:ad64245b7dca5a8144ae8720a92b65685"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a79c214c1e7f1d7cc5fe322b8c9fb260c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> = std::function&lt; void(const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t max_indel_bases, const <a class="el" href="namespacevg_1_1algorithms.html#ad64245b7dca5a8144ae8720a92b65685">transition_iteratee</a> &amp;callback)&gt;</td></tr>
+<tr class="separator:a79c214c1e7f1d7cc5fe322b8c9fb260c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf8cb40a8f834b42f1ec89af0ef140b9"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a> = unordered_map&lt; string, map&lt; size_t, map&lt; size_t, pair&lt; float, float &gt; &gt;&gt; &gt;</td></tr>
 <tr class="separator:acf8cb40a8f834b42f1ec89af0ef140b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6474017f8ab54b0c6e20095206a880a8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> = unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt;&gt;</td></tr>
@@ -116,18 +120,18 @@ Functions</h2></td></tr>
 <tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplParams" colspan="2">template&lt;class DistHeuristic &gt; </td></tr>
 <tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7">a_star</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_2, const DistHeuristic &amp;dist_heuristic, bool find_min=true, int64_t extremal_distance=numeric_limits&lt; int64_t &gt;::max(), bool monotonic_heuristic=true)</td></tr>
 <tr class="separator:a5af5b6f1083925669832ae59d0e549e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad9941053149e9b62a3987e6910aab8f6"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad9941053149e9b62a3987e6910aab8f6">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:ad9941053149e9b62a3987e6910aab8f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aead0aa069554bbc1a3fcce05ca4d1127"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aead0aa069554bbc1a3fcce05ca4d1127">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:aead0aa069554bbc1a3fcce05ca4d1127"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0cecedaa8dd475e634b513af5be028b"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0cecedaa8dd475e634b513af5be028b">multipath_alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
 <tr class="separator:ad0cecedaa8dd475e634b513af5be028b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a47438272f0eac991e9d3edce30cf9123"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a47438272f0eac991e9d3edce30cf9123">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:a47438272f0eac991e9d3edce30cf9123"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae92f9ba72b27512a1a744e60fc164844"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae92f9ba72b27512a1a744e60fc164844">annotate_with_node_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:ae92f9ba72b27512a1a744e60fc164844"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a001d349e7ad0fa290437ca9846decced"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a001d349e7ad0fa290437ca9846decced">annotate_with_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:a001d349e7ad0fa290437ca9846decced"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8cf2e0df2e99d24d22fbfac537120cc8">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c1bbf062eb429066c7b46da24704cdf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3c1bbf062eb429066c7b46da24704cdf">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a3c1bbf062eb429066c7b46da24704cdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad2151b93596855953805b98d78ac83c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad2151b93596855953805b98d78ac83c6">annotate_with_node_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:ad2151b93596855953805b98d78ac83c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a66e67738fef35591e953849387e94d58"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a66e67738fef35591e953849387e94d58">annotate_with_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a66e67738fef35591e953849387e94d58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a29c8bb498d4cab7c964783dbf98dae28"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a29c8bb498d4cab7c964783dbf98dae28">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, int64_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a29c8bb498d4cab7c964783dbf98dae28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
 <tr class="memdesc:ae18b50d29d9accb763b44d6e065dac58"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the embedded paths to get an estimated minimum distance between the positions  <a href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">More...</a><br /></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -145,21 +149,27 @@ Functions</h2></td></tr>
 <tr class="memitem:a503ad2215490c5c599530d7331a70120"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a503ad2215490c5c599530d7331a70120">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;value)</td></tr>
 <tr class="memdesc:a503ad2215490c5c599530d7331a70120"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print operator.  <a href="namespacevg_1_1algorithms.html#a503ad2215490c5c599530d7331a70120">More...</a><br /></td></tr>
 <tr class="separator:a503ad2215490c5c599530d7331a70120"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac7e7cecbe08dfe8b3316a90204c2ab43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac7e7cecbe08dfe8b3316a90204c2ab43">sort_and_shadow</a> (const std::vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;items, std::vector&lt; size_t &gt; &amp;indexes)</td></tr>
-<tr class="separator:ac7e7cecbe08dfe8b3316a90204c2ab43"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb0c2a9008815cae2b118a30b7c2fc75"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb0c2a9008815cae2b118a30b7c2fc75">sort_and_shadow</a> (std::vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;items)</td></tr>
-<tr class="separator:afb0c2a9008815cae2b118a30b7c2fc75"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05bafa99c51765b72bf17b91538fcff5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a05bafa99c51765b72bf17b91538fcff5">chain_items_dp</a> (vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;best_chain_score, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, size_t max_lookback_bases, size_t min_lookback_items, size_t lookback_item_hard_cap, size_t initial_lookback_threshold, double lookback_scale_factor, double min_good_transition_score_per_base, int item_bonus, size_t max_indel_bases)</td></tr>
-<tr class="separator:a05bafa99c51765b72bf17b91538fcff5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab0147b2932e3f053cc2f2b0912390978"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab0147b2932e3f053cc2f2b0912390978">chain_items_traceback</a> (const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;best_chain_score, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;best_past_ending_score_ever)</td></tr>
-<tr class="separator:ab0147b2932e3f053cc2f2b0912390978"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5d0662e21c846f8d7e836a67439c208f"><td class="memItemLeft" align="right" valign="top">pair&lt; int, vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5d0662e21c846f8d7e836a67439c208f">find_best_chain</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, size_t max_lookback_bases, size_t min_lookback_items, size_t lookback_item_hard_cap, size_t initial_lookback_threshold, double lookback_scale_factor, double min_good_transition_score_per_base, int item_bonus, size_t max_indel_bases)</td></tr>
-<tr class="separator:a5d0662e21c846f8d7e836a67439c208f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaeeaa766337fc50f0a9b4d3214271923"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aaeeaa766337fc50f0a9b4d3214271923">sort_anchor_indexes</a> (const std::vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;items, std::vector&lt; size_t &gt; &amp;indexes)</td></tr>
+<tr class="separator:aaeeaa766337fc50f0a9b4d3214271923"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac8e2917f0a06c55852e4ef044548f2bb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac8e2917f0a06c55852e4ef044548f2bb">lookback_transition_iterator</a> (size_t max_lookback_bases, size_t min_lookback_items, size_t lookback_item_hard_cap)</td></tr>
+<tr class="separator:ac8e2917f0a06c55852e4ef044548f2bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a73608f2f497e40cc514deaa74a00cb52"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a73608f2f497e40cc514deaa74a00cb52">zip_tree_transition_iterator</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_lookback_bases)</td></tr>
+<tr class="separator:a73608f2f497e40cc514deaa74a00cb52"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdc2933db32d78a14a8e439f7e9643ab"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abdc2933db32d78a14a8e439f7e9643ab">score_chain_gap</a> (size_t distance_difference, size_t base_seed_length)</td></tr>
+<tr class="separator:abdc2933db32d78a14a8e439f7e9643ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2fda86d465d26d7f101e00f3431564e8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2fda86d465d26d7f101e00f3431564e8">chain_items_dp</a> (vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;chain_scores, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases, bool show_work)</td></tr>
+<tr class="separator:a2fda86d465d26d7f101e00f3431564e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a9239fd23ed6838263f4dd05828d18c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; size_t &gt;, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7a9239fd23ed6838263f4dd05828d18c">chain_items_traceback</a> (const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;chain_scores, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;best_past_ending_score_ever, int item_bonus, double item_scale, size_t max_tracebacks)</td></tr>
+<tr class="separator:a7a9239fd23ed6838263f4dd05828d18c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a67dc5da4c5935ba307303798c521c1c8"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a67dc5da4c5935ba307303798c521c1c8">find_best_chains</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, size_t max_chains, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases, bool show_work)</td></tr>
+<tr class="separator:a67dc5da4c5935ba307303798c521c1c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3f3eeb71fb9bd08889b08aa20fe9605"><td class="memItemLeft" align="right" valign="top">pair&lt; int, vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac3f3eeb71fb9bd08889b08aa20fe9605">find_best_chain</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases)</td></tr>
+<tr class="separator:ac3f3eeb71fb9bd08889b08aa20fe9605"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad91b7ceb67d3923a4c5cace56a5c4f6e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad91b7ceb67d3923a4c5cace56a5c4f6e">score_best_chain</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension)</td></tr>
 <tr class="separator:ad91b7ceb67d3923a4c5cace56a5c4f6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afbd2aaa2256eb33182306586f40187c6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afbd2aaa2256eb33182306586f40187c6">get_graph_distance</a> (const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;from, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;to, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
-<tr class="memdesc:afbd2aaa2256eb33182306586f40187c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get distance in the graph, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unreachable.  <a href="namespacevg_1_1algorithms.html#afbd2aaa2256eb33182306586f40187c6">More...</a><br /></td></tr>
-<tr class="separator:afbd2aaa2256eb33182306586f40187c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b788763f4e6747ba55e5340de9da855"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0b788763f4e6747ba55e5340de9da855">get_graph_distance</a> (const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;from, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;to, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t distance_limit=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="memdesc:a0b788763f4e6747ba55e5340de9da855"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get distance in the graph, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unreachable or beyond the limit.  <a href="namespacevg_1_1algorithms.html#a0b788763f4e6747ba55e5340de9da855">More...</a><br /></td></tr>
+<tr class="separator:a0b788763f4e6747ba55e5340de9da855"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d8762b533e64039ce1a917b047097d8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5d8762b533e64039ce1a917b047097d8">get_read_distance</a> (const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;from, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &amp;to)</td></tr>
 <tr class="memdesc:a5d8762b533e64039ce1a917b047097d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get distance in the read, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unreachable.  <a href="namespacevg_1_1algorithms.html#a5d8762b533e64039ce1a917b047097d8">More...</a><br /></td></tr>
 <tr class="separator:a5d8762b533e64039ce1a917b047097d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -304,7 +314,7 @@ Functions</h2></td></tr>
 <tr class="separator:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a22d03c4f50c51d0d537811ba88895688"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a22d03c4f50c51d0d537811ba88895688">next_pos_chars</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos)</td></tr>
 <tr class="separator:a22d03c4f50c51d0d537811ba88895688"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb6a93eb17739d744908d61ca6650f4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool debug, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
+<tr class="memitem:afb6a93eb17739d744908d61ca6650f4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool <a class="el" href="minimizer__mapper__from__chains_8cpp.html#a322565ccf348d13e4d3de13af771e5fc">debug</a>, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
 <tr class="separator:afb6a93eb17739d744908d61ca6650f4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9957e925ee25c57698383d4e1df21f0d"><td class="memItemLeft" align="right" valign="top">std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9957e925ee25c57698383d4e1df21f0d">pad_band_random_walk_internal</a> (double band_padding_multiplier, size_t band_padding_memo_size, size_t max_padding, const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; size_function)</td></tr>
 <tr class="separator:a9957e925ee25c57698383d4e1df21f0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -335,6 +345,8 @@ Functions</h2></td></tr>
 <tr class="separator:a3d74c519ccaa204e7735d5bd26c5095a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa5e4dc632e98b58b67a99af6749d9e05">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_2, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;ref_paths, int64_t max_search_dist)</td></tr>
 <tr class="separator:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a175ee345e226732cb1c37da13a2f045e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a175ee345e226732cb1c37da13a2f045e">sample_minimal</a> (size_t count, size_t element_length, size_t window_size, size_t sequence_length, const std::function&lt; size_t(size_t)&gt; &amp;get_start, const std::function&lt; bool(size_t, size_t)&gt; &amp;should_beat, const std::function&lt; void(size_t)&gt; &amp;sample)</td></tr>
+<tr class="separator:a175ee345e226732cb1c37da13a2f045e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af51e5eafc2c18f33dd6a120c753247a3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3">bellman_ford_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
 <tr class="separator:af51e5eafc2c18f33dd6a120c753247a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40d6162a9f0dba28306c836d07d7d6e3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a40d6162a9f0dba28306c836d07d7d6e3">dijkstra_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source)</td></tr>
@@ -438,6 +450,42 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Represents a set of positions and orientations, along a collection of paths. Positions and orientations may or may not be stored sorted. </p>
+
+</div>
+</div>
+<a id="ad64245b7dca5a8144ae8720a92b65685"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad64245b7dca5a8144ae8720a92b65685">&#9670;&nbsp;</a></span>transition_iteratee</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg_1_1algorithms.html#ad64245b7dca5a8144ae8720a92b65685">vg::algorithms::transition_iteratee</a> = typedef std::function&lt;void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Iteratee function type which can be called with each transition between anchors.</p>
+<p>Takes two anchor numbers (source and destination), and their read and graph distances, in that order. </p>
+
+</div>
+</div>
+<a id="a79c214c1e7f1d7cc5fe322b8c9fb260c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a79c214c1e7f1d7cc5fe322b8c9fb260c">&#9670;&nbsp;</a></span>transition_iterator</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">vg::algorithms::transition_iterator</a> = typedef std::function&lt;void(const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt;<a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a>&gt;&amp; to_chain, const SnarlDistanceIndex&amp; distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; graph, size_t max_indel_bases, const <a class="el" href="namespacevg_1_1algorithms.html#ad64245b7dca5a8144ae8720a92b65685">transition_iteratee</a>&amp; callback)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Iterator function type which lets you iterate over transitions between items, by calling a callback.</p>
+<p>Implementation will go throuch all the anchors and call the given callback with pairs of anchor numbers, and their read and graph distances.</p>
+<p>Transitions are always between anchors earlier and later in the read.</p>
+<p>Transitions are from the first anchor, to the second.</p>
+<p>Transitions are visited in order: all transititions to an anchor are visited before any transitions from it.</p>
+<p>to_chain must be sorted by read start. </p>
 
 </div>
 </div>
@@ -562,8 +610,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="ad9941053149e9b62a3987e6910aab8f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad9941053149e9b62a3987e6910aab8f6">&#9670;&nbsp;</a></span>alignment_path_offsets()</h2>
+<a id="aead0aa069554bbc1a3fcce05ca4d1127"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aead0aa069554bbc1a3fcce05ca4d1127">&#9670;&nbsp;</a></span>alignment_path_offsets()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -595,7 +643,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
         </tr>
         <tr>
@@ -611,13 +659,13 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gives the path positions of the alignment. If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If nearby is set, will search for a nearby path. Will recurse with nearby set if it is not set on initial call and no positions are found. Respects search_limit in bp in that case. If search_limit is 0, read length is used.</p>
+<p>Gives the path positions of the alignment. If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If nearby is set, will search for a nearby path. Will recurse with nearby set if it is not set on initial call and no positions are found. Respects search_limit in bp in that case. If search_limit is 0, read length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
 <p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a47438272f0eac991e9d3edce30cf9123"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a47438272f0eac991e9d3edce30cf9123">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[1/2]</span></h2>
+<a id="a3c1bbf062eb429066c7b46da24704cdf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3c1bbf062eb429066c7b46da24704cdf">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -637,7 +685,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
         </tr>
         <tr>
@@ -654,13 +702,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each reference path. Thread safe.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
 <p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a8cf2e0df2e99d24d22fbfac537120cc8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8cf2e0df2e99d24d22fbfac537120cc8">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[2/2]</span></h2>
+<a id="a29c8bb498d4cab7c964783dbf98dae28"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a29c8bb498d4cab7c964783dbf98dae28">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -680,7 +728,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
         </tr>
         <tr>
@@ -697,13 +745,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph annotate Alignments with the first position they touch on each reference path. Thread safe.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
 <p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="ae92f9ba72b27512a1a744e60fc164844"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae92f9ba72b27512a1a744e60fc164844">&#9670;&nbsp;</a></span>annotate_with_node_path_positions()</h2>
+<a id="ad2151b93596855953805b98d78ac83c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad2151b93596855953805b98d78ac83c6">&#9670;&nbsp;</a></span>annotate_with_node_path_positions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -723,7 +771,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
         </tr>
         <tr>
@@ -740,13 +788,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each node it visits in each reference path. Thread safe. If no nodes on any path are visited, searches for a nearby path position to use.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
 <p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a001d349e7ad0fa290437ca9846decced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a001d349e7ad0fa290437ca9846decced">&#9670;&nbsp;</a></span>annotate_with_path_positions()</h2>
+<a id="a66e67738fef35591e953849387e94d58"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a66e67738fef35591e953849387e94d58">&#9670;&nbsp;</a></span>annotate_with_path_positions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -772,7 +820,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
         </tr>
         <tr>
@@ -789,7 +837,7 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with positions on each reference path. Thread safe.</p>
-<p>If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If no positions on the path are found, looks for nearby path positions in graph space. Respects search_limit in bp in that case. If search_limit is 0, read length is used.</p>
+<p>If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If no positions on the path are found, looks for nearby path positions in graph space. Respects search_limit in bp in that case. If search_limit is 0, read length is used. If search_limit is -1, no search will be performed and only actually-visited nodes will be used.</p>
 <p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
@@ -1152,8 +1200,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a05bafa99c51765b72bf17b91538fcff5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05bafa99c51765b72bf17b91538fcff5">&#9670;&nbsp;</a></span>chain_items_dp()</h2>
+<a id="a2fda86d465d26d7f101e00f3431564e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2fda86d465d26d7f101e00f3431564e8">&#9670;&nbsp;</a></span>chain_items_dp()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1162,7 +1210,7 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="memname"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> vg::algorithms::chain_items_dp </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>best_chain_score</em>, </td>
+          <td class="paramname"><em>chain_scores</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1197,38 +1245,8 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_lookback_bases</em> = <code>150</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_lookback_items</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>lookback_item_hard_cap</em> = <code>100</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>initial_lookback_threshold</em> = <code>10</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>lookback_scale_factor</em> = <code>2.0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>min_good_transition_score_per_base</em> = <code>-0.1</code>, </td>
+          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>for_each_transition</em> = <code><a class="el" href="namespacevg_1_1algorithms.html#ac8e2917f0a06c55852e4ef044548f2bb">lookback_transition_iterator</a>(150,&#160;0,&#160;100)</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1239,8 +1257,32 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>item_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>gap_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>points_per_possible_match</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_indel_bases</em> = <code>100</code>&#160;</td>
+          <td class="paramname"><em>max_indel_bases</em> = <code>100</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_work</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1249,25 +1291,26 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Fill in the given DP table for the best chain score ending with each item. Returns the best observed score overall from that table, with provenance to its location in the table, if tracked in the type. Assumes some items exist.</p>
+<p>Fill in the given DP table for the explored chain scores ending with each item. Returns the best observed score overall from that table, with provenance to its location in the table, if tracked in the type. Assumes some items exist.</p>
+<p>We keep all the options to allow us to do multiple tracebacks and find multiple good (ideally disjoint) chains.</p>
 <p>Input items must be sorted by start position in the read.</p>
-<p>Takes the given per-item bonus for each item collected.</p>
+<p>Takes the given per-item bonus for each item collected, and scales item scores by the given scale.</p>
 <p>Uses a finite lookback in items and in read bases when checking where we can come from to reach an item. Also, once a given number of good-looking predecessor items have been found, stop looking back.</p>
 <p>Limits transitions to those involving indels of the given size or less, to avoid very bad transitions. </p>
 
 </div>
 </div>
-<a id="ab0147b2932e3f053cc2f2b0912390978"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab0147b2932e3f053cc2f2b0912390978">&#9670;&nbsp;</a></span>chain_items_traceback()</h2>
+<a id="a7a9239fd23ed6838263f4dd05828d18c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a9239fd23ed6838263f4dd05828d18c">&#9670;&nbsp;</a></span>chain_items_traceback()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; size_t &gt; vg::algorithms::chain_items_traceback </td>
+          <td class="memname">vector&lt; pair&lt; vector&lt; size_t &gt;, int &gt; &gt; vg::algorithms::chain_items_traceback </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>best_chain_score</em>, </td>
+          <td class="paramname"><em>chain_scores</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1279,7 +1322,25 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;&#160;</td>
-          <td class="paramname"><em>best_past_ending_score_ever</em>&#160;</td>
+          <td class="paramname"><em>best_past_ending_score_ever</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>item_bonus</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>item_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_tracebacks</em> = <code>1</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1288,7 +1349,9 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Trace back through in the given DP table from the best chain score. </p>
+<p>Trace back through in the given DP table from the best chain score.</p>
+<p>Returns tracebacks that visit disjoint sets of items, in score order, along with their penalties from the optimal score. The best_past_ending_score_ever is <em>not</em> always the source of the first traceback, if there is a tie.</p>
+<p>Tracebacks are constrained to be nonoverlapping by stopping each traceback when the optimum place to come from has already been used. The second-best place to come from is <em>not</em> considered. It might be possible that two returned tracebacks could be pasted together to get a higher score, but it won't be possible to recombine two tracebacks to get a higher score; no edges followed between items will ever need to be cut. </p>
 
 </div>
 </div>
@@ -2184,6 +2247,7 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that contain the two positions will be 'cut' at the position and will be tips in the returned graph. The algorithm guarantees that 'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include a cycle involving either position. If no walk between the two positions under the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when passed to function.</p>
+<p>If pos_1 and pos_2 face each other on the same node, the intervening portion of the node is produced in into. If they are on the same node but do not face each other, portions of the original node will exist as distinct nodes in into, and the one correspondign to pos_1 will have the lower node ID.</p>
 <p>Args: source graph to extract subgraph from into graph to extract into max_len guarantee finding walks along which pos_1 and pos_2 are this distance apart pos_1 start position, subgraph walks begin from here in same orientation pos_2 end position, subgraph walks end here in the same orientation strict_max_len only extract nodes and edges if they fall on some walk between pos_1 and pos_2 that is under the maximum length (implies only_walks = true)</p>
 <p>Returns: a map from node ids in the extracted graph to the node ids in the original graph </p>
 
@@ -2540,8 +2604,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a5d0662e21c846f8d7e836a67439c208f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5d0662e21c846f8d7e836a67439c208f">&#9670;&nbsp;</a></span>find_best_chain()</h2>
+<a id="ac3f3eeb71fb9bd08889b08aa20fe9605"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3f3eeb71fb9bd08889b08aa20fe9605">&#9670;&nbsp;</a></span>find_best_chain()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2579,44 +2643,32 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_lookback_bases</em> = <code>150</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_lookback_items</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>lookback_item_hard_cap</em> = <code>100</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>initial_lookback_threshold</em> = <code>10</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>lookback_scale_factor</em> = <code>2.0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>min_good_transition_score_per_base</em> = <code>-0.1</code>, </td>
+          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>for_each_transition</em> = <code><a class="el" href="namespacevg_1_1algorithms.html#ac8e2917f0a06c55852e4ef044548f2bb">lookback_transition_iterator</a>(150,&#160;0,&#160;100)</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>item_bonus</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>item_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>gap_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>points_per_possible_match</em> = <code>0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2634,6 +2686,103 @@ template&lt;typename Collection &gt; </div>
 <p>Chain up the given group of items. Determines the best score and traceback that can be obtained by chaining items together.</p>
 <p>Input items must be sorted by start position in the read.</p>
 <p>Returns the score and the list of indexes of items visited to achieve that score, in order. </p>
+
+</div>
+</div>
+<a id="a67dc5da4c5935ba307303798c521c1c8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a67dc5da4c5935ba307303798c521c1c8">&#9670;&nbsp;</a></span>find_best_chains()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; pair&lt; int, vector&lt; size_t &gt; &gt; &gt; vg::algorithms::find_best_chains </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>gap_open</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>gap_extension</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_chains</em> = <code>1</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>for_each_transition</em> = <code><a class="el" href="namespacevg_1_1algorithms.html#ac8e2917f0a06c55852e4ef044548f2bb">lookback_transition_iterator</a>(150,&#160;0,&#160;100)</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>item_bonus</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>item_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>gap_scale</em> = <code>1.0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>points_per_possible_match</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_indel_bases</em> = <code>100</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_work</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Chain up the given group of items. Determines the best scores and tracebacks that can be obtained by chaining items together.</p>
+<p>Input items must be sorted by start position in the read.</p>
+<p>Returns the scores and the list of indexes of items visited to achieve that score, in order, with multiple tracebacks in descending score order. </p>
 
 </div>
 </div>
@@ -2889,8 +3038,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="afbd2aaa2256eb33182306586f40187c6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afbd2aaa2256eb33182306586f40187c6">&#9670;&nbsp;</a></span>get_graph_distance()</h2>
+<a id="a0b788763f4e6747ba55e5340de9da855"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0b788763f4e6747ba55e5340de9da855">&#9670;&nbsp;</a></span>get_graph_distance()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2917,7 +3066,13 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>distance_limit</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2927,7 +3082,7 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Get distance in the graph, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unreachable. </p>
+<p>Get distance in the graph, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unreachable or beyond the limit. </p>
 
 </div>
 </div>
@@ -3437,6 +3592,41 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="ac8e2917f0a06c55852e4ef044548f2bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac8e2917f0a06c55852e4ef044548f2bb">&#9670;&nbsp;</a></span>lookback_transition_iterator()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> vg::algorithms::lookback_transition_iterator </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_lookback_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_lookback_items</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>lookback_item_hard_cap</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions. Closes over the arguments by value. </p>
+
+</div>
+</div>
 <a id="a91a6bbd822f6380421a973f75036c3d3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a91a6bbd822f6380421a973f75036c3d3">&#9670;&nbsp;</a></span>merge()</h2>
 
@@ -3615,7 +3805,7 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path name to all positions on each path where that pos_t occurs. Stops search when path(s) are ancountered.</p>
+<p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path handle to all positions on each path where that pos_t occurs. Stops search when path(s) are ancountered.</p>
 <p>If path_filter is set, ignores paths for which it returns false. </p>
 
 </div>
@@ -4602,6 +4792,69 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
 
 </div>
 </div>
+<a id="a175ee345e226732cb1c37da13a2f045e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a175ee345e226732cb1c37da13a2f045e">&#9670;&nbsp;</a></span>sample_minimal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::sample_minimal </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>element_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>window_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>sequence_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; size_t(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>get_start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>should_beat</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>sample</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Sample the minimal elements in windows of the given size. Uses get_bounds to get inclusive-start, exclusive-end coordinates for elements. Uses should_beat to compare elements. If an element is minimal for a window, calls sample for that element.</p>
+<p>You can use should_beat to control tie behavior. If it acts as a less-than comparator, and returns false for ties, tied elements will all be sampled. If it acts as less-than-or-equal-to, and returns true for ties, the latest-occurring element will be sampled in case of ties.</p>
+<p>Elements must be sorted by start and all the same length.</p>
+<p>Unlike the minimizer sampling algorithm given in Jain et al. 2020., we have to make sure to support multiple elements on the same start position, and zero elements on some start positions.</p>
+<p>sample will be called at least once for each element minimal in some window. It will not necessarily be called once per window. </p>
+
+</div>
+</div>
 <a id="ad91b7ceb67d3923a4c5cace56a5c4f6e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad91b7ceb67d3923a4c5cace56a5c4f6e">&#9670;&nbsp;</a></span>score_best_chain()</h2>
 
@@ -4647,6 +4900,38 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
 </div><div class="memdoc">
 <p>Score the given group of items. Determines the best score that can be obtained by chaining items together.</p>
 <p>Input items must be sorted by start position in the read. </p>
+
+</div>
+</div>
+<a id="abdc2933db32d78a14a8e439f7e9643ab"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abdc2933db32d78a14a8e439f7e9643ab">&#9670;&nbsp;</a></span>score_chain_gap()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::algorithms::score_chain_gap </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>distance_difference</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>base_seed_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Compute a gap score like minimap2.</p>
+<p>They say they use the average anchor length, but really we need to use the minimizer/base seed length here. Otherwise gaps cost more as your fragments that you are chaining get longer, and cost more at chaining than at fragmenting.</p>
+<p>Returns a negative value (gap score).</p>
+<p>Score a chaining gap using the Minimap2 method. See <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/</a> near equation 2. This produces a penalty (positive number). </p>
 
 </div>
 </div>
@@ -4807,14 +5092,14 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
 
 </div>
 </div>
-<a id="ac7e7cecbe08dfe8b3316a90204c2ab43"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac7e7cecbe08dfe8b3316a90204c2ab43">&#9670;&nbsp;</a></span>sort_and_shadow() <span class="overload">[1/2]</span></h2>
+<a id="aaeeaa766337fc50f0a9b4d3214271923"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaeeaa766337fc50f0a9b4d3214271923">&#9670;&nbsp;</a></span>sort_anchor_indexes()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::algorithms::sort_and_shadow </td>
+          <td class="memname">void vg::algorithms::sort_anchor_indexes </td>
           <td>(</td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>items</em>, </td>
@@ -4832,28 +5117,7 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get rid of items that are shadowed or contained by (or are identical to) others.</p>
-<p>Erases items that didn't survive from indexes, and sorts them by read start position. </p>
-
-</div>
-</div>
-<a id="afb0c2a9008815cae2b118a30b7c2fc75"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afb0c2a9008815cae2b118a30b7c2fc75">&#9670;&nbsp;</a></span>sort_and_shadow() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::sort_and_shadow </td>
-          <td>(</td>
-          <td class="paramtype">std::vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>items</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get rid of items that are shadowed or contained by (or are identical to) others.</p>
-<p>Erases items that didn't survive from items, and sorts them by read start position. </p>
+<p>Sort indexes in the given list by by read start position (and end position) of the anchors they refer to. </p>
 
 </div>
 </div>
@@ -5343,6 +5607,41 @@ template&lt;typename TECCNode &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Find the k widest paths Search is aborted (and current list returned) if a path longer than max_path_length is added to the results </p>
+
+</div>
+</div>
+<a id="a73608f2f497e40cc514deaa74a00cb52"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a73608f2f497e40cc514deaa74a00cb52">&#9670;&nbsp;</a></span>zip_tree_transition_iterator()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> vg::algorithms::zip_tree_transition_iterator </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;&#160;</td>
+          <td class="paramname"><em>zip_code_tree</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_lookback_bases</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return a transition iterator that uses zip code tree iteration to select traversals. </p>
 
 </div>
 </div>

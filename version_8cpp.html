@@ -76,6 +76,7 @@ $(function() {
 <div class="textblock"><code>#include &quot;<a class="el" href="version_8hpp.html">version.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="vg__git__version_8hpp.html">vg_git_version.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="vg__environment__version_8hpp.html">vg_environment_version.hpp</a>&quot;</code><br />
+<code>#include &lt;htslib/hts.h&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 </div><table class="memberdecls">
@@ -92,6 +93,8 @@ Macros</h2></td></tr>
 <tr class="separator:a6a96991688ffe6ae2293f0a4b5f813d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a923fcc9a50a1ddbec3aa567d4f91d576"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="version_8cpp.html#a923fcc9a50a1ddbec3aa567d4f91d576">VG_STANDARD_LIBRARY_VERSION</a>&#160;&#160;&#160;&quot;unknown standard library&quot;</td></tr>
 <tr class="separator:a923fcc9a50a1ddbec3aa567d4f91d576"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b12716ad9e947816319b2c448b942f3"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="version_8cpp.html#a0b12716ad9e947816319b2c448b942f3">VG_HTSLIB_VERSION</a>&#160;&#160;&#160;<a class="el" href="version_8cpp.html#a6a96991688ffe6ae2293f0a4b5f813d2">STR</a>(HTS_VERSION)</td></tr>
+<tr class="separator:a0b12716ad9e947816319b2c448b942f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="a1e7841038b1293b9a250d8999f6c8ac8"></a>
@@ -124,6 +127,20 @@ Macros</h2></td></tr>
           <td class="paramtype">&#160;</td>
           <td class="paramname">macro</td><td>)</td>
           <td>&#160;&#160;&#160;<a class="el" href="version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8">QUOTE</a>(macro)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0b12716ad9e947816319b2c448b942f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0b12716ad9e947816319b2c448b942f3">&#9670;&nbsp;</a></span>VG_HTSLIB_VERSION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define VG_HTSLIB_VERSION&#160;&#160;&#160;<a class="el" href="version_8cpp.html#a6a96991688ffe6ae2293f0a4b5f813d2">STR</a>(HTS_VERSION)</td>
         </tr>
       </table>
 </div><div class="memdoc">

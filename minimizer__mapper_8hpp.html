@@ -75,10 +75,12 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="chain__items_8hpp.html">algorithms/chain_items.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="nearest__offsets__in__paths_8hpp.html">algorithms/nearest_offsets_in_paths.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="pad__band_8hpp.html">algorithms/pad_band.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="aligner_8hpp.html">aligner.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwt__extender_8hpp.html">gbwt_extender.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__seed__clusterer_8hpp.html">snarl_seed_clusterer.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="zip__code__tree_8hpp.html">zip_code_tree.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="mapper_8hpp.html">mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="tree__subgraph_8hpp.html">tree_subgraph.hpp</a>&quot;</code><br />
@@ -92,6 +94,15 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html">vg::MinimizerMapper</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">vg::MinimizerMapper::Minimizer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">vg::MinimizerMapper::aligner_stats_t</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Struct to represent per-DP-method stats.  <a href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__collection__t.html">vg::MinimizerMapper::aligner_stats_t::stat_collection_t</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Collection of values you can +=.  <a href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__collection__t.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__set__t.html">vg::MinimizerMapper::aligner_stats_t::stat_set_t</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Struct to represent counts of bases or seconds or invocations used by different aligners.  <a href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__set__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>

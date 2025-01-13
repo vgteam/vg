@@ -68,7 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
-<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
+<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="structvg_1_1MIPayload-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -76,112 +76,50 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;snarl_distance_index.hpp&gt;</code></p>
+<p><code>#include &lt;zip_code.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
 <tr class="memitem:a9601701523086479bbb59d0d304cf71f"><td class="memItemLeft" align="right" valign="top">typedef std::uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a></td></tr>
 <tr class="separator:a9601701523086479bbb59d0d304cf71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
-Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a7488d789ba8be46d08718e0e3e06b6af"><td class="memItemLeft" align="right" valign="top">static gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a7488d789ba8be46d08718e0e3e06b6af">encode</a> (<a class="el" href="structvg_1_1MIPayloadValues.html">MIPayloadValues</a> info)</td></tr>
-<tr class="separator:a7488d789ba8be46d08718e0e3e06b6af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7789a7964118da7337016619b3e3b6a7"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a7789a7964118da7337016619b3e3b6a7">set_record_offset</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#a4856d2a0589380c5f4dedf703cf616cd">record_offset</a>)</td></tr>
-<tr class="separator:a7789a7964118da7337016619b3e3b6a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7e804d6e3d6abe4bc06f4868060f1b81"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a7e804d6e3d6abe4bc06f4868060f1b81">set_parent_record_offset</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#a996da8a5194d0b61e66b90e560220dbb">parent_record_offset</a>)</td></tr>
-<tr class="separator:a7e804d6e3d6abe4bc06f4868060f1b81"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac1c15f4f8c7afa748d182eb1da7c74a0"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ac1c15f4f8c7afa748d182eb1da7c74a0">set_node_record_offset</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#add455aacb3257a7f7a4046e0c98c855b">node_record_offset</a>)</td></tr>
-<tr class="separator:ac1c15f4f8c7afa748d182eb1da7c74a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2bd18709be072f909cbb856d4aac289"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ab2bd18709be072f909cbb856d4aac289">set_node_length</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#aedfef495b27a2c603efe1e9d1f86c7e4">node_length</a>)</td></tr>
-<tr class="separator:ab2bd18709be072f909cbb856d4aac289"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5d9eab571cb03e1cef03f4b2cef977ce"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a5d9eab571cb03e1cef03f4b2cef977ce">set_is_reversed</a> (gbwtgraph::Payload &amp;code, bool <a class="el" href="structvg_1_1MIPayload.html#ab35efdcc45734a083e500c6fd50e336d">is_reversed</a>)</td></tr>
-<tr class="separator:a5d9eab571cb03e1cef03f4b2cef977ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9807b833c2d90db5f2680c568dec1ce2"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9807b833c2d90db5f2680c568dec1ce2">set_is_trivial_chain</a> (gbwtgraph::Payload &amp;code, bool <a class="el" href="structvg_1_1MIPayload.html#a348d2a65474ecb9e0a6fd382f39ec708">is_trivial_chain</a>)</td></tr>
-<tr class="separator:a9807b833c2d90db5f2680c568dec1ce2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0524a2dd57006d68838fbf76199e8662"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a0524a2dd57006d68838fbf76199e8662">set_parent_is_chain</a> (gbwtgraph::Payload &amp;code, bool <a class="el" href="structvg_1_1MIPayload.html#a1c04dfe9a563cbe0bcba810e66caa048">parent_is_chain</a>)</td></tr>
-<tr class="separator:a0524a2dd57006d68838fbf76199e8662"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a21fae305abf6f21e4c133a5fba059829"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a21fae305abf6f21e4c133a5fba059829">set_parent_is_root</a> (gbwtgraph::Payload &amp;code, bool <a class="el" href="structvg_1_1MIPayload.html#a6b859ac23a6739bcc8383a9fdab38e6c">parent_is_root</a>)</td></tr>
-<tr class="separator:a21fae305abf6f21e4c133a5fba059829"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acec71ffccaf67a5f8270301bd367fd0f"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#acec71ffccaf67a5f8270301bd367fd0f">set_prefix_sum</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#ae299326831c2fb31992060c64e4de468">prefix_sum</a>)</td></tr>
-<tr class="separator:acec71ffccaf67a5f8270301bd367fd0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adf9efad67044f69eafda19098e4a3c54"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#adf9efad67044f69eafda19098e4a3c54">set_chain_component</a> (gbwtgraph::Payload &amp;code, size_t <a class="el" href="structvg_1_1MIPayload.html#ad812700e9d4be8b0cc64f2e51aea2d2d">chain_component</a>)</td></tr>
-<tr class="separator:adf9efad67044f69eafda19098e4a3c54"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4856d2a0589380c5f4dedf703cf616cd"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a4856d2a0589380c5f4dedf703cf616cd">record_offset</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:a4856d2a0589380c5f4dedf703cf616cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a996da8a5194d0b61e66b90e560220dbb"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a996da8a5194d0b61e66b90e560220dbb">parent_record_offset</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:a996da8a5194d0b61e66b90e560220dbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:add455aacb3257a7f7a4046e0c98c855b"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#add455aacb3257a7f7a4046e0c98c855b">node_record_offset</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:add455aacb3257a7f7a4046e0c98c855b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aedfef495b27a2c603efe1e9d1f86c7e4"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aedfef495b27a2c603efe1e9d1f86c7e4">node_length</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:aedfef495b27a2c603efe1e9d1f86c7e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab35efdcc45734a083e500c6fd50e336d"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ab35efdcc45734a083e500c6fd50e336d">is_reversed</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:ab35efdcc45734a083e500c6fd50e336d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a348d2a65474ecb9e0a6fd382f39ec708"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a348d2a65474ecb9e0a6fd382f39ec708">is_trivial_chain</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:a348d2a65474ecb9e0a6fd382f39ec708"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c04dfe9a563cbe0bcba810e66caa048"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a1c04dfe9a563cbe0bcba810e66caa048">parent_is_chain</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:a1c04dfe9a563cbe0bcba810e66caa048"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b859ac23a6739bcc8383a9fdab38e6c"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a6b859ac23a6739bcc8383a9fdab38e6c">parent_is_root</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:a6b859ac23a6739bcc8383a9fdab38e6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae299326831c2fb31992060c64e4de468"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ae299326831c2fb31992060c64e4de468">prefix_sum</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:ae299326831c2fb31992060c64e4de468"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad812700e9d4be8b0cc64f2e51aea2d2d"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ad812700e9d4be8b0cc64f2e51aea2d2d">chain_component</a> (const gbwtgraph::Payload code)</td></tr>
-<tr class="separator:ad812700e9d4be8b0cc64f2e51aea2d2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aacb9fa13a4fc57075a68029e7c7d84e8"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="structvg_1_1MIPayloadValues.html">MIPayloadValues</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aacb9fa13a4fc57075a68029e7c7d84e8">decode</a> (gbwtgraph::Payload code)</td></tr>
-<tr class="separator:aacb9fa13a4fc57075a68029e7c7d84e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:a360ac8861d30614205e7637d6ac443b4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a360ac8861d30614205e7637d6ac443b4">node_handle</a></td></tr>
+<tr class="separator:a360ac8861d30614205e7637d6ac443b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92ead268cf5b206f54e4cf0e95937dfc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a92ead268cf5b206f54e4cf0e95937dfc">parent_handle</a></td></tr>
+<tr class="separator:a92ead268cf5b206f54e4cf0e95937dfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a787342925dee2293cd58ecc2346f0c4e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a787342925dee2293cd58ecc2346f0c4e">node_length</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a787342925dee2293cd58ecc2346f0c4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af0dcb83df9249928d947e23f368f41a0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#af0dcb83df9249928d947e23f368f41a0">prefix_sum</a> = 0</td></tr>
+<tr class="separator:af0dcb83df9249928d947e23f368f41a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1626a24c1382d7ea6d3adac18e5b99da"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a1626a24c1382d7ea6d3adac18e5b99da">chain_component</a> = 0</td></tr>
+<tr class="separator:a1626a24c1382d7ea6d3adac18e5b99da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3214bd006207b1d4c417c331b905290"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#af3214bd006207b1d4c417c331b905290">parent_depth</a> = 0</td></tr>
+<tr class="separator:af3214bd006207b1d4c417c331b905290"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af185811088055cdd4c371f18883087b2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#af185811088055cdd4c371f18883087b2">parent_record_offset</a> = 0</td></tr>
+<tr class="separator:af185811088055cdd4c371f18883087b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa14d5e8cecee30a8e796832d5ead8578"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3">ZipCode::code_type_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aa14d5e8cecee30a8e796832d5ead8578">parent_type</a> = <a class="el" href="classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3add89c8b2a06030b4a1d698a011538aaa">ZipCode::EMPTY</a></td></tr>
+<tr class="separator:aa14d5e8cecee30a8e796832d5ead8578"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a391d9d5e1cd44eccb39a6a31f56a6890"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a391d9d5e1cd44eccb39a6a31f56a6890">is_reversed</a> = false</td></tr>
+<tr class="separator:a391d9d5e1cd44eccb39a6a31f56a6890"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a1ab910b382a0ec41e12036f9b8ae04"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9a1ab910b382a0ec41e12036f9b8ae04">is_trivial_chain</a> = false</td></tr>
+<tr class="separator:a9a1ab910b382a0ec41e12036f9b8ae04"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa5abaa3ea722cf685fe73fe9502e00c1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aa5abaa3ea722cf685fe73fe9502e00c1">parent_is_chain</a> = false</td></tr>
+<tr class="separator:aa5abaa3ea722cf685fe73fe9502e00c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a36e03b459c31f012a17a78a1ec6f5391"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a36e03b459c31f012a17a78a1ec6f5391">parent_is_root</a> = false</td></tr>
+<tr class="separator:a36e03b459c31f012a17a78a1ec6f5391"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:af2e54a8ec4d4a5ff19ce72287340ce93"><td class="memItemLeft" align="right" valign="top">constexpr static gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#af2e54a8ec4d4a5ff19ce72287340ce93">NO_CODE</a> = gbwtgraph::Payload::default_payload()</td></tr>
-<tr class="separator:af2e54a8ec4d4a5ff19ce72287340ce93"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1490c547548d08b7aa390d55385d9633"><td class="memItemLeft" align="right" valign="top">constexpr static std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a1490c547548d08b7aa390d55385d9633">NO_VALUE</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
-<tr class="separator:a1490c547548d08b7aa390d55385d9633"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10f1ebb4aa962b48e15940be57d18121"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a10f1ebb4aa962b48e15940be57d18121">PARENT_RECORD_OFFSET</a> = 0</td></tr>
-<tr class="separator:a10f1ebb4aa962b48e15940be57d18121"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7a53b8ab86cc4b770376885f902dca8f"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a7a53b8ab86cc4b770376885f902dca8f">PARENT_RECORD_WIDTH</a> = 32</td></tr>
-<tr class="separator:a7a53b8ab86cc4b770376885f902dca8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3f3ed2b6e4b8a4ca5bcf295c5ef82bd4"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a3f3ed2b6e4b8a4ca5bcf295c5ef82bd4">PARENT_RECORD_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a7a53b8ab86cc4b770376885f902dca8f">PARENT_RECORD_WIDTH</a>) - 1</td></tr>
-<tr class="separator:a3f3ed2b6e4b8a4ca5bcf295c5ef82bd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a467c44f8e2b91fd1ab029d7f963291c4"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a467c44f8e2b91fd1ab029d7f963291c4">NODE_RECORD_OFFSET</a> = 32</td></tr>
-<tr class="separator:a467c44f8e2b91fd1ab029d7f963291c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a34c095f9ac28e33fb9618fd989dab931"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a34c095f9ac28e33fb9618fd989dab931">NODE_RECORD_WIDTH</a> = 32</td></tr>
-<tr class="separator:a34c095f9ac28e33fb9618fd989dab931"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10e8da4bbb1bbb2444c06e339bc46f6d"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a10e8da4bbb1bbb2444c06e339bc46f6d">NODE_RECORD_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a34c095f9ac28e33fb9618fd989dab931">NODE_RECORD_WIDTH</a>) - 1</td></tr>
-<tr class="separator:a10e8da4bbb1bbb2444c06e339bc46f6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa233689b6764328771a0d5d04b5fe247"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aa233689b6764328771a0d5d04b5fe247">CHAIN_COMPONENT_OFFSET</a> = 0</td></tr>
-<tr class="separator:aa233689b6764328771a0d5d04b5fe247"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a257bad004de1ff672e165417d96633ab"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a257bad004de1ff672e165417d96633ab">CHAIN_COMPONENT_WIDTH</a> = 8</td></tr>
-<tr class="separator:a257bad004de1ff672e165417d96633ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab8a2646462b8d161b7c16fca58c3956f"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ab8a2646462b8d161b7c16fca58c3956f">CHAIN_COMPONENT_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a257bad004de1ff672e165417d96633ab">CHAIN_COMPONENT_WIDTH</a>) - 1</td></tr>
-<tr class="separator:ab8a2646462b8d161b7c16fca58c3956f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a40ff8da15953a015fd1faa628809361e"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a40ff8da15953a015fd1faa628809361e">PREFIX_SUM_OFFSET</a> = 8</td></tr>
-<tr class="separator:a40ff8da15953a015fd1faa628809361e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8d01d88ed5aa0c31ec9eec992c700961"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a8d01d88ed5aa0c31ec9eec992c700961">PREFIX_SUM_WIDTH</a> = 32</td></tr>
-<tr class="separator:a8d01d88ed5aa0c31ec9eec992c700961"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6dd5cd325c7e63bceafac5169ec1b1e6"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a6dd5cd325c7e63bceafac5169ec1b1e6">PREFIX_SUM_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a8d01d88ed5aa0c31ec9eec992c700961">PREFIX_SUM_WIDTH</a>) - 1</td></tr>
-<tr class="separator:a6dd5cd325c7e63bceafac5169ec1b1e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acdd54afcde5a7049d5314b4695ec4fcd"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#acdd54afcde5a7049d5314b4695ec4fcd">PARENT_IS_ROOT_OFFSET</a> = 40</td></tr>
-<tr class="separator:acdd54afcde5a7049d5314b4695ec4fcd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9e72c21549f759600bfaab8c4db5fd39"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9e72c21549f759600bfaab8c4db5fd39">PARENT_IS_CHAIN_OFFSET</a> = 41</td></tr>
-<tr class="separator:a9e72c21549f759600bfaab8c4db5fd39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae9cbf565fa438d8167122c680197c54"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aae9cbf565fa438d8167122c680197c54">IS_TRIVIAL_CHAIN_OFFSET</a> = 42</td></tr>
-<tr class="separator:aae9cbf565fa438d8167122c680197c54"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6bf3099543c243d1254688c2198492b1"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a6bf3099543c243d1254688c2198492b1">IS_REVERSED_OFFSET</a> = 43</td></tr>
-<tr class="separator:a6bf3099543c243d1254688c2198492b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a73a1623305887f1479cae49fdc550bf8"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a73a1623305887f1479cae49fdc550bf8">NODE_LENGTH_OFFSET</a> = 44</td></tr>
-<tr class="separator:a73a1623305887f1479cae49fdc550bf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afc815d554bc5dab5c509d990b3d78e61"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#afc815d554bc5dab5c509d990b3d78e61">NODE_LENGTH_WIDTH</a> = 12</td></tr>
-<tr class="separator:afc815d554bc5dab5c509d990b3d78e61"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae86499ef0f2781435732b10d3c642649"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ae86499ef0f2781435732b10d3c642649">NODE_LENGTH_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#afc815d554bc5dab5c509d990b3d78e61">NODE_LENGTH_WIDTH</a>) - 1</td></tr>
-<tr class="separator:ae86499ef0f2781435732b10d3c642649"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad81397232f8524d27d4a2b5ee4b72bce"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#ad81397232f8524d27d4a2b5ee4b72bce">NODE_RECORD_OFFSET_OFFSET</a> = 56</td></tr>
-<tr class="separator:ad81397232f8524d27d4a2b5ee4b72bce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9833753c6c702ad357e5ddf1216a131a"><td class="memItemLeft" align="right" valign="top">const static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a9833753c6c702ad357e5ddf1216a131a">NODE_RECORD_OFFSET_WIDTH</a> = 8</td></tr>
-<tr class="separator:a9833753c6c702ad357e5ddf1216a131a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1b561b7fbbb6654e64ecd69a078cbf18"><td class="memItemLeft" align="right" valign="top">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a1b561b7fbbb6654e64ecd69a078cbf18">NODE_RECORD_OFFSET_MASK</a> = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a9833753c6c702ad357e5ddf1216a131a">NODE_RECORD_OFFSET_WIDTH</a>) - 1</td></tr>
-<tr class="separator:a1b561b7fbbb6654e64ecd69a078cbf18"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aad1e599cc16dec3115ea845eada83bb3"><td class="memItemLeft" align="right" valign="top">constexpr static gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#aad1e599cc16dec3115ea845eada83bb3">NO_CODE</a> = {0, 0}</td></tr>
+<tr class="separator:aad1e599cc16dec3115ea845eada83bb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90c2f3f622099c6920b28356d49d9a4e"><td class="memItemLeft" align="right" valign="top">constexpr static std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MIPayload.html#a90c2f3f622099c6920b28356d49d9a4e">NO_VALUE</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a90c2f3f622099c6920b28356d49d9a4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Typedef Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>The payload for the minimizer index. This stores distance information that gets used in clustering The payload now uses zip codes, so this gets used to go from a zip code to distance information usable by the clusterer </p>
+</div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a9601701523086479bbb59d0d304cf71f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9601701523086479bbb59d0d304cf71f">&#9670;&nbsp;</a></span>code_type</h2>
 
@@ -196,748 +134,51 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Member Function Documentation</h2>
-<a id="ad812700e9d4be8b0cc64f2e51aea2d2d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad812700e9d4be8b0cc64f2e51aea2d2d">&#9670;&nbsp;</a></span>chain_component()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::chain_component </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aacb9fa13a4fc57075a68029e7c7d84e8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aacb9fa13a4fc57075a68029e7c7d84e8">&#9670;&nbsp;</a></span>decode()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static <a class="el" href="structvg_1_1MIPayloadValues.html">MIPayloadValues</a> vg::MIPayload::decode </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7488d789ba8be46d08718e0e3e06b6af"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7488d789ba8be46d08718e0e3e06b6af">&#9670;&nbsp;</a></span>encode()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static gbwtgraph::Payload vg::MIPayload::encode </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1MIPayloadValues.html">MIPayloadValues</a>&#160;</td>
-          <td class="paramname"><em>info</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ab35efdcc45734a083e500c6fd50e336d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab35efdcc45734a083e500c6fd50e336d">&#9670;&nbsp;</a></span>is_reversed()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static bool vg::MIPayload::is_reversed </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a348d2a65474ecb9e0a6fd382f39ec708"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a348d2a65474ecb9e0a6fd382f39ec708">&#9670;&nbsp;</a></span>is_trivial_chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static bool vg::MIPayload::is_trivial_chain </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aedfef495b27a2c603efe1e9d1f86c7e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aedfef495b27a2c603efe1e9d1f86c7e4">&#9670;&nbsp;</a></span>node_length()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::node_length </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="add455aacb3257a7f7a4046e0c98c855b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#add455aacb3257a7f7a4046e0c98c855b">&#9670;&nbsp;</a></span>node_record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::node_record_offset </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a1c04dfe9a563cbe0bcba810e66caa048"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c04dfe9a563cbe0bcba810e66caa048">&#9670;&nbsp;</a></span>parent_is_chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static bool vg::MIPayload::parent_is_chain </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a6b859ac23a6739bcc8383a9fdab38e6c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6b859ac23a6739bcc8383a9fdab38e6c">&#9670;&nbsp;</a></span>parent_is_root()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static bool vg::MIPayload::parent_is_root </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a996da8a5194d0b61e66b90e560220dbb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a996da8a5194d0b61e66b90e560220dbb">&#9670;&nbsp;</a></span>parent_record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::parent_record_offset </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ae299326831c2fb31992060c64e4de468"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae299326831c2fb31992060c64e4de468">&#9670;&nbsp;</a></span>prefix_sum()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::prefix_sum </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a4856d2a0589380c5f4dedf703cf616cd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4856d2a0589380c5f4dedf703cf616cd">&#9670;&nbsp;</a></span>record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static size_t vg::MIPayload::record_offset </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::Payload&#160;</td>
-          <td class="paramname"><em>code</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="adf9efad67044f69eafda19098e4a3c54"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adf9efad67044f69eafda19098e4a3c54">&#9670;&nbsp;</a></span>set_chain_component()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_chain_component </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>chain_component</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a5d9eab571cb03e1cef03f4b2cef977ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5d9eab571cb03e1cef03f4b2cef977ce">&#9670;&nbsp;</a></span>set_is_reversed()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_is_reversed </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_reversed</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a9807b833c2d90db5f2680c568dec1ce2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9807b833c2d90db5f2680c568dec1ce2">&#9670;&nbsp;</a></span>set_is_trivial_chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_is_trivial_chain </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_trivial_chain</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ab2bd18709be072f909cbb856d4aac289"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab2bd18709be072f909cbb856d4aac289">&#9670;&nbsp;</a></span>set_node_length()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_node_length </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>node_length</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ac1c15f4f8c7afa748d182eb1da7c74a0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac1c15f4f8c7afa748d182eb1da7c74a0">&#9670;&nbsp;</a></span>set_node_record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_node_record_offset </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>node_record_offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a0524a2dd57006d68838fbf76199e8662"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0524a2dd57006d68838fbf76199e8662">&#9670;&nbsp;</a></span>set_parent_is_chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_parent_is_chain </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>parent_is_chain</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a21fae305abf6f21e4c133a5fba059829"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a21fae305abf6f21e4c133a5fba059829">&#9670;&nbsp;</a></span>set_parent_is_root()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_parent_is_root </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>parent_is_root</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7e804d6e3d6abe4bc06f4868060f1b81"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7e804d6e3d6abe4bc06f4868060f1b81">&#9670;&nbsp;</a></span>set_parent_record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_parent_record_offset </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>parent_record_offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="acec71ffccaf67a5f8270301bd367fd0f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acec71ffccaf67a5f8270301bd367fd0f">&#9670;&nbsp;</a></span>set_prefix_sum()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_prefix_sum </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>prefix_sum</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7789a7964118da7337016619b3e3b6a7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7789a7964118da7337016619b3e3b6a7">&#9670;&nbsp;</a></span>set_record_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void vg::MIPayload::set_record_offset </td>
-          <td>(</td>
-          <td class="paramtype">gbwtgraph::Payload &amp;&#160;</td>
-          <td class="paramname"><em>code</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>record_offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="ab8a2646462b8d161b7c16fca58c3956f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab8a2646462b8d161b7c16fca58c3956f">&#9670;&nbsp;</a></span>CHAIN_COMPONENT_MASK</h2>
+<a id="a1626a24c1382d7ea6d3adac18e5b99da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1626a24c1382d7ea6d3adac18e5b99da">&#9670;&nbsp;</a></span>chain_component</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::CHAIN_COMPONENT_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a257bad004de1ff672e165417d96633ab">CHAIN_COMPONENT_WIDTH</a>) - 1</td>
+          <td class="memname">size_t vg::MIPayload::chain_component = 0</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="aa233689b6764328771a0d5d04b5fe247"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa233689b6764328771a0d5d04b5fe247">&#9670;&nbsp;</a></span>CHAIN_COMPONENT_OFFSET</h2>
+<a id="a391d9d5e1cd44eccb39a6a31f56a6890"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a391d9d5e1cd44eccb39a6a31f56a6890">&#9670;&nbsp;</a></span>is_reversed</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::CHAIN_COMPONENT_OFFSET = 0</td>
+          <td class="memname">bool vg::MIPayload::is_reversed = false</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a257bad004de1ff672e165417d96633ab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a257bad004de1ff672e165417d96633ab">&#9670;&nbsp;</a></span>CHAIN_COMPONENT_WIDTH</h2>
+<a id="a9a1ab910b382a0ec41e12036f9b8ae04"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a1ab910b382a0ec41e12036f9b8ae04">&#9670;&nbsp;</a></span>is_trivial_chain</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::CHAIN_COMPONENT_WIDTH = 8</td>
+          <td class="memname">bool vg::MIPayload::is_trivial_chain = false</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a6bf3099543c243d1254688c2198492b1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6bf3099543c243d1254688c2198492b1">&#9670;&nbsp;</a></span>IS_REVERSED_OFFSET</h2>
+<a id="aad1e599cc16dec3115ea845eada83bb3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aad1e599cc16dec3115ea845eada83bb3">&#9670;&nbsp;</a></span>NO_CODE</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -946,51 +187,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::IS_REVERSED_OFFSET = 43</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aae9cbf565fa438d8167122c680197c54"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae9cbf565fa438d8167122c680197c54">&#9670;&nbsp;</a></span>IS_TRIVIAL_CHAIN_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::IS_TRIVIAL_CHAIN_OFFSET = 42</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="af2e54a8ec4d4a5ff19ce72287340ce93"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af2e54a8ec4d4a5ff19ce72287340ce93">&#9670;&nbsp;</a></span>NO_CODE</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr gbwtgraph::Payload vg::MIPayload::NO_CODE = gbwtgraph::Payload::default_payload()</td>
+          <td class="memname">constexpr static gbwtgraph::Payload vg::MIPayload::NO_CODE = {0, 0}</td>
         </tr>
       </table>
   </td>
@@ -1002,8 +199,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a1490c547548d08b7aa390d55385d9633"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1490c547548d08b7aa390d55385d9633">&#9670;&nbsp;</a></span>NO_VALUE</h2>
+<a id="a90c2f3f622099c6920b28356d49d9a4e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90c2f3f622099c6920b28356d49d9a4e">&#9670;&nbsp;</a></span>NO_VALUE</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1012,7 +209,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr size_t vg::MIPayload::NO_VALUE = std::numeric_limits&lt;size_t&gt;::max()</td>
+          <td class="memname">constexpr static std::size_t vg::MIPayload::NO_VALUE = std::numeric_limits&lt;size_t&gt;::max()</td>
         </tr>
       </table>
   </td>
@@ -1024,383 +221,134 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae86499ef0f2781435732b10d3c642649"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae86499ef0f2781435732b10d3c642649">&#9670;&nbsp;</a></span>NODE_LENGTH_MASK</h2>
+<a id="a360ac8861d30614205e7637d6ac443b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a360ac8861d30614205e7637d6ac443b4">&#9670;&nbsp;</a></span>node_handle</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::NODE_LENGTH_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#afc815d554bc5dab5c509d990b3d78e61">NODE_LENGTH_WIDTH</a>) - 1</td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> vg::MIPayload::node_handle</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a73a1623305887f1479cae49fdc550bf8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a73a1623305887f1479cae49fdc550bf8">&#9670;&nbsp;</a></span>NODE_LENGTH_OFFSET</h2>
+<a id="a787342925dee2293cd58ecc2346f0c4e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a787342925dee2293cd58ecc2346f0c4e">&#9670;&nbsp;</a></span>node_length</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_LENGTH_OFFSET = 44</td>
+          <td class="memname">size_t vg::MIPayload::node_length = std::numeric_limits&lt;size_t&gt;::max()</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="afc815d554bc5dab5c509d990b3d78e61"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afc815d554bc5dab5c509d990b3d78e61">&#9670;&nbsp;</a></span>NODE_LENGTH_WIDTH</h2>
+<a id="af3214bd006207b1d4c417c331b905290"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3214bd006207b1d4c417c331b905290">&#9670;&nbsp;</a></span>parent_depth</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_LENGTH_WIDTH = 12</td>
+          <td class="memname">size_t vg::MIPayload::parent_depth = 0</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a10e8da4bbb1bbb2444c06e339bc46f6d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a10e8da4bbb1bbb2444c06e339bc46f6d">&#9670;&nbsp;</a></span>NODE_RECORD_MASK</h2>
+<a id="a92ead268cf5b206f54e4cf0e95937dfc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92ead268cf5b206f54e4cf0e95937dfc">&#9670;&nbsp;</a></span>parent_handle</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::NODE_RECORD_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a34c095f9ac28e33fb9618fd989dab931">NODE_RECORD_WIDTH</a>) - 1</td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> vg::MIPayload::parent_handle</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a467c44f8e2b91fd1ab029d7f963291c4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a467c44f8e2b91fd1ab029d7f963291c4">&#9670;&nbsp;</a></span>NODE_RECORD_OFFSET</h2>
+<a id="aa5abaa3ea722cf685fe73fe9502e00c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa5abaa3ea722cf685fe73fe9502e00c1">&#9670;&nbsp;</a></span>parent_is_chain</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_RECORD_OFFSET = 32</td>
+          <td class="memname">bool vg::MIPayload::parent_is_chain = false</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a1b561b7fbbb6654e64ecd69a078cbf18"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1b561b7fbbb6654e64ecd69a078cbf18">&#9670;&nbsp;</a></span>NODE_RECORD_OFFSET_MASK</h2>
+<a id="a36e03b459c31f012a17a78a1ec6f5391"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a36e03b459c31f012a17a78a1ec6f5391">&#9670;&nbsp;</a></span>parent_is_root</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::NODE_RECORD_OFFSET_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a9833753c6c702ad357e5ddf1216a131a">NODE_RECORD_OFFSET_WIDTH</a>) - 1</td>
+          <td class="memname">bool vg::MIPayload::parent_is_root = false</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="ad81397232f8524d27d4a2b5ee4b72bce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad81397232f8524d27d4a2b5ee4b72bce">&#9670;&nbsp;</a></span>NODE_RECORD_OFFSET_OFFSET</h2>
+<a id="af185811088055cdd4c371f18883087b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af185811088055cdd4c371f18883087b2">&#9670;&nbsp;</a></span>parent_record_offset</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_RECORD_OFFSET_OFFSET = 56</td>
+          <td class="memname">size_t vg::MIPayload::parent_record_offset = 0</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a9833753c6c702ad357e5ddf1216a131a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9833753c6c702ad357e5ddf1216a131a">&#9670;&nbsp;</a></span>NODE_RECORD_OFFSET_WIDTH</h2>
+<a id="aa14d5e8cecee30a8e796832d5ead8578"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa14d5e8cecee30a8e796832d5ead8578">&#9670;&nbsp;</a></span>parent_type</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_RECORD_OFFSET_WIDTH = 8</td>
+          <td class="memname"><a class="el" href="classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3">ZipCode::code_type_t</a> vg::MIPayload::parent_type = <a class="el" href="classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3add89c8b2a06030b4a1d698a011538aaa">ZipCode::EMPTY</a></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a34c095f9ac28e33fb9618fd989dab931"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34c095f9ac28e33fb9618fd989dab931">&#9670;&nbsp;</a></span>NODE_RECORD_WIDTH</h2>
+<a id="af0dcb83df9249928d947e23f368f41a0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af0dcb83df9249928d947e23f368f41a0">&#9670;&nbsp;</a></span>prefix_sum</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const static size_t vg::MIPayload::NODE_RECORD_WIDTH = 32</td>
+          <td class="memname">size_t vg::MIPayload::prefix_sum = 0</td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="a9e72c21549f759600bfaab8c4db5fd39"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9e72c21549f759600bfaab8c4db5fd39">&#9670;&nbsp;</a></span>PARENT_IS_CHAIN_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PARENT_IS_CHAIN_OFFSET = 41</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="acdd54afcde5a7049d5314b4695ec4fcd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acdd54afcde5a7049d5314b4695ec4fcd">&#9670;&nbsp;</a></span>PARENT_IS_ROOT_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PARENT_IS_ROOT_OFFSET = 40</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a3f3ed2b6e4b8a4ca5bcf295c5ef82bd4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3f3ed2b6e4b8a4ca5bcf295c5ef82bd4">&#9670;&nbsp;</a></span>PARENT_RECORD_MASK</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::PARENT_RECORD_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a7a53b8ab86cc4b770376885f902dca8f">PARENT_RECORD_WIDTH</a>) - 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a10f1ebb4aa962b48e15940be57d18121"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a10f1ebb4aa962b48e15940be57d18121">&#9670;&nbsp;</a></span>PARENT_RECORD_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PARENT_RECORD_OFFSET = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7a53b8ab86cc4b770376885f902dca8f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7a53b8ab86cc4b770376885f902dca8f">&#9670;&nbsp;</a></span>PARENT_RECORD_WIDTH</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PARENT_RECORD_WIDTH = 32</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a6dd5cd325c7e63bceafac5169ec1b1e6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6dd5cd325c7e63bceafac5169ec1b1e6">&#9670;&nbsp;</a></span>PREFIX_SUM_MASK</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static <a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a> vg::MIPayload::PREFIX_SUM_MASK = (static_cast&lt;<a class="el" href="structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f">code_type</a>&gt;(1) &lt;&lt; <a class="el" href="structvg_1_1MIPayload.html#a8d01d88ed5aa0c31ec9eec992c700961">PREFIX_SUM_WIDTH</a>) - 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a40ff8da15953a015fd1faa628809361e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a40ff8da15953a015fd1faa628809361e">&#9670;&nbsp;</a></span>PREFIX_SUM_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PREFIX_SUM_OFFSET = 8</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a8d01d88ed5aa0c31ec9eec992c700961"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8d01d88ed5aa0c31ec9eec992c700961">&#9670;&nbsp;</a></span>PREFIX_SUM_WIDTH</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const static size_t vg::MIPayload::PREFIX_SUM_WIDTH = 32</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<hr/>The documentation for this struct was generated from the following files:<ul>
-<li>src/<a class="el" href="snarl__distance__index_8hpp.html">snarl_distance_index.hpp</a></li>
-<li>src/<a class="el" href="snarl__distance__index_8cpp.html">snarl_distance_index.cpp</a></li>
+<hr/>The documentation for this struct was generated from the following file:<ul>
+<li>src/<a class="el" href="zip__code_8hpp.html">zip_code.hpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

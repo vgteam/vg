@@ -163,6 +163,9 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a550ead63070ee82e14eb16659099755b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a550ead63070ee82e14eb16659099755b">json2graph</a> (const std::string &amp;json, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *dest)</td></tr>
+<tr class="memdesc:a550ead63070ee82e14eb16659099755b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a JSON string into a graph. The string must be a single JSON object.  <a href="namespacevg_1_1io.html#a550ead63070ee82e14eb16659099755b">More...</a><br /></td></tr>
+<tr class="separator:a550ead63070ee82e14eb16659099755b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeef1360dbaeba693008f3ee0d39dde30"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aeef1360dbaeba693008f3ee0d39dde30">load_proto_to_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *destination, const <a class="el" href="namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1">vg::io::message_sender_function_t</a> &amp;for_each_message)</td></tr>
 <tr class="separator:aeef1360dbaeba693008f3ee0d39dde30"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad96a1414b35d7f181ddbb3194d6dcf6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ad96a1414b35d7f181ddbb3194d6dcf6c">load_proto_to_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a> *destination, const function&lt; void(const function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt; &amp;)&gt; &amp;chunk_sender)</td></tr>
@@ -201,6 +204,8 @@ Functions</h2></td></tr>
 <tr class="separator:ac3485846033fd4accb221b0a866dfeb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a23bf45ec66db4b724b7f8a9f223c33"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a7a23bf45ec66db4b724b7f8a9f223c33">register_loader_saver_xg</a> ()</td></tr>
 <tr class="separator:a7a23bf45ec66db4b724b7f8a9f223c33"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac0521f6b9e5e9e78ab0837548bef8f0e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac0521f6b9e5e9e78ab0837548bef8f0e">register_loader_saver_zip_codes</a> ()</td></tr>
+<tr class="separator:ac0521f6b9e5e9e78ab0837548bef8f0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3f5510bd6a0e5514d3083fcd2ffdd32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af3f5510bd6a0e5514d3083fcd2ffdd32">save_handle_graph</a> (<a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, ostream &amp;os)</td></tr>
 <tr class="separator:af3f5510bd6a0e5514d3083fcd2ffdd32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571f402ff74b738d9070a598a41b58da"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a571f402ff74b738d9070a598a41b58da">save_handle_graph</a> (<a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, const string &amp;dest_path)</td></tr>
@@ -296,6 +301,12 @@ Functions</h2></td></tr>
 <tr class="separator:ae0cd97ec5478403a25e02c9805f3d286"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a9b562b3e8bd001bb10bcd0353bf5a929">finish</a> (std::ostream &amp;out, bool compressed)</td></tr>
 <tr class="separator:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff18a599bd6affc6e2709cb2cff9154c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aff18a599bd6affc6e2709cb2cff9154c">get_stream_length</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:aff18a599bd6affc6e2709cb2cff9154c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of the input stream, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unavailable.  <a href="namespacevg_1_1io.html#aff18a599bd6affc6e2709cb2cff9154c">More...</a><br /></td></tr>
+<tr class="separator:aff18a599bd6affc6e2709cb2cff9154c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca3b265c558db37b69a837668d2fdf12"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aca3b265c558db37b69a837668d2fdf12">get_stream_position</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:aca3b265c558db37b69a837668d2fdf12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the current offset in the input stream, or std;:<a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if unavailable.  <a href="namespacevg_1_1io.html#aca3b265c558db37b69a837668d2fdf12">More...</a><br /></td></tr>
+<tr class="separator:aca3b265c558db37b69a837668d2fdf12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3daebbee97f2451b25aec3c642c06c8"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:ac3daebbee97f2451b25aec3c642c06c8"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac3daebbee97f2451b25aec3c642c06c8">unpaired_for_each_parallel</a> (function&lt; bool(T &amp;)&gt; get_read_if_available, function&lt; void(T &amp;)&gt; lambda, uint64_t batch_size=<a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">DEFAULT_PARALLEL_BATCHSIZE</a>)</td></tr>
 <tr class="separator:ac3daebbee97f2451b25aec3c642c06c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -320,24 +331,24 @@ Functions</h2></td></tr>
 <tr class="memitem:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a88cb8e7bbebb78a2ef3bdce1c64ba077">write_to_file</a> (const T &amp;item, const string &amp;filename)</td></tr>
 <tr class="memdesc:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write a single message to a file.  <a href="namespacevg_1_1io.html#a88cb8e7bbebb78a2ef3bdce1c64ba077">More...</a><br /></td></tr>
 <tr class="separator:a88cb8e7bbebb78a2ef3bdce1c64ba077"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a022b50c432dde9a1f4195fd0ec3dce94"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a022b50c432dde9a1f4195fd0ec3dce94"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a022b50c432dde9a1f4195fd0ec3dce94">for_each</a> (std::istream &amp;in, const std::function&lt; void(int64_t, T &amp;)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a022b50c432dde9a1f4195fd0ec3dce94"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a32c791466c3bae889ab6cc86eb6fd0a5">for_each</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a32c791466c3bae889ab6cc86eb6fd0a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb82f7ea648c689f84cf5d492934a9aa"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:afb82f7ea648c689f84cf5d492934a9aa"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#afb82f7ea648c689f84cf5d492934a9aa">for_each_parallel_impl</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, size_t batch_size)</td></tr>
-<tr class="separator:afb82f7ea648c689f84cf5d492934a9aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae91f319911353b606799afdefe88f7da"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:ae91f319911353b606799afdefe88f7da"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae91f319911353b606799afdefe88f7da">for_each_interleaved_pair_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, size_t batch_size=256)</td></tr>
-<tr class="separator:ae91f319911353b606799afdefe88f7da"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8bc54e920105c8bf53fe936cc196f323"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a8bc54e920105c8bf53fe936cc196f323"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a8bc54e920105c8bf53fe936cc196f323">for_each_interleaved_pair_parallel_after_wait</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, size_t batch_size=256)</td></tr>
-<tr class="separator:a8bc54e920105c8bf53fe936cc196f323"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a6a3ddf4b05771fabe7c543dae992e13a">for_each_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, size_t batch_size=256)</td></tr>
-<tr class="separator:a6a3ddf4b05771fabe7c543dae992e13a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08997ecc2a7d17c35a27418b5f21ab3d"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a08997ecc2a7d17c35a27418b5f21ab3d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a08997ecc2a7d17c35a27418b5f21ab3d">for_each</a> (std::istream &amp;in, const std::function&lt; void(int64_t, T &amp;)&gt; &amp;lambda, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:a08997ecc2a7d17c35a27418b5f21ab3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6e19f6d7cb7f7c3d6a396268dcbd8007"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a6e19f6d7cb7f7c3d6a396268dcbd8007"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a6e19f6d7cb7f7c3d6a396268dcbd8007">for_each</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:a6e19f6d7cb7f7c3d6a396268dcbd8007"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1347d6f25fb95f2e4fd6cf5d2ff7f92d"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a1347d6f25fb95f2e4fd6cf5d2ff7f92d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a1347d6f25fb95f2e4fd6cf5d2ff7f92d">for_each_parallel_impl</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, size_t batch_size, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:a1347d6f25fb95f2e4fd6cf5d2ff7f92d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb40cd1227130aa2b23a1a7c91aa7f2d"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:aeb40cd1227130aa2b23a1a7c91aa7f2d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aeb40cd1227130aa2b23a1a7c91aa7f2d">for_each_interleaved_pair_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, size_t batch_size=256, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:aeb40cd1227130aa2b23a1a7c91aa7f2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa420d6f551083405c508bee6242ef123"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:aa420d6f551083405c508bee6242ef123"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa420d6f551083405c508bee6242ef123">for_each_interleaved_pair_parallel_after_wait</a> (std::istream &amp;in, const std::function&lt; void(T &amp;, T &amp;)&gt; &amp;lambda2, const std::function&lt; bool(void)&gt; &amp;single_threaded_until_true, size_t batch_size=256, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:aa420d6f551083405c508bee6242ef123"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2c3c1dbfdd613d8d70e6354d680b342e"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a2c3c1dbfdd613d8d70e6354d680b342e"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2c3c1dbfdd613d8d70e6354d680b342e">for_each_parallel</a> (std::istream &amp;in, const std::function&lt; void(T &amp;)&gt; &amp;lambda1, size_t batch_size=256, const std::function&lt; void(size_t, size_t)&gt; &amp;progress=<a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a>)</td></tr>
+<tr class="separator:a2c3c1dbfdd613d8d70e6354d680b342e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -346,6 +357,10 @@ Variables</h2></td></tr>
 <tr class="memitem:a4547db1ae9c6b6b3cf0ba9f4aed17e14"><td class="memTemplParams" colspan="2">template&lt;typename Item &gt; </td></tr>
 <tr class="memitem:a4547db1ae9c6b6b3cf0ba9f4aed17e14"><td class="memTemplItemLeft" align="right" valign="top">std::function&lt; void(const Item &amp;)&gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a4547db1ae9c6b6b3cf0ba9f4aed17e14">emit_to</a> (ostream &amp;out)</td></tr>
 <tr class="separator:a4547db1ae9c6b6b3cf0ba9f4aed17e14"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33939950704e2d4439b93cde15139172"><td class="memItemLeft" align="right" valign="top">const std::function&lt; void(size_t, size_t)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a> = [](size_t, size_t) {}</td></tr>
+<tr class="separator:a33939950704e2d4439b93cde15139172"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a21ec64ee292cf76a61bff68a727471e9"><td class="memItemLeft" align="right" valign="top">const std::function&lt; bool(void)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a21ec64ee292cf76a61bff68a727471e9">NO_WAIT</a> = []() { return true; }</td></tr>
+<tr class="separator:a21ec64ee292cf76a61bff68a727471e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="a53e90871d34e2a1d10329d419f809cea"></a>
@@ -888,8 +903,8 @@ template&lt;typename Item &gt; </div>
 
 </div>
 </div>
-<a id="a022b50c432dde9a1f4195fd0ec3dce94"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a022b50c432dde9a1f4195fd0ec3dce94">&#9670;&nbsp;</a></span>for_each() <span class="overload">[1/2]</span></h2>
+<a id="a08997ecc2a7d17c35a27418b5f21ab3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a08997ecc2a7d17c35a27418b5f21ab3d">&#9670;&nbsp;</a></span>for_each() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -906,7 +921,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; void(int64_t, T &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em>&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -918,8 +939,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a32c791466c3bae889ab6cc86eb6fd0a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a32c791466c3bae889ab6cc86eb6fd0a5">&#9670;&nbsp;</a></span>for_each() <span class="overload">[2/2]</span></h2>
+<a id="a6e19f6d7cb7f7c3d6a396268dcbd8007"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6e19f6d7cb7f7c3d6a396268dcbd8007">&#9670;&nbsp;</a></span>for_each() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -936,7 +957,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::function&lt; void(T &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>lambda</em>&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -948,8 +975,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="ae91f319911353b606799afdefe88f7da"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae91f319911353b606799afdefe88f7da">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel()</h2>
+<a id="aeb40cd1227130aa2b23a1a7c91aa7f2d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb40cd1227130aa2b23a1a7c91aa7f2d">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -972,7 +999,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -984,8 +1017,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a8bc54e920105c8bf53fe936cc196f323"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8bc54e920105c8bf53fe936cc196f323">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel_after_wait()</h2>
+<a id="aa420d6f551083405c508bee6242ef123"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa420d6f551083405c508bee6242ef123">&#9670;&nbsp;</a></span>for_each_interleaved_pair_parallel_after_wait()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1014,7 +1047,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1026,8 +1065,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a6a3ddf4b05771fabe7c543dae992e13a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6a3ddf4b05771fabe7c543dae992e13a">&#9670;&nbsp;</a></span>for_each_parallel()</h2>
+<a id="a2c3c1dbfdd613d8d70e6354d680b342e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2c3c1dbfdd613d8d70e6354d680b342e">&#9670;&nbsp;</a></span>for_each_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1050,7 +1089,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>batch_size</em> = <code>256</code>&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code>256</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1062,8 +1107,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="afb82f7ea648c689f84cf5d492934a9aa"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afb82f7ea648c689f84cf5d492934a9aa">&#9670;&nbsp;</a></span>for_each_parallel_impl()</h2>
+<a id="a1347d6f25fb95f2e4fd6cf5d2ff7f92d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1347d6f25fb95f2e4fd6cf5d2ff7f92d">&#9670;&nbsp;</a></span>for_each_parallel_impl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1098,7 +1143,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>batch_size</em>&#160;</td>
+          <td class="paramname"><em>batch_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>progress</em> = <code><a class="el" href="namespacevg_1_1io.html#a33939950704e2d4439b93cde15139172">NO_PROGRESS</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1810,6 +1861,46 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="aff18a599bd6affc6e2709cb2cff9154c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff18a599bd6affc6e2709cb2cff9154c">&#9670;&nbsp;</a></span>get_stream_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::io::get_stream_length </td>
+          <td>(</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the length of the input stream, or <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;size_t&gt;::max()</a> if unavailable. </p>
+
+</div>
+</div>
+<a id="aca3b265c558db37b69a837668d2fdf12"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca3b265c558db37b69a837668d2fdf12">&#9670;&nbsp;</a></span>get_stream_position()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::io::get_stream_position </td>
+          <td>(</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the current offset in the input stream, or std;:<a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if unavailable. </p>
+
+</div>
+</div>
 <a id="a62b10a042ea08faa5da35ff07183d49b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a62b10a042ea08faa5da35ff07183d49b">&#9670;&nbsp;</a></span>hfile_wrap() <span class="overload">[1/2]</span></h2>
 
@@ -1867,6 +1958,44 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a550ead63070ee82e14eb16659099755b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a550ead63070ee82e14eb16659099755b">&#9670;&nbsp;</a></span>json2graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::json2graph </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>json</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>dest</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Load a JSON string into a graph. The string must be a single JSON object. </p>
 
 </div>
 </div>
@@ -2400,6 +2529,23 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="ac0521f6b9e5e9e78ab0837548bef8f0e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac0521f6b9e5e9e78ab0837548bef8f0e">&#9670;&nbsp;</a></span>register_loader_saver_zip_codes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_zip_codes </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a52a77b52c33c165637fb00be3e9f54e0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a52a77b52c33c165637fb00be3e9f54e0">&#9670;&nbsp;</a></span>reverse_complement_edit()</h2>
 
@@ -2854,6 +3000,34 @@ template&lt;typename Item &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Produce an std::function that can be invoked with Protobuf objects and save them to the given stream. Easy way to get a dumping callback to feed to something that wants a callback. The passed stream must outlive the resulting function. </p>
+
+</div>
+</div>
+<a id="a33939950704e2d4439b93cde15139172"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33939950704e2d4439b93cde15139172">&#9670;&nbsp;</a></span>NO_PROGRESS</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::function&lt;void(size_t, size_t)&gt; vg::io::NO_PROGRESS = [](size_t, size_t) {}</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a21ec64ee292cf76a61bff68a727471e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a21ec64ee292cf76a61bff68a727471e9">&#9670;&nbsp;</a></span>NO_WAIT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::function&lt;bool(void)&gt; vg::io::NO_WAIT = []() { return true; }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

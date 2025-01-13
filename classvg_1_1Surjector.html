@@ -70,6 +70,7 @@ $(function() {
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
@@ -143,9 +144,11 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a185cc3fad9b021b08f03880ae0119db6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a185cc3fad9b021b08f03880ae0119db6">max_tail_length</a> = 10000</td></tr>
 <tr class="memdesc:a185cc3fad9b021b08f03880ae0119db6"><td class="mdescLeft">&#160;</td><td class="mdescRight">the maximum length of a tail that we will try to align  <a href="classvg_1_1Surjector.html#a185cc3fad9b021b08f03880ae0119db6">More...</a><br /></td></tr>
 <tr class="separator:a185cc3fad9b021b08f03880ae0119db6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a77d7a865fffb0ebbc979ba8139f026c5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a77d7a865fffb0ebbc979ba8139f026c5">max_subgraph_bases</a> = 100 * 1024</td></tr>
-<tr class="memdesc:a77d7a865fffb0ebbc979ba8139f026c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">How big of a graph in bp should we ever try to align against for realigning surjection?  <a href="classvg_1_1Surjector.html#a77d7a865fffb0ebbc979ba8139f026c5">More...</a><br /></td></tr>
-<tr class="separator:a77d7a865fffb0ebbc979ba8139f026c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e22a6f6da976c0b505caa6c1ad10ed8"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0e22a6f6da976c0b505caa6c1ad10ed8">max_band_cells</a> = 8000000000</td></tr>
+<tr class="separator:a0e22a6f6da976c0b505caa6c1ad10ed8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14e20f641f120ca8fa5206ace84be331"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a14e20f641f120ca8fa5206ace84be331">max_subgraph_bases_per_read_base</a> = <a class="el" href="classvg_1_1Surjector.html#ac78645d41b2dfd88bece81c86a5b7090">DEFAULT_SUBGRAPH_LIMIT</a></td></tr>
+<tr class="memdesc:a14e20f641f120ca8fa5206ace84be331"><td class="mdescLeft">&#160;</td><td class="mdescRight">How big of a graph (in graph bases per read base) should we ever try to align against for realigning surjection?  <a href="classvg_1_1Surjector.html#a14e20f641f120ca8fa5206ace84be331">More...</a><br /></td></tr>
+<tr class="separator:a14e20f641f120ca8fa5206ace84be331"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac21d8c91876c3522c56c4c1c2b8f8f58"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac21d8c91876c3522c56c4c1c2b8f8f58">min_fold_coverage_for_downsample</a> = 8</td></tr>
 <tr class="memdesc:ac21d8c91876c3522c56c4c1c2b8f8f58"><td class="mdescLeft">&#160;</td><td class="mdescRight">in spliced surject, downsample if the base-wise average coverage by chunks is this high  <a href="classvg_1_1Surjector.html#ac21d8c91876c3522c56c4c1c2b8f8f58">More...</a><br /></td></tr>
 <tr class="separator:ac21d8c91876c3522c56c4c1c2b8f8f58"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -163,6 +166,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af01db9677cefc7952fee698f8ee2b672"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a59034e11562bb0969c25defd215f166b"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a59034e11562bb0969c25defd215f166b">max_tail_anchor_prune</a> = 4</td></tr>
 <tr class="separator:a59034e11562bb0969c25defd215f166b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e40286284b27ccef7fbcc028fc40142"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0e40286284b27ccef7fbcc028fc40142">max_slide</a> = <a class="el" href="classvg_1_1Surjector.html#a3484c973d05e38e523cc45c85ee4d9f3">DEFAULT_MAX_SLIDE</a></td></tr>
+<tr class="separator:a0e40286284b27ccef7fbcc028fc40142"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1df336db06fea7951c960f71265d513d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1df336db06fea7951c960f71265d513d">low_complexity_p_value</a> = .0075</td></tr>
 <tr class="separator:a1df336db06fea7951c960f71265d513d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f304005022b214c309ff60a1f186b1f"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0f304005022b214c309ff60a1f186b1f">max_low_complexity_anchor_prune</a> = 40</td></tr>
@@ -180,6 +185,17 @@ Public Attributes</h2></td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a8af3e56b9463fbbf483e78477f4a7172"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a8af3e56b9463fbbf483e78477f4a7172">SPLICED_DEFAULT_SUBGRAPH_LIMIT</a> = 16 * 1024 * 1024 / 125.0</td></tr>
+<tr class="memdesc:a8af3e56b9463fbbf483e78477f4a7172"><td class="mdescLeft">&#160;</td><td class="mdescRight">We have a different default max_subgraph_bases_per_read_base to use for spliced alignment.  <a href="classvg_1_1Surjector.html#a8af3e56b9463fbbf483e78477f4a7172">More...</a><br /></td></tr>
+<tr class="separator:a8af3e56b9463fbbf483e78477f4a7172"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac78645d41b2dfd88bece81c86a5b7090"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac78645d41b2dfd88bece81c86a5b7090">DEFAULT_SUBGRAPH_LIMIT</a> = 100 * 1024 / 125.0</td></tr>
+<tr class="memdesc:ac78645d41b2dfd88bece81c86a5b7090"><td class="mdescLeft">&#160;</td><td class="mdescRight">And an accessible default max_subgraph_bases_per_read_base for normal alignment.  <a href="classvg_1_1Surjector.html#ac78645d41b2dfd88bece81c86a5b7090">More...</a><br /></td></tr>
+<tr class="separator:ac78645d41b2dfd88bece81c86a5b7090"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3484c973d05e38e523cc45c85ee4d9f3"><td class="memItemLeft" align="right" valign="top">static constexpr int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a3484c973d05e38e523cc45c85ee4d9f3">DEFAULT_MAX_SLIDE</a> = 6</td></tr>
+<tr class="separator:a3484c973d05e38e523cc45c85ee4d9f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -1778,6 +1794,52 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
+<a id="a3484c973d05e38e523cc45c85ee4d9f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3484c973d05e38e523cc45c85ee4d9f3">&#9670;&nbsp;</a></span>DEFAULT_MAX_SLIDE</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr int64_t vg::Surjector::DEFAULT_MAX_SLIDE = 6</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac78645d41b2dfd88bece81c86a5b7090"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac78645d41b2dfd88bece81c86a5b7090">&#9670;&nbsp;</a></span>DEFAULT_SUBGRAPH_LIMIT</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::Surjector::DEFAULT_SUBGRAPH_LIMIT = 100 * 1024 / 125.0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>And an accessible default max_subgraph_bases_per_read_base for normal alignment. </p>
+
+</div>
+</div>
 <a id="ace7092128b309c97f00fc688d3311c14"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ace7092128b309c97f00fc688d3311c14">&#9670;&nbsp;</a></span>dominated_path_chunk_diff</h2>
 
@@ -1861,6 +1923,20 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
+<a id="a0e22a6f6da976c0b505caa6c1ad10ed8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e22a6f6da976c0b505caa6c1ad10ed8">&#9670;&nbsp;</a></span>max_band_cells</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t vg::Surjector::max_band_cells = 8000000000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a0f304005022b214c309ff60a1f186b1f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0f304005022b214c309ff60a1f186b1f">&#9670;&nbsp;</a></span>max_low_complexity_anchor_prune</h2>
 
@@ -1889,19 +1965,34 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
-<a id="a77d7a865fffb0ebbc979ba8139f026c5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a77d7a865fffb0ebbc979ba8139f026c5">&#9670;&nbsp;</a></span>max_subgraph_bases</h2>
+<a id="a0e40286284b27ccef7fbcc028fc40142"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e40286284b27ccef7fbcc028fc40142">&#9670;&nbsp;</a></span>max_slide</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::Surjector::max_subgraph_bases = 100 * 1024</td>
+          <td class="memname">int64_t vg::Surjector::max_slide = <a class="el" href="classvg_1_1Surjector.html#a3484c973d05e38e523cc45c85ee4d9f3">DEFAULT_MAX_SLIDE</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Declare an anchor suspicious if it appears again at any offset up to this limit or the anchor length. </p>
+
+</div>
+</div>
+<a id="a14e20f641f120ca8fa5206ace84be331"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14e20f641f120ca8fa5206ace84be331">&#9670;&nbsp;</a></span>max_subgraph_bases_per_read_base</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Surjector::max_subgraph_bases_per_read_base = <a class="el" href="classvg_1_1Surjector.html#ac78645d41b2dfd88bece81c86a5b7090">DEFAULT_SUBGRAPH_LIMIT</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>How big of a graph in bp should we ever try to align against for realigning surjection? </p>
+<p>How big of a graph (in graph bases per read base) should we ever try to align against for realigning surjection? </p>
 
 </div>
 </div>
@@ -2008,7 +2099,7 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>When examining anchors for suspiciousness, try and make them at least this long. To ensure orientation symmetry, we will make anchors with the oppsite parity (even if this is odd, or odd if this is even) 1bp longer. </p>
+<p>When examining anchors for low complexity, try and make them at least this long. To ensure orientation symmetry, we will make anchors with the oppsite parity (even if this is odd, or odd if this is even) 1bp longer. </p>
 
 </div>
 </div>
@@ -2037,6 +2128,30 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8af3e56b9463fbbf483e78477f4a7172"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8af3e56b9463fbbf483e78477f4a7172">&#9670;&nbsp;</a></span>SPLICED_DEFAULT_SUBGRAPH_LIMIT</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT = 16 * 1024 * 1024 / 125.0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We have a different default max_subgraph_bases_per_read_base to use for spliced alignment. </p>
 
 </div>
 </div>

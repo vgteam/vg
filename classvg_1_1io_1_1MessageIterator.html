@@ -89,7 +89,6 @@ Public Types</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a44eabe49bb3f28067f8ba3396915ee64"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a44eabe49bb3f28067f8ba3396915ee64">MessageIterator</a> (istream &amp;in, bool <a class="el" href="classvg_1_1io_1_1MessageIterator.html#af3f1540514c644f1d01212d515f603e6">verbose</a>=false, size_t thread_count=0)</td></tr>
-<tr class="memdesc:a44eabe49bb3f28067f8ba3396915ee64"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a> to wrap a stream.  <a href="classvg_1_1io_1_1MessageIterator.html#a44eabe49bb3f28067f8ba3396915ee64">More...</a><br /></td></tr>
 <tr class="separator:a44eabe49bb3f28067f8ba3396915ee64"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae7ddb87951881f58221acd0a1beeb32f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ae7ddb87951881f58221acd0a1beeb32f">MessageIterator</a> (unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html">BlockedGzipInputStream</a> &gt; &amp;&amp;bgzf, bool <a class="el" href="classvg_1_1io_1_1MessageIterator.html#af3f1540514c644f1d01212d515f603e6">verbose</a>=false)</td></tr>
 <tr class="memdesc:ae7ddb87951881f58221acd0a1beeb32f"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a> to wrap an existing BGZF.  <a href="classvg_1_1io_1_1MessageIterator.html#ae7ddb87951881f58221acd0a1beeb32f">More...</a><br /></td></tr>
@@ -214,8 +213,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a> to wrap a stream. </p>
+<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a> to wrap a stream. If thread_count is more than 1, enables multi-threaded BGZF decoding, in which case no method on the stream may be called by anyone else until the <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> is destroyed! </p>
 
 </div>
 </div>

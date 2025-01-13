@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['last_13137',['last',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1f9f68c932a97214ed914c8ba2c882f2',1,'vg::Counts']]]
+  ['json_13954',['JSON',['../namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa0ecd11c1d7a287401d148a23bbd7a2f8',1,'vg::subcommand']]]
 ];

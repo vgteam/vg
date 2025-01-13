@@ -67,24 +67,31 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#define-members">Macros</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">minimizer_mapper_from_chains.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="minimizer__mapper_8hpp.html">minimizer_mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="annotation_8hpp.html">annotation.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="banded__global__aligner_8hpp.html">banded_global_aligner.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="crash_8hpp.html">crash.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="path__subgraph_8hpp.html">path_subgraph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="multipath__alignment_8hpp.html">multipath_alignment.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="split__strand__graph_8hpp.html">split_strand_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="subgraph_8hpp.html">subgraph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="statistics_8hpp.html">statistics.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="alignment__path__offsets_8hpp.html">algorithms/alignment_path_offsets.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="count__covered_8hpp.html">algorithms/count_covered.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="intersect__path__offsets_8hpp.html">algorithms/intersect_path_offsets.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="extract__containing__graph_8hpp.html">algorithms/extract_containing_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="extract__connecting__graph_8hpp.html">algorithms/extract_connecting_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="extract__extending__graph_8hpp.html">algorithms/extract_extending_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="chain__items_8hpp.html">algorithms/chain_items.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="pad__band_8hpp.html">algorithms/pad_band.hpp</a>&quot;</code><br />
 <code>#include &lt;bdsg/overlays/strand_split_overlay.hpp&gt;</code><br />
 <code>#include &lt;gbwtgraph/algorithms.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/cached_gbwtgraph.h&gt;</code><br />
@@ -93,14 +100,44 @@ $(function() {
 <code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;cfloat&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ChainAlignmentFailedError.html">vg::ChainAlignmentFailedError</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:a322565ccf348d13e4d3de13af771e5fc"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__mapper__from__chains_8cpp.html#a322565ccf348d13e4d3de13af771e5fc">debug</a></td></tr>
+<tr class="separator:a322565ccf348d13e4d3de13af771e5fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a6058ba7e46dc3e0b34b06ff01ed5f22d"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6058ba7e46dc3e0b34b06ff01ed5f22d">vg::find_anchor_intervals</a> (const std::pair&lt; size_t, size_t &gt; &amp;read_interval, const std::vector&lt; size_t &gt; &amp;mismatch_positions, const std::vector&lt; size_t &gt; &amp;seed_positions)</td></tr>
+<tr class="separator:a6058ba7e46dc3e0b34b06ff01ed5f22d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the code for the long-read code path for the minimizer-and-GBWT-based mapper (long read Giraffe). </p>
-</div></div><!-- contents -->
+</div><h2 class="groupheader">Macro Definition Documentation</h2>
+<a id="a322565ccf348d13e4d3de13af771e5fc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a322565ccf348d13e4d3de13af771e5fc">&#9670;&nbsp;</a></span>debug</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define debug</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

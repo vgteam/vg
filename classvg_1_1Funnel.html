@@ -72,6 +72,7 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-types">Protected Types</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1Funnel-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -181,17 +182,24 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a996005ebe76091bbba404bf4a2a9a405"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab53e816bd740407417b0bd8d14d5237c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab53e816bd740407417b0bd8d14d5237c">last_tagged_stage</a> (<a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a> <a class="el" href="classvg_1_1Funnel.html#abd3cf8783612cccf4faf96f25fc4f17c">tag</a>, size_t tag_start=0, size_t tag_length=std::numeric_limits&lt; size_t &gt;::max()) const</td></tr>
 <tr class="separator:ab53e816bd740407417b0bd8d14d5237c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adee7882f4f431a866847baec1fc77718"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#adee7882f4f431a866847baec1fc77718">position</a> (size_t item, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t <a class="el" href="namespacevg.html#ad48a54a3ddd5e6ffd8e3e6296fb9c037">offset</a>)</td></tr>
+<tr class="separator:adee7882f4f431a866847baec1fc77718"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a617af9590f607720de6a87dfcddbe553"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, std::pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a617af9590f607720de6a87dfcddbe553">get_positions</a> (size_t item) const</td></tr>
+<tr class="memdesc:a617af9590f607720de6a87dfcddbe553"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get min and max effective positions along paths for an item in the current stage.  <a href="classvg_1_1Funnel.html#a617af9590f607720de6a87dfcddbe553">More...</a><br /></td></tr>
+<tr class="separator:a617af9590f607720de6a87dfcddbe553"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a933c8a296c5a680aa96b0b913c465250"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">latest</a> () const</td></tr>
 <tr class="memdesc:a933c8a296c5a680aa96b0b913c465250"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the index of the most recent item created in the current stage.  <a href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">More...</a><br /></td></tr>
 <tr class="separator:a933c8a296c5a680aa96b0b913c465250"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe28658059032edb97960675bd8806ab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#afe28658059032edb97960675bd8806ab">for_each_stage</a> (const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;, const double &amp;)&gt; &amp;callback) const</td></tr>
-<tr class="separator:afe28658059032edb97960675bd8806ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6b8e05750253de736a8a44de5932e352"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a6b8e05750253de736a8a44de5932e352">for_each_stage</a> (const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;, const double &amp;, const std::unordered_map&lt; std::string, double &gt; &amp;)&gt; &amp;callback) const</td></tr>
+<tr class="separator:a6b8e05750253de736a8a44de5932e352"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc114c16e43a80739d292e03b65fa8ab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#afc114c16e43a80739d292e03b65fa8ab">for_each_filter</a> (const function&lt; void(const string &amp;, const string &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;)&gt; &amp;callback) const</td></tr>
 <tr class="separator:afc114c16e43a80739d292e03b65fa8ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad4a9374a423b2b87a15355ffac7a1935"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ad4a9374a423b2b87a15355ffac7a1935">to_dot</a> (ostream &amp;out) const</td></tr>
 <tr class="separator:ad4a9374a423b2b87a15355ffac7a1935"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc044b59bc97ac7e6536068fa9bdb5d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#adc044b59bc97ac7e6536068fa9bdb5d2">annotate_mapped_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool annotate_correctness) const</td></tr>
 <tr class="separator:adc044b59bc97ac7e6536068fa9bdb5d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeca18258bb42790609df5f17d2394135"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aeca18258bb42790609df5f17d2394135">map_stage_results_to_previous_stage</a> (string <a class="el" href="classvg_1_1Funnel.html#a832c7d0be58aa6fa1e8dd8e7780e6850">stage_name</a>) const</td></tr>
+<tr class="separator:aeca18258bb42790609df5f17d2394135"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-types"></a>
 Protected Types</h2></td></tr>
@@ -201,6 +209,9 @@ Protected Types</h2></td></tr>
 <tr class="memitem:a573543e4560aee58697f78cc266f22c7"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7">time_point</a> = clock::time_point</td></tr>
 <tr class="memdesc:a573543e4560aee58697f78cc266f22c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">And a type to represent stage transition times.  <a href="classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7">More...</a><br /></td></tr>
 <tr class="separator:a573543e4560aee58697f78cc266f22c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56cbd7625da0c6a99ce37fac67513c55"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">effective_position_t</a> = std::unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, std::pair&lt; size_t, size_t &gt; &gt;</td></tr>
+<tr class="memdesc:a56cbd7625da0c6a99ce37fac67513c55"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tracks effective positions along paths.  <a href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">More...</a><br /></td></tr>
+<tr class="separator:a56cbd7625da0c6a99ce37fac67513c55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -208,6 +219,12 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a5f8f988df65fc91adc7da9dd8d4446ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9d28d3fee3f8658d59a63c52338644e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a9d28d3fee3f8658d59a63c52338644e2">create_item</a> ()</td></tr>
 <tr class="separator:a9d28d3fee3f8658d59a63c52338644e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
+<tr class="memitem:a5195231cc0b426406133439d5a7d6026"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a5195231cc0b426406133439d5a7d6026">effective_position_union</a> (<a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">effective_position_t</a> &amp;dest, const <a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">effective_position_t</a> &amp;other)</td></tr>
+<tr class="memdesc:a5195231cc0b426406133439d5a7d6026"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merge one set of effective positions into another.  <a href="classvg_1_1Funnel.html#a5195231cc0b426406133439d5a7d6026">More...</a><br /></td></tr>
+<tr class="separator:a5195231cc0b426406133439d5a7d6026"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -229,6 +246,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a4cfa61145fcd97f5710c3d609e72a997"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a4cfa61145fcd97f5710c3d609e72a997">substage_name</a></td></tr>
 <tr class="memdesc:a4cfa61145fcd97f5710c3d609e72a997"><td class="mdescLeft">&#160;</td><td class="mdescRight">What's the name of the current substage? Will be empty if no substage is running.  <a href="classvg_1_1Funnel.html#a4cfa61145fcd97f5710c3d609e72a997">More...</a><br /></td></tr>
 <tr class="separator:a4cfa61145fcd97f5710c3d609e72a997"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8b9248bf65562b44ac8b65f50619c70"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7">time_point</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ae8b9248bf65562b44ac8b65f50619c70">substage_start_time</a></td></tr>
+<tr class="memdesc:ae8b9248bf65562b44ac8b65f50619c70"><td class="mdescLeft">&#160;</td><td class="mdescRight">At what time did the substage start?  <a href="classvg_1_1Funnel.html#ae8b9248bf65562b44ac8b65f50619c70">More...</a><br /></td></tr>
+<tr class="separator:ae8b9248bf65562b44ac8b65f50619c70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a755941e4c7988487e539256c16b507bb"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a755941e4c7988487e539256c16b507bb">input_in_progress</a> = numeric_limits&lt;size_t&gt;::max()</td></tr>
 <tr class="separator:a755941e4c7988487e539256c16b507bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae946f8189275c0f4b77f29433406a24b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ae946f8189275c0f4b77f29433406a24b">output_in_progress</a> = numeric_limits&lt;size_t&gt;::max()</td></tr>
@@ -264,6 +284,30 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Pick a clock to use for measuring stage duration. </p>
+
+</div>
+</div>
+<a id="a56cbd7625da0c6a99ce37fac67513c55"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a56cbd7625da0c6a99ce37fac67513c55">&#9670;&nbsp;</a></span>effective_position_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">vg::Funnel::effective_position_t</a> =  std::unordered_map&lt;<a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, std::pair&lt;size_t, size_t&gt; &gt;</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Tracks effective positions along paths. </p>
 
 </div>
 </div>
@@ -350,7 +394,7 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Record extra provenance relationships where the latest current-stage item came from the given previous-stage items. Increases the current-stage item group size by the number of previous-stage items added.</p>
-<p>Propagates tagging. </p>
+<p>Propagates tagging and positions. </p>
 
 </div>
 </div>
@@ -388,7 +432,7 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Record extra provenance relationships where the latest current-stage item came from the given earlier-stage items. Increases the current-stage item group size by the number of previous-stage items added.</p>
-<p>Propagates tagging.</p>
+<p>Propagates tagging and positions.</p>
 <p>earlier_stage_lookback determines how many stages to look back and must be 1 or more. </p>
 
 </div>
@@ -478,6 +522,44 @@ template&lt;typename Iterator &gt; </div>
 
 </div>
 </div>
+<a id="a5195231cc0b426406133439d5a7d6026"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5195231cc0b426406133439d5a7d6026">&#9670;&nbsp;</a></span>effective_position_union()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::effective_position_union </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">effective_position_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Funnel.html#a56cbd7625da0c6a99ce37fac67513c55">effective_position_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Merge one set of effective positions into another. </p>
+
+</div>
+</div>
 <a id="a9440c3268e8c60b664a37283d9fc5cff"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9440c3268e8c60b664a37283d9fc5cff">&#9670;&nbsp;</a></span>expand()</h2>
 
@@ -562,8 +644,8 @@ template&lt;typename Iterator &gt; </div>
 
 </div>
 </div>
-<a id="afe28658059032edb97960675bd8806ab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afe28658059032edb97960675bd8806ab">&#9670;&nbsp;</a></span>for_each_stage()</h2>
+<a id="a6b8e05750253de736a8a44de5932e352"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6b8e05750253de736a8a44de5932e352">&#9670;&nbsp;</a></span>for_each_stage()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -571,13 +653,13 @@ template&lt;typename Iterator &gt; </div>
         <tr>
           <td class="memname">void vg::Funnel::for_each_stage </td>
           <td>(</td>
-          <td class="paramtype">const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;, const double &amp;)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; void(const string &amp;, const vector&lt; size_t &gt; &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;, const double &amp;, const std::unordered_map&lt; std::string, double &gt; &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>callback</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Call the given callback with stage name, and vector of result item sizes at that stage, and a duration in seconds, for each stage. </p>
+<p>Call the given callback with stage name, a vector of result item sizes at that stage, a vector of correct item scores at that stage (if any), a vector of non-correct item scores at that stage (if any), a duration in seconds, and a map from substage name to duration in seconds, for each stage. TODO: Just expose the item and stage types? </p>
 
 </div>
 </div>
@@ -605,6 +687,26 @@ template&lt;typename Iterator &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Ensure an item with the given index exists in the current stage and return a reference to it. We need to do it this way because we might save a production duration before an item is really projected. The items of the current stage should only be modified through this. Note that you do <em>not</em> need to create an item in order to get it. </p>
+
+</div>
+</div>
+<a id="a617af9590f607720de6a87dfcddbe553"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a617af9590f607720de6a87dfcddbe553">&#9670;&nbsp;</a></span>get_positions()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, std::pair&lt; size_t, size_t &gt; &gt; vg::Funnel::get_positions </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>item</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get min and max effective positions along paths for an item in the current stage. </p>
 
 </div>
 </div>
@@ -728,6 +830,25 @@ template&lt;typename Iterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Get the index of the most recent item created in the current stage. </p>
+
+</div>
+</div>
+<a id="aeca18258bb42790609df5f17d2394135"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeca18258bb42790609df5f17d2394135">&#9670;&nbsp;</a></span>map_stage_results_to_previous_stage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; vector&lt; size_t &gt; &gt; vg::Funnel::map_stage_results_to_previous_stage </td>
+          <td>(</td>
+          <td class="paramtype">string&#160;</td>
+          <td class="paramname"><em>stage_name</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>For each item in a given stage, what are the indices of the items of the previous stage that gave rise to it? </p>
 
 </div>
 </div>
@@ -856,6 +977,41 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Pass the given item from the previous stage through the given filter at this stage. Items which do not pass a filter must fail it. All items which pass filters must do so in the same order. The filter name must survive the funnel, because a pointer to it will be stored. Allows a statistic for the filtered-on value for the passing item to be recorded. </p>
+
+</div>
+</div>
+<a id="adee7882f4f431a866847baec1fc77718"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adee7882f4f431a866847baec1fc77718">&#9670;&nbsp;</a></span>position()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::position </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>offset</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Note an effective position for an item created in the current stage, along a path. Positions will be tracked through lineages. </p>
 
 </div>
 </div>
@@ -1490,6 +1646,30 @@ template&lt;typename Iterator &gt; </div>
 </div><div class="memdoc">
 
 <p>What's the name of the current substage? Will be empty if no substage is running. </p>
+
+</div>
+</div>
+<a id="ae8b9248bf65562b44ac8b65f50619c70"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8b9248bf65562b44ac8b65f50619c70">&#9670;&nbsp;</a></span>substage_start_time</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7">time_point</a> vg::Funnel::substage_start_time</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>At what time did the substage start? </p>
 
 </div>
 </div>

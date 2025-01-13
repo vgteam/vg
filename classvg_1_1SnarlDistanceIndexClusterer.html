@@ -111,8 +111,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a210ee5c625ead0e415f2276d1d20bb05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37e825d3d82904c3bda0598ac1093326"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Cluster.html">Cluster</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a37e825d3d82904c3bda0598ac1093326">cluster_seeds</a> (const vector&lt; vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &gt;&gt; &amp;all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const</td></tr>
 <tr class="separator:a37e825d3d82904c3bda0598ac1093326"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a17649672360f10442f4476d31de7e02c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html#a17649672360f10442f4476d31de7e02c">distance_between_seeds</a> (const <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &amp;seed1, const <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &amp;seed2, bool stop_at_lowest_common_ancestor) const</td></tr>
-<tr class="separator:a17649672360f10442f4476d31de7e02c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -915,41 +913,6 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a17649672360f10442f4476d31de7e02c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a17649672360f10442f4476d31de7e02c">&#9670;&nbsp;</a></span>distance_between_seeds()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::SnarlDistanceIndexClusterer::distance_between_seeds </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &amp;&#160;</td>
-          <td class="paramname"><em>seed1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">Seed</a> &amp;&#160;</td>
-          <td class="paramname"><em>seed2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>stop_at_lowest_common_ancestor</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Find the minimum distance between two seeds. This will use the minimizer payload when possible </p>
 
 </div>
 </div>

@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['verbosity_5fbasic_13209',['verbosity_basic',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa718364c23222ec5e7444240be0799449',1,'vg::Haplotypes']]],
-  ['verbosity_5fdebug_13210',['verbosity_debug',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241',1,'vg::Haplotypes']]],
-  ['verbosity_5fdetailed_13211',['verbosity_detailed',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa8c3562efded9b2b9ae9fd7ee05594ce0',1,'vg::Haplotypes']]],
-  ['verbosity_5fsilent_13212',['verbosity_silent',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21',1,'vg::Haplotypes']]],
-  ['vg_13213',['VG',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a5e978449ccc729202c33e2dc543b8327',1,'vg::IndexingParameters']]]
+  ['ultrabubble_14040',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
+  ['unary_14041',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
+  ['unclassified_14042',['UNCLASSIFIED',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a7db3292851220acc20f75deebe0924ff',1,'vg']]],
+  ['undetermined_14043',['Undetermined',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda6fa550428b55152a0c55175786170a75',1,'vg::MultipathMapper']]],
+  ['unmapped_14044',['unmapped',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9aa653bbbb9be3aa57e63377efbf2122bb',1,'vg::Counts']]]
 ];

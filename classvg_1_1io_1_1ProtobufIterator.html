@@ -82,7 +82,6 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a0f2996a9653a98470e7c944879a69d70"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a0f2996a9653a98470e7c944879a69d70">ProtobufIterator</a> (istream &amp;in)</td></tr>
-<tr class="memdesc:a0f2996a9653a98470e7c944879a69d70"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a>.  <a href="classvg_1_1io_1_1ProtobufIterator.html#a0f2996a9653a98470e7c944879a69d70">More...</a><br /></td></tr>
 <tr class="separator:a0f2996a9653a98470e7c944879a69d70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50ad0e8d7ee212617dbf9e456ea43e07"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a50ad0e8d7ee212617dbf9e456ea43e07">ProtobufIterator</a> ()=default</td></tr>
 <tr class="memdesc:a50ad0e8d7ee212617dbf9e456ea43e07"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor for an end iterator.  <a href="classvg_1_1io_1_1ProtobufIterator.html#a50ad0e8d7ee212617dbf9e456ea43e07">More...</a><br /></td></tr>
@@ -127,7 +126,6 @@ Private Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
 <tr class="memitem:a787d06e13a1799b7e65ee1aa19ec3bb8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a787d06e13a1799b7e65ee1aa19ec3bb8">message_it</a></td></tr>
-<tr class="memdesc:a787d06e13a1799b7e65ee1aa19ec3bb8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrap a <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> and just do Protobuf parsing on top of that.  <a href="classvg_1_1io_1_1ProtobufIterator.html#a787d06e13a1799b7e65ee1aa19ec3bb8">More...</a><br /></td></tr>
 <tr class="separator:a787d06e13a1799b7e65ee1aa19ec3bb8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa66494ab08ee29d36b1aa04f0213f566"><td class="memItemLeft" align="right" valign="top">T&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566">value</a></td></tr>
 <tr class="memdesc:aa66494ab08ee29d36b1aa04f0213f566"><td class="mdescLeft">&#160;</td><td class="mdescRight">We always maintain a parsed version of the current message.  <a href="classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566">More...</a><br /></td></tr>
@@ -137,7 +135,7 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><h3>template&lt;typename T&gt;<br />
 class vg::io::ProtobufIterator&lt; T &gt;</h3>
 
-<p>Refactored <a class="el" href="namespacevg_1_1io.html#a022b50c432dde9a1f4195fd0ec3dce94">io::for_each</a> function that follows the unidirectional iterator interface. Also supports seeking and telling at the group level in bgzip files. Cannot be copied, but can be moved. </p>
+<p>Refactored <a class="el" href="namespacevg_1_1io.html#a08997ecc2a7d17c35a27418b5f21ab3d">io::for_each</a> function that follows the unidirectional iterator interface. Also supports seeking and telling at the group level in bgzip files. Cannot be copied, but can be moved. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a0f2996a9653a98470e7c944879a69d70"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0f2996a9653a98470e7c944879a69d70">&#9670;&nbsp;</a></span>ProtobufIterator() <span class="overload">[1/2]</span></h2>
@@ -156,8 +154,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a>. </p>
+<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a>. Uses single-threaded decoding, so methods may be called on the given stream from other code while the <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">ProtobufIterator</a> exists, as long as no <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">ProtobufIterator</a> method is running. </p>
 
 </div>
 </div>
@@ -496,8 +493,7 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Wrap a <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> and just do Protobuf parsing on top of that. </p>
+<p>Wrap a <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> and just do Protobuf parsing on top of that. We always use one that is single-threaded. </p>
 
 </div>
 </div>

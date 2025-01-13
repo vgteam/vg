@@ -86,8 +86,8 @@ Inheritance diagram for vg::io::BlockedGzipInputStream:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:afc84a10789900c9ae6ec99b0f26dea79"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#afc84a10789900c9ae6ec99b0f26dea79">BlockedGzipInputStream</a> (std::istream &amp;stream)</td></tr>
-<tr class="separator:afc84a10789900c9ae6ec99b0f26dea79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68ce515c9bee3c71da952dfe5db7ecac"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a68ce515c9bee3c71da952dfe5db7ecac">BlockedGzipInputStream</a> (std::istream &amp;stream, size_t thread_count=0)</td></tr>
+<tr class="separator:a68ce515c9bee3c71da952dfe5db7ecac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56990712e743be20a39e760309a8934c"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a56990712e743be20a39e760309a8934c">~BlockedGzipInputStream</a> ()</td></tr>
 <tr class="memdesc:a56990712e743be20a39e760309a8934c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the stream.  <a href="classvg_1_1io_1_1BlockedGzipInputStream.html#a56990712e743be20a39e760309a8934c">More...</a><br /></td></tr>
 <tr class="separator:a56990712e743be20a39e760309a8934c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -114,8 +114,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa221be19182d88b7caa36ead3e63c829"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a1eb2633e42ca1b50ab167497e581e6bd">IsBGZF</a> () const</td></tr>
 <tr class="separator:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05867f12652ebbcc5318f3d517b3dfd1"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a05867f12652ebbcc5318f3d517b3dfd1">EnableMultiThreading</a> (size_t thread_count)</td></tr>
-<tr class="separator:a05867f12652ebbcc5318f3d517b3dfd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -136,8 +134,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Protobuf-style ZeroCopyInputStream that reads data from blocked gzip format, and allows interacting with virtual offsets. Cannot be moved or copied, because the base class can't be moved or copied. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="afc84a10789900c9ae6ec99b0f26dea79"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afc84a10789900c9ae6ec99b0f26dea79">&#9670;&nbsp;</a></span>BlockedGzipInputStream() <span class="overload">[1/3]</span></h2>
+<a id="a68ce515c9bee3c71da952dfe5db7ecac"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68ce515c9bee3c71da952dfe5db7ecac">&#9670;&nbsp;</a></span>BlockedGzipInputStream() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -146,12 +144,23 @@ Protected Attributes</h2></td></tr>
           <td class="memname">vg::io::BlockedGzipInputStream::BlockedGzipInputStream </td>
           <td>(</td>
           <td class="paramtype">std::istream &amp;&#160;</td>
-          <td class="paramname"><em>stream</em></td><td>)</td>
+          <td class="paramname"><em>stream</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>thread_count</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Make a new stream reading from the given C++ std::istream, wrapping it in a BGZF. The stream must be at a BGZF block header, since the header info is peeked. </p>
+<p>Make a new stream reading from the given C++ std::istream, wrapping it in a BGZF. The stream must be at a BGZF block header, since the header info is peeked.</p>
+<p>If thread_count is more than 1, enables multi-threaded BGZF decoding. This needs to be part of the comstructor to ensure that it happens before any data is read through the decoder. </p>
 
 </div>
 </div>
@@ -286,33 +295,6 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the number of bytes read since the stream was constructed. </p>
-
-</div>
-</div>
-<a id="a05867f12652ebbcc5318f3d517b3dfd1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05867f12652ebbcc5318f3d517b3dfd1">&#9670;&nbsp;</a></span>EnableMultiThreading()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::io::BlockedGzipInputStream::EnableMultiThreading </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>thread_count</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Turn on multithreaded decompression. Return true if successful and false if the BGZF could not set up its thread pool. </p>
 
 </div>
 </div>

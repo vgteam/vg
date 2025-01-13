@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['widget_13214',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
-  ['wrong_5fname_13215',['wrong_name',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a5d133dedebb885c312dbfca70d5abe15',1,'vg::Counts']]],
-  ['wrong_5frefpos_13216',['wrong_refpos',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a069ad2b94f1414f1ba774043f5047d15',1,'vg::Counts']]]
+  ['verbosity_5fbasic_14045',['verbosity_basic',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa718364c23222ec5e7444240be0799449',1,'vg::Haplotypes']]],
+  ['verbosity_5fdebug_14046',['verbosity_debug',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241',1,'vg::Haplotypes']]],
+  ['verbosity_5fdetailed_14047',['verbosity_detailed',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa8c3562efded9b2b9ae9fd7ee05594ce0',1,'vg::Haplotypes']]],
+  ['verbosity_5fsilent_14048',['verbosity_silent',['../classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21',1,'vg::Haplotypes']]],
+  ['vg_14049',['VG',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a5e978449ccc729202c33e2dc543b8327',1,'vg::IndexingParameters']]]
 ];

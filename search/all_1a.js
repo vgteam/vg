@@ -1,8 +1,28 @@
 var searchData=
 [
-  ['z_6218',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
-  ['zip_5falignments_6219',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]],
-  ['zstdutil_6220',['zstdutil',['../namespacezstdutil.html',1,'']]],
-  ['zstdutil_2ecpp_6221',['zstdutil.cpp',['../zstdutil_8cpp.html',1,'']]],
-  ['zstdutil_2ehpp_6222',['zstdutil.hpp',['../zstdutil_8hpp.html',1,'']]]
+  ['fill_5fin_5fforest_3c_20minimizermapper_3a_3aminimizer_20_3e_6598',['fill_in_forest&lt; MinimizerMapper::Minimizer &gt;',['../namespacevg.html#ad4f0e6958b0bfd7c256ee10291a95925',1,'vg']]],
+  ['get_5fcyclic_5fsnarl_5fintervals_3c_20minimizermapper_3a_3aminimizer_20_3e_6599',['get_cyclic_snarl_intervals&lt; MinimizerMapper::Minimizer &gt;',['../namespacevg.html#a279d0eb09ed478cc7c6c98e3cbcd9864',1,'vg']]],
+  ['print_5fself_3c_20minimizermapper_3a_3aminimizer_20_3e_6600',['print_self&lt; MinimizerMapper::Minimizer &gt;',['../namespacevg.html#a48dec55a9705e1b2a636a90c7c9d9e9d',1,'vg']]],
+  ['z_6601',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
+  ['zip_5falignments_6602',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]],
+  ['zip_5fcode_2ecpp_6603',['zip_code.cpp',['../zip__code_8cpp.html',1,'']]],
+  ['zip_5fcode_2ehpp_6604',['zip_code.hpp',['../zip__code_8hpp.html',1,'']]],
+  ['zip_5fcode_5ftree_6605',['zip_code_tree',['../classvg_1_1ZipCodeTree.html#ad2ffc1171ce7791a9c047612efddeeaa',1,'vg::ZipCodeTree']]],
+  ['zip_5fcode_5ftree_2ecpp_6606',['zip_code_tree.cpp',['../zip__code__tree_8cpp.html',1,'']]],
+  ['zip_5fcode_5ftree_2ehpp_6607',['zip_code_tree.hpp',['../zip__code__tree_8hpp.html',1,'']]],
+  ['zip_5fforest_6608',['zip_forest',['../classvg_1_1MinimizerMapper.html#a5e9775389a175cbe4141678d5a4613dd',1,'vg::MinimizerMapper']]],
+  ['zip_5ftree_5ftransition_5fiterator_6609',['zip_tree_transition_iterator',['../namespacevg_1_1algorithms.html#a73608f2f497e40cc514deaa74a00cb52',1,'vg::algorithms']]],
+  ['zipcode_6610',['ZipCode',['../classvg_1_1ZipCode.html',1,'vg::ZipCode'],['../structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#a97855edffa7660f988e3f4b7dad3fc9f',1,'vg::SnarlDistanceIndexClusterer::Seed::zipcode()'],['../classvg_1_1ZipCode.html#a4d8456b4edb18c6c6d812b05b5e4783e',1,'vg::ZipCode::zipcode()']]],
+  ['zipcode_5fdepth_6611',['zipcode_depth',['../structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem.html#a4d982a3ef3c1a8ec4c0759a6638e00a9',1,'vg::SnarlDistanceIndexClusterer::SnarlTreeNodeProblem']]],
+  ['zipcode_5fmain_2ecpp_6612',['zipcode_main.cpp',['../zipcode__main_8cpp.html',1,'']]],
+  ['zipcode_5ftree_5fcoverage_5fthreshold_6613',['zipcode_tree_coverage_threshold',['../classvg_1_1MinimizerMapper.html#a3af651e9d670f2688887a78128db39f5',1,'vg::MinimizerMapper']]],
+  ['zipcode_5ftree_5fscale_6614',['zipcode_tree_scale',['../classvg_1_1MinimizerMapper.html#ab88fdcdafabde8c33f21c176f544ab01',1,'vg::MinimizerMapper']]],
+  ['zipcode_5ftree_5fscore_5fthreshold_6615',['zipcode_tree_score_threshold',['../classvg_1_1MinimizerMapper.html#a98bd33607a6fe87a99e24e6ea4388c01',1,'vg::MinimizerMapper']]],
+  ['zipcodecollection_6616',['ZipCodeCollection',['../classvg_1_1ZipCodeCollection.html',1,'vg::ZipCodeCollection'],['../classvg_1_1ZipCodeCollection.html#aef34ada27f78937e260e90fb1fe8a1d0',1,'vg::ZipCodeCollection::ZipCodeCollection()']]],
+  ['zipcodeforest_6617',['ZipCodeForest',['../classvg_1_1ZipCodeForest.html',1,'vg::ZipCodeForest'],['../classvg_1_1ZipCodeTree.html#ae954dd8e2c990674b2293ddd18ae6517',1,'vg::ZipCodeTree::ZipCodeForest()'],['../classvg_1_1ZipCodeForest.html#ab6f83d5af9f5ab490040e469f38b68df',1,'vg::ZipCodeForest::ZipCodeForest()']]],
+  ['zipcodes_6618',['zipcodes',['../classvg_1_1MinimizerMapper.html#adc4e2829dcbe163a606e567373aa10f4',1,'vg::MinimizerMapper::zipcodes()'],['../classvg_1_1ZipCodeCollection.html#a73068c82a1be054f59074d37b63fe74d',1,'vg::ZipCodeCollection::zipcodes()']]],
+  ['zipcodetree_6619',['ZipCodeTree',['../classvg_1_1ZipCodeTree.html',1,'vg::ZipCodeTree'],['../classvg_1_1ZipCodeTree.html#a891b100128d123066ee70e97d1374f41',1,'vg::ZipCodeTree::ZipCodeTree()']]],
+  ['zstdutil_6620',['zstdutil',['../namespacezstdutil.html',1,'']]],
+  ['zstdutil_2ecpp_6621',['zstdutil.cpp',['../zstdutil_8cpp.html',1,'']]],
+  ['zstdutil_2ehpp_6622',['zstdutil.hpp',['../zstdutil_8hpp.html',1,'']]]
 ];

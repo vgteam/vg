@@ -70,6 +70,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">options.hpp File Reference</div>  </div>
@@ -129,6 +130,15 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:a2b4313825cf18541121dd65b08b066e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function type used to validate arguments. Throw std::domain_error if not allowed, explaining why.  <a href="namespacevg_1_1subcommand.html#a2b4313825cf18541121dd65b08b066e9">More...</a><br /></td></tr>
 <tr class="separator:a2b4313825cf18541121dd65b08b066e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:a33e0e4354eca54aaf6140771963f7e9f"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f">vg::subcommand::OptionFormat</a> { <a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa9c42a12326ffdacf390a8b88c9fe1804">vg::subcommand::OptionFormat::SLUG</a>, 
+<a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa0ecd11c1d7a287401d148a23bbd7a2f8">vg::subcommand::OptionFormat::JSON</a>, 
+<a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa91af5705f16502125e8b2187e64202c0">vg::subcommand::OptionFormat::CLI</a>
+ }</td></tr>
+<tr class="memdesc:a33e0e4354eca54aaf6140771963f7e9f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a pringing format for options.  <a href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f">More...</a><br /></td></tr>
+<tr class="separator:a33e0e4354eca54aaf6140771963f7e9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a1384531a1c8d8387bdd04961590bdf93"><td class="memTemplParams" colspan="2">template&lt;typename Result &gt; </td></tr>
@@ -174,7 +184,7 @@ Functions</h2></td></tr>
 <p>EXAMPLE</p>
 <p>struct ThingDoer { static constexpr int default_count = 5; int count = default_count; };</p>
 <p><a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">vg::subcommand::BaseOptionGroup</a> get_parser() { <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">vg::subcommand::BaseOptionGroup</a> parser; auto thing_doer_opts = parser.add_group&lt;ThingDoer&gt;("thing doer configuration"); thing_doer_opts.add_option( "count", 'c', &amp;ThingDoer::count, ThingDoer::default_count, "number of things to do", <a class="el" href="namespacevg_1_1subcommand.html#aafa3ba89747f1886e118e7d6421078e3" title="Validate that an int is not negative, or throw std::domain_error;.">vg::subcommand::int_is_nonnegative</a> ); return parser; }</p>
-<p>int main(int argc, char** argv) { auto parser = get_parser(); std::vector&lt;struct option&gt; long_options; parser.make_long_options(long_options); long_options.push_back({0, 0, 0, 0}); std::string short_options; parser.make_short_optins(short_options); int c; while (true) { int option_index = 0; int option_id = getopt_long (argc, argv, short_options.c_str(), &amp;long_options[0], &amp;option_index); if (option_id == -1) break; if (parser.parse(option_id, optarg)) continue; switch (option_id) { default: <a class="el" href="namespacevg_1_1subcommand.html#a44e82d81de605a19980ffc9045984b3c">vg::subcommand::print_table</a>(parser.get_help(), std::cerr); return 1; } } ThingDoer thing_doer; parser.apply(thing_doer); std::cout &lt;&lt; "Doing " &lt;&lt; thing_doer.count &lt;&lt; " things" &lt;&lt; std::endl; return 0; } </p>
+<p>int <a class="el" href="main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main(int argc, char** argv)</a> { auto parser = get_parser(); std::vector&lt;struct option&gt; long_options; parser.make_long_options(long_options); long_options.push_back({0, 0, 0, 0}); std::string short_options; parser.make_short_optins(short_options); int c; while (true) { int option_index = 0; int option_id = getopt_long (argc, argv, short_options.c_str(), &amp;long_options[0], &amp;option_index); if (option_id == -1) break; if (parser.parse(option_id, optarg)) continue; switch (option_id) { default: <a class="el" href="namespacevg_1_1subcommand.html#a44e82d81de605a19980ffc9045984b3c">vg::subcommand::print_table</a>(parser.get_help(), std::cerr); return 1; } } ThingDoer thing_doer; parser.apply(thing_doer); std::cout &lt;&lt; "Doing " &lt;&lt; thing_doer.count &lt;&lt; " things" &lt;&lt; std::endl; return 0; } </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

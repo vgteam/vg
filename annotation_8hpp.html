@@ -80,6 +80,7 @@ $(function() {
 <code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
+<code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;google/protobuf/struct.pb.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -110,6 +111,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a54bcd5d5fc5318bbdbe784f224b906bd"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType , typename Annotated &gt; </td></tr>
 <tr class="memitem:a54bcd5d5fc5318bbdbe784f224b906bd"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a54bcd5d5fc5318bbdbe784f224b906bd">vg::set_annotation</a> (Annotated &amp;annotated, const string &amp;name, const AnnotationType &amp;annotation)</td></tr>
 <tr class="separator:a54bcd5d5fc5318bbdbe784f224b906bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3f6c363cc3cb03b7379635741d1b0837"><td class="memTemplParams" colspan="2">template&lt;typename AnnotatonValueType , typename Annotated &gt; </td></tr>
+<tr class="memitem:a3f6c363cc3cb03b7379635741d1b0837"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f6c363cc3cb03b7379635741d1b0837">vg::set_compressed_annotation</a> (Annotated *annotated, const string &amp;base_name, std::vector&lt; AnnotatonValueType &gt; annotation)</td></tr>
+<tr class="separator:a3f6c363cc3cb03b7379635741d1b0837"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0efd9e2e5d1ab86647910ccd002109cd"><td class="memTemplParams" colspan="2">template&lt;typename AnnotatonValueType , typename Annotated &gt; </td></tr>
+<tr class="memitem:a0efd9e2e5d1ab86647910ccd002109cd"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0efd9e2e5d1ab86647910ccd002109cd">vg::set_compressed_annotation</a> (Annotated &amp;annotated, const string &amp;base_name, std::vector&lt; AnnotatonValueType &gt; annotation)</td></tr>
+<tr class="separator:a0efd9e2e5d1ab86647910ccd002109cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad970d2836c53996c21e5c5d9d3e0a6d8"><td class="memTemplParams" colspan="2">template&lt;typename Annotated &gt; </td></tr>
 <tr class="memitem:ad970d2836c53996c21e5c5d9d3e0a6d8"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad970d2836c53996c21e5c5d9d3e0a6d8">vg::clear_annotation</a> (Annotated *annotated, const string &amp;name)</td></tr>
 <tr class="memdesc:ad970d2836c53996c21e5c5d9d3e0a6d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clear the annotation with the given name.  <a href="namespacevg.html#ad970d2836c53996c21e5c5d9d3e0a6d8">More...</a><br /></td></tr>
@@ -129,6 +136,12 @@ Functions</h2></td></tr>
 <tr class="memitem:ac84a9621d5108f53976d51f1188e7214"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac84a9621d5108f53976d51f1188e7214">vg::value_cast</a> (const T &amp;wrap)</td></tr>
 <tr class="memdesc:ac84a9621d5108f53976d51f1188e7214"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cast any type to a generic Protobuf value.  <a href="namespacevg.html#ac84a9621d5108f53976d51f1188e7214">More...</a><br /></td></tr>
 <tr class="separator:ac84a9621d5108f53976d51f1188e7214"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2683b1d5f38a8b34051fec41d7c011f0"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a2683b1d5f38a8b34051fec41d7c011f0"><td class="memTemplItemLeft" align="right" valign="top">const google::protobuf::Struct *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2683b1d5f38a8b34051fec41d7c011f0">vg::value_cast&lt; const google::protobuf::Struct * &gt;</a> (const google::protobuf::Value &amp;value)</td></tr>
+<tr class="separator:a2683b1d5f38a8b34051fec41d7c011f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a248b5f3265dbbdde641fee26c075842a"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a248b5f3265dbbdde641fee26c075842a"><td class="memTemplItemLeft" align="right" valign="top">const google::protobuf::Value *&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a248b5f3265dbbdde641fee26c075842a">vg::value_cast&lt; const google::protobuf::Value * &gt;</a> (const google::protobuf::Value &amp;value)</td></tr>
+<tr class="separator:a248b5f3265dbbdde641fee26c075842a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac90d23f22ad3ec78da4e03dc011cabf8"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:ac90d23f22ad3ec78da4e03dc011cabf8"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac90d23f22ad3ec78da4e03dc011cabf8">vg::value_cast&lt; bool &gt;</a> (const google::protobuf::Value &amp;value)</td></tr>
 <tr class="separator:ac90d23f22ad3ec78da4e03dc011cabf8"><td class="memSeparator" colspan="2">&#160;</td></tr>

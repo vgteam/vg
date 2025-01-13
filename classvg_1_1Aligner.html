@@ -102,10 +102,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a90a7be445aa931365b940fa2f26570ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c2efe87216772df9cb3d3d7d0e61a26"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a6c2efe87216772df9cb3d3d7d0e61a26">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const</td></tr>
 <tr class="separator:a6c2efe87216772df9cb3d3d7d0e61a26"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7d0af54853dfa98e238e1457faa00f4f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a7d0af54853dfa98e238e1457faa00f4f">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
-<tr class="separator:a7d0af54853dfa98e238e1457faa00f4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a86579ab7dbf7799ae998bcac6ac4c9d0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a86579ab7dbf7799ae998bcac6ac4c9d0">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
-<tr class="separator:a86579ab7dbf7799ae998bcac6ac4c9d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8984447f565f2c7b870175b90178461b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a8984447f565f2c7b870175b90178461b">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true, uint64_t max_cells=std::numeric_limits&lt; uint64_t &gt;::max()) const</td></tr>
+<tr class="separator:a8984447f565f2c7b870175b90178461b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b2637f4e841012103cf77fa09ef318f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a4b2637f4e841012103cf77fa09ef318f">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true, uint64_t max_cells=std::numeric_limits&lt; uint64_t &gt;::max()) const</td></tr>
+<tr class="separator:a4b2637f4e841012103cf77fa09ef318f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a186815e37fef05cb774d257ceca32b36"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a186815e37fef05cb774d257ceca32b36">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const</td></tr>
 <tr class="memdesc:a186815e37fef05cb774d257ceca32b36"><td class="mdescLeft">&#160;</td><td class="mdescRight">xdrop aligner  <a href="classvg_1_1Aligner.html#a186815e37fef05cb774d257ceca32b36">More...</a><br /></td></tr>
 <tr class="separator:a186815e37fef05cb774d257ceca32b36"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -205,14 +205,19 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a9ad471080a267eb489e31523ef2b5f2b inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a> = nullptr</td></tr>
 <tr class="separator:a9ad471080a267eb489e31523ef2b5f2b inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7323efd4ef078ab5866b8c2b9fea87a8 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a7323efd4ef078ab5866b8c2b9fea87a8">match</a></td></tr>
+<tr class="memdesc:a7323efd4ef078ab5866b8c2b9fea87a8 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Points scored for a match.  <a href="classvg_1_1GSSWAligner.html#a7323efd4ef078ab5866b8c2b9fea87a8">More...</a><br /></td></tr>
 <tr class="separator:a7323efd4ef078ab5866b8c2b9fea87a8 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf06d9e9138bbbd23a451d1d0848c503 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#abf06d9e9138bbbd23a451d1d0848c503">mismatch</a></td></tr>
+<tr class="memdesc:abf06d9e9138bbbd23a451d1d0848c503 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Points scored for a mismatch (probably negative)  <a href="classvg_1_1GSSWAligner.html#abf06d9e9138bbbd23a451d1d0848c503">More...</a><br /></td></tr>
 <tr class="separator:abf06d9e9138bbbd23a451d1d0848c503 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5c0a63b73ad2ff8ec8f05062c768c22 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22">gap_open</a></td></tr>
+<tr class="memdesc:aa5c0a63b73ad2ff8ec8f05062c768c22 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Points scored for a gap open (probably negative)  <a href="classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22">More...</a><br /></td></tr>
 <tr class="separator:aa5c0a63b73ad2ff8ec8f05062c768c22 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afd2379af50d751eee892a10529d64ffb inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb">gap_extension</a></td></tr>
+<tr class="memdesc:afd2379af50d751eee892a10529d64ffb inherit pub_attribs_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Points scored for a gap extension (probably negative)  <a href="classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb">More...</a><br /></td></tr>
 <tr class="separator:afd2379af50d751eee892a10529d64ffb inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a24ee1a1d5b84c90c7fc77a4b7d8660bd inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd">full_length_bonus</a></td></tr>
+<tr class="memdesc:a24ee1a1d5b84c90c7fc77a4b7d8660bd inherit pub_attribs_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Points scored for a full-length end.  <a href="classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd">More...</a><br /></td></tr>
 <tr class="separator:a24ee1a1d5b84c90c7fc77a4b7d8660bd inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a1a7e6edc3764ff32f7815999d6345f inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f">log_base</a> = 0.0</td></tr>
 <tr class="separator:a5a1a7e6edc3764ff32f7815999d6345f inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -404,8 +409,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a7d0af54853dfa98e238e1457faa00f4f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7d0af54853dfa98e238e1457faa00f4f">&#9670;&nbsp;</a></span>align_global_banded()</h2>
+<a id="a8984447f565f2c7b870175b90178461b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8984447f565f2c7b870175b90178461b">&#9670;&nbsp;</a></span>align_global_banded()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -435,7 +440,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>permissive_banding</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>permissive_banding</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>max_cells</em> = <code>std::numeric_limits&lt;uint64_t&gt;::max()</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -449,14 +460,15 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>store optimal global alignment against a graph within a specified band in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object permissive banding auto detects the width of band needed so that paths can travel through every node in the graph </p>
+<p>Store optimal global alignment against a graph within a specified band in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. Permissive banding auto detects the width of band needed so that paths can travel through every node in the graph.</p>
+<p>Throws <a class="el" href="classvg_1_1BandMatricesTooBigException.html">BandMatricesTooBigException</a> if the max_cells limit on DP matric size is hit. </p>
 
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a350908e38cee67ddbe77395624a1cb50">vg::GSSWAligner</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a4ae60e4ac2c961f8f63f51b1d696a485">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>
-<a id="a86579ab7dbf7799ae998bcac6ac4c9d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a86579ab7dbf7799ae998bcac6ac4c9d0">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
+<a id="a4b2637f4e841012103cf77fa09ef318f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b2637f4e841012103cf77fa09ef318f">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -498,7 +510,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>permissive_banding</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>permissive_banding</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>max_cells</em> = <code>std::numeric_limits&lt;uint64_t&gt;::max()</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -512,9 +530,10 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). if there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. the optimal alignment will be stored in both the vector and the original alignment object </p>
+<p>store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). if there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. the optimal alignment will be stored in both the vector and the original alignment object</p>
+<p>Throws <a class="el" href="classvg_1_1BandMatricesTooBigException.html">BandMatricesTooBigException</a> if the max_cells limit on DP matric size is hit. </p>
 
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab3b92372eb75a5b54311b74aa6fe9190">vg::GSSWAligner</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a5af41c52f81a9373c608bef49ea57e94">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>

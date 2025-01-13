@@ -1,8 +1,27 @@
 var searchData=
 [
-  ['node_5fmissing_13160',['NODE_MISSING',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9a0fc049aba7e02c479f48dd02c5facab1',1,'vg::AlignmentValidity']]],
-  ['node_5ftoo_5fshort_13161',['NODE_TOO_SHORT',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9ae6b4882026edf127e7a8d7a120636586',1,'vg::AlignmentValidity']]],
-  ['none_13162',['None',['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3a7ec02cb6759bbdcec376638fb9e76d4e',1,'vg::IndexingParameters::None()'],['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693',1,'vg::Funnel::NONE()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39aa676d6ce23c4076e354ffb65936c03d1',1,'vg::None()']]],
-  ['normal_13163',['normal',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea867c09ce684d19db107c790ac73e29c2',1,'vg::Haplotypes::Subchain']]],
-  ['null_13164',['Null',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095ea4da67a14c941c99eb8e041314fa98640',1,'vg::multipath_alignment_t']]]
+  ['match_13956',['match',['../structvg_1_1WFAAlignment.html#a1ce899c26978ebac4bc7a31623809eebae6fe3d73bbbc5c70e386589f9732e9af',1,'vg::WFAAlignment::match()'],['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2faac03946390169c005fafc9a38b114e6a',1,'vg::BandedGlobalAligner::Match()'],['../dozeu__interface_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;dozeu_interface.cpp'],['../qual__adj__xdrop__aligner_8cpp.html#adf764cbdea00d65edcd07bb9953ad2b7a1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;qual_adj_xdrop_aligner.cpp'],['../xdrop__aligner_8cpp.html#abc6126af1d45847bc59afa0aa3216b04a1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;xdrop_aligner.cpp']]],
+  ['max_5flength_13957',['max_length',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9abd4efb2ac344eea5ff58477c7014a769',1,'vg::Counts']]],
+  ['max_5foverhang_13958',['max_overhang',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a500747869171f1e18a4e7c56625ed3ef',1,'vg::Counts']]],
+  ['max_5freads_13959',['max_reads',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a6c584adbe4422e18c6bb875bb3a482ca',1,'vg::Counts']]],
+  ['merge_5ffast_13960',['merge_fast',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0fa00b833ba044e1135d12579e8baeedca6',1,'GBWTConfig']]],
+  ['merge_5finsert_13961',['merge_insert',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0faa05cfa7f46c6c005f05b264b71ede9d3',1,'GBWTConfig']]],
+  ['merge_5fnone_13962',['merge_none',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0faace9bbb313fb5c18d2a5a9142b99762b',1,'GBWTConfig']]],
+  ['merge_5fparallel_13963',['merge_parallel',['../structGBWTConfig.html#a8a8cf3f78613e27997bd0c6377349b0fad49ba685add4291f2ba5d4d042f6e548',1,'GBWTConfig']]],
+  ['min_5fbase_5fqual_13964',['min_base_qual',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a81bd6ba848d5742091102b7e6e7f0528',1,'vg::Counts']]],
+  ['min_5fend_5fmatches_13965',['min_end_matches',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a0035f968d8e0ae55fcaf6763f7dd01a1',1,'vg::Counts']]],
+  ['min_5fmapq_13966',['min_mapq',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a228a82cd163bae9299de79bacd32fab8',1,'vg::Counts']]],
+  ['min_5fscore_13967',['min_score',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9ab6d45328b152bc6aa0e23943d77e473b',1,'vg::Counts']]],
+  ['min_5fsec_5fscore_13968',['min_sec_score',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9ac355280a9dc2984da55998417433ccdb',1,'vg::Counts']]],
+  ['mismatch_13969',['mismatch',['../structvg_1_1WFAAlignment.html#a1ce899c26978ebac4bc7a31623809eeba1720159dd67365a6e856bd65a56722e7',1,'vg::WFAAlignment::mismatch()'],['../dozeu__interface_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba9f6e5ca49fdffa107270afa3f5e16cda',1,'MISMATCH():&#160;dozeu_interface.cpp'],['../qual__adj__xdrop__aligner_8cpp.html#adf764cbdea00d65edcd07bb9953ad2b7a9f6e5ca49fdffa107270afa3f5e16cda',1,'MISMATCH():&#160;qual_adj_xdrop_aligner.cpp'],['../xdrop__aligner_8cpp.html#abc6126af1d45847bc59afa0aa3216b04a9f6e5ca49fdffa107270afa3f5e16cda',1,'MISMATCH():&#160;xdrop_aligner.cpp']]],
+  ['mode_5fclassify_13970',['mode_classify',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667abd23aa372c8ca2d63cf4b477257d27ea',1,'HaplotypesConfig']]],
+  ['mode_5fextract_13971',['mode_extract',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a8efe96a347c67fea3b49d01cb2c21dde',1,'HaplotypesConfig']]],
+  ['mode_5finvalid_13972',['mode_invalid',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667afef1428e91bd487b53f44f88885ed506',1,'HaplotypesConfig']]],
+  ['mode_5fmap_5fvariants_13973',['mode_map_variants',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667ac11510277093ba13a92edaad15a143f4',1,'HaplotypesConfig']]],
+  ['mode_5fpreprocess_13974',['mode_preprocess',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a2ecb8ae543c843b61de526ce2096f8fe',1,'HaplotypesConfig']]],
+  ['mode_5fprune_13975',['mode_prune',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248a6a94759a7900a825dd21bf4d9eb648ef',1,'prune_main.cpp']]],
+  ['mode_5frestore_13976',['mode_restore',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248a7ac5442ed3dfb51eaa1c7311fefc8842',1,'prune_main.cpp']]],
+  ['mode_5fsample_5fgraph_13977',['mode_sample_graph',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a043a4f84904086154417f62fbf55084b',1,'HaplotypesConfig']]],
+  ['mode_5fsample_5fhaplotypes_13978',['mode_sample_haplotypes',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a684f467f5682443799839a988b490626',1,'HaplotypesConfig']]],
+  ['mode_5funfold_13979',['mode_unfold',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248a14b7711c85d633b1e1cee3b9466c48b3',1,'prune_main.cpp']]]
 ];

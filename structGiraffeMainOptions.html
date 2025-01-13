@@ -78,16 +78,88 @@ $(function() {
 Public Attributes</h2></td></tr>
 <tr class="memitem:a51b24824ec0a06a5b080f8578090fa56"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#a51b24824ec0a06a5b080f8578090fa56">watchdog_timeout</a> = <a class="el" href="structGiraffeMainOptions.html#a8e3b0f47ff4f761544f077f2d591096e">default_watchdog_timeout</a></td></tr>
 <tr class="separator:a51b24824ec0a06a5b080f8578090fa56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2b54df0c377a105e57c67c93b1b98ce9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#a2b54df0c377a105e57c67c93b1b98ce9">log_reads</a> = <a class="el" href="structGiraffeMainOptions.html#aa6a8ecfcb8fc48b9378c1c8608901f20">default_log_reads</a></td></tr>
+<tr class="separator:a2b54df0c377a105e57c67c93b1b98ce9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3fd6a5c42e1889a384cf319294d0d80"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#ad3fd6a5c42e1889a384cf319294d0d80">batch_size</a> = <a class="el" href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">default_batch_size</a></td></tr>
+<tr class="separator:ad3fd6a5c42e1889a384cf319294d0d80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
 <tr class="memitem:a8e3b0f47ff4f761544f077f2d591096e"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#a8e3b0f47ff4f761544f077f2d591096e">default_watchdog_timeout</a> = 10</td></tr>
 <tr class="memdesc:a8e3b0f47ff4f761544f077f2d591096e"><td class="mdescLeft">&#160;</td><td class="mdescRight">How long should we wait while mapping a read before complaining, in seconds.  <a href="structGiraffeMainOptions.html#a8e3b0f47ff4f761544f077f2d591096e">More...</a><br /></td></tr>
 <tr class="separator:a8e3b0f47ff4f761544f077f2d591096e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa6a8ecfcb8fc48b9378c1c8608901f20"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#aa6a8ecfcb8fc48b9378c1c8608901f20">default_log_reads</a> = false</td></tr>
+<tr class="memdesc:aa6a8ecfcb8fc48b9378c1c8608901f20"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we log all the reads we map?  <a href="structGiraffeMainOptions.html#aa6a8ecfcb8fc48b9378c1c8608901f20">More...</a><br /></td></tr>
+<tr class="separator:aa6a8ecfcb8fc48b9378c1c8608901f20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abf990cc986a8d914022dff4bba5ae632"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">default_batch_size</a> = <a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">vg::io::DEFAULT_PARALLEL_BATCHSIZE</a></td></tr>
+<tr class="memdesc:abf990cc986a8d914022dff4bba5ae632"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many reads to send to a thread at a time.  <a href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">More...</a><br /></td></tr>
+<tr class="separator:abf990cc986a8d914022dff4bba5ae632"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Options struct for options for the Giraffe driver (i.e. this file) </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
+<a id="ad3fd6a5c42e1889a384cf319294d0d80"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad3fd6a5c42e1889a384cf319294d0d80">&#9670;&nbsp;</a></span>batch_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t GiraffeMainOptions::batch_size = <a class="el" href="structGiraffeMainOptions.html#abf990cc986a8d914022dff4bba5ae632">default_batch_size</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="abf990cc986a8d914022dff4bba5ae632"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abf990cc986a8d914022dff4bba5ae632">&#9670;&nbsp;</a></span>default_batch_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t GiraffeMainOptions::default_batch_size = <a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">vg::io::DEFAULT_PARALLEL_BATCHSIZE</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>How many reads to send to a thread at a time. </p>
+
+</div>
+</div>
+<a id="aa6a8ecfcb8fc48b9378c1c8608901f20"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa6a8ecfcb8fc48b9378c1c8608901f20">&#9670;&nbsp;</a></span>default_log_reads</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr bool GiraffeMainOptions::default_log_reads = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Should we log all the reads we map? </p>
+
+</div>
+</div>
 <a id="a8e3b0f47ff4f761544f077f2d591096e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8e3b0f47ff4f761544f077f2d591096e">&#9670;&nbsp;</a></span>default_watchdog_timeout</h2>
 
@@ -109,6 +181,20 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>How long should we wait while mapping a read before complaining, in seconds. </p>
+
+</div>
+</div>
+<a id="a2b54df0c377a105e57c67c93b1b98ce9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2b54df0c377a105e57c67c93b1b98ce9">&#9670;&nbsp;</a></span>log_reads</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool GiraffeMainOptions::log_reads = <a class="el" href="structGiraffeMainOptions.html#aa6a8ecfcb8fc48b9378c1c8608901f20">default_log_reads</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

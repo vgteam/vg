@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1DozeuInterface-members.html">List of all members</a>  </div>
@@ -106,6 +107,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa901ac96f18c5f60cbe114087aada362"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7f8736e97ee778271e35b2d212c8603d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DozeuInterface.html#a7f8736e97ee778271e35b2d212c8603d">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int8_t full_length_bonus, uint16_t max_gap_length=default_xdrop_max_gap_length)</td></tr>
 <tr class="separator:a7f8736e97ee778271e35b2d212c8603d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a7f00debc965248ba99fc5450ed35e24d"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DozeuInterface.html#a7f00debc965248ba99fc5450ed35e24d">THREAD_MAX_RETAINED_BYTES</a> = 2ULL * 1024 * 1024 * 1024</td></tr>
+<tr class="separator:a7f00debc965248ba99fc5450ed35e24d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -1066,6 +1072,29 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The core dozeu class, which does the alignments. </p>
+
+</div>
+</div>
+<a id="a7f00debc965248ba99fc5450ed35e24d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f00debc965248ba99fc5450ed35e24d">&#9670;&nbsp;</a></span>THREAD_MAX_RETAINED_BYTES</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::DozeuInterface::THREAD_MAX_RETAINED_BYTES = 2ULL * 1024 * 1024 * 1024</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Maximum number of bytes of Dozeu scratch space to retain permanently for each thread. </p>
 
 </div>
 </div>

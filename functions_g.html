@@ -127,6 +127,9 @@ $(function() {
 <li>GAMP
 : <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0ba00b7d3df4dc1aead7feb32d379bb1a35">vg::MultipathAlignmentEmitter</a>
 </li>
+<li>gap_distance_limit
+: <a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html#ad9d07441a40519ff349163eb7d87c916">vg::ZipCodeForest::forest_growing_state_t</a>
+</li>
 <li>gap_extend
 : <a class="el" href="structScoringOptions.html#a8ae3e44719121535cd43560dddc267aa">ScoringOptions</a>
 , <a class="el" href="classvg_1_1WFATree.html#abe47c55fbdfa81f6b0df6ffdb4c3591e">vg::WFATree</a>
@@ -154,6 +157,12 @@ $(function() {
 </li>
 <li>gap_penalty()
 : <a class="el" href="classvg_1_1WFATree.html#a46f357dbdd6957c1c08bb82a275a3bcf">vg::WFATree</a>
+</li>
+<li>gap_scale
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a5e6e66b39ed25c3d81f82546231d790a">vg::MinimizerMapper</a>
+</li>
+<li>gapless_extension_limit
+: <a class="el" href="classvg_1_1MinimizerMapper.html#af0eb242f1ec9aaaa52e7d03446d09cbf">vg::MinimizerMapper</a>
 </li>
 <li>GaplessExtender()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271">vg::GaplessExtender</a>
@@ -372,6 +381,9 @@ $(function() {
 <li>get_best_alignment_against_any_tree()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a12558b08552a22a9a28db3fb0fd3779d">vg::MinimizerMapper</a>
 </li>
+<li>get_best_chain_stats()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a2f9b9b580ed851b00268f455c2d543cb">vg::MinimizerMapper</a>
+</li>
 <li>get_best_support()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a1b5a50373729771229ada685b12627df">vg::SupportBasedSnarlCaller</a>
 </li>
@@ -404,6 +416,18 @@ $(function() {
 <li>get_center_and_radius()
 : <a class="el" href="classvg_1_1VariantAdder.html#a29a14a6579197519b35653f542d5c1ec">vg::VariantAdder</a>
 </li>
+<li>get_chain_code()
+: <a class="el" href="classvg_1_1ZipCode.html#aa0f40a265733bd4adfb920006fd9f57a">vg::ZipCode</a>
+</li>
+<li>get_chain_component()
+: <a class="el" href="classvg_1_1ZipCode.html#af85179af0d75add0b10023343c2a407a">vg::ZipCode</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#a52e72d7ff49bcb809cac2f7ab85ad004">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a5dcd90a391b2382723f3b303687ca1c8">vg::ZipCode::snarl_code_t</a>
+, <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html#adc51b5f6e09b00eb41964c902d7eb033">vg::ZipCodeForest::sort_value_t</a>
+</li>
+<li>get_child_count()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a315c9998b34918303feb08d5143fba7c">vg::ZipCode::snarl_code_t</a>
+</li>
 <li>get_child_support()
 : <a class="el" href="classvg_1_1NestedCachedPackedTraversalSupportFinder.html#af112bf57cc9a16c9dc35f6578a3b1c14">vg::NestedCachedPackedTraversalSupportFinder</a>
 , <a class="el" href="classvg_1_1TraversalSupportFinder.html#ac46ef820b2a05e8b331677deb80871a9">vg::TraversalSupportFinder</a>
@@ -423,17 +447,28 @@ $(function() {
 <li>get_clusters()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a0a588e4f282d38add8626debe86c455d">vg::MultipathMapper</a>
 </li>
+<li>get_code_type()
+: <a class="el" href="classvg_1_1ZipCode.html#ac91d59c7100fefc2011cda07996ed71a">vg::ZipCode</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a0d7f3c9052df0ced4949b909d1ed20b5">vg::ZipCode::snarl_code_t</a>
+, <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html#a9959da3b3a6e98968794073dc049eb0b">vg::ZipCodeForest::sort_value_t</a>
+</li>
 <li>get_codename()
 : <a class="el" href="classvg_1_1Version.html#a0bab20984ed75b2df12c3ef4a409f922">vg::Version</a>
 </li>
 <li>get_connected_components()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">vg::MultipathAlignmentGraph</a>
 </li>
+<li>get_connectivity()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a0b28eb090f0d0f7b1b408a5e772b3105">vg::ZipCode::chain_code_t</a>
+</li>
 <li>get_contained_orientations()
 : <a class="el" href="structvg_1_1PathIndex.html#a6a7f7bbcd256a2ed34a58b8abefff712">vg::PathIndex</a>
 </li>
 <li>get_context()
 : <a class="el" href="classvg_1_1Deconstructor.html#a049890802f6b6036a779eb3645bb1307">vg::Deconstructor</a>
+</li>
+<li>get_correlation()
+: <a class="el" href="classvg_1_1ZipCodeForest.html#ab939e5ee856a9ac2531d0d8ac14e7cbe">vg::ZipCodeForest</a>
 </li>
 <li>get_count()
 : <a class="el" href="classvg_1_1NoAlignmentInBandException.html#a4b5f7f90a2be571131fb12484a9b4c18">vg::NoAlignmentInBandException</a>
@@ -450,8 +485,11 @@ $(function() {
 <li>get_cut_segments()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aaa64dbf4207ebe2fe75044d60be1d07e">vg::MultipathAlignmentGraph</a>
 </li>
-<li>get_default_giraffe_indexes()
-: <a class="el" href="structvg_1_1VGIndexes.html#aa63db133c99d92baae339b2feb7d0b44">vg::VGIndexes</a>
+<li>get_cyclic_snarl_intervals()
+: <a class="el" href="classvg_1_1ZipCodeForest.html#ad32664318549a51d8727204d665a2bc6">vg::ZipCodeForest</a>
+</li>
+<li>get_default_long_giraffe_indexes()
+: <a class="el" href="structvg_1_1VGIndexes.html#a8caf19bd7436cd7f9df4f9792aa86483">vg::VGIndexes</a>
 </li>
 <li>get_default_map_indexes()
 : <a class="el" href="structvg_1_1VGIndexes.html#afcc2119cd690b16f57d4b9d137af58fe">vg::VGIndexes</a>
@@ -461,6 +499,9 @@ $(function() {
 </li>
 <li>get_default_rpvg_indexes()
 : <a class="el" href="structvg_1_1VGIndexes.html#ae56d5009377fed32d392fcff5ac02f7f">vg::VGIndexes</a>
+</li>
+<li>get_default_short_giraffe_indexes()
+: <a class="el" href="structvg_1_1VGIndexes.html#ab0f962c74f9633fe27b0d59f9774358c">vg::VGIndexes</a>
 </li>
 <li>get_default_value()
 : <a class="el" href="classvg_1_1BaseOption.html#af13c01c387907bb386b591bff8bbb5e9">vg::BaseOption&lt; Value, Parser &gt;</a>
@@ -487,11 +528,32 @@ $(function() {
 <li>get_distance()
 : <a class="el" href="classvg_1_1HaplotypePartitioner.html#a8d98335b0032014b1e033a6610fb644d">vg::HaplotypePartitioner</a>
 </li>
+<li>get_distance_end_left()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#ad3e98278c0ca79470bc1a58e3fdcf370">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_distance_end_right()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#aa5d11da32ad7be1dfa88674efd4fa422">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_distance_index_address()
+: <a class="el" href="classvg_1_1ZipCode.html#a6cc3964efc186615dab6bdd8bc52fbfb">vg::ZipCode</a>
+</li>
 <li>get_distance_limit()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a27798cd4a1bee171ec38713d402e8793">vg::MinimizerMapper</a>
 </li>
 <li>get_distance_measurer()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a56e1c69cfba7c1eebb4cae0af59a018d">vg::MultipathMapper</a>
+</li>
+<li>get_distance_start_left()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a678e476d61bcf781b1461cedb8801c68">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_distance_start_right()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#aedb473ac00ffbd480c09fd04e44fcbb8">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_distance_to_snarl_bound()
+: <a class="el" href="classvg_1_1ZipCode.html#ad39662d894fe714c1d8596b0343557f6">vg::ZipCode</a>
+</li>
+<li>get_distance_value()
+: <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html#a2a427abecffc91c8f56b715de43a43b3">vg::ZipCodeForest::sort_value_t</a>
 </li>
 <li>get_duplicate_handle()
 : <a class="el" href="classvg_1_1DozeuPinningOverlay.html#af51998490e3eac92e0d106b791eebbce">vg::DozeuPinningOverlay</a>
@@ -656,6 +718,7 @@ $(function() {
 </li>
 <li>get_identifier()
 : <a class="el" href="classvg_1_1IndexFile.html#a0dde670fabfa3890d26c9e89c8564429">vg::IndexFile</a>
+, <a class="el" href="classvg_1_1ZipCode.html#a9cb3141131af81b42741bc9e7349e58b">vg::ZipCode</a>
 </li>
 <li>get_index()
 : <a class="el" href="classvg_1_1IndexRegistry.html#a3738a3916a17ca5a2716e7530b10c434">vg::IndexRegistry</a>
@@ -667,12 +730,19 @@ $(function() {
 <li>get_inward_backing_handle()
 : <a class="el" href="classvg_1_1NetGraph.html#adc4841db50e7f3073cad16d59426ba5a">vg::NetGraph</a>
 </li>
+<li>get_irregular_snarl_code()
+: <a class="el" href="classvg_1_1ZipCode.html#a2057ff4f25f04aa76066c3c5a83239fc">vg::ZipCode</a>
+</li>
 <li>get_is_circular()
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a9391c34d9f0c16b21d5bb3bb7ec772e4">handlegraph::PathHandleGraph</a>
 , <a class="el" href="classvg_1_1MemoizingGraph.html#a2fb48c82bc92aa1fa263a4be92e21891">vg::MemoizingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ac33d15bc06e31045d07ecf22e018f0a8">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a1463f13c63b965a3663932e6fa87537e">vg::VG</a>
 , <a class="el" href="classxg_1_1XG.html#a841e1c50686d3ea941fb9a01d9639784">xg::XG</a>
+</li>
+<li>get_is_looping_chain()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#ac917c5b03c10bd9e57b344a708c6b033">vg::ZipCode::chain_code_t</a>
+, <a class="el" href="classvg_1_1ZipCode.html#a2c0fa7d7130b57bee9b557750eb97eab">vg::ZipCode</a>
 </li>
 <li>get_is_paired()
 : <a class="el" href="classvg_1_1ReadFilter.html#a8b78c03c1379b1ed5576db5c6772adb3">vg::ReadFilter&lt; Read &gt;</a>
@@ -702,11 +772,28 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#a53e796617804bffe0203e422f2a23148">vg::VG</a>
 , <a class="el" href="classxg_1_1XG.html#a7a52d5c8396e40930cfed5f79ea9c201">xg::XG</a>
 </li>
+<li>get_is_reversed()
+: <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#ae65abc62608f0643537bacfa78e0e7aa">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#ae6b247dcfb508636f982df6b3353001e">vg::ZipCode::snarl_code_t</a>
+, <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#a79691714f5f3bb06aed0d1a7a4b646ee">vg::ZipCodeTree::tree_item_t</a>
+</li>
+<li>get_is_reversed_in_parent()
+: <a class="el" href="classvg_1_1ZipCode.html#af27a1ca0026e32e588d0bb3b62a5bade">vg::ZipCode</a>
+</li>
 <li>get_item()
 : <a class="el" href="classvg_1_1Funnel.html#a5f8f988df65fc91adc7da9dd8d4446ef">vg::Funnel</a>
 </li>
+<li>get_item_at_index()
+: <a class="el" href="classvg_1_1ZipCodeTree.html#a66ff501bf5fa0044978550b188691068">vg::ZipCodeTree</a>
+</li>
 <li>get_iterator()
 : <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#aa21e2c735dba10a3b97c739d66008937">vg::subcommand::TickChainLink</a>
+</li>
+<li>get_last_chain_component()
+: <a class="el" href="classvg_1_1ZipCode.html#aaf980083db4440866ee59d2a1b89e957">vg::ZipCode</a>
+</li>
+<li>get_last_component()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#aa98d04c4d61201facf9e01c189b44f43">vg::ZipCode::chain_code_t</a>
 </li>
 <li>get_leaves()
 : <a class="el" href="classvg_1_1WFATree.html#adea6d9333092f49afcc26f34e4bfc016">vg::WFATree</a>
@@ -725,6 +812,7 @@ $(function() {
 , <a class="el" href="classvg_1_1NetGraph.html#a8170045aa0032b33628858c0717cc74a">vg::NetGraph</a>
 , <a class="el" href="classvg_1_1NullMaskingGraph.html#a2144c791b97d05bf625a50442649def2">vg::NullMaskingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraph.html#a777f23f7156addc72dd508d08f069cc7">vg::PathSubgraph</a>
+, <a class="el" href="classvg_1_1ReadFilter.html#ae2ef22beb751d9415759fc1985da1946">vg::ReadFilter&lt; Read &gt;</a>
 , <a class="el" href="classvg_1_1ReverseGraph.html#a54f7adad266466143efaa59270432d8f">vg::ReverseGraph</a>
 , <a class="el" href="classvg_1_1SnarlGraph.html#ac521452a597e9159b8c281cc49239ccb">vg::SnarlGraph</a>
 , <a class="el" href="classvg_1_1SourceSinkOverlay.html#a03f1de876e4731012b5e7168556d5236">vg::SourceSinkOverlay</a>
@@ -734,6 +822,10 @@ $(function() {
 , <a class="el" href="classvg_1_1SubpathOverlay.html#ae15f1a187d3bf9a590f173fdf4bd8f9b">vg::SubpathOverlay</a>
 , <a class="el" href="classvg_1_1TreeSubgraph.html#ac6d8e68e5bff645f58f741291a810abe">vg::TreeSubgraph</a>
 , <a class="el" href="classvg_1_1VG.html#aff75e522e40559f5a5257a5cef776cdc">vg::VG</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a214243244b7e99dfe24df8665860dbb2">vg::ZipCode::chain_code_t</a>
+, <a class="el" href="classvg_1_1ZipCode.html#a8a5fd40be34ed83736e027a3ca6d9889">vg::ZipCode</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#ad67b89184b6f5d83cb888b5f14647ae3">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#aa80045f926e1bfde2fb07e2c2e442732">vg::ZipCode::snarl_code_t</a>
 , <a class="el" href="classxg_1_1XG.html#aa52bb123eca4dbff84b316a7f56a98cc">xg::XG</a>
 </li>
 <li>get_locus_name()
@@ -751,7 +843,11 @@ $(function() {
 </li>
 <li>get_magic_number()
 : <a class="el" href="classhandlegraph_1_1Serializable.html#a8879f13f2204a80a6c428883187961db">handlegraph::Serializable</a>
+, <a class="el" href="classvg_1_1ZipCodeCollection.html#a59d0bd8bac747766d3471225e5a6ae05">vg::ZipCodeCollection</a>
 , <a class="el" href="classxg_1_1XG.html#ac8ed9c987e2693c548ad834b39df7a80">xg::XG</a>
+</li>
+<li>get_magic_number_as_string()
+: <a class="el" href="classvg_1_1ZipCodeCollection.html#a6ee9653e5766e260ca6c903ca0920265">vg::ZipCodeCollection</a>
 </li>
 <li>get_main()
 : <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#a5a7af092ca69792ed2543bbcc3847ad4">vg::subcommand::Subcommand</a>
@@ -793,6 +889,15 @@ $(function() {
 <li>get_net_graph()
 : <a class="el" href="classvg_1_1GenomeState.html#ad07741efc2a949dd69aee266dbb4500b">vg::GenomeState</a>
 </li>
+<li>get_net_handle()
+: <a class="el" href="classvg_1_1ZipCode.html#a051a9144646b660f213fe44d5b123d77">vg::ZipCode</a>
+</li>
+<li>get_net_handle_slow()
+: <a class="el" href="classvg_1_1ZipCode.html#ad1d40ef72bc5fa0f9e0e933add4265a2">vg::ZipCode</a>
+</li>
+<li>get_next_intervals()
+: <a class="el" href="classvg_1_1ZipCodeForest.html#a2c9a60acfcb3f8521eeb7bbf5e36007b">vg::ZipCodeForest</a>
+</li>
 <li>get_next_node_recalc_degrees()
 : <a class="el" href="classvg_1_1FlowSort.html#a1fac8545c184446eee5cae0f55567b1f">vg::FlowSort</a>
 </li>
@@ -814,6 +919,9 @@ $(function() {
 </li>
 <li>get_node_by_id()
 : <a class="el" href="structvg_1_1algorithms_1_1Graph.html#a6113178f0138c18d19ed32a08a4a474e">vg::algorithms::Graph</a>
+</li>
+<li>get_node_code()
+: <a class="el" href="classvg_1_1ZipCode.html#a1a37e35bfbd8910f64b95906f2930e28">vg::ZipCode</a>
 </li>
 <li>get_node_count()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a0c17ba8c59000d2562fb0318a1faaa7c">handlegraph::algorithms::SubHandleGraph</a>
@@ -877,6 +985,9 @@ $(function() {
 <li>get_nonoverlapping()
 : <a class="el" href="classvg_1_1WindowedVcfBuffer.html#a63b89391977d77c5320003d0e0f70469">vg::WindowedVcfBuffer</a>
 </li>
+<li>get_offset_in_chain()
+: <a class="el" href="classvg_1_1ZipCode.html#a5d8b333ee954fa9a513b6190e1910843">vg::ZipCode</a>
+</li>
 <li>get_on_strand_distance_tree()
 : <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a736cd908b11ed3a000698291c541bbc0">vg::OrientedDistanceClusterer</a>
 </li>
@@ -899,6 +1010,9 @@ $(function() {
 </li>
 <li>get_parent()
 : <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#afb665da6af9e2ccfc10e6e667254b91d">handlegraph::SnarlDecomposition</a>
+</li>
+<li>get_parent_identifier()
+: <a class="el" href="classvg_1_1ZipCode.html#a487d7a307e6b728df95581d6d261d526">vg::ZipCode</a>
 </li>
 <li>get_parent_traversal()
 : <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#a2738b92f35c61666df57cd6088f3def1">handlegraph::SnarlDecomposition</a>
@@ -961,6 +1075,12 @@ $(function() {
 <li>get_path_sequence()
 : <a class="el" href="classvg_1_1GraphSynchronizer.html#ac33a770c7ce8206e4649133062333898">vg::GraphSynchronizer</a>
 </li>
+<li>get_payload_from_zip()
+: <a class="el" href="classvg_1_1ZipCode.html#a05895f989a23d97b08bd0c1c56bbc3bc">vg::ZipCode</a>
+</li>
+<li>get_payload_from_zipcode()
+: <a class="el" href="classvg_1_1ZipCode.html#ae9a95e07dd615b3692fe7742990c6c8b">vg::ZipCode</a>
+</li>
 <li>get_peripheral_attachments()
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#afbd7c2ce70efdcc6c25c20cc7710faa0">vg::GraphSynchronizer::Lock</a>
 </li>
@@ -975,9 +1095,19 @@ $(function() {
 , <a class="el" href="classvg_1_1MemoizingGraph.html#ade585496ff8b0d082500a1a76c2b187b">vg::MemoizingGraph</a>
 , <a class="el" href="classxg_1_1XG.html#ab6e8ce09a0ed201a56b9f8bd387b4e4d">xg::XG</a>
 </li>
+<li>get_positions()
+: <a class="el" href="classvg_1_1Funnel.html#a617af9590f607720de6a87dfcddbe553">vg::Funnel</a>
+</li>
+<li>get_possible_filenames()
+: <a class="el" href="classvg_1_1IndexRegistry.html#a6dc3fd500ab65621ad72ae968cedecf0">vg::IndexRegistry</a>
+</li>
 <li>get_prefix()
 : <a class="el" href="classvg_1_1IndexRegistry.html#aa3748affd87c03e3a883ccb9d913eb73">vg::IndexRegistry</a>
 , <a class="el" href="classvg_1_1PhaseUnfolder.html#abae52ee7605f03c82622c63c55463db7">vg::PhaseUnfolder</a>
+</li>
+<li>get_prefix_sum_or_identifier()
+: <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#ab2390c393bb641b64ca80183686df54a">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a34832c0fc381d48cb1424a224f8d9dae">vg::ZipCode::snarl_code_t</a>
 </li>
 <li>get_previous_step()
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a71040226b29aa5046f4cc04c8c9aa9fb">handlegraph::PathHandleGraph</a>
@@ -1007,6 +1137,59 @@ $(function() {
 <li>get_radius()
 : <a class="el" href="classvg_1_1VariantAdder.html#ae974fd5d06287893b0b1f8690624d18f">vg::VariantAdder</a>
 </li>
+<li>get_rank_in_snarl()
+: <a class="el" href="classvg_1_1ZipCode.html#a32750209d049ac9e5fea67c97be1f151">vg::ZipCode</a>
+</li>
+<li>get_raw_chain_component()
+: <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#a0ab97119fa36e9682bb28118190cb8e4">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#af202024a5bb84df848c92b06535682c4">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_child_count()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#af740b35df2d7b5cd84b3ab439440e492">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_code_type()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#abca762bde40792cc01251c5372cd8b61">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_connectivity()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a4f3a37a0ed45286df4f4d3cf254ac376">vg::ZipCode::chain_code_t</a>
+</li>
+<li>get_raw_distance_end_left()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a2619d7eccb0849542a6c8a86bb7937c1">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_distance_end_right()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a1fe89643eb1a0f051e5ac71465984a71">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_distance_start_left()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a39806103fa11d9969668f75045732bec">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_distance_start_right()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a168236545b3436928b1099c1fe572379">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_is_reversed()
+: <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#a5009106b8ce3273a9db11d5c177e5760">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#aa00b0cb7326f1fabc61bc7330936f0ee">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_last_component()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#aa3fc8437a85ebad068b816cb2c04d0e3">vg::ZipCode::chain_code_t</a>
+</li>
+<li>get_raw_length()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a31621cf955a3423ca4fa85b440597df2">vg::ZipCode::chain_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#a7ac1eeeb4a44eec49317c89ec69ec5e0">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#aabb9e23dfe383bcf8d241675975a80d6">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_prefix_sum_or_identifier()
+: <a class="el" href="structvg_1_1ZipCode_1_1node__code__t.html#a2382df4c7c2f34b2e538edd9c2c27c66">vg::ZipCode::node_code_t</a>
+, <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#adfcdf800c56ed38d46c5d2db8f291e62">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_record_offset()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#a04bf6c411365529b20b893c2b30b9f8e">vg::ZipCode::snarl_code_t</a>
+</li>
+<li>get_raw_snarl_rank_or_identifier()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#af4bfbe05a99156b9cc18446647c88830">vg::ZipCode::chain_code_t</a>
+</li>
+<li>get_read_coverage()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a59563aa4a1d0f00d909edd4cf8b8aa7a">vg::MinimizerMapper</a>
+</li>
 <li>get_read_fn()
 : <a class="el" href="classvg_1_1io_1_1JSONStreamHelper.html#a549e248d11b13f164c871cbf3ccbf935">vg::io::JSONStreamHelper&lt; T &gt;</a>
 </li>
@@ -1018,6 +1201,9 @@ $(function() {
 </li>
 <li>get_recipe()
 : <a class="el" href="classvg_1_1IndexRegistry.html#a1f378b76124b73c85111a81be74f92b3">vg::IndexRegistry</a>
+</li>
+<li>get_record_offset()
+: <a class="el" href="structvg_1_1ZipCode_1_1snarl__code__t.html#ae3dde9ebd7b44658b083f4bd372e823f">vg::ZipCode::snarl_code_t</a>
 </li>
 <li>get_ref_following()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d">haplo::linear_haplo_structure</a>
@@ -1045,6 +1231,9 @@ $(function() {
 <li>get_regular_aligner()
 : <a class="el" href="classvg_1_1AlignerClient.html#a60d4602ba9be4861136af507f8eacaec">vg::AlignerClient</a>
 </li>
+<li>get_regular_snarl_code()
+: <a class="el" href="classvg_1_1ZipCode.html#a13c0515e594e7da8c54e29314b1af6a6">vg::ZipCode</a>
+</li>
 <li>get_release()
 : <a class="el" href="classvg_1_1Version.html#a3e99ae82ab6bcc07d982012d731e7091">vg::Version</a>
 </li>
@@ -1065,8 +1254,8 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">handlegraph::PathMetadata</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">vg::ReadFilter&lt; Read &gt;</a>
-, <a class="el" href="classvg_1_1Surjector.html#aafe9672e0a82c6540c4d1360070725ec">vg::Surjector</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a2144e5b768ebd71768d37265c07deda2">vg::ReadFilter&lt; Read &gt;</a>
+, <a class="el" href="classvg_1_1Surjector.html#a4df48f23da07159bb99bc6577d992938">vg::Surjector</a>
 </li>
 <li>get_scores()
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a784a7e41856ad01f9bdd88ca59dfb146">haplo::haplo_DP_column</a>
@@ -1109,7 +1298,7 @@ $(function() {
 : <a class="el" href="classvg_1_1HaplotypePartitioner.html#acbe0f7f081cf6db06a894e451d8915b6">vg::HaplotypePartitioner</a>
 </li>
 <li>get_sequences()
-: <a class="el" href="classvg_1_1HaplotypePartitioner.html#af88d6e4839d697b5780c453441d3abb0">vg::HaplotypePartitioner</a>
+: <a class="el" href="classvg_1_1HaplotypePartitioner.html#a8bdd15927542e95eb536fc9e9bb69aa7">vg::HaplotypePartitioner</a>
 </li>
 <li>get_short()
 : <a class="el" href="classvg_1_1Version.html#a8105cc0ae9049ca2daf91fbce5efa5e9">vg::Version</a>
@@ -1131,6 +1320,12 @@ $(function() {
 : <a class="el" href="classvg_1_1SnarlCaller.html#acbc3b71e19fca0c018ff9dd713f2b052">vg::SnarlCaller</a>
 , <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#aa702e223a90771c4090511c23b7c55a7">vg::SupportBasedSnarlCaller</a>
 </li>
+<li>get_snarl_child_count()
+: <a class="el" href="classvg_1_1ZipCode.html#ad6d78deca4d723ac8d5ede306abd5578">vg::ZipCode</a>
+</li>
+<li>get_snarl_rank_or_identifier()
+: <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a078386aa48caae9dda52e73c2975f8b7">vg::ZipCode::chain_code_t</a>
+</li>
 <li>get_snarl_reference_bounds()
 : <a class="el" href="classvg_1_1Genotyper.html#a29a6f2fd20161c9313498760578c091a">vg::Genotyper</a>
 </li>
@@ -1142,6 +1337,9 @@ $(function() {
 </li>
 <li>get_SNV_allele()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a353eefc81d042a96f98980b7cb2a72aa">haplo::linear_haplo_structure</a>
+</li>
+<li>get_sort_value()
+: <a class="el" href="structvg_1_1ZipCodeForest_1_1sort__value__t.html#aae5b7a35573e7133c368eb6bf4678aab">vg::ZipCodeForest::sort_value_t</a>
 </li>
 <li>get_source_handle()
 : <a class="el" href="classvg_1_1SourceSinkOverlay.html#a4126d6851b442614cb115668eaeeb89f">vg::SourceSinkOverlay</a>
@@ -1192,8 +1390,8 @@ $(function() {
 , <a class="el" href="classvg_1_1PhaseUnfolder.html#a97128de268b43c9ccf9dd117829adedf">vg::PhaseUnfolder</a>
 </li>
 <li>get_support()
-: <a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">vg::AugmentedGraph</a>
-, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
+: <a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">vg::AugmentedGraph</a>
+, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a04ebbd23ec0162a72c959351131e17ba">vg::SupportBasedSnarlCaller</a>
@@ -1215,6 +1413,9 @@ $(function() {
 </li>
 <li>get_thread_stream()
 : <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#a749ab082e0364d470d84978c9757ef76">vg::io::StreamMultiplexer</a>
+</li>
+<li>get_top_level_chain_offset()
+: <a class="el" href="classvg_1_1ZipCode.html#a304ce8419239ce69dfb69e85e50d3c8c">vg::ZipCode</a>
 </li>
 <li>get_topological_order()
 : <a class="el" href="classvg_1_1PathSubgraph.html#a591e8f29ef3f356a38aca18e466ae954">vg::PathSubgraph</a>
@@ -1245,8 +1446,12 @@ $(function() {
 <li>get_traversals()
 : <a class="el" href="classvg_1_1Deconstructor.html#ad58319907ec3f7bf3e6d130f6469a9a9">vg::Deconstructor</a>
 </li>
+<li>get_tree_size()
+: <a class="el" href="classvg_1_1ZipCodeTree.html#a1207ebf8f31cd6f17593f100be3c7f00">vg::ZipCodeTree</a>
+</li>
 <li>get_type()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#ac0dcdb90717d1585bbc847206746e293">haplo::linear_haplo_structure</a>
+, <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#aef1abc2e62fd2ebcc722e26978bb56b7">vg::ZipCodeTree::tree_item_t</a>
 </li>
 <li>get_underlying_handle()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#ada7dab5b4c9e55607563d1bcf546d401">handlegraph::algorithms::SubHandleGraph</a>
@@ -1274,6 +1479,10 @@ $(function() {
 <li>get_value()
 : <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#a6d28a735e7c8a6a0cc8b11675fb8d261">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>
 , <a class="el" href="structvg_1_1subcommand_1_1ValueArgSpec.html#acb802adcf83734cc84ee4745ed4ee505">vg::subcommand::ValueArgSpec&lt; T, Receiver, Holder &gt;</a>
+, <a class="el" href="structvg_1_1ZipCodeTree_1_1tree__item__t.html#adf719dd5d99dd4b31952df3af1911ed1">vg::ZipCodeTree::tree_item_t</a>
+</li>
+<li>get_value_and_next_index()
+: <a class="el" href="structvg_1_1varint__vector__t.html#afee3663cabce117ecf7b114b0179ae31">vg::varint_vector_t</a>
 </li>
 <li>get_variants_in_site()
 : <a class="el" href="classvg_1_1VCFTraversalFinder.html#ae45b4f713e847be11c4aa07482de3e12">vg::VCFTraversalFinder</a>
@@ -1303,10 +1512,10 @@ $(function() {
 : <a class="el" href="structGBWTConfig.html#a07b86c3ec44037b22504eb86d9ebd78d">GBWTConfig</a>
 </li>
 <li>GFADuplicatePathError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#a05dd140439b17113dec810a3cdc26bab">vg::algorithms::GFADuplicatePathError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#aa815b9f84fdf80d9bf29c38d3d68408c">vg::algorithms::GFADuplicatePathError</a>
 </li>
 <li>GFAFormatError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#afdf6dea244cc33a30ae5d9446199bea2">vg::algorithms::GFAFormatError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#add2d72c679e2b69e1c9f9c481228e0fb">vg::algorithms::GFAFormatError</a>
 </li>
 <li>GFAHandleGraph()
 : <a class="el" href="classvg_1_1GFAHandleGraph.html#aeffc2278ffcad22cd6950f3fa831f60d">vg::GFAHandleGraph</a>

@@ -98,6 +98,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad7b72c45ce0349b96aae49d2a1cc8eec"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html#ad7b72c45ce0349b96aae49d2a1cc8eec">operator&gt;</a> (const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;other) const</td></tr>
 <tr class="memdesc:ad7b72c45ce0349b96aae49d2a1cc8eec"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compare for greater-than.  <a href="classvg_1_1algorithms_1_1TracedScore.html#ad7b72c45ce0349b96aae49d2a1cc8eec">More...</a><br /></td></tr>
 <tr class="separator:ad7b72c45ce0349b96aae49d2a1cc8eec"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade52d5662380757204b3a9eb7e632b5f"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html#ade52d5662380757204b3a9eb7e632b5f">operator-</a> (const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;other) const</td></tr>
+<tr class="memdesc:ade52d5662380757204b3a9eb7e632b5f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subtraction to yield a difference in points.  <a href="classvg_1_1algorithms_1_1TracedScore.html#ade52d5662380757204b3a9eb7e632b5f">More...</a><br /></td></tr>
+<tr class="separator:ade52d5662380757204b3a9eb7e632b5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -106,7 +109,7 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a5ba55d94d11446319300052e02df1b23"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html#a5ba55d94d11446319300052e02df1b23">unset</a> ()</td></tr>
 <tr class="separator:a5ba55d94d11446319300052e02df1b23"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a999c0829c8c11a2d7478630612b60b74"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html#a999c0829c8c11a2d7478630612b60b74">score_from</a> (const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;options, size_t option_number)</td></tr>
-<tr class="memdesc:a999c0829c8c11a2d7478630612b60b74"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a score from a table and record provenance in it.  <a href="classvg_1_1algorithms_1_1TracedScore.html#a999c0829c8c11a2d7478630612b60b74">More...</a><br /></td></tr>
+<tr class="memdesc:a999c0829c8c11a2d7478630612b60b74"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a score from a table of scores and record provenance in it.  <a href="classvg_1_1algorithms_1_1TracedScore.html#a999c0829c8c11a2d7478630612b60b74">More...</a><br /></td></tr>
 <tr class="separator:a999c0829c8c11a2d7478630612b60b74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
@@ -218,6 +221,34 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Compare for inequality. </p>
+
+</div>
+</div>
+<a id="ade52d5662380757204b3a9eb7e632b5f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade52d5662380757204b3a9eb7e632b5f">&#9670;&nbsp;</a></span>operator-()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::algorithms::TracedScore::operator- </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Subtraction to yield a difference in points. </p>
 
 </div>
 </div>
@@ -339,7 +370,7 @@ Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Get a score from a table and record provenance in it. </p>
+<p>Get a score from a table of scores and record provenance in it. </p>
 
 </div>
 </div>

@@ -84,7 +84,7 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="crash_8hpp.html#a11a5ab008a7ea6045c711d9e4a2c1768">crash_unless</a>(condition)&#160;&#160;&#160;crash_unless_impl((condition), #condition, __FILE__, __LINE__, __func__);</td></tr>
+<tr class="memitem:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="crash_8hpp.html#a11a5ab008a7ea6045c711d9e4a2c1768">crash_unless</a>(condition)&#160;&#160;&#160;{if (!(condition)) crash_unless_failed(#condition, __FILE__, __LINE__, __func__);}</td></tr>
 <tr class="memdesc:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this instead of assert.  <a href="crash_8hpp.html#a11a5ab008a7ea6045c711d9e4a2c1768">More...</a><br /></td></tr>
 <tr class="separator:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -104,9 +104,9 @@ Functions</h2></td></tr>
 <tr class="separator:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a638a54aabac7956dae6fd882468a86fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a638a54aabac7956dae6fd882468a86fe">vg::report_exception</a> (const std::exception &amp;ex)</td></tr>
 <tr class="separator:a638a54aabac7956dae6fd882468a86fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">vg::crash_unless_impl</a> (bool condition, const std::string &amp;condition_string, const std::string &amp;file, int line, const std::string &amp;function)</td></tr>
-<tr class="memdesc:a0ca4eebd30887a3625fb8561c3d240d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation.  <a href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">More...</a><br /></td></tr>
-<tr class="separator:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4373c1c1d20b8b00d1bb9b3e80986333">vg::crash_unless_failed</a> (const char *condition_string, const char *file, int line, const char *function)</td></tr>
+<tr class="memdesc:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation, only when the condition has failed.  <a href="namespacevg.html#a4373c1c1d20b8b00d1bb9b3e80986333">More...</a><br /></td></tr>
+<tr class="separator:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Implementation for crash handling to create a stack trace when VG crashes. To use the crash handling system, call <a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7" title="Main should call this to turn on our stack tracing support.">enable_crash_handling()</a> early on in the program. When a crash occurs, you will recieve an error message with the stack trace. To get just a filename, you need to set the environment variable 'VG_FULL_TRACEBACK=0'. </p>
@@ -122,7 +122,7 @@ Functions</h2></td></tr>
           <td>(</td>
           <td class="paramtype">&#160;</td>
           <td class="paramname">condition</td><td>)</td>
-          <td>&#160;&#160;&#160;crash_unless_impl((condition), #condition, __FILE__, __LINE__, __func__);</td>
+          <td>&#160;&#160;&#160;{if (!(condition)) crash_unless_failed(#condition, __FILE__, __LINE__, __func__);}</td>
         </tr>
       </table>
 </div><div class="memdoc">

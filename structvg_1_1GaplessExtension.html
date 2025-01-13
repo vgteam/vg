@@ -100,9 +100,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a4898e2fabc109703f497e19f10bb164a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a">mismatches</a> () const</td></tr>
 <tr class="memdesc:a4898e2fabc109703f497e19f10bb164a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of mismatches in the extension.  <a href="structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a">More...</a><br /></td></tr>
 <tr class="separator:a4898e2fabc109703f497e19f10bb164a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abfa77e71c6b3b5193a57dd13b42ecf40"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40">contains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> seed) const</td></tr>
-<tr class="memdesc:abfa77e71c6b3b5193a57dd13b42ecf40"><td class="mdescLeft">&#160;</td><td class="mdescRight">Does the extension contain the seed?  <a href="structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40">More...</a><br /></td></tr>
-<tr class="separator:abfa77e71c6b3b5193a57dd13b42ecf40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bc9436d24978ebb2d0df881d0838ff2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a5bc9436d24978ebb2d0df881d0838ff2">for_each_read_interval</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const std::function&lt; bool(size_t, size_t, const <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> &amp;)&gt; &amp;iteratee) const</td></tr>
+<tr class="separator:a5bc9436d24978ebb2d0df881d0838ff2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a019486c5f7e5aab04d9e5b78aac3d069"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a019486c5f7e5aab04d9e5b78aac3d069">contains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> &amp;seed) const</td></tr>
+<tr class="memdesc:a019486c5f7e5aab04d9e5b78aac3d069"><td class="mdescLeft">&#160;</td><td class="mdescRight">Does the extension contain the seed?  <a href="structvg_1_1GaplessExtension.html#a019486c5f7e5aab04d9e5b78aac3d069">More...</a><br /></td></tr>
+<tr class="separator:a019486c5f7e5aab04d9e5b78aac3d069"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2dc9687b1ac33335f593028c981fe494"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a2dc9687b1ac33335f593028c981fe494">starting_position</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const</td></tr>
 <tr class="memdesc:a2dc9687b1ac33335f593028c981fe494"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the starting position of the extension.  <a href="structvg_1_1GaplessExtension.html#a2dc9687b1ac33335f593028c981fe494">More...</a><br /></td></tr>
 <tr class="separator:a2dc9687b1ac33335f593028c981fe494"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -182,8 +184,8 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="abfa77e71c6b3b5193a57dd13b42ecf40"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abfa77e71c6b3b5193a57dd13b42ecf40">&#9670;&nbsp;</a></span>contains()</h2>
+<a id="a019486c5f7e5aab04d9e5b78aac3d069"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a019486c5f7e5aab04d9e5b78aac3d069">&#9670;&nbsp;</a></span>contains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -197,7 +199,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a>&#160;</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> &amp;&#160;</td>
           <td class="paramname"><em>seed</em>&#160;</td>
         </tr>
         <tr>
@@ -263,6 +265,35 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Is the extension an exact match? </p>
+
+</div>
+</div>
+<a id="a5bc9436d24978ebb2d0df881d0838ff2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5bc9436d24978ebb2d0df881d0838ff2">&#9670;&nbsp;</a></span>for_each_read_interval()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtension::for_each_read_interval </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(size_t, size_t, const <a class="el" href="structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081">seed_type</a> &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Iterate over all read regions and the seed (handle and offset) with which they are visited. Lets you work out which read interval/graph interval pairings are involved. Function should return false to stop iteration. Returns false if the callback returns false. Iterates as read start, interval length, seed. </p>
 
 </div>
 </div>

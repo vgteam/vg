@@ -83,6 +83,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a94ddd290e4408f2a758083d2022b6c46"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ffe7fc7ef04c67add8a6fae372dcee9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a3ffe7fc7ef04c67add8a6fae372dcee9">forward_offset</a> () const</td></tr>
 <tr class="separator:a3ffe7fc7ef04c67add8a6fae372dcee9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff4877147fc6b731179a8e89dfb99757"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#aff4877147fc6b731179a8e89dfb99757">pin_offset</a> () const</td></tr>
+<tr class="separator:aff4877147fc6b731179a8e89dfb99757"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fb1665349757422a2868159d2b66437"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a7fb1665349757422a2868159d2b66437">window_size</a> () const</td></tr>
 <tr class="memdesc:a7fb1665349757422a2868159d2b66437"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many bases are in a window for which a minimizer is chosen?  <a href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a7fb1665349757422a2868159d2b66437">More...</a><br /></td></tr>
 <tr class="separator:a7fb1665349757422a2868159d2b66437"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -111,6 +113,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab1badd75611d7d30cfcc7d387aa2986a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a002868b55e87a630c4e4f1e1ff213008"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a002868b55e87a630c4e4f1e1ff213008">score</a></td></tr>
 <tr class="separator:a002868b55e87a630c4e4f1e1ff213008"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ad3bbc4813727c0af8fa25f18d02512"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a4ad3bbc4813727c0af8fa25f18d02512">is_repetitive</a></td></tr>
+<tr class="separator:a4ad3bbc4813727c0af8fa25f18d02512"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>We define our own type for minimizers, to use during mapping and to pass around between our internal functions. Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region. </p>
@@ -221,6 +225,32 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="aff4877147fc6b731179a8e89dfb99757"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff4877147fc6b731179a8e89dfb99757">&#9670;&nbsp;</a></span>pin_offset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::Minimizer::pin_offset </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the position on the read's sequence that corresponds to the located graph positions. For reverse-strand minimizers this will be at the end of the minimizer's interval in the read. </p>
+
+</div>
+</div>
 <a id="a7fb1665349757422a2868159d2b66437"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7fb1665349757422a2868159d2b66437">&#9670;&nbsp;</a></span>window_size()</h2>
 
@@ -299,6 +329,20 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::MinimizerMapper::Minimizer::hits</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4ad3bbc4813727c0af8fa25f18d02512"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4ad3bbc4813727c0af8fa25f18d02512">&#9670;&nbsp;</a></span>is_repetitive</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::Minimizer::is_repetitive</td>
         </tr>
       </table>
 </div><div class="memdoc">

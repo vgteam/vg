@@ -118,6 +118,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af85c211a4a06a1fb750958002cefba0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64132e9f5f27ce6930554ad3c197e694"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a64132e9f5f27ce6930554ad3c197e694">min_primary</a> = numeric_limits&lt;double&gt;::lowest()</td></tr>
 <tr class="separator:a64132e9f5f27ce6930554ad3c197e694"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2afae0acb031354f67f95f20dda1c4b8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a2afae0acb031354f67f95f20dda1c4b8">max_length</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a2afae0acb031354f67f95f20dda1c4b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7373ef70ee64562dd779628a234c1080"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7373ef70ee64562dd779628a234c1080">rescore</a> = false</td></tr>
 <tr class="separator:a7373ef70ee64562dd779628a234c1080"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28e3876fb7401ecf89e9cd75fee37d59"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a28e3876fb7401ecf89e9cd75fee37d59">frac_score</a> = false</td></tr>
@@ -142,6 +144,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a44099974ab2ac2d374e4530b064e1908"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a881165b11e7539bc03e331f16b1a5f0a"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a881165b11e7539bc03e331f16b1a5f0a">downsample_seed_mask</a> = 0</td></tr>
 <tr class="separator:a881165b11e7539bc03e331f16b1a5f0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a4d052b3060e2b8a434310ce6dc14f5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a1a4d052b3060e2b8a434310ce6dc14f5">max_reads</a> = numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="memdesc:a1a4d052b3060e2b8a434310ce6dc14f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many reads should we take total? Note that this filter is nondeterministic.  <a href="classvg_1_1ReadFilter.html#a1a4d052b3060e2b8a434310ce6dc14f5">More...</a><br /></td></tr>
+<tr class="separator:a1a4d052b3060e2b8a434310ce6dc14f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1a4ac583b2b783404b20e985c4a5f5e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab1a4ac583b2b783404b20e985c4a5f5e">defray_length</a> = 0</td></tr>
 <tr class="separator:ab1a4ac583b2b783404b20e985c4a5f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef4ec3c75ed003564641757d0d78b6ea"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aef4ec3c75ed003564641757d0d78b6ea">defray_count</a> = 99999</td></tr>
@@ -179,6 +184,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a7fe13f943f153913f16aa594720d350a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8c6af52884a83d9538ea7ef42ac9eb4"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab8c6af52884a83d9538ea7ef42ac9eb4">min_base_quality_fraction</a> = numeric_limits&lt;double&gt;::lowest()</td></tr>
 <tr class="separator:ab8c6af52884a83d9538ea7ef42ac9eb4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a89cd59970cfca5bf91f828f84035e39a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a89cd59970cfca5bf91f828f84035e39a">batch_size</a> = <a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">vg::io::DEFAULT_PARALLEL_BATCHSIZE</a></td></tr>
+<tr class="memdesc:a89cd59970cfca5bf91f828f84035e39a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Process reads in batches of this size.  <a href="classvg_1_1ReadFilter.html#a89cd59970cfca5bf91f828f84035e39a">More...</a><br /></td></tr>
+<tr class="separator:a89cd59970cfca5bf91f828f84035e39a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44b9ee21da92a8cd89af5b6538ac32a0"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a44b9ee21da92a8cd89af5b6538ac32a0">annotation_to_match</a> = &quot;&quot;</td></tr>
 <tr class="separator:a44b9ee21da92a8cd89af5b6538ac32a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab0f19128ff55e1e2c1cad90adcfc0d6e">only_correctly_mapped</a> = false</td></tr>
@@ -201,6 +209,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a21b0bf11e5636b41cf6dfc4a61441c4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3e168659158cf4372fc11b8cda05883d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">get_score</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:a3e168659158cf4372fc11b8cda05883d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2ef22beb751d9415759fc1985da1946"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ae2ef22beb751d9415759fc1985da1946">get_length</a> (const Read &amp;read) const</td></tr>
+<tr class="separator:ae2ef22beb751d9415759fc1985da1946"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab72c4fd96eedcb4bcd6aa565e97dfe4d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab72c4fd96eedcb4bcd6aa565e97dfe4d">matches_name</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:ab72c4fd96eedcb4bcd6aa565e97dfe4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac772c0651477027191108e64ab7c53cb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac772c0651477027191108e64ab7c53cb">has_excluded_refpos</a> (const Read &amp;read) const</td></tr>
@@ -235,8 +245,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a50fce1e4c1159834e6371156040c6cbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5beda5e781b3a4b1b6ec139b280785d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a5beda5e781b3a4b1b6ec139b280785d9">emit</a> (Read &amp;read1, Read &amp;read2)</td></tr>
 <tr class="separator:a5beda5e781b3a4b1b6ec139b280785d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aea009ada29c5944d17ce7e9a922b94b5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aea009ada29c5944d17ce7e9a922b94b5">emit_tsv</a> (Read &amp;read)</td></tr>
-<tr class="separator:aea009ada29c5944d17ce7e9a922b94b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a02ed848e6d5395a8b966f883bd318a8e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a02ed848e6d5395a8b966f883bd318a8e">emit_tsv</a> (Read &amp;read, std::ostream &amp;out)</td></tr>
+<tr class="separator:a02ed848e6d5395a8b966f883bd318a8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3220ffe3aa6042a1423c6251c95a2b05"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3220ffe3aa6042a1423c6251c95a2b05">filter_internal</a> (istream *in)</td></tr>
 <tr class="memdesc:a3220ffe3aa6042a1423c6251c95a2b05"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper function for filter.  <a href="classvg_1_1ReadFilter.html#a3220ffe3aa6042a1423c6251c95a2b05">More...</a><br /></td></tr>
 <tr class="separator:a3220ffe3aa6042a1423c6251c95a2b05"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -284,15 +294,17 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aaf6db93c73e3030a098aa54a21416cd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1aa38e8c41e26d7932caa918cfcfe76e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a1aa38e8c41e26d7932caa918cfcfe76e">get_is_paired</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;mp_aln) const</td></tr>
 <tr class="separator:a1aa38e8c41e26d7932caa918cfcfe76e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7dc8a2c60fe139ed5890d8bb7ad42b9e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7dc8a2c60fe139ed5890d8bb7ad42b9e">emit_tsv</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;read)</td></tr>
-<tr class="separator:a7dc8a2c60fe139ed5890d8bb7ad42b9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e7121b0a308e9846ace0ea04badfb2a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8e7121b0a308e9846ace0ea04badfb2a">emit_tsv</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;read)</td></tr>
-<tr class="separator:a8e7121b0a308e9846ace0ea04badfb2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ee0191017a8bf8b6c09ea5ef01e9517"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8ee0191017a8bf8b6c09ea5ef01e9517">emit_tsv</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;read, std::ostream &amp;out)</td></tr>
+<tr class="separator:a8ee0191017a8bf8b6c09ea5ef01e9517"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ce4a34cb9883643cfc277ac0c213f64"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7ce4a34cb9883643cfc277ac0c213f64">emit_tsv</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;read, std::ostream &amp;out)</td></tr>
+<tr class="separator:a7ce4a34cb9883643cfc277ac0c213f64"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
+<tr class="memitem:a06835480f40ef09dd073cc14a469f760"><td class="memItemLeft" align="right" valign="top">std::atomic&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a06835480f40ef09dd073cc14a469f760">max_reads_used</a> {}</td></tr>
+<tr class="separator:a06835480f40ef09dd073cc14a469f760"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0dd41aa98c633f881001c8924b212b23"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a0dd41aa98c633f881001c8924b212b23">aln_emitter</a></td></tr>
-<tr class="memdesc:a0dd41aa98c633f881001c8924b212b23"><td class="mdescLeft">&#160;</td><td class="mdescRight">The twp specializations have different writing infrastructure.  <a href="classvg_1_1ReadFilter.html#a0dd41aa98c633f881001c8924b212b23">More...</a><br /></td></tr>
+<tr class="memdesc:a0dd41aa98c633f881001c8924b212b23"><td class="mdescLeft">&#160;</td><td class="mdescRight">The two specializations have different writing infrastructure.  <a href="classvg_1_1ReadFilter.html#a0dd41aa98c633f881001c8924b212b23">More...</a><br /></td></tr>
 <tr class="separator:a0dd41aa98c633f881001c8924b212b23"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7baa666446be017dea5507fe5771de57"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html">MultipathAlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7baa666446be017dea5507fe5771de57">mp_aln_emitter</a></td></tr>
 <tr class="separator:a7baa666446be017dea5507fe5771de57"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -577,8 +589,8 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
-<a id="a8e7121b0a308e9846ace0ea04badfb2a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8e7121b0a308e9846ace0ea04badfb2a">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[1/3]</span></h2>
+<a id="a7ce4a34cb9883643cfc277ac0c213f64"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ce4a34cb9883643cfc277ac0c213f64">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -590,8 +602,18 @@ template&lt;typename Read &gt; </div>
           <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;::emit_tsv </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>read</em></td><td>)</td>
+          <td class="paramname"><em>read</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -603,8 +625,8 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
-<a id="a7dc8a2c60fe139ed5890d8bb7ad42b9e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7dc8a2c60fe139ed5890d8bb7ad42b9e">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[2/3]</span></h2>
+<a id="a8ee0191017a8bf8b6c09ea5ef01e9517"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8ee0191017a8bf8b6c09ea5ef01e9517">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -616,8 +638,18 @@ template&lt;typename Read &gt; </div>
           <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;::emit_tsv </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>read</em></td><td>)</td>
+          <td class="paramname"><em>read</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -629,8 +661,8 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
-<a id="aea009ada29c5944d17ce7e9a922b94b5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aea009ada29c5944d17ce7e9a922b94b5">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[3/3]</span></h2>
+<a id="a02ed848e6d5395a8b966f883bd318a8e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a02ed848e6d5395a8b966f883bd318a8e">&#9670;&nbsp;</a></span>emit_tsv() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -644,8 +676,18 @@ template&lt;typename Read &gt; </div>
           <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::emit_tsv </td>
           <td>(</td>
           <td class="paramtype">Read &amp;&#160;</td>
-          <td class="paramname"><em>read</em></td><td>)</td>
+          <td class="paramname"><em>read</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -654,7 +696,7 @@ template&lt;typename Read &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Write a tsv line for a read to stdout </p>
+<p>Write a tsv line for a read to the given stream </p>
 
 </div>
 </div>
@@ -942,6 +984,35 @@ template&lt;typename Read &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Is the read paired? </p>
+
+</div>
+</div>
+<a id="ae2ef22beb751d9415759fc1985da1946"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae2ef22beb751d9415759fc1985da1946">&#9670;&nbsp;</a></span>get_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::get_length </td>
+          <td>(</td>
+          <td class="paramtype">const Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>What is the read's length? </p>
 
 </div>
 </div>
@@ -1952,7 +2023,7 @@ template&lt;typename Read &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p>The twp specializations have different writing infrastructure. </p>
+<p>The two specializations have different writing infrastructure. </p>
 
 </div>
 </div>
@@ -1970,6 +2041,24 @@ template&lt;typename Read &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>A string formatted "annotation[.subfield]*:value" Value is optional if the key is a flag Used like jq select </p>
+
+</div>
+</div>
+<a id="a89cd59970cfca5bf91f828f84035e39a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a89cd59970cfca5bf91f828f84035e39a">&#9670;&nbsp;</a></span>batch_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::batch_size = <a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">vg::io::DEFAULT_PARALLEL_BATCHSIZE</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Process reads in batches of this size. </p>
 
 </div>
 </div>
@@ -2219,6 +2308,22 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="a2afae0acb031354f67f95f20dda1c4b8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2afae0acb031354f67f95f20dda1c4b8">&#9670;&nbsp;</a></span>max_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::max_length = std::numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a54c30818834f623c78a2cb0a0e9b4a91"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a54c30818834f623c78a2cb0a0e9b4a91">&#9670;&nbsp;</a></span>max_overhang</h2>
 
@@ -2231,6 +2336,48 @@ template&lt;typename Read &gt; </div>
           <td class="memname">int <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::max_overhang = numeric_limits&lt;int&gt;::max() / 2</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1a4d052b3060e2b8a434310ce6dc14f5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a4d052b3060e2b8a434310ce6dc14f5">&#9670;&nbsp;</a></span>max_reads</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::max_reads = numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How many reads should we take total? Note that this filter is nondeterministic. </p>
+
+</div>
+</div>
+<a id="a06835480f40ef09dd073cc14a469f760"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a06835480f40ef09dd073cc14a469f760">&#9670;&nbsp;</a></span>max_reads_used</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::atomic&lt;size_t&gt; <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::max_reads_used {}</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

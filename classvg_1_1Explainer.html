@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="#pro-static-attribs">Static Protected Attributes</a> &#124;
 <a href="classvg_1_1Explainer-members.html">List of all members</a>  </div>
@@ -87,17 +88,21 @@ Inheritance diagram for vg::Explainer:</div>
 <area href="classvg_1_1DiagramExplainer.html" alt="vg::DiagramExplainer" shape="rect" coords="0,56,167,80"/>
 <area href="classvg_1_1DotDumpExplainer.html" alt="vg::DotDumpExplainer&lt; T &gt;" shape="rect" coords="177,56,344,80"/>
 <area href="classvg_1_1ProblemDumpExplainer.html" alt="vg::ProblemDumpExplainer" shape="rect" coords="354,56,521,80"/>
+<area href="classvg_1_1SubgraphExplainer.html" alt="vg::SubgraphExplainer" shape="rect" coords="531,56,698,80"/>
+<area href="classvg_1_1TSVExplainer.html" alt="vg::TSVExplainer" shape="rect" coords="708,56,875,80"/>
   </map>
 </div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a19389539f87e2796095eab2c37592f42"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#a19389539f87e2796095eab2c37592f42">Explainer</a> ()</td></tr>
-<tr class="memdesc:a19389539f87e2796095eab2c37592f42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct an <a class="el" href="classvg_1_1Explainer.html">Explainer</a> that will save to one or more files.  <a href="classvg_1_1Explainer.html#a19389539f87e2796095eab2c37592f42">More...</a><br /></td></tr>
-<tr class="separator:a19389539f87e2796095eab2c37592f42"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6731729e992afae0857c09c646df3418"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#a6731729e992afae0857c09c646df3418">Explainer</a> (bool <a class="el" href="classvg_1_1Explainer.html#aab4405f76ac87a52ec7acd6e833a11c7">enabled</a>)</td></tr>
+<tr class="memdesc:a6731729e992afae0857c09c646df3418"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct an <a class="el" href="classvg_1_1Explainer.html">Explainer</a> that will save to one or more files.  <a href="classvg_1_1Explainer.html#a6731729e992afae0857c09c646df3418">More...</a><br /></td></tr>
+<tr class="separator:a6731729e992afae0857c09c646df3418"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68991032a4a7fed25227a884f7f76a2a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#a68991032a4a7fed25227a884f7f76a2a">~Explainer</a> ()</td></tr>
 <tr class="memdesc:a68991032a4a7fed25227a884f7f76a2a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Close out the files being explained to.  <a href="classvg_1_1Explainer.html#a68991032a4a7fed25227a884f7f76a2a">More...</a><br /></td></tr>
 <tr class="separator:a68991032a4a7fed25227a884f7f76a2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeca40f040dd309c5f457e8ea0bd8627f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#aeca40f040dd309c5f457e8ea0bd8627f">operator bool</a> () const</td></tr>
+<tr class="separator:aeca40f040dd309c5f457e8ea0bd8627f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -105,11 +110,20 @@ Static Public Attributes</h2></td></tr>
 <tr class="memdesc:a3510aece27ab20079a8a3e87fa702596"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if explanations should be generated.  <a href="classvg_1_1Explainer.html#a3510aece27ab20079a8a3e87fa702596">More...</a><br /></td></tr>
 <tr class="separator:a3510aece27ab20079a8a3e87fa702596"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a9cc8dab32c3fb040cf2b6da4d0bdef49"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#a9cc8dab32c3fb040cf2b6da4d0bdef49">explaining</a> () const</td></tr>
+<tr class="memdesc:a9cc8dab32c3fb040cf2b6da4d0bdef49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function to check if we should be explaining.  <a href="classvg_1_1Explainer.html#a9cc8dab32c3fb040cf2b6da4d0bdef49">More...</a><br /></td></tr>
+<tr class="separator:a9cc8dab32c3fb040cf2b6da4d0bdef49"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:ad93fa7fe7f64d180b6c606ffba47ba11"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#ad93fa7fe7f64d180b6c606ffba47ba11">explanation_number</a></td></tr>
 <tr class="memdesc:ad93fa7fe7f64d180b6c606ffba47ba11"><td class="mdescLeft">&#160;</td><td class="mdescRight">What number explanation are we? Distinguishes different objects.  <a href="classvg_1_1Explainer.html#ad93fa7fe7f64d180b6c606ffba47ba11">More...</a><br /></td></tr>
 <tr class="separator:ad93fa7fe7f64d180b6c606ffba47ba11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab4405f76ac87a52ec7acd6e833a11c7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Explainer.html#aab4405f76ac87a52ec7acd6e833a11c7">enabled</a></td></tr>
+<tr class="memdesc:aab4405f76ac87a52ec7acd6e833a11c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determines if this explainer should generate explanations.  <a href="classvg_1_1Explainer.html#aab4405f76ac87a52ec7acd6e833a11c7">More...</a><br /></td></tr>
+<tr class="separator:aab4405f76ac87a52ec7acd6e833a11c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
 Static Protected Attributes</h2></td></tr>
@@ -120,8 +134,8 @@ Static Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Base explainer class. Handles making sure each explanation has a different unique number. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a19389539f87e2796095eab2c37592f42"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19389539f87e2796095eab2c37592f42">&#9670;&nbsp;</a></span>Explainer()</h2>
+<a id="a6731729e992afae0857c09c646df3418"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6731729e992afae0857c09c646df3418">&#9670;&nbsp;</a></span>Explainer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -129,7 +143,8 @@ Static Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::Explainer::Explainer </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>enabled</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -166,7 +181,85 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="a9cc8dab32c3fb040cf2b6da4d0bdef49"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9cc8dab32c3fb040cf2b6da4d0bdef49">&#9670;&nbsp;</a></span>explaining()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Explainer::explaining </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Function to check if we should be explaining. </p>
+
+</div>
+</div>
+<a id="aeca40f040dd309c5f457e8ea0bd8627f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeca40f040dd309c5f457e8ea0bd8627f">&#9670;&nbsp;</a></span>operator bool()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::Explainer::operator bool </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Conversion to bool so you can use an explainer as a condition on code to write to it. </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="aab4405f76ac87a52ec7acd6e833a11c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab4405f76ac87a52ec7acd6e833a11c7">&#9670;&nbsp;</a></span>enabled</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Explainer::enabled</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Determines if this explainer should generate explanations. </p>
+
+</div>
+</div>
 <a id="ad93fa7fe7f64d180b6c606ffba47ba11"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad93fa7fe7f64d180b6c606ffba47ba11">&#9670;&nbsp;</a></span>explanation_number</h2>
 

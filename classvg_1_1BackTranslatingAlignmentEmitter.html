@@ -101,10 +101,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a37bb7f41cd3d94ee37b837e5254d2122"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2e0b48b26e6563de0728055ee80947f4"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#a2e0b48b26e6563de0728055ee80947f4">emit_mapped_pairs</a> (vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns1_batch, vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns2_batch, vector&lt; int64_t &gt; &amp;&amp;tlen_limit_batch)</td></tr>
 <tr class="separator:a2e0b48b26e6563de0728055ee80947f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed2fce246283ef5280a9219229f1e6e1"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#aed2fce246283ef5280a9219229f1e6e1">emit_extra_message</a> (const std::string &amp;tag, std::string &amp;&amp;data)</td></tr>
+<tr class="memdesc:aed2fce246283ef5280a9219229f1e6e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit some extra type-tagged data, if the backing format supports it.  <a href="classvg_1_1BackTranslatingAlignmentEmitter.html#aed2fce246283ef5280a9219229f1e6e1">More...</a><br /></td></tr>
+<tr class="separator:aed2fce246283ef5280a9219229f1e6e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1io_1_1AlignmentEmitter')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">vg::io::AlignmentEmitter</a></td></tr>
-<tr class="memitem:a4eb6186a8322603353d123295e0558f1 inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html#a4eb6186a8322603353d123295e0558f1">emit_extra_message</a> (const std::string &amp;tag, std::string &amp;&amp;data)</td></tr>
-<tr class="memdesc:a4eb6186a8322603353d123295e0558f1 inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit some extra type-tagged data, if the backing format supports it.  <a href="classvg_1_1io_1_1AlignmentEmitter.html#a4eb6186a8322603353d123295e0558f1">More...</a><br /></td></tr>
-<tr class="separator:a4eb6186a8322603353d123295e0558f1 inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9c09a54a452278ec02084ca498105b8d inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html#a9c09a54a452278ec02084ca498105b8d">emit_single</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln)</td></tr>
 <tr class="memdesc:a9c09a54a452278ec02084ca498105b8d inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.  <a href="classvg_1_1io_1_1AlignmentEmitter.html#a9c09a54a452278ec02084ca498105b8d">More...</a><br /></td></tr>
 <tr class="separator:a9c09a54a452278ec02084ca498105b8d inherit pub_methods_classvg_1_1io_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -192,6 +192,46 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Back-translate alignments in place. </p>
+
+</div>
+</div>
+<a id="aed2fce246283ef5280a9219229f1e6e1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aed2fce246283ef5280a9219229f1e6e1">&#9670;&nbsp;</a></span>emit_extra_message()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::BackTranslatingAlignmentEmitter::emit_extra_message </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>tag</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string &amp;&amp;&#160;</td>
+          <td class="paramname"><em>data</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Emit some extra type-tagged data, if the backing format supports it. </p>
+
+<p>Reimplemented from <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html#a4eb6186a8322603353d123295e0558f1">vg::io::AlignmentEmitter</a>.</p>
 
 </div>
 </div>
