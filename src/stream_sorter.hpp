@@ -9,6 +9,7 @@
 #include "progressive.hpp"
 #include "stream_index.hpp"
 #include "utility.hpp"
+#include "hash_map.hpp"
 #include "vg/io/json2pb.h"
 #include <string>
 #include <queue>
@@ -49,12 +50,24 @@ class StreamSorter : public Progressive {
 public:
 
     //////////////////
+    // Configuration Constants
+    //////////////////
+
+    /// Represents a sort order that reads can be sorted in.
+    enum class Order {
+        /// Sort reads by graph position. Can be indexed.
+        BY_GRAPH_POSITION,
+        /// Sort reads in a random order. Cannot be indexed.
+        RANDOM
+    };
+
+    //////////////////
     // Main entry points
     //////////////////
     
     /// Create a stream sorter, showing sort progress on standard error if
     /// show_progress is true.
-    StreamSorter(bool show_progress = false);
+    StreamSorter(Order order = Order::BY_GRAPH_POSITION, bool show_progress = false);
     
     /// Sort a stream of VPKG-format Protobuf data, using temporary files,
     /// limiting the number of simultaneously open input files and the size of
@@ -89,6 +102,10 @@ public:
     bool less_than(const Position& a, const Position& b) const;
     
   private:
+    /// What orser are we sorting in
+    Order order;
+    /// For random order, what is our seed/hash salt?
+    int seed;
     /// What's the maximum size of messages in serialized, uncompressed bytes to
     /// load into memory for a single temp file chunk, during the streaming
     /// sort?
@@ -125,7 +142,7 @@ using GAMSorter = StreamSorter<Alignment>;
 //////////////
 
 template<typename Message>
-StreamSorter<Message>::StreamSorter(bool show_progress) {
+StreamSorter<Message>::StreamSorter(Order order, bool show_progress) : order(order), seed(rand()) {
     this->show_progress = show_progress;
     
     // We would like this many FDs max, if not limited below that.
@@ -271,8 +288,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
                 while (input_cursor.has_current() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input messages or space, buffer each, recording its size.
                     thread_buffer.emplace_back(std::move(input_cursor.take()));
-                    // Note that the message has to be small enough for its size to fit in a signed int
-                    buffered_message_bytes += thread_buffer.back().ByteSize();
+                    buffered_message_bytes += thread_buffer.back().ByteSizeLong();
                 }
             
                 // Update the progress bar
@@ -488,7 +504,18 @@ vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp
 
 template<typename Message>
 bool StreamSorter<Message>::less_than(const Message &a, const Message &b) const {
-    return less_than(get_min_position(a), get_min_position(b));
+    if (order == Order::BY_GRAPH_POSITION) {
+        return less_than(get_min_position(a), get_min_position(b));
+    } else if (order == Order::RANDOM) {
+        std::hash<std::string> hasher;
+        // TODO: The constant re-serialization will be slow.
+        std::pair<size_t, size_t> key_a(hasher(a.SerializeAsString()), seed);
+        std::pair<size_t, size_t> key_b(hasher(b.SerializeAsString()), seed);
+        std::hash<std::pair<size_t, size_t>> combiner;
+        return combiner(key_a) < combiner(key_b);
+    } else {
+        throw std::runtime_error("Unimplemented sort order " + std::to_string((int)order));
+    }
 }
 
 template<typename Message>

@@ -19,6 +19,10 @@ public:
     const static string COMPILER;
     // The standard library that was used to link vg
     const static string STANDARD_LIBRARY;
+    // The version of HTSlib that we saw at compile time.
+    const static string HTSLIB_HEADERS;
+    // The version of HTSlib that we actually linked.
+    const static string HTSLIB_LIBRARY;
     /// The OS that vg was built on
     const static string OS;
     /// The user who built vg

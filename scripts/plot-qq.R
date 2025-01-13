@@ -106,7 +106,7 @@ print(x$ci)
 
 # Now plot the points as different sizes, but the error bar line ranges as a consistent size
 dat.plot <- ggplot(x, aes(1-mapprob+1e-7, 1-observed+1e-7, color=aligner, size=N, weight=N, label=round(mapq,2))) +
-    scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=1)) +
+    scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_y_log10("measured error", limits=c(1e-7,2), breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e0)) +
     scale_x_log10("error estimate", limits=c(1e-7,2), breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e0)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +

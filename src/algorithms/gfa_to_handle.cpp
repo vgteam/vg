@@ -507,7 +507,7 @@ static bool take_optional_tab(GFAParser::cursor_t& cursor, const GFAParser::curs
 /// Take the given character. Throw an error if it isn't there.
 static void take_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char value, const char* parsing_state = nullptr) {
     if (cursor == end || *cursor != value) {
-        throw GFAFormatError("Expected " + value, cursor, parsing_state); 
+        throw GFAFormatError("Expected " + std::string(1, value), cursor, parsing_state); 
     }
     ++cursor;
 }

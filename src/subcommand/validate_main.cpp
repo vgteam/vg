@@ -107,10 +107,21 @@ int main_validate(int argc, char** argv) {
                         AlignmentValidity validity = alignment_is_valid(aln, graph.get(), check_sequence);
                         if (!validity) {
                             // Complain about this alignment
-                            cerr << "Invalid Alignment:\n" << pb2json(aln) << "\n" << validity.message;
+                            cerr << "Invalid Alignment:" << std::endl;;
+                            if (aln.sequence().size() < 1000) {
+                                cerr << pb2json(aln) << std::endl;
+                            }
+                            cerr << std::endl << validity.message;
                             if (validity.problem == AlignmentValidity::NODE_TOO_SHORT) {
                                 // If a node is too short, report the whole mapping again.
-                                cerr << ":\n" << pb2json(aln.path().mapping(validity.bad_mapping_index));
+                                cerr << ":" << std::endl << pb2json(aln.path().mapping(validity.bad_mapping_index));
+                            }
+                            if (validity.problem == AlignmentValidity::READ_TOO_SHORT || validity.problem == AlignmentValidity::BAD_EDIT || validity.problem == AlignmentValidity::SEQ_DOES_NOT_MATCH) {
+                                // If there's something wrong with an edit or the read, report the edit and the position in the read
+                                if (validity.bad_mapping_index < aln.path().mapping_size() && validity.bad_edit_index < aln.path().mapping(validity.bad_mapping_index).edit_size()) {
+                                    cerr << ":" << std::endl << pb2json(aln.path().mapping(validity.bad_mapping_index).edit(validity.bad_edit_index));
+                                }
+                                cerr << ": at mapping " << validity.bad_mapping_index << " edit " << validity.bad_edit_index << " vs. read base " << validity.bad_read_position;
                             }
                             cerr << endl;
                             valid_aln = false;

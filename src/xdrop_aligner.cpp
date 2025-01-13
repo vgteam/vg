@@ -25,6 +25,8 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 //#define DZ_PRINT_VECTOR
  
 #include <dozeu/dozeu.h>
+#include <iostream>
+#include <omp.h>
 
 using namespace vg;
 
@@ -108,6 +110,7 @@ dz_alignment_s* XdropAligner::trace(const dz_forefront_s* forefront) {
 
 void XdropAligner::flush() {
     dz_flush(dz);
+    dz_trim(dz, THREAD_MAX_RETAINED_BYTES); 
 }
 
 /**
