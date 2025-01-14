@@ -2115,7 +2115,8 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment.name());
         }
-        
+
+        check_quality_length(*alignment);
         toUppercaseInPlace(*alignment.mutable_sequence());
         
         bool is_rna = uses_Us(alignment);
@@ -2181,6 +2182,8 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_in(thread_num, alignment_1.name());
         }
         
+        check_quality_length(*alignment_1);
+        check_quality_length(*alignment_2);
         toUppercaseInPlace(*alignment_1.mutable_sequence());
         toUppercaseInPlace(*alignment_2.mutable_sequence());
         

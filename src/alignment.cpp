@@ -2847,6 +2847,27 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
+void check_quality_length(const Alignment& aln) {
+    size_t quality_length = aln.quality().length();
+    if (quality_length == 0 || quality_length == aln.sequence().length()) {
+        // This length is acceptable.
+        return;
+    }
+
+    bool too_short = quality_length < aln.sequence().length();
+
+    std::stringstream ss;
+    ss << "Read " << aln.name() << " has " << aln.sequence().length() << " bases of sequence but ";
+    if (too_short) {
+        ss << "only ";
+    }
+    ss << quality_length << " base quality values.";
+    if (too_short) {
+        ss << " Was the quality information truncated?";
+    }
+    throw std::runtime_error(ss.str());
+}
+
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence) {
     size_t read_idx = 0;
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
