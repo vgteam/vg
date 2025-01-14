@@ -2865,7 +2865,10 @@ void check_quality_length(const Alignment& aln) {
     if (too_short) {
         ss << " Was the quality information truncated?";
     }
-    throw std::runtime_error(ss.str());
+    
+    #pragma omp critical (cerr)
+    std::cerr << "error [vg::alignment.cpp]: " << ss.str() << std::endl;
+    exit(1);
 }
 
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence) {
