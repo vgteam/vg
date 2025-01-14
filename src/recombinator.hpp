@@ -161,6 +161,19 @@ public:
             return { this->sequences[i].first, this->sequences[i].second };
         }
 
+        /// Returns the distance from the last base of `start` to the first base of
+        /// `end` over the given sequence. Returns 0 if the subchain is not normal or
+        /// if the sequence does not exist.
+        size_t distance(const gbwtgraph::GBZ& gbz, size_t i) const;
+
+        /// Returns an estimate of the badness of the subchain.
+        /// The ideal value is 0.0, and higher values indicate worse subchains.
+        /// The estimate is based on the following factors:
+        /// * Length of the subchain.
+        /// * Number of haplotypes relative to the expected number.
+        /// * Information content of the kmers (disabled).
+        double badness(const gbwtgraph::GBZ& gbz) const;
+
         /// Serializes the object to a stream in the simple-sds format.
         void simple_sds_serialize(std::ostream& out) const;
 
@@ -417,6 +430,10 @@ public:
     /// A reasonable number of candidates for diploid sampling.
     constexpr static size_t NUM_CANDIDATES = 32;
 
+    // TODO: Proper threshold?
+    /// Badness threshold for subchains.
+    constexpr static double BADNESS_THRESHOLD = 4.0;
+
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
     constexpr static size_t COVERAGE = 0;
 
@@ -450,6 +467,9 @@ public:
         /// Number of subchains.
         size_t subchains = 0;
 
+        /// Number of subchains exceeding the badness threshold.
+        size_t bad_subchains = 0;
+
         /// Number of fragments.
         size_t fragments = 0;
 
@@ -458,6 +478,9 @@ public:
 
         /// Number of haplotypes generated.
         size_t haplotypes = 0;
+
+        /// Number of additional haplotype fragments in bad subchains.
+        size_t extra_fragments = 0;
 
         /// Number of times a haplotype was extended from a subchain to the next subchain.
         size_t connections = 0;
@@ -516,9 +539,17 @@ public:
         /// highest-scoring pair out of them.
         bool diploid_sampling = false;
 
+        /// When using diploid sampling, include the remaining candidates as
+        /// additional fragments in bad subchains.
+        bool extra_fragments = false;
+
+        /// Badness threshold for subchains when using diploid sampling.
+        double badness_threshold = BADNESS_THRESHOLD;
+
         /// Include named and reference paths.
         bool include_reference = false;
 
+        // TODO: Enable/disable badness once we know if it's good.
         /// Preset parameters for common use cases.
         enum preset_t {
             /// Default parameters.

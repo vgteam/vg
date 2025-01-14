@@ -1,6 +1,16 @@
 /** \file haplotypes_main.cpp
  *
  * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
+ *
+ * TODO:
+ *
+ * 1. Tests for extra fragments.
+ *
+ * 2. Option to sample non-contiguous haplotypes. This may be important in large
+ *    snarls. Select a suffix of a fragment, all fragments fully within the snarl,
+ *    and the prefix of the fragment exiting the snarl.
+ *
+ * 3. Tests for 2 as well as --linear-structure.
  */
 
 #include "subcommand.hpp"
@@ -25,49 +35,61 @@ using namespace vg;
 
 //----------------------------------------------------------------------------
 
+// Default values for command line parameters.
+
+namespace haplotypes_defaults {
+
 constexpr size_t DEFAULT_MAX_THREADS = 16;
 
-size_t haplotypes_default_threads() {
+size_t threads() {
     size_t threads = omp_get_max_threads();
     threads = std::max(threads, size_t(1));
     return std::min(threads, DEFAULT_MAX_THREADS);
 }
 
-constexpr size_t haplotypes_default_k() {
+constexpr size_t k() {
     return Haplotypes::Header::DEFAULT_K;
 }
 
-constexpr size_t haplotypes_default_w() {
+constexpr size_t w() {
     return gbwtgraph::Key64::WINDOW_LENGTH;
 }
 
-constexpr size_t haplotypes_default_subchain_length() {
+constexpr size_t subchain_length() {
     return HaplotypePartitioner::SUBCHAIN_LENGTH;
 }
 
-constexpr size_t haplotypes_default_n() {
+constexpr size_t n() {
     return Recombinator::NUM_HAPLOTYPES;
 }
 
-constexpr size_t haplotypes_default_candidates() {
+constexpr size_t candidates() {
     return Recombinator::NUM_CANDIDATES;
 }
 
-constexpr size_t haplotypes_default_coverage() {
+constexpr size_t coverage() {
     return Recombinator::COVERAGE;
 }
 
-constexpr double haplotypes_default_discount() {
+constexpr double discount() {
     return Recombinator::PRESENT_DISCOUNT;
 }
 
-constexpr double haplotypes_default_adjustment() {
+constexpr double adjustment() {
     return Recombinator::HET_ADJUSTMENT;
 }
 
-constexpr double haplotypes_default_absent() {
+constexpr double absent() {
     return Recombinator::ABSENT_SCORE;
 }
+
+constexpr double badness() {
+    return Recombinator::BADNESS_THRESHOLD;
+}
+
+}; // namespace haplotypes_defaults
+
+//----------------------------------------------------------------------------
 
 struct HaplotypesConfig {
     enum OperatingMode {
@@ -91,7 +113,7 @@ struct HaplotypesConfig {
     std::string haplotype_input, kmer_input, vcf_input;
 
     // Computational parameters.
-    size_t k = haplotypes_default_k(), w = haplotypes_default_w();
+    size_t k = haplotypes_defaults::k(), w = haplotypes_defaults::w();
     HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
 
@@ -106,7 +128,7 @@ struct HaplotypesConfig {
     std::string ref_sample;
 
     // Other parameters.
-    size_t threads = haplotypes_default_threads();
+    size_t threads = haplotypes_defaults::threads();
     bool validate = false;
 
     HaplotypesConfig(int argc, char** argv, size_t max_threads);
@@ -130,7 +152,7 @@ int main_haplotypes(int argc, char** argv) {
     double start = gbwt::readTimer();
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
     size_t max_threads = omp_get_max_threads();
-    omp_set_num_threads(haplotypes_default_threads());
+    omp_set_num_threads(haplotypes_defaults::threads());
 
     // Parse the arguments.
     HaplotypesConfig config(argc, argv, max_threads);
@@ -227,26 +249,28 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for generating haplotype information:" << std::endl;
-    std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
-    std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
-    std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
+    std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_defaults::k() << ")" << std::endl;
+    std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_defaults::w() << ")" << std::endl;
+    std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_defaults::subchain_length() << ")" << std::endl;
     std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "        --preset X            use preset X (default, haploid, diploid)" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
-    std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
-    std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_default_candidates() << ")" << std::endl;
-    std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
-    std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
-    std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
+    std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_defaults::n() << ")" << std::endl;
+    std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_defaults::candidates() << ")" << std::endl;
+    std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_defaults::discount() << ")" << std::endl;
+    std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_defaults::adjustment() << ")" << std::endl;
+    std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_defaults::absent()  << ")" << std::endl;
     std::cerr << "        --haploid-scoring     use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "        --diploid-sampling    choose the best pair from the sampled haplotypes" << std::endl;
+    std::cerr << "        --extra-fragments     in diploid sampling, select all candidates in bad subchains" << std::endl;
+    std::cerr << "        --badness F           threshold for the badness of a subchain (default: " << haplotypes_defaults::badness() << ")" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
-    std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_default_threads() << " on this system)" << std::endl;
+    std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_defaults::threads() << " on this system)" << std::endl;
     std::cerr << std::endl;
     if (developer_options) {
         std::cerr << "Developer options:" << std::endl;
@@ -276,7 +300,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_ABSENT_SCORE = 1305;
     constexpr int OPT_HAPLOID_SCORING = 1306;
     constexpr int OPT_DIPLOID_SAMPLING = 1307;
-    constexpr int OPT_INCLUDE_REFERENCE = 1308;
+    constexpr int OPT_EXTRA_FRAGMENTS = 1308;
+    constexpr int OPT_BADNESS = 1309;
+    constexpr int OPT_INCLUDE_REFERENCE = 1310;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
@@ -305,6 +331,8 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
+        { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
+        { "badness", required_argument, 0, OPT_BADNESS },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
@@ -429,6 +457,16 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_DIPLOID_SAMPLING:
             this->recombinator_parameters.diploid_sampling = true;
             break;
+        case OPT_EXTRA_FRAGMENTS:
+            this->recombinator_parameters.extra_fragments = true;
+            break;
+        case OPT_BADNESS:
+            this->recombinator_parameters.badness_threshold = parse<double>(optarg);
+            if (this->recombinator_parameters.badness_threshold <= 0.0) {
+                std::cerr << "error: [vg haplotypes] badness threshold must be positive" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            break;
         case OPT_INCLUDE_REFERENCE:
             this->recombinator_parameters.include_reference = true;
             break;
@@ -521,7 +559,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
     // Use conditional defaults if the user did not override them.
     if (this->recombinator_parameters.diploid_sampling && !num_haplotypes_set) {
-        this->recombinator_parameters.num_haplotypes = haplotypes_default_candidates();
+        this->recombinator_parameters.num_haplotypes = haplotypes_defaults::candidates();
     }
 }
 
