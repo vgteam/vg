@@ -1621,11 +1621,14 @@ std::vector<char> Recombinator::classify_kmers(
 
 // Select the best pair of haplotypes from the candidates. Each haplotype gets
 // +1 for getting a kmer right and -1 for getting it wrong.
+// Also returns the remaining non-duplicated haplotypes as extra fragments if
+// the appropriate paremeters have been set.
 std::vector<std::pair<size_t, double>> select_diploid(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const std::vector<std::pair<size_t, double>>& candidates,
     const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types,
+    size_t original_selected,
     const Recombinator::Parameters& parameters
 ) {
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
@@ -1660,7 +1663,8 @@ std::vector<std::pair<size_t, double>> select_diploid(
         }
     }
 
-    // If this is a bad subchain, we move the selected haplotypes to the front.
+    // If this is a bad subchain, we move the selected haplotypes to the front
+    // and return the remaining non-duplicated haplotypes as extra fragments.
     // Otherwise we return only the selected haplotypes.
     if (parameters.extra_fragments) {
         double badness = subchain.badness(gbz);
@@ -1668,7 +1672,7 @@ std::vector<std::pair<size_t, double>> select_diploid(
             std::vector<std::pair<size_t, double>> result;
             result.push_back(candidates[best_left]);
             result.push_back(candidates[best_right]);
-            for (size_t i = 0; i < candidates.size(); i++) {
+            for (size_t i = 0; i < original_selected; i++) {
                 if (i != best_left && i != best_right) {
                     result.push_back(candidates[i]);
                 }
@@ -1765,14 +1769,14 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         selected_haplotypes.push_back(next);
     }
 
-    // Do diploid sampling if necessary. If this is a bad subchain, the first
-    // two haplotypes will be the selected ones and other candidates will follow
-    // them.
+    // Do diploid sampling. If this is a bad subchain, we also return the
+    // extra fragments starting from the third haplotype. But we don't return
+    // duplicated ones.
     if (parameters.diploid_sampling) {
-        return select_diploid(gbz, subchain, selected_haplotypes, kmer_types, parameters);
+        return select_diploid(gbz, subchain, selected_haplotypes, kmer_types, original_selected, parameters);
+    } else {
+        return selected_haplotypes;
     }
-
-    return selected_haplotypes;
 }
 
 Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain,
