@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 60
+plan tests 62
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -14,21 +14,21 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.min x.xg
+vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min x.xg
 
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
 rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
-vg giraffe -Z x.giraffe.gbz -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + dist specified without crashing"
 
 rm -f x.giraffe.gbz
 vg gbwt -x x.xg -g x.gg x.gbwt
-vg giraffe -g x.gg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -g x.gg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gg + gbwt + min + dist specified without crashing"
 
-rm -f x.min
+rm -f x.shortread.withzip.min
 vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
 
@@ -45,10 +45,15 @@ is "${?}" "0" "a read can be mapped with the fast preset"
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
 is "${?}" "0" "a read can be mapped with the default preset"
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b sr >/dev/null
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read can be mapped with the short read chaining preset"
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b sr >/dev/null
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -f reads/small.middle.ref.fq -b chaining-sr >/dev/null 2>log.txt
+is "${?}" "1" "a read pair cannot be mapped with the short read chaining preset"
+is "$(cat log.txt | grep "not yet implemented" | wc -l)" "1" "trying to map paired-end data with chaining produces an informative error"
+rm -f log.txt
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
 
 rm -Rf grid-out
@@ -67,7 +72,7 @@ vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > 
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
 
 chmod 400 x.dist
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
 is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
 echo "@read" >read.fq
@@ -75,17 +80,17 @@ echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n
 echo "+" >>read.fq
 echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
 
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f read.fq > read.gam
 LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l | sed 's/^[[:space:]]*//')"
 is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
 
 
 printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
 printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
-vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
 
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
@@ -97,7 +102,7 @@ is "$(cat t1.gaf | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//'
 
 rm t1.bam t2.bam t3.bam t1.gaf tagged1.fq tagged2.fq
 rm -f read.fq read.gam
-rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
+rm -f x.vg x.xg x.gbwt x.shortread.zipcodes x.shortread.withzip.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
 
@@ -137,7 +142,7 @@ vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-
 is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "0" "paired reads have cross-references"
 
 # Test paired surjected mapping
-vg giraffe x.fa x.vcf.gz -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
+vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's/^[[:space:]]*//')" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
@@ -152,10 +157,10 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.xg x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
-rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
@@ -209,7 +214,7 @@ is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | sed 's/^[[:space
 is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
-rm -f xy.vg xy.gbwt xy.xg xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
@@ -217,15 +222,16 @@ is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
-vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates > mapped.gam
 is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
 is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l | sed 's/^[[:space:]]*//')" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l | sed 's/^[[:space:]]*//')" "0" "GFA segment names are all set"
 
-vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
@@ -248,5 +254,5 @@ is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
-rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt
+rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min log.txt
 

@@ -3662,6 +3662,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     vector<SnarlDistanceIndexClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
         positions[i].pos = hit_graph.nodes[i].start_pos;
+        positions[i].zipcode.fill_in_zipcode(*distance_index, hit_graph.nodes[i].start_pos, true);
     }
  
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;

@@ -25,29 +25,29 @@ is $? 1 "distance index or --no-dist is required"
 # Single-threaded for deterministic results
 vg minimizer --no-dist -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 6835ace921c7751bbf5ec1e94fde2726 "construction is deterministic"
 
 # Indexing syncmers
 vg minimizer --no-dist -t 1 -o x.mi -c -g x.gbwt x.xg
 is $? 0 "syncmer index"
-is $(md5sum x.mi | cut -f 1 -d\ ) 74d836b46799590835c7d61e283df4f0 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 864c01922b8f4b96804ecd73329274b3 "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer --no-dist -t 1 -k 7 -w 3 -o x.mi -g x.gbwt x.xg 
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) 7260e5ea22f063a8dff1f9dd60f92288 "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) 925326a8a9c042b857e0d21f169b18cd "setting -k -w works correctly"
 
 # Construction from GBWTGraph
 vg gbwt -x x.xg -g x.gg x.gbwt
 vg minimizer --no-dist -t 1 -g x.gbwt -o x.mi x.gg
 is $? 0 "construction from GBWTGraph"
-is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 6835ace921c7751bbf5ec1e94fde2726 "construction is deterministic"
 
 # Construction from GBZ
 vg gbwt -x x.xg -g x.gbz --gbz-format x.gbwt
 vg minimizer --no-dist -t 1 -o x.mi x.gbz
 is $? 0 "construction from GBZ"
-is $(md5sum x.mi | cut -f 1 -d\ ) 0d75343d78d1e7d9e9fbc3d7d2386ce2 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 6835ace921c7751bbf5ec1e94fde2726 "construction is deterministic"
 
 # Store payload in the index
 vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
@@ -72,7 +72,7 @@ vg minimizer --no-dist -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "multiple graphs: first"
 vg minimizer --no-dist -t 1 -l x.mi -o xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
-is $(md5sum xy.mi | cut -f 1 -d\ ) 1ca39921b15cc3e7d27919a3ec7f47fa "construction is deterministic"
+is $(md5sum xy.mi | cut -f 1 -d\ ) 5f6b8df5bd3fc6bf1c8566ce556c0ea8 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg

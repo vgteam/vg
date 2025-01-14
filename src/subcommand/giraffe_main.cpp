@@ -805,7 +805,7 @@ int main_giraffe(int argc, char** argv) {
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
-    // Note: multiple FASTQs are not interpreted as paired.
+    // Multiple FASTQs are interpreted as paired.
     string fastq_filename_1;
     string fastq_filename_2;
     // Is the input interleaved/are we in paired-end mode?
@@ -1019,7 +1019,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
     // And a short reads with chaining preset
-    presets["sr"]
+    presets["chaining-sr"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", true)
         // Cap minimizers at a number we won't reach.
@@ -1549,6 +1549,12 @@ int main_giraffe(int argc, char** argv) {
     }
     if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
         cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
+    }
+
+    if (parser->get_option_value<bool>("align-from-chains") && paired) {
+        // TODO: Implement chaining for paired-end alignment
+        cerr << "error:[vg giraffe] Paired-end alignment is not yet implemented for --align-from-chains or chaining-based presets" << endl;
+        exit(1);
     }
 
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();

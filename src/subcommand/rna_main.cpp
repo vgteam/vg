@@ -21,6 +21,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+string GZ_SUFFIX = ".gz";
 
 void help_rna(char** argv) {
     cerr << "\nusage: " << argv[0] << " rna [options] graph.[vg|pg|hg|gbz] > splicing_graph.[vg|pg|hg]" << endl
@@ -248,6 +249,21 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         cerr << "[vg rna] ERROR: No transcripts or introns were given. Use --transcripts FILE and/or --introns FILE." << endl;
         return 1;       
+    }
+
+    for (const auto& filenames : {std::cref(transcript_filenames), std::cref(intron_filenames)}) {
+        // For each collection of filenames (see https://stackoverflow.com/a/64794991/)
+
+        for (auto filename : filenames.get()) {
+
+            // taken from https://stackoverflow.com/a/20446239/
+            if (filename.size() >= GZ_SUFFIX.size() &&
+                filename.compare(filename.size() - GZ_SUFFIX.size(), GZ_SUFFIX.size(), GZ_SUFFIX) == 0) {
+
+                cerr << "[vg rna] ERROR: Annotation file " << filename << " appears to be gzipped. Decompress it before use." << endl;    
+                return 1;
+            }
+        }
     }
 
     if (!haplotypes_filename.empty() && gbz_format) {
