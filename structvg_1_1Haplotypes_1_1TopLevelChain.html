@@ -88,9 +88,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a34163c2bf756a469dd6bba7880836f82"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">simple_sds_load</a> (std::istream &amp;in)</td></tr>
 <tr class="memdesc:a34163c2bf756a469dd6bba7880836f82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the object from a stream in the simple-sds format.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">More...</a><br /></td></tr>
 <tr class="separator:a34163c2bf756a469dd6bba7880836f82"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a55f4f0774122514d42f72f912318694c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a55f4f0774122514d42f72f912318694c">load_old</a> (std::istream &amp;in)</td></tr>
-<tr class="memdesc:a55f4f0774122514d42f72f912318694c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the old version without a contig name.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a55f4f0774122514d42f72f912318694c">More...</a><br /></td></tr>
-<tr class="separator:a55f4f0774122514d42f72f912318694c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ace0bf2f790aec2cc6be94bd751009f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a1ace0bf2f790aec2cc6be94bd751009f">load_v1</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:a1ace0bf2f790aec2cc6be94bd751009f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads a version 1 chain without a contig name.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a1ace0bf2f790aec2cc6be94bd751009f">More...</a><br /></td></tr>
+<tr class="separator:a1ace0bf2f790aec2cc6be94bd751009f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6639ac2e85e25e7e5a4e854e0960708"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ab6639ac2e85e25e7e5a4e854e0960708">load_v2</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:ab6639ac2e85e25e7e5a4e854e0960708"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads a less space-efficient version 2 chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ab6639ac2e85e25e7e5a4e854e0960708">More...</a><br /></td></tr>
+<tr class="separator:ab6639ac2e85e25e7e5a4e854e0960708"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb004505c7fcc83e89b15c229da33a03"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:afb004505c7fcc83e89b15c229da33a03"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">More...</a><br /></td></tr>
 <tr class="separator:afb004505c7fcc83e89b15c229da33a03"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -113,14 +116,14 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Representation of a top-level chain. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a55f4f0774122514d42f72f912318694c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a55f4f0774122514d42f72f912318694c">&#9670;&nbsp;</a></span>load_old()</h2>
+<a id="a1ace0bf2f790aec2cc6be94bd751009f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ace0bf2f790aec2cc6be94bd751009f">&#9670;&nbsp;</a></span>load_v1()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Haplotypes::TopLevelChain::load_old </td>
+          <td class="memname">void vg::Haplotypes::TopLevelChain::load_v1 </td>
           <td>(</td>
           <td class="paramtype">std::istream &amp;&#160;</td>
           <td class="paramname"><em>in</em></td><td>)</td>
@@ -129,7 +132,27 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Loads the old version without a contig name. </p>
+<p>Loads a version 1 chain without a contig name. </p>
+
+</div>
+</div>
+<a id="ab6639ac2e85e25e7e5a4e854e0960708"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6639ac2e85e25e7e5a4e854e0960708">&#9670;&nbsp;</a></span>load_v2()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::TopLevelChain::load_v2 </td>
+          <td>(</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Loads a less space-efficient version 2 chain. </p>
 
 </div>
 </div>

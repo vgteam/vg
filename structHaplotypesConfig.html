@@ -82,7 +82,8 @@ Public Types</h2></td></tr>
 <br />
 &#160;&#160;<a class="el" href="structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667ac11510277093ba13a92edaad15a143f4">mode_map_variants</a>, 
 <a class="el" href="structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a8efe96a347c67fea3b49d01cb2c21dde">mode_extract</a>, 
-<a class="el" href="structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667abd23aa372c8ca2d63cf4b477257d27ea">mode_classify</a>
+<a class="el" href="structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667abd23aa372c8ca2d63cf4b477257d27ea">mode_classify</a>, 
+<a class="el" href="structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667a0ec67bc2861395ce21fbe3333a118713">mode_statistics</a>
 <br />
  }</td></tr>
 <tr class="separator:aa7a2de45a48b792a0d045bd13e203667"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -118,9 +119,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:adfb31d19cd310ad8ec89e29fe0dd5e28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8d58855b93c6c570420598f99f2d8ea2"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a8d58855b93c6c570420598f99f2d8ea2">vcf_input</a></td></tr>
 <tr class="separator:a8d58855b93c6c570420598f99f2d8ea2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa9163a17295c26ec249d47205be0177"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#aaa9163a17295c26ec249d47205be0177">k</a> = <a class="el" href="haplotypes__main_8cpp.html#a7e3b96ea8541ed215a3b5dae99652c80">haplotypes_default_k</a>()</td></tr>
+<tr class="memitem:aaa9163a17295c26ec249d47205be0177"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#aaa9163a17295c26ec249d47205be0177">k</a> = haplotypes_defaults::k()</td></tr>
 <tr class="separator:aaa9163a17295c26ec249d47205be0177"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afc08b5bf2dd526161ebb29c1ea37d1b4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#afc08b5bf2dd526161ebb29c1ea37d1b4">w</a> = <a class="el" href="haplotypes__main_8cpp.html#a4367ee31e9b55ad2a8c5e908ba869b21">haplotypes_default_w</a>()</td></tr>
+<tr class="memitem:afc08b5bf2dd526161ebb29c1ea37d1b4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#afc08b5bf2dd526161ebb29c1ea37d1b4">w</a> = haplotypes_defaults::w()</td></tr>
 <tr class="separator:afc08b5bf2dd526161ebb29c1ea37d1b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6080d6a6e4ada9573d11d678b6de79d0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1HaplotypePartitioner_1_1Parameters.html">HaplotypePartitioner::Parameters</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a6080d6a6e4ada9573d11d678b6de79d0">partitioner_parameters</a></td></tr>
 <tr class="separator:a6080d6a6e4ada9573d11d678b6de79d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -132,7 +133,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a75b5eb4fa333aa23bc509da04d7fa8c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5e75f47f0768d4e5da28a15baaa702e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#ae5e75f47f0768d4e5da28a15baaa702e">subchain_id</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
 <tr class="separator:ae5e75f47f0768d4e5da28a15baaa702e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a179bec8b7054c7eaa5aaf9e055322d63"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a179bec8b7054c7eaa5aaf9e055322d63">threads</a> = <a class="el" href="haplotypes__main_8cpp.html#af58df98220d17480338c1cee691ce9c8">haplotypes_default_threads</a>()</td></tr>
+<tr class="memitem:a1575fa9f328d1d823e788f422b6bde43"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a1575fa9f328d1d823e788f422b6bde43">ref_sample</a></td></tr>
+<tr class="separator:a1575fa9f328d1d823e788f422b6bde43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a179bec8b7054c7eaa5aaf9e055322d63"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a179bec8b7054c7eaa5aaf9e055322d63">threads</a> = haplotypes_defaults::threads()</td></tr>
 <tr class="separator:a179bec8b7054c7eaa5aaf9e055322d63"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6eeffe1089fb8292af1674eacc00e8a4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structHaplotypesConfig.html#a6eeffe1089fb8292af1674eacc00e8a4">validate</a> = false</td></tr>
 <tr class="separator:a6eeffe1089fb8292af1674eacc00e8a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -157,6 +160,7 @@ Public Attributes</h2></td></tr>
 <tr><td class="fieldname"><a id="aa7a2de45a48b792a0d045bd13e203667ac11510277093ba13a92edaad15a143f4"></a>mode_map_variants&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="aa7a2de45a48b792a0d045bd13e203667a8efe96a347c67fea3b49d01cb2c21dde"></a>mode_extract&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="aa7a2de45a48b792a0d045bd13e203667abd23aa372c8ca2d63cf4b477257d27ea"></a>mode_classify&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="aa7a2de45a48b792a0d045bd13e203667a0ec67bc2861395ce21fbe3333a118713"></a>mode_statistics&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -302,7 +306,7 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t HaplotypesConfig::k = <a class="el" href="haplotypes__main_8cpp.html#a7e3b96ea8541ed215a3b5dae99652c80">haplotypes_default_k</a>()</td>
+          <td class="memname">size_t HaplotypesConfig::k = haplotypes_defaults::k()</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -393,6 +397,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a1575fa9f328d1d823e788f422b6bde43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1575fa9f328d1d823e788f422b6bde43">&#9670;&nbsp;</a></span>ref_sample</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string HaplotypesConfig::ref_sample</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aea2a24fbc9fbe00f814c1b98d8607079"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aea2a24fbc9fbe00f814c1b98d8607079">&#9670;&nbsp;</a></span>score_output</h2>
 
@@ -428,7 +446,7 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t HaplotypesConfig::threads = <a class="el" href="haplotypes__main_8cpp.html#af58df98220d17480338c1cee691ce9c8">haplotypes_default_threads</a>()</td>
+          <td class="memname">size_t HaplotypesConfig::threads = haplotypes_defaults::threads()</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -484,7 +502,7 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t HaplotypesConfig::w = <a class="el" href="haplotypes__main_8cpp.html#a4367ee31e9b55ad2a8c5e908ba869b21">haplotypes_default_w</a>()</td>
+          <td class="memname">size_t HaplotypesConfig::w = haplotypes_defaults::w()</td>
         </tr>
       </table>
 </div><div class="memdoc">

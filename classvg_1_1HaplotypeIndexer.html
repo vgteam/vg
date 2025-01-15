@@ -226,7 +226,9 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Build a GBWT from the alignments. Each distinct alignment name becomes a sample in the GBWT metadata. If there are multiple alignments with the same name, the corresponding GBWT path names will have the same sample identifier but different values in the count field.</p>
 <p>aln_format can be "GAM" or "GAF".</p>
-<p>Runs approximately the given number of jobs in parallel. The exact number depends on the sizes of weakly connected components in the graph. Each job uses at most 2 threads. </p>
+<p>Runs approximately the given number of jobs in parallel. The exact number depends on the sizes of weakly connected components in the graph. Each job uses at most 2 threads.</p>
+<p>In order to save space, the longest common prefix of alignment names is stored as GBWT tag sample_prefix. Only the diverging suffixes are stored as sample names.</p>
+<p>Additionally, the list of values used in quality strings is stored as GBWT tag quality_values. Tag quality_codes stores a comma-separated list of canonical Huffman code lengths for the quality values. The values are sorted by code length. </p>
 
 </div>
 </div>

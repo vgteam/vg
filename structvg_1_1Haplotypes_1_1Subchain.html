@@ -111,9 +111,19 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa409e312b588c1b48f3855bf8dfbb3c1"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#aa409e312b588c1b48f3855bf8dfbb3c1">to_string</a> () const</td></tr>
 <tr class="memdesc:aa409e312b588c1b48f3855bf8dfbb3c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a string representation of the type and the boundary nodes.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#aa409e312b588c1b48f3855bf8dfbb3c1">More...</a><br /></td></tr>
 <tr class="separator:aa409e312b588c1b48f3855bf8dfbb3c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af008e59ecc555d391149053284ca0cbb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af008e59ecc555d391149053284ca0cbb">get_sequence</a> (size_t i) const</td></tr>
+<tr class="memdesc:af008e59ecc555d391149053284ca0cbb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns (sequence identifier, offset in a node) for the given sequence.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#af008e59ecc555d391149053284ca0cbb">More...</a><br /></td></tr>
+<tr class="separator:af008e59ecc555d391149053284ca0cbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ad6324e922cb42e58a7406a33ea30bd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a7ad6324e922cb42e58a7406a33ea30bd">distance</a> (const gbwtgraph::GBZ &amp;gbz, size_t i) const</td></tr>
+<tr class="separator:a7ad6324e922cb42e58a7406a33ea30bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70d92ad6f8e97487395fc6548f053e30"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a70d92ad6f8e97487395fc6548f053e30">badness</a> (const gbwtgraph::GBZ &amp;gbz) const</td></tr>
+<tr class="separator:a70d92ad6f8e97487395fc6548f053e30"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab30088a7f754d1bfb579773000ac73e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#ab30088a7f754d1bfb579773000ac73e0">simple_sds_serialize</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:ab30088a7f754d1bfb579773000ac73e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Serializes the object to a stream in the simple-sds format.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#ab30088a7f754d1bfb579773000ac73e0">More...</a><br /></td></tr>
 <tr class="separator:ab30088a7f754d1bfb579773000ac73e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aacfeb074e57aa98d8ab342114af74e56"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#aacfeb074e57aa98d8ab342114af74e56">load_v1</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:aacfeb074e57aa98d8ab342114af74e56"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads a less space-efficient version 1 or 2 subchain.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#aacfeb074e57aa98d8ab342114af74e56">More...</a><br /></td></tr>
+<tr class="separator:aacfeb074e57aa98d8ab342114af74e56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9dfc087f0bada7635e975b6c8e8479a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a9dfc087f0bada7635e975b6c8e8479a8">simple_sds_load</a> (std::istream &amp;in)</td></tr>
 <tr class="memdesc:a9dfc087f0bada7635e975b6c8e8479a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the object from a stream in the simple-sds format.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#a9dfc087f0bada7635e975b6c8e8479a8">More...</a><br /></td></tr>
 <tr class="separator:a9dfc087f0bada7635e975b6c8e8479a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -131,11 +141,14 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af3baaf52c08ac684ac2571a9f4f56ec0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4d6a1ceb7bfeca4656781b8e2a1ece8"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af4d6a1ceb7bfeca4656781b8e2a1ece8">end</a></td></tr>
 <tr class="separator:af4d6a1ceb7bfeca4656781b8e2a1ece8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a49f3702ae058d31abd6480770cb188dd"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a49f3702ae058d31abd6480770cb188dd">kmers</a></td></tr>
-<tr class="separator:a49f3702ae058d31abd6480770cb188dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">sequences</a></td></tr>
-<tr class="memdesc:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sequences as (GBWT sequence id, offset in the relevant node).  <a href="structvg_1_1Haplotypes_1_1Subchain.html#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">More...</a><br /></td></tr>
-<tr class="separator:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57018e7275a6afc9ba8548391b670c3a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a57018e7275a6afc9ba8548391b670c3a">kmers</a></td></tr>
+<tr class="separator:a57018e7275a6afc9ba8548391b670c3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68ff855e7047ec8154df21ad2a817c10"><td class="memItemLeft" align="right" valign="top">sdsl::int_vector&lt; 0 &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a68ff855e7047ec8154df21ad2a817c10">kmer_counts</a></td></tr>
+<tr class="memdesc:a68ff855e7047ec8154df21ad2a817c10"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of haplotypes each kmer appears in.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#a68ff855e7047ec8154df21ad2a817c10">More...</a><br /></td></tr>
+<tr class="separator:a68ff855e7047ec8154df21ad2a817c10"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae0d847a9118ccb4ff178c3ac7c759eb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">compact_sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#aae0d847a9118ccb4ff178c3ac7c759eb">sequences</a></td></tr>
+<tr class="memdesc:aae0d847a9118ccb4ff178c3ac7c759eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sequences as (GBWT sequence id, offset in the relevant node).  <a href="structvg_1_1Haplotypes_1_1Subchain.html#aae0d847a9118ccb4ff178c3ac7c759eb">More...</a><br /></td></tr>
+<tr class="separator:aae0d847a9118ccb4ff178c3ac7c759eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae50f824b6f2d2e9a33b16613c01a7096"><td class="memItemLeft" align="right" valign="top">sdsl::bit_vector&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#ae50f824b6f2d2e9a33b16613c01a7096">kmers_present</a></td></tr>
 <tr class="separator:ae50f824b6f2d2e9a33b16613c01a7096"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -186,6 +199,58 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a70d92ad6f8e97487395fc6548f053e30"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a70d92ad6f8e97487395fc6548f053e30">&#9670;&nbsp;</a></span>badness()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Haplotypes::Subchain::badness </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns an estimate of the badness of the subchain. The ideal value is 0.0, and higher values indicate worse subchains. The estimate is based on the following factors:</p><ul>
+<li>Length of the subchain.</li>
+<li>Number of haplotypes relative to the expected number.</li>
+<li>Information content of the kmers (disabled). </li>
+</ul>
+
+</div>
+</div>
+<a id="a7ad6324e922cb42e58a7406a33ea30bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ad6324e922cb42e58a7406a33ea30bd">&#9670;&nbsp;</a></span>distance()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Haplotypes::Subchain::distance </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>i</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the distance from the last base of <code>start</code> to the first base of <code>end</code> over the given sequence. Returns 0 if the subchain is not normal or if the sequence does not exist. </p>
+
+</div>
+</div>
 <a id="a7cee546f2ab356b0ed2920209011c2e5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7cee546f2ab356b0ed2920209011c2e5">&#9670;&nbsp;</a></span>end_handle()</h2>
 
@@ -210,6 +275,34 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the end node as a GBWTGraph handle. </p>
+
+</div>
+</div>
+<a id="af008e59ecc555d391149053284ca0cbb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af008e59ecc555d391149053284ca0cbb">&#9670;&nbsp;</a></span>get_sequence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a> vg::Haplotypes::Subchain::get_sequence </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>i</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns (sequence identifier, offset in a node) for the given sequence. </p>
 
 </div>
 </div>
@@ -264,6 +357,26 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns <code>true</code> if the subchain has a start node. </p>
+
+</div>
+</div>
+<a id="aacfeb074e57aa98d8ab342114af74e56"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aacfeb074e57aa98d8ab342114af74e56">&#9670;&nbsp;</a></span>load_v1()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::Subchain::load_v1 </td>
+          <td>(</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Loads a less space-efficient version 1 or 2 subchain. </p>
 
 </div>
 </div>
@@ -387,14 +500,30 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a49f3702ae058d31abd6480770cb188dd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a49f3702ae058d31abd6480770cb188dd">&#9670;&nbsp;</a></span>kmers</h2>
+<a id="a68ff855e7047ec8154df21ad2a817c10"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68ff855e7047ec8154df21ad2a817c10">&#9670;&nbsp;</a></span>kmer_counts</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;std::pair&lt;<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>, size_t&gt; &gt; vg::Haplotypes::Subchain::kmers</td>
+          <td class="memname">sdsl::int_vector&lt;0&gt; vg::Haplotypes::Subchain::kmer_counts</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Number of haplotypes each kmer appears in. </p>
+
+</div>
+</div>
+<a id="a57018e7275a6afc9ba8548391b670c3a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a57018e7275a6afc9ba8548391b670c3a">&#9670;&nbsp;</a></span>kmers</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>&gt; vg::Haplotypes::Subchain::kmers</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -413,17 +542,18 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>A bit vector marking the presence of kmers in the sequences. Sequence <code>i</code> contains kmer <code>j</code> if and only if <code>kmers_present[i * kmers.size() + j] == 1</code>. </p>
 
 </div>
 </div>
-<a id="a79ecd7d8893cb88a4d2a5c76a2a4ab4e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">&#9670;&nbsp;</a></span>sequences</h2>
+<a id="aae0d847a9118ccb4ff178c3ac7c759eb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aae0d847a9118ccb4ff178c3ac7c759eb">&#9670;&nbsp;</a></span>sequences</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;<a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a>&gt; vg::Haplotypes::Subchain::sequences</td>
+          <td class="memname">std::vector&lt;<a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">compact_sequence_type</a>&gt; vg::Haplotypes::Subchain::sequences</td>
         </tr>
       </table>
 </div><div class="memdoc">

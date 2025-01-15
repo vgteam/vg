@@ -95,6 +95,9 @@ $(function() {
 <li>GBWTTraversalFinder()
 : <a class="el" href="classvg_1_1GBWTTraversalFinder.html#af415423d43372c2770c201a10ace0385">vg::GBWTTraversalFinder</a>
 </li>
+<li>generate()
+: <a class="el" href="structvg_1_1RecombinatorFragment.html#a411831e7ba9db75f1d14708bb79f7eef">vg::RecombinatorFragment</a>
+</li>
 <li>generate_continuous_uniform()
 : <a class="el" href="classvg_1_1MCMCGenotyper.html#a5ebeff817c6548c32c5377ed00c041c6">vg::MCMCGenotyper</a>
 </li>
@@ -730,7 +733,7 @@ $(function() {
 , <a class="el" href="classxg_1_1XG.html#a6595e2654ee4955763a08ab51780941a">xg::XG</a>
 </li>
 <li>get_node()
-: <a class="el" href="classvg_1_1VG.html#a95223ec6984efc003e5cac69acd43445">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#aa264e9386b98b57c3549a56870d8e29e">vg::VG</a>
 </li>
 <li>get_node_at_nucleotide()
 : <a class="el" href="classvg_1_1VG.html#a07462d3f895e77cb407695e6c8e85727">vg::VG</a>
@@ -776,7 +779,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8">vg::Mapper</a>
 </li>
 <li>get_node_mapping()
-: <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a99f8491f18c0ccaf1bb7b7bf45500517">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
 : <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
@@ -1066,7 +1069,7 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">handlegraph::PathMetadata</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#af800d67aa469136b6318c02e282c5a30">vg::ReadFilter&lt; Read &gt;</a>
 , <a class="el" href="classvg_1_1Surjector.html#a42d2fa6bd9590a02329f31666fbe0cd5">vg::Surjector</a>
 </li>
 <li>get_scores()
@@ -1084,6 +1087,7 @@ $(function() {
 , <a class="el" href="classvg_1_1DagifiedGraph.html#a5d47d90eeaac4f0a6f1e12f0ed2d197e">vg::DagifiedGraph</a>
 , <a class="el" href="classvg_1_1DozeuPinningOverlay.html#ab7eabd260a4585f04809d8da64b7f2f4">vg::DozeuPinningOverlay</a>
 , <a class="el" href="classvg_1_1ExtraNodeGraph.html#a4b9d7578f0f601b186295d365cf7e487">vg::ExtraNodeGraph</a>
+, <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af008e59ecc555d391149053284ca0cbb">vg::Haplotypes::Subchain</a>
 , <a class="el" href="classvg_1_1IdentityOverlay.html#ada02cf10738e4fc81c7bb21ecf5d4b56">vg::IdentityOverlay</a>
 , <a class="el" href="classvg_1_1IncrementalSubgraph.html#a61eef0cd10c65efae0cac12816084bb2">vg::IncrementalSubgraph</a>
 , <a class="el" href="classvg_1_1IndexedVG.html#a64c03afcfd0c1c210e8b84a9b78a06dc">vg::IndexedVG</a>
@@ -1168,7 +1172,7 @@ $(function() {
 , <a class="el" href="classxg_1_1XG.html#a087db8dbe184e5a22dda11d61f8fff6a">xg::XG</a>
 </li>
 <li>get_step_count()
-: <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a6d3a31f0c19054cd2908525119869b80">handlegraph::PathHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#add91075c3490f8dc5acf667f2b26832c">handlegraph::PathHandleGraph</a>
 , <a class="el" href="classvg_1_1MemoizingGraph.html#ae0bc7232272e70adab6333dbe3718f46">vg::MemoizingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ae2df84b76bcec7b4899838a99d3799f5">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a3efe30807d096a6175373bc3f4863dd7">vg::VG</a>
@@ -1199,8 +1203,8 @@ $(function() {
 , <a class="el" href="classvg_1_1PhaseUnfolder.html#a97128de268b43c9ccf9dd117829adedf">vg::PhaseUnfolder</a>
 </li>
 <li>get_support()
-: <a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">vg::AugmentedGraph</a>
-, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
+: <a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">vg::AugmentedGraph</a>
+, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a04ebbd23ec0162a72c959351131e17ba">vg::SupportBasedSnarlCaller</a>
@@ -1315,7 +1319,7 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexRegistry.html#a019e2efc800d3280acdce7814db8b096">vg::IndexRegistry</a>
 </li>
 <li>GFADuplicatePathError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#aa815b9f84fdf80d9bf29c38d3d68408c">vg::algorithms::GFADuplicatePathError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#a05dd140439b17113dec810a3cdc26bab">vg::algorithms::GFADuplicatePathError</a>
 </li>
 <li>GFAFormatError()
 : <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#add2d72c679e2b69e1c9f9c481228e0fb">vg::algorithms::GFAFormatError</a>
@@ -1342,7 +1346,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a67fb2b4bc540b81be063075ce5593569">vg::Mapper</a>
 </li>
 <li>graph_pos_at_path_position()
-: <a class="el" href="classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7">xg::XG</a>
+: <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
 </li>
 <li>graph_start()
 : <a class="el" href="classvg_1_1algorithms_1_1Anchor.html#ac7bd5f21e10bae0f6dacb3fcc623752f">vg::algorithms::Anchor</a>
@@ -1378,7 +1382,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#ab45f7399b68bdc980499d4384515b9b7">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a6c3f1338e6a66850b779e8331a65a61c">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->

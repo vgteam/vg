@@ -103,6 +103,9 @@ Public Types</h2></td></tr>
 <tr class="memitem:aebc70f387d48bd0e5c8f0c607c496535"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; gbwt::size_type, gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a></td></tr>
 <tr class="memdesc:aebc70f387d48bd0e5c8f0c607c496535"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">More...</a><br /></td></tr>
 <tr class="separator:aebc70f387d48bd0e5c8f0c607c496535"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa032022df55d45eed0ad1c509a95a5c7"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; std::uint32_t, std::uint32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">compact_sequence_type</a></td></tr>
+<tr class="memdesc:aa032022df55d45eed0ad1c509a95a5c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">A more space-efficient representation of <code>sequence_type</code>.  <a href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">More...</a><br /></td></tr>
+<tr class="separator:aa032022df55d45eed0ad1c509a95a5c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -146,10 +149,27 @@ Public Attributes</h2></td></tr>
 <p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
 <p>Versions:</p>
 <ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Compatible with version 2.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. Compatible with version 1.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 1: Initial version. </li>
 </ul>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="aa032022df55d45eed0ad1c509a95a5c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa032022df55d45eed0ad1c509a95a5c7">&#9670;&nbsp;</a></span>compact_sequence_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::pair&lt;std::uint32_t, std::uint32_t&gt; <a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">vg::Haplotypes::compact_sequence_type</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A more space-efficient representation of <code>sequence_type</code>. </p>
+
+</div>
+</div>
 <a id="aebc70f387d48bd0e5c8f0c607c496535"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aebc70f387d48bd0e5c8f0c607c496535">&#9670;&nbsp;</a></span>sequence_type</h2>
 

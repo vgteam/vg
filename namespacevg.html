@@ -538,6 +538,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html">Recombinator</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1RecombinatorFragment.html">RecombinatorFragment</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1RecombinatorHaplotype.html">RecombinatorHaplotype</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Region.html">Region</a></td></tr>
@@ -1577,6 +1579,14 @@ Functions</h2></td></tr>
 <tr class="separator:ab0f225fb74f28ea09c6c8917ec14db73"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abe3c447c811f77c28669a36c4d3376b9"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; gbwt::node_type &gt;, gbwt::SearchState &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abe3c447c811f77c28669a36c4d3376b9">list_haplotypes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const gbwt::GBWT &amp;gbwt, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, function&lt; bool(const vector&lt; gbwt::node_type &gt; &amp;)&gt; stop_fn)</td></tr>
 <tr class="separator:abe3c447c811f77c28669a36c4d3376b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace6690ca3c2bc1ce18c66801e500dce5"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ace6690ca3c2bc1ce18c66801e500dce5">present_symbols</a> (const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;counts_by_job)</td></tr>
+<tr class="separator:ace6690ca3c2bc1ce18c66801e500dce5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a208dee68429b2d4b0ee0b02cea090d9b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a208dee68429b2d4b0ee0b02cea090d9b">canonical_huffman</a> (const std::vector&lt; std::pair&lt; size_t, size_t &gt;&gt; &amp;symbols)</td></tr>
+<tr class="separator:a208dee68429b2d4b0ee0b02cea090d9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2d872af86508016fe8b78d61a190e90a"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d872af86508016fe8b78d61a190e90a">longest_common_prefix</a> (const std::vector&lt; std::vector&lt; std::string &gt;&gt; &amp;read_names)</td></tr>
+<tr class="separator:a2d872af86508016fe8b78d61a190e90a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a15fce4efa9b96ccf185504825d3b39cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a15fce4efa9b96ccf185504825d3b39cf">create_alignment_metadata</a> (std::vector&lt; std::vector&lt; std::string &gt;&gt; &amp;read_names, const std::string &amp;prefix, gbwt::Metadata &amp;metadata)</td></tr>
+<tr class="separator:a15fce4efa9b96ccf185504825d3b39cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, int flags)</td></tr>
 <tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">extract_path_metadata</a> (const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, bool subpath_support)</td></tr>
@@ -2118,14 +2128,18 @@ Functions</h2></td></tr>
 <tr class="separator:ae9aadb20454b27a0819f40006556ffe6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdd5134ae715117de1b7ba9283fa8651"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt;::iterator&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afdd5134ae715117de1b7ba9283fa8651">find_kmer</a> (<a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;counts, <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a> kmer, size_t k)</td></tr>
 <tr class="separator:afdd5134ae715117de1b7ba9283fa8651"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4d9b75e74f770318a088011e478c5400"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4d9b75e74f770318a088011e478c5400">load_subchain_header</a> (<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, std::istream &amp;in)</td></tr>
+<tr class="separator:a4d9b75e74f770318a088011e478c5400"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a76469b7556e38a779309eeaf9e92ba75"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a76469b7556e38a779309eeaf9e92ba75">load_subchain_kmers_present</a> (<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, std::istream &amp;in)</td></tr>
+<tr class="separator:a76469b7556e38a779309eeaf9e92ba75"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaac16668663556af1aea74159a73d4ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaac16668663556af1aea74159a73d4ed">sa_to_da</a> (std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">HaplotypePartitioner::sequence_type</a> &gt; &amp;sequences, const gbwt::FastLocate &amp;r_index)</td></tr>
 <tr class="separator:aaac16668663556af1aea74159a73d4ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a117021c748aad14cfa190bbd2452405d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a117021c748aad14cfa190bbd2452405d">generate_haplotype</a> (gbwt::edge_type pos, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end, size_t start_max, size_t end_max, const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
 <tr class="separator:a117021c748aad14cfa190bbd2452405d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aced59c99c3795653e7d70f176edf9c82"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aced59c99c3795653e7d70f176edf9c82">take_unique_minimizers</a> (const std::string &amp;sequence, const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9a059ded0fd7ed983801fa4d16f7cd5d">HaplotypePartitioner::minimizer_index_type</a> &amp;minimizer_index)</td></tr>
 <tr class="separator:aced59c99c3795653e7d70f176edf9c82"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a348af3d255543b4880fc1240e8ef442f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a348af3d255543b4880fc1240e8ef442f">present_kmers</a> (const std::vector&lt; std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&gt; &amp;sequences, std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a>, size_t &gt;&gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
-<tr class="separator:a348af3d255543b4880fc1240e8ef442f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc85734af557e4a1047554706a9b4580"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc85734af557e4a1047554706a9b4580">present_kmers</a> (const std::vector&lt; std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&gt; &amp;sequences, std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt; &amp;all_kmers, sdsl::int_vector&lt; 0 &gt; &amp;kmer_counts, sdsl::bit_vector &amp;kmers_present)</td></tr>
+<tr class="separator:acc85734af557e4a1047554706a9b4580"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee40bdeb4216e0bf79124b25d1823ae4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aee40bdeb4216e0bf79124b25d1823ae4">add_path</a> (const gbwt::GBWT &amp;source, gbwt::size_type path_id, gbwt::GBWTBuilder &amp;builder, gbwtgraph::MetadataBuilder &amp;metadata)</td></tr>
 <tr class="separator:aee40bdeb4216e0bf79124b25d1823ae4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa81f31f29a47e669812c3ef57bd1aab6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa81f31f29a47e669812c3ef57bd1aab6">recombinator_sanity_checks</a> (const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
@@ -2134,10 +2148,10 @@ Functions</h2></td></tr>
 <tr class="separator:aba3f6bc9cc27f9c6bb91dc27c7fb28b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab79dc273687fd5360cc145ce18aed912"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">Recombinator::kmer_presence</a>, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab79dc273687fd5360cc145ce18aed912">classify_kmers</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;kmer_counts, double coverage, <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Recombinator::Statistics</a> *statistics, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
 <tr class="separator:ab79dc273687fd5360cc145ce18aed912"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acba28aa0214376215856302fa0b5c520"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acba28aa0214376215856302fa0b5c520">select_diploid</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const std::vector&lt; std::pair&lt; size_t, double &gt;&gt; &amp;candidates, const std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">Recombinator::kmer_presence</a>, double &gt;&gt; &amp;kmer_types)</td></tr>
-<tr class="separator:acba28aa0214376215856302fa0b5c520"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4581c4cc941ffa194e5d0128d19cddeb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4581c4cc941ffa194e5d0128d19cddeb">select_haplotypes</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;kmer_counts, double coverage, <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Recombinator::Statistics</a> *statistics, std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">Recombinator::LocalHaplotype</a> &gt; *local_haplotypes, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
-<tr class="separator:a4581c4cc941ffa194e5d0128d19cddeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b634a10b029be9c22dccc3ef362f61c"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5b634a10b029be9c22dccc3ef362f61c">select_diploid</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const std::vector&lt; std::pair&lt; size_t, double &gt;&gt; &amp;candidates, const std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">Recombinator::kmer_presence</a>, double &gt;&gt; &amp;kmer_types, size_t original_selected, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
+<tr class="separator:a5b634a10b029be9c22dccc3ef362f61c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2de3a2f2b77abef4336df983356fc23"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af2de3a2f2b77abef4336df983356fc23">select_haplotypes</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;kmer_counts, double coverage, <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Recombinator::Statistics</a> *statistics, std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">Recombinator::LocalHaplotype</a> &gt; *local_haplotypes, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
+<tr class="separator:af2de3a2f2b77abef4336df983356fc23"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
 <tr class="separator:a253257615743a1cfb948b749be7700e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fd1e3436d98304996aaecece048cb45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8fd1e3436d98304996aaecece048cb45">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions, vector&lt; string &gt; *out_names)</td></tr>
@@ -5849,6 +5863,24 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
+<a id="a208dee68429b2d4b0ee0b02cea090d9b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a208dee68429b2d4b0ee0b02cea090d9b">&#9670;&nbsp;</a></span>canonical_huffman()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;std::pair&lt;size_t, size_t&gt; &gt; vg::canonical_huffman </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::pair&lt; size_t, size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>symbols</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a74563bc5f9f3268b9a933688ad1a5edb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a74563bc5f9f3268b9a933688ad1a5edb">&#9670;&nbsp;</a></span>canonical_orientation()</h2>
 
@@ -7978,6 +8010,40 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>crash_unless calls into this function for a real implementation, only when the condition has failed. </p>
+
+</div>
+</div>
+<a id="a15fce4efa9b96ccf185504825d3b39cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a15fce4efa9b96ccf185504825d3b39cf">&#9670;&nbsp;</a></span>create_alignment_metadata()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::create_alignment_metadata </td>
+          <td>(</td>
+          <td class="paramtype">std::vector&lt; std::vector&lt; std::string &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>read_names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>prefix</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::Metadata &amp;&#160;</td>
+          <td class="paramname"><em>metadata</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -14431,6 +14497,62 @@ template&lt;typename T , typename U &gt; </div>
 
 </div>
 </div>
+<a id="a4d9b75e74f770318a088011e478c5400"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4d9b75e74f770318a088011e478c5400">&#9670;&nbsp;</a></span>load_subchain_header()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_subchain_header </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;&#160;</td>
+          <td class="paramname"><em>subchain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a76469b7556e38a779309eeaf9e92ba75"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a76469b7556e38a779309eeaf9e92ba75">&#9670;&nbsp;</a></span>load_subchain_kmers_present()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_subchain_kmers_present </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;&#160;</td>
+          <td class="paramname"><em>subchain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a0b717077a15106d70c8ce4cc035ca890"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0b717077a15106d70c8ce4cc035ca890">&#9670;&nbsp;</a></span>load_translation_back_map() <span class="overload">[1/2]</span></h2>
 
@@ -14788,6 +14910,24 @@ template&lt;typename Collection &gt; </div>
 </div><div class="memdoc">
 
 <p>Convert natural log probability to a probability. </p>
+
+</div>
+</div>
+<a id="a2d872af86508016fe8b78d61a190e90a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2d872af86508016fe8b78d61a190e90a">&#9670;&nbsp;</a></span>longest_common_prefix()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::longest_common_prefix </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::vector&lt; std::string &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>read_names</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -20621,8 +20761,8 @@ template&lt;typename TracebackIterator &gt; </div>
 
 </div>
 </div>
-<a id="a348af3d255543b4880fc1240e8ef442f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a348af3d255543b4880fc1240e8ef442f">&#9670;&nbsp;</a></span>present_kmers()</h2>
+<a id="acc85734af557e4a1047554706a9b4580"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acc85734af557e4a1047554706a9b4580">&#9670;&nbsp;</a></span>present_kmers()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20636,8 +20776,14 @@ template&lt;typename TracebackIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a>, size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>all_kmers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">sdsl::int_vector&lt; 0 &gt; &amp;&#160;</td>
+          <td class="paramname"><em>kmer_counts</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -20649,6 +20795,24 @@ template&lt;typename TracebackIterator &gt; </div>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ace6690ca3c2bc1ce18c66801e500dce5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace6690ca3c2bc1ce18c66801e500dce5">&#9670;&nbsp;</a></span>present_symbols()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;std::pair&lt;size_t, size_t&gt; &gt; vg::present_symbols </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>counts_by_job</em></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -22579,8 +22743,8 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="acba28aa0214376215856302fa0b5c520"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acba28aa0214376215856302fa0b5c520">&#9670;&nbsp;</a></span>select_diploid()</h2>
+<a id="a5b634a10b029be9c22dccc3ef362f61c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b634a10b029be9c22dccc3ef362f61c">&#9670;&nbsp;</a></span>select_diploid()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -22588,6 +22752,12 @@ template&lt;class Decoder &gt; </div>
         <tr>
           <td class="memname">std::vector&lt;std::pair&lt;size_t, double&gt; &gt; vg::select_diploid </td>
           <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;&#160;</td>
           <td class="paramname"><em>subchain</em>, </td>
         </tr>
@@ -22601,7 +22771,19 @@ template&lt;class Decoder &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">Recombinator::kmer_presence</a>, double &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>kmer_types</em>&#160;</td>
+          <td class="paramname"><em>kmer_types</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>original_selected</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -22613,8 +22795,8 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="a4581c4cc941ffa194e5d0128d19cddeb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4581c4cc941ffa194e5d0128d19cddeb">&#9670;&nbsp;</a></span>select_haplotypes()</h2>
+<a id="af2de3a2f2b77abef4336df983356fc23"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af2de3a2f2b77abef4336df983356fc23">&#9670;&nbsp;</a></span>select_haplotypes()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -22622,6 +22804,12 @@ template&lt;class Decoder &gt; </div>
         <tr>
           <td class="memname">std::vector&lt;std::pair&lt;size_t, double&gt; &gt; vg::select_haplotypes </td>
           <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;&#160;</td>
           <td class="paramname"><em>subchain</em>, </td>
         </tr>

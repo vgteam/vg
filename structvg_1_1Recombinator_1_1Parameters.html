@@ -118,6 +118,11 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a500ad8a5fa909da483c0d84121b80dbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8aa7a7fe3df17bdbed79475f26d2d884"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a8aa7a7fe3df17bdbed79475f26d2d884">diploid_sampling</a> = false</td></tr>
 <tr class="separator:a8aa7a7fe3df17bdbed79475f26d2d884"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23a4c5772ec0d526b632b280e91e48ca"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a23a4c5772ec0d526b632b280e91e48ca">extra_fragments</a> = false</td></tr>
+<tr class="separator:a23a4c5772ec0d526b632b280e91e48ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ab5a37f5b72d89f7b60c4b62c53678a27">badness_threshold</a> = <a class="el" href="classvg_1_1Recombinator.html#ab0972e74057cd602cca62399879bf234">BADNESS_THRESHOLD</a></td></tr>
+<tr class="memdesc:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Badness threshold for subchains when using diploid sampling.  <a href="structvg_1_1Recombinator_1_1Parameters.html#ab5a37f5b72d89f7b60c4b62c53678a27">More...</a><br /></td></tr>
+<tr class="separator:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f3128635c9d1c82a996e4ae060b0072"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0f3128635c9d1c82a996e4ae060b0072">include_reference</a> = false</td></tr>
 <tr class="memdesc:a0f3128635c9d1c82a996e4ae060b0072"><td class="mdescLeft">&#160;</td><td class="mdescRight">Include named and reference paths.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a0f3128635c9d1c82a996e4ae060b0072">More...</a><br /></td></tr>
 <tr class="separator:a0f3128635c9d1c82a996e4ae060b0072"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -213,6 +218,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab5a37f5b72d89f7b60c4b62c53678a27"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab5a37f5b72d89f7b60c4b62c53678a27">&#9670;&nbsp;</a></span>badness_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Recombinator::Parameters::badness_threshold = <a class="el" href="classvg_1_1Recombinator.html#ab0972e74057cd602cca62399879bf234">BADNESS_THRESHOLD</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Badness threshold for subchains when using diploid sampling. </p>
+
+</div>
+</div>
 <a id="af3236201a75f6aab642971e426299d8f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af3236201a75f6aab642971e426299d8f">&#9670;&nbsp;</a></span>buffer_size</h2>
 
@@ -257,6 +278,21 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>After selecting the initial <code>num_haplotypes</code> haplotypes, choose the highest-scoring pair out of them. </p>
+
+</div>
+</div>
+<a id="a23a4c5772ec0d526b632b280e91e48ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a23a4c5772ec0d526b632b280e91e48ca">&#9670;&nbsp;</a></span>extra_fragments</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Recombinator::Parameters::extra_fragments = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>When using diploid sampling, include the remaining candidates as additional fragments in bad subchains. </p>
 
 </div>
 </div>

@@ -138,6 +138,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a5768e471a3447a31b14f1d8d94a11588"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">NUM_CANDIDATES</a> = 32</td></tr>
 <tr class="memdesc:a5768e471a3447a31b14f1d8d94a11588"><td class="mdescLeft">&#160;</td><td class="mdescRight">A reasonable number of candidates for diploid sampling.  <a href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">More...</a><br /></td></tr>
 <tr class="separator:a5768e471a3447a31b14f1d8d94a11588"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0972e74057cd602cca62399879bf234"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#ab0972e74057cd602cca62399879bf234">BADNESS_THRESHOLD</a> = 4.0</td></tr>
+<tr class="memdesc:ab0972e74057cd602cca62399879bf234"><td class="mdescLeft">&#160;</td><td class="mdescRight">Badness threshold for subchains.  <a href="classvg_1_1Recombinator.html#ab0972e74057cd602cca62399879bf234">More...</a><br /></td></tr>
+<tr class="separator:ab0972e74057cd602cca62399879bf234"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a567c0ae71f8bae880186eb4758dc2cd1"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a567c0ae71f8bae880186eb4758dc2cd1">COVERAGE</a> = 0</td></tr>
 <tr class="memdesc:a567c0ae71f8bae880186eb4758dc2cd1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Expected kmer coverage. Use 0 to estimate from kmer counts.  <a href="classvg_1_1Recombinator.html#a567c0ae71f8bae880186eb4758dc2cd1">More...</a><br /></td></tr>
 <tr class="separator:a567c0ae71f8bae880186eb4758dc2cd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -437,6 +440,30 @@ Private Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Score for getting an absent kmer right/wrong. This should be less than 1, if we assume that having the right variants in the graph is more important than keeping wrong variants out. </p>
+
+</div>
+</div>
+<a id="ab0972e74057cd602cca62399879bf234"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab0972e74057cd602cca62399879bf234">&#9670;&nbsp;</a></span>BADNESS_THRESHOLD</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr static double vg::Recombinator::BADNESS_THRESHOLD = 4.0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Badness threshold for subchains. </p>
 
 </div>
 </div>
