@@ -4,13 +4,11 @@
  *
  * TODO:
  *
- * 1. Tests for extra fragments.
- *
- * 2. Option to sample non-contiguous haplotypes. This may be important in large
+ * 1. Option to sample non-contiguous haplotypes. This may be important in large
  *    snarls. Select a suffix of a fragment, all fragments fully within the snarl,
  *    and the prefix of the fragment exiting the snarl.
  *
- * 3. Tests for 2 as well as --linear-structure.
+ * 2. Tests for --linear-structure, --extra-fragments, and #1.
  */
 
 #include "subcommand.hpp"

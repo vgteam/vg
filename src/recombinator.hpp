@@ -549,7 +549,7 @@ public:
         /// Include named and reference paths.
         bool include_reference = false;
 
-        // TODO: Enable/disable badness once we know if it's good.
+        // TODO: Should be use extra_fragments?
         /// Preset parameters for common use cases.
         enum preset_t {
             /// Default parameters.
