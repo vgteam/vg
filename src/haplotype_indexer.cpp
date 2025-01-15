@@ -415,6 +415,127 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
     return build_gbwt({}, "GBWT", &graph);
 }
 
+//------------------------------------------------------------------------------
+
+// GAF / GAM to GBWT.
+
+// Returns (count, symbol) for present symbols.
+// Assumes that the input is non-empty and all vectors have the same length.
+std::vector<std::pair<size_t, size_t>> present_symbols(const std::vector<std::vector<size_t>>& counts_by_job) {
+    std::vector<std::pair<size_t, size_t>> result;
+    for (size_t symbol = 0; symbol < counts_by_job.front().size(); symbol++) {
+        size_t count = 0;
+        for (size_t j = 0; j < counts_by_job.size(); j++) {
+            count += counts_by_job[j][symbol];
+        }
+        if (count > 0) {
+            result.push_back(std::make_pair(count, symbol));
+        }
+    }
+    return result;
+}
+
+// Inputs: (count, symbol)
+// Outputs: (code length, symbol) sorted by code length
+std::vector<std::pair<size_t, size_t>> canonical_huffman(const std::vector<std::pair<size_t, size_t>>& symbols) {
+    if (symbols.empty()) {
+        return std::vector<std::pair<size_t, size_t>>();
+    }
+
+    // Internal nodes as pairs of children.
+    std::vector<std::pair<size_t, size_t>> nodes;
+    // (count, id), with id referring first to symbols and then to nodes.
+    std::vector<std::pair<size_t, size_t>> queue; queue.reserve(symbols.size());
+    for (size_t i = 0; i < symbols.size(); i++) {
+        queue.push_back(std::make_pair(symbols[i].first, i));
+    }
+    std::make_heap(queue.begin(), queue.end(), std::greater<std::pair<size_t, size_t>>());
+
+    // Build the Huffman tree.
+    while (queue.size() > 1) {
+        std::pop_heap(queue.begin(), queue.end(), std::greater<std::pair<size_t, size_t>>());
+        auto left = queue.back(); queue.pop_back();
+        std::pop_heap(queue.begin(), queue.end(), std::greater<std::pair<size_t, size_t>>());
+        auto right = queue.back(); queue.pop_back();
+        size_t count = left.first + right.first;
+        size_t id = symbols.size() + nodes.size();
+        nodes.push_back(std::make_pair(left.second, right.second));
+        queue.push_back(std::make_pair(count, id));
+        std::push_heap(queue.begin(), queue.end(), std::greater<std::pair<size_t, size_t>>());
+    }
+
+    // Determine the code lengths.
+    std::vector<std::pair<size_t, size_t>> result(symbols.size());
+    std::function<void(size_t, size_t)> dfs = [&](size_t node, size_t depth) {
+        if (node < symbols.size()) {
+            result[node] = std::make_pair(depth, symbols[node].second);
+        } else {
+            dfs(nodes[node - symbols.size()].first, depth + 1);
+            dfs(nodes[node - symbols.size()].second, depth + 1);
+        }
+    };
+    dfs(queue.front().second, 0);
+
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+std::string longest_common_prefix(const std::vector<std::vector<std::string>>& read_names) {
+    bool has_prefix = false;
+    std::string prefix;
+    for (auto& names : read_names) {
+        for (auto& name : names) {
+            if (!has_prefix) {
+                prefix = name;
+                has_prefix = true;
+            } else {
+                size_t i = 0;
+                while (i < prefix.length() && i < name.length() && prefix[i] == name[i]) {
+                    i++;
+                }
+                prefix.resize(i);
+            }
+        }
+    }
+    return prefix;
+}
+
+// This consumes the read names.
+void create_alignment_metadata(
+    std::vector<std::vector<std::string>>& read_names,
+    const std::string& prefix,
+    gbwt::Metadata& metadata) {
+
+    // We can use 32-bit values, as GBWT metadata uses them as well.
+    string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>> read_info; // name -> (sample id, fragment count)
+    for (auto& names : read_names) {
+        for (const std::string& name : names) {
+            std::string sample_name = name.substr(prefix.length());
+            std::uint32_t sample_id = 0, fragment_count = 0;
+            auto iter = read_info.find(sample_name);
+            if (iter == read_info.end()) {
+                sample_id = read_info.size();
+                read_info[sample_name] = std::make_pair(sample_id, fragment_count);
+            } else {
+                sample_id = iter->second.first;
+                fragment_count = iter->second.second;
+                iter->second.second++;
+            }
+            metadata.addPath(sample_id, 0, 0, fragment_count);
+        }
+        names = std::vector<std::string>();
+    }
+    std::vector<std::string> sample_names(read_info.size());
+    for (auto& p : read_info) {
+        sample_names[p.second.first] = p.first;
+    }
+    read_info = string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>>();
+
+    metadata.setSamples(sample_names);
+    metadata.setContigs({ "unknown" });
+    metadata.setHaplotypes(sample_names.size());
+}
+
 std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& graph,
     const std::vector<std::string>& aln_filenames, const std::string& aln_format, size_t parallel_jobs) const {
 
@@ -442,6 +563,7 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     // GBWT construction.
     std::vector<std::mutex> builder_mutexes(jobs.size());
     std::vector<std::unique_ptr<gbwt::GBWTBuilder>> builders(jobs.size());
+    std::vector<std::vector<size_t>> quality_values(jobs.size(), std::vector<size_t>(256, 0));
     // This is a bit inefficient, as read names are often longer than the SSO threshold for GCC (but not for Clang).
     // TODO: Maybe use concatenated 0-terminated names?
     std::vector<std::vector<std::string>> read_names(jobs.size());
@@ -467,6 +589,10 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
             if (job_id >= jobs.size()) {
                 job_id = 0;
             }
+        }
+        for (auto c : aln.quality()) {
+            unsigned char value = io::quality_short_to_char(c);
+            quality_values[job_id][value]++;
         }
         {
             // Insert the path into the appropriate builder and record the read name.
@@ -505,6 +631,21 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     std::unique_ptr<gbwt::GBWT> result(new gbwt::GBWT(partial_indexes));
     partial_indexes.clear();
 
+    // Determine the quality score alphabet and canonical Huffman code lengths.
+    // The items are first (count, character value) and then (code length, character value).
+    std::vector<std::pair<size_t, size_t>> present = present_symbols(quality_values);
+    present = canonical_huffman(present);
+    std::string alphabet, code_lengths;
+    for (auto symbol : present) {
+        alphabet.push_back(symbol.second);
+        if (code_lengths.length() > 0) {
+            code_lengths.push_back(',');
+        }
+        code_lengths.append(std::to_string(symbol.first));
+    }
+    result->tags.set("quality_values", alphabet);
+    result->tags.set("quality_lengths", code_lengths);
+
     // Create the metadata.
     if (this->show_progress) {
         #pragma omp critical
@@ -513,34 +654,9 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
         }
     }
     result->addMetadata();
-    result->metadata.setContigs({ "unknown" });
-    {
-        // We can use 32-bit values, as GBWT metadata uses them as well.
-        string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>> read_info; // name -> (sample id, fragment count)
-        for (auto& names : read_names) {
-            for (const std::string& name : names) {
-                std::uint32_t sample_id = 0, fragment_count = 0;
-                auto iter = read_info.find(name);
-                if (iter == read_info.end()) {
-                    sample_id = read_info.size();
-                    read_info[name] = std::make_pair(sample_id, fragment_count);
-                } else {
-                    sample_id = iter->second.first;
-                    fragment_count = iter->second.second;
-                    iter->second.second++;
-                }
-                result->metadata.addPath(sample_id, 0, 0, fragment_count);
-            }
-            names = std::vector<std::string>();
-        }
-        std::vector<std::string> sample_names(read_info.size());
-        for (auto& p : read_info) {
-            sample_names[p.second.first] = p.first;
-        }
-        read_info = string_hash_map<std::string, std::pair<std::uint32_t, std::uint32_t>>();
-        result->metadata.setSamples(sample_names);
-        result->metadata.setHaplotypes(sample_names.size());
-    }
+    std::string prefix = longest_common_prefix(read_names);
+    result->tags.set("sample_prefix", prefix);
+    create_alignment_metadata(read_names, prefix, result->metadata);
     if (this->show_progress) {
         #pragma omp critical
         {
@@ -554,5 +670,7 @@ std::unique_ptr<gbwt::GBWT> HaplotypeIndexer::build_gbwt(const HandleGraph& grap
     omp_set_num_threads(old_threads);
     return result;
 }
+
+//------------------------------------------------------------------------------
 
 }

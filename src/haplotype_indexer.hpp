@@ -140,6 +140,15 @@ public:
      * Runs approximately the given number of jobs in parallel. The exact
      * number depends on the sizes of weakly connected components in the graph.
      * Each job uses at most 2 threads.
+     *
+     * In order to save space, the longest common prefix of alignment names
+     * is stored as GBWT tag sample_prefix. Only the diverging suffixes are
+     * stored as sample names.
+     *
+     * Additionally, the list of values used in quality strings is stored as GBWT
+     * tag quality_values. Tag quality_codes stores a comma-separated list of
+     * canonical Huffman code lengths for the quality values. The values are
+     * sorted by code length.
      */
     std::unique_ptr<gbwt::GBWT> build_gbwt(const HandleGraph& graph,
         const std::vector<std::string>& aln_filenames, const std::string& aln_format,

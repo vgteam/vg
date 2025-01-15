@@ -37,6 +37,9 @@ namespace vg {
  *
  * Versions:
  *
+ * * Version 3: Subchains use smaller integers when possible. Compatible with
+ *   version 2.
+ *
  * * Version 2: Top-level chains include a contig name. Compatible with version 1.
  *
  * * Version 1: Initial version.
@@ -61,7 +64,7 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 2;
+        constexpr static std::uint32_t VERSION = 3;
         constexpr static std::uint32_t MIN_VERSION = 1;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
@@ -89,6 +92,9 @@ public:
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
+
+    /// A more space-efficient representation of `sequence_type`.
+    typedef std::pair<std::uint32_t, std::uint32_t> compact_sequence_type;
 
     /// Representation of a subchain.
     struct Subchain {
@@ -118,13 +124,21 @@ public:
 
         /// A vector of distinct kmers. For each kmer, list the kmer itself and the number
         /// of haplotypes it appears in.
-        std::vector<std::pair<kmer_type, size_t>> kmers;
+        std::vector<kmer_type> kmers;
 
-        // TODO: This could be smaller
+        /// Number of haplotypes each kmer appears in.
+        sdsl::int_vector<0> kmer_counts;
+
         /// Sequences as (GBWT sequence id, offset in the relevant node).
-        std::vector<sequence_type> sequences;
+        std::vector<compact_sequence_type> sequences;
 
-        // TODO: This needs to be compressed for larger datasets.
+        // TODO v3: Use an extra bit for each sequence to mark whether the presence for that sequence
+        // is stored explicitly or relative to the last explicit sequence.
+        // We need to cluster the sequences by similarity and store the clusters consecutively.
+        // And then use sd_vector for the sequences with relative presence.
+        // Decompress to a single bitvector when needed.
+        /// A bit vector marking the presence of kmers in the sequences.
+        /// Sequence `i` contains kmer `j` if and only if `kmers_present[i * kmers.size() + j] == 1`.
         sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
@@ -142,8 +156,29 @@ public:
         /// Returns a string representation of the type and the boundary nodes.
         std::string to_string() const;
 
+        /// Returns (sequence identifier, offset in a node) for the given sequence.
+        sequence_type get_sequence(size_t i) const {
+            return { this->sequences[i].first, this->sequences[i].second };
+        }
+
+        /// Returns the distance from the last base of `start` to the first base of
+        /// `end` over the given sequence. Returns 0 if the subchain is not normal or
+        /// if the sequence does not exist.
+        size_t distance(const gbwtgraph::GBZ& gbz, size_t i) const;
+
+        /// Returns an estimate of the badness of the subchain.
+        /// The ideal value is 0.0, and higher values indicate worse subchains.
+        /// The estimate is based on the following factors:
+        /// * Length of the subchain.
+        /// * Number of haplotypes relative to the expected number.
+        /// * Information content of the kmers (disabled).
+        double badness(const gbwtgraph::GBZ& gbz) const;
+
         /// Serializes the object to a stream in the simple-sds format.
         void simple_sds_serialize(std::ostream& out) const;
+
+        /// Loads a less space-efficient version 1 or 2 subchain.
+        void load_v1(std::istream& in);
 
         /// Loads the object from a stream in the simple-sds format.
         void simple_sds_load(std::istream& in);
@@ -172,8 +207,11 @@ public:
         /// Loads the object from a stream in the simple-sds format.
         void simple_sds_load(std::istream& in);
 
-        /// Loads the old version without a contig name.
-        void load_old(std::istream& in);
+        /// Loads a version 1 chain without a contig name.
+        void load_v1(std::istream& in);
+
+        /// Loads a less space-efficient version 2 chain.
+        void load_v2(std::istream& in);
 
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
@@ -392,6 +430,10 @@ public:
     /// A reasonable number of candidates for diploid sampling.
     constexpr static size_t NUM_CANDIDATES = 32;
 
+    // TODO: Proper threshold?
+    /// Badness threshold for subchains.
+    constexpr static double BADNESS_THRESHOLD = 4.0;
+
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
     constexpr static size_t COVERAGE = 0;
 
@@ -425,6 +467,9 @@ public:
         /// Number of subchains.
         size_t subchains = 0;
 
+        /// Number of subchains exceeding the badness threshold.
+        size_t bad_subchains = 0;
+
         /// Number of fragments.
         size_t fragments = 0;
 
@@ -433,6 +478,9 @@ public:
 
         /// Number of haplotypes generated.
         size_t haplotypes = 0;
+
+        /// Number of additional haplotype fragments in bad subchains.
+        size_t extra_fragments = 0;
 
         /// Number of times a haplotype was extended from a subchain to the next subchain.
         size_t connections = 0;
@@ -491,9 +539,17 @@ public:
         /// highest-scoring pair out of them.
         bool diploid_sampling = false;
 
+        /// When using diploid sampling, include the remaining candidates as
+        /// additional fragments in bad subchains.
+        bool extra_fragments = false;
+
+        /// Badness threshold for subchains when using diploid sampling.
+        double badness_threshold = BADNESS_THRESHOLD;
+
         /// Include named and reference paths.
         bool include_reference = false;
 
+        // TODO: Should be use extra_fragments?
         /// Preset parameters for common use cases.
         enum preset_t {
             /// Default parameters.
