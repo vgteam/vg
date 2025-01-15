@@ -18,6 +18,8 @@
 #include <vg/vg.pb.h>
 #include <vg/io/stream.hpp>
 
+#include <google/protobuf/util/json_util.h>
+
 #include <htslib/khash.h>
 
 /** \file
@@ -32,7 +34,7 @@ using namespace std;
 struct Counts;
 
 template<typename Read>
-class ReadFilter{
+class ReadFilter {
 public:
     
     // Filtering parameters
@@ -54,6 +56,7 @@ public:
     unordered_set<string> excluded_features;
     double min_secondary = numeric_limits<double>::lowest();
     double min_primary = numeric_limits<double>::lowest();
+    size_t max_length = std::numeric_limits<size_t>::max();
     /// Should we rescore each alignment with default parameters and no e.g.
     /// haplotype info?
     bool rescore = false;
@@ -72,6 +75,9 @@ public:
     /// Samtools-compatible internal seed mask, for deciding which read pairs to keep.
     /// To be generated with rand() after srand() from the user-visible seed.
     uint32_t downsample_seed_mask = 0;
+
+    /// How many reads should we take total? Note that this filter is nondeterministic.
+    size_t max_reads = numeric_limits<size_t>::max();
     
     /// How far in from the end should we look for ambiguous end alignment to
     /// clip off?
@@ -108,6 +114,9 @@ public:
     int min_base_quality = numeric_limits<int>::min() / 2;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
     double min_base_quality_fraction = numeric_limits<double>::lowest();
+
+    /// Process reads in batches of this size
+    size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
     /// A string formatted "annotation[.subfield]*:value"
     /// Value is optional if the key is a flag
@@ -192,6 +201,11 @@ private:
      * Get the score indicated by the params
      */
     double get_score(const Read& read) const;
+
+    /**
+     * What is the read's length?
+     */
+    size_t get_length(const Read& read) const;
     
     /**
      * Does the read name have one of the indicated prefixes? If exact_name is
@@ -280,13 +294,15 @@ private:
     void emit(Read& read1, Read& read2);
 
     /**
-     * Write a tsv line for a read to stdout
+     * Write a tsv line for a read to the given stream
      */
-     void emit_tsv(Read& read);
+    void emit_tsv(Read& read, std::ostream& out);
 
+    // To track total reads we need a counter
+    std::atomic<size_t> max_reads_used{};
     
     
-    /// The twp specializations have different writing infrastructure
+    /// The two specializations have different writing infrastructure
     unique_ptr<AlignmentEmitter> aln_emitter;
     unique_ptr<MultipathAlignmentEmitter> mp_aln_emitter;
     
@@ -296,10 +312,11 @@ private:
 
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
-    // note: "last" must be kept as the final value in this enum
-    enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
-        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, unmapped, annotation, incorrectly_mapped, last};
+    // note: "last" must be kept as the final value in this enum. "filtered" should probably remain next-to-last.
+
+    enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_length, max_overhang,
+        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence,
+        proper_pair, unmapped, annotation, incorrectly_mapped, max_reads, filtered, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -333,6 +350,51 @@ struct Counts {
     void reset() {
         std::fill(counts.begin(), counts.end(), 0);
     }
+
+    /// If currently kept, and the limit is not
+    /// std:numeric_limits<size_t>::max(), consume space in the counter. If
+    /// space cannot be consumed in the counter to fit the read (or pair),
+    /// become un-kept.
+    void apply_max_reads(std::atomic<size_t>& counter, const size_t& limit) {   
+        if (limit == std::numeric_limits<size_t>::max()) {
+            // Filter is off
+            return;
+        }
+        size_t passing = counts[FilterName::read] - counts[FilterName::filtered];
+        if (passing == 0) {
+            // No need to reserve space.
+            return;
+        }
+        bool fits = true;
+        size_t loaded = counter.load();
+        if (loaded >= limit) {
+            // Definitely already full
+            fits = false;
+        } else {
+            // Might fit
+            size_t before_added = counter.fetch_add(passing);
+            if (before_added + passing > limit) {
+                // We can't all fit.
+                fits = false;
+                // But we still consume space.
+            } 
+        }
+        if (!fits) {
+            // Record that we fail this.
+            counts[FilterName::max_reads] = passing;
+            counts[FilterName::filtered] += passing;
+        }
+    }
+
+    /// Invert whether we are kept or not.
+    void invert() {
+        if (keep()) {
+            counts[FilterName::filtered] = counts[FilterName::read];
+        } else {
+            counts[FilterName::filtered] = 0;
+        }
+    }
+
     bool keep() {
         return counts[FilterName::filtered] == 0;
     }
@@ -356,10 +418,20 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         << " bp sequence and " << read.quality().size() << " quality values" << endl;
 #endif
         Counts read_counts = filter_alignment(read);
+        if (complement_filter) {
+            // Invert filters *before* the max read limit.
+            read_counts.invert();
+        }
+        read_counts.apply_max_reads(max_reads_used, max_reads);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+        if (read_counts.keep() && (write_output || write_tsv)) {
             if (write_tsv) {
-                emit_tsv(read);
+                std::stringstream ss;
+                emit_tsv(read, ss);
+                #pragma omp critical (cout)
+                {
+                    std::cout << ss.str();
+                }
             } else {
                 emit(read);
             }
@@ -377,11 +449,21 @@ void ReadFilter<Read>::filter_internal(istream* in) {
             // So if we filter out one end for any reason, we filter out the other as well.
             read_counts.set_paired_any();
         }
+        if (complement_filter) {
+            // Invert filters *before* the max read limit.
+            read_counts.invert();
+        }
+        read_counts.apply_max_reads(max_reads_used, max_reads);
         counts_vec[omp_get_thread_num()] += read_counts;
-        if ((read_counts.keep() != complement_filter) && (write_output || write_tsv)) {
+        if (read_counts.keep() && (write_output || write_tsv)) {
             if (write_tsv) {
-                emit_tsv(read1);
-                emit_tsv(read2);
+                std::stringstream ss;
+                emit_tsv(read1, ss);
+                emit_tsv(read2, ss);
+                #pragma omp critical (cout)
+                {
+                    std::cout << ss.str();
+                }
             } else {
                 emit(read1, read2);
             }
@@ -401,9 +483,14 @@ void ReadFilter<Read>::filter_internal(istream* in) {
     }
     
     if (interleaved) {
-        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda);
+        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size);
     } else {
-        vg::io::for_each_parallel(*in, lambda);
+        vg::io::for_each_parallel(*in, lambda, batch_size);
+    }
+
+    if (write_tsv) {
+        // Add a terminating newline
+        cout << endl;
     }
     
     if (verbose) {
@@ -540,6 +627,12 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
     if ((keep || verbose) && secondary && score < min_secondary) {
         ++counts.counts[Counts::FilterName::min_sec_score];
         keep = false;
+    }
+    if ((keep || verbose) && max_length < std::numeric_limits<size_t>::max()) {
+        if (get_length(read) > max_length) {
+            ++counts.counts[Counts::FilterName::max_length];
+            keep = false;
+        }
     }
     if ((keep || verbose) && max_overhang > 0) {
         if (get_overhang(read) > max_overhang) {
@@ -684,6 +777,11 @@ inline double ReadFilter<MultipathAlignment>::get_score(const MultipathAlignment
         score /= read.sequence().size();
     }
     return score;
+}
+
+template<typename Read>
+inline size_t ReadFilter<Read>::get_length(const Read& aln) const {
+    return aln.sequence().size();
 }
 
 template<typename Read>
@@ -1372,12 +1470,15 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
     if (colon_pos == string::npos) {
         //If there was no colon, then just check for the existence of the annotation
         // or, if it is a boolean value, check that it's true
+        // or, if it is a list, check that it is nonempty
         if (!has_annotation(read, annotation_to_match)) {
             return false;
         }
         google::protobuf::Value value = read.annotation().fields().at(annotation_to_match);
         if (value.kind_case() == google::protobuf::Value::KindCase::kBoolValue) {
             return get_annotation<bool>(read, annotation_to_match);
+        } else if (value.kind_case() == google::protobuf::Value::KindCase::kListValue) {
+            return value.list_value().values_size() > 0;
         } else {
             return true;
         }
@@ -1402,65 +1503,111 @@ bool ReadFilter<Read>::matches_annotation(const Read& read) const {
 }
 
 template<>
-inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read) {
-    return;
+inline void ReadFilter<MultipathAlignment>::emit_tsv(MultipathAlignment& read, std::ostream& out) {
+    std::cerr << "error[vg filter]: TSV output not implemented for MultipathAlignment" << std::endl;
+    exit(1);
 }
 template<>
-inline void ReadFilter<Alignment>::emit_tsv(Alignment& read) {
-#pragma omp critical (cout)
-    {
-
-        cout << endl;
-        for (size_t i = 0 ; i < output_fields.size() ; i++) {
-            const string& field = output_fields[i];
-            if (field == "name") {
-                cout << read.name();
-            } else if (field == "correctly_mapped") {
-                if (is_correctly_mapped(read)) {
-                    cout << "True";
-                } else {
-                    cout << "False";
-                }
-            } else if (field == "correctness") {
-                if (is_correctly_mapped(read)) {
-                    cout << "correct";
-                } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
-                    cout << "off-reference";
-                } else {
-                    cout << "incorrect";
-                }
-            } else if (field == "mapping_quality") {
-                cout << get_mapq(read); 
-            } else if (field == "sequence") {
-                cout << read.sequence(); 
-            } else if (field == "time_used") {
-                cout << read.time_used();
-            } else if (field == "annotation") {
-                throw runtime_error("error: Cannot write all annotations");
-            } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
-                if (!has_annotation(read, field.substr(11, field.size()-11))) {
-                    throw runtime_error("error: Cannot find annotation "+ field);
-                } else {
-                    string annotation_key = field.substr(11, field.size()-11);
-                    google::protobuf::Value value = read.annotation().fields().at(annotation_key);
-
-                    if (value.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
-                        cout << get_annotation<double>(read, annotation_key);
-                    } else if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
-                        cout << get_annotation<string>(read, annotation_key);
-                    } else {
-                        cout << "?";
-                    }
-                }
+inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) {
+    out << endl;
+    for (size_t i = 0 ; i < output_fields.size() ; i++) {
+        const string& field = output_fields[i];
+        if (field == "name") {
+            out << read.name();
+        } else if (field == "score") {
+            out << read.score();
+        } else if (field == "correctly_mapped") {
+            if (is_correctly_mapped(read)) {
+                out << "True";
             } else {
-                cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
-                throw runtime_error("error: Writing non-existent field to tsv: " + field);
+                out << "False";
             }
-            if (i != output_fields.size()-1) {
-                cout << "\t";
+        } else if (field == "correctness") {
+            if (is_correctly_mapped(read)) {
+                out << "correct";
+            } else if (has_annotation(read, "no_truth") && get_annotation<bool>(read, "no_truth")) {
+                out << "off-reference";
+            } else {
+                out << "incorrect";
             }
-        }
+        } else if (field == "softclip_start") {
+            out << softclip_start(read);
+        } else if (field == "softclip_end") {
+            out << softclip_end(read);
+        } else if (field == "mapping_quality") {
+            out << get_mapq(read); 
+        } else if (field == "sequence") {
+            out << read.sequence();
+        } else if (field == "length") {
+            out << read.sequence().size(); 
+        } else if (field == "time_used") {
+            out << read.time_used();
+        } else if (field == "annotation") {
+            // Since annotation is a Protobuf Struct, it comes out as JSON
+            // describing the Struct and not what the Struct describes if
+            // we pb2json it.
+            //
+            // So make Protobuf serialize it for us the specail Struct way
+            std::string buffer;
+            google::protobuf::util::JsonPrintOptions opts;
+            auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
+            
+            if (!status.ok()) {
+                throw std::runtime_error("Could not serialize annotations for " + read.name() + ": " + status.ToString());
+            }
+            out << buffer;
+        } else if (field.size() > 11 && field.substr(0, 11) == "annotation.") {
+            if (!has_annotation(read, field.substr(11, field.size()-11))) {
+                // We don't actually know what type this would be.
+                // TODO: Try and guess from previous reads?
+                out << "null";
+            } else {
+                string annotation_key = field.substr(11, field.size()-11);
+                // Get that value (possibly holding a child struct) recursively
+                const google::protobuf::Value* value = get_annotation<const google::protobuf::Value*>(read, annotation_key);
+                // We checked with has_annotation so this needs to be here.
+                assert(value != nullptr);
 
+                if (value->kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                    out << value_cast<double>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                    out << value_cast<string>(*value);
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kListValue) {
+                    out << "[";
+                    for (size_t i = 0; i < value->list_value().values_size(); i++) {
+                        auto& item = value->list_value().values(i);
+                        if (i > 0) {
+                            out << ",";
+                        }
+                        if (item.kind_case() == google::protobuf::Value::KindCase::kNumberValue) {
+                            out << value_cast<double>(item);
+                        } else if (item.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+                            out << value_cast<string>(item);
+                        } else {
+                            out << "?";
+                        }
+                    }
+                    out << "]";
+                } else if (value->kind_case() == google::protobuf::Value::KindCase::kStructValue) {
+                    std::string buffer;
+                    google::protobuf::util::JsonPrintOptions opts;
+                    auto status = google::protobuf::util::MessageToJsonString(value->struct_value(), &buffer, opts);
+                    
+                    if (!status.ok()) {
+                        throw std::runtime_error("Could not serialize " + field + " for " + read.name() + ": " + status.ToString());
+                    }
+                    out << buffer;
+                } else {
+                    out << "??" << value->kind_case() << "??";
+                }
+            }
+        } else {
+            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+            throw runtime_error("error: Writing non-existent field to tsv: " + field);
+        }
+        if (i != output_fields.size()-1) {
+            out << "\t";
+        }
     }
 }
 

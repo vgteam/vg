@@ -184,7 +184,7 @@ private:
     /// end up in the same relative order in the frontier index as in the frontier
     struct IterFCmp {
         inline bool operator()(const decltype(frontier)::iterator& a,
-                               const decltype(frontier)::iterator& b) {
+                               const decltype(frontier)::iterator& b) const {
             return FCmp()(*a, *b);
         }
     };

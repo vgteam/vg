@@ -34,17 +34,59 @@ public:
     static bool save_explanations;
 
     /// Construct an Explainer that will save to one or more files
-    Explainer();
+    Explainer(bool enabled);
     
     /// Close out the files being explained to
     virtual ~Explainer();
+
+    /// Conversion to bool so you can use an explainer as a condition on code
+    /// to write to it.
+    inline operator bool() const {
+        return explaining();
+    }
 
 protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
     
+    /// Determines if this explainer should generate explanations.
+    bool enabled;
+
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
+
+    /// Function to check if we should be explaining.
+    inline bool explaining() const {
+        return this->enabled && Explainer::save_explanations;
+    }
+};
+
+/**
+ * Widget to log a TSV of data as an explanation.
+ */
+class TSVExplainer : public Explainer {
+public:
+    /// Construct a TSVExplainer that will save a table to a file.
+    TSVExplainer(bool enabled, const std::string& name = "data");
+    /// Close out the file being explained to
+    ~TSVExplainer();
+
+    /// Start a new line. Must call this before field().
+    void line();
+
+    /// Add a field with a string value
+    void field(const std::string& value);
+
+    /// Add a field with an integral value
+    void field(size_t value);
+
+protected:
+    /// Stream being written to
+    ofstream out;
+    /// Whether we need a tab befroe the next value
+    bool need_tab = false;
+    /// Whether we need a newline before the next line
+    bool need_line = false;
 };
 
 /**
@@ -53,7 +95,7 @@ protected:
 class ProblemDumpExplainer : public Explainer {
 public:
     /// Construct a ProblemDumpExplainer that will save a dump of a problem to a file.
-    ProblemDumpExplainer(const std::string& name = "problem");
+    ProblemDumpExplainer(bool enabled, const std::string& name = "problem");
     /// Close out the file being explained to
     ~ProblemDumpExplainer();
     
@@ -118,7 +160,7 @@ public:
     using annotation_t = std::vector<std::pair<std::string, std::string>>;
 
     /// Construct a DiagramExplainer that will save a diagram to one or more files.
-    DiagramExplainer();
+    DiagramExplainer(bool enabled);
     /// Close out the files being explained to
     ~DiagramExplainer();
     
@@ -197,12 +239,12 @@ template<typename T>
 class DotDumpExplainer : public Explainer {
 public:
     /// Construct a DotDumpExplainer that will save a diagram to a file
-    DotDumpExplainer(const T& to_dump);
+    DotDumpExplainer(bool enabled, const T& to_dump);
 };
 
 template<typename T>
-DotDumpExplainer<T>::DotDumpExplainer(const T& to_dump) : Explainer() {
-    if (!Explainer::save_explanations) {
+DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explainer(enabled) {
+    if (!explaining()) {
         return;
     }
     // Open the dot file
@@ -210,6 +252,19 @@ DotDumpExplainer<T>::DotDumpExplainer(const T& to_dump) : Explainer() {
     // And dump to it
     to_dump.to_dot(out);
 }
+
+/**
+ * Explainer that can dump a handle graph.
+ */
+class SubgraphExplainer: public Explainer {
+public:
+
+    /// Construct an explainer that will save a single graph.
+    SubgraphExplainer(bool enabled);
+
+    /// Write out a subgraph.
+    void subgraph(const HandleGraph& graph);
+};
 
 
 }

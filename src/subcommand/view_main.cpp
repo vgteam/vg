@@ -41,7 +41,7 @@ void help_view(char** argv) {
          << "    -V, --vg-in                input VG format only" << endl
 
          << "    -j, --json                 output JSON format" << endl
-         << "    -J, --json-in              input JSON format" << endl
+         << "    -J, --json-in              input JSON format (use with e.g. -a as necessary)" << endl
          << "    -c, --json-stream          streaming conversion of a VG format graph in line delimited JSON format" << endl
          << "                               (this cannot be loaded directly via -J)" << endl
 
@@ -52,11 +52,11 @@ void help_view(char** argv) {
          << "    -T, --turtle-in            input turtle format." << endl
          << "    -r, --rdf_base_uri         set base uri for the RDF output" << endl
 
-         << "    -a, --align-in             input GAM format" << endl
+         << "    -a, --align-in             input GAM format, or JSON version of GAM format" << endl
          << "    -A, --aln-graph GAM        add alignments from GAM to the graph" << endl
 
-         << "    -q, --locus-in             input stream is Locus format" << endl
-         << "    -z, --locus-out            output stream Locus format" << endl
+         << "    -q, --locus-in             input is Locus format, or JSON version of Locus format" << endl
+         << "    -z, --locus-out            output is Locus format" << endl
          << "    -Q, --loci FILE            input is Locus format for use by dot output" << endl
 
          << "    -d, --dot                  output dot format" << endl
@@ -81,15 +81,16 @@ void help_view(char** argv) {
          << "    -i, --interleaved          fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup               output VG Pileup format" << endl
-         << "    -l, --pileup-in            input VG Pileup format" << endl
+         << "    -l, --pileup-in            input VG Pileup format, or JSON version of VG Pileup format" << endl
 
          << "    -B, --distance-in          input distance index" << endl
          << "    -R, --snarl-in             input VG Snarl format" << endl
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
-         << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
+         << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP), or JSON version of GAMP format" << endl
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
          << "    -x, --extract-tag TAG      extract and concatenate messages with the given tag" << endl
+         << "    --first                    only extract the first message with the requested tag" << endl
          << "    --verbose                  explain the file being read with --extract-tag" << endl
          << "    --threads N                for parallel operations use this many threads [1]" << endl;
     
@@ -141,11 +142,13 @@ int main_view(int argc, char** argv) {
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
     string extract_tag;
-    bool verbose;
+    bool first_tag = false;
+    bool verbose = false;
     bool ascii_labels = false;
     omp_set_num_threads(1); // default to 1 thread
     
-    #define OPT_VERBOSE 1000
+    #define OPT_FIRST 1000
+    #define OPT_VERBOSE 1001
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -194,6 +197,7 @@ int main_view(int argc, char** argv) {
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
                 {"extract-tag", required_argument, 0, 'x'},
+                {"first", no_argument, 0, OPT_FIRST},
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
@@ -425,6 +429,10 @@ int main_view(int argc, char** argv) {
             extract_tag = optarg;
             break;
 
+        case OPT_FIRST:
+            first_tag = true;
+            break;
+
         case OPT_VERBOSE:
             verbose = true;
             break;
@@ -487,15 +495,31 @@ int main_view(int argc, char** argv) {
             // Iterate over the input as tagged messages.
             vg::io::MessageIterator it(in, verbose);
             while(it.has_current()) {
-                if ((*it).first == extract_tag && (*it).second.get() != nullptr) {
+                if ((*it).first == extract_tag) {
                     // We match the tag, so dump this message.
-                    if (verbose) {
-                        cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                    if ((*it).second.get() != nullptr) {
+                        if (verbose) {
+                            cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                        }
+                        cout << *((*it).second.get());
+                        if (first_tag) {
+                            // Stop at the first hit
+                            exit(0);
+                        }
+                    } else {
+                        if (verbose) {
+                            cerr << "Messageless tag matching tag to extract" << endl;
+                        }
                     }
-                    cout << *((*it).second.get());
                 } else {
-                    if (verbose) {
-                        cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                    if ((*it).second.get() != nullptr) {
+                        if (verbose) {
+                            cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                        }
+                    } else {
+                        if (verbose) {
+                            cerr << "Messageless tag not matching tag to extract" << endl;
+                        }
                     }
                 }
                 ++it;

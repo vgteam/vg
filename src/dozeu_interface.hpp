@@ -114,6 +114,11 @@ public:
     void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left,
                       int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length);
     
+    /**
+     * Maximum number of bytes of Dozeu scratch space to retain permanently for each thread.
+     */
+    static constexpr size_t THREAD_MAX_RETAINED_BYTES = 2ULL * 1024 * 1024 * 1024;
+
 protected:
     /**
      * Represents a correspondance between a position in the subgraph we are

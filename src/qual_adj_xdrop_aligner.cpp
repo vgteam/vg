@@ -131,6 +131,7 @@ dz_alignment_s* QualAdjXdropAligner::trace(const dz_forefront_s* forefront) {
 
 void QualAdjXdropAligner::flush() {
     dz_qual_adj_flush(dz);
+    dz_trim(dz, THREAD_MAX_RETAINED_BYTES);
 }
 
 /**

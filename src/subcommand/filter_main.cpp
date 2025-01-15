@@ -40,28 +40,31 @@ void help_filter(char** argv) {
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
          << "    -r, --min-primary N        minimum score to keep primary alignment" << endl
+         << "    -L, --max-length N         drop reads with length > N" << endl
          << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
          << "    -f, --frac-score           normalize score based on length" << endl
          << "    -u, --substitutions        use substitution count instead of score" << endl
-         << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
+         << "    -o, --max-overhang N       drop reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -m, --min-end-matches N    drop reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
-         << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
+         << "    -v, --verbose              print out statistics on numbers of reads dropped by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -T, --tsv-out FIELD[;FIELD] do not write filtered gam but a tsv of the given fields" << endl
-         << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N        filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
+         << "    -q, --min-mapq N           drop alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N        drop reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
-         << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
-         << "    -i, --interleaved          assume interleaved input. both ends will be filtered out if either fails filter" << endl
-         << "    -I, --interleaved-all      assume interleaved input. both ends will be filtered out if *both* fail filters" << endl
-         << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
-         << "    -B, --annotation K[:V]     keep reads if the annotation is present. If a value is given, keep reads if the values are equal" << endl
+         << "    -d, --downsample S.P       drop all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
+         << "    -R, --max-reads N          drop all but N reads. Nondeterministic on multiple threads." << endl
+         << "    -i, --interleaved          assume interleaved input. both ends will be dropped if either fails filter" << endl
+         << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
+         << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
+         << "    -G, --annotation K[:V]     keep reads if the annotation is present and not false or empty. If a value is given, keep reads if the values are equal" << endl
          << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
          << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
+         << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
 
@@ -82,6 +85,7 @@ int main_filter(int argc, char** argv) {
     double min_primary;
     bool set_min_secondary = false;
     double min_secondary;
+    size_t max_length = std::numeric_limits<size_t>::max();
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
@@ -102,6 +106,7 @@ int main_filter(int argc, char** argv) {
     int defray_count;
     bool set_downsample = false;
     uint64_t seed;
+    size_t max_reads = std::numeric_limits<size_t>::max();
     double downsample_probability;
     bool interleaved = false;
     bool filter_on_all = false;
@@ -114,6 +119,8 @@ int main_filter(int argc, char** argv) {
     string annotation = "";
     string output_fields = "";
     bool correctly_mapped = false;
+
+    size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
     // What XG index, if any, should we load to support the other options?
     string xg_name;
@@ -135,6 +142,7 @@ int main_filter(int argc, char** argv) {
                 {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
+                {"max-length", required_argument, 0, 'L'},
                 {"rescore", no_argument, 0, 'O'},
                 {"frac-score", required_argument, 0, 'f'},
                 {"substitutions", required_argument, 0, 'u'},
@@ -143,24 +151,27 @@ int main_filter(int argc, char** argv) {
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"verbose",  no_argument, 0, 'v'},
-                {"tsv-out",  no_argument, 0, 'T'},
+                {"no-output", no_argument, 0, 'V'},
+                {"tsv-out",  required_argument, 0, 'T'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"downsample", required_argument, 0, 'd'},
+                {"max-reads", required_argument, 0, 'R'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
-                {"annotation", required_argument, 0, 'B'},
+                {"annotation", required_argument, 0, 'G'},
                 {"correctly-mapped", no_argument, 0, 'c'},
                 {"complement", no_argument, 0, 'U'},
+                {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:Od:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:cUt:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:cUB:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -226,6 +237,9 @@ int main_filter(int argc, char** argv) {
         case 'r':
             set_min_primary = true;
             min_primary = parse<double>(optarg);
+            break;
+        case 'L':
+            max_length = parse<size_t>(optarg);
             break;
         case 'O':
             rescore = true;
@@ -304,6 +318,9 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
+        case 'R':
+            max_reads = parse<size_t>(optarg);
+            break;
         case 'i':
             interleaved = true;
             break;
@@ -327,7 +344,7 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
-        case 'B':
+        case 'G':
             annotation = optarg;
             break;
         case 'c':
@@ -335,6 +352,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'U':
             complement_filter = true;
+            break;
+        case 'B':
+            batch_size = parse<size_t>(optarg);
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -355,6 +375,10 @@ int main_filter(int argc, char** argv) {
     if (optind >= argc) {
         help_filter(argv);
         return 1;
+    }
+
+    if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
+        std::cerr << "warning [vg filter]: max read count is not divisible by 2, but reads are paired." << std::endl;
     }
 
     // What should our return code be?
@@ -386,6 +410,7 @@ int main_filter(int argc, char** argv) {
         if (set_min_primary) {
             filter.min_primary = min_primary;
         }
+        filter.max_length = max_length;
         filter.rescore = rescore;
         filter.frac_score = frac_score;
         filter.sub_score = sub_score;
@@ -407,6 +432,7 @@ int main_filter(int argc, char** argv) {
             //Get the fields for tsv output
             filter.write_tsv = true;
             filter.write_output = false;
+
             size_t start_i = 0;
             for (size_t end_i = 0 ; end_i <= output_fields.size() ; end_i++) {
                 if (end_i == output_fields.size() || output_fields[end_i] == ';') {
@@ -435,6 +461,7 @@ int main_filter(int argc, char** argv) {
                 filter.downsample_seed_mask = rand();
             }
         }
+        filter.max_reads = max_reads;
         filter.only_proper_pairs = only_proper_pairs;
         filter.only_mapped = only_mapped;
         filter.interleaved = interleaved;
@@ -446,6 +473,7 @@ int main_filter(int argc, char** argv) {
         filter.annotation_to_match = annotation;
         filter.only_correctly_mapped = correctly_mapped;
         filter.complement_filter = complement_filter;
+        filter.batch_size = batch_size;
         filter.threads = get_thread_count();
         filter.graph = xindex;
     };

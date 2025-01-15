@@ -27,37 +27,42 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda,
                  const PathPositionHandleGraph* graph);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
-int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
 
-// fastq
-bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
-bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
-bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
+// parsing a FASTQ record, optionally intepreting the comment as SAM-style tags
+bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment, bool comment_as_tags);
+bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2, bool comment_as_tags);
+bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2, bool comment_as_tags);
 
-size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda);
-size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda);
-size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
+// parsing a FASTQ or FASTA file, optionally interpreting comments as SAM-style tags
+size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda, bool comment_as_tags = false);
+size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags = false);
+size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda, bool comment_as_tags = false);
 // parallel versions of above
 size_t fastq_unpaired_for_each_parallel(const string& filename,
                                         function<void(Alignment&)> lambda,
+                                        bool comment_as_tags = false,
                                         uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_interleaved_for_each_parallel(const string& filename,
                                                   function<void(Alignment&, Alignment&)> lambda,
+                                                  bool comment_as_tags = false,
                                                   uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
                                                              function<bool(void)> single_threaded_until_true,
+                                                             bool comment_as_tags = false,
                                                              uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2,
                                                 function<void(Alignment&, Alignment&)> lambda,
+                                                bool comment_as_tags = false,
                                                 uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
                                                            function<bool(void)> single_threaded_until_true,
+                                                           bool comment_as_tags = false,
                                                            uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
@@ -69,7 +74,10 @@ bam_hdr_t* hts_string_header(string& header,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+/// Add a mapping to a CIGAR string. The mismatch operation character may be
+/// 'M' (the default) to roll them into matches, or 'X' to mark mismatches as a
+/// different operation.
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar, char mismatch_operation = 'M');
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
@@ -329,6 +337,8 @@ struct AlignmentValidity {
         OK,
         NODE_MISSING,
         NODE_TOO_SHORT,
+        READ_TOO_SHORT,
+        BAD_EDIT,
         SEQ_DOES_NOT_MATCH
     };
     
@@ -336,6 +346,10 @@ struct AlignmentValidity {
     Problem problem = OK;
     /// The mapping in the alignment's path at which the problem was encountered.
     size_t bad_mapping_index = 0;
+    /// The edit within the mapping at which the problem was encountered.
+    size_t bad_edit_index = 0;
+    /// The position in the alignment's read sequence at which the problem was encountered.
+    size_t bad_read_position  = 0;
     /// An explanation for the problem.
     std::string message = "";
     

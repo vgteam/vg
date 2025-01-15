@@ -7,6 +7,9 @@
 
 #include <structures/union_find.hpp>
 
+#include <handlegraph/algorithms/copy_graph.hpp>
+#include <bdsg/hash_graph.hpp>
+
 #include <sstream>
 
 namespace vg {
@@ -15,7 +18,7 @@ std::atomic<size_t> Explainer::next_explanation_number {0};
 
 bool Explainer::save_explanations = false;
 
-Explainer::Explainer() : explanation_number(Explainer::next_explanation_number++) {
+Explainer::Explainer(bool enabled) : explanation_number(Explainer::next_explanation_number++), enabled(enabled) {
     // Nothing to do!
 }
 
@@ -23,8 +26,55 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
-ProblemDumpExplainer::ProblemDumpExplainer(const std::string& name) : Explainer() {
-    if (!Explainer::save_explanations) {
+TSVExplainer::TSVExplainer(bool enabled, const std::string& name) : Explainer(enabled) {
+    if (!explaining()) {
+        return;
+    }
+    out.open(name + std::to_string(explanation_number) + ".tsv");
+}
+TSVExplainer::~TSVExplainer() {
+    // Nothing to do!
+}
+
+void TSVExplainer::line() {
+    if (!explaining()) {
+        return;
+    }
+    if (need_line) {
+        // There's a previous line to put this new line after.
+        out << std::endl;
+    }
+    need_line = true;
+    // First value on the line does not need a tab.
+    need_tab = false;
+}
+
+void TSVExplainer::field(const std::string& value) {
+    if (!explaining()) {
+        return;
+    }
+    if (need_tab) {
+        out << "\t";
+    }
+    out << value;
+    // Next value on the line needs a leading tab
+    need_tab = true;
+}
+
+void TSVExplainer::field(size_t value) {
+    if (!explaining()) {
+        return;
+    }
+    if (need_tab) {
+        out << "\t";
+    }
+    out << value;
+    // Next value on the line needs a leading tab
+    need_tab = true;
+}
+
+ProblemDumpExplainer::ProblemDumpExplainer(bool enabled, const std::string& name) : Explainer(enabled) {
+    if (!explaining()) {
         return;
     }
     out.open(name + std::to_string(explanation_number) + ".json");
@@ -35,7 +85,7 @@ ProblemDumpExplainer::~ProblemDumpExplainer() {
 }
 
 void ProblemDumpExplainer::object_start() {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -43,7 +93,7 @@ void ProblemDumpExplainer::object_start() {
 }
 
 void ProblemDumpExplainer::object_end() {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     out << "}";
@@ -51,7 +101,7 @@ void ProblemDumpExplainer::object_end() {
 }
 
 void ProblemDumpExplainer::array_start() {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -59,7 +109,7 @@ void ProblemDumpExplainer::array_start() {
 }
 
 void ProblemDumpExplainer::array_end() {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     out << "]";
@@ -67,7 +117,7 @@ void ProblemDumpExplainer::array_end() {
 }
 
 void ProblemDumpExplainer::key(const std::string& k) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -75,7 +125,7 @@ void ProblemDumpExplainer::key(const std::string& k) {
 }
 
 void ProblemDumpExplainer::value(const std::string& v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -84,7 +134,7 @@ void ProblemDumpExplainer::value(const std::string& v) {
 }
 
 void ProblemDumpExplainer::value(double v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -93,7 +143,7 @@ void ProblemDumpExplainer::value(double v) {
 }
 
 void ProblemDumpExplainer::value(size_t v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -102,7 +152,7 @@ void ProblemDumpExplainer::value(size_t v) {
 }
 
 void ProblemDumpExplainer::value(int v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -111,7 +161,7 @@ void ProblemDumpExplainer::value(int v) {
 }
 
 void ProblemDumpExplainer::value(bool v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -120,7 +170,7 @@ void ProblemDumpExplainer::value(bool v) {
 }
 
 void ProblemDumpExplainer::value(vg::id_t v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     comma();
@@ -129,7 +179,7 @@ void ProblemDumpExplainer::value(vg::id_t v) {
 }
 
 void ProblemDumpExplainer::value(const pos_t& v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     object_start();
@@ -147,7 +197,7 @@ void ProblemDumpExplainer::value(const pos_t& v) {
 }
 
 void ProblemDumpExplainer::value(const HandleGraph& v) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     object_start();
@@ -187,7 +237,7 @@ void ProblemDumpExplainer::value(const HandleGraph& v) {
 }
 
 void ProblemDumpExplainer::value(const handle_t& v, const HandleGraph& context) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     // Implement via pos_t serialization.
@@ -196,33 +246,33 @@ void ProblemDumpExplainer::value(const handle_t& v, const HandleGraph& context) 
 
 const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {5};
 
-DiagramExplainer::DiagramExplainer() : Explainer() {
+DiagramExplainer::DiagramExplainer(bool enabled) : Explainer(enabled) {
     // Nothing to do!
 }
 
 DiagramExplainer::~DiagramExplainer() {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     write_connected_components();
 }
 
 void DiagramExplainer::add_globals(const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     std::copy(annotations.begin(), annotations.end(), std::back_inserter(globals));
 }
 
 void DiagramExplainer::add_node(const std::string& id, const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     nodes.emplace(id, annotations);
 }
 
 void DiagramExplainer::ensure_node(const std::string& id, const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     auto found = nodes.find(id);
@@ -232,14 +282,14 @@ void DiagramExplainer::ensure_node(const std::string& id, const annotation_t& an
 }
 
 void DiagramExplainer::add_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     edges.emplace(std::make_pair(a_id, b_id), annotations);
 }
 
 void DiagramExplainer::ensure_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
     auto key = std::make_pair(a_id, b_id);
@@ -250,7 +300,7 @@ void DiagramExplainer::ensure_edge(const std::string& a_id, const std::string& b
 }
 
 void DiagramExplainer::suggest_edge(const std::string& a_id, const std::string& b_id, const std::string& category, double importance, const annotation_t& annotations) {
-    if (!Explainer::save_explanations) {
+    if (!explaining()) {
         return;
     }
 
@@ -368,6 +418,20 @@ void DiagramExplainer::write_connected_components() const {
         kv.second << "}" << std::endl;
         kv.second.close();
     }
+}
+
+SubgraphExplainer::SubgraphExplainer(bool enabled): Explainer(enabled) {
+    // Nothing to do!
+}
+
+void SubgraphExplainer::subgraph(const HandleGraph& graph) {
+    if (!explaining()) {
+        return;
+    }
+    std::string filename = "subgraph" + std::to_string(explanation_number) + ".vg";
+    bdsg::HashGraph to_save;
+    handlealgs::copy_handle_graph(&graph, &to_save);
+    to_save.serialize(filename);
 }
 
 }

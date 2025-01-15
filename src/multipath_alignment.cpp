@@ -2320,6 +2320,7 @@ namespace vg {
             auto annotation = from.get_annotation("secondary");
             assert(annotation.first == multipath_alignment_t::Bool);
             to.set_is_secondary(*((bool*) annotation.second));
+            clear_annotation(to, "secondary");
         }
     }
 
