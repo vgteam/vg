@@ -118,7 +118,7 @@ void choose_good_thread_count() {
     if (count == 0) {
         // First priority: OMP_NUM_THREADS
         const char* value = getenv("OMP_NUM_THREADS");
-        if (value) {
+        if (value && *value != '\0') {
             // Read the value. Throws if it isn't a legit number.
             count = std::stoi(value);
         }
@@ -141,6 +141,15 @@ void choose_good_thread_count() {
                 // May come out to 0, in which case it is ignored.
                 count = (int) ceil(quota / (double) period);
             }
+        }
+    }
+
+    if (count == 0) {
+        // Next priority: SLURM_JOB_CPUS_PER_NODE
+        const char* value = getenv("SLURM_JOB_CPUS_PER_NODE");
+        if (value && *value != '\0') {
+            // Read the value. Throws if it isn't a legit number.
+            count = std::stoi(value);
         }
     }
 
