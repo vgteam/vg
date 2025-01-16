@@ -10,6 +10,9 @@
 #include <fstream>
 #include <iostream>
 #include <cctype>
+// We don't define _GNU_SOURCE to get the cpuset functions since we will
+// already have it for libstdc++ on the platforms where we need them
+#include <sched.h>
 
 
 // For setting the temporary directory in submodules.
@@ -143,6 +146,25 @@ void choose_good_thread_count() {
             }
         }
     }
+
+#if !defined(__APPLE__) && defined(_GNU_SOURCE)
+    if (count == 0) {
+        // Next priority: CPU affinity mask (used by Slurm)
+        cpu_set_t mask;
+        if (sched_getaffinity(getpid(), sizeof(cpu_set_t), &mask)) {
+            // TODO: If you have >1024 bits in your mask, glibc can't deal and you will get EINVAL.
+            // We're supposed to then try increasingly large dynamically-allocated CPU flag sets until we find one that works.
+            auto problem = errno;
+            std::cerr << "warning[vg]: Cannot determine CPU count from affinity mask: " << strerror(problem) << std::endl;
+        } else {
+            // We're also supposed to intersect this mask with the actual
+            // existing processors, in case somebody flags on way more
+            // processors than actually exist. But Linux doesn't seem to do
+            // that by default, so we don't worry about it.
+            count = CPU_COUNT(&mask);
+        }
+    }
+#endif
 
     if (count == 0) {
         // Next priority: SLURM_JOB_CPUS_PER_NODE
