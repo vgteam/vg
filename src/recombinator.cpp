@@ -66,7 +66,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Subchain& subchain = chain.subchains[subchain_id];
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                result[subchain.kmers[kmer_id].first] = 0;
+                result[subchain.kmers[kmer_id]] = 0;
             }
         }
     }
@@ -146,51 +146,145 @@ std::string Haplotypes::Subchain::to_string() const {
     return result;
 }
 
+size_t Haplotypes::Subchain::distance(const gbwtgraph::GBZ& gbz, size_t i) const {
+    if (this->type != normal || i >= this->sequences.size()) {
+        return 0;
+    }
+
+    size_t result = 1;
+    gbwt::edge_type curr(this->start, this->sequences[i].second);
+    while (true) {
+        curr = gbz.index.LF(curr);
+        if (curr.first == gbwt::ENDMARKER || curr.first == this->end) {
+            break;
+        }
+        result += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(curr.first));
+    }
+
+    return result;
+}
+
+// TODO: What is the right formula?
+double Haplotypes::Subchain::badness(const gbwtgraph::GBZ& gbz) const {
+    double result = 0.0;
+
+    // Factor 1: Subchain length, ideally over a reference path.
+    if (this->type == normal) {
+        size_t expected_length = HaplotypePartitioner::SUBCHAIN_LENGTH;
+        size_t selected = 0;
+        for (size_t i = 0; i < this->sequences.size(); i++) {
+            gbwt::size_type path_id = gbwt::Path::id(this->sequences[i].first);
+            auto found = gbz.graph.id_to_path.find(path_id);
+            if (found != gbz.graph.id_to_path.end()) {
+                selected = i; break;
+            }
+        }
+        size_t length = this->distance(gbz, selected);
+        if (length < expected_length) {
+            result += std::log(static_cast<double>(expected_length) / static_cast<double>(length));
+        }
+    }
+
+    // Factor 2: Number of haplotypes relative to the expected number.
+    size_t expected_haplotypes = gbz.index.metadata.haplotypes();
+    size_t haplotypes = this->sequences.size();
+    if (haplotypes < expected_haplotypes) {
+        result += std::log(static_cast<double>(expected_haplotypes) / static_cast<double>(haplotypes));
+    }
+
+    // Factor 3: Information content of the kmers.
+    // Disabled for the moment.
+    /* double expected_entropy = 4.0 * std::log(static_cast<double>(haplotypes));
+    double entropy = 0.0;
+    for (size_t i = 0; i < this->kmer_counts.size(); i++) {
+        double p = static_cast<double>(this->kmer_counts[i]) / static_cast<double>(haplotypes);
+        entropy -= p * std::log(p);
+    }
+    if (entropy < expected_entropy) {
+        result += expected_entropy - entropy;
+    } */
+
+    return result;
+}
+
 void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<std::uint64_t>(this->type, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->start, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->end, out);
     sdsl::simple_sds::serialize_vector(this->kmers, out);
+    this->kmer_counts.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->sequences, out);
     this->kmers_present.simple_sds_serialize(out);
 }
 
-void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
+void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in) {
     std::uint64_t temp = sdsl::simple_sds::load_value<std::uint64_t>(in);
     switch (temp) {
-    case normal: // Fall through.
-    case prefix: // Fall through.
-    case suffix: // Fall through.
-    case full_haplotype:
-        this->type = static_cast<subchain_t>(temp);
+    case Haplotypes::Subchain::normal: // Fall through.
+    case Haplotypes::Subchain::prefix: // Fall through.
+    case Haplotypes::Subchain::suffix: // Fall through.
+    case Haplotypes::Subchain::full_haplotype:
+        subchain.type = static_cast<Haplotypes::Subchain::subchain_t>(temp);
         break;
     default:
         throw sdsl::simple_sds::InvalidData("Invalid subchain type: " + std::to_string(temp));
     }
 
-    this->start = sdsl::simple_sds::load_value<gbwt::node_type>(in);
-    this->end = sdsl::simple_sds::load_value<gbwt::node_type>(in);
-    bool should_have_start = (this->type == normal || this->type == suffix);
-    bool should_have_end = (this->type == normal || this->type == prefix);
-    if ((this->start != gbwt::ENDMARKER) != should_have_start) {
-        throw sdsl::simple_sds::InvalidData("Subchain start node " + std::to_string(this->start) + " does not match type " + std::to_string(temp));
+    subchain.start = sdsl::simple_sds::load_value<gbwt::node_type>(in);
+    subchain.end = sdsl::simple_sds::load_value<gbwt::node_type>(in);
+    bool should_have_start = (subchain.type == Haplotypes::Subchain::normal || subchain.type == Haplotypes::Subchain::suffix);
+    bool should_have_end = (subchain.type == Haplotypes::Subchain::normal || subchain.type == Haplotypes::Subchain::prefix);
+    if ((subchain.start != gbwt::ENDMARKER) != should_have_start) {
+        throw sdsl::simple_sds::InvalidData("Subchain start node " + std::to_string(subchain.start) + " does not match type " + std::to_string(temp));
     }
-    if ((this->end != gbwt::ENDMARKER) != should_have_end) {
-        throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(this->end) + " does not match type" + std::to_string(temp));
+    if ((subchain.end != gbwt::ENDMARKER) != should_have_end) {
+        throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(subchain.end) + " does not match type" + std::to_string(temp));
+    }
+}
+
+void load_subchain_kmers_present(Haplotypes::Subchain& subchain, std::istream& in) {
+    subchain.kmers_present.simple_sds_load(in);
+    if (subchain.kmers_present.size() != subchain.kmers.size() * subchain.sequences.size()) {
+        throw sdsl::simple_sds::InvalidData("Invalid length for the kmer presence bitvector in subchain from " +
+            std::to_string(subchain.start) + " to " + std::to_string(subchain.end));
+    }
+}
+
+void Haplotypes::Subchain::load_v1(std::istream& in) {
+    load_subchain_header(*this, in);
+
+    // Kmer and sequence information must be converted to a more compact format.
+    auto kmers_counts = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
+    auto seqs = sdsl::simple_sds::load_vector<sequence_type>(in);
+    this->kmers = std::vector<kmer_type>(kmers_counts.size());
+    this->kmer_counts = sdsl::int_vector<0>(kmers_counts.size(), 0, sdsl::bits::length(this->sequences.size()));
+    for (size_t i = 0; i < kmers_counts.size(); i++) {
+        this->kmers[i] = kmers_counts[i].first;
+        this->kmer_counts[i] = kmers_counts[i].second;
+    }
+    this->sequences = std::vector<compact_sequence_type>(seqs.size());
+    for (size_t i = 0; i < seqs.size(); i++) {
+        this->sequences[i].first = seqs[i].first;
+        this->sequences[i].second = seqs[i].second;
     }
 
-    this->kmers = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
-    this->sequences = sdsl::simple_sds::load_vector<sequence_type>(in);
-    this->kmers_present.simple_sds_load(in);
-    if (kmers_present.size() != kmers.size() * sequences.size()) {
-        throw sdsl::simple_sds::InvalidData("Invalid length for the kmer presence bitvector in subchain from " +
-            std::to_string(this->start) + " to " + std::to_string(this->end));
-    }
+    load_subchain_kmers_present(*this, in);
+}
+
+void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
+    load_subchain_header(*this, in);
+
+    this->kmers = sdsl::simple_sds::load_vector<kmer_type>(in);
+    this->kmer_counts.simple_sds_load(in);
+    this->sequences = sdsl::simple_sds::load_vector<compact_sequence_type>(in);
+
+    load_subchain_kmers_present(*this, in);
 }
 
 size_t Haplotypes::Subchain::simple_sds_size() const {
     size_t result = sdsl::simple_sds::value_size<std::uint64_t>() + 2 * sdsl::simple_sds::value_size<gbwt::node_type>();
     result += sdsl::simple_sds::vector_size(this->kmers);
+    result += this->kmer_counts.simple_sds_size();
     result += sdsl::simple_sds::vector_size(this->sequences);
     result += this->kmers_present.simple_sds_size();
     return result;
@@ -217,14 +311,25 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
     }
 }
 
-void Haplotypes::TopLevelChain::load_old(std::istream& in) {
+void Haplotypes::TopLevelChain::load_v1(std::istream& in) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
     this->contig_name = "component_" + std::to_string(this->offset);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
     for (size_t i = 0; i < subchain_count; i++) {
-        this->subchains[i].simple_sds_load(in);
+        this->subchains[i].load_v1(in);
+    }
+}
+
+void Haplotypes::TopLevelChain::load_v2(std::istream& in) {
+    this->offset = sdsl::simple_sds::load_value<size_t>(in);
+    this->job_id = sdsl::simple_sds::load_value<size_t>(in);
+    this->contig_name = sdsl::simple_sds::load_string(in);
+    size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
+    this->subchains.resize(subchain_count);
+    for (size_t i = 0; i < subchain_count; i++) {
+        this->subchains[i].load_v1(in);
     }
 }
 
@@ -263,8 +368,10 @@ void Haplotypes::simple_sds_load(std::istream& in) {
     for (auto& chain : this->chains) {
         if (this->header.version == Header::VERSION) {
             chain.simple_sds_load(in);
+        } else if (this->header.version == 2) {
+            chain.load_v2(in);
         } else {
-            chain.load_old(in);
+            chain.load_v1(in);
         }
     }
 
@@ -420,7 +527,14 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
             result.header.total_subchains += total_subchains;
             result.header.total_kmers += total_kmers;
             if (this->verbosity >= Haplotypes::verbosity_detailed) {
-                std::cerr << "Finished job " << job << " with " << chains.size() << " chains, " << total_subchains << " subchains, and " << total_kmers << " kmers" << std::endl;
+                std::cerr << "Finished job " << job << " with " << chains.size() << " chains (";
+                for (size_t i = 0; i < chains.size(); i++) {
+                    if (i > 0) {
+                        std::cerr << ", ";
+                    }
+                    std::cerr << result.chains[chains[i].offset].contig_name;
+                }
+                std::cerr << "), " << total_subchains << " subchains, and " << total_kmers << " kmers" << std::endl;
             }
         }
     }
@@ -720,7 +834,8 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
   empty.
 */
 void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
-    std::vector<std::pair<HaplotypePartitioner::kmer_type, size_t>>& all_kmers,
+    std::vector<HaplotypePartitioner::kmer_type>& all_kmers,
+    sdsl::int_vector<0>& kmer_counts,
     sdsl::bit_vector& kmers_present) {
 
     // Build a map of distinct kmers. For each kmer, record the largest sequence
@@ -744,10 +859,12 @@ void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type
     // Now take those kmers that occur in some but not in all sequences.
     // Use the first field for storing the offset of the kmer in the vector.
     all_kmers.reserve(present.size());
+    kmer_counts = sdsl::int_vector<0>(present.size(), 0, sdsl::bits::length(sequences.size()));
     size_t offset = 0;
     for (auto iter = present.begin(); iter != present.end(); ++iter) {
         if (iter->second.second < sequences.size()) {
-            all_kmers.push_back({ iter->first, iter->second.second });
+            all_kmers.push_back(iter->first);
+            kmer_counts[offset] = iter->second.second;
             iter->second.first = offset;
             offset++;
         }
@@ -810,7 +927,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             output.subchains.push_back({
                 iter->first.type,
                 gbwtgraph::GBWTGraph::handle_to_node(iter->first.start), gbwtgraph::GBWTGraph::handle_to_node(iter->first.end),
-                {}, {}, sdsl::bit_vector()
+                {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
             });
             Haplotypes::Subchain& subchain = output.subchains.back();
             std::vector<std::vector<kmer_type>> kmers_by_sequence;
@@ -818,8 +935,11 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             for (sequence_type sequence : iter->second) {
                 kmers_by_sequence.emplace_back(this->unique_minimizers(sequence, iter->first));
             }
-            present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
-            subchain.sequences = std::move(iter->second);
+            present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmer_counts, subchain.kmers_present);
+            subchain.sequences = std::vector<Haplotypes::compact_sequence_type>(iter->second.size());
+            for (size_t i = 0; i < iter->second.size(); i++) {
+                subchain.sequences[i] = Haplotypes::compact_sequence_type(iter->second[i].first, iter->second[i].second);
+            }
         }
     }
 
@@ -830,7 +950,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
             gbwt::ENDMARKER, gbwt::ENDMARKER,
-            {}, {}, sdsl::bit_vector()
+            {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
         });
         Haplotypes::Subchain& subchain = output.subchains.back();
         gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(chain.handle);
@@ -840,10 +960,10 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         for (auto seq_id : sequences) {
             kmers_by_sequence.emplace_back(this->unique_minimizers(seq_id));
         }
-        present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
+        present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmer_counts, subchain.kmers_present);
         subchain.sequences.reserve(sequences.size());
         for (size_t i = 0; i < sequences.size(); i++) {
-            subchain.sequences.push_back({ sequences[i], 0 });
+            subchain.sequences.push_back(Haplotypes::compact_sequence_type(sequences[i], 0));
         }
     }
 }
@@ -1056,9 +1176,63 @@ void RecombinatorHaplotype::suffix(const gbwt::GBWT& index) {
 }
 
 void RecombinatorHaplotype::insert(gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) {
-    std::string sample_name = "recombination";
+    std::string sample_name = "recombination"; // TODO: Make this a static class variable.
     metadata.add_haplotype(sample_name, this->contig_name, this->id, this->fragment);
     builder.insert(this->path, true);
+}
+
+//------------------------------------------------------------------------------
+
+/*
+ * An additional haplotype fragment from a bad subchain.
+ *
+ * GBWT metadata will be set as following:
+ *
+ * * Sample name is "fragment".
+ * * Contig name is taken from the top-level chain.
+ * * Haplotype identifier is set during construction.
+ * * Fragment identifier is the identifier of the subchain.
+ */
+struct RecombinatorFragment {
+    // GBWT starting position (inclusive).
+    gbwt::edge_type from;
+
+    // GBWT ending position (inclusive).
+    gbwt::node_type to;
+
+    // Haplotype identifier.
+    size_t haplotype;
+
+    // Fragment / subchain identifier.
+    size_t fragment;
+
+    RecombinatorFragment(gbwt::edge_type from, gbwt::node_type to, size_t haplotype, size_t fragment) :
+        from(from), to(to), haplotype(haplotype), fragment(fragment) {}
+
+    // Generates the GBWT path and the metadata for the fragment.
+    void generate(
+        const gbwt::GBWT& index,
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
+        const std::string& contig_name
+    ) const;
+};
+
+void RecombinatorFragment::generate(
+    const gbwt::GBWT& index,
+    gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
+    const std::string& contig_name
+) const {
+    gbwt::vector_type path;
+    for (gbwt::edge_type curr = this->from; curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
+        path.push_back(curr.first);
+        if (curr.first == this->to) {
+            break;
+        }
+    }
+
+    std::string sample_name = "fragment"; // TODO: Make this a static class variable.
+    metadata.add_haplotype(sample_name, contig_name, this->haplotype, this->fragment);
+    builder.insert(path, true);
 }
 
 //------------------------------------------------------------------------------
@@ -1066,9 +1240,11 @@ void RecombinatorHaplotype::insert(gbwt::GBWTBuilder& builder, gbwtgraph::Metada
 void Recombinator::Statistics::combine(const Statistics& another) {
     this->chains += another.chains;
     this->subchains += another.subchains;
+    this->bad_subchains += another.bad_subchains;
     this->fragments += another.fragments;
     this->full_haplotypes += another.full_haplotypes;
     this->haplotypes = std::max(this->haplotypes, another.haplotypes);
+    this->extra_fragments += another.extra_fragments;
     this->connections += another.connections;
     this->ref_paths += another.ref_paths;
     this->kmers += another.kmers;
@@ -1078,6 +1254,9 @@ void Recombinator::Statistics::combine(const Statistics& another) {
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
     out << this->haplotypes << " haplotypes for " << this->chains << " chains ("
         << this->full_haplotypes << " full, " << this->subchains << " subchains, " << this->fragments << " fragments)";
+    if (this->bad_subchains > 0) {
+        out << "; " << this->bad_subchains << " bad subchains with " << this->extra_fragments << " extra fragments";
+    }
     if (this->subchains > 0) {
         double connection_rate = static_cast<double>(this->connections) / (this->subchains * this->haplotypes);
         out << "; connection rate " << connection_rate;
@@ -1123,7 +1302,11 @@ void Recombinator::Parameters::print(std::ostream& out) const {
         out << "- kmer coverage " << this->coverage << std::endl;
     }
     if (this->diploid_sampling) {
-        out << "- diploid sampling (" << this->num_haplotypes << " candidates)" << std::endl;
+        out << "- diploid sampling (" << this->num_haplotypes << " candidates";
+        if (this->extra_fragments) {
+            out << ", badness threshold " << this->badness_threshold;
+        }
+        out << ")" << std::endl;
     } else {
         out << "- heuristic sampling (" << this->num_haplotypes << " haplotypes)" << std::endl;
     }
@@ -1155,6 +1338,10 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
 void recombinator_sanity_checks(const Recombinator::Parameters& parameters) {
     if (parameters.num_haplotypes == 0) {
         std::string msg = "recombinator_sanity_checks(): number of haplotypes cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.badness_threshold <= 0.0) {
+        std::string msg = "recombinator_sanity_checks(): badness threshold must be positive";
         throw std::runtime_error(msg);
     }
     if (parameters.diploid_sampling && parameters.num_haplotypes < 2) {
@@ -1372,7 +1559,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types;
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-        double count = kmer_counts.at(subchain.kmers[kmer_id].first);
+        double count = kmer_counts.at(subchain.kmers[kmer_id]);
         if (count < absent_threshold) {
             kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
             selected_kmers++;
@@ -1434,10 +1621,15 @@ std::vector<char> Recombinator::classify_kmers(
 
 // Select the best pair of haplotypes from the candidates. Each haplotype gets
 // +1 for getting a kmer right and -1 for getting it wrong.
+// Also returns the remaining non-duplicated haplotypes as extra fragments if
+// the appropriate paremeters have been set.
 std::vector<std::pair<size_t, double>> select_diploid(
+    const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const std::vector<std::pair<size_t, double>>& candidates,
-    const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types
+    const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types,
+    size_t original_selected,
+    const Recombinator::Parameters& parameters
 ) {
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
     size_t best_left = 0, best_right = 1;
@@ -1471,6 +1663,24 @@ std::vector<std::pair<size_t, double>> select_diploid(
         }
     }
 
+    // If this is a bad subchain, we move the selected haplotypes to the front
+    // and return the remaining non-duplicated haplotypes as extra fragments.
+    // Otherwise we return only the selected haplotypes.
+    if (parameters.extra_fragments) {
+        double badness = subchain.badness(gbz);
+        if (badness > parameters.badness_threshold) {
+            std::vector<std::pair<size_t, double>> result;
+            result.push_back(candidates[best_left]);
+            result.push_back(candidates[best_right]);
+            for (size_t i = 0; i < original_selected; i++) {
+                if (i != best_left && i != best_right) {
+                    result.push_back(candidates[i]);
+                }
+            }
+            return result;
+        }
+    }
+
     return { candidates[best_left], candidates[best_right] };
 }
 
@@ -1479,6 +1689,7 @@ std::vector<std::pair<size_t, double>> select_diploid(
 // Updates the local haplotypes with scores and ranks in each round of selection
 // if provided.
 std::vector<std::pair<size_t, double>> select_haplotypes(
+    const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     double coverage,
@@ -1558,12 +1769,14 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         selected_haplotypes.push_back(next);
     }
 
-    // Do diploid sampling if necessary.
+    // Do diploid sampling. If this is a bad subchain, we also return the
+    // extra fragments starting from the third haplotype. But we don't return
+    // duplicated ones.
     if (parameters.diploid_sampling) {
-        return select_diploid(subchain, selected_haplotypes, kmer_types);
+        return select_diploid(gbz, subchain, selected_haplotypes, kmer_types, original_selected, parameters);
+    } else {
+        return selected_haplotypes;
     }
-
-    return selected_haplotypes;
 }
 
 Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain,
@@ -1592,16 +1805,28 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
         statistics.full_haplotypes = 1;
     } else {
         bool have_haplotypes = false;
-        for (auto& subchain : chain.subchains) {
+        std::vector<RecombinatorFragment> extra_fragments;
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            const auto& subchain = chain.subchains[subchain_id];
             if (subchain.type == Haplotypes::Subchain::full_haplotype) {
                 throw std::runtime_error("Recombinator::generate_haplotypes(): nontrivial chain " + std::to_string(chain.offset) + " contains a subchain with full haplotypes");
             }
             assert(!subchain.sequences.empty());
 
-            // Select the haplotypes greedily.
+            // Select the haplotypes greedily. If we are doing diploid sampling and we get
+            // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                subchain, kmer_counts, coverage, &statistics, nullptr, parameters
+                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
             );
+            if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
+                for (size_t i = 2; i < selected_haplotypes.size(); i++) {
+                    gbwt::edge_type start(subchain.start, subchain.sequences[selected_haplotypes[i].first].second);
+                    extra_fragments.emplace_back(start, subchain.end, i - 1, subchain_id);
+                }
+                statistics.bad_subchains++;
+                statistics.extra_fragments += selected_haplotypes.size() - 2;
+                selected_haplotypes.resize(2);
+            }
 
             // Try to match the existing haplotypes with the selected sequences based on
             // GBWT sequence id.
@@ -1650,6 +1875,11 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
         }
         statistics.fragments = haplotypes.front().fragment;
+
+        // Add the extra fragments as separate paths.
+        for (const RecombinatorFragment& fragment : extra_fragments) {
+            fragment.generate(this->gbz.index, builder, metadata, chain.contig_name);
+        }
     }
 
     return statistics;
@@ -1696,7 +1926,7 @@ std::vector<Recombinator::LocalHaplotype> Recombinator::extract_sequences(
     double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
 
     // Fill in the scores.
-    select_haplotypes(subchain, counts, coverage, nullptr, &result, parameters);
+    select_haplotypes(this->gbz, subchain, counts, coverage, nullptr, &result, parameters);
 
     return result;
 }
