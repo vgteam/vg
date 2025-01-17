@@ -2042,6 +2042,9 @@ int main_giraffe(int argc, char** argv) {
                             std::cerr << "Thread " << thread_num << " now mapping " << aln1.name() << ", " << aln2.name() << std::endl;
                         }
                         
+
+                        check_quality_length(aln1);
+                        check_quality_length(aln2);
                         toUppercaseInPlace(*aln1.mutable_sequence());
                         toUppercaseInPlace(*aln2.mutable_sequence());
 
@@ -2150,6 +2153,7 @@ int main_giraffe(int argc, char** argv) {
                             std::cerr << "Thread " << thread_num << " now mapping " << aln.name() << std::endl;
                         }
                         
+                        check_quality_length(aln);
                         toUppercaseInPlace(*aln.mutable_sequence());
                     
                         // Map the read with the MinimizerMapper.
