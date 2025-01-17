@@ -329,6 +329,13 @@ void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base, co
 void alignment_set_distance_to_correct(Alignment& aln, const map<string, vector<pair<size_t, bool>>>& base_offsets, const unordered_map<string, string>* translation = nullptr);
 
 /**
+ * Stop the program and print a useful error message if the alignment has
+ * quality values, but not the right number of them for the number of sequence
+ * bases. 
+ */
+void check_quality_length(const Alignment& aln);
+
+/**
  * Represents a report on whether an alignment makes sense in the context of a graph.
  */
 struct AlignmentValidity {
