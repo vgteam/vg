@@ -1082,6 +1082,8 @@ Functions</h2></td></tr>
 <tr class="separator:a6c45c724ede7f4892b24ad654d68fbef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab7c6a6b96f1c4c2ca04b0b6df8f384b3">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation)</td></tr>
 <tr class="separator:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5de2cc2253344ecabb528c2aa7fd5c1d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5de2cc2253344ecabb528c2aa7fd5c1d">check_quality_length</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a5de2cc2253344ecabb528c2aa7fd5c1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa15ba62ae06958a1e792554996b5ee62"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1AlignmentValidity.html">AlignmentValidity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa15ba62ae06958a1e792554996b5ee62">alignment_is_valid</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph, bool check_sequence)</td></tr>
 <tr class="separator:aa15ba62ae06958a1e792554996b5ee62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac712c04180499746dab8cdc6c8795c56"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac712c04180499746dab8cdc6c8795c56">target_alignment</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;<a class="el" href="namespacevg.html#a81755bb87928f81a864e4a752973bd69">cigar_mapping</a>)</td></tr>
@@ -6095,6 +6097,25 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
+<a id="a5de2cc2253344ecabb528c2aa7fd5c1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5de2cc2253344ecabb528c2aa7fd5c1d">&#9670;&nbsp;</a></span>check_quality_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::check_quality_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Stop the program and print a useful error message if the alignment has quality values, but not the right number of them for the number of sequence bases. </p>
+
+</div>
+</div>
 <a id="acfe23dc452245bf901fee2ed698afe7d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acfe23dc452245bf901fee2ed698afe7d">&#9670;&nbsp;</a></span>choose_good_thread_count()</h2>
 
@@ -6109,7 +6130,8 @@ template&lt;typename ProbIn &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Decide on and apply a sensible OMP thread count. Pay attention to OMP_NUM_THREADS if set, the "hardware concurrency", and container limit information that may be available in /proc. </p>
+<p>Decide on and apply a sensible OMP thread count. Pay attention to OMP_NUM_THREADS and SLURM_JOB_CPUS_PER_NODE if set, the "hardware
+concurrency", and container limit information that may be available in /proc. </p>
 
 </div>
 </div>
