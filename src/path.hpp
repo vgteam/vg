@@ -383,6 +383,27 @@ Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_hand
 // Wrap a Path in an Alignment
 Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 
+////
+// Functiuons for working with path subranges.
+// TODO: Move to libhandlegraph
+////
+
+/// Run the given iteratee for each path that is either the path with the given
+/// name (if present), or a subrange of a path with the given name as the base
+/// name (otherwise).
+///
+/// If a path and subpaths both exist, only look at the full path.
+///
+/// If the name describes a subpath, look only at that subpath.
+///
+/// Iteratee returns false to stop.
+///
+/// Returns true if we reached the end, and false if asked to stop.
+bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee);
+
+/// Returns the base path name for this path (i.e. the path's name without any subrange).
+std::string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path);
+
 
 /*
  * STL implementations of the protobuf object for use in in-memory operations

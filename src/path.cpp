@@ -14,7 +14,6 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
     // But std::regex was taking loads and loads of time (probably matching .+) so we're replacing it with special-purpose code.
     
     string prefix("_alt_");
-    
     if (path_name.length() < prefix.length() || !std::equal(prefix.begin(), prefix.end(), path_name.begin())) {
         // We lack the prefix
         return false;
@@ -2530,6 +2529,65 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
     aln.set_sequence(path_sequence(graph, path));
     return aln;
 }
+
+bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee) {
+    if (graph.has_path(path_name)) {
+        // Just look at the full path.
+        return iteratee(graph.get_path_handle(path_name));
+    }
+    
+    // Parse out the metadata of the thing we want subpaths of
+    PathSense sense;
+    string sample;
+    string locus;
+    size_t haplotype;
+    size_t phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(path_name,
+                                  sense,
+                                  sample,
+                                  locus,
+                                  haplotype,
+                                  phase_block,
+                                  subrange);
+                                  
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        // The path name described a subpath, and we didn't find it.
+        // Don't call the iteratee.
+        return true;
+    }
+    
+    // Look at every subpath on it
+    return graph.for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+        // TODO: There's no way to search by haplotype and phase block, we have to scan
+        if (graph.get_haplotype(match) != haplotype) {
+            // Skip this haplotype
+            return true;
+        }
+        if (graph.get_phase_block(match) != phase_block) {
+            // Skip this phase block
+            return true;
+        }
+        // Don't need to check subrange, we know we don't have one and this candidate does.
+        return iteratee(match);    
+    });
+}
+
+std::string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path) {
+    if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
+        // This is a full path
+        return graph.get_path_name(path);
+    } else {
+        // This is a subpath, so remember what it's a subpath of, and use that.
+        return PathMetadata::create_path_name(graph.get_sense(path),
+                                              graph.get_sample_name(path),
+                                              graph.get_locus_name(path),
+                                              graph.get_haplotype(path),
+                                              graph.get_phase_block(path),
+                                              PathMetadata::NO_SUBRANGE);
+    }
+}
+
 
 void from_proto_edit(const Edit& proto_edit, edit_t& edit) {
     edit.set_from_length(proto_edit.from_length());
