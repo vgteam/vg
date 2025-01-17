@@ -25,12 +25,24 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
                                    MutablePathMutableHandleGraph& subgraph, Region& out_region) {
     
     // extract our path range into the graph
-    // TODO: Handle incoming names with subranges.
+    // TODO: Handle incoming names with subranges when they aren't exactly the names of paths we have.
     path_handle_t path_handle = graph->get_path_handle(region.seq);
     step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
     handle_t start_handle = graph->get_handle_of_step(start_step);
     step_handle_t end_step = graph->get_step_at_position(path_handle, region.end);    
     handle_t end_handle = graph->get_handle_of_step(end_step);
+
+    // If the target path was itself a subrange, we need to know the base path range that the requested range of that subrange was.
+    subrange_t base_path_subrange = graph->get_subrange(path_handle);
+
+    // Get end-exclusive 0-based subrange we want
+    subrange_t target_subrange {region.start, region.end + 1};
+    if (base_path_subrange != PathMetadata::NO_SUBRANGE) {
+        // Budge it over by the coordinates of what the region is in
+        target_subrange.first += base_path_subrange.first;
+        target_subrange.second += base_path_subrange.first;
+    }
+    
 
 #ifdef debug
 #pragma omp critical(cerr)
@@ -104,9 +116,9 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
             subpath_subrange.second = subpath_subrange.first + path_length;
         }
 
-        if (subpath_subrange.first > region.end || subpath_subrange.second <= region.start) {
-            // This subpath doesn't actually overlap the selected target path
-            // region (which is 0-based, end-inclusive), and so shouldn't count
+        if (subpath_subrange.first >= target_subrange.second || subpath_subrange.second <= target_subrange.first) {
+            // This subpath doesn't actually overlap the selected target base path
+            // subrange (which is 0-based, end-exclusive), and so shouldn't count
             // for extending the selected region along the target path.
             return true;
         }
