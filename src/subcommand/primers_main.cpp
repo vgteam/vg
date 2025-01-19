@@ -212,8 +212,11 @@ int main_primers(int argc, char** argv) {
             zipcodes.deserialize(zip_in);
             zip_in.close();
         }
-
-        MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index, &zipcodes);
+    }
+    //The minimizer mapper needs to be declared here to keep it around in memory
+    //So sometimes make it with empty indexes but only keep the pointer to it if we had minimizers
+    MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index, &zipcodes);
+    if (!min_path.empty()) {
         //Set parameters
         //TODO: I'm not actually sure about this because the sequence is long but it should match a path exactly so it should get the whole alignment at gapless extension
         minimizer_mapper.align_from_chains = true;
