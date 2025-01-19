@@ -106,7 +106,7 @@ int main_primers(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:s:r:g:M:Z:v:l:n:m:a", long_options, &option_index);
+        c = getopt_long (argc, argv, "hx:d:r:g:M:Z:v:l:n:m:a", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1) break;
@@ -203,9 +203,10 @@ int main_primers(int argc, char** argv) {
     graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_path);
     ifstream file_handle(primers_path);
     MinimizerMapper* giraffe_mapper = nullptr;
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
+    ZipCodeCollection zipcodes;
     if (!min_path.empty()) {
-        unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(min_path);
-        ZipCodeCollection zipcodes;
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(min_path);
         if (!zip_path.empty()) {
             ifstream zip_in (zip_path);
             zipcodes.deserialize(zip_in);
