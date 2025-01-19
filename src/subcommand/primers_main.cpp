@@ -17,7 +17,7 @@ void help_primers(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-path FILE                 use this xg graph (required)" << endl
-         << "    -s, --snarl-index FILE             use this snarl index (required)" << endl
+         << "    -d, --dist-index FILE              use this distance index (required)" << endl
          << "    -r, --r-index FILE                 use this r index (required)" << endl
          << "    -g, --gbz FILE                     use this gbz file (required)" << endl
          << "    -M, --minimizers FILE              use this minimizer file for mapping the template sequence, if necessary" << endl
@@ -72,7 +72,7 @@ int main_primers(int argc, char** argv) {
     }
 
     string xg_path;
-    string snarl_index_path;
+    string distance_index_path;
     string ri_path;
     string gbz_path;
     string min_path;
@@ -92,7 +92,7 @@ int main_primers(int argc, char** argv) {
         {
           {"help",                no_argument,       0, 'h'},
           {"xg-path",             required_argument, 0, 'x'},
-          {"snarl-index",         required_argument, 0, 's'},
+          {"dist-index",          required_argument, 0, 'd'},
           {"ri-path",             required_argument, 0, 'r'},
           {"gbz-path",            required_argument, 0, 'g'},
           {"minimizers",          required_argument, 0, 'M'},
@@ -117,8 +117,8 @@ int main_primers(int argc, char** argv) {
             xg_path = optarg;
             break;
         
-        case 's':
-            snarl_index_path = optarg;
+        case 'd':
+            distance_index_path = optarg;
             break;
         
         case 'r':
@@ -173,8 +173,8 @@ int main_primers(int argc, char** argv) {
         exit(1);
     }
 
-    if (snarl_index_path.empty()) {
-        cerr << "error:[vg primers] snarl index file (-s) is required" << endl;
+    if (distance_index_path.empty()) {
+        cerr << "error:[vg primers] distance index file (-d) is required" << endl;
         exit(1);
     }
 
@@ -199,7 +199,7 @@ int main_primers(int argc, char** argv) {
     load_gbz(gbwt_index, gbwt_graph, gbz_path);
     gbwt_graph.set_gbwt(gbwt_index);
     r_index.setGBWT(gbwt_index);
-    distance_index.deserialize(snarl_index_path);
+    distance_index.deserialize(distance_index_path);
     graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_path);
     ifstream file_handle(primers_path);
     MinimizerMapper* giraffe_mapper = nullptr;
