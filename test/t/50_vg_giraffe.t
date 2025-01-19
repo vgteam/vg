@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 60
+plan tests 62
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -45,10 +45,15 @@ is "${?}" "0" "a read can be mapped with the fast preset"
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
 is "${?}" "0" "a read can be mapped with the default preset"
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b sr >/dev/null
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read can be mapped with the short read chaining preset"
 
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b sr >/dev/null
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -f reads/small.middle.ref.fq -b chaining-sr >/dev/null 2>log.txt
+is "${?}" "1" "a read pair cannot be mapped with the short read chaining preset"
+is "$(cat log.txt | grep "not yet implemented" | wc -l)" "1" "trying to map paired-end data with chaining produces an informative error"
+rm -f log.txt
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.mismatched.fq -b chaining-sr >/dev/null
 is "${?}" "0" "a read with a mismatch can be mapped with the short read chaining preset"
 
 rm -Rf grid-out
