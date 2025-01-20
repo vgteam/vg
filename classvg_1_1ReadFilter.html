@@ -192,6 +192,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab0f19128ff55e1e2c1cad90adcfc0d6e">only_correctly_mapped</a> = false</td></tr>
 <tr class="memdesc:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Filter.html">Filter</a> to only correctly mapped reads.  <a href="classvg_1_1ReadFilter.html#ab0f19128ff55e1e2c1cad90adcfc0d6e">More...</a><br /></td></tr>
 <tr class="separator:ab0f19128ff55e1e2c1cad90adcfc0d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5747bfc6146fa25db9fd96f1f760f6f0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a5747bfc6146fa25db9fd96f1f760f6f0">only_first_alignment</a> = false</td></tr>
+<tr class="memdesc:a5747bfc6146fa25db9fd96f1f760f6f0"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Filter.html">Filter</a> to only keep the first alignment for each read.  <a href="classvg_1_1ReadFilter.html#a5747bfc6146fa25db9fd96f1f760f6f0">More...</a><br /></td></tr>
+<tr class="separator:a5747bfc6146fa25db9fd96f1f760f6f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a613b00bb83a119d89911ed4315e4e24a"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a613b00bb83a119d89911ed4315e4e24a">seen_read_names</a></td></tr>
+<tr class="memdesc:a613b00bb83a119d89911ed4315e4e24a"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are picking only the first alignment for each read, keep track of what we've seen.  <a href="classvg_1_1ReadFilter.html#a613b00bb83a119d89911ed4315e4e24a">More...</a><br /></td></tr>
+<tr class="separator:a613b00bb83a119d89911ed4315e4e24a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -2537,6 +2543,24 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="a5747bfc6146fa25db9fd96f1f760f6f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5747bfc6146fa25db9fd96f1f760f6f0">&#9670;&nbsp;</a></span>only_first_alignment</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::only_first_alignment = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p><a class="el" href="classvg_1_1Filter.html">Filter</a> to only keep the first alignment for each read. </p>
+
+</div>
+</div>
 <a id="ab19be8fc638af431bb1a629aeff77f4f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab19be8fc638af431bb1a629aeff77f4f">&#9670;&nbsp;</a></span>only_mapped</h2>
 
@@ -2621,6 +2645,24 @@ template&lt;typename Read &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Should we rescore each alignment with default parameters and no e.g. haplotype info? </p>
+
+</div>
+</div>
+<a id="a613b00bb83a119d89911ed4315e4e24a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a613b00bb83a119d89911ed4315e4e24a">&#9670;&nbsp;</a></span>seen_read_names</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt;string&gt; <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::seen_read_names</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>If we are picking only the first alignment for each read, keep track of what we've seen. </p>
 
 </div>
 </div>

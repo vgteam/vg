@@ -1,7 +1,8 @@
 var searchData=
 [
-  ['filtered_13961',['filtered',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1a3ab41c6f9d712e6419fb1a2b359fd7',1,'vg::Counts']]],
-  ['forward_13962',['Forward',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda1927367ddd77070a67deacaefa9300a5',1,'vg::MultipathMapper']]],
-  ['frequent_13963',['frequent',['../classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa892a529e9382089dc28f99204da4dbaa',1,'vg::Recombinator']]],
-  ['full_5fhaplotype_13964',['full_haplotype',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea5f4dff4ab82d6475d46abc492168ad11',1,'vg::Haplotypes::Subchain']]]
+  ['filtered_13966',['filtered',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1a3ab41c6f9d712e6419fb1a2b359fd7',1,'vg::Counts']]],
+  ['first_5falignment_13967',['first_alignment',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9ab088f3cfa83ae97113bb1d55511153e6',1,'vg::Counts']]],
+  ['forward_13968',['Forward',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda1927367ddd77070a67deacaefa9300a5',1,'vg::MultipathMapper']]],
+  ['frequent_13969',['frequent',['../classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa892a529e9382089dc28f99204da4dbaa',1,'vg::Recombinator']]],
+  ['full_5fhaplotype_13970',['full_haplotype',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea5f4dff4ab82d6475d46abc492168ad11',1,'vg::Haplotypes::Subchain']]]
 ];
