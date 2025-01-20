@@ -63,6 +63,7 @@ void help_filter(char** argv) {
          << "    -G, --annotation K[:V]     keep reads if the annotation is present and not false or empty. If a value is given, keep reads if the values are equal" << endl
          << "                               similar to running jq 'select(.annotation.K==V)' on the json" << endl 
          << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
+         << "    -l, --first-alignment      keep only the first alignment for each read. Must be run with 1 thread" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
          << "    -t, --threads N            number of threads [1]" << endl;
@@ -119,6 +120,7 @@ int main_filter(int argc, char** argv) {
     string annotation = "";
     string output_fields = "";
     bool correctly_mapped = false;
+    bool first_alignment = false;
 
     size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
@@ -164,6 +166,7 @@ int main_filter(int argc, char** argv) {
                 {"min-base-quality", required_argument, 0, 'b'},
                 {"annotation", required_argument, 0, 'G'},
                 {"correctly-mapped", no_argument, 0, 'c'},
+                {"first-alignment", no_argument, 0, 'l'},
                 {"complement", no_argument, 0, 'U'},
                 {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
@@ -171,7 +174,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:cUB:t:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -350,6 +353,9 @@ int main_filter(int argc, char** argv) {
         case 'c':
             correctly_mapped = true;
             break;
+        case 'l':
+            first_alignment = true;
+            break;
         case 'U':
             complement_filter = true;
             break;
@@ -379,6 +385,10 @@ int main_filter(int argc, char** argv) {
 
     if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
         std::cerr << "warning [vg filter]: max read count is not divisible by 2, but reads are paired." << std::endl;
+    }
+    if (first_alignment) {
+        std::cerr << "warning [vg filter]: setting --threads 1 because --first-alignment requires one thread." << std::endl;
+        omp_set_num_threads(1);
     }
 
     // What should our return code be?
@@ -472,6 +482,7 @@ int main_filter(int argc, char** argv) {
         }
         filter.annotation_to_match = annotation;
         filter.only_correctly_mapped = correctly_mapped;
+        filter.only_first_alignment = first_alignment;
         filter.complement_filter = complement_filter;
         filter.batch_size = batch_size;
         filter.threads = get_thread_count();
