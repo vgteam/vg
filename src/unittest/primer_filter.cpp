@@ -40,17 +40,17 @@ using namespace std;
         gbwtgraph::GBWTGraph gbwt_graph;
         gbwt::GBWT gbwt_index;
         gbwt::FastLocate r_index;
-        string snarl_index_path = "test/primers/y.dist";
-        string xg_graph_path = "test/primers/y.xg";
+        string snarl_index_path = "primers/y.dist";
+        string xg_graph_path = "primers/y.xg";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
-        load_r_index(r_index, "test/primers/y.ri");
-        load_gbz(gbwt_index, gbwt_graph, "test/primers/y.giraffe.gbz");
+        load_r_index(r_index, "primers/y.ri");
+        load_gbz(gbwt_index, gbwt_graph, "primers/y.giraffe.gbz");
         gbwt_graph.set_gbwt(gbwt_index);
         r_index.setGBWT(gbwt_index);
         
         SECTION("template_position=0") {
-            string primers_path = "test/primers/y.primer3_with_ref_pos.out";
+            string primers_path = "primers/y.primer3_with_ref_pos.out";
             ifstream file_handle(primers_path);
             PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index);
 
@@ -164,7 +164,7 @@ using namespace std;
         }
 
         SECTION("template_position=11") {
-            string primers_path = "test/primers/y.primer3_with_ref_pos_11.out";
+            string primers_path = "primers/y.primer3_with_ref_pos_11.out";
             ifstream file_handle(primers_path);
             PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index);
 
@@ -277,11 +277,11 @@ using namespace std;
             }
         }
         SECTION("template_position=11, no path name") {
-            string primers_path = "test/primers/y.primer3_with_ref_pos_11.nopath.out";
+            string primers_path = "primers/y.primer3_with_ref_pos_11.nopath.out";
             ifstream file_handle(primers_path);
-            unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>("test/primers/y.min"); 
+            unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>("primers/y.min"); 
             ZipCodeCollection oversized_zipcodes;
-            ifstream zip_in ("test/primers/y.zipcodes");
+            ifstream zip_in ("primers/y.zipcodes");
             oversized_zipcodes.deserialize(zip_in);
             zip_in.close();
             MinimizerMapper giraffe_mapper(gbwt_graph, *minimizer_index, &distance_index, &oversized_zipcodes);
