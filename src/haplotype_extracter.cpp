@@ -36,6 +36,7 @@ void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype
   // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
   for (int i = 0; i < haplotypes.size(); ++i) {
     std::string path_name = "thread_" + to_string(i);
+    out_thread_frequencies[path_name] = haplotypes[i].second.size();
     path_handle_t path_handle = out_graph.create_path_handle(path_name);
     const thread_t& thread = haplotypes[i].first;
     for (int j = 0; j < thread.size(); j++) {
@@ -262,10 +263,10 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
         }
 
         if (next_handle_states.empty()) {
-            // TODO: Also handle case where some but not all haplotypes go on, and some end here.
 #ifdef debug
-            std::cerr <<  "Extend state " << last.second << " to nowhere; haplotype ends!" << std::endl;
+          cerr << "Got no results for any extension of " << last.second << "; emitting" << endl;
 #endif
+          search_results.emplace_back(std::move(last)); 
         }
 
     }

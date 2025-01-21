@@ -25,6 +25,10 @@ using thread_t = vector<gbwt::node_type>;
 // mapped to a frequency in out_thread_frequencies.  Haplotypes will be pulled
 // from the GBWT index.
 // out_graph may already contain nodes and paths.
+// If stop_fn returns True, the haplotype extraction is stopped for that haplotype.
+// Haplotypes are emitted when they are stopped or when they cannot be extended any more.
+//
+// TODO: Should results be produced when some haplotypes end but others keep going?
 void trace_haplotypes(const PathHandleGraph& source,
                       const gbwt::GBWT& haplotype_database,
                       const handle_t& start_handle, function<bool(const vector<gbwt::node_type>&)> stop_fn,
@@ -45,7 +49,11 @@ Path path_from_thread_t(thread_t& t, const HandleGraph& source);
 // Lists all the sub-haplotypes of nodes starting at
 // start from the set of haplotypes embedded in the given GBWT
 // haplotype database.  At each step stop_fn() is called on the thread being created, and if it returns true
-// then the search stops and the thread is added two the list to be returned.
+// then the search stops. The search will also stop and emit a result if it runs out of places to go.
+//
+// No empty sub-haplotypes will be returned.
+//
+// TODO: Should results be produced when some haplotypes end but others keep going?
 vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const HandleGraph& graph,
                                                                           const gbwt::GBWT& gbwt,
                                                                           handle_t start,
