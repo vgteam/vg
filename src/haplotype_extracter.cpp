@@ -22,12 +22,12 @@ static int64_t make_side(id_t id, bool is_end) {
 
 
 void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype_database,
-                      const handle_t& start_node, function<bool(const vector<gbwt::node_type>&)> stop_fn,
+                      const handle_t& start_handle, function<bool(const vector<gbwt::node_type>&)> stop_fn,
                       MutablePathMutableHandleGraph& out_graph,
                       map<string, int>& out_thread_frequencies) {
   // get our haplotypes
   // TODO: Tell it to keep haplotypes that end before triggering stop_fn!
-  vector<pair<thread_t, gbwt::SearchState> > haplotypes = list_haplotypes(source, haplotype_database, start_node, stop_fn);
+  vector<pair<thread_t, gbwt::SearchState> > haplotypes = list_haplotypes(source, haplotype_database, start_handle, stop_fn);
 
 #ifdef debug
   cerr << "Haplotype database " << &haplotype_database << " produced " << haplotypes.size() << " haplotypes" << endl;
@@ -38,7 +38,7 @@ void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype
     std::string path_name = "thread_" + to_string(i);
     path_handle_t path_handle = out_graph.create_path_handle(path_name);
     const thread_t& thread = haplotypes[i].first;
-    for (int j = 0; k < thread.size(); j++) {
+    for (int j = 0; j < thread.size(); j++) {
       // Copy in all the steps
       out_graph.append_step(path_handle, out_graph.get_handle(gbwt::Node::id(thread[j]), gbwt::Node::is_reverse(thread[j])));
     }
@@ -46,18 +46,18 @@ void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype
 }
 
 void trace_paths(const PathHandleGraph& source,
-                 const handle_t& start_node, int extend_distance,
+                 const handle_t& start_handle, int extend_distance,
                  MutablePathMutableHandleGraph& out_graph,
                  map<string, int>& out_thread_frequencies) {
 
   // get our subgraph and "regular" paths by expanding forward
   bdsg::HashGraph extractor;
-  extractor.create_handle(source.get_sequence(start_node), source.get_id(start_node));
+  extractor.create_handle(source.get_sequence(start_handle), source.get_id(start_handle));
   // TODO: is expanding only forward really the right behavior here?
   algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
 
   // Copy over nodes and edges
-  copy_handle_graph(&extractor, &out_graph);
+  handlegraph::algorithms::copy_handle_graph(&extractor, &out_graph);
 
   for (auto& sense : {PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}) {
     extractor.for_each_path_of_sense(sense, [&](const path_handle_t& path_handle) {
@@ -66,7 +66,7 @@ void trace_paths(const PathHandleGraph& source,
         out_thread_frequencies[extractor.get_path_name(path_handle)] = 1;
 
         // Copy it over
-        copy_path(&extractor, path_handle, &out_graph);
+        handlegraph::algorithms::copy_path(&extractor, path_handle, &out_graph);
     });
   }
 }

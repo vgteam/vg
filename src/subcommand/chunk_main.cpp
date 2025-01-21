@@ -763,7 +763,7 @@ int main_chunk(int argc, char** argv) {
                 // Assume we want to look local forward probably
                 trace_start = graph->get_handle(output_regions[i].start, false);
                 trace_end = graph->get_handle(output_regions[i].end, false);
-                trace_steps = output_regions[i].end - trace_start;
+                trace_steps = output_regions[i].end - output_regions[i].start;
             } else {
                 path_handle_t path_handle = graph->get_path_handle(output_regions[i].seq);
                 step_handle_t trace_start_step = graph->get_step_at_position(path_handle, output_regions[i].start);
@@ -793,7 +793,7 @@ int main_chunk(int argc, char** argv) {
                     return true;
                 }
                 if (gbwt::Node::id(candidate.back()) == graph->get_id(trace_end) &&
-                    gbwt::Node::is_reverse(candidate.back()) == graph.get_is_reverse(trace_end)) {
+                    gbwt::Node::is_reverse(candidate.back()) == graph->get_is_reverse(trace_end)) {
                     
                     // The path being traced has reached the last node on our
                     // extracted path region, so stop here and avoid leaving
@@ -805,8 +805,10 @@ int main_chunk(int argc, char** argv) {
 
             Graph g;
             trace_haplotypes(*graph, *gbwt_index, trace_start, stop_function,
-                             subgraph, trace_thread_frequencies);
+                             *subgraph, trace_thread_frequencies);
+#ifdef debug
             std::cerr << "Traced " << trace_thread_frequencies.size() << " distinct threads" << std::endl;
+#endif
         }
 
         ofstream out_file;

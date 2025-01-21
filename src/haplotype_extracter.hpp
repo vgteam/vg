@@ -27,7 +27,7 @@ using thread_t = vector<gbwt::node_type>;
 // out_graph may already contain nodes and paths.
 void trace_haplotypes(const PathHandleGraph& source,
                       const gbwt::GBWT& haplotype_database,
-                      const handle_t& start_node, function<bool(const vector<gbwt::node_type>&)> stop_fn,
+                      const handle_t& start_handle, function<bool(const vector<gbwt::node_type>&)> stop_fn,
                       MutablePathMutableHandleGraph& out_graph,
                       map<string, int>& out_thread_frequencies);
 
@@ -35,7 +35,7 @@ void trace_haplotypes(const PathHandleGraph& source,
 // mapped to frequency 1 in out_thread_frequencies. 
 // out_graph may already contain nodes and paths.
 void trace_paths(const PathHandleGraph& source,
-                 const handle_t& start_node, int extend_distance,
+                 const handle_t& start_handle, int extend_distance,
                  MutablePathMutableHandleGraph& out_graph,
                  map<string, int>& out_thread_frequencies);
 
@@ -43,7 +43,7 @@ void trace_paths(const PathHandleGraph& source,
 Path path_from_thread_t(thread_t& t, const HandleGraph& source);
 
 // Lists all the sub-haplotypes of nodes starting at
-// node start_node from the set of haplotypes embedded in the given GBWT
+// start from the set of haplotypes embedded in the given GBWT
 // haplotype database.  At each step stop_fn() is called on the thread being created, and if it returns true
 // then the search stops and the thread is added two the list to be returned.
 vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const HandleGraph& graph,

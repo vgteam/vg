@@ -136,7 +136,13 @@ int main_trace(int argc, char** argv) {
   VG trace_graph;
   map<string, int> haplotype_frequences;
 
-  trace_paths(*xindex, start_node, extend_distance,
+  if (!xindex->has_node(start_node)) {
+    cerr << "error:[vg trace] unable to find node " << start_node << " in graph" << endl;
+    exit(1);
+  }
+
+  handle_t start_handle = xindex->get_handle(start_node, false);
+  trace_paths(*xindex, start_handle, extend_distance,
               trace_graph, haplotype_frequences);
   
   auto stop_haplotype = [&extend_distance](const vector<gbwt::node_type>& new_thread) {
@@ -144,7 +150,7 @@ int main_trace(int argc, char** argv) {
     return new_thread.size() >= extend_distance;
   };
 
-  trace_haplotypes(*xindex, *gbwt_index, start_node, stop_haplotype,
+  trace_haplotypes(*xindex, *gbwt_index, start_handle, stop_haplotype,
                    trace_graph, haplotype_frequences);
 
   // dump our graph to stdout
