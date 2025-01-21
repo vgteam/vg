@@ -133,18 +133,25 @@ int main_trace(int argc, char** argv) {
   }
   
   // trace out our graph and paths from the start node
-  Graph trace_graph;
+  VG trace_graph;
   map<string, int> haplotype_frequences;
-  trace_haplotypes_and_paths(*xindex, *gbwt_index, start_node, extend_distance,
-                             trace_graph, haplotype_frequences);
+
+  trace_paths(*xindex, start_node, extend_distance,
+              trace_graph, haplotype_frequences);
+  
+  auto stop_haplotype = [&extend_distance](const vector<gbwt::node_type>& new_thread) {
+    // Stop haplotypes at the given length, ignoring any possible stopping nodes.
+    return new_thread.size() >= extend_distance;
+  };
+
+  trace_haplotypes(*xindex, *gbwt_index, start_node, stop_haplotype,
+                   trace_graph, haplotype_frequences);
 
   // dump our graph to stdout
   if (json) {
-    cout << pb2json(trace_graph);
+    cout << pb2json(trace_graph.graph);
   } else {
-    VG vg_graph;
-    vg_graph.extend(trace_graph);
-    vg_graph.serialize_to_ostream(cout);
+    trace_graph.serialize_to_ostream(cout);
   }
 
   // if requested, write thread frequencies to a file

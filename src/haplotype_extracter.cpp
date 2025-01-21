@@ -21,47 +21,56 @@ static int64_t make_side(id_t id, bool is_end) {
 }
 
 
-void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT& haplotype_database,
-                                vg::id_t start_node, int extend_distance,
-                                Graph& out_graph,
-                                map<string, int>& out_thread_frequencies,
-                                bool expand_graph) {
+void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype_database,
+                      const handle_t& start_node, function<bool(const vector<gbwt::node_type>&)> stop_fn,
+                      MutablePathMutableHandleGraph& out_graph,
+                      map<string, int>& out_thread_frequencies) {
   // get our haplotypes
-  handle_t n = source.get_handle(start_node, false);
-  vector<pair<thread_t, gbwt::SearchState> > haplotypes = list_haplotypes(source, haplotype_database, n,
-                                                                          [&extend_distance](const vector<gbwt::node_type>& new_thread) {
-                                                                              return new_thread.size() >= extend_distance;
-                                                                          });
+  // TODO: Tell it to keep haplotypes that end before triggering stop_fn!
+  vector<pair<thread_t, gbwt::SearchState> > haplotypes = list_haplotypes(source, haplotype_database, start_node, stop_fn);
 
 #ifdef debug
   cerr << "Haplotype database " << &haplotype_database << " produced " << haplotypes.size() << " haplotypes" << endl;
 #endif
 
-  if (expand_graph) {
-      // get our subgraph and "regular" paths by expanding forward
-      handle_t handle = source.get_handle(start_node);
-      bdsg::HashGraph extractor;
-      extractor.create_handle(source.get_sequence(handle), source.get_id(handle));
-      // TODO: is expanding only forward really the right behavior here?
-      algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
-      
-      // Convert to Protobuf I guess
-      from_path_handle_graph(extractor, out_graph);
-  }
-
-  // add a frequency of 1 for each normal path
-  for (int i = 0; i < out_graph.path_size(); ++i) {
-    out_thread_frequencies[out_graph.path(i).name()] = 1;
-  }
-
   // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
   for (int i = 0; i < haplotypes.size(); ++i) {
-    Path p = path_from_thread_t(haplotypes[i].first, source);
-    p.set_name("thread_" + to_string(i));
-    out_thread_frequencies[p.name()] = haplotypes[i].second.size();
-    *(out_graph.add_path()) = move(p);
+    std::string path_name = "thread_" + to_string(i);
+    path_handle_t path_handle = out_graph.create_path_handle(path_name);
+    const thread_t& thread = haplotypes[i].first;
+    for (int j = 0; k < thread.size(); j++) {
+      // Copy in all the steps
+      out_graph.append_step(path_handle, out_graph.get_handle(gbwt::Node::id(thread[j]), gbwt::Node::is_reverse(thread[j])));
+    }
   }
 }
+
+void trace_paths(const PathHandleGraph& source,
+                 const handle_t& start_node, int extend_distance,
+                 MutablePathMutableHandleGraph& out_graph,
+                 map<string, int>& out_thread_frequencies) {
+
+  // get our subgraph and "regular" paths by expanding forward
+  bdsg::HashGraph extractor;
+  extractor.create_handle(source.get_sequence(start_node), source.get_id(start_node));
+  // TODO: is expanding only forward really the right behavior here?
+  algorithms::expand_context_with_paths(&source, &extractor, extend_distance, true, true, false);
+
+  // Copy over nodes and edges
+  copy_handle_graph(&extractor, &out_graph);
+
+  for (auto& sense : {PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}) {
+    extractor.for_each_path_of_sense(sense, [&](const path_handle_t& path_handle) {
+        // For every non-haplotype path we pulled, give it a frequency of 1.
+        // Including haplotypes, since we didn't trace them to get frequencies.
+        out_thread_frequencies[extractor.get_path_name(path_handle)] = 1;
+
+        // Copy it over
+        copy_path(&extractor, path_handle, &out_graph);
+    });
+  }
+}
+
 
 
 void output_haplotype_counts(ostream& annotation_ostream,
@@ -251,6 +260,14 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
                 search_intermediates.push_back(make_pair(std::move(new_thread), new_state));
             }
         }
+
+        if (next_handle_states.empty()) {
+            // TODO: Also handle case where some but not all haplotypes go on, and some end here.
+#ifdef debug
+            std::cerr <<  "Extend state " << last.second << " to nowhere; haplotype ends!" << std::endl;
+#endif
+        }
+
     }
     
     return search_results;
