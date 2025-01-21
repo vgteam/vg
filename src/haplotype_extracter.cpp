@@ -232,16 +232,23 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
                 }                    
             });
 
+        size_t continued_members = 0;
+
         for (auto& nhs : next_handle_states) {
             
             const handle_t& next = get<0>(nhs);
             gbwt::node_type& extend_node = get<1>(nhs);
             gbwt::SearchState& new_state = get<2>(nhs);
+            
+            // Keep track of how many selected threads still exist in all the extensions.
+            continued_members += new_state.size();
                 
             vector<gbwt::node_type> new_thread;
-            if (&nhs == &next_handle_states.back()) {
-                // avoid a copy by re-using the vector for the last thread. this way simple cases
-                // like scanning along one path don't blow up to n^2
+            if (&nhs == &next_handle_states.back() && continued_members == last.second.size()) {
+                // Avoid a copy by re-using the vector for the last thread if
+                // we don't need to split off or stop any more haplotypes. This
+                // way simple cases like scanning along one path don't blow up
+                // to n^2.
                 new_thread = std::move(last.first);
             } else {
                 new_thread = last.first;
@@ -262,11 +269,15 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
             }
         }
 
-        if (next_handle_states.empty()) {
+        if (continued_members != last.second.size()) {
 #ifdef debug
-          cerr << "Got no results for any extension of " << last.second << "; emitting" << endl;
+          cerr << "Stopped " (last.second.size() - continued_members) << " results here; emitting" << endl;
 #endif
-          search_results.emplace_back(std::move(last)); 
+          // We need to make a result with *only* the stopping results.
+          // So we extend with a sentinel (0, false) GBWT node, which we don't put in our output vector for the haplotype.
+          // TODO: This is undocumented in gbwt but seems to work.
+          auto new_state = gbwt.extend(last.second, gbwt::Node::encode(0, false));  
+          search_results.emplace_back(std::move(last.first), new_state); 
         }
 
     }
