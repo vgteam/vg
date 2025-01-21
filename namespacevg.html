@@ -2023,6 +2023,11 @@ Functions</h2></td></tr>
 <tr class="separator:a864fe6e3e163b18e84db0783f9a2e17d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abcf3c5c3332d721a86740ef23fb9e6e2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abcf3c5c3332d721a86740ef23fb9e6e2">alignment_from_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:abcf3c5c3332d721a86740ef23fb9e6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9534c53c98412f2d43982fc0b809e7bd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9534c53c98412f2d43982fc0b809e7bd">for_each_subpath_of</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const string &amp;path_name, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)&gt; &amp;iteratee)</td></tr>
+<tr class="separator:a9534c53c98412f2d43982fc0b809e7bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94b1b2969f088d4fa3fdf8c73bac7f65">get_path_base_name</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
+<tr class="memdesc:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the base path name for this path (i.e. the path's name without any subrange).  <a href="namespacevg.html#a94b1b2969f088d4fa3fdf8c73bac7f65">More...</a><br /></td></tr>
+<tr class="separator:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4b8b4c6f298818989d39189d631980a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b8b4c6f298818989d39189d631980a8">from_proto_edit</a> (const <a class="el" href="structvg_1_1Edit.html">Edit</a> &amp;proto_edit, <a class="el" href="classvg_1_1edit__t.html">edit_t</a> &amp;edit)</td></tr>
 <tr class="separator:a4b8b4c6f298818989d39189d631980a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84c5dd6c830450f9100b5e9c11522050"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84c5dd6c830450f9100b5e9c11522050">to_proto_edit</a> (const <a class="el" href="classvg_1_1edit__t.html">edit_t</a> &amp;edit, <a class="el" href="structvg_1_1Edit.html">Edit</a> &amp;proto_edit)</td></tr>
@@ -10428,6 +10433,45 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="a9534c53c98412f2d43982fc0b809e7bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9534c53c98412f2d43982fc0b809e7bd">&#9670;&nbsp;</a></span>for_each_subpath_of()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::for_each_subpath_of </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Run the given iteratee for each path that is either the path with the given name (if present), or a subrange of a path with the given name as the base name (otherwise).</p>
+<p>If a path and subpaths both exist, only look at the full path.</p>
+<p>If the name describes a subpath, look only at that subpath.</p>
+<p>Iteratee returns false to stop.</p>
+<p>Returns true if we reached the end, and false if asked to stop. </p>
+
+</div>
+</div>
 <a id="a3ae70effc22331b3e4667ed48808602c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3ae70effc22331b3e4667ed48808602c">&#9670;&nbsp;</a></span>format_multiplier()</h2>
 
@@ -11995,6 +12039,36 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a94b1b2969f088d4fa3fdf8c73bac7f65"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94b1b2969f088d4fa3fdf8c73bac7f65">&#9670;&nbsp;</a></span>get_path_base_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::get_path_base_name </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns the base path name for this path (i.e. the path's name without any subrange). </p>
 
 </div>
 </div>
