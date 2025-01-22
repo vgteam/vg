@@ -1,11 +1,13 @@
 #ifndef VG_GAF_SORTER_HPP_INCLUDED
 #define VG_GAF_SORTER_HPP_INCLUDED
 
-// FIXME Tests
 /** \file 
  * Tools for sorting GAF records.
  *
  * TODO: This could be an independent utility.
+ * TODO: Error messages.
+ * TODO: Flag for stable sorting.
+ * TODO: Asynchronous I/O.
  */
 
 #include <cstdint>
@@ -130,8 +132,6 @@ struct alignas(128) GAFSorterFile {
     /// Success flag.
     bool ok;
 
-    // TODO: compression.
-
     /// Default constructor that creates a compressed temporary file.
     GAFSorterFile();
 
@@ -195,10 +195,10 @@ void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRe
  * Temporary input files will be removed after successful merging.
  *
  * This function is intended to be used with std::thread.
- *
- * TODO: Asynchronous I/O?
  */
 void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output, size_t buffer_size);
+
+// TODO: Integrated multi-threaded sort
 
 //------------------------------------------------------------------------------
 

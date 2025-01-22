@@ -186,6 +186,10 @@ void sort_gaf_lines(
         output.ok = false;
         return;
     }
+    if (!output.ok || output.records > 0) {
+        output.ok = false;
+        return;
+    }
 
     // Convert the lines into GAFSorterRecord objects.
     std::vector<GAFSorterRecord> records;
@@ -214,6 +218,16 @@ void sort_gaf_lines(
 void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output, size_t buffer_size) {
     if (buffer_size == 0) {
         buffer_size = 1;
+    }
+    for (GAFSorterFile& input : inputs) {
+        if (!input.ok || input.raw_gaf) {
+            output.ok = false;
+            return;
+        }
+    }
+    if (!output.ok || output.records > 0) {
+        output.ok = false;
+        return;
     }
 
     // Open the input files.

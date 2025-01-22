@@ -115,36 +115,44 @@ std::vector<GAFSorterRecord> generate_records(size_t count, size_t path_length, 
     return result;
 }
 
-bool is_sorted(const std::string& filename, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type) {
-    std::ifstream in(filename, std::ios::binary);
+GAFSorterFile generate_sorted(size_t count, size_t path_length, double unaligned_probability, const std::string* filename = nullptr) {
+    auto lines = generate_gaf(count, path_length, unaligned_probability);
+    GAFSorterFile output = (filename == nullptr ? GAFSorterFile() : GAFSorterFile(*filename));
+    sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
+    return output;
+}
+
+void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type) {
+    REQUIRE(file.ok);
+    REQUIRE(file.records == lines);
+
+    std::ifstream in(file.name, std::ios::binary);
 
     size_t line_num = 0;
     GAFSorterRecord previous;
     while (line_num < lines) {
         GAFSorterRecord record;
         if (raw_gaf) {
-            if (!record.read_line(in, key_type)) {
-                return false;
-            }
+            REQUIRE(record.read_line(in, key_type));
         } else {
-            if (!record.deserialize(in)) {
-                return false;
-            }
+            REQUIRE(record.deserialize(in));
         }
-        if (line_num > 0 && previous.key > record.key) {
-            return false;
-        }
+        REQUIRE((line_num == 0 || previous.key <= record.key));
         previous = record;
         line_num++;
     }
 
     // There should not be any additional data.
     char c;
-    if (in.get(c)) {
-        return false;
-    }
+    REQUIRE(!in.get(c));
+}
 
-    return true;
+void merge_and_check(std::vector<GAFSorterFile>& inputs, size_t buffer_size, size_t expected_records, GAFSorterRecord::key_type key_type) {
+    std::string filename = temp_file::create("gaf-sorter");
+    GAFSorterFile output(filename);
+    merge_gaf_records(inputs, output, buffer_size);
+    check_sorted(output, true, expected_records, key_type);
+    temp_file::remove(filename);
 }
 
 } // anonymous namespace
@@ -248,46 +256,79 @@ TEST_CASE("Record serialization", "[gaf_sorter]") {
 TEST_CASE("Sorting GAF records", "[gaf_sorter]") {
     SECTION("raw GAF output") {
         size_t n = 1000;
-        auto lines = generate_gaf(n, 10, 0.05);
         std::string filename = temp_file::create("gaf-sorter");
-        GAFSorterFile output(filename);
-        sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
-        REQUIRE(is_sorted(filename, true, n, GAFSorterRecord::key_node_interval));
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, &filename);
+        check_sorted(output, true, n, GAFSorterRecord::key_node_interval);
         temp_file::remove(filename);
     }
 
     SECTION("empty GAF output") {
         size_t n = 0;
-        auto lines = generate_gaf(n, 10, 0.05);
         std::string filename = temp_file::create("gaf-sorter");
-        GAFSorterFile output(filename);
-        sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
-        REQUIRE(is_sorted(filename, true, n, GAFSorterRecord::key_node_interval));
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, &filename);
+        check_sorted(output, true, n, GAFSorterRecord::key_node_interval);
         temp_file::remove(filename);
     }
 
     SECTION("record output") {
         size_t n = 1234;
-        auto lines = generate_gaf(n, 10, 0.05);
-        GAFSorterFile output;
-        sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
-        REQUIRE(is_sorted(output.name, false, n, GAFSorterRecord::key_node_interval));
+        GAFSorterFile output = generate_sorted(n, 10, 0.05);
+        check_sorted(output, false, n, GAFSorterRecord::key_node_interval);
         output.remove_temporary();
     }
 
     SECTION("empty record output") {
         size_t n = 0;
-        auto lines = generate_gaf(n, 10, 0.05);
-        GAFSorterFile output;
-        sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
-        REQUIRE(is_sorted(output.name, false, n, GAFSorterRecord::key_node_interval));
+        GAFSorterFile output = generate_sorted(n, 10, 0.05);
+        check_sorted(output, false, n, GAFSorterRecord::key_node_interval);
         output.remove_temporary();
     }
 }
 
 //------------------------------------------------------------------------------
 
-// FIXME merge, integration
+TEST_CASE("Merging sorted files", "[gaf_sorter]") {
+    SECTION("three files") {
+        size_t n = 1000, expected_records = 0;
+        std::vector<GAFSorterFile> inputs;
+        for (size_t i = 0; i < 3; i++) {
+            inputs.push_back(generate_sorted(n + i, 10, 0.05));
+            expected_records += inputs.back().records;
+        }
+        merge_and_check(inputs, 100, expected_records, GAFSorterRecord::key_node_interval);
+    }
+
+    SECTION("one file is empty") {
+        size_t n = 1000, expected_records = 0;
+        std::vector<GAFSorterFile> inputs;
+        for (size_t i = 0; i < 3; i++) {
+            size_t count = (i == 1 ? 0 : n + i);
+            inputs.push_back(generate_sorted(count, 10, 0.05));
+            expected_records += inputs.back().records;
+        }
+        merge_and_check(inputs, 100, expected_records, GAFSorterRecord::key_node_interval);
+    }
+
+    SECTION("all files are empty") {
+        size_t expected_records = 0;
+        std::vector<GAFSorterFile> inputs;
+        for (size_t i = 0; i < 3; i++) {
+            inputs.push_back(generate_sorted(0, 10, 0.05));
+            expected_records += inputs.back().records;
+        }
+        merge_and_check(inputs, 100, expected_records, GAFSorterRecord::key_node_interval);
+    }
+
+    SECTION("no input files") {
+        size_t expected_records = 0;
+        std::vector<GAFSorterFile> inputs;
+        merge_and_check(inputs, 100, expected_records, GAFSorterRecord::key_node_interval);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+// TODO: integrated multi-threaded sort
 
 //------------------------------------------------------------------------------
 
