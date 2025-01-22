@@ -345,7 +345,7 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
-// Return the identity for the path: perfect matches over total length.
+// Return the identity for the path: perfect matches over total length, ignoring soft clips.
 // For zero-length paths, returns 0.
 double identity(const Path& path);
 // compare the agreement between two alignments
