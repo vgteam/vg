@@ -2290,7 +2290,6 @@ double divergence(const Mapping& m) {
 }
 
 double identity(const Path& path) {
-    double ident = 0;
     size_t total_length = path_to_length(path);
     size_t matched_length = 0;
     for (size_t i = 0; i < path.mapping_size(); ++i) {
@@ -2299,6 +2298,12 @@ double identity(const Path& path) {
             auto& edit = mapping.edit(j);
             if (edit_is_match(edit)) {
                 matched_length += edit.from_length();
+            } else if (edit_is_insertion(edit)) {
+                bool is_first_edit = (i == 0) && (j == 0);
+                bool is_last_edit = (i == path.mapping_size() - 1) && (j == mapping.edit_size() - 1);
+                if (is_first_edit || is_last_edit) {
+                    total_length -= edit.to_length();
+                }
             }
         }
     }
