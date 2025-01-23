@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <deque>
 #include <fstream>
 #include <queue>
+#include <thread>
 
 // Needed for the temporary file creation.
 #include "utility.hpp"
@@ -155,9 +157,15 @@ GAFSorterFile::~GAFSorterFile() {
     this->remove_temporary();
 }
 
-std::unique_ptr<std::ostream> GAFSorterFile::open_output() {
-    std::unique_ptr<std::ostream> result(new std::ofstream(this->name, std::ios::binary));
-    this->ok = result->good();
+std::pair<std::ostream*, std::unique_ptr<std::ostream>> GAFSorterFile::open_output() {
+    std::pair<std::ostream*, std::unique_ptr<std::ostream>> result;
+    if (this->is_stdout()) {
+        result.first = &std::cout;
+    } else {
+        result.second.reset(new std::ofstream(this->name, std::ios::binary));
+        result.first = result.second.get();
+    }
+    this->ok = result.first->good();
     return result;
 }
 
@@ -172,6 +180,113 @@ void GAFSorterFile::remove_temporary() {
         temp_file::remove(this->name);
         this->removed = true;
         this->ok = false;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params) {
+    // Timestamp for the start
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    size_t num_threads = std::max(params.threads, size_t(1));
+    if (params.progress) {
+        std::cerr << "Sorting GAF records with " << num_threads << " worker threads" << std::endl;
+    }
+    std::vector<std::thread> threads(num_threads);
+
+    // Initial sort.
+    size_t batch = 0, total_records = 0;
+    std::vector<std::unique_ptr<GAFSorterFile>> files;
+    size_t initial_batch_size = std::max(params.records_per_file, size_t(1));
+    if (params.progress) {
+        std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
+    }
+    while (input) {
+        std::unique_ptr<std::vector<std::string>> lines(new std::vector<std::string>());
+        lines->reserve(initial_batch_size);
+        std::string line;
+        while (lines->size() < initial_batch_size && std::getline(input, line)) {
+            lines->push_back(std::move(line));
+        }
+        total_records += lines->size();
+        if (lines->empty()) {
+            break;
+        }
+        std::unique_ptr<GAFSorterFile> out(new GAFSorterFile());
+        size_t thread_id = batch % num_threads;
+        if (threads[thread_id].joinable()) {
+            threads[thread_id].join();
+        }
+        threads[thread_id] = std::thread(sort_gaf_lines, std::move(lines), params.key_type, std::ref(*out));
+        files.push_back(std::move(out));
+        batch++;
+    }
+    for (size_t i = 0; i < num_threads; i++) {
+        if (threads[i].joinable()) {
+            threads[i].join();
+        }
+    }
+    if (params.progress) {
+        std::cerr << "Initial sort finished with " << total_records << " records in " << files.size() << " files" << std::endl;
+    }
+
+    // Intermediate merges.
+    size_t files_per_merge = std::max(params.files_per_merge, size_t(2));
+    size_t round = 0;
+    while (files.size() > files_per_merge) {
+        if (params.progress) {
+            std::cerr << "Round " << round << ": " << files_per_merge << " files per batch" << std::endl;
+        }
+        std::vector<std::unique_ptr<GAFSorterFile>> next_files;
+        batch = 0;
+        for (size_t i = 0; i < files.size(); i += files_per_merge) {
+            if (i + 1 == files.size()) {
+                // If we have a single file left, just move it to the next round.
+                next_files.push_back(std::move(files[i]));
+                continue;
+            }
+            std::unique_ptr<std::vector<GAFSorterFile>> batch_files(new std::vector<GAFSorterFile>());
+            for (size_t j = 0; j < files_per_merge && i + j < files.size(); j++) {
+                batch_files->push_back(std::move(*(files[i + j])));
+            }
+            std::unique_ptr<GAFSorterFile> out(new GAFSorterFile());
+            size_t thread_id = batch % num_threads;
+            if (threads[thread_id].joinable()) {
+                threads[thread_id].join();
+            }
+            threads[thread_id] = std::thread(merge_gaf_records, std::move(batch_files), std::ref(*out), params.buffer_size);
+            next_files.push_back(std::move(out));
+            batch++;
+        }
+        for (size_t i = 0; i < num_threads; i++) {
+            if (threads[i].joinable()) {
+                threads[i].join();
+            }
+        }
+        files = std::move(next_files);
+        if (params.progress) {
+            std::cerr << "Round " << round << " finished with " << files.size() << " files" << std::endl;
+        }
+        round++;
+    }
+
+    // Final merge.
+    {
+        if (params.progress) {
+            std::cerr << "Starting the final merge" << std::endl;
+        }
+        GAFSorterFile out(output_file);
+        std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
+        for (std::unique_ptr<GAFSorterFile>& file : files) {
+            inputs->push_back(std::move(*file));
+        }
+        merge_gaf_records(std::move(inputs), out, params.buffer_size);
+        if (params.progress) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double seconds = std::chrono::duration<double>(end_time - start_time).count();
+            std::cerr << "Sorted " << total_records << " records in " << seconds << " seconds" << std::endl;
+        }
     }
 }
 
@@ -203,23 +318,27 @@ void sort_gaf_lines(
     std::sort(records.begin(), records.end());
 
     // Write the sorted records to the output file.
-    std::unique_ptr<std::ostream> out = output.open_output();
+    auto out = output.open_output();
     if (!output.ok) {
         return;
     }
     for (GAFSorterRecord& record : records) {
-        output.write(record, *out);
+        output.write(record, *out.first);
     }
-    out.reset();
+    out.second.reset();
 }
 
 //------------------------------------------------------------------------------
 
-void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output, size_t buffer_size) {
+void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSorterFile& output, size_t buffer_size) {
+    if (inputs == nullptr) {
+        output.ok = false;
+        return;
+    }
     if (buffer_size == 0) {
         buffer_size = 1;
     }
-    for (GAFSorterFile& input : inputs) {
+    for (GAFSorterFile& input : *inputs) {
         if (!input.ok || input.raw_gaf) {
             output.ok = false;
             return;
@@ -231,9 +350,9 @@ void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output
     }
 
     // Open the input files.
-    std::vector<std::unique_ptr<std::istream>> in; in.reserve(inputs.size());
-    std::vector<size_t> remaining; remaining.reserve(inputs.size());
-    for (GAFSorterFile& input : inputs) {
+    std::vector<std::unique_ptr<std::istream>> in; in.reserve(inputs->size());
+    std::vector<size_t> remaining; remaining.reserve(inputs->size());
+    for (GAFSorterFile& input : *inputs) {
         in.emplace_back(input.open_input());
         remaining.push_back(input.records);
         if (!input.ok) {
@@ -243,7 +362,7 @@ void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output
     }
 
     // Open the output file.
-    std::unique_ptr<std::ostream> out = output.open_output();
+    auto out = output.open_output();
     if (!output.ok) {
         return;
     }
@@ -257,11 +376,11 @@ void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output
             records[i].clear();
             for (size_t j = 0; j < count; j++) {
                 records[i].emplace_back();
-                inputs[i].read(records[i].back(), *(in[i]));
+                (*inputs)[i].read(records[i].back(), *(in[i]));
                 records[i].back().flip_key(); // Flip for the priority queue.
             }
             remaining[i] -= count;
-            if (!inputs[i].ok) {
+            if (!(*inputs)[i].ok) {
                 output.ok = false;
             }
         }
@@ -278,7 +397,7 @@ void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output
     buffer.reserve(buffer_size);
     auto write_buffer = [&]() {
         for (GAFSorterRecord& record : buffer) {
-            output.write(record, *out);
+            output.write(record, *out.first);
         }
         buffer.clear();
     };
@@ -322,12 +441,7 @@ void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output
     for (size_t i = 0; i < in.size(); i++) {
         in[i].reset();
     }
-    out.reset();
-
-    // Delete temporary files.
-    for (GAFSorterFile& input : inputs) {
-        input.remove_temporary();
-    }
+    out.second.reset();
 }
 
 //------------------------------------------------------------------------------

@@ -148,8 +148,10 @@ struct alignas(128) GAFSorterFile {
 
     // FIXME: compression
     /// Returns an output stream to the file.
+    /// The first return value is the actual stream.
+    /// The second return value is a unique pointer which may contain a newly created stream.
     /// Sets the success flag.
-    std::unique_ptr<std::ostream> open_output();
+    std::pair<std::ostream*, std::unique_ptr<std::ostream>> open_output();
 
     /// Writes the record to the file.
     /// Updates the number of records and sets the success flag.
@@ -169,11 +171,65 @@ struct alignas(128) GAFSorterFile {
         this->ok &= (this->raw_gaf ? false : record.deserialize(in));
     }
 
+    /// Returns true if the file is actually stdout.
+    /// In that case, open_input() should not be called.
+    bool is_stdout() const {
+        return (this->name == "-");
+    }
+
     /// Removes the file if it is temporary.
     void remove_temporary();
 };
 
 //------------------------------------------------------------------------------
+
+/**
+ * Parameters for the GAF sorter.
+ */
+struct GAFSorterParameters {
+    /// Default for threads.
+    constexpr static size_t THREADS = 1;
+
+    /// Default for records_per_file.
+    constexpr static size_t RECORDS_PER_FILE = 1000000;
+
+    /// Default for files_per_merge.
+    constexpr static size_t FILES_PER_MERGE = 16;
+
+    /// Default for buffer_size.
+    constexpr static size_t BUFFER_SIZE = 1000;
+
+    /// Key type used for sorting.
+    GAFSorterRecord::key_type key_type;
+
+    /// Number of parallel sort/merge jobs.
+    size_t threads = THREADS;
+
+    /// Number of records per file in the initial sort.
+    size_t records_per_file = RECORDS_PER_FILE;
+
+    /// Number of files to merge at once.
+    size_t files_per_merge = FILES_PER_MERGE;
+
+    /// Buffer size for reading and writing records.
+    size_t buffer_size = BUFFER_SIZE;
+
+    /// Print progress information to stderr.
+    bool progress = false;
+};
+
+/**
+ * Sorts the given GAF file into the given output file.
+ *
+ * The initial round sorts the records into temporary files with params.records_per_file records each.
+ * Each successive round merges the temporary files into larger files until there is only one file left.
+ * Each merge job merges params.files_per_merge files.
+ * If the output file is "-", the result is written to stdout.
+ *
+ * TODO: Error handling.
+ * TODO: Special case for one batch.
+ */
+void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params);
 
 /**
  * Sorts the given GAF lines into the given output file.
@@ -192,13 +248,12 @@ void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRe
  * The records in each input file are assumed to be sorted with sort_gaf_lines().
  * Records are read and written in blocks of the given size.
  * Success flags will be set in all files.
+ * This will consume the inputs.
  * Temporary input files will be removed after successful merging.
  *
  * This function is intended to be used with std::thread.
  */
-void merge_gaf_records(std::vector<GAFSorterFile>& inputs, GAFSorterFile& output, size_t buffer_size);
-
-// TODO: Integrated multi-threaded sort
+void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSorterFile& output, size_t buffer_size);
 
 //------------------------------------------------------------------------------
 
