@@ -169,13 +169,19 @@ std::pair<std::ostream*, std::unique_ptr<std::ostream>> GAFSorterFile::open_outp
         result.second.reset(new std::ofstream(this->name, std::ios::binary));
         result.first = result.second.get();
     }
-    this->ok = result.first->good();
+    if (!result.first->good()) {
+        this->ok = false;
+        std::cerr << "error: [gaf_sorter] could not open output file " << this->name << std::endl;
+    }
     return result;
 }
 
 std::unique_ptr<std::istream> GAFSorterFile::open_input() {
     std::unique_ptr<std::istream> result(new std::ifstream(this->name, std::ios::binary));
-    this->ok = result->good();
+    if (!result->good()) {
+        this->ok = false;
+        std::cerr << "error: [gaf_sorter] could not open input file " << this->name << std::endl;
+    }
     return result;
 }
 
@@ -189,7 +195,7 @@ void GAFSorterFile::remove_temporary() {
 
 //------------------------------------------------------------------------------
 
-void sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params) {
+bool sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params) {
     // Timestamp for the start and the total number of records.
     auto start_time = std::chrono::high_resolution_clock::now();
     size_t total_records = 0;
@@ -201,15 +207,32 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
         }
     };
 
+    // Worker threads.
     size_t num_threads = std::max(params.threads, size_t(1));
     if (params.progress) {
         std::cerr << "Sorting GAF records with " << num_threads << " worker threads" << std::endl;
     }
     std::vector<std::thread> threads(num_threads);
+    auto join_all = [&]() {
+        for (std::thread& thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+    };
 
-    // Initial sort.
-    size_t batch = 0;
+    // Temporary output files.
     std::vector<std::unique_ptr<GAFSorterFile>> files;
+    auto check_all_files = [&]() -> bool {
+        bool all_ok = true;
+        for (std::unique_ptr<GAFSorterFile>& file : files) {
+            all_ok &= file->ok;
+        }
+        return all_ok;
+    };
+
+    // Initial sort. If a worker thread fails, we break on join.
+    size_t batch = 0;
     size_t initial_batch_size = std::max(params.records_per_file, size_t(1));
     if (params.progress) {
         std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
@@ -217,8 +240,8 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
     std::string peek;
     htsFile* input = hts_open(input_file.c_str(), "r");
     if (input == nullptr) {
-        std::cerr << "Error: Could not open input file " << input_file << std::endl;
-        return;
+        std::cerr << "error: [gaf_sorter] could not open input file " << input_file << std::endl;
+        return false;
     }
     while (true) {
         // Read the next batch.
@@ -243,11 +266,18 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
                 }
                 std::unique_ptr<GAFSorterFile> out(new GAFSorterFile(output_file));
                 sort_gaf_lines(std::move(lines), params.key_type, params.stable, std::ref(*out));
-                report_time();
-                return;
+                ks_free(&s_buffer);
+                hts_close(input);
+                if (out->ok) {
+                    report_time();
+                    return true;
+                } else {
+                    return false;
+                }
             }
             peek = std::string(ks_str(&s_buffer), ks_len(&s_buffer));
         }
+        ks_free(&s_buffer);
         if (lines->empty()) {
             break;
         }
@@ -257,23 +287,24 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
         size_t thread_id = batch % num_threads;
         if (threads[thread_id].joinable()) {
             threads[thread_id].join();
+            if (!files[batch - num_threads]->ok) {
+                break;
+            }
         }
         threads[thread_id] = std::thread(sort_gaf_lines, std::move(lines), params.key_type, params.stable, std::ref(*out));
         files.push_back(std::move(out));
         batch++;
-        ks_free(&s_buffer);
     }
     hts_close(input);
-    for (size_t i = 0; i < num_threads; i++) {
-        if (threads[i].joinable()) {
-            threads[i].join();
-        }
+    join_all();
+    if (!check_all_files()) {
+        return false;
     }
     if (params.progress) {
         std::cerr << "Initial sort finished with " << total_records << " records in " << files.size() << " files" << std::endl;
     }
 
-    // Intermediate merges.
+    // Intermediate merges. If a worker thread fails, we break on join.
     size_t files_per_merge = std::max(params.files_per_merge, size_t(2));
     size_t round = 0;
     while (files.size() > files_per_merge) {
@@ -296,17 +327,19 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
             size_t thread_id = batch % num_threads;
             if (threads[thread_id].joinable()) {
                 threads[thread_id].join();
+                if (!next_files[batch - num_threads]->ok) {
+                    break;
+                }
             }
             threads[thread_id] = std::thread(merge_gaf_records, std::move(batch_files), std::ref(*out), params.buffer_size);
             next_files.push_back(std::move(out));
             batch++;
         }
-        for (size_t i = 0; i < num_threads; i++) {
-            if (threads[i].joinable()) {
-                threads[i].join();
-            }
-        }
+        join_all();
         files = std::move(next_files);
+        if (!check_all_files()) {
+            return false;
+        }
         if (params.progress) {
             std::cerr << "Round " << round << " finished with " << files.size() << " files" << std::endl;
         }
@@ -324,7 +357,12 @@ void sort_gaf(const std::string& input_file, const std::string& output_file, con
             inputs->push_back(std::move(*file));
         }
         merge_gaf_records(std::move(inputs), out, params.buffer_size);
-        report_time();
+        if (out.ok) {
+            report_time();
+            return true;
+        } else {
+            return false;
+        }
     }
 }
 
@@ -338,10 +376,12 @@ void sort_gaf_lines(
 ) {
     if (lines == nullptr) {
         output.ok = false;
+        std::cerr << "error: [gaf_sorter] sort_gaf_lines() called with null lines" << std::endl;
         return;
     }
     if (!output.ok || output.records > 0) {
         output.ok = false;
+        std::cerr << "error: [gaf_sorter] sort_gaf_lines() called with an invalid output file" << std::endl;
         return;
     }
 
@@ -363,6 +403,7 @@ void sort_gaf_lines(
     // Write the sorted records to the output file.
     auto out = output.open_output();
     if (!output.ok) {
+        // open_output() already prints an error message.
         return;
     }
     for (GAFSorterRecord& record : records) {
@@ -376,6 +417,7 @@ void sort_gaf_lines(
 void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSorterFile& output, size_t buffer_size) {
     if (inputs == nullptr) {
         output.ok = false;
+        std::cerr << "error: [gaf_sorter] merge_gaf_records() called with null inputs" << std::endl;
         return;
     }
     if (buffer_size == 0) {
@@ -384,11 +426,13 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     for (GAFSorterFile& input : *inputs) {
         if (!input.ok || input.raw_gaf) {
             output.ok = false;
+            std::cerr << "error: [gaf_sorter] merge_gaf_records() called an invalid input file" << std::endl;
             return;
         }
     }
     if (!output.ok || output.records > 0) {
         output.ok = false;
+        std::cerr << "error: [gaf_sorter] merge_gaf_records called() with an invalid output file" << std::endl;
         return;
     }
 
@@ -399,6 +443,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         in.emplace_back(input.open_input());
         remaining.push_back(input.records);
         if (!input.ok) {
+            // open_input() already prints an error message.
             output.ok = false;
             return;
         }
@@ -407,6 +452,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     // Open the output file.
     auto out = output.open_output();
     if (!output.ok) {
+        // open_output() already prints an error message.
         return;
     }
 
@@ -432,6 +478,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         read_buffer(i);
     }
     if (!output.ok) {
+        std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to read the initial buffers" << std::endl;
         return;
     }
 
@@ -462,12 +509,14 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         if (buffer.size() >= buffer_size) {
             write_buffer();
             if (!output.ok) {
+                std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write to " << output.name << std::endl;
                 return;
             }
         }
         if (records[source].empty()) {
             read_buffer(source);
             if (!output.ok) {
+                std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to read from " << (*inputs)[source].name << std::endl;
                 return;
             }
         }
@@ -478,6 +527,10 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     }
     if (!buffer.empty()) {
         write_buffer();
+        if (!output.ok) {
+            std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write to " << output.name << std::endl;
+            return;
+        }
     }
 
     // Close the files.

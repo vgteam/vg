@@ -178,7 +178,7 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
 
     // Sort the input.
     std::string output_file = temp_file::create("gaf-sorter");
-    sort_gaf(input_file, output_file, params);
+    REQUIRE(sort_gaf(input_file, output_file, params));
     temp_file::remove(input_file);
 
     // Check the output.

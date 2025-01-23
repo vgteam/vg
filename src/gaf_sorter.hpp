@@ -5,7 +5,6 @@
  * Tools for sorting GAF records.
  *
  * TODO: This could be an independent utility.
- * TODO: Error messages.
  * TODO: Compressed temporary files.
  * TODO: Asynchronous I/O.
  */
@@ -228,15 +227,16 @@ struct GAFSorterParameters {
  * Each successive round merges the temporary files into larger files until there is only one file left.
  * Each merge job merges params.files_per_merge files.
  * Use "-" for reading stdin / writing to stdout.
+ * Returns false and prints an error message on failure.
  */
-void sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params);
+bool sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params);
 
 /**
  * Sorts the given GAF lines into the given output file, with an option to use stable sorting.
  *
  * The lines are converted into GAFSorterRecord objects, with the given key type.
  * The original lines are consumed.
- * Success flag in the output file will be set.
+ * Sets the ok flag in the output and prints an error message on failure.
  *
  * This function is intended to be used with std::thread.
  */
@@ -248,9 +248,8 @@ void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRe
  * The records in each input file are assumed to be sorted with sort_gaf_lines().
  * Records are read and written in blocks of the given size.
  * If the input files are in the same order as the corresponding batches in the initial sort, this is a stable merge.
- * Success flags will be set in all files.
- * This will consume the inputs.
- * Temporary input files will be removed after successful merging.
+ * Consumes the inputs and removes the files if they are temporary.
+ * Sets the ok flag in the output and prints an error message on failure.
  *
  * This function is intended to be used with std::thread.
  */
