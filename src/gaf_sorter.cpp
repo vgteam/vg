@@ -186,8 +186,16 @@ void GAFSorterFile::remove_temporary() {
 //------------------------------------------------------------------------------
 
 void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params) {
-    // Timestamp for the start
+    // Timestamp for the start and the total number of records.
     auto start_time = std::chrono::high_resolution_clock::now();
+    size_t total_records = 0;
+    auto report_time = [&]() {
+        if (params.progress) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double seconds = std::chrono::duration<double>(end_time - start_time).count();
+            std::cerr << "Sorted " << total_records << " records in " << seconds << " seconds" << std::endl;
+        }
+    };
 
     size_t num_threads = std::max(params.threads, size_t(1));
     if (params.progress) {
@@ -196,23 +204,45 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
     std::vector<std::thread> threads(num_threads);
 
     // Initial sort.
-    size_t batch = 0, total_records = 0;
+    size_t batch = 0;
     std::vector<std::unique_ptr<GAFSorterFile>> files;
     size_t initial_batch_size = std::max(params.records_per_file, size_t(1));
     if (params.progress) {
         std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
     }
+    std::string peek;
     while (input) {
+        // Read the next batch.
         std::unique_ptr<std::vector<std::string>> lines(new std::vector<std::string>());
         lines->reserve(initial_batch_size);
+        if (!peek.empty()) {
+            lines->push_back(std::move(peek));
+            peek.clear();
+        }
         std::string line;
         while (lines->size() < initial_batch_size && std::getline(input, line)) {
             lines->push_back(std::move(line));
         }
         total_records += lines->size();
+
+        // Peek at the first line of the next batch to determine if there is only one batch.
+        if (batch == 0) {
+            std::getline(input, peek);
+            if (!input) {
+                if (params.progress) {
+                    std::cerr << "Sorting directly to the final output" << std::endl;
+                }
+                std::unique_ptr<GAFSorterFile> out(new GAFSorterFile(output_file));
+                sort_gaf_lines(std::move(lines), params.key_type, params.stable, std::ref(*out));
+                report_time();
+                return;
+            }
+        }
         if (lines->empty()) {
             break;
         }
+
+        // Sort the batch to a temporary file.
         std::unique_ptr<GAFSorterFile> out(new GAFSorterFile());
         size_t thread_id = batch % num_threads;
         if (threads[thread_id].joinable()) {
@@ -282,11 +312,7 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
             inputs->push_back(std::move(*file));
         }
         merge_gaf_records(std::move(inputs), out, params.buffer_size);
-        if (params.progress) {
-            auto end_time = std::chrono::high_resolution_clock::now();
-            double seconds = std::chrono::duration<double>(end_time - start_time).count();
-            std::cerr << "Sorted " << total_records << " records in " << seconds << " seconds" << std::endl;
-        }
+        report_time();
     }
 }
 

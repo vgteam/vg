@@ -227,8 +227,6 @@ struct GAFSorterParameters {
  * Each successive round merges the temporary files into larger files until there is only one file left.
  * Each merge job merges params.files_per_merge files.
  * If the output file is "-", the result is written to stdout.
- *
- * TODO: Special case for one batch.
  */
 void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params);
 

@@ -368,8 +368,15 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
 //------------------------------------------------------------------------------
 
 TEST_CASE("GAF sorting", "[gaf_sorter]") {
-    SECTION("one batch") {
+    SECTION("one full batch") {
         size_t n = 1000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        integrated_test(n, 10, 0.05, params);
+    }
+
+    SECTION("one partial batch") {
+        size_t n = 500;
         GAFSorterParameters params;
         params.records_per_file = 1000;
         integrated_test(n, 10, 0.05, params);
