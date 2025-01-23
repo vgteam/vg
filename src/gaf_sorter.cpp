@@ -11,6 +11,10 @@
 // Needed for the temporary file creation.
 #include "utility.hpp"
 
+// For reading compressed input.
+#include <htslib/hfile.h>
+#include <htslib/hts.h>
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -185,7 +189,7 @@ void GAFSorterFile::remove_temporary() {
 
 //------------------------------------------------------------------------------
 
-void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params) {
+void sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params) {
     // Timestamp for the start and the total number of records.
     auto start_time = std::chrono::high_resolution_clock::now();
     size_t total_records = 0;
@@ -211,7 +215,12 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
         std::cerr << "Initial sort: " << initial_batch_size << " records per file" << std::endl;
     }
     std::string peek;
-    while (input) {
+    htsFile* input = hts_open(input_file.c_str(), "r");
+    if (input == nullptr) {
+        std::cerr << "Error: Could not open input file " << input_file << std::endl;
+        return;
+    }
+    while (true) {
         // Read the next batch.
         std::unique_ptr<std::vector<std::string>> lines(new std::vector<std::string>());
         lines->reserve(initial_batch_size);
@@ -219,16 +228,16 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
             lines->push_back(std::move(peek));
             peek.clear();
         }
+        kstring_t s_buffer = KS_INITIALIZE;
         std::string line;
-        while (lines->size() < initial_batch_size && std::getline(input, line)) {
-            lines->push_back(std::move(line));
+        while (lines->size() < initial_batch_size && hts_getline(input, '\n', &s_buffer) >= 0) {
+            lines->push_back(std::string(ks_str(&s_buffer), ks_len(&s_buffer)));
         }
         total_records += lines->size();
 
         // Peek at the first line of the next batch to determine if there is only one batch.
         if (batch == 0) {
-            std::getline(input, peek);
-            if (!input) {
+            if (hts_getline(input, '\n', &s_buffer) < 0) {
                 if (params.progress) {
                     std::cerr << "Sorting directly to the final output" << std::endl;
                 }
@@ -237,6 +246,7 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
                 report_time();
                 return;
             }
+            peek = std::string(ks_str(&s_buffer), ks_len(&s_buffer));
         }
         if (lines->empty()) {
             break;
@@ -251,7 +261,9 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
         threads[thread_id] = std::thread(sort_gaf_lines, std::move(lines), params.key_type, params.stable, std::ref(*out));
         files.push_back(std::move(out));
         batch++;
+        ks_free(&s_buffer);
     }
+    hts_close(input);
     for (size_t i = 0; i < num_threads; i++) {
         if (threads[i].joinable()) {
             threads[i].join();

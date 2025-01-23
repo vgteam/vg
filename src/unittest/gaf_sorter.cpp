@@ -177,10 +177,8 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
     out.close();
 
     // Sort the input.
-    std::ifstream in(input_file, std::ios::binary);
     std::string output_file = temp_file::create("gaf-sorter");
-    sort_gaf(in, output_file, params);
-    in.close();
+    sort_gaf(input_file, output_file, params);
     temp_file::remove(input_file);
 
     // Check the output.

@@ -6,6 +6,7 @@
  *
  * TODO: This could be an independent utility.
  * TODO: Error messages.
+ * TODO: Compressed temporary files.
  * TODO: Asynchronous I/O.
  */
 
@@ -120,6 +121,7 @@ struct alignas(128) GAFSorterFile {
     bool temporary;
 
     /// Is this file compressed?
+    /// FIXME: Not implemented.
     bool compressed;
 
     /// Is this a raw GAF file?
@@ -132,6 +134,7 @@ struct alignas(128) GAFSorterFile {
     bool ok;
 
     /// Default constructor that creates a compressed temporary file.
+    /// FIXME: Compression is not implemented.
     GAFSorterFile();
 
     /// Constructor that creates a raw GAF file with the given name.
@@ -145,7 +148,6 @@ struct alignas(128) GAFSorterFile {
     GAFSorterFile(GAFSorterFile&&) = default;
     GAFSorterFile& operator=(GAFSorterFile&&) = default;
 
-    // FIXME: compression
     /// Returns an output stream to the file.
     /// The first return value is the actual stream.
     /// The second return value is a unique pointer which may contain a newly created stream.
@@ -159,7 +161,6 @@ struct alignas(128) GAFSorterFile {
         this->records++;
     }
 
-    // FIXME: compression
     /// Returns an input stream to the file.
     /// Sets the success flag.
     std::unique_ptr<std::istream> open_input();
@@ -226,9 +227,9 @@ struct GAFSorterParameters {
  * The initial round sorts the records into temporary files with params.records_per_file records each.
  * Each successive round merges the temporary files into larger files until there is only one file left.
  * Each merge job merges params.files_per_merge files.
- * If the output file is "-", the result is written to stdout.
+ * Use "-" for reading stdin / writing to stdout.
  */
-void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params);
+void sort_gaf(const std::string& input_file, const std::string& output_file, const GAFSorterParameters& params);
 
 /**
  * Sorts the given GAF lines into the given output file, with an option to use stable sorting.
