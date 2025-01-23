@@ -87,6 +87,12 @@ struct GAFInfo {
     std::string value() const {
         return this->line;
     }
+
+    // Returns the id encoded in read name.
+    static std::uint32_t decode_id(const std::string& line) {
+        size_t pos = line.find('\t');
+        return std::stoul(line.substr(4, pos - 4));
+    }
 };
 
 std::unique_ptr<std::vector<std::string>> generate_gaf(size_t count, size_t path_length, double unaligned_probability) {
@@ -115,14 +121,14 @@ std::vector<GAFSorterRecord> generate_records(size_t count, size_t path_length, 
     return result;
 }
 
-GAFSorterFile generate_sorted(size_t count, size_t path_length, double unaligned_probability, const std::string* filename = nullptr) {
+GAFSorterFile generate_sorted(size_t count, size_t path_length, double unaligned_probability, bool stable, const std::string* filename = nullptr) {
     auto lines = generate_gaf(count, path_length, unaligned_probability);
     GAFSorterFile output = (filename == nullptr ? GAFSorterFile() : GAFSorterFile(*filename));
-    sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, output);
+    sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, stable, output);
     return output;
 }
 
-void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type) {
+void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type, bool stable) {
     REQUIRE(file.ok);
     REQUIRE(file.records == lines);
 
@@ -138,6 +144,11 @@ void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSort
             REQUIRE(record.deserialize(in));
         }
         REQUIRE((line_num == 0 || previous.key <= record.key));
+        if (stable && line_num > 0 && previous.key == record.key) {
+            std::uint32_t prev_id = GAFInfo::decode_id(previous.value);
+            std::uint32_t curr_id = GAFInfo::decode_id(record.value);
+            REQUIRE(prev_id < curr_id);
+        }
         previous = record;
         line_num++;
     }
@@ -151,7 +162,7 @@ void merge_and_check(std::unique_ptr<std::vector<GAFSorterFile>> inputs, size_t 
     std::string filename = temp_file::create("gaf-sorter");
     GAFSorterFile output(filename);
     merge_gaf_records(std::move(inputs), output, buffer_size);
-    check_sorted(output, true, expected_records, key_type);
+    check_sorted(output, true, expected_records, key_type, false);
     temp_file::remove(filename);
 }
 
@@ -175,7 +186,7 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
     // Check the output.
     GAFSorterFile output(output_file);
     output.records = count; // This is a new file object, so we need to set the record count.
-    check_sorted(output, true, count, params.key_type);
+    check_sorted(output, true, count, params.key_type, false);
     temp_file::remove(output_file);
 }
 
@@ -281,31 +292,35 @@ TEST_CASE("Sorting GAF records", "[gaf_sorter]") {
     SECTION("raw GAF output") {
         size_t n = 1000;
         std::string filename = temp_file::create("gaf-sorter");
-        GAFSorterFile output = generate_sorted(n, 10, 0.05, &filename);
-        check_sorted(output, true, n, GAFSorterRecord::key_node_interval);
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, false, &filename);
+        check_sorted(output, true, n, GAFSorterRecord::key_node_interval, false);
         temp_file::remove(filename);
     }
 
     SECTION("empty GAF output") {
         size_t n = 0;
         std::string filename = temp_file::create("gaf-sorter");
-        GAFSorterFile output = generate_sorted(n, 10, 0.05, &filename);
-        check_sorted(output, true, n, GAFSorterRecord::key_node_interval);
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, false, &filename);
+        check_sorted(output, true, n, GAFSorterRecord::key_node_interval, false);
         temp_file::remove(filename);
     }
 
     SECTION("record output") {
         size_t n = 1234;
-        GAFSorterFile output = generate_sorted(n, 10, 0.05);
-        check_sorted(output, false, n, GAFSorterRecord::key_node_interval);
-        output.remove_temporary();
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, false);
+        check_sorted(output, false, n, GAFSorterRecord::key_node_interval, false);
     }
 
     SECTION("empty record output") {
         size_t n = 0;
-        GAFSorterFile output = generate_sorted(n, 10, 0.05);
-        check_sorted(output, false, n, GAFSorterRecord::key_node_interval);
-        output.remove_temporary();
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, false);
+        check_sorted(output, false, n, GAFSorterRecord::key_node_interval, false);
+    }
+
+    SECTION("stable sorting") {
+        size_t n = 1000;
+        GAFSorterFile output = generate_sorted(n, 10, 0.05, true);
+        check_sorted(output, false, n, GAFSorterRecord::key_node_interval, true);
     }
 }
 
@@ -316,7 +331,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
         size_t n = 1000, expected_records = 0;
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (size_t i = 0; i < 3; i++) {
-            inputs->push_back(generate_sorted(n + i, 10, 0.05));
+            inputs->push_back(generate_sorted(n + i, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
         merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval);
@@ -327,7 +342,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (size_t i = 0; i < 3; i++) {
             size_t count = (i == 1 ? 0 : n + i);
-            inputs->push_back(generate_sorted(count, 10, 0.05));
+            inputs->push_back(generate_sorted(count, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
         merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval);
@@ -337,7 +352,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
         size_t expected_records = 0;
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (size_t i = 0; i < 3; i++) {
-            inputs->push_back(generate_sorted(0, 10, 0.05));
+            inputs->push_back(generate_sorted(0, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
         merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval);

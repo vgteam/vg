@@ -6,7 +6,6 @@
  *
  * TODO: This could be an independent utility.
  * TODO: Error messages.
- * TODO: Flag for stable sorting.
  * TODO: Asynchronous I/O.
  */
 
@@ -214,6 +213,9 @@ struct GAFSorterParameters {
     /// Buffer size for reading and writing records.
     size_t buffer_size = BUFFER_SIZE;
 
+    /// Use stable sorting.
+    bool stable = false;
+
     /// Print progress information to stderr.
     bool progress = false;
 };
@@ -226,13 +228,12 @@ struct GAFSorterParameters {
  * Each merge job merges params.files_per_merge files.
  * If the output file is "-", the result is written to stdout.
  *
- * TODO: Error handling.
  * TODO: Special case for one batch.
  */
 void sort_gaf(std::istream& input, const std::string& output_file, const GAFSorterParameters& params);
 
 /**
- * Sorts the given GAF lines into the given output file.
+ * Sorts the given GAF lines into the given output file, with an option to use stable sorting.
  *
  * The lines are converted into GAFSorterRecord objects, with the given key type.
  * The original lines are consumed.
@@ -240,13 +241,14 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
  *
  * This function is intended to be used with std::thread.
  */
-void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRecord::key_type key_type, GAFSorterFile& output);
+void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRecord::key_type key_type, bool stable, GAFSorterFile& output);
 
 /**
  * Merges the given files into a single output file.
  *
  * The records in each input file are assumed to be sorted with sort_gaf_lines().
  * Records are read and written in blocks of the given size.
+ * If the input files are in the same order as the corresponding batches in the initial sort, this is a stable merge.
  * Success flags will be set in all files.
  * This will consume the inputs.
  * Temporary input files will be removed after successful merging.

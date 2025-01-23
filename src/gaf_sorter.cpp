@@ -218,7 +218,7 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
         if (threads[thread_id].joinable()) {
             threads[thread_id].join();
         }
-        threads[thread_id] = std::thread(sort_gaf_lines, std::move(lines), params.key_type, std::ref(*out));
+        threads[thread_id] = std::thread(sort_gaf_lines, std::move(lines), params.key_type, params.stable, std::ref(*out));
         files.push_back(std::move(out));
         batch++;
     }
@@ -295,6 +295,7 @@ void sort_gaf(std::istream& input, const std::string& output_file, const GAFSort
 void sort_gaf_lines(
     std::unique_ptr<std::vector<std::string>> lines,
     GAFSorterRecord::key_type key_type,
+    bool stable,
     GAFSorterFile& output
 ) {
     if (lines == nullptr) {
@@ -315,7 +316,11 @@ void sort_gaf_lines(
     lines.reset();
 
     // Sort the records.
-    std::sort(records.begin(), records.end());
+    if (stable) {
+        std::stable_sort(records.begin(), records.end());
+    } else {
+        std::sort(records.begin(), records.end());
+    }
 
     // Write the sorted records to the output file.
     auto out = output.open_output();
