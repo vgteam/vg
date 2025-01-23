@@ -764,6 +764,9 @@ int main_chunk(int argc, char** argv) {
                 trace_start = graph->get_handle(output_regions[i].start, false);
                 trace_end = graph->get_handle(output_regions[i].end, false);
                 trace_steps = output_regions[i].end - output_regions[i].start;
+#ifdef debug
+                std::cerr << "Looking for ID range " << output_regions[i].start << " to " << output_regions[i].end << ", up to " << trace_steps << " steps" << std::endl;
+#endif
             } else {
                 path_handle_t path_handle = graph->get_path_handle(output_regions[i].seq);
                 step_handle_t trace_start_step = graph->get_step_at_position(path_handle, output_regions[i].start);
@@ -773,7 +776,7 @@ int main_chunk(int argc, char** argv) {
                     swap(trace_start_step, trace_end_step);
                 }
                 trace_start = graph->get_handle_of_step(trace_start_step);
-                trace_end = graph->get_handle_of_step(trace_start_step);
+                trace_end = graph->get_handle_of_step(trace_end_step);
                 if (output_regions[i].start > output_regions[i].end) {
                     // Actually we need to look in reverse alogn the path.
                     trace_start = graph->flip(trace_start);
@@ -783,6 +786,9 @@ int main_chunk(int argc, char** argv) {
                     // Count the number of steps along the backbone path, which we use to limit graph expansion.
                     ++trace_steps;
                 }
+#ifdef debug
+                std::cerr << "Looking for position range " << output_regions[i].start << " to " << output_regions[i].end << ", nodes " << graph->get_id(trace_start) << " to " << graph->get_id(trace_end) << ", up to " << trace_steps << " steps" << std::endl;
+#endif
             }
 
             // Stop extending haplotypes when either they get too long or they arrive at the end.
@@ -790,6 +796,9 @@ int main_chunk(int argc, char** argv) {
                 if (candidate.size() >= trace_steps) {
                     // If you go more steps than the backbone path, stop there.
                     // TODO: We should add some padding here to account for insertions of manageable size.
+#ifdef debug
+                    std::cerr << "Stop because " << candidate.size() << " is enough steps" << std::endl;
+#endif
                     return true;
                 }
                 if (gbwt::Node::id(candidate.back()) == graph->get_id(trace_end) &&
@@ -798,12 +807,17 @@ int main_chunk(int argc, char** argv) {
                     // The path being traced has reached the last node on our
                     // extracted path region, so stop here and avoid leaving
                     // the region.
+#ifdef debug
+                    std::cerr << "Stop because node " << gbwt::Node::id(candidate.back()) << " orientation " << gbwt::Node::is_reverse(candidate.back()) << " is our end node" << std::endl;
+#endif
                     return true;
                 }
+#ifdef debug
+                std::cerr << "Continue because node " << gbwt::Node::id(candidate.back()) << " orientation " << gbwt::Node::is_reverse(candidate.back()) << " is not our end node " << graph->get_id(trace_end) << " orientation " << graph->get_is_reverse(trace_end) << std::endl;
+#endif
                 return false;
             };
 
-            Graph g;
             trace_haplotypes(*graph, *gbwt_index, trace_start, stop_function,
                              *subgraph, trace_thread_frequencies);
 #ifdef debug

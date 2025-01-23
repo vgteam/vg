@@ -26,7 +26,6 @@ void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype
                       MutablePathMutableHandleGraph& out_graph,
                       map<string, int>& out_thread_frequencies) {
   // get our haplotypes
-  // TODO: Tell it to keep haplotypes that end before triggering stop_fn!
   vector<pair<thread_t, gbwt::SearchState> > haplotypes = list_haplotypes(source, haplotype_database, start_handle, stop_fn);
 
 #ifdef debug
@@ -41,6 +40,13 @@ void trace_haplotypes(const PathHandleGraph& source, const gbwt::GBWT& haplotype
     const thread_t& thread = haplotypes[i].first;
     for (int j = 0; j < thread.size(); j++) {
       // Copy in all the steps
+      if (!out_graph.has_node(gbwt::Node::id(thread[j]))) {
+        // It's possible for us to be extracting haplotypes that leave the
+        // subgraph we extracted. Maybe the end node for ID range extraction
+        // had an alternative with a higher ID. If we find that that is
+        // happening, we cut the haplotype short.
+        break;
+      }
       out_graph.append_step(path_handle, out_graph.get_handle(gbwt::Node::id(thread[j]), gbwt::Node::is_reverse(thread[j])));
     }
   }
@@ -210,7 +216,15 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
 #endif
 
     if (!first_state.empty()) {
-        search_intermediates.push_back(make_pair(first_thread, first_state));
+        if (stop_fn(first_thread)) {
+            // We immediately want to stop the search
+#ifdef debug
+            cerr << "\tImmediately hit limit with " << first_state.size() << " results; emitting" << endl;
+#endif
+            search_results.push_back(make_pair(std::move(first_thread), first_state));
+        } else {
+            search_intermediates.push_back(make_pair(first_thread, first_state));
+        }
     }
 
     while(!search_intermediates.empty()) {
@@ -271,7 +285,7 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const 
 
         if (continued_members != last.second.size()) {
 #ifdef debug
-          cerr << "Stopped " (last.second.size() - continued_members) << " results here; emitting" << endl;
+          cerr << "Stopped " << (last.second.size() - continued_members) << " results here; emitting" << endl;
 #endif
           // We need to make a result with *only* the stopping results.
           // So we extend with a sentinel (0, false) GBWT node, which we don't put in our output vector for the haplotype.
