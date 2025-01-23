@@ -50,6 +50,16 @@ Path path_from_thread_t(thread_t& t, const HandleGraph& source);
 // then the search stops. The search will also emit a result if any selected sample stops.
 //
 // No empty sub-haplotypes will be returned.
+//
+// For haplotypes emitted because a sample stopped, the corresponding GBWT
+// search state will have been extended with the end marker. It will have the
+// correct .size() for the number of haplotypes that stop there, but it will
+// *not* be usable with locate() queries! If you need to do locate() queries,
+// you need to filter the output and keep only results that would have
+// satisfied the stop_fn predicate.
+//
+// TODO: Adopt a different internal format that doesn't have such a weird
+// quirk.
 vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const HandleGraph& graph,
                                                                           const gbwt::GBWT& gbwt,
                                                                           handle_t start,
