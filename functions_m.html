@@ -167,6 +167,9 @@ $(function() {
 <li>make_plan()
 : <a class="el" href="classvg_1_1IndexRegistry.html#ab31ecdcf8f9d50a1310667d23c6410e2">vg::IndexRegistry</a>
 </li>
+<li>make_primer()
+: <a class="el" href="classvg_1_1PrimerFinder.html#a3923c3a3430b070f62d4e6d459f95b2b">vg::PrimerFinder</a>
+</li>
 <li>make_short_options()
 : <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html#a0a5933555ce227565029122dfd6f15e9">vg::subcommand::BaseOptionGroup</a>
 , <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#a3f2f2249f4edee37552c77bce6c4a42c">vg::subcommand::GroupedOptionGroup</a>
@@ -213,6 +216,12 @@ $(function() {
 </li>
 <li>map_stage_results_to_previous_stage()
 : <a class="el" href="classvg_1_1Funnel.html#aeca18258bb42790609df5f17d2394135">vg::Funnel</a>
+</li>
+<li>map_to_nodes()
+: <a class="el" href="classvg_1_1PrimerFinder.html#a5a876b4d4298d1bf8585b412cd572441">vg::PrimerFinder</a>
+</li>
+<li>mapped_nodes_ids
+: <a class="el" href="structvg_1_1Primer.html#a72ca8b6ccb56d2331687e85b273359f2">vg::Primer</a>
 </li>
 <li>Mapper()
 : <a class="el" href="classvg_1_1Mapper.html#a1d808071bd518202414fba56f5ec333e">vg::Mapper</a>
@@ -691,6 +700,9 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a0058c97d1dbe2be7643e9f75cee15bab">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1Mapper.html#a1799afefa90f9fbfd7de41626bdb460c">vg::Mapper</a>
 </li>
+<li>max_product_size
+: <a class="el" href="structvg_1_1PrimerPair.html#aa275aae307738c1f75bcd767e6196b46">vg::PrimerPair</a>
+</li>
 <li>max_prune_iterations
 : <a class="el" href="classvg_1_1VCFTraversalFinder.html#a667a1499ac092df03deaa7ec0813d6df">vg::VCFTraversalFinder</a>
 </li>
@@ -837,7 +849,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a2754b67772ef25cb66d06b66b8caeb55">vg::Mapper</a>
 </li>
 <li>MaximalExactMatch()
-: <a class="el" href="classvg_1_1MaximalExactMatch.html#aab0c8e120398563dfa7dae32a92b2fa9">vg::MaximalExactMatch</a>
+: <a class="el" href="classvg_1_1MaximalExactMatch.html#a0eb93e97b671cbafb0de7aa5827fa5f0">vg::MaximalExactMatch</a>
 </li>
 <li>maximum_mapping_quality_approx()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a3104dc6ddfd6a15e1ed02950006a4063">vg::GSSWAligner</a>
@@ -1177,6 +1189,9 @@ $(function() {
 <li>min_primary
 : <a class="el" href="classvg_1_1ReadFilter.html#a64132e9f5f27ce6930554ad3c197e694">vg::ReadFilter&lt; Read &gt;</a>
 </li>
+<li>min_product_size
+: <a class="el" href="structvg_1_1PrimerPair.html#a685b30050e2616b6efe1018aeafded46">vg::PrimerPair</a>
+</li>
 <li>min_qual
 : <a class="el" href="classvg_1_1Filter.html#ab3ced01093210b1379fbcd7de7709a30">vg::Filter</a>
 </li>
@@ -1400,7 +1415,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#a7af0cb7af3f7a3e3ab60627f3793aa0a">vg::MultipathMapper</a>
 </li>
 <li>multipath_alignment_t()
-: <a class="el" href="classvg_1_1multipath__alignment__t.html#a55b4c1fee893c4b596f0a654a624bccc">vg::multipath_alignment_t</a>
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#ad4de932d4f01d8d44a76095605294470">vg::multipath_alignment_t</a>
 </li>
 <li>multipath_map()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a9ea318c04336aa79020b7c012e468ef8">vg::MultipathMapper</a>
@@ -1412,7 +1427,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a022247fcbd889aeb51b35b0cae1c3622">vg::MultipathAlignmentEmitter</a>
 </li>
 <li>MultipathAlignmentGraph()
-: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a51e7308dc1c0c96d1e576970211b7705">vg::MultipathAlignmentGraph</a>
+: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a10f9b18c8aa4db1b80bf54ccc5dcc09c">vg::MultipathAlignmentGraph</a>
 </li>
 <li>MultipathMapper()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a4d3a7e85dfc2d7cda41912a4f87fd5ac">vg::MultipathMapper</a>
@@ -1433,13 +1448,13 @@ $(function() {
 : <a class="el" href="classvg_1_1NGSSimulator.html#a9501d39b8059ad161395f2b7ba89d424">vg::NGSSimulator</a>
 </li>
 <li>mutable_connection()
-: <a class="el" href="classvg_1_1subpath__t.html#a271236a46bdb6105f216a630c0c67a74">vg::subpath_t</a>
+: <a class="el" href="classvg_1_1subpath__t.html#aa967fceb620f92e73e965345d4cd0b67">vg::subpath_t</a>
 </li>
 <li>mutable_edit()
 : <a class="el" href="classvg_1_1path__mapping__t.html#aeb9d50accda37c8829c49cd8567f72bc">vg::path_mapping_t</a>
 </li>
 <li>mutable_mapping()
-: <a class="el" href="classvg_1_1path__t.html#aac0ad10ace8970358d471d779061b22d">vg::path_t</a>
+: <a class="el" href="classvg_1_1path__t.html#ab3f1eeeefe1c604dacdeff019488ff07">vg::path_t</a>
 </li>
 <li>mutable_next()
 : <a class="el" href="classvg_1_1subpath__t.html#ae1331c79838d972ccb8be4e98ac87954">vg::subpath_t</a>

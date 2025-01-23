@@ -118,7 +118,8 @@ $(function() {
 : <a class="el" href="classvg_1_1Filter.html#ab65e7196a6b891a266d16838e5d870d4">vg::Filter</a>
 </li>
 <li>left
-: <a class="el" href="structvg_1_1Support.html#a31d59f62a09c71915856740c5450ecf5">vg::Support</a>
+: <a class="el" href="structvg_1_1Primer.html#a94b05a30a61cfc259bab84b4bfe364cb">vg::Primer</a>
+, <a class="el" href="structvg_1_1Support.html#a31d59f62a09c71915856740c5450ecf5">vg::Support</a>
 </li>
 <li>left_border
 : <a class="el" href="classvg_1_1Viz.html#a4c472c524f9bdfc37d9073f9257ca529">vg::Viz</a>
@@ -137,6 +138,9 @@ $(function() {
 </li>
 <li>left_maximal
 : <a class="el" href="structvg_1_1GaplessExtension.html#a3b8b053fc8800c5453b002cbc2aad173">vg::GaplessExtension</a>
+</li>
+<li>left_primer
+: <a class="el" href="structvg_1_1PrimerPair.html#a020274b8efaef7d1c936105064fefd54">vg::PrimerPair</a>
 </li>
 <li>left_seed_node()
 : <a class="el" href="classvg_1_1JoinedSpliceGraph.html#a8152492345122b0db73d6242b2958b45">vg::JoinedSpliceGraph</a>
@@ -175,6 +179,7 @@ $(function() {
 , <a class="el" href="classvg_1_1MEMAccelerator.html#a32cb183aeee38c64432c8ea66ff167d6">vg::MEMAccelerator</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#afd3e1c8befad3a1911504cfbd3f54ccd">vg::MinimizerMapper::Minimizer</a>
 , <a class="el" href="structvg_1_1Path.html#ac512f92c7b82e38265062cd3fdc90acf">vg::Path</a>
+, <a class="el" href="structvg_1_1Primer.html#a8e1a21430a3fb665335992b36290bf12">vg::Primer</a>
 , <a class="el" href="classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c">vg::VG</a>
 , <a class="el" href="structvg_1_1WFAAlignment.html#a742372d503ae6c788b263ec474507b68">vg::WFAAlignment</a>
 , <a class="el" href="structvg_1_1WFANode.html#a9f70c59baed78d97644100b45cf865cd">vg::WFANode</a>
@@ -217,6 +222,9 @@ $(function() {
 </li>
 <li>linear_haplo_structure()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#abde17ce1452b109275975bf0e4f2d51c">haplo::linear_haplo_structure</a>
+</li>
+<li>linear_product_size
+: <a class="el" href="structvg_1_1PrimerPair.html#a5a91f01ca9ed609826eae6364b54c16d">vg::PrimerPair</a>
 </li>
 <li>linear_structure
 : <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Parameters.html#a236e15ad7f30e98b2f6b1e9720b5d922">vg::HaplotypePartitioner::Parameters</a>
@@ -262,6 +270,9 @@ $(function() {
 <li>load_pack_as_supports()
 : <a class="el" href="structvg_1_1SupportAugmentedGraph.html#ac7374e695e572eb9eace645005992ec9">vg::SupportAugmentedGraph</a>
 </li>
+<li>load_primers()
+: <a class="el" href="classvg_1_1PrimerFinder.html#a848125bbd96f9cdcaea36ed6f349c8f6">vg::PrimerFinder</a>
+</li>
 <li>load_supports()
 : <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a1aef5debe026648525732be7bc6cc4b1">vg::SupportAugmentedGraph</a>
 </li>
@@ -278,11 +289,11 @@ $(function() {
 <li>local_handle()
 : <a class="el" href="classxg_1_1XGPath.html#a6a9566f974aebd3c74fc00ee9dc0c5f0">xg::XGPath</a>
 </li>
-<li>Lock()
-: <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a62805a6582a0280c58509f232079b416">vg::GraphSynchronizer::Lock</a>
-</li>
 <li>lock()
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a1a6ed95994cc497481d3338986a30e49">vg::GraphSynchronizer::Lock</a>
+</li>
+<li>Lock()
+: <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a62805a6582a0280c58509f232079b416">vg::GraphSynchronizer::Lock</a>
 </li>
 <li>locked_nodes
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#acfb5bf6caa6040ec1028250324296355">vg::GraphSynchronizer::Lock</a>
@@ -373,20 +384,23 @@ $(function() {
 <li>long_read_minimizer_k
 : <a class="el" href="structvg_1_1IndexingParameters.html#ac8e9a153245b64380d773561d8534c51">vg::IndexingParameters</a>
 </li>
-<li>long_read_minimizer_W
-: <a class="el" href="structvg_1_1IndexingParameters.html#aca76950e194d8a550b71ffcee55aa8df">vg::IndexingParameters</a>
-</li>
 <li>long_read_minimizer_w
 : <a class="el" href="structvg_1_1IndexingParameters.html#a7cf3ea634d6c4b3f45bf2d11867ab70c">vg::IndexingParameters</a>
+</li>
+<li>long_read_minimizer_W
+: <a class="el" href="structvg_1_1IndexingParameters.html#aca76950e194d8a550b71ffcee55aa8df">vg::IndexingParameters</a>
 </li>
 <li>long_ref_contig
 : <a class="el" href="classvg_1_1Deconstructor.html#a6341c9416e41420f60f9faf7ea942d07">vg::Deconstructor</a>
 </li>
 <li>longest_detectable_gap()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a00852660c55c381bdcc3546bdb2b1a93">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a9a0d0245bdab8420b4f760d818a3d9cc">vg::GSSWAligner</a>
 </li>
 <li>longest_detectable_gap_in_range()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#aa0f917b2d622c95d9f8bc65186cb898f">vg::MinimizerMapper</a>
+</li>
+<li>longest_match_len()
+: <a class="el" href="classvg_1_1PrimerFinder.html#a1ddc80845300b30730072186bd49ba94">vg::PrimerFinder</a>
 </li>
 <li>longest_paths_in_forest()
 : <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a98105712f44db6c5fadc3b9bd64f97f0">vg::IntegratedSnarlFinder::MergedAdjacencyGraph</a>
