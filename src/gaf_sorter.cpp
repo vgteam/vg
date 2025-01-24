@@ -24,6 +24,11 @@ namespace vg {
 constexpr std::uint64_t GAFSorterRecord::MISSING_KEY;
 constexpr std::string_view GAFSorterRecord::GBWT_OFFSET_TAG;
 
+constexpr size_t GAFSorterParameters::THREADS;
+constexpr size_t GAFSorterParameters::RECORDS_PER_FILE;
+constexpr size_t GAFSorterParameters::FILES_PER_MERGE;
+constexpr size_t GAFSorterParameters::BUFFER_SIZE;
+
 //------------------------------------------------------------------------------
 
 void GAFSorterRecord::set_key(key_type type) {

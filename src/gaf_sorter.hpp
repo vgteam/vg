@@ -7,6 +7,7 @@
  * TODO: This could be an independent utility.
  * TODO: Compressed temporary files.
  * TODO: Asynchronous I/O.
+ * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
  */
 
 #include <cstdint>
@@ -193,13 +194,13 @@ struct GAFSorterParameters {
     constexpr static size_t RECORDS_PER_FILE = 1000000;
 
     /// Default for files_per_merge.
-    constexpr static size_t FILES_PER_MERGE = 16;
+    constexpr static size_t FILES_PER_MERGE = 32;
 
     /// Default for buffer_size.
     constexpr static size_t BUFFER_SIZE = 1000;
 
     /// Key type used for sorting.
-    GAFSorterRecord::key_type key_type;
+    GAFSorterRecord::key_type key_type = GAFSorterRecord::key_node_interval;
 
     /// Number of parallel sort/merge jobs.
     size_t threads = THREADS;
