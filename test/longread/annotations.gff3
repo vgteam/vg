@@ -1,0 +1,4 @@
+CHM13#0#chr1	Liftoff	gene	10	1000	.	+	.	gene_name=FakeGene;Name=FakeGene
+CHM13#0#chr1	Liftoff	transcript	10	100	.	+	.	gene_name=FakeGene;Name=FakeGene;transcript_id=FakeTranscript
+CHM13#0#chr1	Liftoff	exon	20	200	.	+	.	gene_name=FakeGene;Name=FakeGene;Parent=FakeTranscript;ID=exon:FakeTranscript:0
+CHM13#0#chr1	Liftoff	exon	500	1000	.	+	.	gene_name=FakeGene;Name=FakeGene;Parent=FakeTranscript;ID=exon:FakeTranscript:1
