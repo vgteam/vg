@@ -13,6 +13,7 @@
  *
  * TODO: Override xsputn, xsgetn for faster compression?
  * TODO: Move constructors for streams?
+ * TODO: is_open(), close() for streams?
  */
 
 namespace vg {
@@ -62,8 +63,6 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-
-// FIXME: close, is_open? do we need them?
 
 /// Zstandard output file stream.
 /// The object cannot be copied or moved.
