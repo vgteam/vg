@@ -18,11 +18,15 @@ using namespace vg::subcommand;
 
 //------------------------------------------------------------------------------
 
-// FIXME: Make this the default for GAF too.
 // We limit the max threads, and only allow thread count to be lowered, to
 // prevent tcmalloc from giving each thread a very large heap for many
 // threads. On my machine we can keep about 4 threads busy.
 constexpr static size_t GAM_MAX_THREADS = 4;
+
+// gaf_sorter defaults to 1 thread. If we assume that the input and the output
+// are bgzip-compressed, we should be able to saturate 5 worker threads.
+// Because intermediate merges are independent, we can use more threads.
+// The final single-threaded merge can use 5 bgzip threads.
 
 void help_gamsort(char **argv)
 {

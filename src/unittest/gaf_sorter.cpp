@@ -128,20 +128,26 @@ GAFSorterFile generate_sorted(size_t count, size_t path_length, double unaligned
     return output;
 }
 
-void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type, bool stable) {
+void check_sorted(GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type, bool stable) {
     REQUIRE(file.ok);
     REQUIRE(file.records == lines);
 
-    std::ifstream in(file.name, std::ios::binary);
+    std::pair<std::istream*, std::unique_ptr<std::istream>> in;
+    if (raw_gaf) {
+        in.second = std::unique_ptr<std::istream>(new std::ifstream(file.name, std::ios::binary));
+        in.first = in.second.get();
+    } else {
+        in = file.open_input();
+    }
 
     size_t line_num = 0;
     GAFSorterRecord previous;
     while (line_num < lines) {
         GAFSorterRecord record;
         if (raw_gaf) {
-            REQUIRE(record.read_line(in, key_type));
+            REQUIRE(record.read_line(*in.first, key_type));
         } else {
-            REQUIRE(record.deserialize(in));
+            REQUIRE(record.deserialize(*in.first));
         }
         REQUIRE((line_num == 0 || previous.key <= record.key));
         if (stable && line_num > 0 && previous.key == record.key) {
@@ -155,7 +161,7 @@ void check_sorted(const GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSort
 
     // There should not be any additional data.
     char c;
-    REQUIRE(!in.get(c));
+    REQUIRE(!in.first->get(c));
 }
 
 void merge_and_check(std::unique_ptr<std::vector<GAFSorterFile>> inputs, size_t buffer_size, size_t expected_records, GAFSorterRecord::key_type key_type) {

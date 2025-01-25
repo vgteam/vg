@@ -11,6 +11,9 @@
 // Needed for the temporary file creation.
 #include "utility.hpp"
 
+// For reading and writing compressed temporary files.
+#include "zstdutil.hpp"
+
 // For reading compressed input.
 #include <htslib/hfile.h>
 #include <htslib/hts.h>
@@ -168,8 +171,11 @@ GAFSorterFile::~GAFSorterFile() {
 
 std::pair<std::ostream*, std::unique_ptr<std::ostream>> GAFSorterFile::open_output() {
     std::pair<std::ostream*, std::unique_ptr<std::ostream>> result;
-    if (this->is_stdout()) {
+    if (this->is_std_in_out()) {
         result.first = &std::cout;
+    } else if (this->compressed) {
+        result.second.reset(new zstd_ofstream(this->name));
+        result.first = result.second.get();
     } else {
         result.second.reset(new std::ofstream(this->name, std::ios::binary));
         result.first = result.second.get();
@@ -181,9 +187,18 @@ std::pair<std::ostream*, std::unique_ptr<std::ostream>> GAFSorterFile::open_outp
     return result;
 }
 
-std::unique_ptr<std::istream> GAFSorterFile::open_input() {
-    std::unique_ptr<std::istream> result(new std::ifstream(this->name, std::ios::binary));
-    if (!result->good()) {
+std::pair<std::istream*, std::unique_ptr<std::istream>> GAFSorterFile::open_input() {
+    std::pair<std::istream*, std::unique_ptr<std::istream>> result;
+    if (this->is_std_in_out()) {
+        result.first = &std::cin;
+    } else if (this->compressed) {
+        result.second.reset(new zstd_ifstream(this->name));
+        result.first = result.second.get();
+    } else {
+        result.second.reset(new std::ifstream(this->name, std::ios::binary));
+        result.first = result.second.get();
+    }
+    if (!result.first->good()) {
         this->ok = false;
         std::cerr << "error: [gaf_sorter] could not open input file " << this->name << std::endl;
     }
@@ -442,7 +457,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     }
 
     // Open the input files.
-    std::vector<std::unique_ptr<std::istream>> in; in.reserve(inputs->size());
+    std::vector<std::pair<std::istream*, std::unique_ptr<std::istream>>> in; in.reserve(inputs->size());
     std::vector<size_t> remaining; remaining.reserve(inputs->size());
     for (GAFSorterFile& input : *inputs) {
         in.emplace_back(input.open_input());
@@ -470,7 +485,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
             records[i].clear();
             for (size_t j = 0; j < count; j++) {
                 records[i].emplace_back();
-                (*inputs)[i].read(records[i].back(), *(in[i]));
+                (*inputs)[i].read(records[i].back(), *(in[i].first));
                 records[i].back().flip_key(); // Flip for the priority queue.
             }
             remaining[i] -= count;
@@ -540,7 +555,8 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
 
     // Close the files.
     for (size_t i = 0; i < in.size(); i++) {
-        in[i].reset();
+        in[i].first = nullptr;
+        in[i].second.reset();
     }
     out.second.reset();
 }

@@ -1,3 +1,110 @@
+#include "zstdutil.hpp"
+
+namespace vg {
+
+//------------------------------------------------------------------------------
+
+zstd_compress_buf::zstd_compress_buf(std::streambuf* inner, int compression_level) :
+    inner(inner), context(ZSTD_createCCtx())
+{
+    this->in_buffer.resize(ZSTD_CStreamInSize());
+    this->setp(this->in_buffer.data(), this->in_buffer.data() + this->in_buffer.size());
+    this->out_buffer.resize(ZSTD_CStreamOutSize());
+    ZSTD_CCtx_setParameter(this->context, ZSTD_c_compressionLevel, compression_level);
+}
+
+zstd_compress_buf::~zstd_compress_buf() {
+    this->sync();
+    ZSTD_freeCCtx(this->context); this->context = nullptr;
+}
+
+zstd_compress_buf::int_type zstd_compress_buf::overflow(int_type ch) {
+    if (ch != traits_type::eof()) {
+        if (this->sync() == -1) {
+            return traits_type::eof();
+        }
+        *this->pptr() = traits_type::to_char_type(ch);
+        this->pbump(1);
+    }
+    return ch;
+}
+
+zstd_compress_buf::int_type zstd_compress_buf::sync() {
+    if (this->inner == nullptr) {
+        throw std::runtime_error("zstd_compress_buf: inner stream buffer is null");
+    }
+
+    ZSTD_inBuffer input = { this->pbase(), static_cast<size_t>(this->pptr() - this->pbase()), 0 };
+    ZSTD_EndDirective mode = (this->pptr() < this->epptr() ? ZSTD_e_end : ZSTD_e_continue);
+    bool finished = false;
+    while (!finished) {
+        ZSTD_outBuffer output = { this->out_buffer.data(), this->out_buffer.size(), 0 };
+        size_t result = ZSTD_compressStream2(this->context, &output, &input, mode);
+        if (ZSTD_isError(result)) {
+            std::string msg = "zstd_compress_buf: compression failed: " + std::string(ZSTD_getErrorName(result));
+            throw std::runtime_error(msg);
+        }
+        size_t n = this->inner->sputn(this->out_buffer.data(), output.pos);
+        if (n != output.pos) {
+            throw std::runtime_error("zstd_compress_buf: failed to write compressed data");
+        }
+        finished = (input.pos >= input.size);
+        if (mode == ZSTD_e_end) {
+            finished &= (result == 0);
+        }
+    }
+
+    this->setp(this->in_buffer.data(), this->in_buffer.data() + this->in_buffer.size());
+    return 0;
+}
+
+//------------------------------------------------------------------------------
+
+zstd_decompress_buf::zstd_decompress_buf(std::streambuf* inner) :
+    inner(inner), context(ZSTD_createDCtx())
+{
+    this->in_buffer.resize(ZSTD_DStreamInSize());
+    this->in_offset = this->in_buffer.size();
+    this->out_buffer.resize(ZSTD_DStreamOutSize());
+}
+
+zstd_decompress_buf::~zstd_decompress_buf() {
+    ZSTD_freeDCtx(this->context); this->context = nullptr;
+}
+
+zstd_decompress_buf::int_type zstd_decompress_buf::underflow() {
+    if (this->gptr() < this->egptr()) {
+        return traits_type::to_int_type(*this->gptr());
+    }
+
+    // Fill the input buffer if necessary.
+    if (this->in_offset >= this->in_buffer.size()) {
+        size_t n = this->inner->sgetn(this->in_buffer.data(), this->in_buffer.size());
+        this->in_offset = 0;
+        this->in_buffer.resize(n);
+    }
+
+    // Decompress the data into the input buffer.
+    ZSTD_inBuffer input = { this->in_buffer.data(), this->in_buffer.size(), this->in_offset };
+    ZSTD_outBuffer output = { this->out_buffer.data(), this->out_buffer.size(), 0 };
+    size_t result = ZSTD_decompressStream(this->context, &output, &input);
+    if (ZSTD_isError(result)) {
+        std::string msg = "zstd_decompress_buf: decompression failed: " + std::string(ZSTD_getErrorName(result));
+        throw std::runtime_error(msg);
+    }
+    this->in_offset = input.pos;
+
+    // Tell the stream to use the output buffer.
+    this->setg(this->out_buffer.data(), this->out_buffer.data(), this->out_buffer.data() + output.pos);
+    return (output.pos > 0 ? traits_type::to_int_type(*this->gptr()) : traits_type::eof());
+}
+
+//------------------------------------------------------------------------------
+
+} // namespace vg
+
+//------------------------------------------------------------------------------
+
 //
 // -*- coding: utf-8-unix; -*-
 //  Copyright (c) 2020 Tencent, Inc.
@@ -7,8 +114,6 @@
 // File:   zstd.cc
 // Desc:
 //
-
-#include "zstdutil.hpp"
 
 namespace zstdutil {
 
@@ -136,4 +241,6 @@ int StreamDecompressString(const std::string& src, std::string& dst, int compres
   return 0;
 }
 
-}  // namespace util
+}  // namespace zstdutil
+
+//------------------------------------------------------------------------------

@@ -5,7 +5,6 @@
  * Tools for sorting GAF records.
  *
  * TODO: This could be an independent utility.
- * TODO: Compressed temporary files.
  * TODO: Asynchronous I/O.
  * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
  */
@@ -121,7 +120,6 @@ struct alignas(128) GAFSorterFile {
     bool temporary;
 
     /// Is this file compressed?
-    /// FIXME: Not implemented.
     bool compressed;
 
     /// Is this a raw GAF file?
@@ -134,7 +132,6 @@ struct alignas(128) GAFSorterFile {
     bool ok;
 
     /// Default constructor that creates a compressed temporary file.
-    /// FIXME: Compression is not implemented.
     GAFSorterFile();
 
     /// Constructor that creates a raw GAF file with the given name.
@@ -162,8 +159,10 @@ struct alignas(128) GAFSorterFile {
     }
 
     /// Returns an input stream to the file.
+    /// The first return value is the actual stream.
+    /// The second return value is a unique pointer which may contain a newly created stream.
     /// Sets the success flag.
-    std::unique_ptr<std::istream> open_input();
+    std::pair<std::istream*, std::unique_ptr<std::istream>> open_input();
 
     /// Reads the next record from the file, assuming that this is not a raw GAF file.
     /// Sets the success flag.
@@ -171,9 +170,9 @@ struct alignas(128) GAFSorterFile {
         this->ok &= (this->raw_gaf ? false : record.deserialize(in));
     }
 
-    /// Returns true if the file is actually stdout.
+    /// Returns true if the file is actually stdin/stdout.
     /// In that case, open_input() should not be called.
-    bool is_stdout() const {
+    bool is_std_in_out() const {
         return (this->name == "-");
     }
 
