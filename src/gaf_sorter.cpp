@@ -1,6 +1,5 @@
 #include "gaf_sorter.hpp"
 
-#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <deque>
@@ -25,7 +24,7 @@ namespace vg {
 // Public class constants.
 
 constexpr std::uint64_t GAFSorterRecord::MISSING_KEY;
-constexpr std::string_view GAFSorterRecord::GBWT_OFFSET_TAG;
+const std::string GAFSorterRecord::GBWT_OFFSET_TAG = "GB:i:";
 
 constexpr size_t GAFSorterParameters::THREADS;
 constexpr size_t GAFSorterParameters::RECORDS_PER_FILE;
@@ -38,18 +37,18 @@ void GAFSorterRecord::set_key(key_type type) {
     if (type == key_node_interval) {
         std::uint32_t min_id = std::numeric_limits<std::uint32_t>::max();
         std::uint32_t max_id = 0;
-        std::string_view path = this->get_field(PATH_FIELD);
-        std::string_view::size_type start = 1;
-        while (start < path.size()) {
+        str_view path = this->get_field(PATH_FIELD);
+        size_t start = 1;
+        while (start < path.size) {
             std::uint32_t id = 0;
-            auto result = std::from_chars(path.data() + start, path.data() + path.size(), id);
+            auto result = std::from_chars(path.data + start, path.data + path.size, id);
             if (result.ec != std::errc()) {
                 this->key = MISSING_KEY;
                 return;
             }
             min_id = std::min(min_id, id);
             max_id = std::max(max_id, id);
-            start = (result.ptr - path.data()) + 1;
+            start = (result.ptr - path.data) + 1;
         }
         if (min_id == std::numeric_limits<std::uint32_t>::max()) {
             this->key = MISSING_KEY;
@@ -59,16 +58,16 @@ void GAFSorterRecord::set_key(key_type type) {
     } else if (type == key_gbwt_pos) {
         std::uint32_t node_id = std::numeric_limits<std::uint32_t>::max();
         std::uint32_t offset = std::numeric_limits<std::uint32_t>::max();
-        this->for_each_field([&](size_t i, std::string_view value) -> bool {
-            if (i == PATH_FIELD && value.size() > 1) {
-                auto result = std::from_chars(value.data() + 1, value.data() + value.size(), node_id);
+        this->for_each_field([&](size_t i, str_view value) -> bool {
+            if (i == PATH_FIELD && value.size > 1) {
+                auto result = std::from_chars(value.data + 1, value.data + value.size, node_id);
                 if (result.ec != std::errc()) {
                     return false;
                 }
             } else if (i >= MANDATORY_FIELDS) {
-                constexpr size_t TAG_SIZE = GBWT_OFFSET_TAG.size();
-                if (value.size() > TAG_SIZE && value.substr(0, TAG_SIZE) == GBWT_OFFSET_TAG) {
-                    auto result = std::from_chars(value.data() + TAG_SIZE, value.data() + value.size(), offset);
+                size_t tag_size = GBWT_OFFSET_TAG.size();
+                if (value.size > tag_size && value.substr(0, tag_size) == GBWT_OFFSET_TAG) {
+                    auto result = std::from_chars(value.data + tag_size, value.data + value.size, offset);
                     return false;
                 }
             }
@@ -126,9 +125,9 @@ bool GAFSorterRecord::read_line(std::istream& in, key_type type) {
     return true;
 }
 
-std::string_view GAFSorterRecord::get_field(size_t field) const {
-    std::string_view result;
-    this->for_each_field([&](size_t i, std::string_view value) -> bool {
+str_view GAFSorterRecord::get_field(size_t field) const {
+    str_view result;
+    this->for_each_field([&](size_t i, str_view value) -> bool {
         if (i == field) {
             result = value;
             return false;
@@ -138,13 +137,12 @@ std::string_view GAFSorterRecord::get_field(size_t field) const {
     return result;
 }
 
-void GAFSorterRecord::for_each_field(const std::function<bool(size_t, std::string_view)>& lambda) const {
-    std::string_view::size_type start = 0;
-    std::string_view::size_type end = 0;
+void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>& lambda) const {
+    size_t start = 0, end = 0;
     size_t i = 0;
-    while (end != std::string_view::npos) {
+    while (end != std::string::npos) {
         end = this->value.find('\t', start);
-        if (!lambda(i, std::string_view(this->value).substr(start, end - start))) {
+        if (!lambda(i, str_view(this->value).substr(start, end - start))) {
             break;
         }
         start = end + 1;
