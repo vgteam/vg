@@ -537,7 +537,7 @@ test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BI
 
 # Somebody has been polluting the test directory with temporary files that are not deleted after the tests.
 # To make git status more useful, we delete everything that looks like a temporary file.
-clean-test:
+clean-tests:
 	cd test && rm -rf tmp && mkdir tmp && mv 2_2.mat build_graph.cpp default.mat tmp && rm -f *.* && mv tmp/* . && rmdir tmp
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
