@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['last_14080',['last',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1f9f68c932a97214ed914c8ba2c882f2',1,'vg::Counts']]]
+  ['key_5fgbwt_5fpos_14175',['key_gbwt_pos',['../structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfba04d5c73c9ce8346dfd1587c8ebb73089',1,'vg::GAFSorterRecord']]],
+  ['key_5fhash_14176',['key_hash',['../structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfbab289fdb6e1e895ff886997d637013e6d',1,'vg::GAFSorterRecord']]],
+  ['key_5fnode_5finterval_14177',['key_node_interval',['../structvg_1_1GAFSorterRecord.html#a5477d463227b6ad929b450b0cdd83cfbaf9a71ba4d23e34153b6507e2f2d53274',1,'vg::GAFSorterRecord']]]
 ];
