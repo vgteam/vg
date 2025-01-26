@@ -23,7 +23,10 @@ namespace vg {
 /// Zstandard compression buffer that writes to another stream buffer.
 class zstd_compress_buf : public std::streambuf {
 public:
-    explicit zstd_compress_buf(std::streambuf* inner, int compression_level = ZSTD_defaultCLevel());
+    // We should be using ZSTD_defaultCLevel(), but it requires v1.5.0, which is not available everywhere.
+    constexpr static int DEFAULT_COMPRESSION_LEVEL = 3;
+
+    explicit zstd_compress_buf(std::streambuf* inner, int compression_level = DEFAULT_COMPRESSION_LEVEL);
     ~zstd_compress_buf();
 
     zstd_compress_buf(const zstd_compress_buf&) = delete;
@@ -68,7 +71,7 @@ protected:
 /// The object cannot be copied or moved.
 class zstd_ofstream : public std::ostream {
 public:
-    explicit zstd_ofstream(const std::string& filename, int compression_level = ZSTD_defaultCLevel()) :
+    explicit zstd_ofstream(const std::string& filename, int compression_level = zstd_compress_buf::DEFAULT_COMPRESSION_LEVEL) :
         std::ostream(&buffer),
         inner(filename, std::ios::binary),
         buffer(inner.rdbuf(), compression_level) {}

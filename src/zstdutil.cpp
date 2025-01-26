@@ -4,6 +4,12 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+// Public class constants.
+
+constexpr int zstd_compress_buf::DEFAULT_COMPRESSION_LEVEL;
+
+//------------------------------------------------------------------------------
+
 zstd_compress_buf::zstd_compress_buf(std::streambuf* inner, int compression_level) :
     inner(inner), context(ZSTD_createCCtx())
 {
