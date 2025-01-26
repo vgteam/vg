@@ -36,7 +36,7 @@ std::string generate_data(size_t num_words, size_t seed) {
 std::string compress_to_string(const std::string& data) {
     std::stringstream compressed_stream;
     zstd_compress_buf buffer(compressed_stream.rdbuf());
-    buffer.sputn(data.data(), data.size());
+    buffer.sputn(const_cast<char*>(data.data()), data.size());
     buffer.pubsync();
     return compressed_stream.str();
 }
@@ -51,7 +51,7 @@ std::string decompress_string(const std::string& compressed, size_t expected_siz
     decompressed.resize(expected_size);
     std::stringstream compressed_stream(compressed);
     zstd_decompress_buf buffer(compressed_stream.rdbuf());
-    size_t n = buffer.sgetn(decompressed.data(), decompressed.size());
+    size_t n = buffer.sgetn(const_cast<char*>(decompressed.data()), decompressed.size());
     REQUIRE(n == expected_size);
     REQUIRE(buffer.sgetc() == std::char_traits<char>::eof());
     return decompressed;
