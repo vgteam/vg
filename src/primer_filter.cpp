@@ -10,11 +10,11 @@ using namespace std;
 //#define DEBUG_PRIMER_FILTER
 
 // Constructor
-PrimerFinder::PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-    const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle,
+PrimerFinder::PrimerFinder(const handlegraph::PathPositionHandleGraph* graph_param,
+    const SnarlDistanceIndex* distance_index_param, istream& primers_file_handle,
     const gbwtgraph::GBWTGraph& gbwt_graph_param, const gbwt::GBWT& gbwt_index_param,
     const gbwt::FastLocate& r_index_param, MinimizerMapper* giraffe_mapper_param)
-    : graph(graph_param.get()),
+    : graph(graph_param),
       distance_index(distance_index_param),
       gbwt_graph(gbwt_graph_param),
       gbwt_index(gbwt_index_param),
@@ -56,10 +56,10 @@ void PrimerFinder::add_primer_pair(const string& path_name,
     update_min_max_product_size(primer_pair);
 }
 
-void PrimerFinder::load_primers(ifstream& file_handle) {
+void PrimerFinder::load_primers(istream& file_handle) {
 
     //ifstream file_handle(path_to_primers);
-    assert(file_handle.is_open());
+    assert(file_handle);
     
 
     // Regular expressions for matching fields with numbers
@@ -211,12 +211,15 @@ void PrimerFinder::make_primer(Primer& primer, const string& path_name,
     // Walk down the path and get the sequence of primer
     if (graph->get_length(cur_handle) - offset > length) {
         sequence += graph->get_sequence(cur_handle).substr(offset, length);
+        std::cerr << "Only use rest of " << graph->get_id(cur_handle) << " to get " << sequence << std::endl;
     } else {
         sequence += graph->get_sequence(cur_handle).substr(offset, graph->get_length(cur_handle) - offset);
+        std::cerr << "Start with rest of " << graph->get_id(cur_handle) << " to get " << sequence << std::endl;
         while (sequence.size() < length) {
             cur_step_handle = graph->get_next_step(cur_step_handle);
             cur_handle      = graph->get_handle_of_step(cur_step_handle);
             sequence       += graph->get_sequence(cur_handle).substr(0, min(graph->get_length(cur_handle), length-sequence.size()));
+            std::cerr << "Add at least part of " << graph->get_id(cur_handle) << " to get " << sequence << std::endl;
         }
     }
 
@@ -369,8 +372,18 @@ void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
     }
     size_t matched_length = 0;
     while (cur_node_length - cur_offset < primer.length - matched_length) {
-        assert(graph->get_sequence(cur_node_handle).substr(cur_offset, cur_node_length - cur_offset)
-            == primer_seq.substr(matched_length, cur_node_length - cur_offset));
+        std::string graph_sequence = graph->get_sequence(cur_node_handle).substr(cur_offset, cur_node_length - cur_offset);
+        std::string primer_sequence = primer_seq.substr(matched_length, cur_node_length - cur_offset);
+        if (graph_sequence != primer_sequence) {
+            std::stringstream ss;
+            ss << "Graph sequence " << graph_sequence
+                << " at node " << graph->get_id(cur_node_handle) << (graph->get_is_reverse(cur_node_handle) ? "-" : "+")
+                << "(" << graph->get_sequence(cur_node_handle) << ")"
+                << " range " << cur_offset << "-" << cur_node_length
+                << " did not match primer " << primer.sequence << " sequence " + primer_sequence
+                << " at range " << matched_length << "-" << (matched_length + cur_node_length - cur_offset);
+            throw std::runtime_error(ss.str());
+        }
         matched_length += cur_node_length - cur_offset;
         cur_offset = 0;
         cur_node_step_handle = graph->get_next_step(cur_node_step_handle);

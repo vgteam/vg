@@ -222,7 +222,7 @@ int main_primers(int argc, char** argv) {
         minimizer_mapper.align_from_chains = true;
         giraffe_mapper = &minimizer_mapper;
     }
-    PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index, giraffe_mapper);
+    PrimerFinder primer_finder(graph.get(), &distance_index, file_handle, gbwt_graph, gbwt_index, r_index, giraffe_mapper);
 
     cout << "chrom\ttplfeat\ttplpos\tlpseq\trpseq\tlppostpl\trppostmp\tlpposchrom\trpposchrom\t"
          << "lpnid\trpnid\tlplen\trplen\tlinsize\tminsize\tmaxsize\tvarlevel" << endl;

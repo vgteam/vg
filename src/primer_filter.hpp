@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <iostream>
 #include <regex>
-#include <fstream>
 #include <vector>
 #include <sstream>
 #include <set>
@@ -84,9 +83,9 @@ public:
      * Construct Primer finder given PathPositionHandleGraph, reference graph name
      * and pointer to SnarlDistanceIndex
      */
-    PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
+    PrimerFinder(const handlegraph::PathPositionHandleGraph* graph_param,
         const SnarlDistanceIndex* distance_index_param,
-        ifstream& primers_file_handle,
+        istream& primers_file_handle,
         const gbwtgraph::GBWTGraph& gbwt_graph, const gbwt::GBWT& gbwt_index,
         const gbwt::FastLocate& r_index, MinimizerMapper* giraffe_mapper_param=nullptr);
 
@@ -111,7 +110,7 @@ public:
      * processed, and  stored in primer_pairs vector - and selected_primer_pairs
      * if conditions are met.
      */
-    void load_primers(ifstream& file_handle);
+    void load_primers(istream& file_handle);
 
     /**
      * return vector of Primer pairs
