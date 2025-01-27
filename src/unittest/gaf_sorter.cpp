@@ -24,11 +24,13 @@ struct GAFInfo {
     size_t id;
     std::uint32_t min_node, max_node;
     std::uint32_t first_node, gbwt_offset;
+    bool first_is_reverse;
 
     GAFInfo(size_t id, size_t nodes, bool with_gbwt_offset) :
         id(id),
         min_node(std::numeric_limits<std::uint32_t>::max()), max_node(0),
-        first_node(std::numeric_limits<std::uint32_t>::max()), gbwt_offset(std::numeric_limits<std::uint32_t>::max()) {
+        first_node(std::numeric_limits<std::uint32_t>::max()), gbwt_offset(std::numeric_limits<std::uint32_t>::max()),
+        first_is_reverse(false) {
 
         // Name, query length, query start, query end, strand;
         std::string nd = std::to_string(nodes);
@@ -46,6 +48,7 @@ struct GAFInfo {
                 if (with_gbwt_offset) {
                     this->gbwt_offset = rng() % 1000;
                 }
+                this->first_is_reverse = reverse;
             }
             this->line += (reverse ? "<" : ">") + std::to_string(node);
         }
@@ -74,7 +77,8 @@ struct GAFInfo {
             if (this->gbwt_offset == std::numeric_limits<std::uint32_t>::max()) {
                 return GAFSorterRecord::MISSING_KEY;
             } else {
-                return (static_cast<std::uint64_t>(this->first_node) << 32) | this->gbwt_offset;
+                return (static_cast<std::uint64_t>(this->first_node) << 33) |
+                    (static_cast<std::uint64_t>(this->first_is_reverse) << 32) | this->gbwt_offset;
             }
         } else if (type == GAFSorterRecord::key_hash) {
             return GAFSorterRecord::hasher(this->line);        
