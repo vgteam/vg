@@ -1580,43 +1580,6 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     return kmer_types;
 }
 
-std::vector<char> Recombinator::classify_kmers(
-    const std::string& kff_file, const Recombinator::Parameters& parameters
-) const {
-    // Get kmer counts (may throw) and determine coverage.
-    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
-    double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
-
-    // Classify the kmers in each subchain.
-    std::vector<char> classifications;
-    classifications.reserve(this->haplotypes.kmers());
-    for (const auto& chain : this->haplotypes.chains) {
-        for (const auto& subchain : chain.subchains) {
-            std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = vg::classify_kmers(
-                subchain, counts, coverage, nullptr, parameters
-            );
-            for (const auto& type : kmer_types) {
-                switch (type.first) {
-                case Recombinator::absent:
-                    classifications.push_back('A');
-                    break;
-                case Recombinator::heterozygous:
-                    classifications.push_back('H');
-                    break;
-                case Recombinator::present:
-                    classifications.push_back('P');
-                    break;
-                case Recombinator::frequent:
-                    classifications.push_back('F');
-                    break;
-                }
-            }
-        }
-    }
-
-    return classifications;
-}
-
 //------------------------------------------------------------------------------
 
 // Select the best pair of haplotypes from the candidates. Each haplotype gets
@@ -1883,52 +1846,6 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     }
 
     return statistics;
-}
-
-//------------------------------------------------------------------------------
-
-std::vector<Recombinator::LocalHaplotype> Recombinator::extract_sequences(
-    const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
-) const {
-    // Sanity checks.
-    if (chain_id >= this->haplotypes.chains.size()) {
-        std::string msg = "Recombinator::extract_sequences(): invalid chain id " + std::to_string(chain_id);
-        throw std::runtime_error(msg);
-    }
-    if (subchain_id >= this->haplotypes.chains[chain_id].subchains.size()) {
-        std::string msg = "Recombinator::extract_sequences(): invalid subchain id " + std::to_string(subchain_id) +
-            " in chain " + std::to_string(chain_id);
-        throw std::runtime_error(msg);
-    }
-    recombinator_sanity_checks(parameters);
-
-    // Extract the haplotypes.
-    const Haplotypes::Subchain& subchain = this->haplotypes.chains[chain_id].subchains[subchain_id];
-    std::vector<LocalHaplotype> result(subchain.sequences.size());
-    for (size_t i = 0; i < subchain.sequences.size(); i++) {
-        size_t path_id = gbwt::Path::id(subchain.sequences[i].first);
-        path_handle_t path_handle = this->gbz.graph.path_to_handle(path_id);
-        result[i].name = this->gbz.graph.get_path_name(path_handle);
-
-        gbwt::edge_type pos;
-        if (subchain.has_start()) {
-            pos = gbwt::edge_type(subchain.start, subchain.sequences[i].second);
-        } else {
-            pos = this->gbz.index.start(subchain.sequences[i].first);
-        }
-        handle_t until = gbwtgraph::GBWTGraph::node_to_handle(subchain.end);
-        size_t limit = std::numeric_limits<size_t>::max();
-        result[i].sequence = generate_haplotype(pos, until, limit, limit, this->gbz.graph);
-    }
-
-    // Get kmer counts (may throw) and determine coverage.
-    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts = this->haplotypes.kmer_counts(kff_file, this->verbosity);
-    double coverage = get_or_estimate_coverage(counts, parameters, this->verbosity);
-
-    // Fill in the scores.
-    select_haplotypes(this->gbz, subchain, counts, coverage, nullptr, &result, parameters);
-
-    return result;
 }
 
 //------------------------------------------------------------------------------

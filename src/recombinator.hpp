@@ -600,28 +600,6 @@ public:
     /// Kmer classification.
     enum kmer_presence { absent, heterozygous, present, frequent };
 
-    /**
-     * Classifies the kmers used for describing the haplotypes according to
-     * their frequency in the KFF file. Uses `A`, `H`, `P`, and `F` to represent
-     * absent, heterozygous, present, and frequent kmers, respectively.
-     *
-     * Throws `std::runtime_error` on error.
-     */
-    std::vector<char> classify_kmers(const std::string& kff_file, const Parameters& parameters) const;
-
-    /**
-     * Extracts the local haplotypes in the given subchain. In addition to the
-     * haplotype sequence, this also reports the name of the corresponding path
-     * as well as (rank, score) for the haplotype in each round of haplotype
-     * selection. The number of rounds is `parameters.num_haplotypes`, but if
-     * the haplotype is selected earlier, it will not get further scores.
-     *
-     * Throws `std::runtime_error` on error.
-     */
-    std::vector<LocalHaplotype> extract_sequences(
-        const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
-    ) const;
-
     const gbwtgraph::GBZ& gbz;
     const Haplotypes& haplotypes;
     Verbosity verbosity;
