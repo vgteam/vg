@@ -5,7 +5,7 @@
 #include "snarls.hpp"
 #include "clip.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -452,7 +452,8 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
                                             const string& ref_path_prefix,
                                             int64_t min_snarl_length,
                                             double min_jaccard,
-                                            int64_t min_fragment_length) {
+                                            int64_t min_fragment_length,
+                                            unordered_set<nid_t>& nodes_to_remove) {
 
     // find the path traversals through the snarl
     vector<Traversal> path_travs;
@@ -482,6 +483,7 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         for (int64_t j = 1; j < trav.size() - 1; ++j) {
             trav_lengths[i] += graph->get_length(trav[j]);
         }
+        max_trav_length = max(max_trav_length, trav_lengths[i]);
         if (ref_trav_idx == -1 && trav_names[i].compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
             ref_trav_idx = i;
         }
@@ -508,8 +510,12 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
                              return h != end_handle;
                          });
 
-    unordered_set<nid_t> nodes_to_delete;
-    
+    if (path_travs.empty()) {
+        cerr << "Snarl " << graph_interval_to_string(graph, start_handle, end_handle) << " contains "
+             << snarl_nodes.size() << " nodes, but no path traversals span it and therefore it cannot be simplified" << endl;
+        return;
+    }
+
     // do the length simplification
     if (max_trav_length < min_snarl_length) {
         unordered_set<nid_t> ref_nodes;
@@ -518,17 +524,11 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         }
         for (const nid_t& node_id : snarl_nodes) {
             if (!ref_nodes.count(node_id)) {
-                nodes_to_delete.insert(node_id);
+                nodes_to_remove.insert(node_id);
             }
         }
     } else {
         // todo: clustering simplification
-    }
-
-    if (!nodes_to_delete.empty()) {
-        cerr << "deleteing " << nodes_to_delete.size() << " nodes" << endl;
-        // delete the nodes
-        //delete_nodes_and_chop_paths(graph, nodes_to_delete, {}, min_fragment_length);
     }
 }
 
@@ -536,7 +536,6 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
                                      int64_t min_snarl_length,
                                      double min_jaccard,
                                      int64_t min_fragment_length) {
-
     // only consider embedded paths that span snarl
     PathTraversalFinder path_trav_finder(*graph);
 
@@ -547,66 +546,39 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
         fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
     }
 
-    // we go bottom-up, under the assumption that it will be a bit more efficient to
-    // handle small snarls where possible first.  also, popping a child snarl won't
-    // invalidate a parent snarl, but the reverse is not true.
+    // do every snarl top-down.
+    // to do: there is a potential for overkill - ie a node can get delete by smoothing a top level
+    // snarl, then again by a child.  could refactor to be more clever, but I don't yet know
+    // if it would save much time in practice. 
     net_handle_t root = distance_index.get_root();
-    vector<net_handle_t> stack = {root};
-    unordered_set<net_handle_t> visited;
-
-    while (!stack.empty()) {
-        cerr << "stack size " << stack.size() << endl;        
-        net_handle_t net_handle = stack.back();
-        cerr << "current net handles is a ";
-        if (distance_index.is_chain(net_handle)) {
-            cerr << "chain";
-        } else if (distance_index.is_snarl(net_handle)) {
-            cerr << "snarl";
-        } else if (distance_index.is_sentinel(net_handle)) {
-            cerr << "sentinel";
-        } else if (distance_index.is_root(net_handle)) {
-            cerr << "root";
-        } else if (distance_index.is_node(net_handle)) {
-            cerr << "node " << graph->get_id(distance_index.get_handle(net_handle, graph));
-        } else {               
-            cerr << "unknown";
-        }
-        cerr << endl;
-               
+    deque<net_handle_t> queue = {root};
+    // we remove all the nodes in one batch to avoid collisions / unececssary path updates
+    // todo: does this also need streamlining? also: this setup allows us to work in parallel
+    // which could be a possible speedup.    
+    unordered_set<nid_t> nodes_to_remove;
+    
+    while (!queue.empty()) {
+        net_handle_t net_handle = queue.front();
+        queue.pop_front();
+        if (distance_index.is_snarl(net_handle)) {
+            net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
+            net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
+            handle_t start_handle = distance_index.get_handle(start_bound, graph);
+            handle_t end_handle = distance_index.get_handle(end_bound, graph);
+            simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, ref_path_prefix,
+                                            min_snarl_length, min_jaccard, min_fragment_length, nodes_to_remove);
+        }        
         if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
-            cerr << "visit in" << endl;
-            bool visit = true;
             distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
-                if (!visited.count(child_handle)) {
-                    stack.push_back(child_handle);
-                    cerr << "push" << endl;
-                    visit = false;
-                } else {
-                    cerr << "skip" << endl;
-                }
-                return visit;
+                queue.push_back(child_handle);
             });
-
-            if (visit) {
-                cerr << "pop" << endl;
-                stack.pop_back();
-                visited.insert(net_handle);
-                if (distance_index.is_snarl(net_handle)) {
-                    net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
-                    net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
-                    handle_t start_handle = distance_index.get_handle(start_bound, graph);
-                    handle_t end_handle = distance_index.get_handle(end_bound, graph);
-                    simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, ref_path_prefix,
-                                                    min_snarl_length, min_jaccard, min_fragment_length);
-                }
-            }
-        } else {
-            // we're not going to touch nodes or sentinels
-            cerr << "pop ubkbowbn:" << endl;
-            stack.pop_back();
-            visited.insert(net_handle);
         }
-        cerr << "visit out" << endl;
+    }
+
+    if (!nodes_to_remove.empty()) {
+        cerr << "deleteing " << nodes_to_remove.size() << " nodes" << endl;
+        // delete the nodes
+        delete_nodes_and_chop_paths(graph, nodes_to_remove, {}, min_fragment_length);
     }
 }
 

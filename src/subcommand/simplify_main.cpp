@@ -30,7 +30,7 @@ void help_simplify(char** argv) {
          << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
          << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
          << "path snarl simplifier options:" << endl
-         << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has <= N bp (default: 10)" << endl
+         << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has < N bp (default: 10)" << endl
          << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
          << "    -P, --path-prefix S    all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
          << "small snarl simplifier options:" << endl
@@ -85,12 +85,14 @@ int main_simplify(int argc, char** argv) {
                 {"vcf", required_argument, 0, 'v'},
                 {"min-freq", required_argument, 0, 'f'},
                 {"min-count", required_argument, 0, 'c'},
+                {"cluster", required_argument, 0, 'L'},
+                {"path-prefix", required_argument, 0, 'P'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:h?",
+        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:L:P:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -200,7 +202,7 @@ int main_simplify(int argc, char** argv) {
         }
 
         simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
-                                        ref_path_prefix, min_size, 0, 1000);
+                                        ref_path_prefix, min_size, 0, 100000);
 
         handlealgs::unchop(*graph);
         
