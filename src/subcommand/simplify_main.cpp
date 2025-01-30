@@ -202,7 +202,7 @@ int main_simplify(int argc, char** argv) {
         }
 
         simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
-                                        ref_path_prefix, min_size, 0, 100000);
+                                        ref_path_prefix, min_size, cluster_threshold, 100000);
 
         handlealgs::unchop(*graph);
         

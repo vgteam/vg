@@ -4,6 +4,7 @@
 #include "snarl_distance_index.hpp"
 #include "snarls.hpp"
 #include "clip.hpp"
+#include "algorithms/dfs.hpp"
 
 //#define debug
 
@@ -470,7 +471,7 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
 
     // fill out traversal information (copied from merge_equivalent_traversals_in_snarl() above)
     // and find the reference traversal
-    int64_t ref_trav_idx = -1;
+    vector<int64_t> ref_trav_indexes;
     int64_t alphabetically_first_ref_trav_idx = -1;
     int64_t max_trav_length = 0;
     for (int64_t i = 0; i < path_travs.size(); ++i) {
@@ -479,13 +480,22 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         trav_names[i] = graph->get_path_name(trav_paths[i]);
         trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
             graph->get_is_reverse(start_handle);
+
+#ifdef debug
+        cerr << "trav " << i << ": "
+             << "n=" << trav_names[i] << " "
+             << "i=" << graph_interval_to_string(graph, graph->get_handle_of_step(path_intervals[i].first),
+                                                 graph->get_handle_of_step(path_intervals[i].second))
+             << " t=" << traversal_to_string(graph, trav, 100) << endl;
+#endif
+
         // note: we are excluding snarl boundaries from length calc here
         for (int64_t j = 1; j < trav.size() - 1; ++j) {
             trav_lengths[i] += graph->get_length(trav[j]);
         }
         max_trav_length = max(max_trav_length, trav_lengths[i]);
-        if (ref_trav_idx == -1 && trav_names[i].compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
-            ref_trav_idx = i;
+        if (trav_names[i].compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
+            ref_trav_indexes.push_back(i);
         }
         if (alphabetically_first_ref_trav_idx == -1 || trav_names[i] < trav_names[alphabetically_first_ref_trav_idx]) {
             alphabetically_first_ref_trav_idx = i;
@@ -494,41 +504,100 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
 
     // no reference found? we fall lexicgraphic lowest path
     // todo: is there logic from deocnstruct to re-use?
-    if (ref_trav_idx == -1) {
-        ref_trav_idx = alphabetically_first_ref_trav_idx;
+    if (!ref_path_prefix.empty() && ref_trav_indexes.empty()) {
+        ref_trav_indexes.push_back(alphabetically_first_ref_trav_idx);
+    }
+
+    if (ref_trav_indexes.empty()) {
+        return;
     }
 
     // find the snarl contents
     // we do this because there's no guarantee in general (ex due to clipping) that every
     // node in the snarl is on a traversal. 
     unordered_set<nid_t> snarl_nodes;
-    algorithms::dijkstra(graph, start_handle,
-                         [&](const handle_t& h, size_t) {
-                             if (h != start_handle && h != end_handle) {
-                                 snarl_nodes.insert(graph->get_id(h));
-                             }
-                             return h != end_handle;
-                         });
-
+    algorithms::dfs(*graph,
+                    [&](const handle_t& h) {
+                        if (h != start_handle && h != end_handle) {
+                            snarl_nodes.insert(graph->get_id(h));
+                        }
+                    },
+                    [&](const handle_t& h) {},
+                    {start_handle},
+                    {end_handle, graph->flip(start_handle)});
+                         
     if (path_travs.empty()) {
         cerr << "Snarl " << graph_interval_to_string(graph, start_handle, end_handle) << " contains "
              << snarl_nodes.size() << " nodes, but no path traversals span it and therefore it cannot be simplified" << endl;
         return;
     }
 
-    // do the length simplification
-    if (max_trav_length < min_snarl_length) {
-        unordered_set<nid_t> ref_nodes;
+    // these are the nodes we want to keep
+    unordered_set<nid_t> ref_nodes;
+    for (int64_t ref_trav_idx : ref_trav_indexes) {
         for (const handle_t& h : path_travs[ref_trav_idx]) {
             ref_nodes.insert(graph->get_id(h));
         }
+    }
+
+    bool simplify = false;
+    
+    // do the length simplification
+    if (max_trav_length < min_snarl_length) {
+        simplify = true;
+    } else {
+        // do snarl-clustering simplification
+        vector<int> traversal_order = {(int)ref_trav_indexes[0]};
+        for (int i = 0; i < path_travs.size(); ++i) {
+            if (i != ref_trav_indexes[0]) {
+                traversal_order.push_back(i);
+            }
+        }
+        vector<pair<double, int64_t>> info;
+        vector<int> child_to_trav;
+        vector<vector<int>> trav_clusters = cluster_traversals(graph, path_travs, traversal_order, {},
+                                                               min_jaccard, info, child_to_trav);
+        for (const pair<double, int64_t>& cluster_info : info) {
+            if (cluster_info.first < 1.0) {
+                simplify = true;
+            }
+        }
+        // some clustering was done, we flag all cluster references to keep, and remove everything else
+        if (simplify) {
+            assert(trav_clusters[0][0] == ref_trav_indexes[0]); // we've already added ref cluster
+            for (int i = 1; i < trav_clusters.size(); ++i) {            
+                const Traversal& cluster_ref_trav = path_travs[trav_clusters[i][0]];
+                for (const handle_t& h : cluster_ref_trav) {
+                    ref_nodes.insert(graph->get_id(h));
+                }                
+            }
+        }
+    }
+
+    int64_t removed_count = 0;
+    if (simplify) {
+        // if simplifyin snarl, flag everything non-reference for removal
         for (const nid_t& node_id : snarl_nodes) {
             if (!ref_nodes.count(node_id)) {
                 nodes_to_remove.insert(node_id);
+                graph->for_each_step_on_handle(graph->get_handle(node_id), [&](step_handle_t step) {
+/*                    string path_name = graph->get_path_name(graph->get_path_handle_of_step(step));
+                    if (path_name.compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
+                        cerr << "about no remove reference node " << node_id << endl;
+                        cerr << "trav names " << endl;
+                        for (const auto& xx : trav_names) {
+                            cerr << xx << endl;
+                        }
+                    }
+                    assert (path_name.compare(0, ref_path_prefix.length(), ref_path_prefix) != 0);*/
+                });
+                ++removed_count;
             }
         }
-    } else {
-        // todo: clustering simplification
+    }
+    if (removed_count > 0) {
+        cerr << "simplification will remove " << removed_count << " / " << snarl_nodes.size() << " for snarl "
+             << graph_interval_to_string(graph, start_handle, end_handle) << endl;
     }
 }
 
@@ -568,7 +637,8 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
             simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, ref_path_prefix,
                                             min_snarl_length, min_jaccard, min_fragment_length, nodes_to_remove);
         }        
-        if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+        //if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+        if (net_handle == root || distance_index.is_chain(net_handle)) {
             distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
                 queue.push_back(child_handle);
             });
