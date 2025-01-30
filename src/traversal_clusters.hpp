@@ -104,4 +104,13 @@ vector<vector<int>> assign_child_snarls_to_traversals(const PathHandleGraph* gra
 void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const unordered_set<path_handle_t>& selected_paths,
                                           bool use_snarl_manager=false);
 
+
+/// for every snarl, bottom up, compute all the traversals through it.  choose a reference traversal
+/// (using the prefix where possible), then if 
+void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const string& ref_path_prefix,
+                                     int64_t min_snarl_length,
+                                     double min_jaccard,
+                                     int64_t min_fragment_length);
+
+
 }

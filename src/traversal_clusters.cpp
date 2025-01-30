@@ -3,8 +3,9 @@
 #include "integrated_snarl_finder.hpp"
 #include "snarl_distance_index.hpp"
 #include "snarls.hpp"
+#include "clip.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -445,5 +446,169 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
         }
     }
 }
+
+static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph, PathTraversalFinder& path_trav_finder,
+                                            const handle_t& start_handle, const handle_t& end_handle,
+                                            const string& ref_path_prefix,
+                                            int64_t min_snarl_length,
+                                            double min_jaccard,
+                                            int64_t min_fragment_length) {
+
+    // find the path traversals through the snarl
+    vector<Traversal> path_travs;
+    vector<PathInterval> path_intervals;
+    std::tie(path_travs, path_intervals) = path_trav_finder.find_path_traversals(start_handle, end_handle);
+    vector<string> trav_names(path_travs.size());
+    vector<path_handle_t> trav_paths(path_travs.size());
+    vector<bool> trav_reversed(path_travs.size());
+    vector<int64_t> trav_lengths(path_travs.size(), 0);
+
+#ifdef debug
+    cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl;
+#endif
+
+    // fill out traversal information (copied from merge_equivalent_traversals_in_snarl() above)
+    // and find the reference traversal
+    int64_t ref_trav_idx = -1;
+    int64_t alphabetically_first_ref_trav_idx = -1;
+    int64_t max_trav_length = 0;
+    for (int64_t i = 0; i < path_travs.size(); ++i) {
+        const Traversal& trav = path_travs[i];
+        trav_paths[i] = graph->get_path_handle_of_step(path_intervals[i].first);
+        trav_names[i] = graph->get_path_name(trav_paths[i]);
+        trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
+            graph->get_is_reverse(start_handle);
+        // note: we are excluding snarl boundaries from length calc here
+        for (int64_t j = 1; j < trav.size() - 1; ++j) {
+            trav_lengths[i] += graph->get_length(trav[j]);
+        }
+        if (ref_trav_idx == -1 && trav_names[i].compare(0, ref_path_prefix.length(), ref_path_prefix) == 0) {
+            ref_trav_idx = i;
+        }
+        if (alphabetically_first_ref_trav_idx == -1 || trav_names[i] < trav_names[alphabetically_first_ref_trav_idx]) {
+            alphabetically_first_ref_trav_idx = i;
+        }
+    }
+
+    // no reference found? we fall lexicgraphic lowest path
+    // todo: is there logic from deocnstruct to re-use?
+    if (ref_trav_idx == -1) {
+        ref_trav_idx = alphabetically_first_ref_trav_idx;
+    }
+
+    // find the snarl contents
+    // we do this because there's no guarantee in general (ex due to clipping) that every
+    // node in the snarl is on a traversal. 
+    unordered_set<nid_t> snarl_nodes;
+    algorithms::dijkstra(graph, start_handle,
+                         [&](const handle_t& h, size_t) {
+                             if (h != start_handle && h != end_handle) {
+                                 snarl_nodes.insert(graph->get_id(h));
+                             }
+                             return h != end_handle;
+                         });
+
+    unordered_set<nid_t> nodes_to_delete;
+    
+    // do the length simplification
+    if (max_trav_length < min_snarl_length) {
+        unordered_set<nid_t> ref_nodes;
+        for (const handle_t& h : path_travs[ref_trav_idx]) {
+            ref_nodes.insert(graph->get_id(h));
+        }
+        for (const nid_t& node_id : snarl_nodes) {
+            if (!ref_nodes.count(node_id)) {
+                nodes_to_delete.insert(node_id);
+            }
+        }
+    } else {
+        // todo: clustering simplification
+    }
+
+    if (!nodes_to_delete.empty()) {
+        cerr << "deleteing " << nodes_to_delete.size() << " nodes" << endl;
+        // delete the nodes
+        //delete_nodes_and_chop_paths(graph, nodes_to_delete, {}, min_fragment_length);
+    }
+}
+
+void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const string& ref_path_prefix,
+                                     int64_t min_snarl_length,
+                                     double min_jaccard,
+                                     int64_t min_fragment_length) {
+
+    // only consider embedded paths that span snarl
+    PathTraversalFinder path_trav_finder(*graph);
+
+    // compute the distance index
+    SnarlDistanceIndex distance_index;
+    {
+        IntegratedSnarlFinder snarl_finder(*graph);
+        fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
+    }
+
+    // we go bottom-up, under the assumption that it will be a bit more efficient to
+    // handle small snarls where possible first.  also, popping a child snarl won't
+    // invalidate a parent snarl, but the reverse is not true.
+    net_handle_t root = distance_index.get_root();
+    vector<net_handle_t> stack = {root};
+    unordered_set<net_handle_t> visited;
+
+    while (!stack.empty()) {
+        cerr << "stack size " << stack.size() << endl;        
+        net_handle_t net_handle = stack.back();
+        cerr << "current net handles is a ";
+        if (distance_index.is_chain(net_handle)) {
+            cerr << "chain";
+        } else if (distance_index.is_snarl(net_handle)) {
+            cerr << "snarl";
+        } else if (distance_index.is_sentinel(net_handle)) {
+            cerr << "sentinel";
+        } else if (distance_index.is_root(net_handle)) {
+            cerr << "root";
+        } else if (distance_index.is_node(net_handle)) {
+            cerr << "node " << graph->get_id(distance_index.get_handle(net_handle, graph));
+        } else {               
+            cerr << "unknown";
+        }
+        cerr << endl;
+               
+        if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+            cerr << "visit in" << endl;
+            bool visit = true;
+            distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
+                if (!visited.count(child_handle)) {
+                    stack.push_back(child_handle);
+                    cerr << "push" << endl;
+                    visit = false;
+                } else {
+                    cerr << "skip" << endl;
+                }
+                return visit;
+            });
+
+            if (visit) {
+                cerr << "pop" << endl;
+                stack.pop_back();
+                visited.insert(net_handle);
+                if (distance_index.is_snarl(net_handle)) {
+                    net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
+                    net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
+                    handle_t start_handle = distance_index.get_handle(start_bound, graph);
+                    handle_t end_handle = distance_index.get_handle(end_bound, graph);
+                    simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, ref_path_prefix,
+                                                    min_snarl_length, min_jaccard, min_fragment_length);
+                }
+            }
+        } else {
+            // we're not going to touch nodes or sentinels
+            cerr << "pop ubkbowbn:" << endl;
+            stack.pop_back();
+            visited.insert(net_handle);
+        }
+        cerr << "visit out" << endl;
+    }
+}
+
 
 }
