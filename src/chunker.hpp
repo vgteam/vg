@@ -63,6 +63,9 @@ public:
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.
+     *
+     * Skips nodes in the ID range that do not actually exist in the source
+     * graph, or that already exist in the target graph.
      */
     void extract_id_range(vg::id_t start, vg::id_t end, int64_t context, int64_t length, bool forward_only,
                           MutablePathMutableHandleGraph& subgraph, Region& out_region);
