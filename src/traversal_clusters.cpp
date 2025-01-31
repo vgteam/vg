@@ -475,9 +475,9 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
     vector<bool> trav_reversed(path_travs.size());
     vector<int64_t> trav_lengths(path_travs.size(), 0);
 
-//#ifdef debug
+#ifdef debug
     cerr << "snarl " << graph_interval_to_string(graph, start_handle, end_handle) << endl;
-//#endif
+#endif
 
     // fill out traversal information (copied from merge_equivalent_traversals_in_snarl() above)
     // and find the reference traversal
@@ -492,13 +492,13 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         trav_reversed[i] = graph->get_is_reverse(graph->get_handle_of_step(path_intervals[i].first)) !=
             graph->get_is_reverse(start_handle);
 
-//#ifdef debug
+#ifdef debug
         cerr << "trav " << i << ": "
              << "n=" << trav_names[i] << " "
              << "i=" << graph_interval_to_string(graph, graph->get_handle_of_step(path_intervals[i].first),
                                                  graph->get_handle_of_step(path_intervals[i].second))
              << " t=" << traversal_to_string(graph, trav, 100) << endl;
-//#endif
+#endif
 
         // note: we are excluding snarl boundaries from length calc here
         for (int64_t j = 1; j < trav.size() - 1; ++j) {
@@ -613,7 +613,7 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
             for (int i = 0; i < trav_clusters.size(); ++i) {            
                 const Traversal& cluster_ref_trav = path_travs[trav_clusters[i][0]];
                 if (i > 0) {
-                    for (int64_t j = 0; i < cluster_ref_trav.size(); ++j) {
+                    for (int64_t j = 0; j < cluster_ref_trav.size(); ++j) {
                         ref_nodes.insert(graph->get_id(cluster_ref_trav[j]));
                         if (j > 0) {
                             ref_edges.insert(graph->edge_handle(cluster_ref_trav[j-1], cluster_ref_trav[j]));
