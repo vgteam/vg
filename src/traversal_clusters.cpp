@@ -532,7 +532,9 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
     // if there are no reference paths, we bail
     // todo: we could relax this by using the alphabetical path
     if (ref_trav_indexes.empty()) {
+#ifdef debug
         cerr << "Snarl " << graph_interval_to_string(graph, start_handle, end_handle) << " has no reference path" << endl;
+#endif
         return;
     }
 
@@ -654,26 +656,22 @@ static void simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
             }
         }
     }
+#ifdef debug
     if (node_removed_count + edge_removed_count > 0) {
         cerr << "simplification will remove " << node_removed_count << "  / " << snarl_nodes.size() << " nodes and "
              << edge_removed_count << " edges for snarl "
              << graph_interval_to_string(graph, start_handle, end_handle) << endl;
     }
+#endif
 }
 
 void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const string& ref_path_prefix,
                                      int64_t min_snarl_length,
                                      double min_jaccard,
+                                     int64_t max_iterations,
                                      int64_t min_fragment_length) {
     // only consider embedded paths that span snarl
     PathTraversalFinder path_trav_finder(*graph);
-
-    // compute the distance index
-    SnarlDistanceIndex distance_index;
-    {
-        IntegratedSnarlFinder snarl_finder(*graph);
-        fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
-    }
 
     // load up the reference paths
     vector<path_handle_t> ref_paths;
@@ -690,47 +688,60 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
         exit(1);
     }
 
-    // do every snarl top-down.
-    // to do: there is a potential for overkill - ie a node can get delete by smoothing a top level
-    // snarl, then again by a child.  could refactor to be more clever, but I don't yet know
-    // if it would save much time in practice. 
-    net_handle_t root = distance_index.get_root();
-    deque<tuple<net_handle_t, int64_t, vector<path_handle_t>>> queue = {make_tuple(root, -1, ref_paths)};
-    // we remove all the nodes in one batch to avoid collisions / unececssary path updates
-    // todo: does this also need streamlining? also: this setup allows us to work in parallel
-    // which could be a possible speedup.    
-    unordered_set<nid_t> nodes_to_remove;
-    unordered_set<edge_t> edges_to_remove;
-    
-    while (!queue.empty()) {
-        net_handle_t net_handle;
-        int64_t level;
-        vector<path_handle_t> cur_ref_paths;
-        std::tie(net_handle, level, cur_ref_paths) = queue.front();
-        queue.pop_front();
-        if (distance_index.is_snarl(net_handle)) {
-            net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
-            net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
-            handle_t start_handle = distance_index.get_handle(start_bound, graph);
-            handle_t end_handle = distance_index.get_handle(end_bound, graph);
-            vector<path_handle_t> out_ref_paths;
-            simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, cur_ref_paths, level,
-                                            min_snarl_length, min_jaccard, min_fragment_length, nodes_to_remove,
-                                            edges_to_remove, out_ref_paths);
-            cur_ref_paths = out_ref_paths;
-        }        
-        if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
-            distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
-                int64_t next_level = distance_index.is_snarl(child_handle) ? level + 1 : level;
-                queue.push_back(make_tuple(child_handle, next_level, cur_ref_paths));
-            });
-        }
-    }
+    for (int64_t iteration = 0; iteration < max_iterations; ++iteration) {
 
-    if (!nodes_to_remove.empty() || !edges_to_remove.empty()) {
-        cerr << "deleteing " << nodes_to_remove.size() << " nodes and " << edges_to_remove.size() << " edges" << endl;
-        // delete the nodes
-        delete_nodes_and_chop_paths(graph, nodes_to_remove, edges_to_remove, min_fragment_length);
+        // compute the distance index
+        SnarlDistanceIndex distance_index;
+        {
+            IntegratedSnarlFinder snarl_finder(*graph);
+            fill_in_distance_index(&distance_index, graph, &snarl_finder, 0);
+        }
+        
+        // do every snarl top-down.
+        // to do: there is a potential for overkill - ie a node can get delete by smoothing a top level
+        // snarl, then again by a child.  could refactor to be more clever, but I don't yet know
+        // if it would save much time in practice. 
+        net_handle_t root = distance_index.get_root();
+        deque<tuple<net_handle_t, int64_t, vector<path_handle_t>>> queue = {make_tuple(root, -1, ref_paths)};
+        // we remove all the nodes in one batch to avoid collisions / unececssary path updates
+        // todo: does this also need streamlining? also: this setup allows us to work in parallel
+        // which could be a possible speedup.    
+        unordered_set<nid_t> nodes_to_remove;
+        unordered_set<edge_t> edges_to_remove;
+    
+        while (!queue.empty()) {
+            net_handle_t net_handle;
+            int64_t level;
+            vector<path_handle_t> cur_ref_paths;
+            std::tie(net_handle, level, cur_ref_paths) = queue.front();
+            queue.pop_front();
+            if (distance_index.is_snarl(net_handle)) {
+                net_handle_t start_bound = distance_index.get_bound(net_handle, false, true);
+                net_handle_t end_bound = distance_index.get_bound(net_handle, true, false);
+                handle_t start_handle = distance_index.get_handle(start_bound, graph);
+                handle_t end_handle = distance_index.get_handle(end_bound, graph);
+                vector<path_handle_t> out_ref_paths;
+                simplify_snarl_using_traversals(graph, path_trav_finder, start_handle, end_handle, cur_ref_paths, level,
+                                                min_snarl_length, min_jaccard, min_fragment_length, nodes_to_remove,
+                                                edges_to_remove, out_ref_paths);
+                cur_ref_paths = out_ref_paths;
+            }        
+            if (net_handle == root || distance_index.is_snarl(net_handle) || distance_index.is_chain(net_handle)) {
+                distance_index.for_each_child(net_handle, [&](net_handle_t child_handle) {
+                    int64_t next_level = distance_index.is_snarl(child_handle) ? level + 1 : level;
+                    queue.push_back(make_tuple(child_handle, next_level, cur_ref_paths));
+                });
+            }
+        }
+
+        if (!nodes_to_remove.empty() || !edges_to_remove.empty()) {
+            cerr << "iteration " << iteration << ": deleting " << nodes_to_remove.size() << " nodes and "
+                 << edges_to_remove.size() << " edges" << endl;
+            // delete the nodes
+            delete_nodes_and_chop_paths(graph, nodes_to_remove, edges_to_remove, min_fragment_length);
+        } else {
+            break;
+        }
     }
 }
 

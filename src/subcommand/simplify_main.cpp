@@ -24,18 +24,19 @@ using namespace vg::subcommand;
 void help_simplify(char** argv) {
     cerr << "usage: " << argv[0] << " simplify [options] old.vg >new.vg" << endl
          << "general options:" << endl
-         << "    -a, --algorithm NAME   simplify using the given algorithm (path, small, rare; default: path)" << endl
+         << "    -a, --algorithm NAME   simplify using the given algorithm (small, rare; default: small)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
          << "    -p, --progress         show progress" << endl
          << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
          << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
          << "path snarl simplifier options:" << endl
          << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has < N bp (default: 10)" << endl
-         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
-         << "    -P, --path-prefix S    all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
+
          << "small snarl simplifier options:" << endl
-         << "    -m, --min-size N       remove leaf sites with fewer than N bases involved (default: 10)" << endl
+         << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl        
+         << "    -m, --min-size N       remove leaf sites with fewer than N bases (with -P, uses max allele length) involved (default: 10)" << endl
          << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
+         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl       
          << "rare variant simplifier options:" << endl
          << "    -v, --vcf FILE         use the given VCF file to determine variant frequency (required)" << endl
          << "    -f, --min-freq FLOAT   remove variants with total alt frequency under FLOAT (default: 0)" << endl
@@ -50,7 +51,7 @@ int main_simplify(int argc, char** argv) {
     }
 
     // What algorithm should we use for simplification ("path", "small" or "rare").
-    string algorithm = "path";
+    string algorithm = "small";
 
     // General options
     string bed_in_filename;
@@ -170,18 +171,33 @@ int main_simplify(int argc, char** argv) {
         exit(1);
     }
     
+    if (algorithm != "small" && !ref_path_prefix.empty()) {
+        cerr << "error[vg simplify]: Path simplification (-P) can only be used with -a small" << endl;
+        return 1;
+    }
+
+    if (algorithm == "small" && ref_path_prefix.empty()) {
+        cerr << "warning[vg simplify]: By not specifying a reference path (-P) you are using old logic which requires"
+             << " protobuf input, and scales very poorly" << endl;
+    }
+    
     // Load the graph
     unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-        if (algorithm == "path") {
+        if (!ref_path_prefix.empty()) {
             graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
         } else {
-            graph = unique_ptr<MutablePathDeletableHandleGraph>(new VG(in, show_progress));
+            try {
+                graph = unique_ptr<MutablePathDeletableHandleGraph>(new VG(in, show_progress));
+            } catch(...) {
+                cerr << "error[vg simplify]: Error loading input Protobuf graph.";
+                exit(1);
+            }
         }
     });
 
     if (graph == nullptr) {
-        cerr << "error:[vg simplify]: Could not load graph. Note that graph needs to be in VG Protobuf format when using \"small\" or \"rare\" algorithm." << endl;
+        cerr << "error[vg simplify]: Could not load graph." << endl;
         exit(1);
     }
 
@@ -195,14 +211,14 @@ int main_simplify(int argc, char** argv) {
         });
     }
 
-    if (algorithm == "path") {
+    if (!ref_path_prefix.empty()) {
         if (!vcf_filename.empty() || !bed_in_filename.empty() || !bed_out_filename.empty()) {
-            cerr << "error[vg simplify]: -v/-b/-B options cannot be used with path-based simplification" << endl;
+            cerr << "error[vg simplify]: -v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
             exit(1);
         }
 
         simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
-                                        ref_path_prefix, min_size, cluster_threshold, 100000);
+                                        ref_path_prefix, min_size, cluster_threshold, max_iterations, 100000);
 
         handlealgs::unchop(*graph);
         
@@ -255,7 +271,7 @@ int main_simplify(int argc, char** argv) {
     }
 
     // Serialize the graph
-    if (algorithm == "path") {
+    if (!ref_path_prefix.empty()) {
         vg::io::save_handle_graph(graph.get(), std::cout);
     } else {
         dynamic_cast<VG*>(graph.get())->serialize_to_ostream(std::cout);

@@ -110,6 +110,7 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
 void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const string& ref_path_prefix,
                                      int64_t min_snarl_length,
                                      double min_jaccard,
+                                     int64_t max_iterations,
                                      int64_t min_fragment_length);
 
 
