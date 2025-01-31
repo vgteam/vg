@@ -464,7 +464,7 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
     for (int64_t i = 0; i < ref_paths.size(); ++i) {
         ref_path_to_rank[ref_paths[i]] = i;
     }
-    out_ref_paths.clear();
+    out_ref_paths = ref_paths;
     
     // find the path traversals through the snarl
     vector<Traversal> path_travs;
@@ -599,7 +599,6 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
 
     // do the length simplification
     if (max_trav_length < min_snarl_length) {
-        out_ref_paths.push_back(ref_paths[ref_trav_rank]);
         simplify = true;
     } else if (level == 0) {
         // do snarl-clustering simplification. note this is only done
@@ -620,8 +619,7 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
             }
         }
 
-        // sort off-reference paths
-        map<string, path_handle_t> name_to_path;
+        unordered_set<path_handle_t> path_set(ref_paths.begin(), ref_paths.end());
         
         // some clustering was done, we flag all cluster references to keep, and remove everything else
         assert(trav_clusters[0][0] == ref_trav_indexes[0]); // we've already added ref cluster
@@ -635,12 +633,10 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
                     }
                 }
             }
-            name_to_path[trav_names[trav_clusters[i][0]]] = trav_paths[trav_clusters[i][0]];
-        }
-
-        out_ref_paths.push_back(ref_paths[ref_trav_rank]);
-        for (const auto& name_path : name_to_path) {
-            out_ref_paths.push_back(name_path.second);
+            if (!path_set.count(trav_paths[trav_clusters[i][0]])) {
+                out_ref_paths.push_back(trav_paths[trav_clusters[i][0]]);
+                path_set.insert(trav_paths[trav_clusters[i][0]]);
+            }
         }
     }
 
