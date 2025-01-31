@@ -33,10 +33,11 @@ void help_simplify(char** argv) {
          << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has < N bp (default: 10)" << endl
 
          << "small snarl simplifier options:" << endl
-         << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl        
+         << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
          << "    -m, --min-size N       remove leaf sites with fewer than N bases (with -P, uses max allele length) involved (default: 10)" << endl
          << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
-         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl       
+         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
+         << "    -k, --keep-paths       non-reference (as specified with -P) paths are removed by default. use this flag to keep them (but note that the resulting graph will be more complex and possibly more difficult to load)" << endl
          << "rare variant simplifier options:" << endl
          << "    -v, --vcf FILE         use the given VCF file to determine variant frequency (required)" << endl
          << "    -f, --min-freq FLOAT   remove variants with total alt frequency under FLOAT (default: 0)" << endl
@@ -61,6 +62,7 @@ int main_simplify(int argc, char** argv) {
     // for simplifying based on path traversals
     double cluster_threshold = 1.0;
     string ref_path_prefix;
+    bool keep_nonref_paths = false;
     
     // For simplifying small variants
     size_t min_size = 10;
@@ -87,13 +89,14 @@ int main_simplify(int argc, char** argv) {
                 {"min-freq", required_argument, 0, 'f'},
                 {"min-count", required_argument, 0, 'c'},
                 {"cluster", required_argument, 0, 'L'},
+                {"keep-paths", no_argument, 0, 'k'},
                 {"path-prefix", required_argument, 0, 'P'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:L:P:h?",
+        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:L:kP:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -130,6 +133,10 @@ int main_simplify(int argc, char** argv) {
         case 'L':
             cluster_threshold = parse<double>(optarg);
             break;
+
+        case 'k':
+            keep_nonref_paths = true;
+            break;            
 
         case 'P':
             ref_path_prefix = optarg;
@@ -220,6 +227,16 @@ int main_simplify(int argc, char** argv) {
         simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
                                         ref_path_prefix, min_size, cluster_threshold, max_iterations, 100000);
 
+        if (!keep_nonref_paths) {
+            vector<path_handle_t> to_destroy;
+            graph->for_each_path_handle([&](const path_handle_t path_handle) {
+                if (graph->get_path_name(path_handle).compare(0, ref_path_prefix.length(), ref_path_prefix) != 0) {
+                    to_destroy.push_back(path_handle);
+                }
+            });
+            graph->destroy_paths(to_destroy);            
+        }
+        
         handlealgs::unchop(*graph);
         
     } else if (algorithm == "small") {
