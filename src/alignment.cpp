@@ -1321,8 +1321,10 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
     // And find the distance
     int32_t dist = max_end - min_start;
     
-    if (pos1 < pos2) {
-        // Count read 1 as the overall "leftmost", so its value will be positive
+    if (bounds1.first < bounds2.first || (bounds1.first == bounds2.first && bounds1.second < bounds2.second)) {
+        // Count read 1 as the overall "leftmost" if it starts earlier or
+        // starts at the same point and ends earlier, so its value will be
+        // positive
         return make_pair(dist, -dist);
     } else {
         // Count read 2 as the overall leftmost

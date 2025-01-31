@@ -335,8 +335,8 @@ TEST_CASE("Template length for HTS output formats is outermost to outermost when
 
 TEST_CASE("Template length for HTS output formats is outermost to outermost when read 2 is a suffix of read 1", "[alignment][tlen]") {
     auto lengths = compute_template_lengths(1000, {{151, 'M'}}, 1141, {{10, 'M'}});
-    REQUIRE(lengths.first == -151); // Read 1 is the leftmost since it starts earliest
-    REQUIRE(lengths.second == 151);
+    REQUIRE(lengths.first == 151); // Read 1 is the leftmost since it starts earliest
+    REQUIRE(lengths.second == -151);
 }
 
 TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 and read 2 have identical coordinates", "[alignment][tlen]") {
