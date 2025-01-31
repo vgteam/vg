@@ -224,6 +224,8 @@ int main_simplify(int argc, char** argv) {
             exit(1);
         }
 
+        nid_t min_id = graph->min_node_id();
+        
         simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
                                         ref_path_prefix, min_size, cluster_threshold, max_iterations, 100000);
 
@@ -238,6 +240,11 @@ int main_simplify(int argc, char** argv) {
         }
         
         handlealgs::unchop(*graph);
+
+        if (graph->min_node_id() < min_id) {
+            // we want chromosome graphs to keep disjoint node ids, so we preserve the min_id            
+            graph->increment_node_ids(min_id - graph->min_node_id());
+        }
         
     } else if (algorithm == "small") {
         if (!vcf_filename.empty()) {
