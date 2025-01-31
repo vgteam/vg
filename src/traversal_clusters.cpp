@@ -534,6 +534,12 @@ static bool simplify_snarl_using_traversals(MutablePathMutableHandleGraph* graph
         }
     }
 
+    // revert to not snapping to reference path. because it can happen that there
+    // are huge nested snarls that due to clipping don't have any path. 
+    if (ref_trav_indexes.empty() && level > 0 && alphabetically_first_ref_trav_idx >= 0) {
+        ref_trav_indexes.push_back(alphabetically_first_ref_trav_idx);
+    }
+
     // if there are no reference paths, we bail
     // todo: we could relax this by using the alphabetical path
     if (ref_trav_indexes.empty()) {
