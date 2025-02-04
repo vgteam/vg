@@ -8,10 +8,10 @@
 #include "minimizer_mapper.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
-//#define debug_parse
+#define debug_parse
 
 // Set to compile in assertions to check the zipcode tree parsing logic
-//#define check_parse
+#define check_parse
 
 using namespace std;
 namespace vg {
@@ -1661,7 +1661,7 @@ ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_rever
     // As the end of the constructor, the iterator points to a seed that has been ticked and yielded, or is rend.
 #ifdef debug_parse
     if (this->it == rend) {
-        std::cerr << "Ran out of tree looking for first seed." << std::endl;
+        std::cerr << "Tree iteration halted looking for first seed." << std::endl;
     }
 #endif
 }
@@ -1707,7 +1707,7 @@ auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
     }
 #ifdef debug_parse
     if (it == rend) {
-        std::cerr << "Ran out of tree looking for next seed." << std::endl;
+        std::cerr << "Tree iteration halted looking for next seed." << std::endl;
     }
 #endif
     return *this;
@@ -1786,7 +1786,7 @@ auto ZipCodeTree::reverse_iterator::halt() -> void {
 
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
 #ifdef debug_parse
-    std::cerr << "Tick for state " << current_state << " on symbol " << it->get_type() << " at " << &*it << std::endl;
+    std::cerr << "Tick for state " << current_state << " on symbol " << it->get_type() << " at entry " << (rend - it + 1) << std::endl;
 #endif
     switch (current_state) {
     case S_START:
@@ -1836,6 +1836,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 // Running distance along chain is on stack, and will need to
                 // be added to all the stored distances.
                 // Note that there may be 0 stored distances if we are below the top-level snarl.
+#ifdef debug_parse
+                    std::cerr << "\tNever entered snarl; collect distances from zipcode tree." << std::endl;
+#endif
                 state(S_STACK_SNARL);
             } else {
                 // We did enter the parent snarl already.
@@ -1855,6 +1858,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                     // We never entered the parent snarl of this chain.
                     // So if the distance along the chain is too much, there
                     // are not going to be any results with a smaller distance.
+#ifdef debug_parse
+                    std::cerr << "Halt because adding " << it->get_value() << " bp gives distance " << top() << " > " << distance_limit << std::endl;
+#endif
                     halt();
                     // When we halt we have to return true to show the halting position.
                     return true;
@@ -1880,9 +1886,15 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // We need to add this actual number to parent running distance.
             // Duplicate parent running distance
+#ifdef debug_parse
+            std::cerr << "\tStacking edge for snarl with current depth " << depth() << std::endl;
+#endif
             dup();
             // Add in the edge value to make a running distance for the thing this edge is for.
             // Account for if the edge is actually unreachable.
+#ifdef debug_parse
+            std::cerr << "\tTo current running parent distance " << top() << " add edge " << it->get_value() << std::endl;
+#endif
             top() = SnarlDistanceIndex::sum(top(), it->get_value());
             // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
             swap();
