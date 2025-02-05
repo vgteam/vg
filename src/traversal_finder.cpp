@@ -3461,15 +3461,25 @@ GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) 
 pair<vector<Traversal>, vector<vector<gbwt::size_type>>>
 GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const handle_t& snarl_end, bool return_paths) {
 
+    auto reached_end = [&] (const vector<gbwt::node_type>& new_thread) {
+        // Determine if we reached the end
+        return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_end) &&
+            gbwt::Node::is_reverse(new_thread.back()) == graph.get_is_reverse(snarl_end);
+    };
+
+    auto reached_start = [&] (const vector<gbwt::node_type>& new_thread) {
+        // Determined if we reached the start in reverse
+        return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_start) &&
+            gbwt::Node::is_reverse(new_thread.back()) == !graph.get_is_reverse(snarl_start);
+    };
+
     // follow all gbwt threads from start to end
     vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > forward_traversals = list_haplotypes(
         graph,
         gbwt,                                                                                                   
         snarl_start,
-        [&] (const vector<gbwt::node_type>& new_thread) {
-            return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_end) &&
-                gbwt::Node::is_reverse(new_thread.back()) == graph.get_is_reverse(snarl_end);
-        });
+        reached_end
+    );
 
     // follow all gbwt threads from end to start
     vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > backward_traversals;
@@ -3478,10 +3488,8 @@ GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const han
             graph,
             gbwt,
             graph.flip(snarl_end),
-            [&] (const vector<gbwt::node_type>& new_thread) {
-                return gbwt::Node::id(new_thread.back()) == graph.get_id(snarl_start) &&
-                    gbwt::Node::is_reverse(new_thread.back()) == !graph.get_is_reverse(snarl_start);
-            });
+            reached_start
+        );
     }
 
     // store them all as snarltraversals
@@ -3491,6 +3499,11 @@ GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const han
 
     // copy the forward traversals from gbwt vectors to snarl traversals
     for (int i = 0; i < forward_traversals.size(); ++i) {
+        if (!reached_end(forward_traversals[i].first)) {
+            // Filter out traversals that did not make it to the end.
+            continue;
+        }
+
         traversals.emplace_back();
         for (auto j = forward_traversals[i].first.begin(); j != forward_traversals[i].first.end(); ++j) {
             traversals.back().push_back(graph.get_handle(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j)));
@@ -3510,6 +3523,10 @@ GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const han
         
         // copy and reverse the backward traversals into the snarl traversals
         for (int i = 0; i < backward_traversals.size(); ++i) {
+            if (!reached_start(backward_traversals[i].first)) {
+                // Filter out traversals that did not make it to the start.
+                continue;
+            }
 
             vector<gbwt::size_type> gbwt_path;
             if (return_paths) {
@@ -3528,7 +3545,8 @@ GBWTTraversalFinder::find_gbwt_traversals(const handle_t& snarl_start, const han
                                            const pair<vector<gbwt::node_type>, gbwt::SearchState>& t2) {
                                            return t1.first < t2.first; });
             if (si != forward_traversals.end() && si->first == backward_traversals[i].first) {
-                // we found and exact forward match, just add in the paths
+                // We found and exact forward match, just add in the paths.
+                // We know it's not one of the ones we left out for not reaching the end, because we started from the end.
                 if (return_paths) {
                     size_t idx = si - forward_traversals.begin();
                     gbwt_paths[idx].insert(gbwt_paths[idx].end(), gbwt_path.begin(), gbwt_path.end());
