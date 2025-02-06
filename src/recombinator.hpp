@@ -470,10 +470,11 @@ public:
         /// Number of subchains exceeding the badness threshold.
         size_t bad_subchains = 0;
 
-        /// Number of fragments.
+        /// Total number of fragments in the generated haplotypes.
         size_t fragments = 0;
 
         /// Number of top-level chains where full haplotypes were taken.
+        /// These are not counted as fragments.
         size_t full_haplotypes = 0;
 
         /// Number of haplotypes generated.
@@ -482,7 +483,7 @@ public:
         /// Number of additional haplotype fragments in bad subchains.
         size_t extra_fragments = 0;
 
-        /// Number of times a haplotype was extended from a subchain to the next subchain.
+        /// Number of times the same haplotype was extended from a subchain to the next subchain.
         size_t connections = 0;
 
         /// Number of reference paths included.
@@ -574,9 +575,10 @@ public:
      * (component).
      *
      * Each generated haplotype has a single source haplotype in each subchain.
-     * The subchains are connected by unary paths. Suffix / prefix subchains in
-     * the middle of a chain create fragment breaks. If the chain starts without
-     * a prefix (ends without a suffix), the haplotype chosen for the first (last)
+     * The source haplotype may consist of multiple fragments. Subchains are
+     * by unary paths. Suffix / prefix subchains in the middle of a chain create
+     * fragment breaks in every haplotype. If the chain starts without a prefix
+     * (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
      *
      * Throws `std::runtime_error` on error in single-threaded parts and exits
@@ -602,6 +604,7 @@ public:
 
     const gbwtgraph::GBZ& gbz;
     const Haplotypes& haplotypes;
+    gbwt::FragmentMap fragment_map;
     Verbosity verbosity;
 
 private:
