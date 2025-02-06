@@ -8,10 +8,10 @@
 #include "minimizer_mapper.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
-#define debug_parse
+//#define debug_parse
 
 // Set to compile in assertions to check the zipcode tree parsing logic
-#define check_parse
+//#define check_parse
 
 using namespace std;
 namespace vg {
