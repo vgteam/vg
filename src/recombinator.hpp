@@ -37,6 +37,9 @@ namespace vg {
  *
  * Versions:
  *
+ * * Version 4: Subchains can have fragmented haplotypes instead of a single
+ *   GBWT sequence always crossing from start to end. Compatible with version 3.
+ *
  * * Version 3: Subchains use smaller integers when possible. Compatible with
  *   version 2.
  *
@@ -64,7 +67,7 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 3;
+        constexpr static std::uint32_t VERSION = 4;
         constexpr static std::uint32_t MIN_VERSION = 1;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
@@ -132,7 +135,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        // TODO v3: Use an extra bit for each sequence to mark whether the presence for that sequence
+        // TODO v5: Use an extra bit for each sequence to mark whether the presence for that sequence
         // is stored explicitly or relative to the last explicit sequence.
         // We need to cluster the sequences by similarity and store the clusters consecutively.
         // And then use sd_vector for the sequences with relative presence.
@@ -372,6 +375,7 @@ public:
     Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
+    gbwt::FragmentMap fragment_map;
     const gbwt::FastLocate& r_index;
     const SnarlDistanceIndex& distance_index;
     const minimizer_index_type& minimizer_index;
@@ -388,29 +392,34 @@ private:
     // Partition the top-level chain into subchains.
     std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const;
 
-    // Return (SA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id
-    // and the number of the visit.
-    std::vector<sequence_type> get_sequence_visits(handle_t handle) const;
-
-    // Return (DA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id.
+    // Return (DA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id
+    // and the rank of the visit for the same sequence.
     std::vector<sequence_type> get_sequences(handle_t handle) const;
 
-    // Get all GBWT sequences crossing the subchain. The sequences will be at
-    // start for normal subchains and suffixes and at end for prefixes.
+    // Get all GBWT sequences crossing the subchain.
+    //
+    // * If the subchain is a prefix (suffix), the sequences will be at the end
+    //   (start) of the subchain.
+    // * If the subchain is normal, the sequences will be at the start and
+    //   correspond to minimal end-to-end visits to the subchain. A sequence
+    //   that ends within the subchain may be selected if subsequent fragments
+    //   of the same haplotype reach the end.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
 
     // Return the sorted set of kmers that are minimizers in the sequence and have
     // a single occurrence in the graph.
     std::vector<kmer_type> unique_minimizers(gbwt::size_type sequence_id) const;
 
-    // Count the number of minimizers in the sequence over the subchain with a single
-    // occurrence in the graph. Return the sorted set of kmers that are minimizers in
-    // the sequence over the subchain and have a single occurrence in the graph.
+    // Returns the sorted set of kmers that are minimizers in the sequence over the
+    // subchain and have a single occurrence in the graph. If the sequence does not
+    // reach the end of the subchain, this will try to continue with the next fragment(s).
+    //
+    // Also reports the number of fragments that were used to generate the kmers.
     //
     // To avoid using kmers shared between all haplotypes in the subchain, and
     // potentially with neighboring subchains, this does not include kmers contained
     // entirely in the shared initial/final nodes.
-    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain) const;
+    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain, size_t& fragments) const;
 
     // Build subchains for a specific top-level chain.
     void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
