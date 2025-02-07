@@ -2,13 +2,7 @@
  *
  * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
  *
- * TODO:
- *
- * 1. Option to sample non-contiguous haplotypes. This may be important in large
- *    snarls. Select a suffix of a fragment, all fragments fully within the snarl,
- *    and the prefix of the fragment exiting the snarl.
- *
- * 2. Tests for --linear-structure, --extra-fragments, and #1.
+ * TODO: Tests for --linear-structure, --extra-fragments, and fragmented haplotypes.
  */
 
 #include "subcommand.hpp"

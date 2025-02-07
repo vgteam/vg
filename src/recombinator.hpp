@@ -61,7 +61,10 @@ public:
         verbosity_detailed = 2,
 
         /// Basic information, detailed statistics, and debug information.
-        verbosity_debug = 3
+        verbosity_debug = 3,
+
+        /// Hidden level; potentially tens of thousands of lines of debugging information.
+        verbosity_extra_debug = 4
     };
 
     /// Header of the serialized file.

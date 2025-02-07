@@ -397,7 +397,7 @@ HaplotypePartitioner::HaplotypePartitioner(
     const minimizer_index_type& minimizer_index,
     Verbosity verbosity
 ) :
-    gbz(gbz), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_debug), r_index(r_index),
+    gbz(gbz), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_extra_debug), r_index(r_index),
     distance_index(distance_index), minimizer_index(minimizer_index),
     verbosity(verbosity)
 {
@@ -867,14 +867,15 @@ std::vector<std::string> generate_haplotype(
             if (single_fragment) {
                 break;
             }
-            // Try to continue with the next fragment.
-            sequence_id = partitioner.fragment_map.oriented_next(sequence_id);
-            if (sequence_id == gbwt::invalid_sequence()) {
-                break;
+            // Try to continue with the next non-empty fragment.
+            while (pos.first == gbwt::ENDMARKER) {
+                sequence_id = partitioner.fragment_map.oriented_next(sequence_id);
+                if (sequence_id == gbwt::invalid_sequence()) {
+                    break;
+                }
+                pos = partitioner.gbz.index.start(sequence_id);
             }
-            // FIXME: iterate if the next fragment is empty
-            pos = partitioner.gbz.index.start(sequence_id);
-            if (pos.first == gbwt::ENDMARKER) {
+            if (sequence_id == gbwt::invalid_sequence()) {
                 break;
             }
             haplotype.emplace_back();
@@ -1244,18 +1245,16 @@ void RecombinatorHaplotype::extend(sequence_type sequence, const Haplotypes::Sub
         if (this->position.first == gbwt::ENDMARKER) {
             gbwt::size_type prev = this->sequence_id;
             this->finish(false);
-            // FIXME: iterate if the next fragment is empty. but abort if there are too many empty fragments
-            gbwt::size_type next = this->recombinator.fragment_map.oriented_next(prev);
-            if (next == gbwt::invalid_sequence()) {
-                std::string msg = "Haplotype::extend(): no successor for GBWT sequence " + std::to_string(prev);
-                throw std::runtime_error(msg);
-            }
-            this->position = index.start(next);
-            if (this->position.first == gbwt::ENDMARKER) {
-                std::string msg = "Haplotype::extend(): empty successor for GBWT sequence " + std::to_string(prev);
-                throw std::runtime_error(msg);
-            }
-            this->sequence_id = next;
+            do {
+                // Find the next non-empty fragment.
+                this->sequence_id = this->recombinator.fragment_map.oriented_next(prev);
+                if (this->sequence_id == gbwt::invalid_sequence()) {
+                    std::string msg = "Haplotype::extend(): no successor for GBWT sequence " + std::to_string(prev);
+                    throw std::runtime_error(msg);
+                }
+                this->position = index.start(this->sequence_id);
+                prev = this->sequence_id;
+            } while (this->position.first == gbwt::ENDMARKER);
         }
         this->path.push_back(this->position.first);
     }
@@ -1433,7 +1432,7 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
 //------------------------------------------------------------------------------
 
 Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity) :
-    gbz(gbz), haplotypes(haplotypes), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_debug), verbosity(verbosity)
+    gbz(gbz), haplotypes(haplotypes), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_extra_debug), verbosity(verbosity)
 {
     if (this->verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Recombinator: " << this->gbz.index.metadata.paths() << " fragments for " << this->fragment_map.size() << " haplotype sequences" << std::endl;
