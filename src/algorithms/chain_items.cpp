@@ -197,12 +197,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                                  size_t max_read_lookback_bases) {
     
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, max_lookback_bases](const VectorView<Anchor>& to_chain,
-                                                        const SnarlDistanceIndex& distance_index,
-                                                        const HandleGraph& graph,
-                                                        size_t max_indel_bases,
-                                                        const transition_iteratee& callback) {
-                            
+    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
+        const VectorView<Anchor>& to_chain,
+        const SnarlDistanceIndex& distance_index,
+        const HandleGraph& graph,
+        size_t max_indel_bases,
+        const transition_iteratee& callback
+    ) {
+
         // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
         // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
         std::unordered_map<size_t, size_t> seed_to_starting;

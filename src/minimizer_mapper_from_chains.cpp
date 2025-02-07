@@ -632,7 +632,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
-                                   max_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
+                                   max_graph_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
     if (show_work) {
@@ -3195,6 +3195,8 @@ Alignment MinimizerMapper::find_chain_alignment(
         // We will measure the graph distance on the link path actually found, for work-showing.
         // This gets filled from either the WFA alignment we have already, or the BGA alignment we are about to compute.
         size_t link_graph_path_length;
+        // We also measure the score for work-showing.
+        int link_score;
 
         if (link_alignment) {
             // We found a link alignment
@@ -3224,7 +3226,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_graph_path_length = path_from_length(link_path);
                 append_path(composed_path, std::move(link_path));
             }
-            composed_score += link_alignment.score;
+
+            link_score = link_alignment.score;
+            composed_score += link_score;
         } else {
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
@@ -3289,13 +3293,14 @@ Alignment MinimizerMapper::find_chain_alignment(
             Path link_path(link_aln.path());
             link_graph_path_length = path_from_length(link_path);
             append_path(composed_path, std::move(link_path));
-            composed_score += link_aln.score();
+            link_score = link_aln.score();
+            composed_score += link_score;
         }
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_aln.score() << std::endl;
+                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
