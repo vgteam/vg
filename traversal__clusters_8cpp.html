@@ -78,6 +78,8 @@ $(function() {
 <code>#include &quot;<a class="el" href="integrated__snarl__finder_8hpp.html">integrated_snarl_finder.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__distance__index_8hpp.html">snarl_distance_index.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="clip_8hpp.html">clip.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="dfs_8hpp.html">algorithms/dfs.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -96,6 +98,8 @@ Functions</h2></td></tr>
 <tr class="separator:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adcc7a98e5291c4354fc575289cc50fe1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adcc7a98e5291c4354fc575289cc50fe1">vg::merge_equivalent_traversals_in_graph</a> (MutablePathHandleGraph *graph, const unordered_set&lt; path_handle_t &gt; &amp;selected_paths, bool use_snarl_manager)</td></tr>
 <tr class="separator:adcc7a98e5291c4354fc575289cc50fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a698043d83f7906c8e0d0306ce37237e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a698043d83f7906c8e0d0306ce37237e8">vg::simplify_graph_using_traversals</a> (MutablePathMutableHandleGraph *graph, const string &amp;ref_path_prefix, int64_t max_snarl_length, double min_jaccard, int64_t max_iterations, int64_t min_fragment_length)</td></tr>
+<tr class="separator:a698043d83f7906c8e0d0306ce37237e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

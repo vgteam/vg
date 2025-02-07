@@ -2524,6 +2524,8 @@ Functions</h2></td></tr>
 <tr class="separator:a1ac7d2a0833215a0628a25c8195a70ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adcc7a98e5291c4354fc575289cc50fe1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adcc7a98e5291c4354fc575289cc50fe1">merge_equivalent_traversals_in_graph</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *graph, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;selected_paths, bool use_snarl_manager)</td></tr>
 <tr class="separator:adcc7a98e5291c4354fc575289cc50fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a698043d83f7906c8e0d0306ce37237e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a698043d83f7906c8e0d0306ce37237e8">simplify_graph_using_traversals</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, const string &amp;ref_path_prefix, int64_t max_snarl_length, double min_jaccard, int64_t max_iterations, int64_t min_fragment_length)</td></tr>
+<tr class="separator:a698043d83f7906c8e0d0306ce37237e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplParams" colspan="2">template&lt;typename T , typename U &gt; </td></tr>
 <tr class="memitem:aff10785a6df2466c851785b406172e89"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff10785a6df2466c851785b406172e89">jaccard_coefficient</a> (const T &amp;target, const U &amp;query)</td></tr>
 <tr class="separator:aff10785a6df2466c851785b406172e89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -23535,6 +23537,60 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Remove edits in our graph that don't correspond to breakpoints (ie were effectively filtered out due to insufficient coverage. This way, subsequent logic in add_nodes_and_edges can be run correctly. Returns true if at least one edit survived the filter. </p>
+
+</div>
+</div>
+<a id="a698043d83f7906c8e0d0306ce37237e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a698043d83f7906c8e0d0306ce37237e8">&#9670;&nbsp;</a></span>simplify_graph_using_traversals()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::simplify_graph_using_traversals </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>ref_path_prefix</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_snarl_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>min_jaccard</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>max_iterations</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_fragment_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>for every snarl, bottom up, compute all the traversals through it. choose a reference traversal (using the prefix where possible), then if <br  />
+ </p>
 
 </div>
 </div>
