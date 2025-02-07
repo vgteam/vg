@@ -397,7 +397,7 @@ HaplotypePartitioner::HaplotypePartitioner(
     const minimizer_index_type& minimizer_index,
     Verbosity verbosity
 ) :
-    gbz(gbz), fragment_map(gbz.index.metadata), r_index(r_index),
+    gbz(gbz), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_debug), r_index(r_index),
     distance_index(distance_index), minimizer_index(minimizer_index),
     verbosity(verbosity)
 {
@@ -1433,7 +1433,7 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
 //------------------------------------------------------------------------------
 
 Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, Verbosity verbosity) :
-    gbz(gbz), haplotypes(haplotypes), fragment_map(gbz.index.metadata), verbosity(verbosity)
+    gbz(gbz), haplotypes(haplotypes), fragment_map(gbz.index.metadata, verbosity >= Haplotypes::verbosity_debug), verbosity(verbosity)
 {
     if (this->verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Recombinator: " << this->gbz.index.metadata.paths() << " fragments for " << this->fragment_map.size() << " haplotype sequences" << std::endl;
