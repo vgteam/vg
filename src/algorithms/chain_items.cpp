@@ -191,7 +191,11 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
     return iterator;
 }
 
-transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+                                                 const ZipCodeTree& zip_code_tree,
+                                                 size_t max_graph_lookback_bases,
+                                                 size_t max_read_lookback_bases) {
+    
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
     return [&seeds, &zip_code_tree, max_lookback_bases](const VectorView<Anchor>& to_chain,
                                                         const SnarlDistanceIndex& distance_index,
@@ -232,6 +236,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // Not reachable in read
 #ifdef debug_transition
                 std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+                return;
+            }
+
+            if (read_distance > max_read_lookback_bases) {
+                // Too far in read to consider
+#ifdef debug_transition
+                std::cerr << "\tToo far apart in read (" << read_distance << "/" << max_read_lookback_bases << ")." << std::endl;
 #endif
                 return;
             }
@@ -313,12 +325,12 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
 #endif
 
-            for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
+            for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_graph_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
 
 #ifdef debug_transition
-                std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases;
+                std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_graph_lookback_bases;
 #endif
 
                 if (!source_seed.is_reverse && !dest_seed.is_reverse) {
@@ -343,7 +355,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
-                    // We need to find source as an anchor *started*, and thensave them flipped for later.
+                    // We need to find source as an anchor *started*, and then save them flipped for later.
                     auto found_source_anchor = seed_to_starting.find(source_seed.seed);
                     if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
@@ -367,7 +379,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             }
         }
 
-        // Sort the transitions so we handle them in akl allowed order for dynamic programming.
+        // Sort the transitions so we handle them in an allowed order for dynamic programming.
+        // TODO: Should we drop things obviously not reachable in the read before sorting to save time?
         std::sort(all_transitions.begin(), all_transitions.end(), [&](const std::tuple<size_t, size_t, size_t>& a, const std::tuple<size_t, size_t, size_t>& b) {
             // Return true if a's destination seed is before b's in the read, and false otherwise.
             return to_chain[get<1>(a)].read_start() < to_chain[get<1>(b)].read_start();

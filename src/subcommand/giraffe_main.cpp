@@ -381,16 +381,28 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "do gapless extension to seeds in a tree before fragmenting if the read length is less than this"
     );
     chaining_opts.add_range(
-        "fragment-max-lookback-bases",
-        &MinimizerMapper::fragment_max_lookback_bases,
-        MinimizerMapper::default_fragment_max_lookback_bases,
-        "maximum distance to look back when making fragments"
+        "fragment-max-graph-lookback-bases",
+        &MinimizerMapper::fragment_max_graph_lookback_bases,
+        MinimizerMapper::default_fragment_max_graph_lookback_bases,
+        "maximum distance to look back in the graph when making fragments"
     );
     chaining_opts.add_range(
-        "fragment-max-lookback-bases-per-base",
-        &MinimizerMapper::fragment_max_lookback_bases_per_base,
-        MinimizerMapper::default_fragment_max_lookback_bases_per_base,
-        "maximum distance to look back when making fragments, per base"
+        "fragment-max-graph-lookback-bases-per-base",
+        &MinimizerMapper::fragment_max_graph_lookback_bases_per_base,
+        MinimizerMapper::default_fragment_max_graph_lookback_bases_per_base,
+        "maximum distance to look back in the graph when making fragments, per base"
+    );
+    chaining_opts.add_range(
+        "fragment-max-read-lookback-bases",
+        &MinimizerMapper::fragment_max_read_lookback_bases,
+        MinimizerMapper::default_fragment_max_read_lookback_bases,
+        "maximum distance to look back in the read when making fragments"
+    );
+    chaining_opts.add_range(
+        "fragment-max-read-lookback-bases-per-base",
+        &MinimizerMapper::fragment_max_read_lookback_bases_per_base,
+        MinimizerMapper::default_fragment_max_read_lookback_bases_per_base,
+        "maximum distance to look back in the read when making fragments, per base"
     );
     chaining_opts.add_range(
         "max-fragments",
@@ -465,16 +477,28 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         int_is_nonnegative
     );
     chaining_opts.add_range(
-        "max-lookback-bases",
-        &MinimizerMapper::max_lookback_bases,
-        MinimizerMapper::default_max_lookback_bases,
-        "maximum distance to look back when chaining"
+        "max-graph-lookback-bases",
+        &MinimizerMapper::max_graph_lookback_bases,
+        MinimizerMapper::default_max_graph_lookback_bases,
+        "maximum distance to look back in the graph when chaining"
     );
     chaining_opts.add_range(
-        "max-lookback-bases-per-base",
-        &MinimizerMapper::max_lookback_bases_per_base,
-        MinimizerMapper::default_max_lookback_bases_per_base,
-        "maximum distance to look back when chaining, per read base"
+        "max-graph-lookback-bases-per-base",
+        &MinimizerMapper::max_graph_lookback_bases_per_base,
+        MinimizerMapper::default_max_graph_lookback_bases_per_base,
+        "maximum distance to look back in the graph when chaining, per read base"
+    );
+    chaining_opts.add_range(
+        "max-read-lookback-bases",
+        &MinimizerMapper::max_read_lookback_bases,
+        MinimizerMapper::default_max_read_lookback_bases,
+        "maximum distance to look back in the read when chaining"
+    );
+    chaining_opts.add_range(
+        "max-read-lookback-bases-per-base",
+        &MinimizerMapper::max_read_lookback_bases_per_base,
+        MinimizerMapper::default_max_read_lookback_bases_per_base,
+        "maximum distance to look back in the read when chaining, per read base"
     );
     chaining_opts.add_range(
         "max-indel-bases",
@@ -919,8 +943,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("zipcode-tree-scale", 2.0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 15)
-        .add_entry<size_t>("fragment-max-lookback-bases", 500)
-        .add_entry<double>("fragment-max-lookback-bases-per-base", 0.025)
+        .add_entry<size_t>("fragment-max-graph-lookback-bases", 500)
+        .add_entry<double>("fragment-max-graph-lookback-bases-per-base", 0.025)
         .add_entry<size_t>("max-fragments", 15000)
         .add_entry<size_t>("fragment-max-indel-bases", 15000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0.1)
@@ -931,8 +955,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-set-score-threshold", 70.0)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-lookback-bases", 20000)
-        .add_entry<double>("max-lookback-bases-per-base", 0.10501002120802233)
+        .add_entry<size_t>("max-graph-lookback-bases", 20000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
@@ -981,8 +1005,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 15)
-        .add_entry<size_t>("fragment-max-lookback-bases", 500)
-        .add_entry<double>("fragment-max-lookback-bases-per-base", 0.025)
+        .add_entry<size_t>("fragment-max-graph-lookback-bases", 500)
+        .add_entry<double>("fragment-max-graph-lookback-bases-per-base", 0.025)
         .add_entry<size_t>("max-fragments", 15000)
         .add_entry<size_t>("fragment-max-indel-bases", 15000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0.1)
@@ -993,8 +1017,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-set-score-threshold", 70)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-lookback-bases", 20000)
-        .add_entry<double>("max-lookback-bases-per-base", 0.10501002120802233)
+        .add_entry<size_t>("max-graph-lookback-bases", 20000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
@@ -1046,8 +1070,8 @@ int main_giraffe(int argc, char** argv) {
         // And fragment them
         .add_entry<double>("fragment-gap-scale", 4.75)
         .add_entry<double>("gap-scale", 2.2)
-        .add_entry<size_t>("fragment-max-lookback-bases", 300)
-        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<size_t>("fragment-max-graph-lookback-bases", 300)
+        .add_entry<double>("fragment-max-graph-lookback-bases-per-base", 0)
         .add_entry<size_t>("fragment-max-indel-bases", 3000)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         // And take those to chains
@@ -1057,8 +1081,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 7)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-lookback-bases", 1000)
-        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<size_t>("max-graph-lookback-bases", 1000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
         .add_entry<size_t>("max-indel-bases", 1600)
         .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<double>("chain-score-threshold", 100.0)
@@ -1088,14 +1112,14 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("mapq-score-scale", 1.0)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
-        .add_entry<double>("fragment-max-lookback-bases-per-base", 0)
+        .add_entry<double>("fragment-max-graph-lookback-bases-per-base", 0)
         .add_entry<double>("fragment-max-indel-bases-per-base", 0)
         .add_entry<double>("fragment-score-fraction", 0.8)
         .add_entry<double>("fragment-min-score", 0)
         .add_entry<double>("fragment-set-score-threshold", std::numeric_limits<double>::max())
         .add_entry<int>("min-chaining-problems", 1)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<double>("max-lookback-bases-per-base", 0)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
         .add_entry<double>("max-indel-bases-per-base", 0)
         .add_entry<int>("min-chains", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
