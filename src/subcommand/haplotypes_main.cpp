@@ -3,6 +3,8 @@
  * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
  *
  * TODO: Tests for --linear-structure, --extra-fragments, and fragmented haplotypes.
+ *
+ * TODO: Accept fragmented haplotypes only when they are entirely within the subchain.
  */
 
 #include "subcommand.hpp"
@@ -866,49 +868,78 @@ std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_
 }
 
 // Returns true if the path from (start, offset) reaches end without revisiting start.
-bool trace_path(const gbwt::GBWT& index, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end) {
+// The path may continue in subsequent fragments.
+bool trace_path(
+    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map,
+    gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end
+) {
     gbwt::edge_type pos(start, offset);
     while (pos.first != end) {
         pos = index.LF(pos);
-        if (pos.first == gbwt::ENDMARKER || pos.first == start) {
+        if (pos.first == gbwt::ENDMARKER) {
+            do {
+                sequence_id = fragment_map.oriented_next(sequence_id);
+                if (sequence_id == gbwt::invalid_sequence()) {
+                    return false;
+                }
+                pos = index.start(sequence_id);
+            }
+            while (pos.first == gbwt::ENDMARKER);
+        }
+        if (pos.first == start) {
             return false;
         }
     }
     return true;
 }
 
-// Returns the given haplotype over the given subchain.
-std::string get_haplotype(const gbwtgraph::GBWTGraph& graph, Haplotypes::sequence_type sequence,
-                          gbwt::node_type from, gbwt::node_type to, size_t k) {
-    std::string haplotype;
+// Returns the given (possibly fragmented) haplotype over the given subchain.
+std::vector<std::string> get_haplotype(
+    const gbwtgraph::GBWTGraph& graph, const gbwt::FragmentMap& fragment_map,
+    Haplotypes::sequence_type sequence, gbwt::node_type from, gbwt::node_type to, size_t k
+) {
+    std::vector<std::string> haplotype;
     gbwt::edge_type pos;
+    bool multiple_fragments = (from != gbwt::ENDMARKER && to != gbwt::ENDMARKER);
+    haplotype.emplace_back();
 
     // Initial node with three cases (from start, suffix of a long `from`, short `from`).
     if (from == gbwt::ENDMARKER) {
         pos = graph.index->start(sequence.first);
         gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
-        haplotype.append(view.first, view.second);
+        haplotype.back().append(view.first, view.second);
     } else {
         pos = gbwt::edge_type(from, sequence.second);
         gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
         if (view.second >= k) {
-            haplotype.append(view.first + view.second - (k - 1), k - 1);
+            haplotype.back().append(view.first + view.second - (k - 1), k - 1);
         } else {
-            haplotype.append(view.first, view.second);
+            haplotype.back().append(view.first, view.second);
         }
     }
 
     while (true) {
         pos = graph.index->LF(pos);
         if (pos.first == gbwt::ENDMARKER) {
-            break;
+            if (!multiple_fragments) {
+                break;
+            }
+            do {
+                sequence.first = fragment_map.oriented_next(sequence.first);
+                if (sequence.first == gbwt::invalid_sequence()) {
+                    break;
+                }
+                pos = graph.index->start(sequence.first);
+            }
+            while (pos.first == gbwt::ENDMARKER);
+            haplotype.emplace_back();
         }
         gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
         if (pos.first == to) {
-            haplotype.append(view.first, std::min(view.second, k - 1));
+            haplotype.back().append(view.first, std::min(view.second, k - 1));
             break;
         } else {
-            haplotype.append(view.first, view.second);
+            haplotype.back().append(view.first, view.second);
         }
     }
 
@@ -917,6 +948,7 @@ std::string get_haplotype(const gbwtgraph::GBWTGraph& graph, Haplotypes::sequenc
 
 void validate_chain(const Haplotypes::TopLevelChain& chain,
                     const gbwtgraph::GBWTGraph& graph,
+                    const gbwt::FragmentMap& fragment_map,
                     const gbwt::FastLocate& r_index,
                     const HaplotypePartitioner::minimizer_index_type& minimizer_index,
                     size_t chain_id,
@@ -979,7 +1011,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
             std::vector<gbwt::size_type> da = r_index.decompressDA(subchain.start);
             hash_set<Haplotypes::sequence_type> selected;
             for (size_t i = 0; i < da.size(); i++) {
-                if (trace_path(*(graph.index), subchain.start, i, subchain.end)) {
+                if (trace_path(*(graph.index), fragment_map, da[i], subchain.start, i, subchain.end)) {
                     selected.insert(Haplotypes::sequence_type(da[i], i));
                 }
             }
@@ -1035,12 +1067,17 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
             hash_map<Haplotypes::Subchain::kmer_type, size_t> used_kmers; // (kmer used in haplotypes, number of sequences that contain it)
             hash_map<Haplotypes::Subchain::kmer_type, size_t> missing_kmers; // (kmer not used in haplotypes, number of sequences that contain it)
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
-                std::string haplotype = get_haplotype(graph, subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k());
-                auto minimizers = minimizer_index.minimizers(haplotype);
+                std::vector<std::string> haplotype = get_haplotype(
+                    graph, fragment_map,
+                    subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k()
+                );
                 hash_map<Haplotypes::Subchain::kmer_type, bool> unique_minimizers; // (kmer, used in the sequence)
-                for (auto& minimizer : minimizers) {
-                    if (minimizer_index.count(minimizer) == 1) {
-                        unique_minimizers[minimizer.key.get_key()] = false;
+                for (const std::string& sequence : haplotype) {
+                    auto minimizers = minimizer_index.minimizers(sequence);
+                    for (auto& minimizer : minimizers) {
+                        if (minimizer_index.count(minimizer) == 1) {
+                            unique_minimizers[minimizer.key.get_key()] = false;
+                        }
                     }
                 }
                 for (size_t j = 0, offset = i * subchain.kmers.size(); j < subchain.kmers.size(); j++, offset++) {
@@ -1141,16 +1178,20 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     if (verbosity >= HaplotypePartitioner::Verbosity::verbosity_detailed) {
         std::cerr << "Validating subchains, sequences, and kmers" << std::endl;
     }
+    gbwt::FragmentMap fragment_map(graph.index->metadata, false);
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t chain = 0; chain < haplotypes.components(); chain++) {
-        validate_chain(haplotypes.chains[chain], graph, r_index, minimizer_index, chain, verbosity);
+        validate_chain(haplotypes.chains[chain], graph, fragment_map, r_index, minimizer_index, chain, verbosity);
     }
 
-    // Kmers are globally unique.
+    // Kmers should be globally unique. But if there are fragmented haplotypes with 3 or more fragments
+    // in a subchain, the middle fragment(s) may actually overlap other subchains. Additionally,
+    // because the kmers we use are minimizers, they could occur elsewhere as non-minimizers.
     if (verbosity >= HaplotypePartitioner::Verbosity::verbosity_detailed) {
         std::cerr << "Validating kmer specificity" << std::endl;
     }
     hash_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
+    size_t collisions = 0, total_kmers = 0;
     for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
         const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
@@ -1163,15 +1204,18 @@ void validate_haplotypes(const Haplotypes& haplotypes,
                         // A prefix subchain may overlap the preceding suffix subchain and
                         // contain the same kmers.
                     } else {
-                        std::string message = subchain.to_string() + ": kmer " + std::to_string(i) + " also found in " + subchain_to_string(iter->second.first, iter->second.second, prev);
-                        validate_error_subchain(chain_id, subchain_id, message);
+                        collisions++;
                     }
                 }
                 kmers[subchain.kmers[i]] = { chain_id, subchain_id };
             }
+            total_kmers += subchain.kmers.size();
         }
     }
     kmers.clear();
+    if (collisions > 0) {
+        std::cerr << "warning: [vg haplotypes] found " << collisions << " kmer collisions out of " << total_kmers << std::endl;
+    }
 
     if (verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
