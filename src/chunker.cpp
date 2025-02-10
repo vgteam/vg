@@ -95,31 +95,51 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     size_t min_start = std::numeric_limits<size_t>::max();
     size_t max_end = 0;
 
+    // We use this to make sure we have a path end
+    auto populate_subrange_end = [](const PathHandleGraph& g, subrange_t& subrange, const path_handle_t& path) {
+        if (subrange.second == PathMetadata::NO_END_POSITION) {
+            // Compute a length and use that to get the end.
+            // TODO: Sniff for an efficient/available get_path_length.
+            size_t path_length = 0;
+            for (handle_t handle : g.scan_path(path)) {
+                path_length += g.get_length(handle);
+            }
+            subrange.second = subrange.first + path_length;
+        }
+    };
+
     subgraph.for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t subpath) {
         if (subgraph.get_haplotype(subpath) != haplotype || subgraph.get_phase_block(subpath) != phase_block) {
             // Skip this subpath since it's not the right phase/fragment
             return true;
         }
 
+        #ifdef debug
+        #pragma omp critical(cerr)
+        {
+            std::cerr << "Consider new subpath " << subgraph.get_path_name(subpath) << std::endl;
+        }
+        #endif
+
         subrange_t subpath_subrange = subgraph.get_subrange(subpath);
         if (subpath_subrange == PathMetadata::NO_SUBRANGE) {
             // Fill in a 0 start
             subpath_subrange.first = 0;
         }
-        if (subpath_subrange.second == PathMetadata::NO_END_POSITION) {
-            // Compute a length and use that to get the end.
-            // TODO: Sniff for an efficient/available get_path_length.
-            size_t path_length = 0;
-            for (handle_t handle : subgraph.scan_path(subpath)) {
-                path_length += subgraph.get_length(handle);
-            }
-            subpath_subrange.second = subpath_subrange.first + path_length;
-        }
+        populate_subrange_end(subgraph, subpath_subrange, subpath);
 
         if (subpath_subrange.first >= target_subrange.second || subpath_subrange.second <= target_subrange.first) {
             // This subpath doesn't actually overlap the selected target base path
             // subrange (which is 0-based, end-exclusive), and so shouldn't count
             // for extending the selected region along the target path.
+            
+            #ifdef debug
+            #pragma omp critical(cerr)
+            {
+                std::cerr << "\tSkip it" << std::endl;
+            }
+            #endif
+
             return true;
         }
 
@@ -133,15 +153,19 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     // TODO: We assume we actually found some of the target path
     crash_unless(min_start != std::numeric_limits<size_t>::max());
 
-    // Hackily remove source path subrange offsets if any
-    subrange_t source_subrange = graph->get_subrange(path_handle);
-    if (source_subrange != PathMetadata::NO_SUBRANGE) {
-        // If we requested something on this path region, we can't handle
-        // finding part of an earlier path region.
-        // TODO: Handle it.
-        crash_unless(min_start <= source_subrange.first);
-        min_start -= source_subrange.first;
-        max_end -= source_subrange.first;
+    if (base_path_subrange != PathMetadata::NO_SUBRANGE) {
+        // Our input region was on a path with a subrange, so we want our output region to be relative to (and within) that.
+        
+        // Make sure we have an end
+        populate_subrange_end(*graph, base_path_subrange, path_handle);
+
+        // We can't expand beyond its bounds and still say we pulled a range on it, so restrict to them.
+        min_start = std::max(min_start, base_path_subrange.first);
+        max_end = std::min(max_end, base_path_subrange.second);
+
+        // Remove offset from containing path subrange
+        min_start -= base_path_subrange.first;
+        max_end -= base_path_subrange.first;
     }
 
     // We can't represent a region with a 0 end-exclusive coordinate.

@@ -665,7 +665,7 @@ int main_chunk(int argc, char** argv) {
                          << " which has length " << graph->get_path_length(graph->get_path_handle(region.seq)) << endl;
                 } else {
                     // The path isn't therr or the containing subpath isn't there.
-                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end << " not contained in any graph path" << endl;
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end << " not contained by any graph path" << endl;
                 }
                 return 1;
             }
