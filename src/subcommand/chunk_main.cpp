@@ -12,6 +12,7 @@
 
 #include "subcommand.hpp"
 
+#include "../crash.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/stream_multiplexer.hpp>
@@ -21,6 +22,7 @@
 #include "../stream_index.hpp"
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
+#include "../path.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/find_gbwt.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -596,29 +598,76 @@ int main_chunk(int argc, char** argv) {
     }
 
     // validate and fill in sizes for regions that span entire path
-    function<size_t(const string&)> get_path_length = [&](const string& path_name) {
+    function<size_t(const path_handle_t&)> get_path_length = [&](const path_handle_t& path_handle) {
         size_t path_length = 0;
-        for (handle_t handle : graph->scan_path(graph->get_path_handle(path_name))) {
+        for (handle_t handle : graph->scan_path(path_handle)) {
             path_length += graph->get_length(handle);
         }
         return path_length;
     };
     if (!id_range) {
         for (auto& region : regions) {
-            if (!graph->has_path(region.seq)) {
-                cerr << "error[vg chunk]: input path " << region.seq << " not found in graph" << endl;
-                return 1;
-            }
-            region.start = max((int64_t)0, region.start);
-            if (region.end == -1) {
-                region.end = get_path_length(region.seq) - 1;
-            } else if (!id_range && !components) {
-                if (region.start < 0 || region.end >= get_path_length(region.seq)) {
-                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
-                         << " is out of bounds of path " << region.seq << " which has length "<< get_path_length(region.seq)
-                         << endl;
-                    return -1;
+            // We want to find the path handle and infer or adjust the coordinates on it for the region.
+            path_handle_t region_path;
+            bool found_contained = false;
+            // We might be asking for a part of a subpath, or a part of a base path.
+            if (graph->has_path(region.seq)) {
+                // It's a base path we have all of, or a subpath we have exactly.
+                region_path = graph->get_path_handle(region.seq);
+
+                if (region.end == -1) {
+                    // Infer the region endpoint from the path
+                    region.end = graph->get_path_length(region_path) - 1;
                 }
+
+                // The region start point will be 0 if not set.
+                region.start = max((int64_t)0, region.start);
+
+                found_contained = true;
+            } else if (region.start < 0 || region.end < 0) {
+                // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
+                // Guessing what the user wants would be hard, so stop.
+                cerr << "error[vg chunk]: input path " << region.seq << " not found exactly in graph and region coordinates are not completely specified" << endl;
+                return 1;
+            } else {
+                // Maybe it's a base path and we only have a subpath.
+                for_each_subpath_of(*graph, region.seq, [&](const path_handle_t& candidate) {
+                    // We should have some subrange if we get here. Also the region coiordunates are specified.
+                    subrange_t candidate_subrange = graph->get_subrange(candidate);
+                    crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
+                    if (candidate_subrange.first <= region.start && candidate_subrange.first + candidate_subrange.second >= region.end) {
+                        // The subranges are 0-based exclusive and the regions are 0-based exclusive.
+                        // TODO: Is this true???
+                        // This subrange fully contains this region.
+                        region_path = candidate;
+
+                        // Adjust the name to match the subpath exactly
+                        region.seq = graph->get_path_name(region_path);
+
+                        // Adjust start and end to be relative to the subpath.
+                        // We know they're set to numbers already.
+                        region.start -= candidate_subrange.first;
+                        region.end -= candidate_subrange.first;
+
+                        found_contained = true;
+                        // Use first result
+                        return false;
+                    }
+                    return true;
+                });
+            }
+
+            if (!found_contained) {
+                if (graph->has_path(region.seq)) {
+                    // This is just an out of range request
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
+                         << " is out of bounds of path " << region.seq
+                         << " which has length " << graph->get_path_length(graph->get_path_handle(region.seq)) << endl;
+                } else {
+                    // The path isn't therr or the containing subpath isn't there.
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end << " not contained in any graph path" << endl;
+                }
+                return 1;
             }
         }
     }
