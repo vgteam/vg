@@ -609,65 +609,38 @@ int main_chunk(int argc, char** argv) {
         for (auto& region : regions) {
             // We want to find the path handle and infer or adjust the coordinates on it for the region.
             path_handle_t region_path;
-            bool found_contained = false;
-            // We might be asking for a part of a subpath, or a part of a base path.
-            if (graph->has_path(region.seq)) {
-                // It's a base path we have all of, or a subpath we have exactly.
-                region_path = graph->get_path_handle(region.seq);
-
-                if (region.end == -1) {
-                    // Infer the region endpoint from the path
-                    region.end = graph->get_path_length(region_path) - 1;
-                }
-
-                // The region start point will be 0 if not set.
-                region.start = max((int64_t)0, region.start);
-
-                found_contained = true;
-            } else if (region.start < 0 || region.end < 0) {
-                // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
-                // Guessing what the user wants would be hard, so stop.
-                cerr << "error[vg chunk]: input path " << region.seq << " not found exactly in graph and region coordinates are not completely specified" << endl;
-                return 1;
-            } else {
-                // Maybe it's a base path and we only have a subpath.
-                for_each_subpath_of(*graph, region.seq, [&](const path_handle_t& candidate) {
-                    // We should have some subrange if we get here. Also the region coiordunates are specified.
-                    subrange_t candidate_subrange = graph->get_subrange(candidate);
-                    crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
-                    if (candidate_subrange.first <= region.start && candidate_subrange.first + candidate_subrange.second >= region.end) {
-                        // The subranges are 0-based exclusive and the regions are 0-based exclusive.
-                        // TODO: Is this true???
-                        // This subrange fully contains this region.
-                        region_path = candidate;
-
-                        // Adjust the name to match the subpath exactly
-                        region.seq = graph->get_path_name(region_path);
-
-                        // Adjust start and end to be relative to the subpath.
-                        // We know they're set to numbers already.
-                        region.start -= candidate_subrange.first;
-                        region.end -= candidate_subrange.first;
-
-                        found_contained = true;
-                        // Use first result
-                        return false;
-                    }
-                    return true;
-                });
-            }
-
+            bool found_contained = find_containing_subpath(*graph, region, region_path);
             if (!found_contained) {
-                if (graph->has_path(region.seq)) {
+                // We can't find this region.
+                if (region.start < 0 || region.end < 0) {
+                    // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
+                    // Guessing what the user wants would be hard, so stop.
+                    cerr << "error[vg chunk]: input path " << region.seq << " not found exactly in graph and region coordinates are not completely specified" << endl;
+                    return 1;
+                } else if (graph->has_path(region.seq)) {
                     // This is just an out of range request
                     cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
                          << " is out of bounds of path " << region.seq
                          << " which has length " << graph->get_path_length(graph->get_path_handle(region.seq)) << endl;
                 } else {
-                    // The path isn't therr or the containing subpath isn't there.
+                    // The path isn't there or the containing subpath isn't there.
                     cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end << " not contained by any graph path" << endl;
                 }
                 return 1;
+            }
+            
+            subrange_t candidate_subrange = graph->get_subrange(region_path);
+            if (graph->get_path_name(region_path) != region.seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
+                // We found a subpath when we asked for a longer path's region.
+                // Change the region to be on the subpath.
+
+                // Adjust the name to match the subpath exactly
+                region.seq = graph->get_path_name(region_path);
+
+                // Adjust start and end to be relative to the subpath.
+                // We know they're set to numbers already.
+                region.start -= candidate_subrange.first;
+                region.end -= candidate_subrange.first;
             }
         }
     }
@@ -812,9 +785,30 @@ int main_chunk(int argc, char** argv) {
                 trace_start = output_regions[i].start;
                 trace_steps = output_regions[i].end - trace_start;
             } else {
-                path_handle_t path_handle = graph->get_path_handle(output_regions[i].seq);
-                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, output_regions[i].start);
-                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, output_regions[i].end);
+                // TODO: Instead of tracing from the start, just get a sub-GBWT on the subgraph.
+                
+                // For now, we start tracing at the expanded start point along the target path.
+                //
+                // output_regions is in base path space, so its seq may not
+                // name an extant subpath. But we know the region is contained within one.
+                path_handle_t path_handle;
+                // TODO: We know this won't end up rewriting the region bounds but it's still weird to give it a mutable region.
+                bool found_contained = find_containing_subpath(*graph, output_regions[i], path_handle);
+                crash_unless(found_contained);
+
+                size_t trace_start = output_regions[i].start;
+                size_t trace_end = output_regions[i].end;
+
+                subrange_t candidate_subrange = graph->get_subrange(path_handle);
+                if (graph->get_path_name(path_handle) != output_regions[i].seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
+                    // We need to use offsets along the subpath and not the base path.
+                    // But don't rewrite the original region.
+                    trace_start -= candidate_subrange.first;
+                    trace_end -= candidate_subrange.first;
+                }
+                
+                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, trace_start);
+                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, trace_end);
                 // make sure we don't loop forever in next loop
                 if (output_regions[i].start > output_regions[i].end) {
                     swap(trace_start_step, trace_end_step);

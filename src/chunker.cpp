@@ -23,9 +23,13 @@ PathChunker::~PathChunker() {
 
 void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_t length, bool forward_only,
                                    MutablePathMutableHandleGraph& subgraph, Region& out_region) {
+
+    // Output region must be empty. We fill it in.
+    crash_unless(out_region.seq.empty());
     
     // extract our path range into the graph
     // TODO: Handle incoming names with subranges when they aren't exactly the names of paths we have.
+    crash_unless(graph->has_path(region.seq));
     path_handle_t path_handle = graph->get_path_handle(region.seq);
     step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
     handle_t start_handle = graph->get_handle_of_step(start_step);
@@ -152,27 +156,12 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
 
     // TODO: We assume we actually found some of the target path
     crash_unless(min_start != std::numeric_limits<size_t>::max());
-
-    if (base_path_subrange != PathMetadata::NO_SUBRANGE) {
-        // Our input region was on a path with a subrange, so we want our output region to be relative to (and within) that.
-        
-        // Make sure we have an end
-        populate_subrange_end(*graph, base_path_subrange, path_handle);
-
-        // We can't expand beyond its bounds and still say we pulled a range on it, so restrict to them.
-        min_start = std::max(min_start, base_path_subrange.first);
-        max_end = std::min(max_end, base_path_subrange.second);
-
-        // Remove offset from containing path subrange
-        min_start -= base_path_subrange.first;
-        max_end -= base_path_subrange.first;
-    }
-
     // We can't represent a region with a 0 end-exclusive coordinate.
     crash_unless(max_end != 0);
 
-    // Produce the output region. Convert coordinates to be 0-based, end-inclusive.
-    out_region.seq = region.seq;
+    // Express the output region against the base path, if different from the target path with its subrange.
+    out_region.seq = get_path_base_name(*graph, path_handle);
+    // Convert coordinates to be 0-based, end-inclusive.
     out_region.start = min_start;
     out_region.end = max_end - 1;
 }
