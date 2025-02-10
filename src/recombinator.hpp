@@ -1,7 +1,7 @@
 #ifndef VG_RECOMBINATOR_HPP_INCLUDED
 #define VG_RECOMBINATOR_HPP_INCLUDED
 
-/** \file 
+/** \file recombinator.hpp
  * Tools for generating synthetic haplotypes as recombinations of existing
  * haplotypes.
  */
