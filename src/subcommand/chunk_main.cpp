@@ -779,11 +779,11 @@ int main_chunk(int argc, char** argv) {
 
         // optionally trace our haplotypes
         if (trace && subgraph && gbwt_index) {
-            int64_t trace_start;
+            int64_t trace_start_id;
             int64_t trace_steps = 0;
             if (id_range) {
-                trace_start = output_regions[i].start;
-                trace_steps = output_regions[i].end - trace_start;
+                trace_start_id = output_regions[i].start;
+                trace_steps = output_regions[i].end - trace_start_id;
             } else {
                 // TODO: Instead of tracing from the start, just get a sub-GBWT on the subgraph.
                 
@@ -796,24 +796,24 @@ int main_chunk(int argc, char** argv) {
                 bool found_contained = find_containing_subpath(*graph, output_regions[i], path_handle);
                 crash_unless(found_contained);
 
-                size_t trace_start = output_regions[i].start;
-                size_t trace_end = output_regions[i].end;
+                size_t trace_start_coordinate = output_regions[i].start;
+                size_t trace_end_coordinate = output_regions[i].end;
 
                 subrange_t candidate_subrange = graph->get_subrange(path_handle);
                 if (graph->get_path_name(path_handle) != output_regions[i].seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
                     // We need to use offsets along the subpath and not the base path.
                     // But don't rewrite the original region.
-                    trace_start -= candidate_subrange.first;
-                    trace_end -= candidate_subrange.first;
+                    trace_start_coordinate -= candidate_subrange.first;
+                    trace_end_coordinate -= candidate_subrange.first;
                 }
                 
-                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, trace_start);
-                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, trace_end);
+                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, trace_start_coordinate);
+                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, trace_end_coordinate);
                 // make sure we don't loop forever in next loop
                 if (output_regions[i].start > output_regions[i].end) {
                     swap(trace_start_step, trace_end_step);
                 }
-                trace_start = graph->get_id(graph->get_handle_of_step(trace_start_step));
+                trace_start_id = graph->get_id(graph->get_handle_of_step(trace_start_step));
                 for (; trace_start_step != trace_end_step; trace_start_step = graph->get_next_step(trace_start_step)) {
                     ++trace_steps;
                 }
@@ -821,11 +821,11 @@ int main_chunk(int argc, char** argv) {
                 // detect backward paths and trace them backwards.  this will not cover all possible cases though.
                 if (graph->get_is_reverse(graph->get_handle_of_step(trace_start_step)) &&
                     graph->get_is_reverse(graph->get_handle_of_step(trace_end_step))) {
-                    trace_start = graph->get_id(graph->get_handle_of_step(trace_end_step));
+                    trace_start_id = graph->get_id(graph->get_handle_of_step(trace_end_step));
                 }
             }
             Graph g;
-            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start, trace_steps,
+            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start_id, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
                     trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
