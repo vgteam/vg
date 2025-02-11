@@ -1,6 +1,7 @@
 #include "path.hpp"
 #include <vg/io/stream.hpp>
 #include "region.hpp"
+#include "crash.hpp"
 #include <sstream>
 
 // #define debug_simplify
@@ -2533,6 +2534,48 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
     aln.set_name(aln.path().name());
     aln.set_sequence(path_sequence(graph, path));
     return aln;
+}
+
+bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path) {
+    // We might be asking for a part of a subpath, or a part of a base path.
+    if (graph.has_path(region.seq)) {
+        // It's a base path we have all of, or a subpath we have exactly.
+        path = graph.get_path_handle(region.seq);
+
+        if (region.end == -1) {
+            // Infer the region endpoint from the path
+            region.end = graph.get_path_length(path) - 1;
+        }
+
+        // The region start point will be 0 if not set.
+        region.start = max((int64_t)0, region.start);
+
+        return true;
+    } else if (region.start < 0 || region.end < 0) {
+        return false;
+    } else {
+        // Maybe it's a base path and we only have a subpath.
+        bool found_contained = false;
+
+        for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
+            // We should have some subrange if we get here. Also the region coordunates are specified.
+            subrange_t candidate_subrange = graph.get_subrange(candidate);
+            crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
+            if (candidate_subrange.first <= region.start && candidate_subrange.first + candidate_subrange.second > region.end + 1) {
+                // The subranges are 0-based exclusive and the regions are 0-based inclusive.
+                // This subrange fully contains this region.
+                path = candidate;
+
+                found_contained = true;
+                // Use first result
+                return false;
+            }
+            return true;
+        });
+        
+        // Return whether we found the containing subpath.
+        return found_contained;
+    }
 }
 
 bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee) {

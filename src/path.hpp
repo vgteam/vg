@@ -14,6 +14,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "position.hpp"
+#include "region.hpp"
 #include "nodetraversal.hpp"
 
 //#define debug
@@ -384,9 +385,16 @@ Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_hand
 Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 
 ////
-// Functiuons for working with path subranges.
+// Functions for working with path subranges.
 // TODO: Move to libhandlegraph
 ////
+
+/// Find the subpath containing the given region (possibly a full base path)
+/// and return true, or return false if no such subpath can be found.
+///
+/// If one or both region coordinates are -1, and a full path is found, fills
+/// them in from that path.
+bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path);
 
 /// Run the given iteratee for each path that is either the path with the given
 /// name (if present), or a subrange of a path with the given name as the base

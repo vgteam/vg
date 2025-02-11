@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 35
+plan tests 37
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -134,7 +134,12 @@ grep "not found in" log.txt
 is "$?" "1" "chunking on a haplotype path does not produce a path not found error"
 is "$(vg stats -z part.vg | grep nodes | cut -f2)" "4" "chunking on a haplotype produces the correct size graph"
 
-rm -f graph.gbz part.vg log.txt
+vg chunk -x graph.gbz -p GRCh38#0#chr1:5-7 -c 1 >part.vg
+vg chunk -x part.vg -p GRCh38#0#chr1:5-7 -c 1 >subpart.vg
+is "$?" "0" "chunking the same base path range out of a chunk works"
+is "$(vg stats -l part.vg)" "$(vg stats -l subpart.vg)" "chunking the same base path range out of a chunk gets the same nodes"
+
+rm -f graph.gbz part.vg subpart.vg log.txt
 
 
 
