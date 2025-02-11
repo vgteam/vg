@@ -3,6 +3,7 @@
 #include "kff.hpp"
 #include "statistics.hpp"
 #include "algorithms/component.hpp"
+#include "algorithms/extract_subchain.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -768,9 +769,11 @@ struct FragmentedHaplotypeVisit {
     }
 };
 
-// Matches the minimal sequence visits in `from` and `to` by the same oriented chain.
+// Matches the minimal sequence visits in `from` and `to` by the same oriented chain of haplotype sequences.
+// Requires that the fragments remain within the subchain defined by start and end.
 // Returns (DA[i], i) for the matching visits in `from`, sorted by rank in the chain.
 std::vector<HaplotypePartitioner::sequence_type> match_visits(
+    handle_t start, handle_t end,
     const std::vector<HaplotypePartitioner::sequence_type>& from_visits,
     const std::vector<HaplotypePartitioner::sequence_type>& to_visits,
     const HaplotypePartitioner& partitioner
@@ -785,6 +788,38 @@ std::vector<HaplotypePartitioner::sequence_type> match_visits(
     }
     std::sort(to.begin(), to.end());
 
+    // When there are multiple fragments, some of them could be outside the subchain.
+    // We want to avoid that to keep the kmers we use specific to the subchain.
+    hash_set<nid_t> node_ids = extract_subchain(partitioner.gbz.graph, start, end);
+    auto within_subchain = [&](const FragmentedHaplotypeVisit& from_visit, const FragmentedHaplotypeVisit& to_visit) -> bool {
+        gbwt::size_type sequence_id = from_visit.sequence_id;
+        gbwt::edge_type pos(gbwtgraph::GBWTGraph::handle_to_node(start), from_visit.gbwt_node_offset);
+        while (sequence_id != to_visit.sequence_id) {
+            while (pos.first != gbwt::ENDMARKER) {
+                if (node_ids.find(gbwt::Node::id(pos.first)) == node_ids.end()) {
+                    // The fragment is outside the subchain.
+                    return false;
+                }
+                pos = partitioner.gbz.index.LF(pos);
+            }
+            sequence_id = partitioner.fragment_map.oriented_next(sequence_id);
+            if (sequence_id == gbwt::invalid_sequence()) {
+                // No more fragments in the chain.
+                return false;
+            }
+            pos = partitioner.gbz.index.start(sequence_id);
+            if (pos.first != gbwt::ENDMARKER && node_ids.find(gbwt::Node::id(pos.first)) == node_ids.end()) {
+                // The fragment starts outside the subchain.
+                return false;
+            }
+        }
+
+        // We have ensured that this is a minimal end-to-end visit. Once the sequence ids match
+        // and we know that the position is within the subchain, we cannot leave the subchain and
+        // later reach the end without re-entering the subchain.
+        return true;
+    };
+
     std::vector<HaplotypePartitioner::sequence_type> result;
     auto from_iter = from.begin();
     auto to_iter = to.begin();
@@ -796,7 +831,9 @@ std::vector<HaplotypePartitioner::sequence_type> match_visits(
                     from_iter = peek;
                     ++peek;
                 }
-                result.push_back(from_iter->to_sequence());
+                if (within_subchain(*from_iter, *to_iter)) {
+                    result.push_back(from_iter->to_sequence());
+                }
                 ++from_iter; ++to_iter;
             } else {
                 ++from_iter;
@@ -822,7 +859,7 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
     }
     auto from = get_sequence_visits(subchain.start, this->r_index);
     auto to = get_sequence_visits(subchain.end, this->r_index);
-    return match_visits(from, to, *this);
+    return match_visits(subchain.start, subchain.end, from, to, *this);
 }
 
 //------------------------------------------------------------------------------
@@ -1341,6 +1378,7 @@ void RecombinatorHaplotype::insert() {
 
 //------------------------------------------------------------------------------
 
+// FIXME: Does not work with fragmented haplotypes. use (fragmentN, contig, haplotype from 1, fragment from 0)
 /*
  * An additional haplotype fragment from a bad subchain.
  *
@@ -1375,6 +1413,7 @@ struct RecombinatorFragment {
     ) const;
 };
 
+// FIXME: This needs FragmentMap
 void RecombinatorFragment::generate(
     const gbwt::GBWT& index,
     gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
@@ -1948,7 +1987,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                     extra_fragments.emplace_back(start, subchain.end, i - 1, subchain_id);
                 }
                 statistics.bad_subchains++;
-                statistics.extra_fragments += selected_haplotypes.size() - 2;
+                statistics.extra_fragments += selected_haplotypes.size() - 2; // FIXME: We cannot know the number of extra fragments in advance.
                 selected_haplotypes.resize(2);
             }
 
@@ -2005,6 +2044,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             statistics.fragments += haplotype.fragment;
         }
 
+        // FIXME: Count extra fragments here.
         // Add the extra fragments as separate paths.
         for (const RecombinatorFragment& fragment : extra_fragments) {
             fragment.generate(this->gbz.index, builder, metadata, chain.contig_name);

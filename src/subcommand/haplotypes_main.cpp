@@ -3,14 +3,13 @@
  * Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.
  *
  * TODO: Tests for --linear-structure, --extra-fragments, and fragmented haplotypes.
- *
- * TODO: Accept fragmented haplotypes only when they are entirely within the subchain.
  */
 
 #include "subcommand.hpp"
 
 #include "../hash_map.hpp"
 #include "../recombinator.hpp"
+#include "../algorithms/extract_subchain.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -867,26 +866,29 @@ std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_
     return "";
 }
 
-// Returns true if the path from (start, offset) reaches end without revisiting start.
+// Returns true if the path from (start, offset) reaches the end without revisiting start or leaving the subchain.
 // The path may continue in subsequent fragments.
 bool trace_path(
-    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map,
+    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map, const hash_set<nid_t>& subchain_nodes,
     gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end
 ) {
     gbwt::edge_type pos(start, offset);
     while (pos.first != end) {
         pos = index.LF(pos);
-        if (pos.first == gbwt::ENDMARKER) {
-            do {
-                sequence_id = fragment_map.oriented_next(sequence_id);
-                if (sequence_id == gbwt::invalid_sequence()) {
-                    return false;
-                }
-                pos = index.start(sequence_id);
+        while (pos.first == gbwt::ENDMARKER) {
+            sequence_id = fragment_map.oriented_next(sequence_id);
+            if (sequence_id == gbwt::invalid_sequence()) {
+                // No more fragments in the chain.
+                return false;
             }
-            while (pos.first == gbwt::ENDMARKER);
+            pos = index.start(sequence_id);
         }
         if (pos.first == start) {
+            // This was not a minimal end-to-end visit.
+            return false;
+        }
+        if (subchain_nodes.find(gbwt::Node::id(pos.first)) == subchain_nodes.end()) {
+            // We are outside the subchain.
             return false;
         }
     }
@@ -1009,9 +1011,10 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
         // Sequences: normal subchains.
         if (subchain.type == Haplotypes::Subchain::normal) {
             std::vector<gbwt::size_type> da = r_index.decompressDA(subchain.start);
+            hash_set<nid_t> nodes = extract_subchain(graph, gbwtgraph::GBWTGraph::node_to_handle(subchain.start), gbwtgraph::GBWTGraph::node_to_handle(subchain.end));
             hash_set<Haplotypes::sequence_type> selected;
             for (size_t i = 0; i < da.size(); i++) {
-                if (trace_path(*(graph.index), fragment_map, da[i], subchain.start, i, subchain.end)) {
+                if (trace_path(*(graph.index), fragment_map, nodes, da[i], subchain.start, i, subchain.end)) {
                     selected.insert(Haplotypes::sequence_type(da[i], i));
                 }
             }
@@ -1111,7 +1114,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
                 }
             }
             if (invalid_count > 0) {
-                std::string message = "invalid occurrence count for "+ std::to_string(invalid_count) + " kmers";
+                std::string message = "invalid occurrence count for " + std::to_string(invalid_count) + " kmers";
                 validate_error_subchain(chain_id, subchain_id, message);
             }
             size_t missing_informative_kmers = 0;

@@ -361,10 +361,12 @@ public:
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
      * minimum distance over the subchain is at most the target length and there
-     * are GBWT haplotypes that cross the subchain. We also keep extending the
-     * subchain if a haplotype would cross the end in both directions. By doing
-     * this, we can avoid sequence loss with haplotypes reversing their direction,
-     * while keeping kmers specific to each subchain.
+     * are GBWT haplotypes that cross the subchain.
+     *
+     * With the right option, we keep extending the subchain if a haplotype would
+     * cross the end in both directions. By doing this, we can avoid sequence loss
+     * with haplotypes reversing their direction, while keeping kmers specific to
+     * each subchain.
      *
      * If there are no snarls in a top-level chain, it is represented as a single
      * subchain without boundary nodes.
@@ -406,7 +408,7 @@ private:
     // * If the subchain is normal, the sequences will be at the start and
     //   correspond to minimal end-to-end visits to the subchain. A sequence
     //   that ends within the subchain may be selected if subsequent fragments
-    //   of the same haplotype reach the end.
+    //   of the same haplotype remain within the subchain and reach the end.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
 
     // Return the sorted set of kmers that are minimizers in the sequence and have
