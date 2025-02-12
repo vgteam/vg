@@ -2216,6 +2216,10 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
+
+    // Compute lower limit on chain score to actually investigate
+    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
+    // Remember we also have chain_score_threshold, which counts down from best chain score
     
     // We need to be able to discard a chain because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
@@ -2228,7 +2232,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "chain " << processed_num << " failed because its score was not good enough (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                cerr << log_name() << "chain " << processed_num << " failed because its score was not good enough (score=" << chain_score_estimates[processed_num] << ", min=" << chain_min_score << ", threshold " << chain_score_threshold << " off best)" << endl;
                 if (track_correctness && funnel.was_correct(processed_num)) {
                     cerr << log_name() << "\tCORRECT!" << endl;
                 }
@@ -2236,9 +2240,6 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
         }
     };
     
-    // Compute lower limit on chain score to actually investigate
-    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
-
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
@@ -2265,7 +2266,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
+                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << ", min=" << chain_min_score << ", threshold " << chain_score_threshold << " off best)" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }

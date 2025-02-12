@@ -1292,14 +1292,20 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
         int64_t here = pos;
         for (auto& item : cigar) {
             // Trace along the cigar
-            if (item.second == 'M') {
-                // Bases are matched. Count them in the bounds and execute the operation
-                low = min(low, here);
-                here += item.first;
-                high = max(high, here);
-            } else if (item.second == 'D') {
-                // Only other way to advance in the reference
-                here += item.first;
+            switch (item.second) {
+                case 'M':
+                case 'X':
+                case '=':
+                    // Bases are matched or mismatched. Count them in the bounds and execute the operation
+                    low = min(low, here);
+                    high = max(high, here + item.first);
+                    // Fall through.
+                case 'D':
+                case 'N':
+                    // Even for deletions/gaps, we advance on the reference.
+                    here += item.first;
+                    break;
+                // Inserts and various clips/paddings don't do anything.
             }
         }
         
@@ -1308,19 +1314,17 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
     
     auto bounds1 = find_bounds(pos1, cigar1);
     auto bounds2 = find_bounds(pos2, cigar2);
+
+    // We wanted the distance between the outermost points. So find them.
+    auto min_start = std::min(bounds1.first, bounds2.first);
+    auto max_end = std::max(bounds1.second, bounds2.second);
+    // And find the distance
+    int32_t dist = max_end - min_start;
     
-    // Compute the separation
-    int32_t dist = 0;
-    if (bounds1.first < bounds2.second) {
-        // The reads are in order
-        dist = bounds2.second - bounds1.first;
-    } else if (bounds2.first < bounds1.second) {
-        // The reads are out of order so the other bounds apply
-        dist = bounds1.second - bounds2.first;
-    }
-    
-    if (pos1 < pos2) {
-        // Count read 1 as the overall "leftmost", so its value will be positive
+    if (bounds1.first < bounds2.first || (bounds1.first == bounds2.first && bounds1.second < bounds2.second)) {
+        // Count read 1 as the overall "leftmost" if it starts earlier or
+        // starts at the same point and ends earlier, so its value will be
+        // positive
         return make_pair(dist, -dist);
     } else {
         // Count read 2 as the overall leftmost
@@ -2845,6 +2849,30 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     if (min_distance < std::numeric_limits<size_t>::max()) {
         *aln.mutable_to_correct() = result;
     }
+}
+
+void check_quality_length(const Alignment& aln) {
+    size_t quality_length = aln.quality().length();
+    if (quality_length == 0 || quality_length == aln.sequence().length()) {
+        // This length is acceptable.
+        return;
+    }
+
+    bool too_short = quality_length < aln.sequence().length();
+
+    std::stringstream ss;
+    ss << "Read " << aln.name() << " has " << aln.sequence().length() << " bases of sequence but ";
+    if (too_short) {
+        ss << "only ";
+    }
+    ss << quality_length << " base quality values.";
+    if (too_short) {
+        ss << " Was the quality information truncated?";
+    }
+    
+    #pragma omp critical (cerr)
+    std::cerr << "error [vg::alignment.cpp]: " << ss.str() << std::endl;
+    exit(1);
 }
 
 AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph, bool check_sequence) {

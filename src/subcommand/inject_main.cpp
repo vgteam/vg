@@ -29,6 +29,7 @@ void help_inject(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)" << endl
+         << "    -i, --add-identity       add the 'identity' statistic (\% of matching base pairs) to output GAM" << endl
          << "    -r, --rescore            re-score alignments" << endl
          << "    -o, --output-format NAME output the alignments in NAME format (gam / gaf / json) [gam]" << endl
          << "    -t, --threads N          number of threads to use" << endl;
@@ -41,6 +42,7 @@ int main_inject(int argc, char** argv) {
     }
 
     string xg_name;
+    bool add_identity = false;
     bool rescore = false;
     string output_format = "GAM";
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON" };
@@ -53,6 +55,7 @@ int main_inject(int argc, char** argv) {
         {
           {"help", no_argument, 0, 'h'},
           {"xg-name", required_argument, 0, 'x'},
+          {"add-identity", no_argument, 0, 'i'},
           {"rescore", no_argument, 0, 'r'},
           {"output-format", required_argument, 0, 'o'},
           {"threads", required_argument, 0, 't'},
@@ -84,6 +87,10 @@ int main_inject(int argc, char** argv) {
                     std::exit(1);
                 }
             }
+            break;
+
+        case 'i':
+            add_identity = true;
             break;
 
         case 'r':
@@ -126,6 +133,10 @@ int main_inject(int argc, char** argv) {
 
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
         set_crash_context(aln.name());
+        if (add_identity) {
+            // Calculate & save identity statistic
+            aln.set_identity(identity(aln.path()));
+        }
         if (rescore) {
             // Rescore the alignment
             aln.set_score(aligner.score_contiguous_alignment(aln));

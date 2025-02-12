@@ -125,6 +125,12 @@ public:
 
     /// Filter to only correctly mapped reads
     bool only_correctly_mapped = false;
+
+    /// Filter to only keep the first alignment for each read
+    // This must be done single-threaded
+    bool only_first_alignment = false;
+    /// If we are picking only the first alignment for each read, keep track of what we've seen
+    unordered_set<string> seen_read_names;
       
     /**
      * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
@@ -316,7 +322,7 @@ struct Counts {
 
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_length, max_overhang,
         min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence,
-        proper_pair, unmapped, annotation, incorrectly_mapped, max_reads, filtered, last};
+        proper_pair, unmapped, annotation, incorrectly_mapped, first_alignment, max_reads, filtered, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -704,6 +710,16 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
         if (!is_correctly_mapped(read)) {
             ++counts.counts[Counts::FilterName::incorrectly_mapped];
             keep = false;
+        }
+    }
+
+    if ((keep || verbose) && only_first_alignment) {
+        assert(threads == 1);
+        if (seen_read_names.count(read.name()) != 0) {
+            ++counts.counts[Counts::FilterName::first_alignment];
+            keep = false;
+        } else {
+            seen_read_names.emplace(read.name());
         }
     }
     
@@ -1534,6 +1550,8 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << softclip_start(read);
         } else if (field == "softclip_end") {
             out << softclip_end(read);
+        } else if (field == "identity") {
+            out << read.identity();
         } else if (field == "mapping_quality") {
             out << get_mapq(read); 
         } else if (field == "sequence") {

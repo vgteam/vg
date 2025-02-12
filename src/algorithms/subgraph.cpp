@@ -265,7 +265,7 @@ void extract_context(const HandleGraph& source, MutableHandleGraph& subgraph, co
 
 void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& id2, MutableHandleGraph& subgraph) {
     for (nid_t i = id1; i <= id2; ++i) {
-        if (!subgraph.has_node(i)) {
+        if (!subgraph.has_node(i) && source.has_node(i)) {
             subgraph.create_handle(source.get_sequence(source.get_handle(i)), i);
         }
     }

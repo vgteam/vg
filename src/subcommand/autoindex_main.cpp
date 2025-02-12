@@ -352,6 +352,9 @@ int main_autoindex(int argc, char** argv) {
     }
     if (!gbz_name.empty()) {
         registry.provide("GBZ", gbz_name);
+        // Also mark this as the Giraffe GBZ so if we index for Giraffe we won't duplicate it.
+        // TODO: Why are these separate?
+        registry.provide("Giraffe GBZ", gbz_name);
     }
 
 

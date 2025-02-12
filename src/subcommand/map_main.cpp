@@ -978,6 +978,8 @@ int main_map(int argc, char** argv) {
                 return;
             }
 
+            check_quality_length(alignment);
+
             int tid = omp_get_thread_num();
             vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                     kmer_size,
@@ -1016,6 +1018,8 @@ int main_map(int argc, char** argv) {
             };
             
             function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
+                check_quality_length(aln1);
+                check_quality_length(aln2);
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
                 auto alnp = our_mapper->align_paired_multi(aln1,
@@ -1067,6 +1071,7 @@ int main_map(int argc, char** argv) {
         } else if (fastq2.empty()) {
             // single
             function<void(Alignment&)> lambda = [&](Alignment& alignment) {
+                        check_quality_length(alignment);
                         int tid = omp_get_thread_num();
                         vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                                 kmer_size,
@@ -1092,6 +1097,8 @@ int main_map(int argc, char** argv) {
                 }
             };
             function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
+                check_quality_length(aln1);
+                check_quality_length(aln2);
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
                 auto alnp = our_mapper->align_paired_multi(aln1,
@@ -1165,6 +1172,8 @@ int main_map(int argc, char** argv) {
                 }
             };
             function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
+                check_quality_length(aln1);
+                check_quality_length(aln2);
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
                 auto alnp = our_mapper->align_paired_multi(aln1,
@@ -1214,6 +1223,7 @@ int main_map(int argc, char** argv) {
         } else {
             // Processing single-end GAM input
             function<void(Alignment&)> lambda = [&](Alignment& alignment) {
+                check_quality_length(alignment);
                 int tid = omp_get_thread_num();
                 vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                         kmer_size,

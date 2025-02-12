@@ -202,6 +202,7 @@ is "${?}" "1" "Surjection fails when using the wrong graph for GAM"
 is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAM to the wrong graph reports the problem"
 vg surject -x tiny.vg -s -t 1 -m mapped.gamp >/dev/null 2>err.txt
 is "${?}" "1" "Surjection fails when using the wrong graph for GAMP"
+cat err.txt 1>&2
 is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAMP to the wrong graph reports the problem"
 
 rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp tiny.vg err.txt
