@@ -181,8 +181,8 @@ double Haplotypes::Subchain::badness(const gbwtgraph::GBZ& gbz) const {
             }
         }
         size_t length = this->distance(gbz, selected);
-        if (length < expected_length) {
-            result += std::log(static_cast<double>(expected_length) / static_cast<double>(length));
+        if (length > expected_length) {
+            result += std::log(static_cast<double>(length) / static_cast<double>(expected_length));
         }
     }
 
@@ -1378,58 +1378,83 @@ void RecombinatorHaplotype::insert() {
 
 //------------------------------------------------------------------------------
 
-// FIXME: Does not work with fragmented haplotypes. use (fragmentN, contig, haplotype from 1, fragment from 0)
 /*
  * An additional haplotype fragment from a bad subchain.
  *
  * GBWT metadata will be set as following:
  *
  * * Sample name is "fragment".
- * * Contig name is taken from the top-level chain.
+ * * Contig name is "contig_N", with the name taken from the top-level chain and the number from the subchain.
  * * Haplotype identifier is set during construction.
- * * Fragment identifier is the identifier of the subchain.
+ * * Fragment identifier is used if the fragment itself is fragmented.
  */
 struct RecombinatorFragment {
+    // Sequence identifier for the start of the fragment.
+    gbwt::size_type sequence_id;
+
     // GBWT starting position (inclusive).
     gbwt::edge_type from;
 
     // GBWT ending position (inclusive).
     gbwt::node_type to;
 
+    // Identifier of the subchain.
+    size_t subchain_id;
+
     // Haplotype identifier.
-    size_t haplotype;
+    size_t haplotype_id;
 
-    // Fragment / subchain identifier.
-    size_t fragment;
+    RecombinatorFragment(gbwt::size_type sequence_id, gbwt::edge_type from, gbwt::node_type to, size_t subchain_id, size_t haplotype_id) :
+        sequence_id(sequence_id), from(from), to(to), subchain_id(subchain_id), haplotype_id(haplotype_id) {}
 
-    RecombinatorFragment(gbwt::edge_type from, gbwt::node_type to, size_t haplotype, size_t fragment) :
-        from(from), to(to), haplotype(haplotype), fragment(fragment) {}
-
-    // Generates the GBWT path and the metadata for the fragment.
-    void generate(
-        const gbwt::GBWT& index,
+    // Generates the GBWT path(s) and the metadata for the fragment.
+    // Returns the number of paths generated.
+    size_t generate(
+        const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const std::string& contig_name
     ) const;
 };
 
-// FIXME: This needs FragmentMap
-void RecombinatorFragment::generate(
-    const gbwt::GBWT& index,
+size_t RecombinatorFragment::generate(
+    const gbwt::GBWT& index, const gbwt::FragmentMap& fragment_map,
     gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
     const std::string& contig_name
 ) const {
     gbwt::vector_type path;
-    for (gbwt::edge_type curr = this->from; curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
-        path.push_back(curr.first);
-        if (curr.first == this->to) {
+    std::string sample = "fragment"; // TODO: Make this a static class variable.
+    std::string contig = contig_name + "_" + std::to_string(this->subchain_id);
+    size_t fragment = 0;
+    auto finish_fragment = [&]() {
+        if (!path.empty()) {
+            metadata.add_haplotype(sample, contig, this->haplotype_id, fragment);
+            builder.insert(path, true);
+            fragment++;
+            path.clear();
+        }
+    };
+
+    size_t sequence = this->sequence_id;
+    gbwt::edge_type pos = this->from;
+    while (true) {
+        while (pos.first == gbwt::ENDMARKER) {
+            finish_fragment();
+            sequence = fragment_map.oriented_next(sequence);
+            if (sequence == gbwt::invalid_sequence()) {
+                std::string msg = "RecombinatorFragment::generate(): no successor for GBWT sequence " + std::to_string(this->sequence_id);
+                throw std::runtime_error(msg);
+            }
+            pos = index.start(sequence);
+        }
+        path.push_back(pos.first);
+        if (pos.first == this->to) {
             break;
         }
+        pos = index.LF(pos);
     }
+    finish_fragment();
 
-    std::string sample_name = "fragment"; // TODO: Make this a static class variable.
-    metadata.add_haplotype(sample_name, contig_name, this->haplotype, this->fragment);
-    builder.insert(path, true);
+    return fragment;
 }
 
 //------------------------------------------------------------------------------
@@ -1983,11 +2008,11 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             );
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
+                    gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
                     gbwt::edge_type start(subchain.start, subchain.sequences[selected_haplotypes[i].first].second);
-                    extra_fragments.emplace_back(start, subchain.end, i - 1, subchain_id);
+                    extra_fragments.emplace_back(sequence_id, start, subchain.end, subchain_id, i - 1);
                 }
                 statistics.bad_subchains++;
-                statistics.extra_fragments += selected_haplotypes.size() - 2; // FIXME: We cannot know the number of extra fragments in advance.
                 selected_haplotypes.resize(2);
             }
 
@@ -2044,10 +2069,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             statistics.fragments += haplotype.fragment;
         }
 
-        // FIXME: Count extra fragments here.
         // Add the extra fragments as separate paths.
+        statistics.extra_fragments = 0;
         for (const RecombinatorFragment& fragment : extra_fragments) {
-            fragment.generate(this->gbz.index, builder, metadata, chain.contig_name);
+            statistics.extra_fragments += fragment.generate(this->gbz.index, fragment_map, builder, metadata, chain.contig_name);
         }
     }
 
