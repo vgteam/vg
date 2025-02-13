@@ -920,6 +920,7 @@ int main_giraffe(int argc, char** argv) {
     presets["default"]
         // This is always on in the non-chaining codepath right now, but just to be sure...
         .add_entry<bool>("explored-cap", true);
+    
     presets["hifi"]
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
@@ -962,11 +963,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("item-bonus", 20)
         .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.2)
-        .add_entry<double>("chain-score-threshold", 100.0)
-        .add_entry<int>("min-chains", 4)
-        .add_entry<double>("min-chain-score-per-base", 0.06)
+        .add_entry<double>("chain-score-threshold", 200.0)
+        .add_entry<int>("min-chains", 2)
+        .add_entry<double>("min-chain-score-per-base", 0.1)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 100)
+        .add_entry<int>("max-min-chain-score", 1100)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
@@ -980,6 +981,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
+
 
     presets["r10"]
         .add_entry<bool>("align-from-chains", true)
@@ -1018,17 +1020,19 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<size_t>("max-graph-lookback-bases", 20000)
-        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.036)
+        .add_entry<size_t>("max-read-lookback-bases", 20000)
+        .add_entry<double>("max-read-lookback-bases-per-base", 0.036)
         .add_entry<size_t>("max-indel-bases", 5000)
         .add_entry<double>("max-indel-bases-per-base", 2.45)
         .add_entry<int>("item-bonus", 20)
         .add_entry<double>("item-scale", 1.0)
         .add_entry<double>("gap-scale", 0.06759721757973396)
-        .add_entry<double>("chain-score-threshold", 100.0)
+        .add_entry<double>("chain-score-threshold", 160.0)
         .add_entry<int>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<double>("min-chain-score-per-base", 0.06)
-        .add_entry<int>("max-min-chain-score", 500.0)
+        .add_entry<double>("min-chain-score-per-base", 0.052)
+        .add_entry<int>("max-min-chain-score", 1900.0)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
