@@ -225,7 +225,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Like above, but use (inclusive) id range instead of region on path.</p>
-<p>Skips nodes in the ID range that do not actually exist in the source graph, or that already exist in the target graph. </p>
+<p>Skips nodes in the ID range that do not actually exist in the source graph, or that already exist in the target graph.</p>
+<p>Populated out_region's start and end with node IDs. </p>
 
 </div>
 </div>
@@ -348,7 +349,9 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Extract subgraph corresponding to given path region into its own vg graph, and send it to out_stream. The boundaries of the extracted region of the target path (which can be different because we expand context and don't cut nodes) are written to out_region. If the target path goes through the extracted region multiple times, only the extended bounds of the visit containing the target region are produced.</p>
+<p>Extract subgraph corresponding to given path region into its own vg graph, and send it to out_stream. The boundaries of the extracted region of the target path (which can be different because we expand context and don't cut nodes) are written to out_region.</p>
+<p>The contig name of out_region is set to the base path name (without any subrange) for the path from region. Output coordinates will be relative to this base path.</p>
+<p>If the target path goes through the extracted region multiple times, only the extended bounds of the visit containing the target region are produced.</p>
 <p>If forward_only set, context is only expanded in the forward direction</p>
 <p>NOTE: we follow convention of <a class="el" href="structvg_1_1Region.html">Region</a> coordinates being 0-based inclusive. </p>
 

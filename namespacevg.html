@@ -2053,6 +2053,8 @@ Functions</h2></td></tr>
 <tr class="separator:a864fe6e3e163b18e84db0783f9a2e17d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abcf3c5c3332d721a86740ef23fb9e6e2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abcf3c5c3332d721a86740ef23fb9e6e2">alignment_from_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:abcf3c5c3332d721a86740ef23fb9e6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8c98b9242341b733da17c5a7fbf42c39"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8c98b9242341b733da17c5a7fbf42c39">find_containing_subpath</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
+<tr class="separator:a8c98b9242341b733da17c5a7fbf42c39"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9534c53c98412f2d43982fc0b809e7bd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9534c53c98412f2d43982fc0b809e7bd">for_each_subpath_of</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const string &amp;path_name, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)&gt; &amp;iteratee)</td></tr>
 <tr class="separator:a9534c53c98412f2d43982fc0b809e7bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94b1b2969f088d4fa3fdf8c73bac7f65">get_path_base_name</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
@@ -9959,6 +9961,42 @@ template&lt;class RandomIt &gt; </div>
 <p>Find all the points at which a <a class="el" href="structvg_1_1Path.html">Path</a> enters or leaves nodes in the graph. Adds them to the given map by node ID of sets of bases in the node that will need to become the starts of new nodes.</p>
 <p>If break_ends is true, emits breakpoints at the ends of the path, even if it starts/ends with perfect matches. Find all the points at which a <a class="el" href="structvg_1_1Path.html">Path</a> enters or leaves nodes in the graph. Adds them to the given map by node ID of sets of bases in the node that will need to become the starts of new nodes.</p>
 <p>If break_ends is true, emits breakpoints at the ends of the path, even if it starts/ends with perfect matches. </p>
+
+</div>
+</div>
+<a id="a8c98b9242341b733da17c5a7fbf42c39"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c98b9242341b733da17c5a7fbf42c39">&#9670;&nbsp;</a></span>find_containing_subpath()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::find_containing_subpath </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Region.html">Region</a> &amp;&#160;</td>
+          <td class="paramname"><em>region</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the subpath containing the given region (possibly a full base path) and return true, or return false if no such subpath can be found.</p>
+<p>If one or both region coordinates are -1, and a full path is found, fills them in from that path. </p>
 
 </div>
 </div>
