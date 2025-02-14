@@ -254,12 +254,18 @@ public:
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
 
-    /// How many bases should we look back when making fragments?
-    static constexpr size_t default_fragment_max_lookback_bases = 300;
-    size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
-    /// How many bases should we look back when making fragments, per base of read length?
-    static constexpr double default_fragment_max_lookback_bases_per_base = 0.03;
-    double fragment_max_lookback_bases_per_base = default_fragment_max_lookback_bases_per_base;
+    /// How many bases should we look back in the graph when making fragments?
+    static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
+    size_t fragment_max_graph_lookback_bases = default_fragment_max_graph_lookback_bases;
+    /// How many bases should we look back in the graph when making fragments, per base of read length?
+    static constexpr double default_fragment_max_graph_lookback_bases_per_base = 0.03;
+    double fragment_max_graph_lookback_bases_per_base = default_fragment_max_graph_lookback_bases_per_base;
+    /// How many bases should we look back in the read when making fragments?
+    static constexpr size_t default_fragment_max_read_lookback_bases = std::numeric_limits<size_t>::max();
+    size_t fragment_max_read_lookback_bases = default_fragment_max_read_lookback_bases;
+    /// How many bases should we look back in the read when making fragments, per base of read length?
+    static constexpr double default_fragment_max_read_lookback_bases_per_base = 1.0;
+    double fragment_max_read_lookback_bases_per_base = default_fragment_max_read_lookback_bases_per_base;
     /// How many fragments should we try and make when fragmenting something?
     static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
     size_t max_fragments = default_max_fragments;
@@ -322,12 +328,18 @@ public:
     static constexpr size_t default_max_direct_to_chain = 0;
     size_t max_direct_to_chain = default_max_direct_to_chain;
 
-    /// How many bases should we look back when chaining?
-    static constexpr size_t default_max_lookback_bases = 3000;
-    size_t max_lookback_bases = default_max_lookback_bases;
-    /// How many bases should we look back when chaining, per base of read length?
-    static constexpr double default_max_lookback_bases_per_base = 0.3;
-    double max_lookback_bases_per_base = default_max_lookback_bases_per_base;
+    /// How many bases should we look back in the graph when chaining?
+    static constexpr size_t default_max_graph_lookback_bases = 3000;
+    size_t max_graph_lookback_bases = default_max_graph_lookback_bases;
+    /// How many bases should we look back in the graph when chaining, per base of read length?
+    static constexpr double default_max_graph_lookback_bases_per_base = 0.3;
+    double max_graph_lookback_bases_per_base = default_max_graph_lookback_bases_per_base;
+    /// How many bases should we look back in the read when chaining?
+    static constexpr size_t default_max_read_lookback_bases = std::numeric_limits<size_t>::max();
+    size_t max_read_lookback_bases = default_max_read_lookback_bases;
+    /// How many bases should we look back in the read when chaining, per base of read length?
+    static constexpr double default_max_read_lookback_bases_per_base = 1.0;
+    double max_read_lookback_bases_per_base = default_max_read_lookback_bases_per_base;
 
     /// How much of a bonus should we give to each item in
     /// fragmenting/chaining?

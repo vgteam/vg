@@ -12,7 +12,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 
     //Put all ancestors of the node in a vector, starting from the node, and not including the root
     while (!distance_index.is_root(current_handle)) {
-        ancestors.emplace_back(current_handle);
+        ancestors.emplace_back(distance_index.start_end_traversal_of(current_handle));
         current_handle = distance_index.get_parent(current_handle);
     }
 

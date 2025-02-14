@@ -632,7 +632,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
-                                   max_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
+                                   max_graph_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
     if (show_work) {
@@ -1433,14 +1433,16 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
             
             // Compute lookback and indel limits based on read length.
             // Important since seed density goes down on longer reads.
-            size_t lookback_limit = std::max(this->fragment_max_lookback_bases, (size_t)(this->fragment_max_lookback_bases_per_base * aln.sequence().size()));
+            size_t graph_lookback_limit = std::max(this->fragment_max_graph_lookback_bases, (size_t)(this->fragment_max_graph_lookback_bases_per_base * aln.sequence().size()));
+            size_t read_lookback_limit = std::max(this->fragment_max_read_lookback_bases, (size_t)(this->fragment_max_read_lookback_bases_per_base * aln.sequence().size()));
             size_t indel_limit = std::max(this->fragment_max_indel_bases, (size_t)(this->fragment_max_indel_bases_per_base * aln.sequence().size()));
 
             // Find fragments over the seeds in the zip code tree
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
                 seeds,
                 zip_code_forest.trees[item_num],
-                lookback_limit
+                graph_lookback_limit,
+                read_lookback_limit
             ); 
             // Make a view of the anchors we will fragment over
             VectorView<algorithms::Anchor> anchor_view {anchors_to_fragment, anchor_indexes}; 
@@ -1896,14 +1898,16 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
 
             // Compute lookback and indel limits based on read length.
             // Important since seed density goes down on longer reads.
-            size_t lookback_limit = std::max(this->max_lookback_bases, (size_t)(this->max_lookback_bases_per_base * aln.sequence().size()));
+            size_t graph_lookback_limit = std::max(this->max_graph_lookback_bases, (size_t)(this->max_graph_lookback_bases_per_base * aln.sequence().size()));
+            size_t read_lookback_limit = std::max(this->max_read_lookback_bases, (size_t)(this->max_read_lookback_bases_per_base * aln.sequence().size()));
             size_t indel_limit = std::max(this->max_indel_bases, (size_t)(this->max_indel_bases_per_base * aln.sequence().size()));
 
             // Chain up the fragments
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
                 seeds,
                 zip_code_forest.trees[tree_num],
-                lookback_limit
+                graph_lookback_limit,
+                read_lookback_limit
             );
             std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
                 fragment_view,
@@ -3101,19 +3105,19 @@ Alignment MinimizerMapper::find_chain_alignment(
         size_t link_start = (*here).read_end();
         size_t link_length = (*next).read_start() - link_start;
         string linking_bases = aln.sequence().substr(link_start, link_length);
-        size_t graph_length = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+        size_t graph_dist = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
         
 #ifdef debug_chain_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
-                    << " separated by " << graph_length << " bp and sequence \"" << linking_bases << "\"" << endl;
+                    << " separated by ~" << graph_dist << " bp and sequence \"" << linking_bases << "\"" << endl;
             }
         }
 #endif
         
-        if (link_length == 0 && graph_length == 0) {
+        if (link_length == 0 && graph_dist == 0) {
             // These items abut in the read and the graph, so we assume we can just connect them.
             // WFAExtender::connect() can't handle an empty read sequence, and
             // our fallback method to align just against the graph can't handle
@@ -3159,7 +3163,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (!link_alignment) {
                 // We couldn't align.
-                if (graph_length == 0) {
+                if (graph_dist == 0) {
                     // We had read sequence but no graph sequence.
                     // Try falling back to a pure insertion.
                     // TODO: We can be leaving the GBWT's space here!
@@ -3178,7 +3182,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             } else if (link_alignment.length != linking_bases.size()) {
                 // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
                 stringstream ss;
-                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << (*next).graph_start() << " against graph distance " << graph_length << " produced wrong-length alignment ";
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << (*next).graph_start() << " against graph distance " << graph_dist << " produced wrong-length alignment ";
                 link_alignment.print(ss);
                 throw ChainAlignmentFailedError(ss.str());
             } else {
@@ -3188,6 +3192,12 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         
+        // We will measure the graph distance on the link path actually found, for work-showing.
+        // This gets filled from either the WFA alignment we have already, or the BGA alignment we are about to compute.
+        size_t link_graph_path_length;
+        // We also measure the score for work-showing.
+        int link_score;
+
         if (link_alignment) {
             // We found a link alignment
             
@@ -3213,9 +3223,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                     }
                 }
 #endif
+                link_graph_path_length = path_from_length(link_path);
                 append_path(composed_path, std::move(link_path));
             }
-            composed_score += link_alignment.score;
+
+            link_score = link_alignment.score;
+            composed_score += link_score;
         } else {
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
@@ -3224,7 +3237,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // This would be too long for the middle aligner(s) to handle and might overflow a score somewhere.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow, creating " << (aln.sequence().size() - (*here).read_end()) << " bp right tail" << endl;
                 }
                 // Just jump to right tail
                 break;
@@ -3235,7 +3248,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
 #endif
             
@@ -3246,7 +3259,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t max_gap_length = std::min(this->max_middle_gap, longest_detectable_gap_in_range(aln, aln.sequence().begin() + link_start, aln.sequence().begin() + link_start + link_length, this->get_regular_aligner()));
-            size_t path_length = std::max(graph_length, link_length);
+            size_t path_length = std::max(graph_dist, link_length);
             if (stats) {
                 start_time = std::chrono::high_resolution_clock::now();
             }
@@ -3266,7 +3279,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // TODO: Should we let the exceptions propagate up to here instead?
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: BGA alignment too big for " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_dist << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
                 }
 
                 // Just jump to right tail
@@ -3276,22 +3289,18 @@ Alignment MinimizerMapper::find_chain_alignment(
             // Otherwise we actually have a link alignment result.
             link_alignment_source = "align_sequence_between";
             
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Add link of length " << path_to_length(link_aln.path()) << " with score of " << link_aln.score() << endl;
-                }
-            }
-            
             // Then tack that path and score on
-            append_path(composed_path, link_aln.path());
-            composed_score += link_aln.score();
+            Path link_path(link_aln.path());
+            link_graph_path_length = path_from_length(link_path);
+            append_path(composed_path, std::move(link_path));
+            link_score = link_aln.score();
+            composed_score += link_score;
         }
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Aligned and added link of " << link_length << " via " << link_alignment_source << std::endl;
+                cerr << log_name() << "Aligned and added link of " << link_length << " bp read and " << link_graph_path_length << " bp graph via " << link_alignment_source << " with score of " << link_score << std::endl;
             }
         }
         
@@ -3327,7 +3336,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         here_alignment.check_lengths(gbwt_graph);
     
         // Do the final GaplessExtension itself (may be the first)
-        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += here_alignment.score;
     }
 
