@@ -70,5 +70,5 @@ is $? 0 "the sampled graphs are identical"
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz
 rm -f diploid.gbz diploid2.gbz
-rm -f full.HG003.gbz full.HG003.dist full.HG003.min default.gam
-rm -f sampled.003HG.gbz sampled.003HG.dist sampled.003HG.min specified.gam
+rm -f full.HG003.gbz full.HG003.dist full.HG003.shortread.withzip.min full.HG003.shortread.zipcodes default.gam
+rm -f sampled.003HG.gbz sampled.003HG.dist sampled.003HG.shortread.withzip.min sampled.003HG.shortread.zipcodes specified.gam
