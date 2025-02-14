@@ -153,8 +153,8 @@ Functions</h2></td></tr>
 <tr class="separator:aaeeaa766337fc50f0a9b4d3214271923"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8e2917f0a06c55852e4ef044548f2bb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac8e2917f0a06c55852e4ef044548f2bb">lookback_transition_iterator</a> (size_t max_lookback_bases, size_t min_lookback_items, size_t lookback_item_hard_cap)</td></tr>
 <tr class="separator:ac8e2917f0a06c55852e4ef044548f2bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a73608f2f497e40cc514deaa74a00cb52"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a73608f2f497e40cc514deaa74a00cb52">zip_tree_transition_iterator</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_lookback_bases)</td></tr>
-<tr class="separator:a73608f2f497e40cc514deaa74a00cb52"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa186cef438679cb79232d24f64be1f89"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa186cef438679cb79232d24f64be1f89">zip_tree_transition_iterator</a> (const std::vector&lt; <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html">SnarlDistanceIndexClusterer::Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1ZipCodeTree.html">ZipCodeTree</a> &amp;zip_code_tree, size_t max_graph_lookback_bases, size_t max_read_lookback_bases)</td></tr>
+<tr class="separator:aa186cef438679cb79232d24f64be1f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdc2933db32d78a14a8e439f7e9643ab"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abdc2933db32d78a14a8e439f7e9643ab">score_chain_gap</a> (size_t distance_difference, size_t base_seed_length)</td></tr>
 <tr class="separator:abdc2933db32d78a14a8e439f7e9643ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2fda86d465d26d7f101e00f3431564e8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2fda86d465d26d7f101e00f3431564e8">chain_items_dp</a> (vector&lt; <a class="el" href="classvg_1_1algorithms_1_1TracedScore.html">TracedScore</a> &gt; &amp;chain_scores, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">Anchor</a> &gt; &amp;to_chain, const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int gap_open, int gap_extension, const <a class="el" href="namespacevg_1_1algorithms.html#a79c214c1e7f1d7cc5fe322b8c9fb260c">transition_iterator</a> &amp;for_each_transition, int item_bonus, double item_scale, double gap_scale, double points_per_possible_match, size_t max_indel_bases, bool show_work)</td></tr>
@@ -1295,7 +1295,7 @@ template&lt;class DistHeuristic &gt; </div>
 <p>We keep all the options to allow us to do multiple tracebacks and find multiple good (ideally disjoint) chains.</p>
 <p>Input items must be sorted by start position in the read.</p>
 <p>Takes the given per-item bonus for each item collected, and scales item scores by the given scale.</p>
-<p>Uses a finite lookback in items and in read bases when checking where we can come from to reach an item. Also, once a given number of good-looking predecessor items have been found, stop looking back.</p>
+<p>Uses a transition iterator to enumerate where we can come from to reach an item.</p>
 <p>Limits transitions to those involving indels of the given size or less, to avoid very bad transitions. </p>
 
 </div>
@@ -5610,8 +5610,8 @@ template&lt;typename TECCNode &gt; </div>
 
 </div>
 </div>
-<a id="a73608f2f497e40cc514deaa74a00cb52"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a73608f2f497e40cc514deaa74a00cb52">&#9670;&nbsp;</a></span>zip_tree_transition_iterator()</h2>
+<a id="aa186cef438679cb79232d24f64be1f89"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa186cef438679cb79232d24f64be1f89">&#9670;&nbsp;</a></span>zip_tree_transition_iterator()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -5632,7 +5632,13 @@ template&lt;typename TECCNode &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_lookback_bases</em>&#160;</td>
+          <td class="paramname"><em>max_graph_lookback_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_read_lookback_bases</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -5641,7 +5647,8 @@ template&lt;typename TECCNode &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return a transition iterator that uses zip code tree iteration to select traversals. </p>
+<p>Return a transition iterator that uses zip code tree iteration to select traversals.</p>
+<p>Enumerates transitions under the max graph lookback bases, and filters them by the max read lookback bases. </p>
 
 </div>
 </div>
