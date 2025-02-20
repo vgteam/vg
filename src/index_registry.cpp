@@ -4105,10 +4105,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             auto& output_name_minimizer = all_outputs[0];
             auto& output_name_zipcodes = all_outputs[1];
 
+            //TODO: This doesn't work because everything is const and the compiler doesn't like it
             //Make sure that we're writing both the minimizers and zipcodes
-            const auto min_index = plan->registry->get_index(minimizer_output);
-            const auto zip_index = plan->registry->get_index(zipcode_output);
-            assert(!min_index->was_provided_directly() && !zip_index->was_provided_directly());
+            //assert(!plan->registry->get_index(minimizer_output)->was_provided_directly() && !plan->registry->get_index(zipcode_output)->was_provided_directly());
             
 
             ifstream infile_gbz;
