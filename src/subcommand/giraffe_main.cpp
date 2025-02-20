@@ -1644,6 +1644,21 @@ int main_giraffe(int argc, char** argv) {
         }
     }
 
+    //If we're making new zipcodes, we should rebuild the minimizers too
+    if (!indexes_and_extensions.count(std::string("Long Read Minimizers")) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+        cerr << "Rebuilding minimizer index to include zipcodes" << endl;
+        registry.reset(std::string("Long Read Minimizers"));
+    } else if (indexes_and_extensions.count(std::string("Long Read Minimizers")) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
+        cerr << "Rebuilding zipcodes index to match new minimizers" << endl;
+        registry.reset(std::string("Long Read Zipcodes"));
+    } else if (!indexes_and_extensions.count(std::string("Short Read Minimizers")) && indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
+        cerr << "Rebuilding minimizer index to include zipcodes" << endl;
+        registry.reset(std::string("Short Read Minimizers"));
+    } else if (indexes_and_extensions.count(std::string("Short Read Minimizers")) && !indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
+        cerr << "Rebuilding zipcodes to match new minimizers" << endl;
+        registry.reset(std::string("Short Read Zipcodes"));
+    }
+
     // create in-memory objects
     
     // Don't try and use all the memory.

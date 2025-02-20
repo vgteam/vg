@@ -4551,6 +4551,18 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     get_index(identifier)->provide(filenames);
 }
 
+void IndexRegistry::reset(const IndexName& identifier) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+        cerr << "[IndexRegistry]: Reset provided: " << identifier << endl;
+    }
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot reset unregistered index: " << identifier << endl;
+        exit(1);
+    }
+    get_index(identifier)->reset();
+}
+
+
 bool IndexRegistry::available(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
         // Index is not registered
