@@ -1598,6 +1598,7 @@ int main_giraffe(int argc, char** argv) {
         // Otherwise we use the provided indexes.
         for (auto& index : provided_indexes) {
             registry.provide(index.first, index.second);
+
         }
     }
     registry.set_prefix(index_basename);
@@ -1637,6 +1638,7 @@ int main_giraffe(int argc, char** argv) {
                     // Report it because this may not be desired behavior.
                     cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
                     registry.provide(index_and_extensions.first, inferred_filename);
+                    indexes_and_extensions.erase(index_and_extensions.first);
                 }
                 // Skip other extension options for the index
                 break;
