@@ -1437,14 +1437,20 @@ size_t RecombinatorFragment::generate(
     size_t sequence = this->sequence_id;
     gbwt::edge_type pos = this->from;
     while (true) {
-        while (pos.first == gbwt::ENDMARKER) {
-            finish_fragment();
-            sequence = fragment_map.oriented_next(sequence);
-            if (sequence == gbwt::invalid_sequence()) {
-                std::string msg = "RecombinatorFragment::generate(): no successor for GBWT sequence " + std::to_string(this->sequence_id);
-                throw std::runtime_error(msg);
+        if (pos.first == gbwt::ENDMARKER) {
+            if (this->to == gbwt::ENDMARKER) {
+                // We are in a suffix subchain, so we are not interested in subsequent fragments.
+                break;
             }
-            pos = index.start(sequence);
+            do {
+                finish_fragment();
+                sequence = fragment_map.oriented_next(sequence);
+                if (sequence == gbwt::invalid_sequence()) {
+                    std::string msg = "RecombinatorFragment::generate(): no successor for GBWT sequence " + std::to_string(this->sequence_id);
+                    throw std::runtime_error(msg);
+                }
+                pos = index.start(sequence);
+            } while (pos.first == gbwt::ENDMARKER);
         }
         path.push_back(pos.first);
         if (pos.first == this->to) {
@@ -1816,15 +1822,17 @@ std::vector<std::pair<size_t, double>> select_diploid(
     const Haplotypes::Subchain& subchain,
     const std::vector<std::pair<size_t, double>>& candidates,
     const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types,
-    size_t original_selected,
     const Recombinator::Parameters& parameters
 ) {
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
-    size_t best_left = 0, best_right = 1;
+    size_t best_left = 0, best_right = 0;
 
+    // We now consider taking the same haplotype twice. If this is a bad subchain
+    // and we sample extra fragments, the number of fragments will depend on
+    // whether we take the same haplotype twice.
     for (size_t left = 0; left < candidates.size(); left++) {
         size_t left_offset = candidates[left].first * subchain.kmers.size();
-        for (size_t right = left + 1; right < candidates.size(); right++) {
+        for (size_t right = left; right < candidates.size(); right++) {
             std::int64_t score = 0;
             size_t right_offset = candidates[right].first * subchain.kmers.size();
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
@@ -1852,7 +1860,7 @@ std::vector<std::pair<size_t, double>> select_diploid(
     }
 
     // If this is a bad subchain, we move the selected haplotypes to the front
-    // and return the remaining non-duplicated haplotypes as extra fragments.
+    // and return the rest as extra fragments.
     // Otherwise we return only the selected haplotypes.
     if (parameters.extra_fragments) {
         double badness = subchain.badness(gbz);
@@ -1860,7 +1868,7 @@ std::vector<std::pair<size_t, double>> select_diploid(
             std::vector<std::pair<size_t, double>> result;
             result.push_back(candidates[best_left]);
             result.push_back(candidates[best_right]);
-            for (size_t i = 0; i < original_selected; i++) {
+            for (size_t i = 0; i < candidates.size(); i++) {
                 if (i != best_left && i != best_right) {
                     result.push_back(candidates[i]);
                 }
@@ -1950,19 +1958,17 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         }
     }
 
-    // If we did not have enough haplotypes in the subchain, repeat them as necessary.
-    size_t original_selected = selected_haplotypes.size();
-    for (size_t i = original_selected; i < parameters.num_haplotypes; i++) {
-        auto next = selected_haplotypes[i % original_selected];
-        selected_haplotypes.push_back(next);
-    }
-
-    // Do diploid sampling. If this is a bad subchain, we also return the
-    // extra fragments starting from the third haplotype. But we don't return
-    // duplicated ones.
     if (parameters.diploid_sampling) {
-        return select_diploid(gbz, subchain, selected_haplotypes, kmer_types, original_selected, parameters);
+        // Do diploid sampling. If this is a bad subchain, we also return the
+        // extra fragments starting from the third haplotype.
+        return select_diploid(gbz, subchain, selected_haplotypes, kmer_types, parameters);
     } else {
+        // If we did not have enough haplotypes in the subchain, repeat them as necessary.
+        size_t original_selected = selected_haplotypes.size();
+        for (size_t i = original_selected; i < parameters.num_haplotypes; i++) {
+            auto next = selected_haplotypes[i % original_selected];
+            selected_haplotypes.push_back(next);
+        }
         return selected_haplotypes;
     }
 }
@@ -2009,7 +2015,13 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             if (parameters.diploid_sampling && selected_haplotypes.size() > 2) {
                 for (size_t i = 2; i < selected_haplotypes.size(); i++) {
                     gbwt::size_type sequence_id = subchain.sequences[selected_haplotypes[i].first].first;
-                    gbwt::edge_type start(subchain.start, subchain.sequences[selected_haplotypes[i].first].second);
+                    gbwt::edge_type start;
+                    if (subchain.has_start()) {
+                        start = gbwt::edge_type(subchain.start, subchain.sequences[selected_haplotypes[i].first].second);
+                    } else {
+                        // This is a prefix.
+                        start = this->gbz.index.start(sequence_id);
+                    }
                     extra_fragments.emplace_back(sequence_id, start, subchain.end, subchain_id, i - 1);
                 }
                 statistics.bad_subchains++;
