@@ -4106,7 +4106,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             auto& output_name_zipcodes = all_outputs[1];
 
             //Make sure that we're writing both the minimizers and zipcodes
-            assert(!plan->was_provided_directly(minimizer_output) && !plan->was_provided_directly(zipcode_output));
+            if (plan->was_provided_directly(minimizer_output) || plan->was_provided_directly(zipcode_output)) {
+                cerr << "warning: building new " << (plan->was_provided_directly(minimizer_output) ? "zipcode " : "minimizer ") << " index, zipcodes and minimizers may no longer match" << endl;
+            }
             
 
             ifstream infile_gbz;
