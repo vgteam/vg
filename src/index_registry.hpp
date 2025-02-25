@@ -173,9 +173,6 @@ public:
     /// Returns true if the given index is to be intermediate under the given
     /// plan, and false if it is to be preserved.
     bool is_intermediate(const IndexName& identifier) const;
-
-    /// Returns true if the given index was provided directly
-    bool was_provided_directly(const IndexName& identifier) const;
     
     // TODO: is this where this function wants to live?
     /// The memory limit, with a little slosh for prediction inaccuracy
