@@ -4781,8 +4781,11 @@ static int32_t flank_penalty(size_t length, const std::vector<pareto_point>& fro
     return result;
 }
 
-/// A helper function that cna merge softclips in properly when joining up
+/// A helper function that can merge softclips in properly when joining up
 /// paths, but doesn't need expensive full passes over the paths later.
+/// Handles cases where the paths being joined start/end on the same node but
+/// still need to be expressed as multiple visits to go around a cycle.
+/// TODO: Convert to a real function and add unit tests!
 static inline void add_to_path(Path* target, Path* to_append) {
     for (auto& mapping : *to_append->mutable_mapping()) {
         // For each mapping to append
@@ -4791,19 +4794,42 @@ static inline void add_to_path(Path* target, Path* to_append) {
             // Find that previous mapping.
             auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
 
-            if (mapping.position().node_id() == prev_mapping->position().node_id() && 
-                (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
-                // Previous mapping is to the same node, and either the new
-                // mapping doesn't start at 0, or one mapping takes up no
-                // space on the node (i.e. is a pure insert).
-                //
-                // So we want to combine the mappings.
-                for (auto& edit : *mapping.mutable_edit()) {
-                    // Move over all the edits in this mapping onto the end of that one.
-                    *prev_mapping->add_edit() = std::move(edit);
+            
+
+            if (mapping.position().node_id() == prev_mapping->position().node_id()) {
+                // Previous mapping is to the same node. Determine if we can combine this mapping into it.
+                bool can_combine = false;
+                if (mapping.position().offset() != 0) {
+                    // If we didn't start at offset 0, we can't have crossed an
+                    // edge. So we can combine in.
+                    can_combine = true;
+                    // And we know we should use the position from the previous mapping.
+                } else {
+                    bool prev_is_total_insert = mapping_is_total_insertion(*prev_mapping);
+                    bool is_total_insert = mapping_is_total_insertion(mapping);
+                    if (prev_is_total_insert || is_total_insert) {
+                        // One of the mappings is a total insert, so we can
+                        // combine them safely by budging its reference
+                        // position to be right next to the other one.
+                        can_combine = true;
+
+                        // We need to take the position from the mapping that
+                        // is *not* a complete insert, if either isn't.
+                        if (prev_is_total_insert) {
+                            // We can replace the previous mapping's position, since it's a total insert.
+                            *prev_mapping->mutable_position() = std::move(*mapping.mutable_position());
+                        }
+                    }
                 }
 
-                continue;
+                if (can_combine) {
+                    for (auto& edit : *mapping.mutable_edit()) {
+                        // Move over all the edits in this mapping onto the end of that one.
+                        *prev_mapping->add_edit() = std::move(edit);
+                    }
+                    // Don't add another mapping. prev_mapping will stay the same.
+                    continue;
+                }
             }
         }
         // If we don't combine the mappings, we need to just move the whole mapping
