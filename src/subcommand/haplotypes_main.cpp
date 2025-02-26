@@ -106,6 +106,7 @@ struct HaplotypesConfig {
     size_t k = haplotypes_defaults::k(), w = haplotypes_defaults::w();
     HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
+    std::unordered_set<std::string> reference_samples; // Overrides those specified in the graph.
 
     // For subchain statistics.
     std::string ref_sample;
@@ -118,6 +119,8 @@ struct HaplotypesConfig {
 };
 
 void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, HaplotypesConfig& config);
+
+void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config);
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
@@ -164,6 +167,10 @@ int main_haplotypes(int argc, char** argv) {
 
     // Sample the haplotypes.
     if (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes) {
+        // Update reference samples if necessary.
+        if (!config.reference_samples.empty()) {
+            set_reference_samples(gbz, config);
+        }
         sample_haplotypes(gbz, haplotypes, config);
     }
 
@@ -226,6 +233,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --extra-fragments     in diploid sampling, select all candidates in bad subchains" << std::endl;
     std::cerr << "        --badness F           threshold for the badness of a subchain (default: " << haplotypes_defaults::badness() << ")" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
+    std::cerr << "        --set-reference X     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
@@ -257,6 +265,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_EXTRA_FRAGMENTS = 1308;
     constexpr int OPT_BADNESS = 1309;
     constexpr int OPT_INCLUDE_REFERENCE = 1310;
+    constexpr int OPT_SET_REFERENCE = 1311;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
 
@@ -283,6 +292,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
         { "badness", required_argument, 0, OPT_BADNESS },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
+        { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -413,6 +423,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_INCLUDE_REFERENCE:
             this->recombinator_parameters.include_reference = true;
+            break;
+        case OPT_SET_REFERENCE:
+            this->reference_samples.insert(optarg);
             break;
 
         case 'v':
@@ -565,6 +578,28 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     // Validate the haplotypes.
     if (config.validate) {
         validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index, expected_chains, config.verbosity);
+    }
+}
+
+//----------------------------------------------------------------------------
+
+void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config) {
+    omp_set_num_threads(config.threads);
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Updating reference samples" << std::endl;
+    }
+    if (config.verbosity >= Haplotypes::verbosity_debug) {
+        std::cerr << "Reference samples:";
+        for (const std::string& sample : config.reference_samples) {
+            std::cerr << " " << sample;
+        }
+        std::cerr << std::endl;
+    }
+    double start = gbwt::readTimer();
+    gbz.set_reference_samples(config.reference_samples);
+    if (config.verbosity >= Haplotypes::verbosity_basic) {
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Updated reference samples in " << seconds << " seconds" << std::endl;
     }
 }
 

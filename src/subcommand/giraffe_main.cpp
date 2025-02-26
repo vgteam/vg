@@ -665,7 +665,12 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
 }
 
 // Returns the name of the sampled GBZ.
-string sample_haplotypes(const vector<pair<string, string>>& indexes, string& basename, string& sample_name, string& haplotype_file, string& kff_file, bool progress);
+std::string sample_haplotypes(
+    const std::vector<std::pair<std::string, std::string>>& indexes,
+    const std::unordered_set<std::string>& reference_samples,
+    const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
+    bool progress
+);
 
 //----------------------------------------------------------------------------
 
@@ -711,7 +716,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "haplotype sampling:" << endl
     << "  --haplotype-name FILE         sample from haplotype information in FILE" << endl
     << "  --kff-name FILE               sample according to kmer counts in FILE" << endl
-    << "  --index-basename STR          name prefix for generated graph/index files (default: from graph name)" << endl;
+    << "  --index-basename STR          name prefix for generated graph/index files (default: from graph name)" << endl
+    << "  --set-reference STR           include this sample as a reference in the personalized graph (may repeat)" << endl;
 
     cerr
     << "alternate graphs:" << endl
@@ -778,7 +784,8 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
-    constexpr int OPT_COMMENTS_AS_TAGS = 1103;
+    constexpr int OPT_SET_REFERENCE = 1103;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1104;
 
     // initialize parameters with their default options
     
@@ -792,6 +799,7 @@ int main_giraffe(int argc, char** argv) {
 
     // For haplotype sampling.
     string haplotype_name, kff_name;
+    std::unordered_set<std::string> reference_samples;
 
     string output_basename;
     string report_name;
@@ -1116,6 +1124,7 @@ int main_giraffe(int argc, char** argv) {
         {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
         {"kff-name", required_argument, 0, OPT_KFF_NAME},
         {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
+        {"set-reference", required_argument, 0, OPT_SET_REFERENCE},
         {"gam-in", required_argument, 0, 'G'},
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
@@ -1366,7 +1375,11 @@ int main_giraffe(int argc, char** argv) {
             case OPT_OUTPUT_BASENAME:
                 output_basename = optarg;
                 break;
-            
+
+            case OPT_SET_REFERENCE:
+                reference_samples.insert(optarg);
+                break;
+
             case OPT_REPORT_NAME:
                 report_name = optarg;
                 break;
@@ -1563,7 +1576,7 @@ int main_giraffe(int argc, char** argv) {
     }
     if (haplotype_sampling) {
         // If we do haplotype sampling, we get a new GBZ and later build indexes for it.
-        string gbz_name = sample_haplotypes(provided_indexes, index_basename, sample_name, haplotype_name, kff_name, show_progress);
+        string gbz_name = sample_haplotypes(provided_indexes, reference_samples, index_basename, sample_name, haplotype_name, kff_name, show_progress);
         registry.provide("Giraffe GBZ", gbz_name);
         index_basename = split_ext(gbz_name).first;
     } else {
@@ -2285,8 +2298,12 @@ int main_giraffe(int argc, char** argv) {
 
 //----------------------------------------------------------------------------
 
-string sample_haplotypes(const vector<pair<string, string>>& indexes, string& basename, string& sample_name, string& haplotype_file, string& kff_file, bool progress) {
-
+std::string sample_haplotypes(
+    const std::vector<std::pair<std::string, std::string>>& indexes,
+    const std::unordered_set<std::string>& reference_samples,
+    const std::string& basename, const std::string& sample_name, const std::string& haplotype_file, const std::string& kff_file,
+    bool progress
+) {
     if (progress) {
         std::cerr << "Sampling haplotypes" << std::endl;
     }
@@ -2319,8 +2336,16 @@ string sample_haplotypes(const vector<pair<string, string>>& indexes, string& ba
     } else if (indexes.size() == 2 && indexes[0].first == "GBWTGraph" && indexes[1].first == "Giraffe GBWT") {
         load_gbz(gbz, indexes[1].second, indexes[0].second, progress);
     } else {
-        std::cerr << "error:[vg giraffe] Haplotype sampling requires either -Z or -g and -H with no other indexes." << std::endl;
+        std::cerr << "error:[vg giraffe] Haplotype sampling requires either -Z or (-g and -H) with no other indexes." << std::endl;
         std::exit(EXIT_FAILURE);
+    }
+
+    // Override reference samples if necessary.
+    if (!reference_samples.empty()) {
+        if (progress) {
+            std::cerr << "Updating reference samples" << std::endl;
+        }
+        gbz.set_reference_samples(reference_samples);
     }
 
     // Load haplotype information.
