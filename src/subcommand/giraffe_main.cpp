@@ -1606,6 +1606,7 @@ int main_giraffe(int argc, char** argv) {
     // The IndexRegistry doesn't try to infer index files based on the
     // basename, so do that here. We can have multiple extension options that
     // we try in order of priority.
+    // When found, the index is removed from this map.
     unordered_map<string, vector<string>> indexes_and_extensions = {
         {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
         {"XG", {"xg"}},
@@ -1624,9 +1625,10 @@ int main_giraffe(int argc, char** argv) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
     }
-    for (auto& index_and_extensions : indexes_and_extensions) {
+    for (auto index_and_extensions = indexes_and_extensions.begin(); index_and_extensions != indexes_and_extensions.end(); ) {
         // For each index type
-        for (auto& extension : index_and_extensions.second) {
+        bool found = false;
+        for (auto& extension : index_and_extensions->second) {
             // For each extension in priority order
             string inferred_filename = registry.get_prefix() + "." + extension;
             if (ifstream(inferred_filename).is_open()) {
@@ -1636,13 +1638,20 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "warning:[vg giraffe] " << inferred_filename << " exists and will be overwritten" << endl;
                 } else {
                     // Report it because this may not be desired behavior.
-                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
-                    registry.provide(index_and_extensions.first, inferred_filename);
-                    indexes_and_extensions.erase(index_and_extensions.first);
+                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions->first << endl;
+                    registry.provide(index_and_extensions->first, inferred_filename);
+                    found = true;
                 }
                 // Skip other extension options for the index
                 break;
             }
+        }
+        if (found) {
+            // Erase this one and go to the next one.
+            index_and_extensions = indexes_and_extensions.erase(index_and_extensions);
+        } else {
+            // Leave this one and go to the next one.
+            ++index_and_extensions;
         }
     }
 
