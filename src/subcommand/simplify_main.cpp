@@ -9,11 +9,13 @@
 
 #include "subcommand.hpp"
 
+#include <vg/io/vpkg.hpp>
+
 #include "../vg.hpp"
 #include "../small_snarl_simplifier.hpp"
 #include "../rare_variant_simplifier.hpp"
-
-
+#include "../io/save_handle_graph.hpp"
+#include "../traversal_clusters.hpp"
 
 using namespace std;
 using namespace vg;
@@ -27,9 +29,15 @@ void help_simplify(char** argv) {
          << "    -p, --progress         show progress" << endl
          << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
          << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
+         << "path snarl simplifier options:" << endl
+         << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has < N bp (default: 10)" << endl
+
          << "small snarl simplifier options:" << endl
-         << "    -m, --min-size N       remove leaf sites with fewer than N bases involved (default: 10)" << endl
+         << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
+         << "    -m, --min-size N       remove leaf sites with fewer than N bases (with -P, uses max allele length) involved (default: 10)" << endl
          << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
+         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
+         << "    -k, --keep-paths       non-reference (as specified with -P) paths are removed by default. use this flag to keep them (but note that the resulting graph will be more complex and possibly more difficult to load)" << endl
          << "rare variant simplifier options:" << endl
          << "    -v, --vcf FILE         use the given VCF file to determine variant frequency (required)" << endl
          << "    -f, --min-freq FLOAT   remove variants with total alt frequency under FLOAT (default: 0)" << endl
@@ -43,7 +51,7 @@ int main_simplify(int argc, char** argv) {
         return 1;
     }
 
-    // What algorithm should we use for simplification ("small" or "rare").
+    // What algorithm should we use for simplification ("path", "small" or "rare").
     string algorithm = "small";
 
     // General options
@@ -51,6 +59,11 @@ int main_simplify(int argc, char** argv) {
     string bed_out_filename;
     bool show_progress = false;
 
+    // for simplifying based on path traversals
+    double cluster_threshold = 1.0;
+    string ref_path_prefix;
+    bool keep_nonref_paths = false;
+    
     // For simplifying small variants
     size_t min_size = 10;
     size_t max_iterations = 10;
@@ -75,12 +88,15 @@ int main_simplify(int argc, char** argv) {
                 {"vcf", required_argument, 0, 'v'},
                 {"min-freq", required_argument, 0, 'f'},
                 {"min-count", required_argument, 0, 'c'},
+                {"cluster", required_argument, 0, 'L'},
+                {"keep-paths", no_argument, 0, 'k'},
+                {"path-prefix", required_argument, 0, 'P'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:h?",
+        c = getopt_long (argc, argv, "a:pt:b:B:m:i:v:f:c:L:kP:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -112,6 +128,18 @@ int main_simplify(int argc, char** argv) {
 
         case 'm':
             min_size = parse<int>(optarg);
+            break;
+
+        case 'L':
+            cluster_threshold = parse<double>(optarg);
+            break;
+
+        case 'k':
+            keep_nonref_paths = true;
+            break;            
+
+        case 'P':
+            ref_path_prefix = optarg;
             break;
             
         case 'i':
@@ -150,35 +178,82 @@ int main_simplify(int argc, char** argv) {
         exit(1);
     }
     
-    // Load the graph
-    unique_ptr<VG> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = unique_ptr<VG>(new VG(in, show_progress));
-    });
+    if (algorithm != "small" && !ref_path_prefix.empty()) {
+        cerr << "error[vg simplify]: Path simplification (-P) can only be used with -a small" << endl;
+        return 1;
+    }
+
+    if (algorithm == "small" && ref_path_prefix.empty()) {
+        cerr << "warning[vg simplify]: By not specifying a reference path (-P) you are using old logic which requires"
+             << " protobuf input, and scales very poorly" << endl;
+    }
     
+    // Load the graph
+    unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        if (!ref_path_prefix.empty()) {
+            graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+        } else {
+            try {
+                graph = unique_ptr<MutablePathDeletableHandleGraph>(new VG(in, show_progress));
+            } catch(...) {
+                cerr << "error[vg simplify]: Error loading input Protobuf graph.";
+                exit(1);
+            }
+        }
+    });
+
     if (graph == nullptr) {
-        cerr << "error:[vg simplify]: Could not load graph" << endl;
+        cerr << "error[vg simplify]: Could not load graph." << endl;
         exit(1);
     }
 
     // This will hold BED features if we are tracking those
     unique_ptr<FeatureSet> features;
     if (!bed_in_filename.empty()) {
-        // Go and ,oad up the BED features
+        // Go and load up the BED features
         get_input_file(bed_in_filename, [&](istream& bed_stream) {
             features = unique_ptr<FeatureSet>(new FeatureSet());
             features->load_bed(bed_stream);
         });
     }
 
-    if (algorithm == "small") {
+    if (!ref_path_prefix.empty()) {
+        if (!vcf_filename.empty() || !bed_in_filename.empty() || !bed_out_filename.empty()) {
+            cerr << "error[vg simplify]: -v/-b/-B options cannot be used with path-based simplification (-P)" << endl;
+            exit(1);
+        }
+
+        nid_t min_id = graph->min_node_id();
+        
+        simplify_graph_using_traversals(dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
+                                        ref_path_prefix, min_size, cluster_threshold, max_iterations, 100000);
+
+        if (!keep_nonref_paths) {
+            vector<path_handle_t> to_destroy;
+            graph->for_each_path_handle([&](const path_handle_t path_handle) {
+                if (graph->get_path_name(path_handle).compare(0, ref_path_prefix.length(), ref_path_prefix) != 0) {
+                    to_destroy.push_back(path_handle);
+                }
+            });
+            graph->destroy_paths(to_destroy);            
+        }
+        
+        handlealgs::unchop(*graph);
+
+        if (graph->min_node_id() < min_id) {
+            // we want chromosome graphs to keep disjoint node ids, so we preserve the min_id            
+            graph->increment_node_ids(min_id - graph->min_node_id());
+        }
+        
+    } else if (algorithm == "small") {
         if (!vcf_filename.empty()) {
             cerr << "error[vg simplify]: A VCF file (-v) cannot be used with small snarl simplification" << endl;
             exit(1);
         }
 
         // Make a SmallSnarlSimplifier for the graph and copy over settings.
-        SmallSnarlSimplifier simplifier(*graph);
+        SmallSnarlSimplifier simplifier(*dynamic_cast<VG*>(graph.get()));
         simplifier.show_progress = show_progress;
         simplifier.max_iterations = max_iterations;
         simplifier.min_size = min_size;
@@ -220,7 +295,11 @@ int main_simplify(int argc, char** argv) {
     }
 
     // Serialize the graph
-    graph->serialize_to_ostream(std::cout);
+    if (!ref_path_prefix.empty()) {
+        vg::io::save_handle_graph(graph.get(), std::cout);
+    } else {
+        dynamic_cast<VG*>(graph.get())->serialize_to_ostream(std::cout);
+    }
         
     if (!bed_out_filename.empty()) {
         // Save BED features

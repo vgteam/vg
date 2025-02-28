@@ -80,6 +80,32 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
     });
+
+    graph->for_each_edge([&](const edge_t& h) {
+        
+        nid_t from_id = graph->get_id(h.first);
+        bool from_is_reverse = graph->get_is_reverse(h.first);
+        nid_t to_id = graph->get_id(h.second);
+        bool to_is_reverse = graph->get_is_reverse(h.second);
+    
+        if (from_is_reverse && (to_is_reverse || to_id < from_id)) {
+            // Canonicalize edges to be + orientation first if possible, and
+            // then low-ID to high-ID if possible, for testability. This edge
+            // needs to flip.
+            
+            // Swap the nodes
+            std::swap(from_id, to_id);
+            // Swap the orientations
+            std::swap(from_is_reverse, to_is_reverse);
+            // Reverse the orientations
+            from_is_reverse = !from_is_reverse;
+            to_is_reverse = !to_is_reverse;
+        }
+        
+        out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
+            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t0M\n"; // Writing `std::endl` would flush the buffer.
+        return true;
+    }, false);
     
     // Sort the paths by name, making sure to treat subpath coordinates numerically
     vector<path_handle_t> path_handles;
@@ -144,32 +170,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             write_w_line(graph, out, h, fake_subrange_end);
         }
     }
-
-    graph->for_each_edge([&](const edge_t& h) {
-        
-        nid_t from_id = graph->get_id(h.first);
-        bool from_is_reverse = graph->get_is_reverse(h.first);
-        nid_t to_id = graph->get_id(h.second);
-        bool to_is_reverse = graph->get_is_reverse(h.second);
-    
-        if (from_is_reverse && (to_is_reverse || to_id < from_id)) {
-            // Canonicalize edges to be + orientation first if possible, and
-            // then low-ID to high-ID if possible, for testability. This edge
-            // needs to flip.
-            
-            // Swap the nodes
-            std::swap(from_id, to_id);
-            // Swap the orientations
-            std::swap(from_is_reverse, to_is_reverse);
-            // Reverse the orientations
-            from_is_reverse = !from_is_reverse;
-            to_is_reverse = !to_is_reverse;
-        }
-        
-        out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
-            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t0M\n"; // Writing `std::endl` would flush the buffer.
-        return true;
-    }, false);
 }
 
 bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {

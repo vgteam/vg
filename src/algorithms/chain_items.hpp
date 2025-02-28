@@ -308,9 +308,16 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                                                  size_t lookback_item_hard_cap);
 
 /**
- * Return a transition iterator that uses zip code tree iteration to select traversals.
+ * Return a transition iterator that uses zip code tree iteration to select
+ * traversals.
+ *
+ * Enumerates transitions under the max graph lookback bases, and filters them
+ * by the max read lookback bases.
  */
-transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases);
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+                                                 const ZipCodeTree& zip_code_tree,
+                                                 size_t max_graph_lookback_bases,
+                                                 size_t max_read_lookback_bases);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
@@ -323,11 +330,11 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  *
  * Input items must be sorted by start position in the read.
  *
- * Takes the given per-item bonus for each item collected, and scales item scores by the given scale.
+ * Takes the given per-item bonus for each item collected, and scales item
+ * scores by the given scale.
  *
- * Uses a finite lookback in items and in read bases when checking where we can
- * come from to reach an item. Also, once a given number of good-looking
- * predecessor items have been found, stop looking back.
+ * Uses a transition iterator to enumerate where we can come from to reach an
+ * item. 
  *
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.

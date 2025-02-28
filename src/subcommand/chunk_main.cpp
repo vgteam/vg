@@ -12,6 +12,7 @@
 
 #include "subcommand.hpp"
 
+#include "../crash.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/stream_multiplexer.hpp>
@@ -21,6 +22,7 @@
 #include "../stream_index.hpp"
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
+#include "../path.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/find_gbwt.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -596,29 +598,49 @@ int main_chunk(int argc, char** argv) {
     }
 
     // validate and fill in sizes for regions that span entire path
-    function<size_t(const string&)> get_path_length = [&](const string& path_name) {
+    function<size_t(const path_handle_t&)> get_path_length = [&](const path_handle_t& path_handle) {
         size_t path_length = 0;
-        for (handle_t handle : graph->scan_path(graph->get_path_handle(path_name))) {
+        for (handle_t handle : graph->scan_path(path_handle)) {
             path_length += graph->get_length(handle);
         }
         return path_length;
     };
     if (!id_range) {
         for (auto& region : regions) {
-            if (!graph->has_path(region.seq)) {
-                cerr << "error[vg chunk]: input path " << region.seq << " not found in graph" << endl;
+            // We want to find the path handle and infer or adjust the coordinates on it for the region.
+            path_handle_t region_path;
+            bool found_contained = find_containing_subpath(*graph, region, region_path);
+            if (!found_contained) {
+                // We can't find this region.
+                if (region.start < 0 || region.end < 0) {
+                    // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
+                    // Guessing what the user wants would be hard, so stop.
+                    cerr << "error[vg chunk]: input path " << region.seq << " not found exactly in graph and region coordinates are not completely specified" << endl;
+                    return 1;
+                } else if (graph->has_path(region.seq)) {
+                    // This is just an out of range request
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
+                         << " is out of bounds of path " << region.seq
+                         << " which has length " << graph->get_path_length(graph->get_path_handle(region.seq)) << endl;
+                } else {
+                    // The path isn't there or the containing subpath isn't there.
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end << " not contained by any graph path" << endl;
+                }
                 return 1;
             }
-            region.start = max((int64_t)0, region.start);
-            if (region.end == -1) {
-                region.end = get_path_length(region.seq) - 1;
-            } else if (!id_range && !components) {
-                if (region.start < 0 || region.end >= get_path_length(region.seq)) {
-                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
-                         << " is out of bounds of path " << region.seq << " which has length "<< get_path_length(region.seq)
-                         << endl;
-                    return -1;
-                }
+            
+            subrange_t candidate_subrange = graph->get_subrange(region_path);
+            if (graph->get_path_name(region_path) != region.seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
+                // We found a subpath when we asked for a longer path's region.
+                // Change the region to be on the subpath.
+
+                // Adjust the name to match the subpath exactly
+                region.seq = graph->get_path_name(region_path);
+
+                // Adjust start and end to be relative to the subpath.
+                // We know they're set to numbers already.
+                region.start -= candidate_subrange.first;
+                region.end -= candidate_subrange.first;
             }
         }
     }
@@ -757,20 +779,41 @@ int main_chunk(int argc, char** argv) {
 
         // optionally trace our haplotypes
         if (trace && subgraph && gbwt_index) {
-            int64_t trace_start;
+            int64_t trace_start_id;
             int64_t trace_steps = 0;
             if (id_range) {
-                trace_start = output_regions[i].start;
-                trace_steps = output_regions[i].end - trace_start;
+                trace_start_id = output_regions[i].start;
+                trace_steps = output_regions[i].end - trace_start_id;
             } else {
-                path_handle_t path_handle = graph->get_path_handle(output_regions[i].seq);
-                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, output_regions[i].start);
-                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, output_regions[i].end);
+                // TODO: Instead of tracing from the start, just get a sub-GBWT on the subgraph.
+                
+                // For now, we start tracing at the expanded start point along the target path.
+                //
+                // output_regions is in base path space, so its seq may not
+                // name an extant subpath. But we know the region is contained within one.
+                path_handle_t path_handle;
+                // TODO: We know this won't end up rewriting the region bounds but it's still weird to give it a mutable region.
+                bool found_contained = find_containing_subpath(*graph, output_regions[i], path_handle);
+                crash_unless(found_contained);
+
+                size_t trace_start_coordinate = output_regions[i].start;
+                size_t trace_end_coordinate = output_regions[i].end;
+
+                subrange_t candidate_subrange = graph->get_subrange(path_handle);
+                if (graph->get_path_name(path_handle) != output_regions[i].seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
+                    // We need to use offsets along the subpath and not the base path.
+                    // But don't rewrite the original region.
+                    trace_start_coordinate -= candidate_subrange.first;
+                    trace_end_coordinate -= candidate_subrange.first;
+                }
+                
+                step_handle_t trace_start_step = graph->get_step_at_position(path_handle, trace_start_coordinate);
+                step_handle_t trace_end_step = graph->get_step_at_position(path_handle, trace_end_coordinate);
                 // make sure we don't loop forever in next loop
                 if (output_regions[i].start > output_regions[i].end) {
                     swap(trace_start_step, trace_end_step);
                 }
-                trace_start = graph->get_id(graph->get_handle_of_step(trace_start_step));
+                trace_start_id = graph->get_id(graph->get_handle_of_step(trace_start_step));
                 for (; trace_start_step != trace_end_step; trace_start_step = graph->get_next_step(trace_start_step)) {
                     ++trace_steps;
                 }
@@ -778,11 +821,11 @@ int main_chunk(int argc, char** argv) {
                 // detect backward paths and trace them backwards.  this will not cover all possible cases though.
                 if (graph->get_is_reverse(graph->get_handle_of_step(trace_start_step)) &&
                     graph->get_is_reverse(graph->get_handle_of_step(trace_end_step))) {
-                    trace_start = graph->get_id(graph->get_handle_of_step(trace_end_step));
+                    trace_start_id = graph->get_id(graph->get_handle_of_step(trace_end_step));
                 }
             }
             Graph g;
-            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start, trace_steps,
+            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start_id, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
                     trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
