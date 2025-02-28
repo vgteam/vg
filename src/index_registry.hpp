@@ -254,6 +254,9 @@ public:
     
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
+
+    /// Remove a provided index
+    void reset(const IndexName& identifier);
     
     /// Return true if the given index is available and can be require()'d, and
     /// false otherwise.
