@@ -14,6 +14,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "position.hpp"
+#include "region.hpp"
 #include "nodetraversal.hpp"
 
 //#define debug
@@ -345,7 +346,7 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
-// Return the identity for the path: perfect matches over total length.
+// Return the identity for the path: perfect matches over total length, ignoring soft clips.
 // For zero-length paths, returns 0.
 double identity(const Path& path);
 // compare the agreement between two alignments
@@ -382,6 +383,34 @@ Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_hand
 
 // Wrap a Path in an Alignment
 Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
+
+////
+// Functions for working with path subranges.
+// TODO: Move to libhandlegraph
+////
+
+/// Find the subpath containing the given region (possibly a full base path)
+/// and return true, or return false if no such subpath can be found.
+///
+/// If one or both region coordinates are -1, and a full path is found, fills
+/// them in from that path.
+bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path);
+
+/// Run the given iteratee for each path that is either the path with the given
+/// name (if present), or a subrange of a path with the given name as the base
+/// name (otherwise).
+///
+/// If a path and subpaths both exist, only look at the full path.
+///
+/// If the name describes a subpath, look only at that subpath.
+///
+/// Iteratee returns false to stop.
+///
+/// Returns true if we reached the end, and false if asked to stop.
+bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee);
+
+/// Returns the base path name for this path (i.e. the path's name without any subrange).
+std::string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path);
 
 
 /*

@@ -379,8 +379,13 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
         } else {
             string blank_gt = ".";
             if (gbwt_sample_to_phase_range.count(sample_name)) {
-                auto& phase_range = gbwt_sample_to_phase_range.at(sample_name);
-                for (int phase = phase_range.first + 1; phase <= phase_range.second; ++phase) {
+                // note: this is the same logic used when filling in actual genotypes
+                int min_phase, max_phase;
+                std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
+                // shift left by 1 unless min phase is 0
+                int sample_ploidy = min_phase == 0 ? max_phase + 1 : max_phase;
+                assert(sample_ploidy > 0);
+                for (int phase = 1; phase < sample_ploidy; ++phase) {
                     blank_gt += "|.";
                 }
             }
@@ -1132,6 +1137,10 @@ string Deconstructor::get_vcf_header() {
                 if (haplotype == PathMetadata::NO_HAPLOTYPE) {
                     haplotype = 0;
                 }
+                if (haplotype > 10) {
+                    cerr << "Warning [vg deconstruct]: Suspiciously large haplotype, " << haplotype
+                         << ", parsed from path, " << path_name << ": This will leed to giant GT entries.";
+                }
                 sample_to_haps[sample_name].insert((int)haplotype);
                 sample_names.insert(sample_name);
             }
@@ -1158,6 +1167,10 @@ string Deconstructor::get_vcf_header() {
                         if (phase == PathMetadata::NO_HAPLOTYPE) {
                             // Default to 0.
                             phase = 0;
+                        }
+                        if (phase > 10) {
+                            cerr << "Warning [vg deconstruct]: Suspiciously large haplotype, " << phase
+                                 << ", parsed from GBWT thread, " << path_name << ": This will leed to giant GT entries.";
                         }
                         sample_to_haps[sample_name].insert((int)phase);
                         sample_names.insert(sample_name);

@@ -283,12 +283,68 @@ TEST_CASE("simplify_cigar merges runs of adjacent operations and removes empty o
     REQUIRE(cigar[3] == make_pair(1, 'M'));
 }
 
-TEST_CASE("Inter-alignment distance computation for HTS output formats matches BWA", "[alignment]") {
+TEST_CASE("Template length for HTS output formats matches BWA", "[alignment][tlen]") {
     // See https://github.com/vgteam/vg/issues/3078. We want to match BWA on
     // these straightforward, fully-matching reads.
     auto lengths = compute_template_lengths(10206220, {{151, 'M'}}, 10206662, {{151, 'M'}});
     REQUIRE(lengths.first == 593);
     REQUIRE(lengths.second == -593);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 starts inside read 2", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{151, 'M'}}, 900, {{151, 'M'}});
+    REQUIRE(lengths.first == -251);
+    REQUIRE(lengths.second == 251);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 2 starts inside read 1", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(900, {{151, 'M'}}, 1000, {{151, 'M'}});
+    REQUIRE(lengths.first == 251);
+    REQUIRE(lengths.second == -251);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 is contained in read 2", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{10, 'M'}}, 900, {{151, 'M'}});
+    REQUIRE(lengths.first == -151); // Read 1 is the rightmost since it starts latest
+    REQUIRE(lengths.second == 151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 2 is contained in read 1", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(900, {{151, 'M'}}, 1000, {{10, 'M'}});
+    REQUIRE(lengths.first == 151); // Read 1 is the leftmost since it starts earliest
+    REQUIRE(lengths.second == -151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 is a prefix of read 2", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{10, 'M'}}, 1000, {{151, 'M'}});
+    REQUIRE(lengths.first == 151); // Read 1 is the leftmost since it ends earliest
+    REQUIRE(lengths.second == -151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 2 is a prefix of read 1", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{151, 'M'}}, 1000, {{10, 'M'}});
+    REQUIRE(lengths.first == -151); // Read 1 is the rightmost since it ends latest
+    REQUIRE(lengths.second == 151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 is a suffix of read 2", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1141, {{10, 'M'}}, 1000, {{151, 'M'}});
+    REQUIRE(lengths.first == -151); // Read 1 is the rightmost since it starts latest
+    REQUIRE(lengths.second == 151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 2 is a suffix of read 1", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{151, 'M'}}, 1141, {{10, 'M'}});
+    REQUIRE(lengths.first == 151); // Read 1 is the leftmost since it starts earliest
+    REQUIRE(lengths.second == -151);
+}
+
+TEST_CASE("Template length for HTS output formats is outermost to outermost when read 1 and read 2 have identical coordinates", "[alignment][tlen]") {
+    auto lengths = compute_template_lengths(1000, {{151, 'M'}}, 1000, {{151, 'M'}});
+    // Signs are arbitrary but must be opposite
+    REQUIRE(std::abs(lengths.first) == 151);
+    REQUIRE(std::abs(lengths.second) == 151);
+    REQUIRE(lengths.first + lengths.second == 0);
 }
 
 TEST_CASE("CIGAR generation forces adjacent insertions and deletions to obey GATK's constraints", "[alignment]") {

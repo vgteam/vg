@@ -23,14 +23,30 @@ PathChunker::~PathChunker() {
 
 void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_t length, bool forward_only,
                                    MutablePathMutableHandleGraph& subgraph, Region& out_region) {
+
+    // Output region must be empty. We fill it in.
+    crash_unless(out_region.seq.empty());
     
     // extract our path range into the graph
-    // TODO: Handle incoming names with subranges.
+    // TODO: Handle incoming names with subranges when they aren't exactly the names of paths we have.
+    crash_unless(graph->has_path(region.seq));
     path_handle_t path_handle = graph->get_path_handle(region.seq);
     step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
     handle_t start_handle = graph->get_handle_of_step(start_step);
     step_handle_t end_step = graph->get_step_at_position(path_handle, region.end);    
     handle_t end_handle = graph->get_handle_of_step(end_step);
+
+    // If the target path was itself a subrange, we need to know the base path range that the requested range of that subrange was.
+    subrange_t base_path_subrange = graph->get_subrange(path_handle);
+
+    // Get end-exclusive 0-based subrange we want
+    subrange_t target_subrange {region.start, region.end + 1};
+    if (base_path_subrange != PathMetadata::NO_SUBRANGE) {
+        // Budge it over by the coordinates of what the region is in
+        target_subrange.first += base_path_subrange.first;
+        target_subrange.second += base_path_subrange.first;
+    }
+    
 
 #ifdef debug
 #pragma omp critical(cerr)
@@ -83,31 +99,51 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     size_t min_start = std::numeric_limits<size_t>::max();
     size_t max_end = 0;
 
+    // We use this to make sure we have a path end
+    auto populate_subrange_end = [](const PathHandleGraph& g, subrange_t& subrange, const path_handle_t& path) {
+        if (subrange.second == PathMetadata::NO_END_POSITION) {
+            // Compute a length and use that to get the end.
+            // TODO: Sniff for an efficient/available get_path_length.
+            size_t path_length = 0;
+            for (handle_t handle : g.scan_path(path)) {
+                path_length += g.get_length(handle);
+            }
+            subrange.second = subrange.first + path_length;
+        }
+    };
+
     subgraph.for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t subpath) {
         if (subgraph.get_haplotype(subpath) != haplotype || subgraph.get_phase_block(subpath) != phase_block) {
             // Skip this subpath since it's not the right phase/fragment
             return true;
         }
 
+        #ifdef debug
+        #pragma omp critical(cerr)
+        {
+            std::cerr << "Consider new subpath " << subgraph.get_path_name(subpath) << std::endl;
+        }
+        #endif
+
         subrange_t subpath_subrange = subgraph.get_subrange(subpath);
         if (subpath_subrange == PathMetadata::NO_SUBRANGE) {
             // Fill in a 0 start
             subpath_subrange.first = 0;
         }
-        if (subpath_subrange.second == PathMetadata::NO_END_POSITION) {
-            // Compute a length and use that to get the end.
-            // TODO: Sniff for an efficient/available get_path_length.
-            size_t path_length = 0;
-            for (handle_t handle : subgraph.scan_path(subpath)) {
-                path_length += subgraph.get_length(handle);
-            }
-            subpath_subrange.second = subpath_subrange.first + path_length;
-        }
+        populate_subrange_end(subgraph, subpath_subrange, subpath);
 
-        if (subpath_subrange.first > region.end || subpath_subrange.second <= region.start) {
-            // This subpath doesn't actually overlap the selected target path
-            // region (which is 0-based, end-inclusive), and so shouldn't count
+        if (subpath_subrange.first >= target_subrange.second || subpath_subrange.second <= target_subrange.first) {
+            // This subpath doesn't actually overlap the selected target base path
+            // subrange (which is 0-based, end-exclusive), and so shouldn't count
             // for extending the selected region along the target path.
+            
+            #ifdef debug
+            #pragma omp critical(cerr)
+            {
+                std::cerr << "\tSkip it" << std::endl;
+            }
+            #endif
+
             return true;
         }
 
@@ -120,23 +156,12 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
 
     // TODO: We assume we actually found some of the target path
     crash_unless(min_start != std::numeric_limits<size_t>::max());
-
-    // Hackily remove source path subrange offsets if any
-    subrange_t source_subrange = graph->get_subrange(path_handle);
-    if (source_subrange != PathMetadata::NO_SUBRANGE) {
-        // If we requested something on this path region, we can't handle
-        // finding part of an earlier path region.
-        // TODO: Handle it.
-        crash_unless(min_start <= source_subrange.first);
-        min_start -= source_subrange.first;
-        max_end -= source_subrange.first;
-    }
-
     // We can't represent a region with a 0 end-exclusive coordinate.
     crash_unless(max_end != 0);
 
-    // Produce the output region. Convert coordinates to be 0-based, end-inclusive.
-    out_region.seq = region.seq;
+    // Express the output region against the base path, if different from the target path with its subrange.
+    out_region.seq = get_path_base_name(*graph, path_handle);
+    // Convert coordinates to be 0-based, end-inclusive.
     out_region.start = min_start;
     out_region.end = max_end - 1;
 }

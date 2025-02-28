@@ -32,9 +32,15 @@ public:
     /** Extract subgraph corresponding to given path region into its 
      * own vg graph, and send it to out_stream.  The boundaries of the
      * extracted region of the target path (which can be different because we
-     * expand context and don't cut nodes) are written to out_region. If the
-     * target path goes through the extracted region multiple times, only the
-     * extended bounds of the visit containing the target region are produced.
+     * expand context and don't cut nodes) are written to out_region.
+     *
+     * The contig name of out_region is set to the base path name (without any
+     * subrange) for the path from region. Output coordinates will be relative
+     * to this base path.
+     *
+     * If the target path goes through the extracted region multiple times,
+     * only the extended bounds of the visit containing the target region are
+     * produced.
      *
      * If forward_only set, context is only expanded in the forward direction
      *
@@ -63,6 +69,11 @@ public:
 
     /**
      * Like above, but use (inclusive) id range instead of region on path.
+     *
+     * Skips nodes in the ID range that do not actually exist in the source
+     * graph, or that already exist in the target graph.
+     *
+     * Populated out_region's start and end with node IDs.
      */
     void extract_id_range(vg::id_t start, vg::id_t end, int64_t context, int64_t length, bool forward_only,
                           MutablePathMutableHandleGraph& subgraph, Region& out_region);

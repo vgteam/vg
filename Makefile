@@ -537,17 +537,24 @@ test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BI
 
 # Somebody has been polluting the test directory with temporary files that are not deleted after the tests.
 # To make git status more useful, we delete everything that looks like a temporary file.
-clean-test:
+clean-tests:
 	cd test && rm -rf tmp && mkdir tmp && mv 2_2.mat build_graph.cpp default.mat tmp && rm -f *.* && mv tmp/* . && rmdir tmp
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 	
-man: $(patsubst doc/asciidoc/man/%.adoc,doc/man/%.1,$(wildcard doc/asciidoc/man/*.adoc))
+man: doc/wiki/vg-manpage.md doc/man/vg.1
 
-doc/man/%.1: doc/asciidoc/man/%.adoc
-	asciidoctor -b manpage -d manpage -o $@ $<
+#The manpage markdown has an extra line needed for the actual manpage format
+doc/man/vg-manpage.md: $(BIN_DIR)/$(EXE) doc/vgmanmd.desc.md doc/vgmanmd.py
+	mkdir -p doc/man && ./doc/vgmanmd.py > $@.tmp && mv $@.tmp $@
+
+doc/wiki/vg-manpage.md: doc/man/vg-manpage.md
+	sed 1d doc/man/vg-manpage.md > $@
+
+doc/man/vg.1: doc/man/vg-manpage.md
+	pandoc --standalone --to man $< -o $@
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
