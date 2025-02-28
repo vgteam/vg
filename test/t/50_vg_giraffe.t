@@ -16,6 +16,8 @@ vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
 vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min x.xg
 
+# For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
+rm -f x.gbz x.giraffe.gbz
 vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
 rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
