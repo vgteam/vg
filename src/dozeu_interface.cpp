@@ -418,7 +418,9 @@ void DozeuInterface::calculate_and_save_alignment(Alignment &alignment, const Or
     // aln->query_length can be shorter than alignment.sequence().size() if we
     // didn't traceback from the very last base of the query, or if we didn't
     // pack the whole query because of an offset.
-
+    
+    // Add a mapping to node at index _id.
+    // Also consults (and clears) ref_offset
 	#define _push_mapping(_id) ({ \
 		handle_t n = graph.order[(_id)]; \
 		Mapping *mapping = path->add_mapping(); \

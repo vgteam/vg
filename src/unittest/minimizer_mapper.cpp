@@ -347,6 +347,87 @@ TEST_CASE("MinimizerMapper can map against subgraphs between abutting points", "
         }
 }
 
+
+TEST_CASE("MinimizerMapper can map against subgraphs within a node", "[giraffe][mapping]") {
+
+    Aligner aligner;
+    HashGraph graph;
+    
+    // We have a big node
+    auto h1 = graph.create_handle("AAAAGATTG");
+    
+    Alignment aln;
+    aln.set_sequence("AGAT");
+    
+    // Left anchor should be on start
+    pos_t left_anchor {graph.get_id(h1), false, 3};
+    // Right anchor should be past end
+    pos_t right_anchor {graph.get_id(h1), false, 7};
+    
+    TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+    // Make sure we get the right alignment
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(h1));
+    REQUIRE(aln.path().mapping(0).position().is_reverse() == graph.get_is_reverse(h1));
+    REQUIRE(aln.path().mapping(0).position().offset() == offset(left_anchor));
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 4);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 4);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+
+}
+
+TEST_CASE("MinimizerMapper can find mappings where the alignment turns around from the right", "[giraffe][mapping]") {
+
+    Aligner aligner;
+    HashGraph graph;
+    
+    auto h1 = graph.create_handle("AAAAGAT");
+    auto h_in = graph.create_handle("G");
+    graph.create_edge(h_in, h1);
+    graph.create_edge(graph.flip(h_in), h1);
+    
+    Alignment aln;
+    aln.set_sequence("TTTTGAAAAGA");
+    
+    // Left anchor is empty
+    pos_t left_anchor;
+    // Right anchor is at past-end
+    pos_t right_anchor {graph.get_id(h1), false, 6};
+    
+    TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, 20, &graph, &aligner, aln);
+
+    // Make sure we get the right alignment
+    REQUIRE(aln.path().mapping_size() == 3);
+    REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(h1));
+    REQUIRE(aln.path().mapping(0).position().is_reverse() == !graph.get_is_reverse(h1));
+    REQUIRE(aln.path().mapping(0).position().offset() == 3);
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 4);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 4);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(h_in));
+    REQUIRE(aln.path().mapping(1).position().is_reverse() == graph.get_is_reverse(h_in));
+    REQUIRE(aln.path().mapping(1).position().offset() == 0);
+    REQUIRE(aln.path().mapping(1).edit_size() == 1);
+    REQUIRE(aln.path().mapping(1).edit(0).from_length() == 1);
+    REQUIRE(aln.path().mapping(1).edit(0).to_length() == 1);
+    REQUIRE(aln.path().mapping(1).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(2).position().node_id() == graph.get_id(h1));
+    REQUIRE(aln.path().mapping(2).position().is_reverse() == graph.get_is_reverse(h1));
+    REQUIRE(aln.path().mapping(2).position().offset() == 0);
+    REQUIRE(aln.path().mapping(2).edit_size() == 1);
+    REQUIRE(aln.path().mapping(2).edit(0).from_length() == 6);
+    REQUIRE(aln.path().mapping(2).edit(0).to_length() == 6);
+    REQUIRE(aln.path().mapping(2).edit(0).sequence() == "");
+
+    // TODO: We can't find the same alignment from the left because we'd need
+    // to see more of the anchor node than we anchored on.
+    
+    // TODO: We can't handle a hairpin directly inside the anchor node.
+}
+
 TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraffe][mapping]") {
 
         Aligner aligner;
