@@ -237,7 +237,9 @@ public:
 
     Header header;
 
+    // TODO v5: Remove this.
     // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
+    // This is no longer in use.
     std::vector<size_t> jobs_for_cached_paths;
 
     std::vector<TopLevelChain> chains;
@@ -260,6 +262,14 @@ public:
 
     /// Returns the size of the object in elements.
     size_t simple_sds_size() const;
+
+    /**
+     * Assigns each reference and generic path in the graph to a GBWT construction job.
+     *
+     * For each path handle from 0 to gbz.named_paths() - 1, we assign the path to
+     * the given construction job, or jobs() if the path is empty.
+     */
+    std::vector<size_t> assign_reference_paths(const gbwtgraph::GBZ& gbz, const gbwt::FragmentMap& fragment_map, Verbosity verbosity) const;
 };
 
 //------------------------------------------------------------------------------
@@ -620,6 +630,10 @@ public:
     const Haplotypes& haplotypes;
     gbwt::FragmentMap fragment_map;
     Verbosity verbosity;
+
+    // This used to be in the Haplotypes object. For each path handle from 0 to gbz.named_paths() - 1,
+    // this stores the job id for the corresponding generic/reference path.
+    std::vector<size_t> jobs_for_cached_paths;
 
 private:
     // Generate haplotypes for the given chain.

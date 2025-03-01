@@ -595,8 +595,13 @@ void set_reference_samples(gbwtgraph::GBZ& gbz, const HaplotypesConfig& config) 
         }
         std::cerr << std::endl;
     }
+
     double start = gbwt::readTimer();
-    gbz.set_reference_samples(config.reference_samples);
+    size_t present = gbz.set_reference_samples(config.reference_samples);
+    if (present < config.reference_samples.size()) {
+        std::cerr << "warning: [vg haplotypes] only " << present << " out of " << config.reference_samples.size() << " reference samples are present" << std::endl;
+    }
+
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Updated reference samples in " << seconds << " seconds" << std::endl;

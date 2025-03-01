@@ -389,6 +389,76 @@ size_t Haplotypes::simple_sds_size() const {
     return result;
 }
 
+std::vector<size_t> Haplotypes::assign_reference_paths(const gbwtgraph::GBZ& gbz, const gbwt::FragmentMap& fragment_map, Verbosity verbosity) const {
+    if (verbosity >= verbosity_basic) {
+        std::cerr << "Assigning reference paths to GBWT construction jobs" << std::endl;
+    }
+    double start = gbwt::readTimer();
+
+    // All paths are initially unassigned.
+    std::vector<size_t> result (gbz.named_paths(), this->jobs());
+
+    auto path_id_to_named_path_offset = [&](gbwt::size_type path_id) -> size_t {
+        path_handle_t handle = gbz.graph.path_to_handle(path_id);
+        size_t as_integer = handlegraph::as_integer(handle);
+        if (as_integer >= gbz.named_paths()) {
+            return std::numeric_limits<size_t>::max();
+        } else {
+            return as_integer;
+        }
+    };
+
+    // We do a lot of redundant work here. We iterate over every sequence in every subchain
+    // and top-level chain. If the sequence is a cached (generic or reference) path, we
+    // assign it to the job corresponding to the top-level chain.
+    for (const TopLevelChain& chain : this->chains) {
+        size_t job = chain.job_id;
+        for (const Subchain& subchain : chain.subchains) {
+            for (const compact_sequence_type& sequence : subchain.sequences) {
+                gbwt::size_type path_id = gbwt::Path::id(sequence.first);
+                size_t offset = path_id_to_named_path_offset(path_id);
+                if (offset < gbz.named_paths()) {
+                    result[offset] = job;
+                }
+            }
+        }
+    }
+
+    // TODO: Fragment map could provide an iterator.
+    // If some paths were left unassigned because they are located within a subchain, we
+    // try to use the fragment map to rescue them.
+    size_t unassigned = 0;
+    for (size_t i = 0; i < result.size(); i++) {
+        if (result[i] < this->jobs()) {
+            continue;
+        }
+        gbwt::size_type first = gbz.graph.named_paths[i].id;
+        while (true) {
+            gbwt::size_type prev = fragment_map.prev(first);
+            if (prev == gbwt::invalid_sequence()) {
+                break;
+            }
+            first = prev;
+        }
+        for (gbwt::size_type curr = first; curr != gbwt::invalid_sequence(); curr = fragment_map.next(curr)) {
+            size_t offset = path_id_to_named_path_offset(curr);
+            if (offset < gbz.named_paths() && result[offset] < this->jobs()) {
+                result[i] = result[offset];
+                break;
+            }
+        }
+        if (result[i] > this->jobs()) {
+            unassigned++;
+        }
+    }
+
+    if (verbosity >= verbosity_basic) {
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Assigned " << (result.size() - unassigned) << " reference paths (" << unassigned << " unassigned) in " << seconds << " seconds" << std::endl;
+    }
+    return result;
+}
+
 //------------------------------------------------------------------------------
 
 HaplotypePartitioner::HaplotypePartitioner(
@@ -487,7 +557,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     }
 
     // Assign named and reference paths to jobs.
-    result.jobs_for_cached_paths = std::vector<size_t>(this->gbz.graph.named_paths.size(), result.jobs());
+    result.jobs_for_cached_paths = std::vector<size_t>(this->gbz.named_paths(), result.jobs());
     // Again, we do not use a path filter, because a GBZ graph should not contain alt paths.
     auto assignments = gbwtgraph::assign_paths(this->gbz.graph, jobs, nullptr, nullptr);
     for (size_t job = 0; job < assignments.size(); job++) {
@@ -1507,6 +1577,8 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
     if (this->verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Recombinator: " << this->gbz.index.metadata.paths() << " fragments for " << this->fragment_map.size() << " haplotype sequences" << std::endl;
     }
+
+    this->jobs_for_cached_paths = this->haplotypes.assign_reference_paths(this->gbz, this->fragment_map, this->verbosity);
 }
 
 //------------------------------------------------------------------------------
@@ -1690,7 +1762,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
     std::vector<std::vector<gbwt::size_type>> reference_paths(this->haplotypes.jobs());
     if (parameters.include_reference) {
         for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
-            size_t job_id = this->haplotypes.jobs_for_cached_paths[i];
+            size_t job_id = this->jobs_for_cached_paths[i];
             if (job_id < this->haplotypes.jobs()) {
                 reference_paths[job_id].push_back(this->gbz.graph.named_paths[i].id);
             }
