@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 155
+plan tests 161
 
 
 # Build vg graphs for two chromosomes
@@ -330,7 +330,16 @@ is $(vg gbwt -H large.local.gbwt) 18 "local haplotypes w/ reference paths: 18 ha
 is $(vg gbwt -S large.local.gbwt) 18 "local haplotypes w/ reference paths: 18 samples"
 is $(vg gbwt --tags large.local.gbwt | grep -c reference_samples) 1 "local haplotypes w/ reference paths: reference_samples set"
 
-rm -f large.gbz large.local.gbwt
+# Now the same but with a specified reference sample
+vg gbwt -Z large.gbz -l -n 16 --pass-paths --set-reference GRCh38 -o large.local.GCRh38.gbwt
+is $? 0 "Local haplotypes with a specified reference sample"
+is $(vg gbwt -c large.local.GCRh38.gbwt) 34 "local haplotypes w/ reference paths: 34 paths"
+is $(vg gbwt -C large.local.GCRh38.gbwt) 2 "local haplotypes w/ reference paths: 2 contigs"
+is $(vg gbwt -H large.local.GCRh38.gbwt) 17 "local haplotypes w/ reference paths: 17 haplotypes"
+is $(vg gbwt -S large.local.GCRh38.gbwt) 17 "local haplotypes w/ reference paths: 17 samples"
+is $(vg gbwt --tags large.local.GCRh38.gbwt | grep -c reference_samples) 1 "local haplotypes w/ reference paths: reference_samples set"
+
+rm -f large.gbz large.local.gbwt large.local.GCRh38.gbwt
 
 
 # Build GBWTGraph from an augmented GBWT

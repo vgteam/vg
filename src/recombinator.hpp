@@ -1,7 +1,7 @@
 #ifndef VG_RECOMBINATOR_HPP_INCLUDED
 #define VG_RECOMBINATOR_HPP_INCLUDED
 
-/** \file 
+/** \file recombinator.hpp
  * Tools for generating synthetic haplotypes as recombinations of existing
  * haplotypes.
  */
@@ -37,6 +37,9 @@ namespace vg {
  *
  * Versions:
  *
+ * * Version 4: Subchains can have fragmented haplotypes instead of a single
+ *   GBWT sequence always crossing from start to end. Compatible with version 3.
+ *
  * * Version 3: Subchains use smaller integers when possible. Compatible with
  *   version 2.
  *
@@ -58,13 +61,16 @@ public:
         verbosity_detailed = 2,
 
         /// Basic information, detailed statistics, and debug information.
-        verbosity_debug = 3
+        verbosity_debug = 3,
+
+        /// Hidden level; potentially tens of thousands of lines of debugging information.
+        verbosity_extra_debug = 4
     };
 
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 3;
+        constexpr static std::uint32_t VERSION = 4;
         constexpr static std::uint32_t MIN_VERSION = 1;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
@@ -132,7 +138,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        // TODO v3: Use an extra bit for each sequence to mark whether the presence for that sequence
+        // TODO v5: Use an extra bit for each sequence to mark whether the presence for that sequence
         // is stored explicitly or relative to the last explicit sequence.
         // We need to cluster the sequences by similarity and store the clusters consecutively.
         // And then use sd_vector for the sequences with relative presence.
@@ -231,7 +237,9 @@ public:
 
     Header header;
 
+    // TODO v5: Remove this.
     // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
+    // This is no longer in use.
     std::vector<size_t> jobs_for_cached_paths;
 
     std::vector<TopLevelChain> chains;
@@ -254,6 +262,14 @@ public:
 
     /// Returns the size of the object in elements.
     size_t simple_sds_size() const;
+
+    /**
+     * Assigns each reference and generic path in the graph to a GBWT construction job.
+     *
+     * For each path handle from 0 to gbz.named_paths() - 1, we assign the path to
+     * the given construction job, or jobs() if the path is empty.
+     */
+    std::vector<size_t> assign_reference_paths(const gbwtgraph::GBZ& gbz, const gbwt::FragmentMap& fragment_map, Verbosity verbosity) const;
 };
 
 //------------------------------------------------------------------------------
@@ -355,10 +371,12 @@ public:
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
      * minimum distance over the subchain is at most the target length and there
-     * are GBWT haplotypes that cross the subchain. We also keep extending the
-     * subchain if a haplotype would cross the end in both directions. By doing
-     * this, we can avoid sequence loss with haplotypes reversing their direction,
-     * while keeping kmers specific to each subchain.
+     * are GBWT haplotypes that cross the subchain.
+     *
+     * With the right option, we keep extending the subchain if a haplotype would
+     * cross the end in both directions. By doing this, we can avoid sequence loss
+     * with haplotypes reversing their direction, while keeping kmers specific to
+     * each subchain.
      *
      * If there are no snarls in a top-level chain, it is represented as a single
      * subchain without boundary nodes.
@@ -372,6 +390,7 @@ public:
     Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
+    gbwt::FragmentMap fragment_map;
     const gbwt::FastLocate& r_index;
     const SnarlDistanceIndex& distance_index;
     const minimizer_index_type& minimizer_index;
@@ -388,29 +407,34 @@ private:
     // Partition the top-level chain into subchains.
     std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const;
 
-    // Return (SA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id
-    // and the number of the visit.
-    std::vector<sequence_type> get_sequence_visits(handle_t handle) const;
-
-    // Return (DA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id.
+    // Return (DA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id
+    // and the rank of the visit for the same sequence.
     std::vector<sequence_type> get_sequences(handle_t handle) const;
 
-    // Get all GBWT sequences crossing the subchain. The sequences will be at
-    // start for normal subchains and suffixes and at end for prefixes.
+    // Get all GBWT sequences crossing the subchain.
+    //
+    // * If the subchain is a prefix (suffix), the sequences will be at the end
+    //   (start) of the subchain.
+    // * If the subchain is normal, the sequences will be at the start and
+    //   correspond to minimal end-to-end visits to the subchain. A sequence
+    //   that ends within the subchain may be selected if subsequent fragments
+    //   of the same haplotype remain within the subchain and reach the end.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
 
     // Return the sorted set of kmers that are minimizers in the sequence and have
     // a single occurrence in the graph.
     std::vector<kmer_type> unique_minimizers(gbwt::size_type sequence_id) const;
 
-    // Count the number of minimizers in the sequence over the subchain with a single
-    // occurrence in the graph. Return the sorted set of kmers that are minimizers in
-    // the sequence over the subchain and have a single occurrence in the graph.
+    // Returns the sorted set of kmers that are minimizers in the sequence over the
+    // subchain and have a single occurrence in the graph. If the sequence does not
+    // reach the end of the subchain, this will try to continue with the next fragment(s).
+    //
+    // Also reports the number of fragments that were used to generate the kmers.
     //
     // To avoid using kmers shared between all haplotypes in the subchain, and
     // potentially with neighboring subchains, this does not include kmers contained
     // entirely in the shared initial/final nodes.
-    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain) const;
+    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain, size_t& fragments) const;
 
     // Build subchains for a specific top-level chain.
     void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
@@ -470,10 +494,11 @@ public:
         /// Number of subchains exceeding the badness threshold.
         size_t bad_subchains = 0;
 
-        /// Number of fragments.
+        /// Total number of fragments in the generated haplotypes.
         size_t fragments = 0;
 
         /// Number of top-level chains where full haplotypes were taken.
+        /// These are not counted as fragments.
         size_t full_haplotypes = 0;
 
         /// Number of haplotypes generated.
@@ -482,7 +507,7 @@ public:
         /// Number of additional haplotype fragments in bad subchains.
         size_t extra_fragments = 0;
 
-        /// Number of times a haplotype was extended from a subchain to the next subchain.
+        /// Number of times the same haplotype was extended from a subchain to the next subchain.
         size_t connections = 0;
 
         /// Number of reference paths included.
@@ -549,7 +574,7 @@ public:
         /// Include named and reference paths.
         bool include_reference = false;
 
-        // TODO: Should be use extra_fragments?
+        // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.
         enum preset_t {
             /// Default parameters.
@@ -574,9 +599,10 @@ public:
      * (component).
      *
      * Each generated haplotype has a single source haplotype in each subchain.
-     * The subchains are connected by unary paths. Suffix / prefix subchains in
-     * the middle of a chain create fragment breaks. If the chain starts without
-     * a prefix (ends without a suffix), the haplotype chosen for the first (last)
+     * The source haplotype may consist of multiple fragments. Subchains are
+     * by unary paths. Suffix / prefix subchains in the middle of a chain create
+     * fragment breaks in every haplotype. If the chain starts without a prefix
+     * (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
      *
      * Throws `std::runtime_error` on error in single-threaded parts and exits
@@ -600,31 +626,14 @@ public:
     /// Kmer classification.
     enum kmer_presence { absent, heterozygous, present, frequent };
 
-    /**
-     * Classifies the kmers used for describing the haplotypes according to
-     * their frequency in the KFF file. Uses `A`, `H`, `P`, and `F` to represent
-     * absent, heterozygous, present, and frequent kmers, respectively.
-     *
-     * Throws `std::runtime_error` on error.
-     */
-    std::vector<char> classify_kmers(const std::string& kff_file, const Parameters& parameters) const;
-
-    /**
-     * Extracts the local haplotypes in the given subchain. In addition to the
-     * haplotype sequence, this also reports the name of the corresponding path
-     * as well as (rank, score) for the haplotype in each round of haplotype
-     * selection. The number of rounds is `parameters.num_haplotypes`, but if
-     * the haplotype is selected earlier, it will not get further scores.
-     *
-     * Throws `std::runtime_error` on error.
-     */
-    std::vector<LocalHaplotype> extract_sequences(
-        const std::string& kff_file, size_t chain_id, size_t subchain_id, const Parameters& parameters
-    ) const;
-
     const gbwtgraph::GBZ& gbz;
     const Haplotypes& haplotypes;
+    gbwt::FragmentMap fragment_map;
     Verbosity verbosity;
+
+    // This used to be in the Haplotypes object. For each path handle from 0 to gbz.named_paths() - 1,
+    // this stores the job id for the corresponding generic/reference path.
+    std::vector<size_t> jobs_for_cached_paths;
 
 private:
     // Generate haplotypes for the given chain.
