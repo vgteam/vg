@@ -419,21 +419,18 @@ void DozeuInterface::calculate_and_save_alignment(Alignment &alignment, const Or
     // didn't traceback from the very last base of the query, or if we didn't
     // pack the whole query because of an offset.
     
-    // Add a mapping to node at index _id. Only the first mapping will be
-    // allowed to use offset. Also consults (and clears) ref_offset
-    #define _push_mapping(_id) ({ \
-        handle_t n = graph.order[(_id)]; \
-        Mapping *mapping = path->add_mapping(); \
-        size_t s = path->mapping_size(); \
-        mapping->set_rank(s); \
-        Position *position = mapping->mutable_position(); \
-        position->set_node_id(graph.graph.get_id(n)); \
+    // Add a mapping to node at index _id.
+    // Also consults (and clears) ref_offset
+	#define _push_mapping(_id) ({ \
+		handle_t n = graph.order[(_id)]; \
+		Mapping *mapping = path->add_mapping(); \
+		mapping->set_rank(path->mapping_size()); \
+		Position *position = mapping->mutable_position(); \
+		position->set_node_id(graph.graph.get_id(n)); \
         position->set_is_reverse(graph.graph.get_is_reverse(n)); \
-        if (s != 1 && ref_offset > 0) { mapping->add_edit()->set_from_length(ref_offset); } \
-        else { position->set_offset(ref_offset); } \
-        ref_offset = 0; \
-        mapping; \
-    })
+		position->set_offset(ref_offset); ref_offset = 0; \
+		mapping; \
+	})
 	#define _push_op(_m, _op, _len) { \
 		query_offset += push_edit(_m, (_op), &query[query_offset], (_len)); \
 	}

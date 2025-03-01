@@ -3777,13 +3777,21 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
 #endif
         
         // Then trim off the tips that are either in the wrong orientation relative
-        // to whether we want them to be a source or a sink, or extraneous
+        // to whether we want them to be a source or a sink, or extraneous.
+        // Also find the unique handles for the potentially cut-down anchor nodes.
+        // TODO: We re-find them on every trim.
         
         std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
         bool trimmed;
         size_t trim_count = 0;
+        bool found_left_anchor_tip;
+        handle_t left_anchor_tip;
+        bool found_right_anchor_tip;
+        handle_t right_anchor_tip;
         do {
             trimmed = false;
+            found_left_anchor_tip = false;
+            found_right_anchor_tip = false;
             // We need to make sure to remove only one orientation of each handle
             // we remove.
             std::unordered_set<nid_t> to_remove_ids;
@@ -3797,6 +3805,17 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
 #ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
+                    if (!is_empty(left_anchor)) {
+                        // There should only be one source tip for the left anchor node: the one we actually grabbed the graph from.
+                        // Catch any weird bugs in the subgraph extraction
+                        if (found_left_anchor_tip) {
+                            std::stringstream ss;
+                            ss << "Duplicate left anchor tip when extracting " << left_anchor << " to " << right_anchor << ". Your graph has defeated subgraph extraction and the vg developers need to look at it. Please report a bug!";
+                            throw std::runtime_error(ss.str());
+                        }
+                        found_left_anchor_tip = true;
+                        left_anchor_tip = h;
+                    }
                 } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
                     // Tip is inward reverse, so it's a sink.
                     // This is a tail in the subgraph, and either matches a right
@@ -3804,6 +3823,17 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
 #ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
+                    if (!is_empty(right_anchor)) {
+                        // There should only be one sink tip for the right anchor node: the one we actually grabbed the graph from.
+                        // Catch any weird bugs in the subgraph extraction
+                        if (found_right_anchor_tip) {
+                            std::stringstream ss;
+                            ss << "Duplicate right anchor tip when extracting " << left_anchor << " to " << right_anchor << ". Your graph has defeated subgraph extraction and the vg developers need to look at it. Please report a bug!";
+                            throw std::runtime_error(ss.str());
+                        }
+                        found_right_anchor_tip = true;
+                        right_anchor_tip = h;
+                    }
                 } else {
                     // This is a wrong orientation of an anchoring node, or some other tip.
                     // We don't want to keep this handle
@@ -3816,6 +3846,10 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                         to_remove_handles.push_back(h);
                     }
                 }
+                // TODO: There should only be one acceptable tip for each
+                // anchoring node! We probably should check this and have a
+                // bunch of unit tests with ugly cyclic graphs where you can
+                // get at your anchoring nodes from behind.
             }
             for (auto& h : to_remove_handles) {
                 dagified_graph.destroy_handle(h);
@@ -3910,36 +3944,58 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
             }
         }
 
-        // And translate back into original graph space
+        // And translate back into original graph ID and orientation space.
         for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
             // Translate each mapping's ID and orientation down to the base graph
             Mapping* m = alignment.mutable_path()->mutable_mapping(i);
             
             handle_t dagified_handle = dagified_graph.get_handle(m->position().node_id(), m->position().is_reverse());
             auto base_coords = dagified_handle_to_base(dagified_handle);
+           
+            if (i == 0) {
+                // Make sure that, if the leftmost mapping is on an anchor
+                // node, it's on a copy with the correct length.
+                //
+                // Otherwise the changes we make to the offset of the leftmost
+                // mapping when it's on an anchor node won't make sense, because we
+                // won't know we were really on a cut copy.
+                if (!is_empty(left_anchor) && base_coords.first == id(left_anchor)) {
+                    crash_unless(dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(left_anchor_tip));
+                }
+                if (!is_empty(right_anchor) && base_coords.first == id(right_anchor)) {
+                    crash_unless(dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(right_anchor_tip));
+                }
+            }
 
             m->mutable_position()->set_node_id(base_coords.first);
             m->mutable_position()->set_is_reverse(base_coords.second);
         }
-        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0) {
-            // Get the positions of the leftmost mapping
+
+        if (alignment.path().mapping_size() > 0) {
+            // If we anchored on the left, the leftmost mapping will be on a
+            // cut anchor node and its offset won't reflect the offset on the
+            // backing graph node.
+            //
+            // If we anchored on the right only, it's *still possible* for the
+            // alignment to turn around so the leftmost mapping is on the same
+            // cut anchor node we anchored the right end on, facing the other
+            // direction and offsetting from the cut point.
+            //
+            // Adjust the offset on the leftmost mapping so it counts from the
+            // entire node and not the cut-down part used for anchoring, if
+            // it's on one of the cut-down nodes.
             Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
 
-            if (offset(left_anchor) != 0 && offset(left_anchor) < graph->get_length(graph->get_handle(id(left_anchor)))) {
-                // There is some of the left anchor's node actually in the
-                // extracted graph. The left anchor isn't past the end of its node.
-
-                // The alignment must actually start on the anchor node.
-                assert(left_pos->node_id() == id(left_anchor));
-            }
-
-            if (left_pos->node_id() == id(left_anchor)) {
+            if (!is_empty(left_anchor) && left_pos->node_id() == id(left_anchor)) {
                 // If the alignment does start on the anchor node (even at 0 or at the past-end position)
-
                 // Add on the offset for the cut-off piece of the left anchor node
                 left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+            } else if (!is_empty(right_anchor) && left_pos->node_id() == id(right_anchor)) {
+                // If the alignment starts on the right anchor, make sure to add the part that was cut off to the offset.
+                left_pos->set_offset(left_pos->offset() + graph->get_length(graph->get_handle(id(right_anchor))) - offset(right_anchor));
             }
         }
+
         if (alignment.path().mapping_size() > 0) {
             // Make sure we don't have an empty mapping on the end
             auto* last_mapping = alignment.mutable_path()->mutable_mapping(alignment.path().mapping_size() - 1);
@@ -3992,18 +4048,31 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(c
 
     // Now we know a swap is required.
     
+    std::cerr << "Normally would anchor at " << left_anchor << ", " << right_anchor << std::endl;
     
     // The anchors face left to right so we need to flip their orientations in addition to swapping them.
     // align_sequence_between uses between-base positions for anchoring
     pos_t flipped_left_anchor = is_empty(right_anchor) ? empty_pos_t() : reverse(right_anchor, get_node_length(id(right_anchor)));
     pos_t flipped_right_anchor = is_empty(left_anchor) ? empty_pos_t() : reverse(left_anchor, get_node_length(id(left_anchor)));
 
+    std::cerr << "Actually anchoring at " << flipped_left_anchor << ", " << flipped_right_anchor << std::endl;
+
     // Do the alignment
     auto result = align_sequence_between(flipped_left_anchor, flipped_right_anchor, max_path_length, max_gap_length, graph, aligner, flipped_query, alignment_name, max_dp_cells, choose_band_padding);
+
+    for (size_t i = 0; i < flipped_query.path().mapping_size(); i++) {
+        std::cerr << "Mapping to flip: " << pb2json(flipped_query.path().mapping(i)) << std::endl;
+    }
 
     // Flip and send the answer
     reverse_complement_alignment_in_place(&flipped_query, get_node_length);
     alignment = std::move(flipped_query);
+
+    for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
+        if (i > 0 && alignment.path().mapping(i).position().offset() != 0) {
+            throw std::runtime_error("Nonzero offset in " + pb2json(alignment.path().mapping(i)) + " at " + std::to_string(i));
+        }
+    }
 
     // Return the metadata we track
     return result;
