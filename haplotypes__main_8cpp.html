@@ -78,6 +78,7 @@ $(function() {
 <div class="textblock"><code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="hash__map_8hpp.html">../hash_map.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="recombinator_8hpp.html">../recombinator.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="extract__subchain_8hpp.html">../algorithms/extract_subchain.hpp</a>&quot;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;fstream&gt;</code><br />
 <code>#include &lt;functional&gt;</code><br />
@@ -127,14 +128,10 @@ Functions</h2></td></tr>
 <tr class="separator:a17e78ca2607ec749a88124e297543301"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abbe87c8ead89e4916934c55ee923b0c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#abbe87c8ead89e4916934c55ee923b0c1">preprocess_graph</a> (const gbwtgraph::GBZ &amp;gbz, <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
 <tr class="separator:abbe87c8ead89e4916934c55ee923b0c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3026b7303e4210a2828ef044bb0b201"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#af3026b7303e4210a2828ef044bb0b201">set_reference_samples</a> (gbwtgraph::GBZ &amp;gbz, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
+<tr class="separator:af3026b7303e4210a2828ef044bb0b201"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a13d462ac627c7beb00b431280ac9b0c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a13d462ac627c7beb00b431280ac9b0c6">sample_haplotypes</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
 <tr class="separator:a13d462ac627c7beb00b431280ac9b0c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1e43abd4f18210a8a4e131afbc8d182d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a1e43abd4f18210a8a4e131afbc8d182d">map_variants</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
-<tr class="separator:a1e43abd4f18210a8a4e131afbc8d182d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a56be3686d2a011df59c271f092f6f40c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a56be3686d2a011df59c271f092f6f40c">extract_haplotypes</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
-<tr class="separator:a56be3686d2a011df59c271f092f6f40c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abd40ce33a846ef256ca3b375d9cbb288"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#abd40ce33a846ef256ca3b375d9cbb288">classify_kmers</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
-<tr class="separator:abd40ce33a846ef256ca3b375d9cbb288"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a559cad6ab46d0a7dc260987e61ed1175"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a559cad6ab46d0a7dc260987e61ed1175">subchain_statistics</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;config)</td></tr>
 <tr class="separator:a559cad6ab46d0a7dc260987e61ed1175"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8ab8ef2233eb016b7b7f0c2bd5c9411"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ae8ab8ef2233eb016b7b7f0c2bd5c9411">main_haplotypes</a> (int argc, char **argv)</td></tr>
@@ -151,12 +148,8 @@ Functions</h2></td></tr>
 <tr class="separator:a9f628e188cebb5384d8b2b236a745866"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34f1931e5c2978decef6f1b46cfe5808"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a34f1931e5c2978decef6f1b46cfe5808">validate_subgraph</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwtgraph::GBWTGraph &amp;subgraph, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">HaplotypePartitioner::Verbosity</a> verbosity)</td></tr>
 <tr class="separator:a34f1931e5c2978decef6f1b46cfe5808"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a38d910b58a339b55e1135bad308a2aab"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a38d910b58a339b55e1135bad308a2aab">path_for_contig</a> (const gbwtgraph::GBZ &amp;gbz, gbwt::size_type contig_id, const std::string &amp;contig_name)</td></tr>
-<tr class="separator:a38d910b58a339b55e1135bad308a2aab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace19d06b45cb66b44602157c3bc24916"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ace19d06b45cb66b44602157c3bc24916">seq_for_chain</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, gbwt::size_type path_id, size_t chain_id)</td></tr>
 <tr class="separator:ace19d06b45cb66b44602157c3bc24916"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a462a39ecca4a3d1298196a6f23ef24a5"><td class="memItemLeft" align="right" valign="top">std::pair&lt; gbwt::size_type, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a462a39ecca4a3d1298196a6f23ef24a5">seq_chain_for_path</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, gbwt::size_type path_id, const std::string &amp;contig_name)</td></tr>
-<tr class="separator:a462a39ecca4a3d1298196a6f23ef24a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed90215616b71a8c576afeeb7a137596"><td class="memItemLeft" align="right" valign="top">std::pair&lt; std::vector&lt; <a class="el" href="structReferenceInterval.html">ReferenceInterval</a> &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#aed90215616b71a8c576afeeb7a137596">subchain_intervals</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;haplotypes, gbwt::size_type sequence_id, size_t chain_id)</td></tr>
 <tr class="separator:aed90215616b71a8c576afeeb7a137596"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3336c94d43159885886cca6dfef27b87"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a3336c94d43159885886cca6dfef27b87">path_for_sample_contig</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;sample_name, const std::string &amp;contig_name)</td></tr>
@@ -177,12 +170,12 @@ Functions</h2></td></tr>
 <tr class="separator:a2d43c126781548ac00da14e8e01adcb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ec83acb4aef7e3600194a474bf7503c"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a5ec83acb4aef7e3600194a474bf7503c">validate_unary_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> to)</td></tr>
 <tr class="separator:a5ec83acb4aef7e3600194a474bf7503c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e6fb3993622a6541d6e6beb41ed1c72"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a8e6fb3993622a6541d6e6beb41ed1c72">trace_path</a> (const gbwt::GBWT &amp;index, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end)</td></tr>
-<tr class="separator:a8e6fb3993622a6541d6e6beb41ed1c72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ada326bf02798916f16c46f5d308ebc5b"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ada326bf02798916f16c46f5d308ebc5b">get_haplotype</a> (const gbwtgraph::GBWTGraph &amp;graph, <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a> sequence, gbwt::node_type from, gbwt::node_type to, size_t k)</td></tr>
-<tr class="separator:ada326bf02798916f16c46f5d308ebc5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3a45e87bba0a989b6090009d4625b7be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a3a45e87bba0a989b6090009d4625b7be">validate_chain</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">Haplotypes::TopLevelChain</a> &amp;chain, const gbwtgraph::GBWTGraph &amp;graph, const gbwt::FastLocate &amp;r_index, const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9a059ded0fd7ed983801fa4d16f7cd5d">HaplotypePartitioner::minimizer_index_type</a> &amp;minimizer_index, size_t chain_id, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">HaplotypePartitioner::Verbosity</a> verbosity)</td></tr>
-<tr class="separator:a3a45e87bba0a989b6090009d4625b7be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f49b50acf45f0783068a9921d7cfae8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a1f49b50acf45f0783068a9921d7cfae8">trace_path</a> (const gbwt::GBWT &amp;index, const gbwt::FragmentMap &amp;fragment_map, const <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subchain_nodes, gbwt::size_type sequence_id, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end)</td></tr>
+<tr class="separator:a1f49b50acf45f0783068a9921d7cfae8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a76831bdd9091f70393bbe1e82588cb45"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#a76831bdd9091f70393bbe1e82588cb45">get_haplotype</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwt::FragmentMap &amp;fragment_map, <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a> sequence, gbwt::node_type from, gbwt::node_type to, size_t k)</td></tr>
+<tr class="separator:a76831bdd9091f70393bbe1e82588cb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab321a4a5cd2011cd623b573591343d2c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ab321a4a5cd2011cd623b573591343d2c">validate_chain</a> (const <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">Haplotypes::TopLevelChain</a> &amp;chain, const gbwtgraph::GBWTGraph &amp;graph, const gbwt::FragmentMap &amp;fragment_map, const gbwt::FastLocate &amp;r_index, const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9a059ded0fd7ed983801fa4d16f7cd5d">HaplotypePartitioner::minimizer_index_type</a> &amp;minimizer_index, size_t chain_id, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">HaplotypePartitioner::Verbosity</a> verbosity)</td></tr>
+<tr class="separator:ab321a4a5cd2011cd623b573591343d2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae88c7a2ca3744f1826af903b27b2df53"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#ae88c7a2ca3744f1826af903b27b2df53">subchain_to_string</a> (size_t chain_id, size_t subchain_id, const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain)</td></tr>
 <tr class="separator:ae88c7a2ca3744f1826af903b27b2df53"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aacf025eb707a93ff8273d2030a917941"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="haplotypes__main_8cpp.html#aacf025eb707a93ff8273d2030a917941">validate_nodes</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwtgraph::GBWTGraph &amp;subgraph)</td></tr>
@@ -197,46 +190,8 @@ Variables</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg haplotypes" subcommand, which samples haplotypes by kmer counts in the reads.</p>
-<p>TODO:</p>
-<ol type="1">
-<li>Option to sample non-contiguous haplotypes. This may be important in large snarls. Select a suffix of a fragment, all fragments fully within the snarl, and the prefix of the fragment exiting the snarl.</li>
-<li>Tests for &ndash;linear-structure, &ndash;extra-fragments, and #1. </li>
-</ol>
+<p>TODO: Tests for &ndash;linear-structure, &ndash;extra-fragments, and fragmented haplotypes. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
-<a id="abd40ce33a846ef256ca3b375d9cbb288"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abd40ce33a846ef256ca3b375d9cbb288">&#9670;&nbsp;</a></span>classify_kmers()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void classify_kmers </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
-          <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
-          <td class="paramname"><em>config</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a1ffaf31343dd95074c3237bf89b38a33"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1ffaf31343dd95074c3237bf89b38a33">&#9670;&nbsp;</a></span>ends_with()</h2>
 
@@ -295,51 +250,23 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a56be3686d2a011df59c271f092f6f40c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a56be3686d2a011df59c271f092f6f40c">&#9670;&nbsp;</a></span>extract_haplotypes()</h2>
+<a id="a76831bdd9091f70393bbe1e82588cb45"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a76831bdd9091f70393bbe1e82588cb45">&#9670;&nbsp;</a></span>get_haplotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void extract_haplotypes </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
-          <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
-          <td class="paramname"><em>config</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ada326bf02798916f16c46f5d308ebc5b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ada326bf02798916f16c46f5d308ebc5b">&#9670;&nbsp;</a></span>get_haplotype()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string get_haplotype </td>
+          <td class="memname">std::vector&lt;std::string&gt; get_haplotype </td>
           <td>(</td>
           <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::FragmentMap &amp;&#160;</td>
+          <td class="paramname"><em>fragment_map</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -459,40 +386,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a1e43abd4f18210a8a4e131afbc8d182d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e43abd4f18210a8a4e131afbc8d182d">&#9670;&nbsp;</a></span>map_variants()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void map_variants </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
-          <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
-          <td class="paramname"><em>config</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a7d4977594e9d93b802b94c95752f34a2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7d4977594e9d93b802b94c95752f34a2">&#9670;&nbsp;</a></span>pair_to_string()</h2>
 
@@ -507,40 +400,6 @@ template&lt;typename T &gt; </div>
           <td class="paramtype">std::pair&lt; T, T &gt;&#160;</td>
           <td class="paramname"><em>value</em></td><td>)</td>
           <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a38d910b58a339b55e1135bad308a2aab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a38d910b58a339b55e1135bad308a2aab">&#9670;&nbsp;</a></span>path_for_contig()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">gbwt::size_type path_for_contig </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
-          <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">gbwt::size_type&#160;</td>
-          <td class="paramname"><em>contig_id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>contig_name</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -649,46 +508,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a462a39ecca4a3d1298196a6f23ef24a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a462a39ecca4a3d1298196a6f23ef24a5">&#9670;&nbsp;</a></span>seq_chain_for_path()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::pair&lt;gbwt::size_type, size_t&gt; seq_chain_for_path </td>
-          <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
-          <td class="paramname"><em>gbz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> &amp;&#160;</td>
-          <td class="paramname"><em>haplotypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">gbwt::size_type&#160;</td>
-          <td class="paramname"><em>path_id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>contig_name</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="ace19d06b45cb66b44602157c3bc24916"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ace19d06b45cb66b44602157c3bc24916">&#9670;&nbsp;</a></span>seq_for_chain()</h2>
 
@@ -718,6 +537,34 @@ template&lt;typename T &gt; </div>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>chain_id</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af3026b7303e4210a2828ef044bb0b201"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3026b7303e4210a2828ef044bb0b201">&#9670;&nbsp;</a></span>set_reference_samples()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void set_reference_samples </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structHaplotypesConfig.html">HaplotypesConfig</a> &amp;&#160;</td>
+          <td class="paramname"><em>config</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -855,8 +702,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a8e6fb3993622a6541d6e6beb41ed1c72"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8e6fb3993622a6541d6e6beb41ed1c72">&#9670;&nbsp;</a></span>trace_path()</h2>
+<a id="a1f49b50acf45f0783068a9921d7cfae8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f49b50acf45f0783068a9921d7cfae8">&#9670;&nbsp;</a></span>trace_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -866,6 +713,24 @@ template&lt;typename T &gt; </div>
           <td>(</td>
           <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
           <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::FragmentMap &amp;&#160;</td>
+          <td class="paramname"><em>fragment_map</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subchain_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::size_type&#160;</td>
+          <td class="paramname"><em>sequence_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -895,8 +760,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a3a45e87bba0a989b6090009d4625b7be"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3a45e87bba0a989b6090009d4625b7be">&#9670;&nbsp;</a></span>validate_chain()</h2>
+<a id="ab321a4a5cd2011cd623b573591343d2c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab321a4a5cd2011cd623b573591343d2c">&#9670;&nbsp;</a></span>validate_chain()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -912,6 +777,12 @@ template&lt;typename T &gt; </div>
           <td></td>
           <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::FragmentMap &amp;&#160;</td>
+          <td class="paramname"><em>fragment_map</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

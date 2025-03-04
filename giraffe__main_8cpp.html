@@ -117,8 +117,8 @@ Classes</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
 <tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6343c45d56779ead6309ffefbf066fdc"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a6343c45d56779ead6309ffefbf066fdc">sample_haplotypes</a> (const vector&lt; pair&lt; string, string &gt;&gt; &amp;indexes, string &amp;basename, string &amp;sample_name, string &amp;haplotype_file, string &amp;kff_file, bool progress)</td></tr>
-<tr class="separator:a6343c45d56779ead6309ffefbf066fdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50d4ddb2cda5b32c3ef22383a83bcab4"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a50d4ddb2cda5b32c3ef22383a83bcab4">sample_haplotypes</a> (const std::vector&lt; std::pair&lt; std::string, std::string &gt;&gt; &amp;indexes, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const std::string &amp;basename, const std::string &amp;sample_name, const std::string &amp;haplotype_file, const std::string &amp;kff_file, bool progress)</td></tr>
+<tr class="separator:a50d4ddb2cda5b32c3ef22383a83bcab4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#aa6d5c2140d259252f3cad8b7bf6b4b1a">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, const std::map&lt; std::string, <a class="el" href="structvg_1_1subcommand_1_1Preset.html">Preset</a> &gt; &amp;presets, bool full_help)</td></tr>
 <tr class="separator:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
@@ -195,40 +195,46 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a6343c45d56779ead6309ffefbf066fdc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6343c45d56779ead6309ffefbf066fdc">&#9670;&nbsp;</a></span>sample_haplotypes()</h2>
+<a id="a50d4ddb2cda5b32c3ef22383a83bcab4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50d4ddb2cda5b32c3ef22383a83bcab4">&#9670;&nbsp;</a></span>sample_haplotypes()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">string sample_haplotypes </td>
+          <td class="memname">std::string sample_haplotypes </td>
           <td>(</td>
-          <td class="paramtype">const vector&lt; pair&lt; string, string &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; std::pair&lt; std::string, std::string &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>indexes</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>reference_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>basename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>sample_name</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>haplotype_file</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>kff_file</em>, </td>
         </tr>
         <tr>

@@ -93,10 +93,14 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> : size_t { <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21">verbosity_silent</a> = 0, 
+<tr class="memitem:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> : size_t { <br />
+&#160;&#160;<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21">verbosity_silent</a> = 0, 
 <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa718364c23222ec5e7444240be0799449">verbosity_basic</a> = 1, 
 <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa8c3562efded9b2b9ae9fd7ee05594ce0">verbosity_detailed</a> = 2, 
-<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241">verbosity_debug</a> = 3
+<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241">verbosity_debug</a> = 3, 
+<br />
+&#160;&#160;<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa08dcddd51ddf6c9e8df59757e13eaa30">verbosity_extra_debug</a> = 4
+<br />
  }</td></tr>
 <tr class="memdesc:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The amount of progress information that should be printed to stderr.  <a href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">More...</a><br /></td></tr>
 <tr class="separator:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -132,6 +136,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">More...</a><br /></td></tr>
 <tr class="separator:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae19f4782a92fc322806cf178beabdda6"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ae19f4782a92fc322806cf178beabdda6">assign_reference_paths</a> (const gbwtgraph::GBZ &amp;gbz, const gbwt::FragmentMap &amp;fragment_map, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
+<tr class="separator:ae19f4782a92fc322806cf178beabdda6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -149,6 +155,7 @@ Public Attributes</h2></td></tr>
 <p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
 <p>Versions:</p>
 <ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 4: Subchains can have fragmented haplotypes instead of a single GBWT sequence always crossing from start to end. Compatible with version 3.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Compatible with version 2.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. Compatible with version 1.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 1: Initial version. </li>
@@ -209,11 +216,49 @@ Public Attributes</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241"></a>verbosity_debug&#160;</td><td class="fielddoc"><p>Basic information, detailed statistics, and debug information. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aa08dcddd51ddf6c9e8df59757e13eaa30"></a>verbosity_extra_debug&#160;</td><td class="fielddoc"><p>Hidden level; potentially tens of thousands of lines of debugging information. </p>
+</td></tr>
 </table>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="ae19f4782a92fc322806cf178beabdda6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae19f4782a92fc322806cf178beabdda6">&#9670;&nbsp;</a></span>assign_reference_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; size_t &gt; vg::Haplotypes::assign_reference_paths </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::FragmentMap &amp;&#160;</td>
+          <td class="paramname"><em>fragment_map</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a>&#160;</td>
+          <td class="paramname"><em>verbosity</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Assigns each reference and generic path in the graph to a GBWT construction job.</p>
+<p>For each path handle from 0 to gbz.named_paths() - 1, we assign the path to the given construction job, or <a class="el" href="classvg_1_1Haplotypes.html#af1b40bc51ea14870df84ab86ca71c0ce" title="Returns the number of GBWT construction jobs.">jobs()</a> if the path is empty. </p>
+
+</div>
+</div>
 <a id="a1617e9b0fbd01fc77fd87c527e5dbd24"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1617e9b0fbd01fc77fd87c527e5dbd24">&#9670;&nbsp;</a></span>components()</h2>
 

@@ -198,6 +198,9 @@ $(function() {
 <li>gbwt_name
 : <a class="el" href="structGBWTConfig.html#a5fe3f0a41311811ddf16bcd7dbab4f91">GBWTConfig</a>
 </li>
+<li>gbwt_node_offset
+: <a class="el" href="structvg_1_1FragmentedHaplotypeVisit.html#a1c1efda472c2f68f0d4f8c4b81bf5440">vg::FragmentedHaplotypeVisit</a>
+</li>
 <li>GBWT_OFFSET_TAG
 : <a class="el" href="structvg_1_1GAFSorterRecord.html#af86061efe647b873fc9c010fe82692e8">vg::GAFSorterRecord</a>
 </li>
@@ -270,7 +273,7 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexRegistry.html#a665cc9431438ef50124b29e518465a05">vg::IndexRegistry</a>
 </li>
 <li>generate()
-: <a class="el" href="structvg_1_1RecombinatorFragment.html#a411831e7ba9db75f1d14708bb79f7eef">vg::RecombinatorFragment</a>
+: <a class="el" href="structvg_1_1RecombinatorFragment.html#ad8497765c9700674d681fbd30af24b28">vg::RecombinatorFragment</a>
 </li>
 <li>generate_continuous_uniform()
 : <a class="el" href="classvg_1_1MCMCGenotyper.html#a5ebeff817c6548c32c5377ed00c041c6">vg::MCMCGenotyper</a>
@@ -978,7 +981,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
-: <a class="el" href="classvg_1_1Paths.html#a72c6a29a41521996fd3454170b1a76f6">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
 </li>
 <li>get_node_mapping_copies_by_rank()
 : <a class="el" href="classvg_1_1Paths.html#a36a26abe18d10e17e273fa658be9d5c6">vg::Paths</a>
@@ -1277,8 +1280,8 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">handlegraph::PathMetadata</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">vg::ReadFilter&lt; Read &gt;</a>
-, <a class="el" href="classvg_1_1Surjector.html#a42d2fa6bd9590a02329f31666fbe0cd5">vg::Surjector</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a2144e5b768ebd71768d37265c07deda2">vg::ReadFilter&lt; Read &gt;</a>
+, <a class="el" href="classvg_1_1Surjector.html#aafe9672e0a82c6540c4d1360070725ec">vg::Surjector</a>
 </li>
 <li>get_scores()
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a784a7e41856ad01f9bdd88ca59dfb146">haplo::haplo_DP_column</a>
@@ -1317,9 +1320,6 @@ $(function() {
 , <a class="el" href="classvg_1_1TreeSubgraph.html#ae9859d1486d3023b44ab83b3f8c5438c">vg::TreeSubgraph</a>
 , <a class="el" href="classvg_1_1VG.html#a353df9b2449ac859804359632283078b">vg::VG</a>
 , <a class="el" href="classxg_1_1XG.html#ad748df5f6e521774c1d5871ab3519bd8">xg::XG</a>
-</li>
-<li>get_sequence_visits()
-: <a class="el" href="classvg_1_1HaplotypePartitioner.html#acbe0f7f081cf6db06a894e451d8915b6">vg::HaplotypePartitioner</a>
 </li>
 <li>get_sequences()
 : <a class="el" href="classvg_1_1HaplotypePartitioner.html#af88d6e4839d697b5780c453441d3abb0">vg::HaplotypePartitioner</a>
@@ -1536,10 +1536,10 @@ $(function() {
 : <a class="el" href="structGBWTConfig.html#a07b86c3ec44037b22504eb86d9ebd78d">GBWTConfig</a>
 </li>
 <li>GFADuplicatePathError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#aa815b9f84fdf80d9bf29c38d3d68408c">vg::algorithms::GFADuplicatePathError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#a05dd140439b17113dec810a3cdc26bab">vg::algorithms::GFADuplicatePathError</a>
 </li>
 <li>GFAFormatError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#add2d72c679e2b69e1c9f9c481228e0fb">vg::algorithms::GFAFormatError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#afdf6dea244cc33a30ae5d9446199bea2">vg::algorithms::GFAFormatError</a>
 </li>
 <li>GFAHandleGraph()
 : <a class="el" href="classvg_1_1GFAHandleGraph.html#aeffc2278ffcad22cd6950f3fa831f60d">vg::GFAHandleGraph</a>
@@ -1669,7 +1669,7 @@ $(function() {
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7">GraphHandler</a>
 </li>
 <li>graph_pos_at_path_position()
-: <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
+: <a class="el" href="classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7">xg::XG</a>
 </li>
 <li>graph_source
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">GraphHandler</a>
@@ -1745,7 +1745,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ae569fd7dc6129edc5e5dac52b1a67f84">vg::io::MessageIterator</a>
 </li>
 <li>GroupedOptionGroup()
-: <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#af4f06c1eff0303d1c982b0c2d34c2b55">vg::subcommand::GroupedOptionGroup</a>
+: <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#a6da6deb7ccf8697e84db1c266dd9180f">vg::subcommand::GroupedOptionGroup</a>
 </li>
 <li>Growth()
 : <a class="el" href="structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22">vg::FlowSort::Growth</a>
@@ -1754,7 +1754,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#ab45f7399b68bdc980499d4384515b9b7">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a6c3f1338e6a66850b779e8331a65a61c">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->
