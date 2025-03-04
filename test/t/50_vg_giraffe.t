@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 62
+plan tests 64
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -14,25 +14,35 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg index -j x.dist x.vg
-vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min x.xg
+vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min -z x.shortread.zipcodes x.xg
+
 
 # For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
 rm -f x.gbz x.giraffe.gbz
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes  -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with xg + gbwt + min + zips + dist specified without crashing"
 rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
-vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with gbz + min + dist specified without crashing"
+vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with gbz + min + zips + dist specified without crashing"
 
 rm -f x.giraffe.gbz
 vg gbwt -x x.xg -g x.gg x.gbwt
-vg giraffe -g x.gg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with gg + gbwt + min + dist specified without crashing"
+vg giraffe -g x.gg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with gg + gbwt + min + zips + dist specified without crashing"
+
+rm -f x.shortread.withzip.min
+rm -f x.shortread.zipcodes
+vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with the minimizer index and zipcodes being regenerated"
 
 rm -f x.shortread.withzip.min
 vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
+is "${?}" "0" "a read can be mapped with the minimizer index regenerated"
+
+rm -f x.shortread.zipcodes
+vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with the zipcodes being regenerated"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
@@ -74,7 +84,7 @@ vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > 
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
 
 chmod 400 x.dist
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq >/dev/null 
 is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
 echo "@read" >read.fq
@@ -82,17 +92,17 @@ echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n
 echo "+" >>read.fq
 echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
 
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f read.fq > read.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f read.fq > read.gam
 LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l | sed 's/^[[:space:]]*//')"
 is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
 
 
 printf "@read1\tT1:A:t T2:i:1\t T3:f:3.5e-7\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged1.fq
 printf "@read2 T4:Z:str T5:H:FF00\tT6:B:S,0,10 T7:B:f,8.0,5.0\nCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > tagged2.fq
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o BAM > t1.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged2.fq --comments-as-tags -o BAM > t2.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq -f tagged2.fq --comments-as-tags -o BAM > t3.bam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f tagged1.fq --comments-as-tags -o GAF > t1.gaf
 
 
 is "$(samtools view t1.bam | grep T1 | grep T2 | grep T3 | wc -l | sed 's/^[[:space:]]*//')" "1" "BAM tags are preserved on read 1"
@@ -233,7 +243,7 @@ is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without wa
 is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | grep -v "null" | wc -l | sed 's/^[[:space:]]*//')" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l | sed 's/^[[:space:]]*//')" "0" "GFA segment names are all set"
 
-vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
 is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
 
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
@@ -256,5 +266,5 @@ is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster
 is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
-rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min log.txt
+rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
 

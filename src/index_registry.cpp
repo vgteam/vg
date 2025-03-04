@@ -4104,6 +4104,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             auto zipcode_output = *constructing.rbegin();
             auto& output_name_minimizer = all_outputs[0];
             auto& output_name_zipcodes = all_outputs[1];
+
+            //TODO: This doesn't work because everything is const and the compiler doesn't like it
+            //Make sure that we're writing both the minimizers and zipcodes
+            //assert(!plan->registry->get_index(minimizer_output)->was_provided_directly() && !plan->registry->get_index(zipcode_output)->was_provided_directly());
             
 
             ifstream infile_gbz;
@@ -4550,6 +4554,18 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     }
     get_index(identifier)->provide(filenames);
 }
+
+void IndexRegistry::reset(const IndexName& identifier) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+        cerr << "[IndexRegistry]: Reset provided: " << identifier << endl;
+    }
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot reset unregistered index: " << identifier << endl;
+        exit(1);
+    }
+    get_index(identifier)->reset();
+}
+
 
 bool IndexRegistry::available(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
