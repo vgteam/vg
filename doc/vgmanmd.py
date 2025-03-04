@@ -67,8 +67,12 @@ print("====")
 # help for each cmd
 for cmd in cmds:
     print('## {cmd}\n\n'.format(cmd=cmd))
-    # run subcommand without -h because not everything has -h
-    ret = subprocess.run(['vg', cmd], capture_output=True)
+    try:
+        # Try first with the help option to try and get all options described.
+        ret = subprocess.run(['vg', cmd, '--help'], capture_output=True)
+    except subprocess.CalledProcessError:
+        # Then try subcommand without -h because not everything has -h
+        ret = subprocess.run(['vg', cmd], capture_output=True)
     print('```')
     if cmd in desc:
         print(desc[cmd])
