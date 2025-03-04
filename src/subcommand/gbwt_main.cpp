@@ -158,7 +158,7 @@ void validate_gbwt_config(GBWTConfig& config);
 
 void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config);
-void step_3_alter_gbwt(GBWTHandler& gbwts, GBWTConfig& config);
+void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config);
@@ -195,7 +195,7 @@ int main_gbwt(int argc, char** argv) {
 
     // Edit the GBWT (remove samples, apply tags).
     if (!config.to_remove.empty() || !config.tags_to_set.empty()) {
-        step_3_alter_gbwt(gbwts, config);
+        step_3_alter_gbwt(gbwts, graphs, config);
     }
 
     // Path cover construction.
@@ -1501,28 +1501,38 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     report_time_memory("Samples removed", start, config);
 }
 
-void set_tags(GBWTHandler& gbwts, GBWTConfig& config) {
+void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
         std::cerr << "Setting " << config.tags_to_set.size() << " tags on the GBWT" << std::endl;
     }
     
     gbwts.use_compressed();
+    bool set_reference_samples = false;
     for (auto& kv : config.tags_to_set) {
-        gbwts.compressed.tags.set(kv.first, kv.second); 
+        gbwts.compressed.tags.set(kv.first, kv.second);
+        if (kv.first == gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG) {
+            set_reference_samples = true;
+        }
     }
     // We modified the GBWT (we assume some tags got set)
     gbwts.unbacked();
-    
+
+    // If we updated reference samples and have an existing GBWTGraph, we need to recache the named paths.
+    // This is because we may want to include the reference paths in a path cover GBWT.
+    if (set_reference_samples && (graphs.in_use == GraphHandler::graph_gbwtgraph || graphs.in_use == GraphHandler::graph_gbz)) {
+        graphs.gbwt_graph->set_gbwt(gbwts.compressed);
+    }
+
     report_time_memory("Tags set", start, config);
 }
 
-void step_3_alter_gbwt(GBWTHandler& gbwts, GBWTConfig& config) {
+void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     if (!config.to_remove.empty()) {
         remove_samples(gbwts, config);
     }
     if (!config.tags_to_set.empty()) {
-        set_tags(gbwts, config);
+        set_tags(gbwts, graphs, config);
     }
 }
 

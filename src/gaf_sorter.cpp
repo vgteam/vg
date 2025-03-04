@@ -57,6 +57,7 @@ void GAFSorterRecord::set_key(key_type type) {
         }
     } else if (type == key_gbwt_pos) {
         std::uint32_t node_id = std::numeric_limits<std::uint32_t>::max();
+        bool is_reverse = false;
         std::uint32_t offset = std::numeric_limits<std::uint32_t>::max();
         this->for_each_field([&](size_t i, str_view value) -> bool {
             if (i == PATH_FIELD && value.size > 1) {
@@ -64,6 +65,7 @@ void GAFSorterRecord::set_key(key_type type) {
                 if (result.ec != std::errc()) {
                     return false;
                 }
+                is_reverse = (value[0] == '<');
             } else if (i >= MANDATORY_FIELDS) {
                 size_t tag_size = GBWT_OFFSET_TAG.size();
                 if (value.size > tag_size && value.substr(0, tag_size) == GBWT_OFFSET_TAG) {
@@ -77,7 +79,7 @@ void GAFSorterRecord::set_key(key_type type) {
             // We either did not find both fields or failed to parse them.
             this->key = MISSING_KEY;
         } else {
-            this->key = (static_cast<std::uint64_t>(node_id) << 32) | offset;
+            this->key = (static_cast<std::uint64_t>(node_id) << 33) | (static_cast<std::uint64_t>(is_reverse) << 32) | offset;
         }
     } else if (type == key_hash) {
         this->key = hasher(this->value);
