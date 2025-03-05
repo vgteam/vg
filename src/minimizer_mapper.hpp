@@ -514,6 +514,10 @@ public:
     /// still break this!
     static constexpr size_t default_max_dozeu_cells = (size_t)(1.5 * 1024 * 1024);
     size_t max_dozeu_cells = default_max_dozeu_cells;
+
+    /// For rescure, how likely can an alignment be by chance to still accept it?
+    static constexpr double default_rescue_likelihood_limit = 0.05;
+    double rescue_likelihood_limit = default_rescue_likelihood_limit;
     
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
     static constexpr size_t default_max_fragment_length = 2000;

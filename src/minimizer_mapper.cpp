@@ -3213,10 +3213,13 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         return;
     }
 
-    // Build a subgraph overlay.
+    // Build a subgraph overlay, while tracking how many bases it is.
     SubHandleGraph sub_graph(&cached_graph);
+    size_t subgraph_size = 0;
     for (id_t id : rescue_nodes) {
-        sub_graph.add_handle(cached_graph.get_handle(id));
+        handle_t h = cached_graph.get_handle(id);
+        sub_graph.add_handle(h);
+        subgraph_size += cached_graph.get_length(h);
     }
 
     // Create an overlay where each strand is a separate node.
@@ -3264,6 +3267,32 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Rescue result: " << log_alignment(rescued_alignment) << endl;
+        }
+    }
+
+    // Work out how many matches of score the alignment is
+    int effective_matches = rescued_alignment.score() / this->get_regular_aligner()->match;
+    if (effective_matches <= rescued_alignment.sequence().size() && effective_matches <= subgraph_size) {
+        // We haven't hit any weird full-length bonuses
+
+        // Compute the probability of this many matches in a row by chance
+        // between two linear sequences of these lengths, under an
+        // each-base-equally-likely null model.
+        double by_chance_likelihood = 1.0 - pow(1.0 - pow(0.25, effective_matches), (rescued_alignment.sequence().size() - effective_matches + 1)*(subgraph_size - effective_matches + 1));
+
+        if (by_chance_likelihood > rescue_likelihood_limit) {
+            // This is too plausible by chance.
+            // TODO: Should this go into MAPQ instead?
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Too likely by chance: " << by_chance_likelihood << endl;
+                }
+            }
+
+            rescued_alignment.clear_path();
+            rescued_alignment.set_score(0);
         }
     }
 }
