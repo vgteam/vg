@@ -3130,6 +3130,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
     if (rescue_nodes.size() == 0) {
         //If the rescue subgraph is empty
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Rescue subgraph is empty" << endl;
+            }
+        }
         return;
     }
     
@@ -3147,6 +3153,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Find all seeds in the subgraph and try to get a full-length extension.
     GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
     if (seeds.size() > this->rescue_seed_limit) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Rescue seed limit exceeded: " << seeds.size() << " seeds" << endl;
+            }
+        }
         return;
     }
     std::vector<GaplessExtension> extensions = this->extender->extend(seeds, rescued_alignment.sequence(), &cached_graph);
@@ -3154,6 +3166,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // If we have a full-length extension, use it as the rescued alignment.
     if (GaplessExtender::full_length_extensions(extensions)) {
         this->extension_to_alignment(extensions.front(), rescued_alignment);
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Rescue found full-length gapless extension." << endl;
+            }
+        }
         return;
     }
 
@@ -3181,6 +3199,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         gcsa::node_type node = gcsa::Node::encode(id, extension.offset, is_reverse);
         dozeu_seed.back().nodes.push_back(node);
     }
+    
+    // Track the un-doubled rescue subgraph size.
+    size_t subgraph_size = 0;
 
     // GSSW and dozeu assume that the graph is a DAG.
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
@@ -3190,6 +3211,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         for (auto& h : topological_order) {
             rescue_subgraph_bases += cached_graph.get_length(h);
         }
+        subgraph_size = rescue_subgraph_bases;
         if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
             if (!warned_about_rescue_size.test_and_set()) {
                 cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
@@ -3210,57 +3232,56 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         } else {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
         }
-        return;
-    }
+    } else {
 
-    // Build a subgraph overlay, while tracking how many bases it is.
-    SubHandleGraph sub_graph(&cached_graph);
-    size_t subgraph_size = 0;
-    for (id_t id : rescue_nodes) {
-        handle_t h = cached_graph.get_handle(id);
-        sub_graph.add_handle(h);
-        subgraph_size += cached_graph.get_length(h);
-    }
-
-    // Create an overlay where each strand is a separate node.
-    StrandSplitGraph split_graph(&sub_graph);
-
-    // Dagify the subgraph.
-    bdsg::HashGraph dagified;
-    std::unordered_map<id_t, id_t> dagify_trans =
-        handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
-
-    size_t rescue_subgraph_bases = dagified.get_total_length();
-    if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
-        if (!warned_about_rescue_size.test_and_set()) {
-            cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
-                << rescued_alignment.sequence().size() << " bp against "
-                << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
-                << " which would use more than " << max_dozeu_cells
-                << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+        // Build a subgraph overlay, while tracking how many bases it is.
+        SubHandleGraph sub_graph(&cached_graph);
+        for (id_t id : rescue_nodes) {
+            handle_t h = cached_graph.get_handle(id);
+            sub_graph.add_handle(h);
+            subgraph_size += cached_graph.get_length(h);
         }
-        return; 
-    }
-    
-    // Align to the subgraph.
-    // TODO: Map the seed to the dagified subgraph.
-    if (this->rescue_algorithm == rescue_dozeu) {
-        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
-        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
-        this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
-        this->fix_dozeu_end_deletions(rescued_alignment);
-    } else if (this->rescue_algorithm == rescue_gssw) {
-        get_regular_aligner()->align(rescued_alignment, dagified, true);
-    }
 
-    // Map the alignment back to the original graph.
-    Path& path = *(rescued_alignment.mutable_path());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        Position& pos = *(path.mutable_mapping(i)->mutable_position());
-        id_t id = dagify_trans[pos.node_id()];
-        handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
-        pos.set_node_id(sub_graph.get_id(handle));
-        pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+        // Create an overlay where each strand is a separate node.
+        StrandSplitGraph split_graph(&sub_graph);
+
+        // Dagify the subgraph.
+        bdsg::HashGraph dagified;
+        std::unordered_map<id_t, id_t> dagify_trans =
+            handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+        size_t rescue_subgraph_bases = dagified.get_total_length();
+        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+            if (!warned_about_rescue_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                    << rescued_alignment.sequence().size() << " bp against "
+                    << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
+                    << " which would use more than " << max_dozeu_cells
+                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+            }
+            return; 
+        }
+        
+        // Align to the subgraph.
+        // TODO: Map the seed to the dagified subgraph.
+        if (this->rescue_algorithm == rescue_dozeu) {
+            size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
+            get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
+            this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
+            this->fix_dozeu_end_deletions(rescued_alignment);
+        } else if (this->rescue_algorithm == rescue_gssw) {
+            get_regular_aligner()->align(rescued_alignment, dagified, true);
+        }
+
+        // Map the alignment back to the original graph.
+        Path& path = *(rescued_alignment.mutable_path());
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            Position& pos = *(path.mutable_mapping(i)->mutable_position());
+            id_t id = dagify_trans[pos.node_id()];
+            handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+            pos.set_node_id(sub_graph.get_id(handle));
+            pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+        }
     }
     
     if (show_work) {
@@ -3279,18 +3300,24 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         // between two linear sequences of these lengths, under an
         // each-base-equally-likely null model.
         double by_chance_likelihood = 1.0 - pow(1.0 - pow(0.25, effective_matches), (rescued_alignment.sequence().size() - effective_matches + 1)*(subgraph_size - effective_matches + 1));
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Likelihood of a " << effective_matches << " bp match between random sequences of " << rescued_alignment.sequence().size() << " bp and " << subgraph_size << " bp: " << by_chance_likelihood << endl;
+            }
+        }
 
         if (by_chance_likelihood > rescue_likelihood_limit) {
             // This is too plausible by chance.
             // TODO: Should this go into MAPQ instead?
-            
+
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Too likely by chance: " << by_chance_likelihood << endl;
+                    cerr << log_name() << "\tToo likely by chance!" << endl;
                 }
             }
-
+            
             rescued_alignment.clear_path();
             rescued_alignment.set_score(0);
         }
