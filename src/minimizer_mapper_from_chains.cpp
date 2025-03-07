@@ -3806,12 +3806,12 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
                     if (!is_empty(left_anchor)) {
-                        // There should only be one source tip for the left anchor node: the one we actually grabbed the graph from.
-                        // Other nodes for this node shouldn't be this kind of tip.
-                        // Catch any weird bugs in the subgraph extraction
-                        if (found_left_anchor_tip) {
+                        // If we somehow get multiple copies of the left anchor
+                        // node as tips, they need to have the same length or
+                        // our translation back to the base graph won't work.
+                        if (found_left_anchor_tip && dagified_graph.get_length(h) != dagified_graph.get_length(left_anchor_tip)) {
                             std::stringstream ss;
-                            ss << "Duplicate left anchor tip when extracting " << left_anchor << " to " << right_anchor;
+                            ss << "Different left anchor tip lengths of " << dagified_graph.get_length(h) << " and " << dagified_graph.get_length(left_anchor_tip) << " when extracting " << left_anchor << " to " << right_anchor;
                             throw std::runtime_error(ss.str());
                         }
                         found_left_anchor_tip = true;
@@ -3825,12 +3825,12 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
                     if (!is_empty(right_anchor)) {
-                        // There should only be one sink tip for the right anchor node: the one we actually grabbed the graph from.
-                        // Other nodes for this node shouldn't be this kind of tip.
-                        // Catch any weird bugs in the subgraph extraction
-                        if (found_right_anchor_tip) {
+                        // If we somehow get multiple copies of the right anchor
+                        // node as tips, they need to have the same length or
+                        // our translation back to the base graph won't work.
+                        if (found_right_anchor_tip && dagified_graph.get_length(h) != dagified_graph.get_length(right_anchor_tip)) {
                             std::stringstream ss;
-                            ss << "Duplicate right anchor tip when extracting " << left_anchor << " to " << right_anchor;
+                            ss << "Different right anchor tip lengths of " << dagified_graph.get_length(h) << " and " << dagified_graph.get_length(right_anchor_tip) << " when extracting " << left_anchor << " to " << right_anchor;
                             throw std::runtime_error(ss.str());
                         }
                         found_right_anchor_tip = true;
