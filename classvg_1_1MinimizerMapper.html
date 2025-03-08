@@ -349,6 +349,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa462df061307b0b35996a6ecd33091f7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa462df061307b0b35996a6ecd33091f7">max_dozeu_cells</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#af849d482a02c0e58a7f80ebb60d8c58b">default_max_dozeu_cells</a></td></tr>
 <tr class="separator:aa462df061307b0b35996a6ecd33091f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a27fe737e48456168c5078a346e8ec095"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a27fe737e48456168c5078a346e8ec095">rescue_likelihood_limit</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a264dda645553e38aa77e5075685d8094">default_rescue_likelihood_limit</a></td></tr>
+<tr class="separator:a27fe737e48456168c5078a346e8ec095"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4575d140e45d04d3d36e6a99bf7b0241">max_fragment_length</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#aef322db760a61242dbb35055171269c8">default_max_fragment_length</a></td></tr>
 <tr class="separator:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17f800e4588567e473ea18a55bd186b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4">RescueAlgorithm</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a17f800e4588567e473ea18a55bd186b9">rescue_algorithm</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a4120cab71587100aa2d1308010fec524">rescue_dozeu</a></td></tr>
@@ -611,6 +613,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aeeccbf0f4919ea1bfa9ddc223a2c0668"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af849d482a02c0e58a7f80ebb60d8c58b"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af849d482a02c0e58a7f80ebb60d8c58b">default_max_dozeu_cells</a> = (size_t)(1.5 * 1024 * 1024)</td></tr>
 <tr class="separator:af849d482a02c0e58a7f80ebb60d8c58b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a264dda645553e38aa77e5075685d8094"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a264dda645553e38aa77e5075685d8094">default_rescue_likelihood_limit</a> = 0.05</td></tr>
+<tr class="memdesc:a264dda645553e38aa77e5075685d8094"><td class="mdescLeft">&#160;</td><td class="mdescRight">For rescure, how likely can an alignment be by chance to still accept it?  <a href="classvg_1_1MinimizerMapper.html#a264dda645553e38aa77e5075685d8094">More...</a><br /></td></tr>
+<tr class="separator:a264dda645553e38aa77e5075685d8094"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef322db760a61242dbb35055171269c8"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aef322db760a61242dbb35055171269c8">default_max_fragment_length</a> = 2000</td></tr>
 <tr class="memdesc:aef322db760a61242dbb35055171269c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">What is the maximum fragment length that we accept as valid for paired-end reads?  <a href="classvg_1_1MinimizerMapper.html#aef322db760a61242dbb35055171269c8">More...</a><br /></td></tr>
 <tr class="separator:aef322db760a61242dbb35055171269c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -7316,6 +7321,30 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
+<a id="a264dda645553e38aa77e5075685d8094"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a264dda645553e38aa77e5075685d8094">&#9670;&nbsp;</a></span>default_rescue_likelihood_limit</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::MinimizerMapper::default_rescue_likelihood_limit = 0.05</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>For rescure, how likely can an alignment be by chance to still accept it? </p>
+
+</div>
+</div>
 <a id="aba9daaa16afb07adba5aadd1a16bef28"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aba9daaa16afb07adba5aadd1a16bef28">&#9670;&nbsp;</a></span>default_rescue_seed_limit</h2>
 
@@ -8964,6 +8993,20 @@ template&lt;typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>The algorithm used for rescue. </p>
+
+</div>
+</div>
+<a id="a27fe737e48456168c5078a346e8ec095"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a27fe737e48456168c5078a346e8ec095">&#9670;&nbsp;</a></span>rescue_likelihood_limit</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::rescue_likelihood_limit = <a class="el" href="classvg_1_1MinimizerMapper.html#a264dda645553e38aa77e5075685d8094">default_rescue_likelihood_limit</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
