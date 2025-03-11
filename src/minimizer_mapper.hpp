@@ -1035,17 +1035,20 @@ protected:
     void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
    
     /**
-     * Clip out the part of the graph between the given positions, and dagify
-     * it from the perspective of the anchors. If a left anchor is set, all
-     * heads should correspond to the left anchor, and if a right anchor is
-     * set, all tails should correspond to the right anchor. At least one
-     * anchor must be set. Both anchors may be on the same node.
+     * Clip out the part of the graph between the given positions (left facing
+     * into the region to be extracted and right facing out), and dagify it
+     * from the perspective of the anchors. If a left anchor is set, all heads
+     * should correspond to the left anchor, and if a right anchor is set, all
+     * tails should correspond to the right anchor. At least one anchor must be
+     * set. Both anchors may be on the same node.
      *
-     * Calls the callback with an extracted, strand-split, dagified graph, and
-     * a function that translates from handle in the dagified graph to node ID
+     * Calls the callback with an extracted, strand-split, dagified graph, the
+     * handles for the anchoring copies of the left and right anchor nodes (if
+     * not empty), facing the same way as the anchoring positions, and a
+     * function that translates from handle in the dagified graph to node ID
      * and orientation in the base graph.
      */
-    static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
+    static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const handle_t&, const handle_t&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
     
     /**
      * Determine the gap limit to use when aligning the given range of sequence
@@ -1058,9 +1061,9 @@ protected:
     static size_t longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner);
 
     /**
-     * Clip out the part of the graph between the given positions and
-     * global-align the sequence of the given Alignment to it. Populate the
-     * Alignment's path and score.
+     * Clip out the part of the graph between the given positions (left facing
+     * into the region and right facing out) and global-align the sequence of
+     * the given Alignment to it. Populate the Alignment's path and score.
      *
      * Finds an alignment against a graph path if it is <= max_path_length.
      *

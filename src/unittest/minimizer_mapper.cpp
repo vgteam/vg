@@ -858,10 +858,14 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
     json2pb(graph_chunk, graph_json.c_str(), graph_json.size());
     vg::VG graph(graph_chunk);
     
-    TestMinimizerMapper::with_dagified_local_graph(make_pos_t(60245283, false, 10), empty_pos_t(), 50, graph, [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
+    TestMinimizerMapper::with_dagified_local_graph(make_pos_t(60245283, false, 10), empty_pos_t(), 50, graph, [&](DeletableHandleGraph& dagified_graph, const handle_t& left_anchor_handle, const handle_t& right_anchor_handle, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
         // The graph started as a stick
         // We strand-split it to two disconnected sticks, and then dagify from the one start node in the one orientation, so it should go back to being one stick, with 2 tips.
         auto tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+        std::unordered_set<handle_t> tip_handle_set;
+        for (auto& h : tip_handles) {
+            tip_handle_set.insert(h);
+        }
 #ifdef debug
         for (auto& h : tip_handles) {
             // Dump all the tips for debugging
@@ -879,6 +883,10 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
         }
         // There should be that head and also some tail where we ran out of search bases.
         REQUIRE(tip_handles.size() == 2);
+
+        // We should have been passed a head handle for the 4-base remainder of the left anchor node.
+        REQUIRE(tip_handle_set.count(left_anchor_handle));
+        REQUIRE(dagified_graph.get_length(left_anchor_handle) == 4);
     });
 }
 

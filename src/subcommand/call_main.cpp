@@ -37,7 +37,7 @@ void help_call(char** argv) {
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 2,4]" << endl
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
-       << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
+       << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to probablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "GAF options:" << endl
        << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl

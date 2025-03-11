@@ -453,7 +453,8 @@ namespace unittest {
         
         SECTION("dagify from n1") {
             // Dagify from n1
-            unordered_map<id_t, id_t> trans = handlealgs::dagify_from(&graph, {n1}, &dagified, 100);
+            auto result = handlealgs::dagify_from(&graph, {n1}, &dagified, 100);
+            unordered_map<id_t, id_t>& trans = result.first;
             
             // Must actually be a DAG
             REQUIRE(handlealgs::is_acyclic(&dagified));
@@ -473,11 +474,18 @@ namespace unittest {
                 REQUIRE(acceptable_tails.count(trans[dagified.get_id(tail)]));
                 REQUIRE(dagified.get_is_reverse(tail) == false);
             }
+            
+            // The dagified start version of our starting handle should be the head.
+            std::vector<handle_t> embedded_starts = result.second;
+            REQUIRE(embedded_starts.size() == 1);
+            REQUIRE(heads.count(embedded_starts.front()));
+
         }
 
         SECTION("dagify from n3 reverse") {
             // Dagify from n3 reverse
-            unordered_map<id_t, id_t> trans = handlealgs::dagify_from(&graph, {graph.flip(n3)}, &dagified, 100);
+            auto result = handlealgs::dagify_from(&graph, {graph.flip(n3)}, &dagified, 100);
+            unordered_map<id_t, id_t>& trans = result.first;
             
             // Must actually be a DAG
             REQUIRE(handlealgs::is_acyclic(&dagified));
@@ -496,6 +504,12 @@ namespace unittest {
                 REQUIRE(trans[dagified.get_id(head)] == graph.get_id(n1));
                 REQUIRE(dagified.get_is_reverse(head) == graph.get_is_reverse(n1));
             }
+
+            // The dagified start version of our starting handle should be the
+            // reverse of the tail.
+            std::vector<handle_t> embedded_starts = result.second;
+            REQUIRE(embedded_starts.size() == 1);
+            REQUIRE(tails.count(dagified.flip(embedded_starts.front())));
         }
     }
 }
