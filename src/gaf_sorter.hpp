@@ -7,6 +7,7 @@
  * TODO: This could be an independent utility.
  * TODO: Asynchronous I/O.
  * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
+ * TODO: Option for giving approximate batch size in bytes.
  * TODO: Switch to std::string_view when we can.
  */
 
