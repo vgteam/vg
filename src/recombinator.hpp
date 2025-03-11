@@ -33,6 +33,12 @@ namespace vg {
  * snarl, that snarl is broken into a suffix and a prefix, and those subchains
  * may share kmers.)
  *
+ * Serialization and loading will fail silently if the actual I/O fails.
+ * However, if `sdsl::simple_sds::serialize_to()` and `load_from()` are used, the
+ * functions will throw `std::ios_base::failure` if the I/O fails.
+ * Sanity checks after loading may throw `sdsl::simple_sds::InvalidData`.
+ * All exceptions are derived from `std::runtime_error`.
+ *
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
  *
  * Versions:
