@@ -21,6 +21,10 @@ void register_loader_saver_gbz() {
 
     Registry::register_bare_loader_saver_with_magic<gbwtgraph::GBZ>("GBZ", magic_string, [](std::istream& input) -> void* {
         gbwtgraph::GBZ* result = new gbwtgraph::GBZ();
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Throw an exception or fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         result->simple_sds_load(input);
         return reinterpret_cast<void*>(result);
     }, [](const void* gbz_void, std::ostream& output) {

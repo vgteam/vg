@@ -23,7 +23,10 @@ void register_loader_saver_r_index() {
         // Allocate an r-index
         gbwt::FastLocate* index = new gbwt::FastLocate();
 
-        // Load it
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         index->load(input);
 
         // Return it so the caller owns it.

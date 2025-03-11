@@ -22,6 +22,10 @@ void register_loader_saver_gbzgraph() {
 
     Registry::register_bare_loader_saver_with_magic<GBZGraph, PathHandleGraph, HandleGraph>("GBZ", magic_string, [](std::istream& input) -> void* {
         GBZGraph* result = new GBZGraph();
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Throw an exception or fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         result->gbz.simple_sds_load(input);
         return reinterpret_cast<void*>(result);
     }, [](const void* gbzgraph_void, std::ostream& output) {

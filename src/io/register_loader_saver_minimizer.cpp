@@ -21,6 +21,7 @@ void register_loader_saver_minimizer() {
 
     Registry::register_bare_loader_saver_with_magic<gbwtgraph::DefaultMinimizerIndex>("MinimizerIndex", magic_string, [](istream& input) -> void* {
         gbwtgraph::DefaultMinimizerIndex* index = new gbwtgraph::DefaultMinimizerIndex();
+        // Load it. In case of a failure, this will print an error message and return false.
         if (index->deserialize(input)) {
             // Return the index so the caller owns it.
             return static_cast<void*>(index);

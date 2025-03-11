@@ -71,7 +71,15 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph);
 
 /*
     These are the proper ways of saving and loading GBWT structures.
-    Loading with `vg::io::VPKG::load_one` is also supported.
+    Loading them directly with `vg::io::VPKG::load_one` is also supported.
+
+    In case of a failure, the savers will fail silently or exit with std::exit().
+
+    In case of a failure, the loaders will:
+    * Throw an exception if sanity checks fail.
+    * Throw an exception or fail silently if reading a Simple-SDS input fails.
+    * Exit with std::exit() or fail silently if reading an SDSL input fails.
+    The exceptions are derived from std::runtime_error.
 */
 
 /// Load a compressed GBWT from the file.

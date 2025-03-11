@@ -23,7 +23,10 @@ void register_loader_saver_lcp() {
         // Allocate an LCPArray
         gcsa::LCPArray* index = new gcsa::LCPArray();
         
-        // Load it
+        // Load it. In case of a failure, this will:
+        // * Print an error message if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         index->load(input);
         
         // Return it so the caller owns it.

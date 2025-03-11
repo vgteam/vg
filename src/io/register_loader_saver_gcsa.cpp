@@ -23,7 +23,10 @@ void register_loader_saver_gcsa() {
         // Allocate a GCSA
         gcsa::GCSA* index = new gcsa::GCSA();
         
-        // Load it
+        // Load it. In case of a failure, this will:
+        // * Print an error message if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         index->load(input);
         
         // Return it so the caller owns it.
