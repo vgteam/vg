@@ -33,6 +33,7 @@ void register_loader_saver_r_index() {
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to r-index and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gbwt::FastLocate*) index_void)->serialize(output);
     });

@@ -144,10 +144,15 @@ void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bo
     if (show_progress) {
         std::cerr << "Saving r-index to " << filename << std::endl;
     }
-    if (!sdsl::store_to_file(index, filename)) {
-        std::cerr << "error: [save_r_index()] cannot write r-index to " << filename << std::endl;
-        std::exit(EXIT_FAILURE);
+
+    // This will mimic Simple-SDS serialization.
+    std::ofstream out(filename, std::ios_base::binary);
+    if (!out) {
+        throw sdsl::simple_sds::CannotOpenFile(filename, true);
     }
+    out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+    index.serialize(out);
+    out.close();
 }
 
 //------------------------------------------------------------------------------

@@ -27,8 +27,7 @@ void register_loader_saver_gbwt() {
 
         // Load it. In case of a failure, this will:
         // * Throw an exception if sanity checks fail.
-        // * Throw an exception or fail silently if reading a Simple-SDS input fails.
-        // * Exit with std::exit() or fail silently if reading an SDSL input fails.
+        // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->load(input);
         
@@ -36,6 +35,7 @@ void register_loader_saver_gbwt() {
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to GBWT and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gbwt::GBWT*) index_void)->simple_sds_serialize(output);
     });
@@ -46,8 +46,7 @@ void register_loader_saver_gbwt() {
 
         // Load it. In case of a failure, this will:
         // * Throw an exception if sanity checks fail.
-        // * Throw an exception or fail silently if reading a Simple-SDS input fails.
-        // * Exit with std::exit() or fail silently if reading an SDSL input fails.
+        // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         index->load(input);
         
@@ -55,6 +54,7 @@ void register_loader_saver_gbwt() {
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to DynamicGBWT and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gbwt::DynamicGBWT*) index_void)->simple_sds_serialize(output);
     });
