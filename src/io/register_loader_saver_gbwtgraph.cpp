@@ -29,8 +29,7 @@ void register_loader_saver_gbwtgraph() {
 
         // Load it. In case of a failure, this will:
         // * Throw an exception if sanity checks fail.
-        // * Throw an exception or fail silently if reading a Simple-SDS input fails.
-        // * Exit with std::exit() or fail silently if reading an SDSL input fails.
+        // * Fail silently if reading the input fails.
         // The exceptions are derived from std::runtime_error.
         graph->deserialize(input);
         
@@ -40,6 +39,7 @@ void register_loader_saver_gbwtgraph() {
         assert(graph_void != nullptr);
         // Serialize in the SDSL format, which is larger than the simple-sds format but faster to load.
         // If we want to use the simple-sds format, we can serialize GBZ instead.
+        // This will fail silently if writing to the output stream fails.
         static_cast<const gbwtgraph::GBWTGraph*>(graph_void)->serialize(output);
     });
 }

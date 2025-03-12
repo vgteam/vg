@@ -153,11 +153,13 @@ void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::st
     if (show_progress) {
         std::cerr << "Saving MinimizerIndex to " << filename << std::endl;
     }
+
+    // This will mimic Simple-SDS serialization.
     std::ofstream out(filename, std::ios_base::binary);
     if (!out) {
-        std::cerr << "error: [save_minimizer()] cannot open file " << filename << " for writing" << std::endl;
-        std::exit(EXIT_FAILURE);
+        throw sdsl::simple_sds::CannotOpenFile(filename, true);
     }
+    out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
     index.serialize(out);
     out.close();
 }
