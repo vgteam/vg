@@ -38,6 +38,8 @@
 //#define print_minimizer_table
 // Dump the zip code forest
 //#define debug_print_forest
+// Dump local graphs during tip trimming
+//#define debug_dump_tips
 // Dump local graphs that we align against 
 //#define debug_dump_graph
 // Dump fragment length distribution information
@@ -3530,12 +3532,14 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     bdsg::HashGraph local_graph;
     unordered_map<id_t, id_t> local_to_base;
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
-        // We want a graph actually between two positions
+        // We want a graph actually between two positions.
+        // Enforce strict max length to avoid extra tips.
         local_to_base = algorithms::extract_connecting_graph(
             &graph,
             &local_graph,
             max_path_length,
-            left_anchor, right_anchor
+            left_anchor, right_anchor,
+            true
         );
 
         if (local_to_base.empty()) {
@@ -3679,7 +3683,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         local_graph.serialize("crashdump.vg");
         throw std::runtime_error(ss.str());
     }
-    
+
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
 
@@ -3744,6 +3748,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     }
     
     // Do the dagification from those input handles.
+    // TODO: Note that this can add tips! We should come up with a dagification method that is guaranteed not to!
     auto dagification_result = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
     auto& dagified_to_split = dagification_result.first;
     auto& anchor_handles = dagification_result.second;
@@ -3873,7 +3878,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     }
                 }
             }
-#if defined(debug) || defined(dump_tips)
+#ifdef debug_dump_tips
             if (!to_remove_handles.empty() && trim_count == 0) {
                 // We're going to trim, so dump the graph.
                 std::cerr << "warning[MinimizerMapper::align_sequence_between]: Going to trim, so dumping pre-trim.vg" << std::endl;
@@ -3914,7 +3919,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
-#if defined(debug) || defined(dump_tips)
+#ifdef debug_dump_tips
                 std::cerr << " to make post-trim.vg";
                 dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
 #endif

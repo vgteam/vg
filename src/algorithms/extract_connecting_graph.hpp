@@ -32,6 +32,10 @@ namespace algorithms {
     ///
     /// Node local forward orientations are not changed.
     ///
+    /// Unless strict_max_len is set, the graph may contain additional nodes
+    /// not actually on a connecting path under the given length, some of which
+    /// may be tips.
+    ///
     /// Args:
     ///  source                     graph to extract subgraph from
     ///  into                       graph to extract into

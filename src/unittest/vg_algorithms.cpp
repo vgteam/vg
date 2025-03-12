@@ -1085,6 +1085,40 @@ TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[
     }
 }
         
+TEST_CASE( "Connecting graph extraction works on a cool loop without leaving extra tips in strict max length mode",
+           "[algorithms][extract_connecting_graph]" ) {
+                  
+    string graph_json = R"(
+    {"edge": [{"from": "185927720", "to": "185927722"}, {"from": "185927721", "from_start": true, "to": "185927722"}, {"from": "185927722", "to": "186681786", "to_end": true}, {"from": "185927722", "to": "185927723"}, {"from": "186681786", "to": "186683083"}, {"from": "186681786", "from_start": true, "to": "186681787", "to_end": true}, {"from": "186681787", "to": "186683069", "to_end": true}, {"from": "186681787", "from_start": true, "to": "186681789"}, {"from": "186681787", "from_start": true, "to": "186681788", "to_end": true}, {"from": "186681788", "from_start": true, "to": "186681790", "to_end": true}, {"from": "186681789", "to": "186681790", "to_end": true}, {"from": "186681790", "from_start": true, "to": "186681792", "to_end": true}, {"from": "186683069", "from_start": true, "to": "186683079", "to_end": true}, {"from": "186683079", "from_start": true, "to": "186683080", "to_end": true}, {"from": "186683080", "from_start": true, "to": "186683081", "to_end": true}, {"from": "186683081", "from_start": true, "to": "186683083", "to_end": true}], "node": [{"id": "185927720", "sequence": "G"}, {"id": "185927721", "sequence": "A"}, {"id": "185927722", "sequence": "ACCGGG"}, {"id": "185927723", "sequence": "AGTGGGGG"}, {"id": "186681786", "sequence": "C"}, {"id": "186681787", "sequence": "TGGGAGTCTAAGTCTCTTTTGATCACACTTTAAAGACCAAAAGGTAGAAGCGCAAAGACGTTATCTGTCCAATATTACAAACCTAGTAAGTGGTGGAATTTGGCCTTGAACCCAGATCTGTAACTCCAGAGCCGAAGTGCTTCACCCACCTCCCTGTGGTG"}, {"id": "186681788", "sequence": "G"}, {"id": "186681789", "sequence": "T"}, {"id": "186681790", "sequence": "TAT"}, {"id": "186681792", "sequence": "T"}, {"id": "186683069", "sequence": "G"}, {"id": "186683079", "sequence": "G"}, {"id": "186683080", "sequence": "TACCCCGGAATCCCTGCCGCGGCCCCTCGGGCCTGTCCACATCCCTCTGCCCCTCCCAGACCTCTGTCCTTCCACCAATCGCCTCCCGCAGCCCCGAGCCGCCACTCCCAGTCCCCCGAGTCCCTGCCGCGCGCCCTCGCGCCTGTCCACATCCCTCTGCCCATCCGAGACCTCTGTCCTTACACCACTAGCCACCCCACGTGGGACTTCCATGGCTTCTGAGTACAAGGCCAGCCCCCCGGCCCACCAGCTTTCGGAATGCCTGCTTACCTCTTTTTCTGTAGA"}, {"id": "186683081", "sequence": "CCGG"}, {"id": "186683083", "sequence": "C"}]}
+    )";
+            
+    Graph source;
+    json2pb(source, graph_json.c_str(), graph_json.size());
+            
+    VG vg;
+    vg.extend(source);
+            
+    bdsg::HashGraph extractor;
+            
+    auto max_dist = 9999;
+    pos_t src_pos = make_pos_t(186681787, false, 161);
+    pos_t dest_pos = make_pos_t(186681787, true, 131);
+
+    // If we have strict max length set to false, we may get extra tips.
+    unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&vg, &extractor,  max_dist, src_pos, dest_pos, false);
+    std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&extractor);
+    // There ought to be at least the two tips
+    REQUIRE(tip_handles.size() >= 2);
+   
+    extractor.clear();
+
+    // If we have strict connecting-ness set to true, we won't get any extra tips.
+    connect_trans = algorithms::extract_connecting_graph(&vg, &extractor,  max_dist, src_pos, dest_pos, true);
+    tip_handles = handlegraph::algorithms::find_tips(&extractor);
+    // There ought to be just the two tips
+    REQUIRE(tip_handles.size() == 2);
+}
+
 TEST_CASE( "Connecting graph extraction works on a particular case without leaving dangling edges",
            "[algorithms][extract_connecting_graph]" ) {
                   
