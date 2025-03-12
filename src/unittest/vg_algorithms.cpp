@@ -867,11 +867,6 @@ TEST_CASE( "Connecting graph extraction works when you can turn around on the ri
     bdsg::HashGraph extractor;
     auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
 
-    std::cerr << "See " << trans.size() << " translations and " << extractor.get_node_count() << " nodes" << std::endl;
-    extractor.for_each_handle([&](const handle_t& h) {
-        std::cerr << extractor.get_id(h) << ": " << extractor.get_sequence(h) << std::endl;
-    });
-
     // Collect all the node IDs we kept
     std::unordered_set<id_t> retained_node_ids;
     for (auto& kv : trans) {
@@ -894,6 +889,59 @@ TEST_CASE( "Connecting graph extraction works when you can turn around on the ri
     // And the part of the first node before (on the reverse strand) the end
     // point, but still in the original local forward orientation.
     REQUIRE(node_sequences.count("ATT"));
+}
+
+TEST_CASE( "Connecting graph extraction works when you can turn around on the left and come back to the same node to get a path",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+
+    graph.create_edge(h2, h1);
+    graph.create_edge(graph.flip(h2), h1);
+
+    // Add possible tips
+    handle_t h3 = graph.create_handle("A");
+    handle_t h4 = graph.create_handle("A");
+    handle_t h5 = graph.create_handle("A");
+    handle_t h6 = graph.create_handle("A");
+    graph.create_edge(h2, h3);
+    graph.create_edge(h1, h4);
+    graph.create_edge(h5, h4);
+    graph.create_edge(h6, h1);
+    
+    // We have to flip the anchors too because they both are reachable for one
+    // terminal of the node
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), true, 3);
+    pos_t pos_2 = make_pos_t(graph.get_id(h1), false, 3);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We should see two versions of the one bounding node, and one of the connecting node.
+    // We shoudl not have extra tips from any of the other nodes.
+    REQUIRE(retained_node_ids.size() == 2);
+    
+    std::unordered_set<std::string> node_sequences;
+    extractor.for_each_handle([&](const handle_t& h) {
+        node_sequences.insert(extractor.get_sequence(h));    
+    });
+
+    // We should have the part of the first node to the left of the end cut point
+    REQUIRE(node_sequences.count("GAT"));
+    // And the connecting node in its local forward orientation.
+    REQUIRE(node_sequences.count("ACA"));
+    // And the part of the first node after (on the reverse strand) the start
+    // point, but still in the original local forward orientation.
+    REQUIRE(node_sequences.count("G"));
 }
         
 TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms][extract_connecting_graph]" ) {

@@ -3873,11 +3873,13 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     }
                 }
             }
+#if defined(debug) || defined(dump_tips)
             if (!to_remove_handles.empty() && trim_count == 0) {
                 // We're going to trim, so dump the graph.
                 std::cerr << "warning[MinimizerMapper::align_sequence_between]: Going to trim, so dumping pre-trim.vg" << std::endl;
                 dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("pre-trim.vg");
             }
+#endif
             for (auto& h : to_remove_handles) {
                 dagified_graph.destroy_handle(h);
                 trimmed = true;
@@ -3912,9 +3914,12 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
-                std::cerr << " to make post-trim.vg" << std::endl;
+#if defined(debug) || defined(dump_tips)
+                std::cerr << " to make post-trim.vg";
+                dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
+#endif
+                std::cerr << std::endl;
             }
-            dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
         }
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {

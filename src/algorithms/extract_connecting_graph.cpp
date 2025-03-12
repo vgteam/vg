@@ -8,7 +8,7 @@
 #include <structures/updateable_priority_queue.hpp>
 #include "../crash.hpp"
 
-#define debug_vg_algorithms
+//#define debug_vg_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -221,8 +221,14 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     auto duplicate_node = [&](const handle_t& handle, bool preserve_left_edges, bool preserve_right_edges) {
         unordered_set<edge_t> add_edges;
         
-        // Do the duplication and record the translation
+        // Do the duplication
         handle_t dup_handle = into->create_handle(into->get_sequence(into->forward(handle)));
+        if (into->get_is_reverse(handle)) {
+            // Make sure that we don't forget our orientation relative to the
+            // local forward.
+            dup_handle = into->flip(dup_handle);
+        }
+        // Record the translation
         id_trans[into->get_id(dup_handle)] = id_trans[into->get_id(handle)];
         
         if (preserve_right_edges) {
@@ -290,7 +296,11 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
         }
         case SharedNodeReachable:
         {
-            // split the node, update the IDs, and clean up the two ends
+            // Split the node, update the IDs, and clean up the two ends.
+            // We know the two handles are in the same orientation on the node,
+            // or they wouldn't be reachable. So we know the two offsets are
+            // along the same strand.
+            crash_unless(is_rev(pos_2) == is_rev(pos_1));
             cut_handle_1 = into->truncate_handle(into->truncate_handle(into_handle_2, false, offset(pos_2)), true, offset(pos_1));
             id_trans.erase(id(pos_1));
             id_trans[into->get_id(cut_handle_1)] = id(pos_1);
