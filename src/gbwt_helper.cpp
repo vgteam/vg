@@ -168,7 +168,12 @@ void GBWTHandler::use_compressed() {
         this->dynamic = gbwt::DynamicGBWT();
         this->in_use = index_compressed;
     } else {
-        load_gbwt(this->compressed, this->filename, this->show_progress);
+        try {
+            load_gbwt(this->compressed, this->filename, this->show_progress);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [GBWTHandler] cannot load compressed GBWT from " << this->filename << ": " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         this->in_use = index_compressed;
     }
 }
@@ -184,7 +189,12 @@ void GBWTHandler::use_dynamic() {
         this->compressed = gbwt::GBWT();
         this->in_use = index_dynamic;
     } else {
-        load_gbwt(this->dynamic, this->filename, this->show_progress);
+        try {
+            load_gbwt(this->dynamic, this->filename, this->show_progress);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [GBWTHandler] cannot load dynamic GBWT from " << this->filename << ": " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         this->in_use = index_dynamic;
     }
 }
@@ -208,13 +218,18 @@ void GBWTHandler::unbacked() {
 }
 
 void GBWTHandler::serialize(const std::string& new_filename) {
-    if (this->in_use == index_none) {
-        std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
-        return;
-    } else if (this->in_use == index_compressed) {
-        save_gbwt(this->compressed, new_filename, this->show_progress);
-    } else {
-        save_gbwt(this->dynamic, new_filename, this->show_progress);
+    try {
+        if (this->in_use == index_none) {
+            std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
+            return;
+        } else if (this->in_use == index_compressed) {
+            save_gbwt(this->compressed, new_filename, this->show_progress);
+        } else {
+            save_gbwt(this->dynamic, new_filename, this->show_progress);
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [GBWTHandler] cannot save GBWT to " << new_filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
     this->filename = new_filename;
 }

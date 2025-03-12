@@ -240,7 +240,7 @@ int main_minimizer(int argc, char** argv) {
         }
     }
     if (output_name.empty()) {
-        std::cerr << "[vg minimizer] error: option --output-name is required" << std::endl;
+        std::cerr << "error: [vg minimizer] option --output-name is required" << std::endl;
         return 1;
     }
     if (optind + 1 != argc) {
@@ -249,7 +249,7 @@ int main_minimizer(int argc, char** argv) {
     }
     graph_name = argv[optind];
     if (require_distance_index && distance_name.empty()) {
-        std::cerr << "[vg minimizer] error: one of options --distance-index and --no-dist is required" << std::endl;
+        std::cerr << "error: [vg minimizer] one of options --distance-index and --no-dist is required" << std::endl;
         return 1;
     }
     if (!load_index.empty() || use_syncmers) {
@@ -277,7 +277,7 @@ int main_minimizer(int argc, char** argv) {
         gbz->graph = std::move(*get<1>(input));
         
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a GBWTGraph" << std::endl;
+            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a GBWTGraph" << std::endl;
             return 1;
         }
         
@@ -289,7 +289,7 @@ int main_minimizer(int argc, char** argv) {
         // We got a normal HandleGraph
         
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a HandleGraph" << std::endl;
+            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a HandleGraph" << std::endl;
             return 1;
         }
         
@@ -302,7 +302,7 @@ int main_minimizer(int argc, char** argv) {
         }
         gbz.reset(new gbwtgraph::GBZ(gbwt_index, *get<2>(input)));
     } else {
-        std::cerr << "[vg minimizer] error: input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
+        std::cerr << "error: [vg minimizer] input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
         return 1;
     }
 
@@ -339,7 +339,12 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;
         }
-        index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
+        try {
+            index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [vg minimizer] failed to load MinimizerIndex from " << load_index << ": " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     // Distance index.
@@ -440,7 +445,12 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Serialize the index.
-    save_minimizer(*index, output_name);
+    try {
+        save_minimizer(*index, output_name);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg minimizer] failed to save MinimizerIndex to " << output_name << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 

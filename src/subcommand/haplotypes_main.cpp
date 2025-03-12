@@ -162,7 +162,12 @@ int main_haplotypes(int argc, char** argv) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             std::cerr << "Writing haplotype information to " << config.haplotype_output << std::endl;
         }
-        sdsl::simple_sds::serialize_to(haplotypes, config.haplotype_output);
+        try {
+            sdsl::simple_sds::serialize_to(haplotypes, config.haplotype_output);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     // Sample the haplotypes.
