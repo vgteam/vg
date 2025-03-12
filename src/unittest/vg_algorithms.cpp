@@ -801,14 +801,11 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
         retained_node_ids.insert(kv.second);
     }
 
-    // We may or may not get nodes that are only on paths between the anchors
-    // that involve cycles through the anchors.
-
-    // We should not duplicate any nodes
-    REQUIRE(trans.size() == retained_node_ids.size());
-    // We should have both anchor nodes
-    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
-    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+    // If we can't duplicate any nodes, there's no way to get a graph that has
+    // the connection path and also cut the nodes/keep them as tips. So we
+    // expect an empty graph.
+    REQUIRE(retained_node_ids.empty());
+    REQUIRE(extractor.get_node_count() == 0);
 }
 
 TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the right node",
@@ -821,8 +818,8 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
     handle_t h3 = graph.create_handle("A");
 
     graph.create_edge(h3, h2);
-    graph.create_edge(graph.flip(h3), graph.flip(h2));
-    graph.create_edge(h2, h1);
+    graph.create_edge(graph.flip(h3), h2);
+    graph.create_edge(h1, graph.flip(h2));
             
     pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
     pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
@@ -836,14 +833,67 @@ TEST_CASE( "Connecting graph extraction works when a connection is only possibly
         retained_node_ids.insert(kv.second);
     }
 
-    // We may or may not get nodes that are only on paths between the anchors
-    // that involve cycles through the anchors.
+    // If we can't duplicate any nodes, there's no way to get a graph that has
+    // the connection path and also cut the nodes/keep them as tips. So we
+    // expect an empty graph.
+    REQUIRE(retained_node_ids.empty());
+    REQUIRE(extractor.get_node_count() == 0);
+}
 
-    // We should not duplicate any nodes
-    REQUIRE(trans.size() == retained_node_ids.size());
-    // We should have both anchor nodes
-    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
-    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+TEST_CASE( "Connecting graph extraction works when you can turn around on the right and come back to the same node to get a path",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, graph.flip(h1));
+
+    // Add possible tips
+    handle_t h3 = graph.create_handle("A");
+    handle_t h4 = graph.create_handle("A");
+    handle_t h5 = graph.create_handle("A");
+    handle_t h6 = graph.create_handle("A");
+    graph.create_edge(h2, h3);
+    graph.create_edge(h1, h4);
+    graph.create_edge(h5, h4);
+    graph.create_edge(h6, h1);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 3);
+    pos_t pos_2 = make_pos_t(graph.get_id(h1), true, 3);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    std::cerr << "See " << trans.size() << " translations and " << extractor.get_node_count() << " nodes" << std::endl;
+    extractor.for_each_handle([&](const handle_t& h) {
+        std::cerr << extractor.get_id(h) << ": " << extractor.get_sequence(h) << std::endl;
+    });
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We should see two versions of the one bounding node, and one of the connecting node.
+    // We shoudl not have extra tips from any of the other nodes.
+    REQUIRE(retained_node_ids.size() == 2);
+    
+    std::unordered_set<std::string> node_sequences;
+    extractor.for_each_handle([&](const handle_t& h) {
+        node_sequences.insert(extractor.get_sequence(h));    
+    });
+
+    // We should have the part of the first node to the right of the start cut point
+    REQUIRE(node_sequences.count("T"));
+    // And the connecting node in its local forward orientation.
+    REQUIRE(node_sequences.count("ACA"));
+    // And the part of the first node before (on the reverse strand) the end
+    // point, but still in the original local forward orientation.
+    REQUIRE(node_sequences.count("ATT"));
 }
         
 TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms][extract_connecting_graph]" ) {

@@ -6,8 +6,9 @@
  
 #include "extract_connecting_graph.hpp"
 #include <structures/updateable_priority_queue.hpp>
+#include "../crash.hpp"
 
-//#define debug_vg_algorithms
+#define debug_vg_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -220,9 +221,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     auto duplicate_node = [&](const handle_t& handle, bool preserve_left_edges, bool preserve_right_edges) {
         unordered_set<edge_t> add_edges;
         
+        // Do the duplication and record the translation
         handle_t dup_handle = into->create_handle(into->get_sequence(into->forward(handle)));
-        
-        // record the translation
         id_trans[into->get_id(dup_handle)] = id_trans[into->get_id(handle)];
         
         if (preserve_right_edges) {
@@ -478,7 +478,9 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     
     // if we did pruning, actually destroy the nodes
     for (const handle_t& handle : nodes_to_erase) {
+        nid_t id = into->get_id(handle);
         into->destroy_handle(handle);
+        id_trans.erase(id);
     }
     
     // and the edges
@@ -509,6 +511,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // TODO: it's not enough to return the translator because there's also the issue of the positions
     // on the first node being offset (however this information is fully contained in the arguments of
     // the function, which are obviously available in the environment that calls it)
+    crash_unless(id_trans.size() == into->get_node_count());
     return id_trans;
 }
 

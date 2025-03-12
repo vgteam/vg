@@ -3537,6 +3537,21 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             max_path_length,
             left_anchor, right_anchor
         );
+
+        if (local_to_base.empty()) {
+            // A possible result is that the one anchor is not reachable from
+            // the other within the length limit (at least without doubling
+            // back through one of the anchor nodes). In that case, we get an
+            // empty graph and an empty translation.
+
+            // Explain the problem but bail out on the chain connection safely,
+            // because we we expect this sometimes.
+            std::stringstream ss;
+            ss << "Cannot find an acceptable path from " << left_anchor;
+            ss << " to " << right_anchor;
+            ss << " with max path length of " << max_path_length;
+            throw ChainAlignmentFailedError(ss.str());
+        }
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3590,12 +3605,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                     // nodes; there are too many copies of our shared node to
                     // work out which is which.
                     std::stringstream ss;
-                    ss << "Extracted graph from " << left_anchor;
-                    if (!is_empty(right_anchor)) {
-                        ss << " to " << right_anchor;
-                    }
+                    ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                    ss << " from " << left_anchor << " to " << right_anchor;
                     ss << " with max path length of " << max_path_length;
-                    ss << " but shared node appeared more than twice in the resulting translation";
+                    ss << " but shared node appeared more than twice in the resulting translation.";
+                    ss << " Graph dumped as crashdump.vg.";
                     local_graph.serialize("crashdump.vg");
                     throw std::runtime_error(ss.str());
                 }
@@ -3609,12 +3623,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 // We thought we already figured out the start node; there are
                 // too many copies of our start node to find it. 
                 std::stringstream ss;
-                ss << "Extracted graph from " << left_anchor;
-                if (!is_empty(right_anchor)) {
-                    ss << " to " << right_anchor;
-                }
+                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                ss << " from " << left_anchor << " to " << right_anchor;
                 ss << " with max path length of " << max_path_length;
-                ss << " but start node appeared twice in the resulting translation";
+                ss << " but start node appeared twice in the resulting translation.";
+                ss << " Graph dumped as crashdump.vg.";
                 local_graph.serialize("crashdump.vg");
                 throw std::runtime_error(ss.str());
             }
@@ -3624,12 +3637,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 // We thought we already figured out the end node; there are
                 // too many copies of our end node to find it. 
                 std::stringstream ss;
-                ss << "Extracted graph from " << left_anchor;
-                if (!is_empty(right_anchor)) {
-                    ss << " to " << right_anchor;
-                }
+                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                ss << " from " << left_anchor << " to " << right_anchor;
                 ss << " with max path length of " << max_path_length;
-                ss << " but end node appeared twice in the resulting translation";
+                ss << " but end node appeared twice in the resulting translation.";
+                ss << " Graph dumped as crashdump.vg.";
                 local_graph.serialize("crashdump.vg");
                 throw std::runtime_error(ss.str());
             }
@@ -3647,12 +3659,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         }
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;
-        ss << "Extracted graph from " << left_anchor;
-        if (!is_empty(right_anchor)) {
-            ss << " to " << right_anchor;
-        }
+        ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+        ss << " from " << left_anchor << " to " << right_anchor;
         ss << " with max path length of " << max_path_length;
-        ss << " but from node was not present in the resulting translation";
+        ss << " but from node was not present in the resulting translation.";
+        ss << " Graph dumped as crashdump.vg.";
         local_graph.serialize("crashdump.vg");
         throw std::runtime_error(ss.str());
     }
@@ -3660,13 +3671,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     if (!is_empty(right_anchor) && local_right_anchor_id == 0) {
         // Somehow the right anchor didn't come through. Complain.
         std::stringstream ss;
-        ss << "Extracted graph";
-        if (!is_empty(left_anchor)) {
-            ss << " from " << left_anchor;
-        }
-        ss << " to " << right_anchor;
+        ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+        ss << " from " << left_anchor << " to " << right_anchor;
         ss << " with max path length of " << max_path_length;
-        ss << " but to node was not present in the resulting translation";
+        ss << " but to node was not present in the resulting translation.";
+        ss << " Graph dumped as crashdump.vg.";
         local_graph.serialize("crashdump.vg");
         throw std::runtime_error(ss.str());
     }
@@ -3694,7 +3703,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 ss << " to " << right_anchor;
             }
             ss << " with max path length of " << max_path_length;
-            ss << " but from node local ID " << local_left_anchor_id << " was not present in the resulting graph";
+            ss << " but from node local ID " << local_left_anchor_id << " from translation was not present in the resulting graph.";
+            ss << " Graph dumped as crashdump.vg.";
             local_graph.serialize("crashdump.vg");
             throw std::runtime_error(ss.str());
         }
@@ -3718,7 +3728,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             }
             ss << " to " << right_anchor;
             ss << " with max path length of " << max_path_length;
-            ss << " but to node local ID " << local_right_anchor_id << " was not present in the resulting graph";
+            ss << " but to node local ID " << local_right_anchor_id << " from translation was not present in the resulting graph.";
+            ss << " Graph dumped as crashdump.vg.";
             local_graph.serialize("crashdump.vg");
             throw std::runtime_error(ss.str());
         }
@@ -3862,6 +3873,11 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     }
                 }
             }
+            if (!to_remove_handles.empty() && trim_count == 0) {
+                // We're going to trim, so dump the graph.
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Going to trim, so dumping pre-trim.vg" << std::endl;
+                dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("pre-trim.vg");
+            }
             for (auto& h : to_remove_handles) {
                 dagified_graph.destroy_handle(h);
                 trimmed = true;
@@ -3884,12 +3900,21 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
         if (trim_count > 0) {
             #pragma omp critical (cerr)
             {
-                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips";
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor;
+                if (!is_empty(left_anchor)) {
+                    std::cerr << " as " << dagified_graph.get_id(left_anchor_handle) << (dagified_graph.get_is_reverse(left_anchor_handle) ? "-" : "+");
+                }
+                std::cerr << " and " << right_anchor;
+                if (!is_empty(right_anchor)) {
+                    std::cerr << " as " << dagified_graph.get_id(right_anchor_handle) << (dagified_graph.get_is_reverse(right_anchor_handle) ? "-" : "+");
+                }
+                std::cerr << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips";
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
-                std::cerr << std::endl;
+                std::cerr << " to make post-trim.vg" << std::endl;
             }
+            dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
         }
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {

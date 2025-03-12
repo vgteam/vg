@@ -6,6 +6,7 @@
  
 #include "extract_extending_graph.hpp"
 #include <structures/updateable_priority_queue.hpp>
+#include "../crash.hpp"
 
 //#define debug_vg_algorithms
 
@@ -175,10 +176,8 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         // choose an ID that hasn't been used yet
         id_t dup_id = max_id + 1;
         
-        // duplicate the node
+        // duplicate the node and record the ID translation
         handle_t dup_node = into->create_handle(source->get_sequence(search_origin), dup_id);
-        
-        // record the ID translation
         id_trans[dup_id] = id(pos);
         
         for (const edge_t& edge : src_edges) {
@@ -230,6 +229,7 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         id_trans[into->get_id(halves.first)] = id(pos);
     }
     
+    crash_unless(id_trans.size() == into->get_node_count());
     return id_trans;
 }
 
