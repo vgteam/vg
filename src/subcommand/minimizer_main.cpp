@@ -327,24 +327,15 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Minimizer index.
-    std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
+    gbwtgraph::DefaultMinimizerIndex index(IndexingParameters::short_read_minimizer_k, 
+        (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
+        use_syncmers);
     if (load_index.empty()) {
-        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::short_read_minimizer_k, 
-            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
-            use_syncmers);
         if (weighted && !frequent_kmers.empty()) {
-            index->add_frequent_kmers(frequent_kmers, iterations);
+            index.add_frequent_kmers(frequent_kmers, iterations);
         }
     } else {
-        if (progress) {
-            std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;
-        }
-        try {
-            index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg minimizer] failed to load MinimizerIndex from " << load_index << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        load_minimizer(index, load_index, progress);
     }
 
     // Distance index.
@@ -369,20 +360,20 @@ int main_minimizer(int argc, char** argv) {
 
     // Build the index.
     if (progress) {
-        std::cerr << "Building MinimizerIndex with k = " << index->k();
-        if (index->uses_syncmers()) {
-            std::cerr << ", s = " << index->s();
+        std::cerr << "Building MinimizerIndex with k = " << index.k();
+        if (index.uses_syncmers()) {
+            std::cerr << ", s = " << index.s();
         } else {
-            std::cerr << ", w = " << index->w();
+            std::cerr << ", w = " << index.w();
         }
         std::cerr << std::endl;
     }
     if (distance_name.empty()) {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::Payload {
+        gbwtgraph::index_haplotypes(gbz->graph, index, [](const pos_t&) -> gbwtgraph::Payload {
             return MIPayload::NO_CODE;
         });
     } else {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
+        gbwtgraph::index_haplotypes(gbz->graph, index, [&](const pos_t& pos) -> gbwtgraph::Payload {
             gbwtgraph::Payload payload = MIPayload::NO_CODE;
 
             #pragma omp critical 
@@ -437,20 +428,15 @@ int main_minimizer(int argc, char** argv) {
 
     // Index statistics.
     if (progress) {
-        std::cerr << index->size() << " keys (" << index->unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index->number_of_values() << std::endl;
-        std::cerr << "Load factor: " << index->load_factor() << std::endl;
+        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
+        std::cerr << "Minimizer occurrences: " << index.number_of_values() << std::endl;
+        std::cerr << "Load factor: " << index.load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
     }
 
     // Serialize the index.
-    try {
-        save_minimizer(*index, output_name);
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [vg minimizer] failed to save MinimizerIndex to " << output_name << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+    save_minimizer(index, output_name);
 
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 

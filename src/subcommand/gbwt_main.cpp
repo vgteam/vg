@@ -1298,12 +1298,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, 
                 std::cerr << "Job " << i << ": Saving the GBWT to " << temp << std::endl;
             }
         }
-        try {
-            save_gbwt(*index, temp, false);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg gbwt] failed to save the GBWT to a temporary file: " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        save_gbwt(*index, temp, false);
         filenames[i] = temp;
     }
 }
@@ -1613,15 +1608,10 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         }
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), vg::algorithms::find_translation(graphs.path_graph.get()));
     }
-    try {
-        if (config.gbz_format) {
-            save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);
-        } else {
-            save_gbwtgraph(graph, config.graph_output, config.show_progress);
-        }
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [vg gbwt] failed to save the GBWTGraph to " << config.graph_output << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
+    if (config.gbz_format) {
+        save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);
+    } else {
+        save_gbwtgraph(graph, config.graph_output, config.show_progress);
     }
 
     report_time_memory("GBWTGraph built", start, config);
@@ -1641,12 +1631,7 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
         std::cerr << "Starting the construction" << std::endl;
     }
     gbwt::FastLocate r_index(gbwts.compressed);
-    try {
-        save_r_index(r_index, config.r_index_name, config.show_progress);
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [vg gbwt] failed to save the r-index to " << config.r_index_name << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+    save_r_index(r_index, config.r_index_name, config.show_progress);
 
     report_time_memory("R-index built", start, config);
 }
@@ -1805,12 +1790,7 @@ void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
     } else {
         this->clear();
         gbwtgraph::GBZ gbz;
-        try {
-            vg::load_gbz(gbz, config.input_filenames.front(), config.show_progress);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg gbwt] failed to load the GBZ from " << config.input_filenames.front() << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        vg::load_gbz(gbz, config.input_filenames.front(), config.show_progress);
         gbwts.use(gbz.index);
         this->gbwt_graph = std::make_unique<gbwtgraph::GBWTGraph>(std::move(gbz.graph));
         this->gbwt_graph->set_gbwt(gbwts.compressed);
@@ -1825,22 +1805,12 @@ void GraphHandler::load_gbwtgraph(GBWTHandler& gbwts, GBWTConfig& config) {
         this->clear();
         // Load the GBWT
         gbwt::GBWT input_gbwt;
-        try {
-            load_gbwt(input_gbwt, config.input_filenames.front(), config.show_progress);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg gbwt] failed to load the GBWT from " << config.input_filenames.front() << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        load_gbwt(input_gbwt, config.input_filenames.front(), config.show_progress);
         gbwts.use(input_gbwt);
         
         // Then load the GBWTGraph
         this->gbwt_graph = std::make_unique<gbwtgraph::GBWTGraph>();
-        try {
-            vg::load_gbwtgraph(*this->gbwt_graph, config.gbwtgraph_name, config.show_progress);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg gbwt] failed to load the GBWTGraph from " << config.gbwtgraph_name << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        vg::load_gbwtgraph(*this->gbwt_graph, config.gbwtgraph_name, config.show_progress);
         // And connect it
         this->gbwt_graph->set_gbwt(gbwts.compressed);
         this->in_use = graph_gbwtgraph;

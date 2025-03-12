@@ -24,16 +24,19 @@ gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters();
 
 /*
     These are the proper ways of saving and loading GBWTGraph structures.
-    Loading them directly with `vg::io::VPKG::load_one` is also supported.
+    Loading them directly with `vg::io::VPKG::load_one` is also supported, but
+    exceptions must then be handled by the caller.
 
     In case of a failure, the loaders will:
     * Throw an exception if sanity checks fail.
     * Fail silently or throw an exception if reading the input fails (depends on libvgio).
     * Print an error message and exit if the file does not exist or is not of the right type.
+    And then catch the exception, print it, and exit.
 
     In case of a failure, the savers will:
     * Fail silently if writing GBWTGraph fails. (GBWTGraph files are deprecated anyway.)
     * Throw an exception if writing any other object to the output fails.
+    And then catch the exception, print it, and exit.
 
     All exceptions are derived from std::runtime_error.
 */

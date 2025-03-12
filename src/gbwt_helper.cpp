@@ -94,7 +94,13 @@ void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progres
     if (show_progress) {
         std::cerr << "Loading compressed GBWT from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
+    std::unique_ptr<gbwt::GBWT> loaded;
+    try {
+        loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (loaded.get() == nullptr) {
         std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << std::endl;
         std::exit(EXIT_FAILURE);
@@ -106,7 +112,13 @@ void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_
     if (show_progress) {
         std::cerr << "Loading dynamic GBWT from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::DynamicGBWT> loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
+    std::unique_ptr<gbwt::DynamicGBWT> loaded;
+    try {
+        loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (loaded.get() == nullptr) {
         std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << std::endl;
         std::exit(EXIT_FAILURE);
@@ -118,7 +130,13 @@ void load_r_index(gbwt::FastLocate& index, const std::string& filename, bool sho
     if (show_progress) {
         std::cerr << "Loading r-index from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::FastLocate> loaded = vg::io::VPKG::load_one<gbwt::FastLocate>(filename);
+    std::unique_ptr<gbwt::FastLocate> loaded;
+    try {
+        loaded = vg::io::VPKG::load_one<gbwt::FastLocate>(filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [load_r_index()] cannot load r-index " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (loaded.get() == nullptr) {
         std::cerr << "error: [load_r_index()] cannot load r-index " << filename << std::endl;
         std::exit(EXIT_FAILURE);
@@ -130,14 +148,24 @@ void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_p
     if (show_progress) {
         std::cerr << "Saving compressed GBWT to " << filename << std::endl;
     }
-    sdsl::simple_sds::serialize_to(index, filename);
+    try {
+        sdsl::simple_sds::serialize_to(index, filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [save_gbwt()] cannot save compressed GBWT to " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Saving dynamic GBWT to " << filename << std::endl;
     }
-    sdsl::simple_sds::serialize_to(index, filename);
+    try {
+        sdsl::simple_sds::serialize_to(index, filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [save_gbwt()] cannot save dynamic GBWT to " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
@@ -147,11 +175,16 @@ void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bo
 
     // This will mimic Simple-SDS serialization.
     std::ofstream out(filename, std::ios_base::binary);
-    if (!out) {
-        throw sdsl::simple_sds::CannotOpenFile(filename, true);
+    try {
+        if (!out) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, true);
+        }
+        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+        index.serialize(out);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [save_r_index()] cannot save r-index to " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
-    out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-    index.serialize(out);
     out.close();
 }
 
@@ -168,12 +201,7 @@ void GBWTHandler::use_compressed() {
         this->dynamic = gbwt::DynamicGBWT();
         this->in_use = index_compressed;
     } else {
-        try {
-            load_gbwt(this->compressed, this->filename, this->show_progress);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [GBWTHandler] cannot load compressed GBWT from " << this->filename << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        load_gbwt(this->compressed, this->filename, this->show_progress);
         this->in_use = index_compressed;
     }
 }
@@ -189,12 +217,7 @@ void GBWTHandler::use_dynamic() {
         this->compressed = gbwt::GBWT();
         this->in_use = index_dynamic;
     } else {
-        try {
-            load_gbwt(this->dynamic, this->filename, this->show_progress);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [GBWTHandler] cannot load dynamic GBWT from " << this->filename << ": " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        load_gbwt(this->dynamic, this->filename, this->show_progress);
         this->in_use = index_dynamic;
     }
 }
@@ -218,18 +241,13 @@ void GBWTHandler::unbacked() {
 }
 
 void GBWTHandler::serialize(const std::string& new_filename) {
-    try {
-        if (this->in_use == index_none) {
-            std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
-            return;
-        } else if (this->in_use == index_compressed) {
-            save_gbwt(this->compressed, new_filename, this->show_progress);
-        } else {
-            save_gbwt(this->dynamic, new_filename, this->show_progress);
-        }
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: [GBWTHandler] cannot save GBWT to " << new_filename << ": " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
+    if (this->in_use == index_none) {
+        std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
+        return;
+    } else if (this->in_use == index_compressed) {
+        save_gbwt(this->compressed, new_filename, this->show_progress);
+    } else {
+        save_gbwt(this->dynamic, new_filename, this->show_progress);
     }
     this->filename = new_filename;
 }

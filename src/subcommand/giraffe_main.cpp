@@ -2410,7 +2410,12 @@ std::string sample_haplotypes(
         std::cerr << "Loading haplotype information from " << haplotype_file << std::endl;
     }
     Haplotypes haplotypes;
-    sdsl::simple_sds::load_from(haplotypes, haplotype_file);
+    try {
+        sdsl::simple_sds::load_from(haplotypes, haplotype_file);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg giraffe] Cannot load haplotype information: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 
     // Sample haplotypes.
     Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
