@@ -125,8 +125,8 @@ Functions</h2></td></tr>
 <tr class="separator:a735c13fd9a1fb84b477ac45d6d81f005"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64feaa655343996c7d233d938a5f35d8"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a64feaa655343996c7d233d938a5f35d8">dagify</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, size_t min_preserved_path_length)</td></tr>
 <tr class="separator:a64feaa655343996c7d233d938a5f35d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1922a67cde14a6cc4e30d2fd62728df1"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1922a67cde14a6cc4e30d2fd62728df1">dagify_from</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; start_handles, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, size_t min_preserved_path_length)</td></tr>
-<tr class="separator:a1922a67cde14a6cc4e30d2fd62728df1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adff7da981c99ead38bacf9cd6a880d05"><td class="memItemLeft" align="right" valign="top">std::pair&lt; std::unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;, std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#adff7da981c99ead38bacf9cd6a880d05">dagify_from</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; start_handles, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, size_t min_preserved_path_length)</td></tr>
+<tr class="separator:adff7da981c99ead38bacf9cd6a880d05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e7bda18174c291a0d991002c2f56a4d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a8e7bda18174c291a0d991002c2f56a4d">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward, bool prune, bool cycle_to_start)</td></tr>
 <tr class="separator:a8e7bda18174c291a0d991002c2f56a4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a236138ba6f70d430d3a401251372ff74"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a236138ba6f70d430d3a401251372ff74">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;starts, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward, bool prune, bool cycle_to_start)</td></tr>
@@ -656,14 +656,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a1922a67cde14a6cc4e30d2fd62728df1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1922a67cde14a6cc4e30d2fd62728df1">&#9670;&nbsp;</a></span>dagify_from()</h2>
+<a id="adff7da981c99ead38bacf9cd6a880d05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adff7da981c99ead38bacf9cd6a880d05">&#9670;&nbsp;</a></span>dagify_from()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::unordered_map&lt;<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&gt; handlegraph::algorithms::dagify_from </td>
+          <td class="memname">std::pair&lt;std::unordered_map&lt;<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&gt;, std::vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; &gt; handlegraph::algorithms::dagify_from </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>

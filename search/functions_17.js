@@ -36,7 +36,7 @@ var searchData=
   ['windowedvcfbuffer_11615',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html#a7d7af1d1441bab6c687bdf1be7fc4675',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(vcflib::VariantCallFile *file, size_t window_size)'],['../classvg_1_1WindowedVcfBuffer.html#aa57da13990d5983d5e8aa787dfe56995',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(const WindowedVcfBuffer &amp;other)=delete']]],
   ['with_5fcache_5fentry_11616',['with_cache_entry',['../classvg_1_1IndexedVG.html#ac14226d9ccd03cb99af9a08cef31d6ff',1,'vg::IndexedVG']]],
   ['with_5fcursor_11617',['with_cursor',['../classvg_1_1IndexedVG.html#af380961c8e8b342ba8f688c2f073de2e',1,'vg::IndexedVG']]],
-  ['with_5fdagified_5flocal_5fgraph_11618',['with_dagified_local_graph',['../classvg_1_1MinimizerMapper.html#a96b3c359c5f86557ddccfdedd67af570',1,'vg::MinimizerMapper']]],
+  ['with_5fdagified_5flocal_5fgraph_11618',['with_dagified_local_graph',['../classvg_1_1MinimizerMapper.html#a226a76ceb57a96d07ab467269541bfea',1,'vg::MinimizerMapper']]],
   ['with_5fexception_5fhandling_11619',['with_exception_handling',['../namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6',1,'vg']]],
   ['with_5ffunction_5fcalling_5fstream_11620',['with_function_calling_stream',['../namespacevg_1_1io.html#a8b1a63276edf814575b7afb3b2b9844d',1,'vg::io']]],
   ['with_5fpath_5findex_11621',['with_path_index',['../classvg_1_1GraphSynchronizer.html#a336f5828883adce86ee5e536f8c299ea',1,'vg::GraphSynchronizer']]],

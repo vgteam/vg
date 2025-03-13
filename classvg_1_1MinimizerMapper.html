@@ -745,8 +745,8 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="separator:a750d65dcbba1734ca9855225090d0149"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2c8ab02743227cb2550fcfd295043253"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, int gap_open_penalty, int gap_extend_penalty)</td></tr>
 <tr class="separator:a2c8ab02743227cb2550fcfd295043253"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a96b3c359c5f86557ddccfdedd67af570"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a96b3c359c5f86557ddccfdedd67af570">with_dagified_local_graph</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const std::function&lt; void(<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;, const std::function&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;)&gt; &amp;callback)</td></tr>
-<tr class="separator:a96b3c359c5f86557ddccfdedd67af570"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a226a76ceb57a96d07ab467269541bfea"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a226a76ceb57a96d07ab467269541bfea">with_dagified_local_graph</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const std::function&lt; void(<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const std::function&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;)&gt; &amp;callback)</td></tr>
+<tr class="separator:a226a76ceb57a96d07ab467269541bfea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa0f917b2d622c95d9f8bc65186cb898f"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa0f917b2d622c95d9f8bc65186cb898f">longest_detectable_gap_in_range</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::string::const_iterator &amp;sequence_begin, const std::string::const_iterator &amp;sequence_end, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
 <tr class="separator:aa0f917b2d622c95d9f8bc65186cb898f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3757672b798dedc0d9ce9b4306f638c4"><td class="memItemLeft" align="right" valign="top">static std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3757672b798dedc0d9ce9b4306f638c4">align_sequence_between</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, size_t max_gap_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const std::string *alignment_name=nullptr, size_t <a class="el" href="classvg_1_1MinimizerMapper.html#af673f62cfdb402e93acaf2eb81680772">max_dp_cells</a>=std::numeric_limits&lt; size_t &gt;::max(), const std::function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#acf23e356fb872617417ff73d54f6f141">choose_band_padding</a>=<a class="el" href="namespacevg_1_1algorithms.html#a6a606c26b5751d935c71d7971a92d99b">algorithms::pad_band_random_walk</a>())</td></tr>
@@ -1077,7 +1077,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Clip out the part of the graph between the given positions and global-align the sequence of the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a> to it. Populate the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s path and score.</p>
+<p>Clip out the part of the graph between the given positions (left facing into the region and right facing out) and global-align the sequence of the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a> to it. Populate the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s path and score.</p>
 <p>Finds an alignment against a graph path if it is &lt;= max_path_length.</p>
 <p>If one of the anchor positions is empty, does pinned alignment against the other position.</p>
 <p>For pinned alignment, restricts the alignment to have gaps no longer than max_gap_length, and to use &lt;= max_dp_cells cells. If too many DP cells would be used, produces a softclip alignment.</p>
@@ -5358,8 +5358,8 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a96b3c359c5f86557ddccfdedd67af570"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a96b3c359c5f86557ddccfdedd67af570">&#9670;&nbsp;</a></span>with_dagified_local_graph()</h2>
+<a id="a226a76ceb57a96d07ab467269541bfea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a226a76ceb57a96d07ab467269541bfea">&#9670;&nbsp;</a></span>with_dagified_local_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -5394,7 +5394,7 @@ template&lt;typename Score &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::function&lt; void(<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;, const std::function&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::function&lt; void(<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const std::function&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>callback</em>&#160;</td>
         </tr>
         <tr>
@@ -5409,8 +5409,8 @@ template&lt;typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Clip out the part of the graph between the given positions, and dagify it from the perspective of the anchors. If a left anchor is set, all heads should correspond to the left anchor, and if a right anchor is set, all tails should correspond to the right anchor. At least one anchor must be set. Both anchors may be on the same node.</p>
-<p>Calls the callback with an extracted, strand-split, dagified graph, and a function that translates from handle in the dagified graph to node ID and orientation in the base graph. </p>
+<p>Clip out the part of the graph between the given positions (left facing into the region to be extracted and right facing out), and dagify it from the perspective of the anchors. If a left anchor is set, all heads should correspond to the left anchor, and if a right anchor is set, all tails should correspond to the right anchor. At least one anchor must be set. Both anchors may be on the same node.</p>
+<p>Calls the callback with an extracted, strand-split, dagified graph, the handles for the anchoring copies of the left and right anchor nodes (if not empty), facing the same way as the anchoring positions, and a function that translates from handle in the dagified graph to node ID and orientation in the base graph. </p>
 
 </div>
 </div>

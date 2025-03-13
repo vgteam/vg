@@ -2248,8 +2248,10 @@ template&lt;typename Collection &gt; </div>
 </div><div class="memdoc">
 <p>Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that contain the two positions will be 'cut' at the position and will be tips in the returned graph. The algorithm guarantees that 'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include a cycle involving either position. If no walk between the two positions under the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when passed to function.</p>
 <p>If pos_1 and pos_2 face each other on the same node, the intervening portion of the node is produced in into. If they are on the same node but do not face each other, portions of the original node will exist as distinct nodes in into, and the one correspondign to pos_1 will have the lower node ID.</p>
+<p><a class="el" href="structvg_1_1algorithms_1_1Node.html">Node</a> local forward orientations are not changed.</p>
+<p>Unless strict_max_len is set, the graph may contain additional nodes not actually on a connecting path under the given length, some of which may be tips.</p>
 <p>Args: source graph to extract subgraph from into graph to extract into max_len guarantee finding walks along which pos_1 and pos_2 are this distance apart pos_1 start position, subgraph walks begin from here in same orientation pos_2 end position, subgraph walks end here in the same orientation strict_max_len only extract nodes and edges if they fall on some walk between pos_1 and pos_2 that is under the maximum length (implies only_walks = true)</p>
-<p>Returns: a map from node ids in the extracted graph to the node ids in the original graph </p>
+<p>Returns: a map from node ids in the extracted graph to the node ids in the original graph. The map and the graph will have the same number of entries. </p>
 
 </div>
 </div>
