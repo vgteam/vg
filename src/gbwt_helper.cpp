@@ -1,7 +1,6 @@
 #include "gbwt_helper.hpp"
 #include "utility.hpp"
 
-#include <vg/io/vpkg.hpp>
 #include <handle.hpp>
 #include <gbwtgraph/utils.h>
 
@@ -94,54 +93,44 @@ void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progres
     if (show_progress) {
         std::cerr << "Loading compressed GBWT from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::GBWT> loaded;
     try {
-        loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
+        sdsl::simple_sds::load_from(index, filename);
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << ": " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    index = std::move(*loaded);
 }
 
 void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading dynamic GBWT from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::DynamicGBWT> loaded;
     try {
-        loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
+        sdsl::simple_sds::load_from(index, filename);
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << ": " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    index = std::move(*loaded);
 }
 
 void load_r_index(gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading r-index from " << filename << std::endl;
     }
-    std::unique_ptr<gbwt::FastLocate> loaded;
+
+    // This mimics Simple-SDS serialization.
     try {
-        loaded = vg::io::VPKG::load_one<gbwt::FastLocate>(filename);
+        std::ifstream in(filename, std::ios_base::binary);
+        if (!in) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, false);
+        }
+        in.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
+        index.load(in);
+        in.close();
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [load_r_index()] cannot load r-index " << filename << ": " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_r_index()] cannot load r-index " << filename << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    index = std::move(*loaded);
 }
 
 void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_progress) {
@@ -173,19 +162,19 @@ void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bo
         std::cerr << "Saving r-index to " << filename << std::endl;
     }
 
-    // This will mimic Simple-SDS serialization.
-    std::ofstream out(filename, std::ios_base::binary);
+    // This mimics Simple-SDS serialization.
     try {
+        std::ofstream out(filename, std::ios_base::binary);
         if (!out) {
             throw sdsl::simple_sds::CannotOpenFile(filename, true);
         }
         out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
         index.serialize(out);
+        out.close();
     } catch (const std::runtime_error& e) {
         std::cerr << "error: [save_r_index()] cannot save r-index to " << filename << ": " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    out.close();
 }
 
 //------------------------------------------------------------------------------

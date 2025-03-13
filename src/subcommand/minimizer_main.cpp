@@ -273,34 +273,30 @@ int main_minimizer(int argc, char** argv) {
         gbz = std::move(get<0>(input));
     } else if (get<1>(input)) {
         // We loaded a GBWTGraph and need to pair it with a GBWT
-        gbz.reset(new gbwtgraph::GBZ());
-        gbz->graph = std::move(*get<1>(input));
-        
         if (gbwt_name.empty()) {
             std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a GBWTGraph" << std::endl;
             return 1;
         }
-        
+        gbz.reset(new gbwtgraph::GBZ());
+        gbz->graph = std::move(*get<1>(input));
+
         // Go get the GBWT
         load_gbwt(gbz->index, gbwt_name, progress);
         // And attach them together
         gbz->graph.set_gbwt(gbz->index);
     } else if (get<2>(input)) {
         // We got a normal HandleGraph
-        
         if (gbwt_name.empty()) {
             std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a HandleGraph" << std::endl;
             return 1;
         }
+        gbz.reset(new gbwtgraph::GBZ());
         
-        if (progress) {
-            std::cerr << "Loading GBWT from " << gbwt_name << std::endl;
-        }
-        std::unique_ptr<gbwt::GBWT> gbwt_index(vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name));
+        load_gbwt(gbz->index, gbwt_name, progress);
         if (progress) {
             std::cerr << "Building GBWTGraph" << std::endl;
         }
-        gbz.reset(new gbwtgraph::GBZ(gbwt_index, *get<2>(input)));
+        gbz->graph = gbwtgraph::GBWTGraph(gbz->index, *get<2>(input));
     } else {
         std::cerr << "error: [vg minimizer] input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
         return 1;
