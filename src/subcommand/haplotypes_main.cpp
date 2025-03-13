@@ -149,12 +149,7 @@ int main_haplotypes(int argc, char** argv) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             std::cerr << "Loading haplotype information from " << config.haplotype_input << std::endl;
         }
-        try {
-            sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        haplotypes.load_from(config.haplotype_input);
     }
 
     // Save haplotype information if necessary.
@@ -162,12 +157,7 @@ int main_haplotypes(int argc, char** argv) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             std::cerr << "Writing haplotype information to " << config.haplotype_output << std::endl;
         }
-        try {
-            sdsl::simple_sds::serialize_to(haplotypes, config.haplotype_output);
-        } catch (const std::runtime_error& e) {
-            std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        haplotypes.serialize_to(config.haplotype_output);
     }
 
     // Sample the haplotypes.

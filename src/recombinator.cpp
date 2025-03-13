@@ -351,6 +351,15 @@ void Haplotypes::simple_sds_serialize(std::ostream& out) const {
     }
 }
 
+void Haplotypes::serialize_to(const std::string& filename) const {
+    try {
+        sdsl::simple_sds::serialize_to(*this, filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [Haplotypes] Serialization to " << filename << " failed: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 void Haplotypes::simple_sds_load(std::istream& in) {
     this->header = sdsl::simple_sds::load_value<Header>(in);
     if (this->header.magic_number != Header::MAGIC_NUMBER) {
@@ -378,6 +387,15 @@ void Haplotypes::simple_sds_load(std::istream& in) {
 
     // Update to the current version.
     this->header.version = Header::VERSION;
+}
+
+void Haplotypes::load_from(const std::string& filename) {
+    try {
+        sdsl::simple_sds::load_from(*this, filename);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [Haplotypes] Loading from " << filename << " failed: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 size_t Haplotypes::simple_sds_size() const {
