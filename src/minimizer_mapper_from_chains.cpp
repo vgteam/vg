@@ -38,6 +38,8 @@
 //#define print_minimizer_table
 // Dump the zip code forest
 //#define debug_print_forest
+// Dump local graphs during tip trimming
+//#define debug_dump_tips
 // Dump local graphs that we align against 
 //#define debug_dump_graph
 // Dump fragment length distribution information
@@ -3520,7 +3522,7 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
-void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
+void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const handle_t&, const handle_t&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
     if (is_empty(left_anchor) && is_empty(right_anchor)) {
         throw ChainAlignmentFailedError("Cannot align sequence between two unset positions");
@@ -3530,13 +3532,30 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     bdsg::HashGraph local_graph;
     unordered_map<id_t, id_t> local_to_base;
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
-        // We want a graph actually between two positions
+        // We want a graph actually between two positions.
+        // Enforce strict max length to avoid extra tips.
         local_to_base = algorithms::extract_connecting_graph(
             &graph,
             &local_graph,
             max_path_length,
-            left_anchor, right_anchor
+            left_anchor, right_anchor,
+            true
         );
+
+        if (local_to_base.empty()) {
+            // A possible result is that the one anchor is not reachable from
+            // the other within the length limit (at least without doubling
+            // back through one of the anchor nodes). In that case, we get an
+            // empty graph and an empty translation.
+
+            // Explain the problem but bail out on the chain connection safely,
+            // because we we expect this sometimes.
+            std::stringstream ss;
+            ss << "Cannot find an acceptable path from " << left_anchor;
+            ss << " to " << right_anchor;
+            ss << " with max path length of " << max_path_length;
+            throw ChainAlignmentFailedError(ss.str());
+        }
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
@@ -3590,14 +3609,13 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                     // nodes; there are too many copies of our shared node to
                     // work out which is which.
                     std::stringstream ss;
-                    ss << "Extracted graph from " << left_anchor;
-                    if (!is_empty(right_anchor)) {
-                        ss << " to " << right_anchor;
-                    }
+                    ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                    ss << " from " << left_anchor << " to " << right_anchor;
                     ss << " with max path length of " << max_path_length;
-                    ss << " but shared node appeared more than twice in the resulting translation";
+                    ss << " but shared node appeared more than twice in the resulting translation.";
+                    ss << " Graph dumped as crashdump.vg.";
                     local_graph.serialize("crashdump.vg");
-                    throw ChainAlignmentFailedError(ss.str());
+                    throw std::runtime_error(ss.str());
                 }
                 // Whichever copy has the lower ID is the left one and
                 // whichever copy has the higher ID is the right one.
@@ -3605,8 +3623,32 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 local_right_anchor_id = std::max(local_right_anchor_id, kv.second);
             }
         } else if (kv.second == id(left_anchor)) {
+            if (local_left_anchor_id != 0) {
+                // We thought we already figured out the start node; there are
+                // too many copies of our start node to find it. 
+                std::stringstream ss;
+                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                ss << " from " << left_anchor << " to " << right_anchor;
+                ss << " with max path length of " << max_path_length;
+                ss << " but start node appeared twice in the resulting translation.";
+                ss << " Graph dumped as crashdump.vg.";
+                local_graph.serialize("crashdump.vg");
+                throw std::runtime_error(ss.str());
+            }
             local_left_anchor_id = kv.first;
         } else if (kv.second == id(right_anchor)) {
+            if (local_right_anchor_id != 0) {
+                // We thought we already figured out the end node; there are
+                // too many copies of our end node to find it. 
+                std::stringstream ss;
+                ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+                ss << " from " << left_anchor << " to " << right_anchor;
+                ss << " with max path length of " << max_path_length;
+                ss << " but end node appeared twice in the resulting translation.";
+                ss << " Graph dumped as crashdump.vg.";
+                local_graph.serialize("crashdump.vg");
+                throw std::runtime_error(ss.str());
+            }
             local_right_anchor_id = kv.first;
         }
         // TODO: Stop early when we found them all.
@@ -3621,30 +3663,27 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         }
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;
-        ss << "Extracted graph from " << left_anchor;
-        if (!is_empty(right_anchor)) {
-            ss << " to " << right_anchor;
-        }
+        ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+        ss << " from " << left_anchor << " to " << right_anchor;
         ss << " with max path length of " << max_path_length;
-        ss << " but from node was not present in the resulting translation";
+        ss << " but from node was not present in the resulting translation.";
+        ss << " Graph dumped as crashdump.vg.";
         local_graph.serialize("crashdump.vg");
-        throw ChainAlignmentFailedError(ss.str());
+        throw std::runtime_error(ss.str());
     }
 
     if (!is_empty(right_anchor) && local_right_anchor_id == 0) {
         // Somehow the right anchor didn't come through. Complain.
         std::stringstream ss;
-        ss << "Extracted graph";
-        if (!is_empty(left_anchor)) {
-            ss << " from " << left_anchor;
-        }
-        ss << " to " << right_anchor;
+        ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
+        ss << " from " << left_anchor << " to " << right_anchor;
         ss << " with max path length of " << max_path_length;
-        ss << " but to node was not present in the resulting translation";
+        ss << " but to node was not present in the resulting translation.";
+        ss << " Graph dumped as crashdump.vg.";
         local_graph.serialize("crashdump.vg");
-        throw ChainAlignmentFailedError(ss.str());
+        throw std::runtime_error(ss.str());
     }
-    
+
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
 
@@ -3668,9 +3707,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 ss << " to " << right_anchor;
             }
             ss << " with max path length of " << max_path_length;
-            ss << " but from node local ID " << local_left_anchor_id << " was not present in the resulting graph";
+            ss << " but from node local ID " << local_left_anchor_id << " from translation was not present in the resulting graph.";
+            ss << " Graph dumped as crashdump.vg.";
             local_graph.serialize("crashdump.vg");
-            throw ChainAlignmentFailedError(ss.str());
+            throw std::runtime_error(ss.str());
         }
         handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
         
@@ -3692,9 +3732,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             }
             ss << " to " << right_anchor;
             ss << " with max path length of " << max_path_length;
-            ss << " but to node local ID " << local_right_anchor_id << " was not present in the resulting graph";
+            ss << " but to node local ID " << local_right_anchor_id << " from translation was not present in the resulting graph.";
+            ss << " Graph dumped as crashdump.vg.";
             local_graph.serialize("crashdump.vg");
-            throw ChainAlignmentFailedError(ss.str());
+            throw std::runtime_error(ss.str());
         }
         handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
         
@@ -3706,7 +3747,22 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         bounding_handles.push_back(overlay_handle);
     }
     
-    auto dagified_to_split = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
+    // Do the dagification from those input handles.
+    // TODO: Note that this can add tips! We should come up with a dagification method that is guaranteed not to!
+    auto dagification_result = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
+    auto& dagified_to_split = dagification_result.first;
+    auto& anchor_handles = dagification_result.second;
+    
+    // Figure out which anchoring handle is which anchor.
+    handle_t left_anchor_handle = is_empty(left_anchor) ? handle_t() : anchor_handles.front();
+    // The right handle will be in facing-into-the-graph orientation, but we
+    // want to produce it in facing outwards orientation like the right anchor
+    // position was. 
+    handle_t right_anchor_handle = is_empty(right_anchor) ? handle_t() : dagified_graph.flip(anchor_handles.back());
+
+    // Note that in addition to cut nodes at these anchor handles, we can have
+    // strand-split version of the cut nodes' other strands.
+
     
 #ifdef debug
     std::cerr << "Dagified from " << bounding_handles.size() << " bounding handles in " << split_graph.get_node_count() << " node strand-split graph to " << dagified_graph.get_node_count() << " node DAG" << std::endl;
@@ -3718,7 +3774,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         bool dagified_is_reverse = dagified_graph.get_is_reverse(h);
         auto found_in_split = dagified_to_split.find(dagified_id);
         if (found_in_split == dagified_to_split.end()) {
-            throw ChainAlignmentFailedError("ID " + std::to_string(dagified_id) + " from dagified graph not found in strand-split graph");
+            throw std::runtime_error("ID " + std::to_string(dagified_id) + " from dagified graph not found in strand-split graph");
         }
         nid_t split_id = found_in_split->second;
         handle_t split_handle = split_graph.get_handle(split_id, dagified_is_reverse);
@@ -3728,14 +3784,14 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         bool local_is_reverse = local_graph.get_is_reverse(local_handle);
         auto found_in_base = local_to_base.find(local_id);
         if (found_in_base == local_to_base.end()) {
-            throw ChainAlignmentFailedError("ID " + std::to_string(local_id) + " from local graph not found in full base graph");
+            throw std::runtime_error("ID " + std::to_string(local_id) + " from local graph not found in full base graph");
         }
         nid_t base_id = found_in_base->second;
         return std::make_pair(base_id, local_is_reverse);
     };
     
     // Show the graph we made and the translation function
-    callback(dagified_graph, dagified_handle_to_base);
+    callback(dagified_graph, left_anchor_handle, right_anchor_handle, dagified_handle_to_base);
 }
 
 size_t MinimizerMapper::longest_detectable_gap_in_range(const Alignment& aln, const std::string::const_iterator& sequence_begin, const std::string::const_iterator& sequence_end, const GSSWAligner* aligner) {
@@ -3770,7 +3826,10 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
 
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
-        [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
+        [&](DeletableHandleGraph& dagified_graph,
+            const handle_t& left_anchor_handle,
+            const handle_t& right_anchor_handle,
+            const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
 
 #ifdef debug
         dump_debug_graph(dagified_graph);
@@ -3784,60 +3843,30 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
         std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
         bool trimmed;
         size_t trim_count = 0;
-        bool found_left_anchor_tip;
-        handle_t left_anchor_tip;
-        bool found_right_anchor_tip;
-        handle_t right_anchor_tip;
         do {
             trimmed = false;
-            found_left_anchor_tip = false;
-            found_right_anchor_tip = false;
             // We need to make sure to remove only one orientation of each handle
             // we remove.
             std::unordered_set<nid_t> to_remove_ids;
             std::vector<handle_t> to_remove_handles;
             for (auto& h : tip_handles) {
                 auto base_coords = dagified_handle_to_base(h);
-                if (!dagified_graph.get_is_reverse(h) && (is_empty(left_anchor) || base_coords.first == id(left_anchor))) {
+                if (!dagified_graph.get_is_reverse(h) && (is_empty(left_anchor) || h == left_anchor_handle)) {
                     // Tip is inward forward, so it's a source.
-                    // This is a head in the subgraph, and either matches a left
-                    // anchoring node or we don't have any, so keep it.
+                    // This is a head in the subgraph, and either matches the
+                    // left anchor or we don't have any, so keep it.
 #ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
-                    if (!is_empty(left_anchor)) {
-                        // If we somehow get multiple copies of the left anchor
-                        // node as tips, they need to have the same length or
-                        // our translation back to the base graph won't work.
-                        if (found_left_anchor_tip && dagified_graph.get_length(h) != dagified_graph.get_length(left_anchor_tip)) {
-                            std::stringstream ss;
-                            ss << "Different left anchor tip lengths of " << dagified_graph.get_length(h) << " and " << dagified_graph.get_length(left_anchor_tip) << " when extracting " << left_anchor << " to " << right_anchor;
-                            throw std::runtime_error(ss.str());
-                        }
-                        found_left_anchor_tip = true;
-                        left_anchor_tip = h;
-                    }
-                } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
+                } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || h == dagified_graph.flip(right_anchor_handle))) {
                     // Tip is inward reverse, so it's a sink.
-                    // This is a tail in the subgraph, and either matches a right
-                    // anchoring node or we don't have any, so keep it.
+                    // This is a tail in the subgraph, and either matches the right
+                    // anchor (which faces outwards) or we don't have any, so keep it.
 #ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
 #endif
-                    if (!is_empty(right_anchor)) {
-                        // If we somehow get multiple copies of the right anchor
-                        // node as tips, they need to have the same length or
-                        // our translation back to the base graph won't work.
-                        if (found_right_anchor_tip && dagified_graph.get_length(h) != dagified_graph.get_length(right_anchor_tip)) {
-                            std::stringstream ss;
-                            ss << "Different right anchor tip lengths of " << dagified_graph.get_length(h) << " and " << dagified_graph.get_length(right_anchor_tip) << " when extracting " << left_anchor << " to " << right_anchor;
-                            throw std::runtime_error(ss.str());
-                        }
-                        found_right_anchor_tip = true;
-                        right_anchor_tip = h;
-                    }
                 } else {
-                    // This is a wrong orientation of an anchoring node, or some other tip.
+                    // This is a wrong orientation or other copy of an anchoring node, or some other tip.
                     // We don't want to keep this handle
 #ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
@@ -3849,6 +3878,13 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     }
                 }
             }
+#ifdef debug_dump_tips
+            if (!to_remove_handles.empty() && trim_count == 0) {
+                // We're going to trim, so dump the graph.
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Going to trim, so dumping pre-trim.vg" << std::endl;
+                dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("pre-trim.vg");
+            }
+#endif
             for (auto& h : to_remove_handles) {
                 dagified_graph.destroy_handle(h);
                 trimmed = true;
@@ -3871,10 +3907,22 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
         if (trim_count > 0) {
             #pragma omp critical (cerr)
             {
-                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips";
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor;
+                if (!is_empty(left_anchor)) {
+                    std::cerr << " as " << dagified_graph.get_id(left_anchor_handle) << (dagified_graph.get_is_reverse(left_anchor_handle) ? "-" : "+");
+                }
+                std::cerr << " and " << right_anchor;
+                if (!is_empty(right_anchor)) {
+                    std::cerr << " as " << dagified_graph.get_id(right_anchor_handle) << (dagified_graph.get_is_reverse(right_anchor_handle) ? "-" : "+");
+                }
+                std::cerr << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips";
                 if (alignment_name) {
                     std::cerr << " for read " << *alignment_name;
                 }
+#ifdef debug_dump_tips
+                std::cerr << " to make post-trim.vg";
+                dynamic_cast<SerializableHandleGraph*>(&dagified_graph)->serialize("post-trim.vg");
+#endif
                 std::cerr << std::endl;
             }
         }
@@ -3951,48 +3999,27 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
             auto base_coords = dagified_handle_to_base(dagified_handle);
            
             if (i == 0) {
-                // Make sure that, if the leftmost mapping is on an anchor
-                // node, it's on a copy with the correct length.
-                //
-                // Otherwise the changes we make to the offset of the leftmost
-                // mapping when it's on an anchor node won't make sense, because we
-                // won't know we were really on a cut copy.
-                // TODO: This should always be true.
-                if (!is_empty(left_anchor) && base_coords.first == id(left_anchor)) {
-                    crash_unless(dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(left_anchor_tip));
-                }
-                if (!is_empty(right_anchor) && base_coords.first == id(right_anchor)) {
-                    crash_unless(dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(right_anchor_tip));
+                if (!is_empty(left_anchor) && base_coords.first == id(left_anchor) && base_coords.second == is_rev(left_anchor)) {
+                    // The alignment starts on the left anchor's node. It may be on a cut copy.
+                    if (dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(left_anchor_handle)) {
+                        // We're on a cut copy (the anchor itself or the strand-split version), or it was not cut.
+
+                        // Add on the offset for the cut-off outside piece of the left anchor node
+                        m->mutable_position()->set_offset(m->position().offset() + offset(left_anchor));
+                    }
+                } else if (!is_empty(right_anchor) && base_coords.first == id(right_anchor) && base_coords.second != is_rev(right_anchor)) {
+                    // The alignment starts on the right anchor's node, reading into the graph. It may be on a cut copy.
+                    if (dagified_graph.get_length(dagified_handle) == dagified_graph.get_length(right_anchor_handle)) {
+                        // We're on a cut copy (the anchor itself or the strand-split version), or it was not cut.
+
+                        // Add on the offset for the cut-off outside piece of the right anchor node
+                        m->mutable_position()->set_offset(m->position().offset() + graph->get_length(graph->get_handle(id(right_anchor))) - offset(right_anchor));
+                    }
                 }
             }
 
             m->mutable_position()->set_node_id(base_coords.first);
             m->mutable_position()->set_is_reverse(base_coords.second);
-        }
-
-        if (alignment.path().mapping_size() > 0) {
-            // If we anchored on the left, the leftmost mapping will be on a
-            // cut anchor node and its offset won't reflect the offset on the
-            // backing graph node.
-            //
-            // If we anchored on the right only, it's *still possible* for the
-            // alignment to turn around so the leftmost mapping is on the same
-            // cut anchor node we anchored the right end on, facing the other
-            // direction and offsetting from the cut point.
-            //
-            // Adjust the offset on the leftmost mapping so it counts from the
-            // edge of the entire node and not the cut-down part used for
-            // anchoring, if it's on one of the cut-down nodes.
-            Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
-
-            if (!is_empty(left_anchor) && left_pos->node_id() == id(left_anchor)) {
-                // If the alignment does start on the anchor node (even at 0 or at the past-end position)
-                // Add on the offset for the cut-off piece of the left anchor node
-                left_pos->set_offset(left_pos->offset() + offset(left_anchor));
-            } else if (!is_empty(right_anchor) && left_pos->node_id() == id(right_anchor)) {
-                // If the alignment starts on the right anchor, make sure to add the part that was cut off to the offset.
-                left_pos->set_offset(left_pos->offset() + graph->get_length(graph->get_handle(id(right_anchor))) - offset(right_anchor));
-            }
         }
 
         if (alignment.path().mapping_size() > 0) {
@@ -4058,7 +4085,7 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between_consistently(c
     // Flip and send the answer
     reverse_complement_alignment_in_place(&flipped_query, get_node_length);
     alignment = std::move(flipped_query);
-    
+
     // We shouldn't use any nonzero offsets after the first node. We're not
     // meant to be making a split alignment.
     for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
