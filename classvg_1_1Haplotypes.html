@@ -128,11 +128,13 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Subchain::kmer_type</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a48ed72eff81d77df7a4159afd0c6d20e">kmer_counts</a> (const std::string &amp;kff_file, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
 <tr class="separator:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3a5a36c107109c893cf382064ad9ea69"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a3a5a36c107109c893cf382064ad9ea69">simple_sds_serialize</a> (std::ostream &amp;out) const</td></tr>
-<tr class="memdesc:a3a5a36c107109c893cf382064ad9ea69"><td class="mdescLeft">&#160;</td><td class="mdescRight">Serializes the object to a stream in the simple-sds format.  <a href="classvg_1_1Haplotypes.html#a3a5a36c107109c893cf382064ad9ea69">More...</a><br /></td></tr>
 <tr class="separator:a3a5a36c107109c893cf382064ad9ea69"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59cabeadc7a097f9c1926bff45a77505"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a59cabeadc7a097f9c1926bff45a77505">serialize_to</a> (const std::string &amp;filename) const</td></tr>
+<tr class="separator:a59cabeadc7a097f9c1926bff45a77505"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a908ed1a2f1147a2162051be87e5ba389"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a908ed1a2f1147a2162051be87e5ba389">simple_sds_load</a> (std::istream &amp;in)</td></tr>
-<tr class="memdesc:a908ed1a2f1147a2162051be87e5ba389"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the object from a stream in the simple-sds format.  <a href="classvg_1_1Haplotypes.html#a908ed1a2f1147a2162051be87e5ba389">More...</a><br /></td></tr>
 <tr class="separator:a908ed1a2f1147a2162051be87e5ba389"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae4ce505e821cdd049f26dc932d6bfc2c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ae4ce505e821cdd049f26dc932d6bfc2c">load_from</a> (const std::string &amp;filename)</td></tr>
+<tr class="separator:ae4ce505e821cdd049f26dc932d6bfc2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="classvg_1_1Haplotypes.html#ac0ebaa605235ee2b6f62c084cfdc6126">More...</a><br /></td></tr>
 <tr class="separator:ac0ebaa605235ee2b6f62c084cfdc6126"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -397,6 +399,44 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ae4ce505e821cdd049f26dc932d6bfc2c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae4ce505e821cdd049f26dc932d6bfc2c">&#9670;&nbsp;</a></span>load_from()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::load_from </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Loads the object from a file in the Simple-SDS format. Prints an error message and exits the program on failure. </p>
+
+</div>
+</div>
+<a id="a59cabeadc7a097f9c1926bff45a77505"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59cabeadc7a097f9c1926bff45a77505">&#9670;&nbsp;</a></span>serialize_to()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::serialize_to </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Serializes the object to a file in the Simple-SDS format. Prints an error message and exits the program on failure. </p>
+
+</div>
+</div>
 <a id="a908ed1a2f1147a2162051be87e5ba389"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a908ed1a2f1147a2162051be87e5ba389">&#9670;&nbsp;</a></span>simple_sds_load()</h2>
 
@@ -412,8 +452,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Loads the object from a stream in the simple-sds format. </p>
+<p>Loads the object from a stream in the Simple-SDS format. I/O errors can be detected by checking the stream state. Throws <code>sdsl::simple_sds::InvalidData</code> if sanity checks fail. </p>
 
 </div>
 </div>
@@ -432,8 +471,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Serializes the object to a stream in the simple-sds format. </p>
+<p>Serializes the object to a stream in the Simple-SDS format. I/O errors can be detected by checking the stream state. </p>
 
 </div>
 </div>
