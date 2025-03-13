@@ -70,8 +70,11 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph);
 //------------------------------------------------------------------------------
 
 /*
-    These are the proper ways of saving and loading GBWT structures.
-    Loading with `vg::io::VPKG::load_one` is also supported.
+    These are the proper ways of saving and loading GBWT structures. In case of
+    a failure, these will print an error message and exit the program.
+
+    The vg::io::VPKG interface is effectively the same, but it does not handle
+    errors in a consistent way.
 */
 
 /// Load a compressed GBWT from the file.

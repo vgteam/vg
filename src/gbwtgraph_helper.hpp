@@ -23,8 +23,11 @@ namespace vg {
 gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters();
 
 /*
-    These are the proper ways of saving and loading GBWTGraph structures.
-    Loading with `vg::io::VPKG::load_one` is also supported.
+    These are the proper ways of saving and loading GBWTGraph structures. In
+    case of a failure, these will print an error message and exit the program.
+
+    The vg::io::VPKG interface is effectively the same, but it does not handle
+    errors in a consistent way.
 */
 
 /// Load GBWTGraph from the file.

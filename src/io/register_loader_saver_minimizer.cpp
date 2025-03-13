@@ -21,14 +21,16 @@ void register_loader_saver_minimizer() {
 
     Registry::register_bare_loader_saver_with_magic<gbwtgraph::DefaultMinimizerIndex>("MinimizerIndex", magic_string, [](istream& input) -> void* {
         gbwtgraph::DefaultMinimizerIndex* index = new gbwtgraph::DefaultMinimizerIndex();
-        if (index->deserialize(input)) {
-            // Return the index so the caller owns it.
-            return static_cast<void*>(index);
-        } else {
-            //If deserializing failed
-            throw std::runtime_error("Failed to load minimizer index");
-        }
+
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
+        index->deserialize(input);
+
+        return reinterpret_cast<void*>(index);
     }, [](const void* index_void, ostream& output) {
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         static_cast<const gbwtgraph::DefaultMinimizerIndex*>(index_void)->serialize(output);
     });

@@ -180,13 +180,13 @@ public:
         /// * Information content of the kmers (disabled).
         double badness(const gbwtgraph::GBZ& gbz) const;
 
-        /// Serializes the object to a stream in the simple-sds format.
+        /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
         /// Loads a less space-efficient version 1 or 2 subchain.
         void load_v1(std::istream& in);
 
-        /// Loads the object from a stream in the simple-sds format.
+        /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
         /// Returns the size of the object in elements.
@@ -207,10 +207,10 @@ public:
         /// Subchains in the order they appear in.
         std::vector<Subchain> subchains;
 
-        /// Serializes the object to a stream in the simple-sds format.
+        /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        /// Loads the object from a stream in the simple-sds format.
+        /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
         /// Loads a version 1 chain without a contig name.
@@ -254,11 +254,22 @@ public:
      */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, Verbosity verbosity) const;
 
-    /// Serializes the object to a stream in the simple-sds format.
+    /// Serializes the object to a stream in the Simple-SDS format.
+    /// I/O errors can be detected by checking the stream state.
     void simple_sds_serialize(std::ostream& out) const;
 
-    /// Loads the object from a stream in the simple-sds format.
+    /// Serializes the object to a file in the Simple-SDS format.
+    /// Prints an error message and exits the program on failure.
+    void serialize_to(const std::string& filename) const;
+
+    /// Loads the object from a stream in the Simple-SDS format.
+    /// I/O errors can be detected by checking the stream state.
+    /// Throws `sdsl::simple_sds::InvalidData` if sanity checks fail.
     void simple_sds_load(std::istream& in);
+
+    /// Loads the object from a file in the Simple-SDS format.
+    /// Prints an error message and exits the program on failure.
+    void load_from(const std::string& filename);
 
     /// Returns the size of the object in elements.
     size_t simple_sds_size() const;

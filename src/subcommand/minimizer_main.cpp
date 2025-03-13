@@ -240,7 +240,7 @@ int main_minimizer(int argc, char** argv) {
         }
     }
     if (output_name.empty()) {
-        std::cerr << "[vg minimizer] error: option --output-name is required" << std::endl;
+        std::cerr << "error: [vg minimizer] option --output-name is required" << std::endl;
         return 1;
     }
     if (optind + 1 != argc) {
@@ -249,7 +249,7 @@ int main_minimizer(int argc, char** argv) {
     }
     graph_name = argv[optind];
     if (require_distance_index && distance_name.empty()) {
-        std::cerr << "[vg minimizer] error: one of options --distance-index and --no-dist is required" << std::endl;
+        std::cerr << "error: [vg minimizer] one of options --distance-index and --no-dist is required" << std::endl;
         return 1;
     }
     if (!load_index.empty() || use_syncmers) {
@@ -273,36 +273,32 @@ int main_minimizer(int argc, char** argv) {
         gbz = std::move(get<0>(input));
     } else if (get<1>(input)) {
         // We loaded a GBWTGraph and need to pair it with a GBWT
-        gbz.reset(new gbwtgraph::GBZ());
-        gbz->graph = std::move(*get<1>(input));
-        
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a GBWTGraph" << std::endl;
+            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a GBWTGraph" << std::endl;
             return 1;
         }
-        
+        gbz.reset(new gbwtgraph::GBZ());
+        gbz->graph = std::move(*get<1>(input));
+
         // Go get the GBWT
         load_gbwt(gbz->index, gbwt_name, progress);
         // And attach them together
         gbz->graph.set_gbwt(gbz->index);
     } else if (get<2>(input)) {
         // We got a normal HandleGraph
-        
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a HandleGraph" << std::endl;
+            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a HandleGraph" << std::endl;
             return 1;
         }
+        gbz.reset(new gbwtgraph::GBZ());
         
-        if (progress) {
-            std::cerr << "Loading GBWT from " << gbwt_name << std::endl;
-        }
-        std::unique_ptr<gbwt::GBWT> gbwt_index(vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name));
+        load_gbwt(gbz->index, gbwt_name, progress);
         if (progress) {
             std::cerr << "Building GBWTGraph" << std::endl;
         }
-        gbz.reset(new gbwtgraph::GBZ(gbwt_index, *get<2>(input)));
+        gbz->graph = gbwtgraph::GBWTGraph(gbz->index, *get<2>(input));
     } else {
-        std::cerr << "[vg minimizer] error: input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
+        std::cerr << "error: [vg minimizer] input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
         return 1;
     }
 
@@ -327,19 +323,15 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Minimizer index.
-    std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
+    gbwtgraph::DefaultMinimizerIndex index(IndexingParameters::short_read_minimizer_k, 
+        (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
+        use_syncmers);
     if (load_index.empty()) {
-        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::short_read_minimizer_k, 
-            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::short_read_minimizer_w),
-            use_syncmers);
         if (weighted && !frequent_kmers.empty()) {
-            index->add_frequent_kmers(frequent_kmers, iterations);
+            index.add_frequent_kmers(frequent_kmers, iterations);
         }
     } else {
-        if (progress) {
-            std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;
-        }
-        index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
+        load_minimizer(index, load_index, progress);
     }
 
     // Distance index.
@@ -364,20 +356,20 @@ int main_minimizer(int argc, char** argv) {
 
     // Build the index.
     if (progress) {
-        std::cerr << "Building MinimizerIndex with k = " << index->k();
-        if (index->uses_syncmers()) {
-            std::cerr << ", s = " << index->s();
+        std::cerr << "Building MinimizerIndex with k = " << index.k();
+        if (index.uses_syncmers()) {
+            std::cerr << ", s = " << index.s();
         } else {
-            std::cerr << ", w = " << index->w();
+            std::cerr << ", w = " << index.w();
         }
         std::cerr << std::endl;
     }
     if (distance_name.empty()) {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::Payload {
+        gbwtgraph::index_haplotypes(gbz->graph, index, [](const pos_t&) -> gbwtgraph::Payload {
             return MIPayload::NO_CODE;
         });
     } else {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
+        gbwtgraph::index_haplotypes(gbz->graph, index, [&](const pos_t& pos) -> gbwtgraph::Payload {
             gbwtgraph::Payload payload = MIPayload::NO_CODE;
 
             #pragma omp critical 
@@ -432,15 +424,15 @@ int main_minimizer(int argc, char** argv) {
 
     // Index statistics.
     if (progress) {
-        std::cerr << index->size() << " keys (" << index->unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index->number_of_values() << std::endl;
-        std::cerr << "Load factor: " << index->load_factor() << std::endl;
+        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
+        std::cerr << "Minimizer occurrences: " << index.number_of_values() << std::endl;
+        std::cerr << "Load factor: " << index.load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
     }
 
     // Serialize the index.
-    save_minimizer(*index, output_name);
+    save_minimizer(index, output_name);
 
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 

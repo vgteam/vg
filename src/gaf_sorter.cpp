@@ -516,7 +516,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     std::priority_queue<std::pair<GAFSorterRecord, size_t>> queue;
     for (size_t i = 0; i < records.size(); i++) {
         if (!records[i].empty()) {
-            queue.emplace(records[i].front(), i);
+            queue.emplace(std::move(records[i].front()), i);
             records[i].pop_front();
         }
     }
@@ -541,7 +541,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
             }
         }
         if (!records[source].empty()) {
-            queue.emplace(records[source].front(), source);
+            queue.emplace(std::move(records[source].front()), source);
             records[source].pop_front();
         }
     }

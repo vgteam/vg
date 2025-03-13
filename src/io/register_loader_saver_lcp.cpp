@@ -23,13 +23,16 @@ void register_loader_saver_lcp() {
         // Allocate an LCPArray
         gcsa::LCPArray* index = new gcsa::LCPArray();
         
-        // Load it
+        // Load it. In case of a failure, this will:
+        // * Throw std::runtime_error if sanity checks fail.
+        // * Fail silently if reading the input fails.
         index->load(input);
         
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to LCP and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         ((const gcsa::LCPArray*) index_void)->serialize(output);
     });
 

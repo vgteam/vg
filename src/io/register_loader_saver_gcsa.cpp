@@ -23,13 +23,16 @@ void register_loader_saver_gcsa() {
         // Allocate a GCSA
         gcsa::GCSA* index = new gcsa::GCSA();
         
-        // Load it
+        // Load it. In case of a failure, this will:
+        // * Throw std::runtime_error if sanity checks fail.
+        // * Fail silently if reading the input fails.
         index->load(input);
         
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to GCSA and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gcsa::GCSA*) index_void)->serialize(output);
     });

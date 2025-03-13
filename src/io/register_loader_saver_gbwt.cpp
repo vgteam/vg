@@ -24,14 +24,18 @@ void register_loader_saver_gbwt() {
     Registry::register_bare_loader_saver_with_magic<gbwt::GBWT>("GBWT", magic_string, [](istream& input) -> void* {
         // Allocate a GBWT
         gbwt::GBWT* index = new gbwt::GBWT();
-        
-        // Load it
+
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         index->load(input);
         
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to GBWT and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gbwt::GBWT*) index_void)->simple_sds_serialize(output);
     });
@@ -39,14 +43,18 @@ void register_loader_saver_gbwt() {
     Registry::register_bare_loader_saver_with_magic<gbwt::DynamicGBWT>("GBWT", magic_string, [](istream& input) -> void* {
         // Allocate a DynamicGBWT
         gbwt::DynamicGBWT* index = new gbwt::DynamicGBWT();
-        
-        // Load it
+
+        // Load it. In case of a failure, this will:
+        // * Throw an exception if sanity checks fail.
+        // * Fail silently if reading the input fails.
+        // The exceptions are derived from std::runtime_error.
         index->load(input);
         
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
         // Cast to DynamicGBWT and serialize to the stream.
+        // This will fail silently if writing to the output stream fails.
         assert(index_void != nullptr);
         ((const gbwt::DynamicGBWT*) index_void)->simple_sds_serialize(output);
     });

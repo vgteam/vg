@@ -1805,7 +1805,7 @@ void GraphHandler::load_gbwtgraph(GBWTHandler& gbwts, GBWTConfig& config) {
         this->clear();
         // Load the GBWT
         gbwt::GBWT input_gbwt;
-        vg::load_gbwt(input_gbwt, config.input_filenames.front(), config.show_progress);
+        load_gbwt(input_gbwt, config.input_filenames.front(), config.show_progress);
         gbwts.use(input_gbwt);
         
         // Then load the GBWTGraph

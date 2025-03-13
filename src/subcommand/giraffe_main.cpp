@@ -2410,7 +2410,7 @@ std::string sample_haplotypes(
         std::cerr << "Loading haplotype information from " << haplotype_file << std::endl;
     }
     Haplotypes haplotypes;
-    sdsl::simple_sds::load_from(haplotypes, haplotype_file);
+    haplotypes.load_from(haplotype_file);
 
     // Sample haplotypes.
     Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
