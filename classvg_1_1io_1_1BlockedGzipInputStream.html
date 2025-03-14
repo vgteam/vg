@@ -114,6 +114,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa221be19182d88b7caa36ead3e63c829"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a1eb2633e42ca1b50ab167497e581e6bd">IsBGZF</a> () const</td></tr>
 <tr class="separator:a1eb2633e42ca1b50ab167497e581e6bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8bec79c3a365157b7bdf198d6195b0da"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#a8bec79c3a365157b7bdf198d6195b0da">MissingEOF</a> ()</td></tr>
+<tr class="separator:a8bec79c3a365157b7bdf198d6195b0da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -160,7 +162,8 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Make a new stream reading from the given C++ std::istream, wrapping it in a BGZF. The stream must be at a BGZF block header, since the header info is peeked.</p>
-<p>If thread_count is more than 1, enables multi-threaded BGZF decoding. This needs to be part of the comstructor to ensure that it happens before any data is read through the decoder. </p>
+<p>If thread_count is more than 1, enables multi-threaded BGZF decoding. This needs to be part of the comstructor to ensure that it happens before any data is read through the decoder.</p>
+<p>Throws <a class="el" href="classvg_1_1io_1_1TruncatedBGZFError.html" title="Represents an error where an input blocked GZIP file has been truncated.">TruncatedBGZFError</a> immediately if the file is seekable and lacks the BGZF EOF block. </p>
 
 </div>
 </div>
@@ -321,6 +324,32 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Return true if the stream being read really is BGZF, and false if we are operating on a non-blocked GZIP or uncompressed file. </p>
+
+</div>
+</div>
+<a id="a8bec79c3a365157b7bdf198d6195b0da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8bec79c3a365157b7bdf198d6195b0da">&#9670;&nbsp;</a></span>MissingEOF()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::BlockedGzipInputStream::MissingEOF </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns true if the stream being read is BGZF, it is seekable, and the EOF marker at the end is missing. </p>
 
 </div>
 </div>
