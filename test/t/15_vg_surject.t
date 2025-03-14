@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 52
+plan tests 54
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -36,6 +36,13 @@ is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc
 
 is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject doesn't need to be told which path to use"
+
+
+head -c -10 j.gam >j-truncated.gam
+vg surject -p x -x x.xg -t 1 j-truncated.gam >/dev/null 2>log.txt
+is "${?}" "1" "vg surject stops when the input read file is truncated"
+is "$(grep "truncate" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
+rm -f j-truncated.gam log.txt
 
 is $(vg surject -x x.xg -t 1 -s x.gam | grep AS | wc -l) 100 "vg surject reports alignment scores"
 

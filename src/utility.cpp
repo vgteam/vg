@@ -14,6 +14,8 @@
 // already have it for libstdc++ on the platforms where we need them
 #include <sched.h>
 
+// For TruncatedBGZFError
+#include <vg/io/blocked_gzip_input_stream.hpp>
 
 // For setting the temporary directory in submodules.
 #include <gcsa/utils.h>
@@ -644,22 +646,28 @@ string get_output_file_name(int& optind, int argc, char** argv) {
 }
 
 void get_input_file(const string& file_name, function<void(istream&)> callback) {
-
-    if (file_name == "-") {
-        // Just use standard input
-        callback(std::cin);
-    } else {
-        // Open a file
-        ifstream in;
-        in.open(file_name.c_str());
-        if (!in.is_open()) {
-            // The user gave us a bad filename
-            cerr << "error:[get_input_file] could not open file \"" << file_name << "\"" << endl;
-            exit(1);
-        }
-        callback(in);
-    }
     
+    try {
+        if (file_name == "-") {
+            // Just use standard input
+            callback(std::cin);
+        } else {
+            // Open a file
+            ifstream in;
+            in.open(file_name.c_str());
+            if (!in.is_open()) {
+                // The user gave us a bad filename
+                cerr << "error:[get_input_file] could not open file \"" << file_name << "\"" << endl;
+                exit(1);
+            }
+            callback(in);
+            
+        }
+    } catch(vg::io::TruncatedBGZFError& e) {
+        // If we find a truncated input while working on this file, it's likely to be this file's fault.
+        cerr << "error:[get_input_file] detected truncated input while processing \"" << file_name << "\"" << endl;
+        exit(1);
+    }
 }
 
 pair<string, string> split_ext(const string& filename) {
