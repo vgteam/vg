@@ -30,10 +30,8 @@ void help_simplify(char** argv) {
          << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
          << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
          << "path snarl simplifier options:" << endl
-         << "    -m, --min-size N       flatten sites (to reference) whose maximum traversal has < N bp (default: 10)" << endl
-
-         << "small snarl simplifier options:" << endl
          << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
+         << "small snarl simplifier options:" << endl       
          << "    -m, --min-size N       remove leaf sites with fewer than N bases (with -P, uses max allele length) involved (default: 10)" << endl
          << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
          << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
