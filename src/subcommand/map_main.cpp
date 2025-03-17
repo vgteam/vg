@@ -87,6 +87,7 @@ void help_map(char** argv) {
          << "    -%, --gaf                     output alignments in GAF format" << endl
          << "    --surject-to TYPE             surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
+         << "    --ref-name NAME               name of reference assembly in the graph for HTSlib output" << endl
          << "    --buffer-size INT             buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare                 realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table            for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -112,7 +113,8 @@ int main_map(int argc, char** argv) {
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_EXCLUDE_UNALIGNED 1002
     #define OPT_REF_PATHS 1003
-    #define OPT_COMMENTS_AS_TAGS 1004
+    #define OPT_REF_NAME 1004
+    #define OPT_COMMENTS_AS_TAGS 1005
     string matrix_file_name;
     string seq;
     string qual;
@@ -130,6 +132,7 @@ int main_map(int argc, char** argv) {
     int thread_count = 1;
     string output_format = "GAM";
     string ref_paths_name;
+    std::unordered_set<std::string> reference_assembly_names;
     bool exclude_unaligned = false;
     bool debug = false;
     float min_score = 0;
@@ -263,6 +266,7 @@ int main_map(int argc, char** argv) {
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
                 {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+                {"ref-name", required_argument, 0, OPT_REF_NAME},
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
@@ -538,6 +542,10 @@ int main_map(int argc, char** argv) {
             ref_paths_name = optarg;
             break;
 
+        case OPT_REF_NAME:
+            reference_assembly_names.insert(optarg);
+            break;
+
         case '8':
             patch_alignments = false;
             break;
@@ -618,6 +626,10 @@ int main_map(int argc, char** argv) {
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg map] Reference path file (--ref-paths) is only used when output format (--surject-to) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
+    }
+    if (!reference_assembly_names.empty() && !hts_output) {
+        cerr << "warning:[vg map] Reference assembly names (--ref-name) are only used when output format (--surject-to) is SAM, BAM, or CRAM." << endl;
+        reference_assembly_names.clear();
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty() && fasta_file.empty()) {
@@ -756,7 +768,7 @@ int main_map(int argc, char** argv) {
     // Look up all the paths we might need to surject to.
     vector<tuple<path_handle_t, size_t, size_t>> paths;
     if (hts_output) {
-        paths = get_sequence_dictionary(ref_paths_name, {}, *xgidx);
+        paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *xgidx);
     }
     
     // Set up output to an emitter that will handle serialization and surjection

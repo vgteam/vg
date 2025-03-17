@@ -755,6 +755,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
+    << "  --ref-name NAME               name of reference assembly in the graph to use for HTSlib output" << endl
     << "  --named-coordinates           produce GAM/GAF outputs in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr
@@ -803,8 +804,9 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_FRAGMENT_MEAN = 1006;
     constexpr int OPT_FRAGMENT_STDEV = 1007;
     constexpr int OPT_REF_PATHS = 1008;
-    constexpr int OPT_SHOW_WORK = 1009;
-    constexpr int OPT_NAMED_COORDINATES = 1010;
+    constexpr int OPT_REF_NAME = 1009;
+    constexpr int OPT_SHOW_WORK = 1010;
+    constexpr int OPT_NAMED_COORDINATES = 1011;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
@@ -887,6 +889,8 @@ int main_giraffe(int argc, char** argv) {
 
     // For HTSlib formats, where do we get sequence header info?
     std::string ref_paths_name;
+    // What assemblies shoudl we use when autodetecting reference paths?
+    std::unordered_set<std::string> reference_assembly_names;
     // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
     
@@ -1387,6 +1391,10 @@ int main_giraffe(int argc, char** argv) {
             case OPT_REF_PATHS:
                 ref_paths_name = optarg;
                 break;
+
+            case OPT_REF_NAME:
+                reference_assembly_names.insert(optarg);
+                break;
                 
             case 'P':
                 prune_anchors = true;
@@ -1557,6 +1565,10 @@ int main_giraffe(int argc, char** argv) {
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning: [vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
+    }
+    if (!reference_assembly_names.empty() && !hts_output) {
+        cerr << "warning: [vg giraffe] Reference assembly names (--ref-name) are only used when output format (-o) is SAM, BAM, or CRAM." << endl;
+        reference_assembly_names.clear();
     }
     
     if (output_format != "GAM" && !output_basename.empty()) {
@@ -1994,7 +2006,7 @@ int main_giraffe(int argc, char** argv) {
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);
-                paths = get_sequence_dictionary(ref_paths_name, {}, *path_position_graph);
+                paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *path_position_graph);
             }
             
             // Set up output to an emitter that will handle serialization and surjection.
