@@ -1510,7 +1510,7 @@ int main_giraffe(int argc, char** argv) {
         if (fasta_parts.second == "gz") {
             fasta_parts = split_ext(fasta_parts.first);
         }
-        if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna") {
+        if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna" && fasta_parts.second != "fq") {
             cerr << "error: [vg giraffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
             exit(1);
         }
