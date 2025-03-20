@@ -1339,7 +1339,7 @@ size_t ZipCode::minimum_distance_between(ZipCode& zip1, const pos_t& pos1,
             cerr << "Distances to parent irregular snarl: " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 #endif
         } else if (parent_type == REGULAR_SNARL) {
-            //If its a regular snarl, then the distances to the ends are either 0 or inf
+            //If it's a regular snarl, then the distances to the ends are either 0 or inf
             //For a regular snarl, the snarl stores if the child was reversed, rather than the child
             if (zip.get_is_reversed_in_parent(child_depth)) {
                 distance_start_left = std::numeric_limits<size_t>::max();
@@ -1503,7 +1503,7 @@ cerr << "Finding distances to ancestors of first position" << endl;
     for (int i = zip1.decoder_length()-2 ; i > 0 && i > lowest_common_ancestor_depth ; i--) {
         //the parent snarl tree node is at index i
         //The distances are currently to the ends of the current node
-        //FInd the distances to the ends of the parent
+        //Find the distances to the ends of the parent
         update_distances_to_ends_of_parent(zip1, i+1, distance_to_start1, distance_to_end1);
     }
 #ifdef DEBUG_ZIPCODE
