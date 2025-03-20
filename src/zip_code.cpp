@@ -19,14 +19,14 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 
     //Now add the root-level snarl or chain
     if (distance_index.is_root_snarl(current_handle)) {
-        //FIrst thing is a snarl, so add the snarl's connected component number
+        //First thing is a snarl, so add the snarl's connected component number
         zipcode.add_value(0);
 #ifdef DEBUG_ZIPCODE
         cerr << "Adding code for top-level snarl " << distance_index.net_handle_as_string(current_handle) << endl;
 #endif
         zipcode.add_value(distance_index.get_connected_component_number(current_handle));
     } else {
-        //FIrst thing is a chain so add its connected component number and remove the chain from the stack
+        //First thing is a chain so add its connected component number and remove the chain from the stack
         zipcode.add_value(1);
 
         //If the root-level structure is actually a chain, then save the connected component number and take out
