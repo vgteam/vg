@@ -1082,13 +1082,15 @@ protected:
      */
     static std::pair<size_t, size_t> align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
 
+public:
     /**
      * Version of align_sequence_between() that guarantees that you get the
      * same answer (modulo reverse-complementation) no matter whether the
      * sequence and anchors are reverse-complemented or not.
      */
     static std::pair<size_t, size_t> align_sequence_between_consistently(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
-    
+
+protected:
     /**
      * Produce a WFAAlignment of the given sequence between the given points
      * that will be the same (modulo reverse-complementation) no matter whether
