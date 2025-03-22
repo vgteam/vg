@@ -686,7 +686,7 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
     // both types of normalization selected. we're going to double the iterations
     // and alternate between them
     int64_t input_max_snarl_length = max_snarl_length;
-    int64_t input_min_jaccard = min_jaccard;
+    double input_min_jaccard = min_jaccard;
     int64_t empty_count = 0;
     bool alternate = max_snarl_length > 0 && min_jaccard < 1.0;
     if (alternate) {
