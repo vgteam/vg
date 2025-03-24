@@ -1625,8 +1625,8 @@ Functions</h2></td></tr>
 <tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">extract_path_metadata</a> (const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, bool subpath_support)</td></tr>
 <tr class="separator:aa381cdc7f966379fc7cc9ea11257f632"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e23f130325e05c894696771e50f2636"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e23f130325e05c894696771e50f2636">get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph)</td></tr>
-<tr class="separator:a2e23f130325e05c894696771e50f2636"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0804d45293e20a884e5be58bc88b13f"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad0804d45293e20a884e5be58bc88b13f">get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:ad0804d45293e20a884e5be58bc88b13f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1c2f1e37da37dda61d25e9d8bb6552d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c2f1e37da37dda61d25e9d8bb6552d6">copy_file</a> (const string &amp;from_fp, const string &amp;to_fp)</td></tr>
 <tr class="separator:a1c2f1e37da37dda61d25e9d8bb6552d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a53098c7c826c3d8d2aab804ba5500fd5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a53098c7c826c3d8d2aab804ba5500fd5">get_file_size</a> (const string &amp;filename)</td></tr>
@@ -12213,8 +12213,8 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="a2e23f130325e05c894696771e50f2636"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e23f130325e05c894696771e50f2636">&#9670;&nbsp;</a></span>get_sequence_dictionary()</h2>
+<a id="ad0804d45293e20a884e5be58bc88b13f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0804d45293e20a884e5be58bc88b13f">&#9670;&nbsp;</a></span>get_sequence_dictionary()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12234,6 +12234,12 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>reference_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>&#160;</td>
         </tr>
@@ -12246,7 +12252,7 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 <p>Produce a list of path handles in a fixed order, suitable for use with get_alignment_emitter_with_surjection(), by parsing a file. The file may be an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines), or a plain list of sequence names (which do not start with "@SQ"). If the file is not openable or contains no entries, reports an error and quits.</p>
 <p>If path_names has entries, they are treated as path names that supplement those in the file, if any.</p>
-<p>If the filename is itself an empty string, and no path names are passed, then all reference-sense paths from the graph will be collected in arbitrary order. If there are none, all non-alt-allele generic sense paths from the graph will be collected in arbitrary order.</p>
+<p>If the filename is itself an empty string, and no path names are passed, then reference-sense paths from the graph will be collected in arbitrary order. If there are none, all non-alt-allele generic sense paths from the graph will be collected in arbitrary order. If reference_samples is nonempty, only reference-sense paths in those particular samples will be used.</p>
 <p>TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical of references.</p>
 <p>The tuple is &lt;path, path length in graph, base path length&gt; For a subpath (ie chr1[1000-10000]) the base path length would be that of chr1 This information needs to come from the user in order to be correct, but if it's not specified, it'll be guessed from the graph </p>
 
