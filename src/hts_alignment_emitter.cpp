@@ -119,7 +119,7 @@ pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path
     return make_pair(path_names_and_lengths, subpath_to_length);
 }
 
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const PathPositionHandleGraph& graph) {
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const std::unordered_set<std::string>& reference_samples, const PathPositionHandleGraph& graph) {
 
     // TODO: We assume we're using the one true default path metadata <-> name mapping
     
@@ -282,9 +282,21 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
         // We got no paths in so we need to guess them.
         // We will deduplicate their base names, without subpath info.
         unordered_set<string> base_names;
+
+        // We will also track the distinct reference samples and complain if
+        // there are several, because people don't usually want that.
+        std::unordered_set<std::string> sample_names_in_use;
         
         // When we find a path or subpath we want, we will keep it.
         auto keep_path_or_subpath = [&](const path_handle_t& path) {
+            if (!reference_samples.empty()) {
+                if (!reference_samples.count(graph.get_sample_name(path))) {
+                    // This is not on any acceptable reference, so skip it.
+                    return;
+                }
+            }
+            sample_names_in_use.insert(graph.get_sample_name(path));
+
             string base_name = get_path_base_name(graph, path);
             int64_t base_length = -1;
             if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
@@ -305,9 +317,35 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
         
         // First look for reference sense paths and their subpaths
         graph.for_each_path_of_sense(PathSense::REFERENCE, keep_path_or_subpath);
+
+        if (sample_names_in_use.size() > 1 && reference_samples.empty()) {
+            // We auto-detected multiple references. Warn the user that they probably don't want this.
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "warning:[vg::get_sequence_dictionary] Using multiple target reference assemblies (";
+                for (auto it = sample_names_in_use.begin(); it != sample_names_in_use.end(); ++it) {
+                    if (it != sample_names_in_use.begin()) {
+                        std::cerr << ", ";
+                    }
+                    std::cerr << *it;
+                }
+                std::cerr << "). Most tools that read SAM/BAM/CRAM will not support this. Consider providing a reference path list or dictionary, or reference sample name." << std::endl;
+            }
+        }
+
+        if (sample_names_in_use.size() < reference_samples.size()) {
+            for (auto& name : reference_samples) {
+                if (!sample_names_in_use.count(name)) {
+                    // TODO: We should learn to promote whole haplotype-sense samples on the fly. For now error out.
+                    cerr << "error:[vg::get_sequence_dictionary] Requested reference assembly " << name << " is not a reference assembly in the graph." << endl;
+                    exit(1);
+                }
+            }
+        }
         
         if (input_names_lengths.empty()) {
             // If none of those exist, try generic sense paths and their subpaths
+            #pragma omp critical (cerr)
             cerr << "warning:[vg::get_sequence_dictionary] No reference-sense paths available in the graph; falling back to generic paths." << endl;
             graph.for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& path) {
                 if (Paths::is_alt(graph.get_path_name(path))) {

@@ -1011,7 +1011,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     return mappings;
 }
 
-#define debug
 void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeForest& zip_code_forest, 
         const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
         const vector<algorithms::Anchor>& seed_anchors,
@@ -1618,7 +1617,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
     }
 
 }
-#undef debug
 
 void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeForest& zip_code_forest, 
         const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
@@ -3587,14 +3585,19 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     nid_t local_left_anchor_id = 0;
     nid_t local_right_anchor_id = 0;
     for (auto& kv : local_to_base) {
-        if (kv.second == id(left_anchor) && kv.second == id(right_anchor)) {
+        auto& local_id = kv.first;
+        auto& base_id = kv.second;
+        if (base_id == id(left_anchor) && base_id == id(right_anchor)) {
             // The left and right anchors are on the same node, and this is a copy of it.
             // It could be that the anchors face each other, and we extracted one intervening piece of node.
             // In which case we go through this section once.
             if (local_left_anchor_id == 0 && local_right_anchor_id == 0) {
                 // First time through, say we probably cut out the middle piece of a node
-                local_left_anchor_id = kv.first;
-                local_right_anchor_id = kv.first;
+                local_left_anchor_id = local_id;
+                local_right_anchor_id = local_id;
+#ifdef debug
+                std::cerr << "Assume left and right anchors are both node " << local_id << " representing " << base_id << std::endl;
+#endif
             } else {
                 // Or it could be that we have two pieces of the original
                 // shared node represented as separate nodes, because the
@@ -3619,10 +3622,13 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 }
                 // Whichever copy has the lower ID is the left one and
                 // whichever copy has the higher ID is the right one.
-                local_left_anchor_id = std::min(local_left_anchor_id, kv.first);
-                local_right_anchor_id = std::max(local_right_anchor_id, kv.second);
+                local_left_anchor_id = std::min(local_left_anchor_id, local_id);
+                local_right_anchor_id = std::max(local_right_anchor_id, local_id);
+#ifdef debug
+                std::cerr << "Second shared anchor copy as " << local_id << " representing " << base_id << "; left is now " << local_left_anchor_id << " and right is " << local_right_anchor_id << std::endl;
+#endif
             }
-        } else if (kv.second == id(left_anchor)) {
+        } else if (base_id == id(left_anchor)) {
             if (local_left_anchor_id != 0) {
                 // We thought we already figured out the start node; there are
                 // too many copies of our start node to find it. 
@@ -3635,8 +3641,11 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 local_graph.serialize("crashdump.vg");
                 throw std::runtime_error(ss.str());
             }
-            local_left_anchor_id = kv.first;
-        } else if (kv.second == id(right_anchor)) {
+            local_left_anchor_id = local_id;
+#ifdef debug
+            std::cerr << "Left anchor is " << local_left_anchor_id << std::endl;
+#endif
+        } else if (base_id == id(right_anchor)) {
             if (local_right_anchor_id != 0) {
                 // We thought we already figured out the end node; there are
                 // too many copies of our end node to find it. 
@@ -3649,18 +3658,15 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
                 local_graph.serialize("crashdump.vg");
                 throw std::runtime_error(ss.str());
             }
-            local_right_anchor_id = kv.first;
+            local_right_anchor_id = local_id;
+#ifdef debug
+            std::cerr << "Right anchor is " << local_right_anchor_id << std::endl;
+#endif
         }
         // TODO: Stop early when we found them all.
     }
 
     if (!is_empty(left_anchor) && local_left_anchor_id == 0) {
-        #pragma omp critical (cerr)
-        {
-            for (auto& kv : local_to_base) {
-                std::cerr << "Local ID " << kv.first << " = base graph ID " << kv.second << std::endl;
-            }
-        }
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;
         ss << "Extracted graph of " << local_graph.get_node_count() << " nodes";
@@ -3716,6 +3722,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         
         // And get the node that that orientation of it is in the strand-split graph
         handle_t overlay_handle = split_graph.get_overlay_handle(local_handle);
+
+#ifdef debug
+        std::cerr << "Left anchor " << local_graph.get_id(local_handle) << (local_graph.get_is_reverse(local_handle) ? "-" : "+") << " in local graph is " << split_graph.get_id(overlay_handle) << (split_graph.get_is_reverse(overlay_handle) ? "-" : "+") << " in strand-split graph." << std::endl;
+#endif
         
         // And use that
         bounding_handles.push_back(overlay_handle);
@@ -3742,6 +3752,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // And get the node that that orientation of it is in the strand-split graph
         // But flip it because we want to dagify going inwards from the right
         handle_t overlay_handle = split_graph.flip(split_graph.get_overlay_handle(local_handle));
+
+#ifdef debug
+        std::cerr << "Right anchor " << local_graph.get_id(local_handle) << (local_graph.get_is_reverse(local_handle) ? "-" : "+") << " in local graph is " << split_graph.get_id(overlay_handle) << (split_graph.get_is_reverse(overlay_handle) ? "-" : "+") << " in strand-split graph." << std::endl;
+#endif
         
         // And use that
         bounding_handles.push_back(overlay_handle);
@@ -3856,20 +3870,20 @@ std::pair<size_t, size_t> MinimizerMapper::align_sequence_between(const pos_t& l
                     // This is a head in the subgraph, and either matches the
                     // left anchor or we don't have any, so keep it.
 #ifdef debug
-                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ") length " << dagified_graph.get_length(h) << std::endl;
 #endif
                 } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || h == dagified_graph.flip(right_anchor_handle))) {
                     // Tip is inward reverse, so it's a sink.
                     // This is a tail in the subgraph, and either matches the right
                     // anchor (which faces outwards) or we don't have any, so keep it.
 #ifdef debug
-                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ") length " << dagified_graph.get_length(h) << std::endl;
 #endif
                 } else {
                     // This is a wrong orientation or other copy of an anchoring node, or some other tip.
                     // We don't want to keep this handle
 #ifdef debug
-                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ") length " << dagified_graph.get_length(h) << std::endl;
 #endif
                     nid_t dagified_id = dagified_graph.get_id(h);
                     if (!to_remove_ids.count(dagified_id)) {
