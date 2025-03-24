@@ -288,7 +288,8 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     //TODO: These are empty but they could be command line arguments
     string path_file;
     vector<string> path_names;
-    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *graph);
+    std::unordered_set<std::string> reference_assembly_names;
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, reference_assembly_names, *graph);
     unordered_set<path_handle_t> reference_paths;
     reference_paths.reserve(sequence_dictionary.size());
     for (auto& entry : sequence_dictionary) {

@@ -73,9 +73,11 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  * those in the file, if any.
  *
  * If the filename is itself an empty string, and no path names are passed,
- * then all reference-sense paths from the graph will be collected in arbitrary
+ * then reference-sense paths from the graph will be collected in arbitrary
  * order. If there are none, all non-alt-allele generic sense paths from the
- * graph will be collected in arbitrary order.
+ * graph will be collected in arbitrary order. If reference_samples is
+ * nonempty, only reference-sense paths in those particular samples will be
+ * used.
  *
  * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
  * of references.
@@ -85,7 +87,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  * This information needs to come from the user in order to be correct, but 
  * if it's not specified, it'll be guessed from the graph
  */
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const PathPositionHandleGraph& graph);                                                   
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const std::unordered_set<std::string>& reference_samples, const PathPositionHandleGraph& graph);                                                   
 
 /**
  * Given a list of path handles and size info (from get_sequence_dictionary), return two things:

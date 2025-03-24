@@ -41,6 +41,7 @@ void help_surject(char** argv) {
          << "  -t, --threads N          number of threads to use" << endl
          << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
          << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
+         << "  -n, --into-ref NAME      surject into this reference assembly" << endl 
          << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
@@ -111,6 +112,7 @@ int main_surject(int argc, char** argv) {
     
     string xg_name;
     vector<string> path_names;
+    std::unordered_set<std::string> reference_assembly_names;
     string path_file;
     string output_format = "GAM";
     string input_format = "GAM";
@@ -146,6 +148,8 @@ int main_surject(int argc, char** argv) {
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
+            {"into-ref", required_argument, 0, 'n'},
+            {"ref-sample", required_argument, 0, 'n'}, // Provide an alias to match Giraffe
             {"subpath-local", no_argument, 0, 'l'},
             {"max-tail-len", required_argument, 0, 'T'},
             {"max-graph-scale", required_argument, 0, 'g'},
@@ -173,7 +177,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:lT:g:iGmcbsN:R:f:C:t:SPI:a:ALMVw:r",
+        c = getopt_long (argc, argv, "hx:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:ALMVw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -193,6 +197,10 @@ int main_surject(int argc, char** argv) {
 
         case 'F':
             path_file = optarg;
+            break;
+
+        case 'n':
+            reference_assembly_names.insert(optarg);
             break;
         
         case 'l':
@@ -347,7 +355,7 @@ int main_surject(int argc, char** argv) {
 
     // Get the paths to surject into and their length information, either from
     // the given file, or from the provided list, or from sniffing the graph.
-    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *xgidx);
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, reference_assembly_names, *xgidx);
     // Clear out path_names so we don't accidentally use it
     path_names.clear();
 
