@@ -1201,9 +1201,11 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
                     if (j < trav_genotype.size() - 1) {
                         vcf_genotype += "/";
                     }
-                    vcf_alleles.push_back(vcf_allele);
-                    used_vcf_alleles.insert(vcf_allele);
-                    vcf_traversals[vcf_allele] = travs[trav_allele];
+                    if (!used_vcf_alleles.count(vcf_allele)) {                    
+                        vcf_alleles.push_back(vcf_allele);
+                        used_vcf_alleles.insert(vcf_allele);
+                        vcf_traversals[vcf_allele] = travs[trav_allele];
+                    }
                 }
                 // add traversals that correspond to vcf genotypes that are not
                 // present in the traversal_genotypes
