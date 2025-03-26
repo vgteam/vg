@@ -1788,8 +1788,8 @@ namespace vg {
         cerr << "building contig for chunk of reference " << reference_contig << " in interval " << leading_offset << " to " << reference_end << endl;
 #endif
 
-        // Set up a progress bar thhrough the chromosome
-        create_progress("building graph for " + vcf_contig, reference_end - leading_offset);
+        // Set up a progress bar through the chromosome
+        create_progress("building " + vcf_contig, reference_end - leading_offset);
 
         // Scan through variants until we find one that is on this contig and in this region.
         // If we're using an index, we ought to already be at the right place.
