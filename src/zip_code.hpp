@@ -146,7 +146,7 @@ class ZipCode {
         const static size_t ROOT_IS_CHAIN_OFFSET = 0;
         const static size_t ROOT_IDENTIFIER_OFFSET = 1;
 
-        //FOr a chain, also include the component count
+        //For a chain, also include the component count
         const static size_t ROOT_CHAIN_SIZE = 4;
         const static size_t ROOT_CHAIN_COMPONENT_COUNT_OFFSET = 2;
         //This is a bitvector storing if there is connectivity between the bounds of the node/chain
@@ -180,13 +180,13 @@ class ZipCode {
 
         //Both regular and irregular snarls have these
 
-        // This will be 0 for irregular snarl, 1 for regular, and 2 for non-dag irregular snarls
+        // This will be 0 for irregular snarls, 1 for regular, and 2 for non-dag irregular snarls
         // cyclic snarls will be identical to irregular snarls except for SNARL_IS_REGULAR
         const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
         const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
-        //THis will be the lower of the two component numbers if the snarl spans two
+        //This will be the lower of the two component numbers if the snarl spans two
         //This only happens if the snarl is not start-end connected, which we'll know from the length
         const static size_t SNARL_CHAIN_COMPONENT_OFFSET = 4;
 
