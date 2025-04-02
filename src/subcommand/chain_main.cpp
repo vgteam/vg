@@ -194,7 +194,7 @@ int main_chain(int argc, char** argv) {
             json_t* item_json = json_array_get(items_json, i);
             if (item_json && json_is_object(item_json)) {
                 // For each chainable item we got, decode it.
-                // Note that Jansson is C and can't use bool; it's "b" will decode an int.
+                // Note that Jansson is C and can't use bool; its "b" will decode an int.
                 const char* read_start = nullptr;
                 const char* read_end = nullptr;
                 const int score = 31;
