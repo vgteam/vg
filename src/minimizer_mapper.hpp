@@ -253,7 +253,7 @@ public:
     /// read length is less than the limit.
     static constexpr size_t default_gapless_extension_limit = 0;
     size_t gapless_extension_limit = default_gapless_extension_limit;
-
+    
     /// How many bases should we look back in the graph when making fragments?
     static constexpr size_t default_fragment_max_graph_lookback_bases = 300;
     size_t fragment_max_graph_lookback_bases = default_fragment_max_graph_lookback_bases;
@@ -353,6 +353,9 @@ public:
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
+    static constexpr int default_rec_penalty = 0;
+    int rec_penalty = default_rec_penalty;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
     double points_per_possible_match = default_points_per_possible_match;

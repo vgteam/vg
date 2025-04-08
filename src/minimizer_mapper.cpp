@@ -222,6 +222,9 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         exp.key("read_exclusion_end");
         exp.value(anchors[index].read_exclusion_start());
         
+        // added info of supported paths
+        exp.key("paths");
+        exp.value(anchors[index].anchor_paths());
         exp.object_end();
     }
     exp.array_end();
