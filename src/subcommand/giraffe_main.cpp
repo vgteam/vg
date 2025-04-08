@@ -532,6 +532,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
+        "rec-penalty",
+        &MinimizerMapper::rec_penalty,
+        MinimizerMapper::default_rec_penalty,
+        "penalty for a recombination when chaining (TEMP)",
+        int_is_nonnegative
+    );
+    chaining_opts.add_range(
         "points-per-possible-match",
         &MinimizerMapper::points_per_possible_match,
         MinimizerMapper::default_points_per_possible_match,

@@ -61,6 +61,14 @@ TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source};
 }
 
+TracedScore TracedScore::add_points_and_paths(int adjustment,size_t paths_to_add) {
+    return {
+        this->score + adjustment,
+        this->source,
+        (this->paths & paths_to_add) == 0 ? paths_to_add : (this->paths & paths_to_add)
+    };
+}
+
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
     // Sort the indexes by read start ascending, and read end descending
     std::sort(indexes.begin(), indexes.end(), [&](const size_t& a, const size_t& b) {
@@ -467,12 +475,22 @@ int score_chain_gap(size_t distance_difference, size_t base_seed_length) {
     }
 }
 
+/// If the current anchor shares paths with the chain, pay a penalty.
+int score_chain_rec(const TracedScore& from, const Anchor& to) {
+    if ((from.paths & to.anchor_paths()) == 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
+                           int recomb_penalty,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
                            double item_scale,
@@ -510,7 +528,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, scaled and with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere()};
+        chain_scores[i] = {(int)(to_chain[i].score() * item_scale + item_bonus), TracedScore::nowhere(), to_chain[i].anchor_paths()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -531,7 +549,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         }
         
         // If we come from nowhere, we get those points.
-        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {(int)item_points, TracedScore::nowhere()});
+        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {(int)item_points, TracedScore::nowhere(), here.anchor_paths()});
         
         // For each source we could come from
         auto& source = to_chain[from_anchor];
@@ -588,6 +606,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // here.
             jump_points = -score_chain_gap(indel_length, base_seed_length) * gap_scale;
 
+            // add recombination penalty if necessary 
+            jump_points -= score_chain_rec(chain_scores[from_anchor], here) * recomb_penalty;
+
             // We can also account for the non-indel material, which we assume will have some identity in it.
             jump_points += possible_match_length * points_per_possible_match;
         }
@@ -597,7 +618,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             TracedScore source_score = TracedScore::score_from(chain_scores, from_anchor);
             
             // And the score with the transition and the points from the item
-            TracedScore from_source_score = source_score.add_points(jump_points + item_points);
+            TracedScore from_source_score = source_score.add_points_and_paths(jump_points + item_points, here.anchor_paths());
             
             // Remember that we could make this jump
             chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
@@ -773,6 +794,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const HandleGraph& graph,
                                                    int gap_open,
                                                    int gap_extension,
+                                                   int recomb_penalty,
                                                    size_t max_chains,
                                                    const transition_iterator& for_each_transition,
                                                    int item_bonus,
@@ -794,6 +816,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
+                                                             recomb_penalty,
                                                              for_each_transition,
                                                              item_bonus,
                                                              item_scale,
@@ -818,7 +841,6 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
         // Move over the list of items and convert penalty to score
         to_return.emplace_back(best_past_ending_score_ever.score - traceback.second, std::move(traceback.first));
     }
-    
     return to_return;
 }
 
@@ -827,6 +849,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
+                                          int recomb_penalty,
                                           const transition_iterator& for_each_transition,
                                           int item_bonus,
                                           double item_scale,
@@ -840,6 +863,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         graph,
         gap_open,
         gap_extension,
+        recomb_penalty,
         1,
         for_each_transition,
         item_bonus,

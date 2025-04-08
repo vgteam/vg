@@ -648,7 +648,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // TODO: Can we only use the seeds that are in trees we keep?
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
-
+    // For each anchor, determine the supported haplotypes. Needed for recombination-aware mapping.
+    // TODO: remove and use minimizer index
+    for (algorithms::Anchor &anchor : seed_anchors) {
+        anchor.find_set_paths(gbwt_graph.index);
+        
+    }
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
     // coverage float on the read, for downstream
@@ -1449,6 +1454,7 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty,
                 this->max_fragments,
                 for_each_transition,
                 this->item_bonus,
@@ -1501,7 +1507,11 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 // Translate fragments into seed numbers and not local anchor numbers.
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size() * 2);
+                // Keep track of the paths consistent with the fragment
+                size_t fragment_paths = anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())).anchor_paths();
                 for (auto& selected_number : scored_fragment.second) {
+                    // TODO: remove and use the paths present in the chain
+                    fragment_paths &= anchors_to_fragment.at(anchor_indexes.at(selected_number)).anchor_paths();
                     // For each anchor in the chain, get its number in the whole group of anchors.
                     size_t anchor_number = anchor_indexes.at(selected_number);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
@@ -1518,7 +1528,9 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
                 fragment_scores.push_back(scored_fragment.first);
                 // And make an anchor of it right now, for chaining later.
                 // Make sure to do it by combining the gapless extension anchors if applicable.
-                fragment_anchors.push_back(algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back()));
+                auto anchor = algorithms::Anchor(anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.front())), anchors_to_fragment.at(anchor_indexes.at(scored_fragment.second.back())), 0, 0, fragment_scores.back());
+                anchor.set_paths(fragment_paths); 
+                fragment_anchors.push_back(anchor);                
                 // Remember how we got it
                 fragment_source_tree.push_back(item_num);
                 //Remember the number of better or equal-scoring trees
@@ -1911,6 +1923,7 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                this->rec_penalty, 
                 this->max_alignments,
                 for_each_transition,
                 this->item_bonus,
