@@ -22,20 +22,20 @@ void help_clip(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given unless -d and -P used)." << endl
+       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if unspecified and -n,-e,-N,-E,-a,-l,-L, or -D used)." << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out nodes and edges with path depth below N" << endl
+       << "    -d, --depth N             Clip out nodes and edges with path depth below N (note you can use snarl selection and bed options to target subregions)" << endl
        << "stub clipping options:" << endl
        << "    -s, --stubs               Clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
        << "    -S, --stubbify-paths      Clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
-       << "snarl complexity clipping options: [default mode]" << endl
+       << "snarl selection options: clipping options:" << endl
        << "    -n, --max-nodes N         Only clip out snarls with > N nodes" << endl
        << "    -e, --max-edges N         Only clip out snarls with > N edges" << endl
        << "    -N  --max-nodes-shallow N Only clip out snarls with > N nodes not including nested snarls" << endl
        << "    -E  --max-edges-shallow N Only clip out snarls with > N edges not including nested snarls" << endl
        << "    -a, --max-avg-degree N    Only clip out snarls with average degree > N" << endl
-       << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
-       << "    -L, --max-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
+       << "    -l, --min-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
+       << "    -L, --min-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
        << "big deletion edge clipping options:" << endl
        << "    -D, --max-deletion-edge N Clip out all edges whose endpoints have distance > N on a reference path" << endl
        << "    -c, --context N           Search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
@@ -66,8 +66,8 @@ int main_clip(int argc, char** argv) {
     size_t max_nodes_shallow = 0;
     size_t max_edges_shallow = 0;
     double max_avg_degree = 0.;
-    double max_reflen_prop = numeric_limits<double>::max();
-    size_t max_reflen = numeric_limits<size_t>::max();
+    double min_reflen_prop = numeric_limits<double>::max();
+    size_t min_reflen = numeric_limits<size_t>::max();
     bool out_bed = false;
     bool snarl_option = false;
     
@@ -155,11 +155,11 @@ int main_clip(int argc, char** argv) {
             snarl_option = true;
             break;
         case 'l':
-            max_reflen_prop = parse<double>(optarg);
+            min_reflen_prop = parse<double>(optarg);
             snarl_option = true;
             break;
         case 'L':
-            max_reflen = parse<size_t>(optarg);
+            min_reflen = parse<size_t>(optarg);
             snarl_option = true;
             break;
         case 'D':
@@ -203,8 +203,8 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
 
-    if ((min_depth >= 0 || max_deletion >= 0 || stub_clipping || stubbify_reference) && (snarl_option || out_bed)) {
-        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L) cannot be used with -d, -D, -s or -S" << endl;
+    if ((max_deletion >= 0 || stub_clipping || stubbify_reference) && (snarl_option || out_bed)) {
+        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L) cannot be used with -D, -s or -S" << endl;
         return 1;
     }
 
@@ -250,7 +250,10 @@ int main_clip(int argc, char** argv) {
     bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping));
 
     // need snarls if input regions are provided, or doing snarl based clipping
-    bool need_snarls = !bed_path.empty() || (min_depth < 0 && max_deletion < 0 && !stub_clipping);
+    bool need_snarls = snarl_option || !bed_path.empty();
+
+    // TodO: FIX!!  shouldn't need pp without bed coordinates
+    need_pp = need_pp || need_snarls;
 
     if (need_pp) {
         pp_graph = overlay_helper.apply(graph.get());
@@ -334,15 +337,17 @@ int main_clip(int argc, char** argv) {
             }
         }
     }        
-
+    
     if (min_depth >= 0) {
         // run the depth clipping       
-        if (bed_path.empty()) {            
+        if (bed_regions.empty()) {            
             // do the whole graph
             clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
         } else {
             // do the contained snarls
-            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
+            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len,
+                                                     max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, min_reflen_prop, min_reflen,
+                                                     out_bed, verbose);
         }
         
     } else if (max_deletion >= 0) {
@@ -367,7 +372,7 @@ int main_clip(int argc, char** argv) {
     }else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, out_bed, verbose);
+                              max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, min_reflen_prop, min_reflen, out_bed, verbose);
     }
 
     // write the graph

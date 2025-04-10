@@ -76,7 +76,10 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
  * Or on contained snarls
  */
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                                    SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose);
+                                              SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
+                                              size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
+                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                                              bool out_bed, bool verbose);
 
 /**
  * clip out deletion edges 
