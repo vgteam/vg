@@ -644,19 +644,48 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
 }
 
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                                    SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose) {
+                                              SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
+                                              size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
+                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                                              bool out_bed, bool verbose) {
 
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
         
         visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
                                                                                         int64_t start_pos, int64_t end_pos,
                                                                                         bool steps_reversed, const Region* containing_region) {
-                                   
-                                   pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
-                                   for (id_t node_id : contents.first) {
-                                       visit_handle(graph->get_handle(node_id), containing_region);
-                                   }                                   
-                               });
+
+            // todo: below codeblock lifted from snarl complexity filter -- needs refactoring into one place
+            unordered_set<nid_t> whitelist;
+            if (steps_reversed) {
+                step_handle_t past_end_step = pp_graph->get_previous_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_previous_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
+            } else {
+                step_handle_t past_end_step = pp_graph->get_next_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_next_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
+            }
+            size_t ref_interval_length = 0;
+            for (nid_t node_id : whitelist) {
+                // don't count snarl ends here. todo: should this be an option?
+                if (node_id != snarl->start().node_id() && node_id != snarl->end().node_id()) {
+                    ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
+                }
+            }
+            path_handle_t path_handle = pp_graph->get_path_handle_of_step(start_step);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
+
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
+                                 max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, max_avg_degree)) {
+                for (id_t node_id : contents.first) {
+                    visit_handle(graph->get_handle(node_id), containing_region);
+                }
+            }
+        });
     };
 
     // todo: duplicating this is very wasteful, and is only happening because edge support was added after the fact.
@@ -666,12 +695,41 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
         visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
                                                                                         int64_t start_pos, int64_t end_pos,
                                                                                         bool steps_reversed, const Region* containing_region) {
-                                   
-                                   pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
-                                   for (const edge_t& edge : contents.second) {
-                                       visit_edge(edge, containing_region);
-                                   }                                   
-                               });
+            
+            // todo: below codeblock lifted from snarl complexity filter -- needs refactoring into one place
+            unordered_set<nid_t> whitelist;
+            if (steps_reversed) {
+                step_handle_t past_end_step = pp_graph->get_previous_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_previous_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
+            } else {
+                step_handle_t past_end_step = pp_graph->get_next_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_next_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
+            }
+            size_t ref_interval_length = 0;
+            for (nid_t node_id : whitelist) {
+                // don't count snarl ends here. todo: should this be an option?
+                if (node_id != snarl->start().node_id() && node_id != snarl->end().node_id()) {
+                    ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
+                }
+            }
+            path_handle_t path_handle = pp_graph->get_path_handle_of_step(start_step);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
+
+
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
+                                 max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, max_avg_degree)) {
+
+                pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+                for (const edge_t& edge : contents.second) {
+                    visit_edge(edge, containing_region);
+                }
+            }
+        });
     };
 
     // the edge depths are computed globally, without looking at regions.  as such, they need some notion of reference paths
