@@ -321,11 +321,62 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
 }
 
+static unordered_set<edge_t> get_net_edges(const HandleGraph* graph, SnarlManager& snarl_manager,
+                                           const Snarl* snarl, bool recursive) {
+    unordered_set<edge_t> net_edges;
+
+    function<void(const Snarl*)> process_snarl = [&](const Snarl* s) {
+        const deque<Chain>& chains = snarl_manager.chains_of(s);
+
+        for (const Chain& chain : chains) {
+            const Snarl* first_snarl = chain.front().first;
+            if (chain.front().second) {
+                snarl_manager.flip(first_snarl);
+            }
+            handle_t snarl_start = graph->get_handle(first_snarl->start().node_id(), first_snarl->start().backward());
+            graph->follow_edges(snarl_start, true, [&](handle_t previous) {
+                net_edges.insert(graph->edge_handle(previous, snarl_start));
+            });
+            if (chain.front().second) {
+                snarl_manager.flip(first_snarl);
+            }
+
+            const Snarl* last_snarl = chain.back().first;
+            if (chain.back().second) {
+                snarl_manager.flip(last_snarl);
+            }
+            handle_t snarl_end = graph->get_handle(last_snarl->end().node_id(), last_snarl->end().backward());
+            graph->follow_edges(snarl_end, false, [&](handle_t next) {
+                net_edges.insert(graph->edge_handle(snarl_end, next));
+            });
+            if (chain.back().second) {
+                snarl_manager.flip(last_snarl);
+            }
+        }
+    };
+
+    vector<const Snarl*> queue = {snarl};
+    while (!queue.empty()) {
+        const Snarl* cur_snarl = queue.back();
+        queue.pop_back();        
+        process_snarl(cur_snarl);    
+        if (recursive) {
+            const vector<const Snarl*>& children = snarl_manager.children_of(cur_snarl);
+            for (const Snarl* child : children) {
+                queue.push_back(child);
+            }
+        }
+    }
+    
+    return net_edges;
+}
+
+
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions, 
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
                            size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                           double max_avg_degree, double max_reflen_prop, size_t max_reflen,
-                           bool out_bed, bool verbose) {
+                           double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
+                           bool only_top_net_edges, bool out_bed, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> nodes_to_delete;
@@ -432,6 +483,12 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                          << contents.first.size() << "\t" << contents.second.size() << "\t"
                          << contents_shallow.first.size() << "\t" << contents_shallow.second.size() << "\t"
                          << avg_degree << "\n";
+                } else if (only_net_edges) {
+                    unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, only_top_net_edges);
+                    for (const edge_t& edge : net_edges) {
+                        edges_to_delete.insert(edge);
+                        assert(pp_graph->has_edge(edge));
+                    }
                 } else {
                     for (id_t node_id : contents.first) {
                         if (!whitelist.count(node_id)) {
@@ -646,8 +703,8 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                                               SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
                                               size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen,
-                                              bool out_bed, bool verbose) {
+                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
+                                              bool only_top_net_edges, bool out_bed, bool verbose) {
 
     vector<pair<Region, pair<vector<handle_t>, vector<edge_t>>>> to_visit;
         
@@ -680,11 +737,19 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
         if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
                              max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, max_avg_degree)) {
             pair<Region, pair<vector<handle_t>, vector<edge_t>>> region_contents;
-            for (id_t node_id : contents.first) {
-                region_contents.second.first.push_back(graph->get_handle(node_id));
-            }
-            for (const edge_t& edge : contents.second) {
-                region_contents.second.second.push_back(edge);
+            if (only_net_edges) {
+                unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, only_top_net_edges);
+                for (const edge_t& edge : net_edges) {
+                    region_contents.second.second.push_back(edge);
+                    assert(pp_graph->has_edge(edge));
+                }
+            } else {
+                for (id_t node_id : contents.first) {
+                    region_contents.second.first.push_back(graph->get_handle(node_id));
+                }
+                for (const edge_t& edge : contents.second) {
+                    region_contents.second.second.push_back(edge);
+                }
             }
             to_visit.push_back(region_contents);
         }
