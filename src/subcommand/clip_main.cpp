@@ -36,6 +36,8 @@ void help_clip(char** argv) {
        << "    -a, --max-avg-degree N    Only clip out snarls with average degree > N" << endl
        << "    -l, --min-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
        << "    -L, --min-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
+       << "    -g  --net-edges           Only clip net-edges inside snarls" << endl
+       << "    -G  --top-net_edges       Only clip net-edges inside top-level snarls" << endl
        << "big deletion edge clipping options:" << endl
        << "    -D, --max-deletion-edge N Clip out all edges whose endpoints have distance > N on a reference path" << endl
        << "    -c, --context N           Search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
@@ -68,6 +70,8 @@ int main_clip(int argc, char** argv) {
     double max_avg_degree = 0.;
     double min_reflen_prop = numeric_limits<double>::max();
     size_t min_reflen = numeric_limits<size_t>::max();
+    bool only_net_edges = false;
+    bool only_top_net_edges = false;
     bool out_bed = false;
     bool snarl_option = false;
     
@@ -96,6 +100,8 @@ int main_clip(int argc, char** argv) {
             {"max-avg-degree", required_argument, 0, 'a'},
             {"max-reflen-prop", required_argument, 0, 'l'},
             {"max-reflen", required_argument, 0, 'L'},
+            {"net-edges", no_argument, 0, 'g'},
+            {"top-net-edges", no_argument, 0, 'G'},            
             {"max-deletion", required_argument, 0, 'D'},
             {"context", required_argument, 0, 'c'},
             {"path-prefix", required_argument, 0, 'P'},
@@ -108,7 +114,7 @@ int main_clip(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:sSn:e:N:E:a:l:L:D:c:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "hb:d:sSn:e:N:E:a:l:L:gGD:c:P:r:m:Bt:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -162,6 +168,12 @@ int main_clip(int argc, char** argv) {
             min_reflen = parse<size_t>(optarg);
             snarl_option = true;
             break;
+        case 'g':
+            only_net_edges = true;
+            break;
+        case 'G':
+            only_top_net_edges = true;
+            break;                        
         case 'D':
             max_deletion = parse<size_t>(optarg);
             break;
@@ -227,6 +239,11 @@ int main_clip(int argc, char** argv) {
 
     if (stubbify_reference && ref_prefixes.empty()) {
         cerr << "error:[vg-clip] -S can only be used with -P" << endl;
+        return 1;
+    }
+
+    if (only_net_edges && only_top_net_edges) {
+        cerr << "error:[vg-clip] -g and -G cannot be used together: choose one" << endl;
         return 1;
     }
 
@@ -347,6 +364,7 @@ int main_clip(int argc, char** argv) {
             // do the contained snarls
             clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len,
                                                      max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, min_reflen_prop, min_reflen,
+                                                     only_net_edges || only_top_net_edges, only_top_net_edges,
                                                      out_bed, verbose);
         }
         
@@ -372,7 +390,8 @@ int main_clip(int argc, char** argv) {
     }else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, min_reflen_prop, min_reflen, out_bed, verbose);
+                              max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, min_reflen_prop,
+                              min_reflen, only_net_edges || only_top_net_edges, only_top_net_edges, out_bed, verbose);
     }
 
     // write the graph
