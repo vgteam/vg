@@ -23,22 +23,6 @@ static path_handle_t populate_test_graph(bdsg::HashGraph& graph) {
     return ref_path;
 }
 
-/// Make a sequence dictionary for the overlayed graph
-static SequenceDictionary test_sequence_dictionary(const PathPositionHandleGraph* path_position_handle_graph, const bdsg::HashGraph& graph, const path_handle_t& ref_path) {
-    // There's 1 reference path, and its graph length is the same as its base path length.
-    path_handle_t overlayed_path = path_position_handle_graph->get_path_handle(graph.get_path_name(ref_path));
-    size_t ref_length = path_position_handle_graph->get_path_length(overlayed_path);
-    SequenceDictionary dict;
-    dict.emplace_back();
-    dict.back().path_handle = overlayed_path;
-    dict.back().path_name = graph.get_path_name(ref_path);
-    dict.back().path_length = ref_length;
-    dict.back().base_path_name = dict.back().path_name;
-    dict.back().base_path_length = dict.back().path_length;
-    // TODO: Just use get_sdequence_dictionary instead?
-    return dict;
-}
-
 /// Get the size of a file
 static size_t get_file_size(const std::string& filename) {
     struct stat buf;
@@ -65,7 +49,7 @@ TEST_CASE("Can create and use a BAM alignment emitter", "[giraffe][alignment_emi
     path_handle_t ph1 = populate_test_graph(graph);
     bdsg::ReferencePathOverlayHelper overlay_helper;
     PathPositionHandleGraph* overlay_graph = overlay_helper.apply(&graph);
-    auto sequence_dictionary = test_sequence_dictionary(overlay_graph, graph, ph1);
+    auto sequence_dictionary = get_sequence_dictionary("", {}, {}, *overlay_graph);
 
     // Set up the temp file to write
     std::string out_dir = vg::temp_file::create_directory();
@@ -93,7 +77,7 @@ TEST_CASE("Can create and use a CRAM alignment emitter", "[giraffe][alignment_em
     path_handle_t ph1 = populate_test_graph(graph);
     bdsg::ReferencePathOverlayHelper overlay_helper;
     PathPositionHandleGraph* overlay_graph = overlay_helper.apply(&graph);
-    auto sequence_dictionary = test_sequence_dictionary(overlay_graph, graph, ph1);
+    auto sequence_dictionary = get_sequence_dictionary("", {}, {}, *overlay_graph);
 
     // Set up the temp file to write
     std::string out_dir = vg::temp_file::create_directory();
