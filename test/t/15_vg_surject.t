@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 54
+plan tests 55
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -100,8 +100,8 @@ rm -f fwd.fq rev.fq mapped.fwd.gam mapped.rev.gam
 is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l) \
     100 "vg surject produces valid BAM output"
 
-#is $(vg map -G <(vg sim -a -n 100 x.vg) x.vg | vg surject -p x -g x.gcsa -x x.xg -c - | samtools view - | wc -l) \
-#    100 "vg surject produces valid CRAM output"
+is $(vg map -G <(vg sim -a -n 100 -x x.vg) -g x.gcsa -x x.vg | vg surject -p x -x x.xg -c - | samtools view - | wc -l) \
+    100 "vg surject produces valid CRAM output"
 
 echo '{"sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
