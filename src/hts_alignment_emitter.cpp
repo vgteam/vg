@@ -561,8 +561,9 @@ void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t
     for (auto& b : records) {
         // Emit each record
         
-        if (sam_write1(sam_files[thread_number], header, b) == 0) {
-            cerr << "[vg::HTSWriter] error: writing to output file failed" << endl;
+        int sam_write_error = sam_write1(sam_files[thread_number], header, b);
+        if (sam_write_error < 0) {
+            cerr << "[vg::HTSWriter] error: writing to output file failed with sam_write1 error code " << sam_write_error << endl;
             exit(1);
         }
     }
