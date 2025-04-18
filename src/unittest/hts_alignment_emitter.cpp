@@ -24,11 +24,19 @@ static path_handle_t populate_test_graph(bdsg::HashGraph& graph) {
 }
 
 /// Make a sequence dictionary for the overlayed graph
-static vector<tuple<path_handle_t, size_t, size_t>> test_sequence_dictionary(const PathPositionHandleGraph* path_position_handle_graph, const bdsg::HashGraph& graph, const path_handle_t& ref_path) {
+static SequenceDictionary test_sequence_dictionary(const PathPositionHandleGraph* path_position_handle_graph, const bdsg::HashGraph& graph, const path_handle_t& ref_path) {
     // There's 1 reference path, and its graph length is the same as its base path length.
     path_handle_t overlayed_path = path_position_handle_graph->get_path_handle(graph.get_path_name(ref_path));
     size_t ref_length = path_position_handle_graph->get_path_length(overlayed_path);
-    return {{overlayed_path, ref_length, ref_length}};
+    SequenceDictionary dict;
+    dict.emplace_back();
+    dict.back().path_handle = overlayed_path;
+    dict.back().path_name = graph.get_path_name(ref_path);
+    dict.back().path_length = ref_length;
+    dict.back().base_path_name = dict.back().path_name;
+    dict.back().base_path_length = dict.back().path_length;
+    // TODO: Just use get_sdequence_dictionary instead?
+    return dict;
 }
 
 /// Get the size of a file

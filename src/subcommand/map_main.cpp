@@ -766,7 +766,7 @@ int main_map(int argc, char** argv) {
     vector<Alignment> empty_alns;
    
     // Look up all the paths we might need to surject to.
-    vector<tuple<path_handle_t, size_t, size_t>> paths;
+    SequenceDictionary paths;
     if (hts_output) {
         paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *xgidx);
     }

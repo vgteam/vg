@@ -10,8 +10,10 @@
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include "algorithms/find_translation.hpp"
+#include "algorithms/md5_sum_path.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
+#include "crash.hpp"
 
 #include <sstream>
 
@@ -21,7 +23,7 @@ namespace vg {
 using namespace std;
 
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
-                                                   const vector<tuple<path_handle_t, size_t, size_t>>& paths, size_t max_threads,
+                                                   const SequenceDictionary& paths, size_t max_threads,
                                                    const HandleGraph* graph, int flags) {
 
     
@@ -37,19 +39,15 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             exit(1);
         }
         
-        // Build a path name and length list from the handles (this is for the sequence dictionary and reflects *base* paths
-        // as opposed to subpaths in the graph -- if there are no subpaths there is no distinction)
-        vector<pair<string, int64_t>> path_names_and_lengths;
-        // Remember the actual path lengths (this is for coordinate transformations)        
-        unordered_map<string, int64_t> subpath_to_length;
-        std::tie(path_names_and_lengths, subpath_to_length) = extract_path_metadata(paths, *path_graph, true);
+        // Find the subpaths in the dictionary        
+        unordered_map<string, size_t> subpath_to_index = index_sequence_dictionary(paths);
     
         if (flags & ALIGNMENT_EMITTER_FLAG_HTS_SPLICED) {
             // Use a splicing emitter as the final emitter
-            emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, path_names_and_lengths, subpath_to_length, *path_graph, max_threads);
+            emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, paths, subpath_to_index, *path_graph, max_threads);
         } else {
             // Use a normal emitter
-            emitter = make_unique<HTSAlignmentEmitter>(filename, format, path_names_and_lengths, subpath_to_length, max_threads);
+            emitter = make_unique<HTSAlignmentEmitter>(filename, format, paths, subpath_to_index, max_threads);
         }
         
         if (!(flags & ALIGNMENT_EMITTER_FLAG_HTS_RAW)) {
@@ -58,7 +56,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             // Make a set of the path handles to surject into
             unordered_set<path_handle_t> target_paths;
             for (const auto& path_info : paths) {
-                target_paths.insert(get<0>(path_info));
+                target_paths.insert(path_info.path_handle);
             }
             // Interpose a surjecting AlignmentEmitter
             emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter),
@@ -94,76 +92,85 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     return emitter;
 }
 
-pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path_metadata(
-    const vector<tuple<path_handle_t, size_t, size_t>>& paths,  const PathPositionHandleGraph& graph,
-    bool subpath_support) {
-
-    // Build a path name and length list from the handles (this is for the sequence dictionary and reflects *base* paths
-    // as opposed to subpaths in the graph -- if there are no subpaths there is no distinction)
-    vector<pair<string, int64_t>> path_names_and_lengths;
-    unordered_set<string> base_path_set;    
-    // Remember the actual path lengths (this is for coordinate transformations)        
-    unordered_map<string, int64_t> subpath_to_length;
-    for (const auto& path_info : paths) {
-        auto& path = get<0>(path_info);
-        auto& own_length = get<1>(path_info);
-        auto& base_length = get<2>(path_info);
-        string base_path_name = subpath_support ? get_path_base_name(graph, path) : graph.get_path_name(path);
-        if (!base_path_set.count(base_path_name)) {
-            path_names_and_lengths.push_back(make_pair(base_path_name, base_length));
-            base_path_set.insert(base_path_name);
-        }
-        subpath_to_length[graph.get_path_name(path)] = own_length;
+std::unordered_map<string, size_t> index_sequence_dictionary(const SequenceDictionary& paths) {
+    // Map from subpath name to index in the sequence dictionary        
+    unordered_map<string, size_t> subpath_to_index;
+    for (size_t i = 0; i < paths.size(); i++) {
+        subpath_to_index.emplace(paths[i].path_name, i);
     }
-
-    return make_pair(path_names_and_lengths, subpath_to_length);
+    return subpath_to_index;
 }
 
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const std::unordered_set<std::string>& reference_samples, const PathPositionHandleGraph& graph) {
+SequenceDictionary get_sequence_dictionary(const string& filename, const vector<string>& path_names, const std::unordered_set<std::string>& reference_samples, const PathPositionHandleGraph& graph) {
 
     // TODO: We assume we're using the one true default path metadata <-> name mapping
     
     // Subpath support: map to paths from their base name without a subrange.
-    // Includes full-length paths if they exost, and subrange-bearing paths otherwise.
+    // Includes full-length paths if they exist, and subrange-bearing paths otherwise.
     unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
     
-    // Parse the input into this list.  If length was unspecified (ie in regular text file with one column) then it will be -1
-    // and filled in later
-    vector<pair<string, int64_t>> input_names_lengths;
-    
+    // Parse the input base paths into this list, in order.
+    std::vector<std::string> input_names;
+    // This will store base path length by name. Base paths with missing
+    // lengths still needing to be computed won't have entries.
+    std::unordered_map<std::string, int64_t> input_lengths;
+    // This will store base path md5 sum by name. Base paths with no known MD5
+    // sum will not have an entry.
+    std::unordered_map<std::string, std::string> input_md5_sums;
+
     // Should we print path subrange warnings?
     bool print_subrange_warnings = true;
     
     // When we get a sequence and possibly its length (or -1 if no length is
-    // known), put it in the dictionary.
+    // known) and hash (or ""), put it in the mappings.
     // Can optionally provide a file name for error reporting.
-    auto handle_sequence = [&](const std::string& sequence_name, int64_t length, const std::string* filename) {
+    auto handle_sequence = [&](const std::string& sequence_name, int64_t length, std::string sequence_md5_sum, const std::string* filename) {
         if (graph.has_path(sequence_name)) {
-            // If the graph does have a path by this exact name, do a length check.
+            // If the graph does have a path by this exact name, grab it.
             path_handle_t path = graph.get_path_handle(sequence_name);
-            size_t graph_path_length = graph.get_path_length(path);
-            if (length == -1) {
-                // We need to infer the length
-                length = graph_path_length;
-            } else if (graph_path_length != length) {
-                // Length was given but doesn't match
-                cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << graph_path_length
-                     << " but should have a length of " << length;
-                if (filename) {
-                    // Report the source file.
-                    cerr << " from sequence dictionary in " << *filename;
+
+            // See if we're actually a subpath and get the base path name.
+            subrange_t subrange;
+            std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
+
+            if (subrange == PathMetadata::NO_SUBRANGE) {
+                // We're a full path, check hash and length
+
+                auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
+
+                if (sequence_md5_sum.empty()) {
+                    sequence_md5_sum = hash_and_length.first;
+                } else if (hash_and_length.first != sequence_md5_sum) {
+                    // Hash doesn't match. TODO: Account for construct upper-casing and masking and things.
+                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " with MD5 sum " << hash_and_length.first
+                     << " but should have an MD5 sum of " << sequence_md5_sum;
+                    if (filename) {
+                        // Report the source file.
+                        cerr << " from sequence dictionary in " << *filename;
+                    }
+                    cerr << endl;
+                    exit(1);
                 }
-                cerr << endl;
-                exit(1);
-            }
-            
-            if (print_subrange_warnings) {
-                subrange_t subrange;
-                std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
-                if (subrange != PathMetadata::NO_SUBRANGE) {
-                    // The user is asking explicitly to surject to a path that is a
-                    // subrange of some other logical path, like
-                    // GRCh38#0#chr1[1000-2000]. That's weird. Warn.
+
+                if (length == -1) {
+                    // We need to infer the length
+                    length = hash_and_length.second;
+                } else if (hash_and_length.second != length) {
+                    // Length was given but doesn't match
+                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << hash_and_length.second
+                         << " but should have a length of " << length;
+                    if (filename) {
+                        // Report the source file.
+                        cerr << " from sequence dictionary in " << *filename;
+                    }
+                    cerr << endl;
+                    exit(1);
+                }
+            } else {
+                // The user is asking explicitly to surject to a path that is a
+                // subrange of some other logical path, like
+                // GRCh38#0#chr1[1000-2000]. That's weird.
+                if (print_subrange_warnings) {
                     cerr << "warning:[vg::get_sequence_dictionary] Path " << sequence_name;
                     if (filename) {
                         // Report the source file.
@@ -172,10 +179,13 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                     cerr << " looks like part of a path. Output coordinates will be in " << base_path_name << " instead. Suppressing further warnings." << endl;
                     print_subrange_warnings = false;
                 }
+                // Throw away any length and hash info we got; we need to use the right values for the base path we'll actually use.
+                length = -1;
+                sequence_md5_sum.clear();
             }
             
-            // Remember the path
-            base_path_to_subpaths[sequence_name].push_back(path);
+            // Remember the path against the actual base path name (probably its own)
+            base_path_to_subpaths[base_path_name].push_back(path);
         } else {
             // The graph doesn't have this exact path; does it have any subregions of a full path with this name?
             // If so, remember and use those.
@@ -199,17 +209,24 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             // The length may still be missing.
         } 
 
-        input_names_lengths.push_back(make_pair(sequence_name, length));
+        input_names.push_back(sequence_name);
+        if (length != -1) {
+            input_lengths[sequence_name] = length;
+        }
+        if (!sequence_md5_sum.empty()) {
+            input_md5_sums[sequence_name] = sequence_md5_sum;
+        }
     };
     
     
     if (!filename.empty()) {
         // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
         get_input_file(filename, [&](istream& in) {
-            for (string line; getline(in, line);) {
+            for (std::string line; std::getline(in, line);) {
                 // Each line will produce a sequence name and a handle
-                string sequence_name = "";
+                std::string sequence_name = "";
                 int64_t length = -1;
+                std::string sequence_md5_sum = "";
                 bool missing_length = false;
             
                 // Trim leading and trailing whitespace
@@ -233,6 +250,9 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                         } else if (starts_with(parts[i], "LN:")) {
                             // The rest of this field is a length number
                             length = stoll(parts[i].substr(3));
+                        } else if (starts_with(parts[i], "M5:")) {
+                            // The rest of this field is an MD5 sum
+                            sequence_md5_sum = parts[i].substr(3);
                         }
                     }
                                         
@@ -262,11 +282,11 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                 }
                 
                 // Now record that we want the sequence.
-                handle_sequence(sequence_name, length, &filename); 
+                handle_sequence(sequence_name, length, sequence_md5_sum, &filename); 
             }
         });
         
-        if (input_names_lengths.empty()) {
+        if (input_names.empty()) {
             // There were no entries in the file
             cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
             exit(1);
@@ -275,10 +295,10 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
     
     for (auto& name : path_names) {
         // Supplement with any names that were directly provided
-        handle_sequence(name, -1, nullptr);
+        handle_sequence(name, -1, "", nullptr);
     }
     
-    if (input_names_lengths.empty()) {
+    if (input_names.empty()) {
         // We got no paths in so we need to guess them.
         // We will deduplicate their base names, without subpath info.
         unordered_set<string> base_names;
@@ -298,16 +318,17 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             sample_names_in_use.insert(graph.get_sample_name(path));
 
             string base_name = get_path_base_name(graph, path);
-            int64_t base_length = -1;
-            if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
-                // This is a full path so we can determine base length now.
-                base_length = graph.get_path_length(path);
-            }
             if (!base_names.count(base_name)) {
                 // This is the first time we have seen something on this path.
-                // Remember we need a length for it.
-                // TODO: make this a map so we can just max in here instead of doing another pass.
-                input_names_lengths.push_back(make_pair(base_name, base_length));
+                // Remember it and any length we have right now.
+                // TODO: Max into the length map right away.
+                input_names.push_back(base_name);
+                if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
+                    // This is a full path so we can determine base length and hash now in one pass.
+                    auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
+                    input_md5_sums.emplace(base_name, std::move(hash_and_length.first));
+                    input_lengths.emplace(base_name, hash_and_length.second);
+                } 
                 // And remember we are using it.
                 base_names.insert(base_name);
             }
@@ -343,7 +364,7 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             }
         }
         
-        if (input_names_lengths.empty()) {
+        if (input_names.empty()) {
             // If none of those exist, try generic sense paths and their subpaths
             #pragma omp critical (cerr)
             cerr << "warning:[vg::get_sequence_dictionary] No reference-sense paths available in the graph; falling back to generic paths." << endl;
@@ -357,30 +378,40 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             });
         }
         
-        if (input_names_lengths.empty()) {
+        if (input_names.empty()) {
             // No non-alt generic paths either
             cerr << "error:[vg::get_sequence_dictionary] No reference or non-alt-allele generic paths available in the graph!" << endl;
             exit(1);
         }
     }
     
-    // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
-    // we also store the path length (from the graph) along with the base path length (from the user if specified, from paths otherwise)
-    vector<tuple<path_handle_t, size_t, size_t>> dictionary;
+    // We fill in the "dictionary" (which is what SAM calls it; it's not a
+    // mapping for us).
+    // 
+    // We will store the path length (from the graph) along with the base path
+    // length (from the user if specified, from paths otherwise).
+    SequenceDictionary dictionary;
 
-    for (auto& base_name_and_length : input_names_lengths) {
+    for (const std::string& base_name : input_names) {
         // For every base path name we have stuff on
+        // See if we have a length
+        auto length_it = input_lengths.find(base_name);
+        // See if we have a hash
+        auto hash_it = input_md5_sums.find(base_name);
         
-        if (base_name_and_length.second == -1) {
+        if (length_it == input_lengths.end()) {
             // We need the overall length of this base path still.
-            for_each_subpath_of(graph, base_name_and_length.first, [&](const path_handle_t& path) {
-                // So scan it and all its subpaths
-                
+            
+            // Initialize length to -1
+            length_it = input_lengths.emplace_hint(length_it, base_name, -1);
+
+            for_each_subpath_of(graph, base_name, [&](const path_handle_t& path) {
+                // Scan it and all its subpaths
                 subrange_t subrange = graph.get_subrange(path);
                 if (subrange == PathMetadata::NO_SUBRANGE) {
                     // Full path, use its length.
                     // TODO: probably we should have seen the full path's length by now if it existed.
-                    base_name_and_length.second = graph.get_path_length(path);
+                    length_it->second = graph.get_path_length(path);
                 } else {
                     // Subpath, work out where it ends and max it in
                     auto end_offset = subrange.second;
@@ -388,20 +419,31 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                         // If there was a stored end we would just trust it, but without it we have to compute it.
                         end_offset = subrange.first + graph.get_path_length(path);
                     }
-                    // max the end offset in against all the end offsets we have seen so far.
-                    base_name_and_length.second = std::max(base_name_and_length.second, (int64_t) end_offset);
+                    // Max the end offset in against all the end offsets we have seen so far.
+                    length_it->second = std::max(length_it->second, (int64_t) end_offset);
                 }
                 // Keep going
                 return true;
             });
         }
-        
+
         // Now we have the length, so we can fill in the dictionary.
-        for (auto& path : base_path_to_subpaths[base_name_and_length.first]) {
+        for (auto& path : base_path_to_subpaths[base_name]) {
             // For every subpath we found on the base path (possibly just
             // itself), remember the subpath, the subpath's length, and the
             // base path's length
-            dictionary.push_back(make_tuple(path, graph.get_path_length(path), (size_t)base_name_and_length.second));
+            
+            dictionary.emplace_back();
+            SequenceDictionaryEntry& entry = dictionary.back();
+            entry.path_handle = path;
+            entry.path_name = graph.get_path_name(path);
+            entry.base_path_name = base_name;
+            entry.path_length = graph.get_path_length(path);
+            entry.base_path_length = (size_t)length_it->second;
+            if (hash_it != input_md5_sums.end()) {
+                // We also know a hash, so send it along.
+                entry.base_md5_sum = hash_it->second;
+            }
         }
     }
 
@@ -412,12 +454,12 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
 const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
 HTSWriter::HTSWriter(const string& filename, const string& format,
-    const vector<pair<string, int64_t>>& path_order_and_length,
-    const unordered_map<string, int64_t>& subpath_to_length,
+    const SequenceDictionary& sequence_dictionary,
+    const unordered_map<string, size_t>& subpath_to_index,
     size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
-    format(format), path_order_and_length(path_order_and_length), subpath_to_length(subpath_to_length),
+    format(format), sequence_dictionary(sequence_dictionary), subpath_to_index(subpath_to_index),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
     atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
     hts_mode() {
@@ -457,12 +499,7 @@ HTSWriter::HTSWriter(const string& filename, const string& format,
     // Save to a C++ string that we will use later.
     hts_mode = out_mode;
 
-    if (this->subpath_to_length.empty()) {
-        // no subpath support: just use lengths from path_order_and_length
-        for (const auto& pl : path_order_and_length) {
-            this->subpath_to_length[pl.first] = pl.second;
-        }
-    }
+    crash_unless(!this->subpath_to_index.empty() || this->sequence_dictionary.empty());
     
     // Each thread will lazily open its samFile*, once it has a header ready
 }
@@ -526,7 +563,7 @@ bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
             }
             
             // Make the header
-            header = hts_string_header(sam_header, path_order_and_length, rg_sample);
+            header = hts_string_header(sam_header, sequence_dictionary, rg_sample);
             
             // Initialize the SAM file for this thread and actually keep the header
             // we write, since we are the first thread.
@@ -637,10 +674,10 @@ void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, boo
 }
 
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
-                                         const vector<pair<string, int64_t>>& path_order_and_length,
-                                         const unordered_map<string, int64_t>& subpath_to_length,
+                                         const SequenceDictionary& sequence_dictionary,
+                                         const unordered_map<string, size_t>& subpath_to_index,
                                          size_t max_threads)
-    : HTSWriter(filename, format, path_order_and_length, subpath_to_length, max_threads)
+    : HTSWriter(filename, format, sequence_dictionary, subpath_to_index, max_threads)
 {
     // nothing else to do
 }
@@ -652,7 +689,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     path_name = aln.refpos(0).name();
     size_t path_len = 0;
     if (path_name != "") {
-        path_len = subpath_to_length.at(path_name);
+        path_len = sequence_dictionary[subpath_to_index.at(path_name)].path_length;
     }
     // Extract the position so that it could be adjusted by cigar_against_path if we decided to supperss softclips. Which we don't.
     // TODO: Separate out softclip suppression.
@@ -881,11 +918,11 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                                                       const vector<pair<string, int64_t>>& path_order_and_length,
-                                                       const unordered_map<string, int64_t>& subpath_to_length,
+                                                       const SequenceDictionary& sequence_dictionary,
+                                                       const unordered_map<string, size_t>& subpath_to_index,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, path_order_and_length, subpath_to_length, max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, sequence_dictionary, subpath_to_index, max_threads), graph(graph) {
     
     // nothing else to do
 }

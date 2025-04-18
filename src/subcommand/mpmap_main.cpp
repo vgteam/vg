@@ -1861,7 +1861,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load structures that we need for HTS lib outputs
     unordered_set<path_handle_t> surjection_paths;
-    vector<pair<string, int64_t>> path_names_and_length;
+    SequenceDictionary paths;
     unique_ptr<Surjector> surjector(nullptr);
     if (hts_output) {
         // init the data structures
@@ -1880,13 +1880,11 @@ int main_mpmap(int argc, char** argv) {
         }
         
         // Load all the paths in the right order
-        vector<tuple<path_handle_t, size_t, size_t>> paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *path_position_handle_graph);
+        paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *path_position_handle_graph);
         // Make them into a set for directing surjection.
-        for (const auto& path_info : paths) {
-            surjection_paths.insert(get<0>(path_info));
+        for (const SequenceDictionaryEntry& path_info : paths) {
+            surjection_paths.insert(path_info.path_handle);
         }
-        // Copy out the metadata for making the emitter later
-        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph).first;
     }
     
     // barrier sync the background threads
@@ -2103,7 +2101,7 @@ int main_mpmap(int argc, char** argv) {
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
                                                                        path_position_handle_graph,
-                                                                       &path_names_and_length);
+                                                                       &paths);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     if (transcriptomic) {

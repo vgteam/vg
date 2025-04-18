@@ -16,6 +16,7 @@
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 #include <vg/io/alignment_emitter.hpp>
+#include "hts_alignment_emitter.hpp"
 
 namespace vg {
 
@@ -67,10 +68,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
-                             const map<string, int64_t>& path_length,
-                             const map<string, string>& rg_sample);
-bam_hdr_t* hts_string_header(string& header,
-                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const SequenceDictionary& sequence_dictionary,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 

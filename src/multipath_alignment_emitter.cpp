@@ -13,11 +13,11 @@ namespace vg {
 using namespace std;
 
 MultipathAlignmentEmitter::MultipathAlignmentEmitter(const string& filename, size_t num_threads, const string out_format,
-                                                     const PathPositionHandleGraph* graph, const vector<pair<string, int64_t>>* path_order_and_length) :
+                                                     const PathPositionHandleGraph* graph, const SequenceDictionary* sequence_dictionary) :
     HTSWriter(filename,
               out_format == "SAM" || out_format == "BAM" || out_format == "CRAM" ? out_format : "SAM", // just so the assert passes
-              path_order_and_length ? *path_order_and_length : vector<pair<string, int64_t>>(),
-              {},
+              sequence_dictionary ? *sequence_dictionary : SequenceDictionary(),
+              sequence_dictionary ? index_sequence_dictionary(*sequence_dictionary) : std::unordered_map<std::string, size_t>(),
               num_threads),
     graph(graph)
 {
