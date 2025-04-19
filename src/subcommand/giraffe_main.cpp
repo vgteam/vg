@@ -2002,7 +2002,7 @@ int main_giraffe(int argc, char** argv) {
         {
         
             // Look up all the paths we might need to surject to.
-            vector<tuple<path_handle_t, size_t, size_t>> paths;
+            SequenceDictionary paths;
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);

@@ -100,24 +100,30 @@ bam_hdr_t* hts_file_header(string& filename, string& header) {
 }
 
 bam_hdr_t* hts_string_header(string& header,
-                             const map<string, int64_t>& path_length,
-                             const map<string, string>& rg_sample) {
-    
-    // Copy the map into a vecotr in its own order
-    vector<pair<string, int64_t>> path_order_and_length(path_length.begin(), path_length.end());
-    
-    // Make header in that order.
-    return hts_string_header(header, path_order_and_length, rg_sample);
-}
-
-bam_hdr_t* hts_string_header(string& header,
-                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const SequenceDictionary& sequence_dictionary,
                              const map<string, string>& rg_sample) {
     stringstream hdr;
     hdr << "@HD\tVN:1.5\tSO:unknown\n";
-    for (auto& p : path_order_and_length) {
-        hdr << "@SQ\tSN:" << p.first << "\t" << "LN:" << p.second << "\n";
-    }
+    // Make an @sq line for each distinct base path name
+    std::unordered_set<std::string> seen_base_paths;
+    for (auto& entry : sequence_dictionary) {
+        auto found = seen_base_paths.find(entry.base_path_name);
+        if (found == seen_base_paths.end()) {
+            // This is new
+            
+            // Write a line for it
+            hdr << "@SQ\tSN:" << entry.base_path_name << "\tLN:" <<entry.base_path_length;
+            if (!entry.base_md5_sum.empty()) {
+                // Include the hash if we have one
+                hdr << "\tM5:" << entry.base_md5_sum;
+            }
+            hdr << "\n";
+
+            // Mark it seen
+            seen_base_paths.emplace_hint(found, entry.base_path_name);
+        }
+    }   
+    
     for (auto& s : rg_sample) {
         hdr << "@RG\tID:" << s.first << "\t" << "SM:" << s.second << "\n";
     }
