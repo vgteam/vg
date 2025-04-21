@@ -461,11 +461,11 @@ HTSWriter::HTSWriter(const string& filename, const string& format,
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
     format(format), sequence_dictionary(sequence_dictionary), subpath_to_index(subpath_to_index),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
-    atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
+    atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format == "BAM"),
     hts_mode() {
     
     // We can't work with no streams to multiplex, because we need to be able
-    // to write BGZF EOF blocks throught he multiplexer at destruction.
+    // to write BGZF EOF blocks through the multiplexer at destruction.
     assert(max_threads > 0);
     
     if (out_file.get() != nullptr && !*out_file) {

@@ -97,11 +97,11 @@ is "$(vg surject -p x -x x.xg mapped.fwd.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" 
 
 rm -f fwd.fq rev.fq mapped.fwd.gam mapped.rev.gam
 
-is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l) \
-    100 "vg surject produces valid BAM output"
+is "$(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l)" \
+    "100" "vg surject produces valid BAM output"
 
-is $(vg map -G <(vg sim -a -n 100 -x x.vg) -g x.gcsa -x x.vg | vg surject -p x -x x.xg -c - | samtools view - | wc -l) \
-    100 "vg surject produces valid CRAM output"
+is "$(vg map -G <(vg sim -a -n 100 -x x.vg) -g x.gcsa -x x.vg | vg surject -p x -x x.xg -c - | samtools view - | wc -l)" \
+    "100" "vg surject produces valid CRAM output"
 
 echo '{"sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
@@ -166,14 +166,14 @@ vg index j.sub.vg -g j.sub.gcsa
 vg map -x j.sub.vg -g j.sub.gcsa -s TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA > r.sub.gam
 vg surject -x j.sub.vg r.sub.gam -s > r.sub.sam
 
-cat r.sam | sed -e 's/LN:1001/LN:1501/g' -e 's/161/661/g' > r.manual.sam
+cat r.sam | sed -e 's/LN:1001/LN:1501/g' -e 's/161/661/g' -e 's/.M5:[a-zA-Z0-9]*//g' > r.manual.sam
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly handles subpath suffix in path name"
 
 printf "x\t2000\n" > path_info.tsv
 rm -f r.sub.sam r.manual.sam
 vg surject -x j.sub.vg r.sub.gam -s --ref-paths path_info.tsv > r.sub.sam
-cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' > r.manual.sam
+cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' -e 's/.M5:[a-zA-Z0-9]*//g' > r.manual.sam
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly fetches base path length from input file"
 
