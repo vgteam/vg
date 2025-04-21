@@ -119,7 +119,7 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
 std::unordered_map<std::string, size_t> index_sequence_dictionary(const SequenceDictionary& paths);
 
 /*
- * A class that can write SAM/BAM/CRAM files from parallel threads
+ * A class that can write SAM/BAM/CRAM files from parallel threads.
  */
 class HTSWriter {
 public:
@@ -144,6 +144,9 @@ protected:
     
     /// We hack about with htslib's BGZF EOF footers, so we need to know how long they are.
     static const size_t BGZF_FOOTER_LENGTH;
+
+    /// For CRAM output, we use a separate pool of compressor threads inside htslib.
+    static const size_t HTSLIB_CRAM_THREADS;
     
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
@@ -152,6 +155,9 @@ protected:
     vg::io::StreamMultiplexer multiplexer;
     
     /// This holds our format name, for later error messages.
+    /// We also use it to decide if we're in magic serialized-writes CRAM mode,
+    /// where we use only one samFile* and one hFILE* and a one-thread
+    /// multiplexer that doesn't really multiplex.
     string format;
     
     /// Store the path names and lengths in the order to put them in the header.

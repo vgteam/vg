@@ -453,14 +453,16 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
 // Give the footer length for rewriting BGZF EOF markers.
 const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
+const size_t HTSWriter::HTSLIB_CRAM_THREADS = 8;
+
 HTSWriter::HTSWriter(const string& filename, const string& format,
     const SequenceDictionary& sequence_dictionary,
     const unordered_map<string, size_t>& subpath_to_index,
     size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
-    multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
+    multiplexer(out_file.get() != nullptr ? *out_file : cout, format == "CRAM" ? 1 : max_threads),
     format(format), sequence_dictionary(sequence_dictionary), subpath_to_index(subpath_to_index),
-    backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
+    backing_files(format == "CRAM" ? 1 : max_threads, nullptr), sam_files(format == "CRAM" ? 1 : max_threads, nullptr),
     atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format == "BAM"),
     hts_mode() {
     
@@ -542,6 +544,12 @@ HTSWriter::~HTSWriter() {
 bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
                                     const string& sample_name,
                                     size_t thread_number) {
+    if (format == "CRAM") {
+        // For CRAM we actually serialize all writes since we can't interleave
+        // chunks.
+        thread_number = 0;
+    }
+
     bam_hdr_t* header = atomic_header.load();
     if (header == nullptr) {
         // The header does not exist.
@@ -582,7 +590,11 @@ bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
     // Header is ready. We just need to create the samFile* for this thread with it if it doesn't exist.
     
     if (sam_files[thread_number] == nullptr) {
-        // The header has been created and written, but hasn't been used to initialize our samFile* yet.
+        // The header has been created and written, but hasn't been used to
+        // initialize our samFile* yet.
+        //
+        // This will never happen for CRAM since when we make the header we
+        // initialize a SAM file, and in CRAM mode we only have one.
         initialize_sam_file(header, thread_number);
     }
     
@@ -593,7 +605,13 @@ bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
 void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
     // We need a header and an extant samFile*
     assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
+
+    if (format == "CRAM") {
+        // For CRAM we actually serialize all writes since we can't interleave
+        // chunks.
+        thread_number = 0;
+        header_mutex.lock();
+    }
     
     for (auto& b : records) {
         // Emit each record
@@ -601,6 +619,9 @@ void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t
         int sam_write_error = sam_write1(sam_files[thread_number], header, b);
         if (sam_write_error < 0) {
             cerr << "[vg::HTSWriter] error: writing to output file failed with sam_write1 error code " << sam_write_error << endl;
+            if (format == "CRAM") {
+                header_mutex.unlock();
+            }
             exit(1);
         }
     }
@@ -612,13 +633,25 @@ void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t
     
     if (multiplexer.want_breakpoint(thread_number)) {
         // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
-        // There's no way to do this without closing and re-opening the HTS file.
-        // So just tear down and reamke the samFile* for this thread.
-        initialize_sam_file(header, thread_number);
+        if (format == "CRAM") {
+            // We're serializing writes, so we can breakpoint whenever we want.
+            multiplexer.register_breakpoint(thread_number);
+        } else {
+            // There's no way to do this without closing and re-opening the HTS file.
+            // So just tear down and reamke the samFile* for this thread.
+            initialize_sam_file(header, thread_number);
+        }
+    }
+
+    if (format == "CRAM") {
+        header_mutex.unlock();
     }
 }
 
 void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
+    // Assumed to already hold the necessary locks, and have thread_number
+    // already set to the one thread in CRAM mode.
+
     if (sam_files[thread_number] != nullptr) {
         // A samFile* has been created already. Clear it out.
         // Closing the samFile* flushes and destroys the BGZF (if any) and
@@ -648,6 +681,16 @@ void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, boo
         // We couldn't open the output samFile*
         cerr << "[vg::HTSWriter] failed to open internal stream for writing " << format << " output" << endl;
         exit(1);
+    }
+
+    if (format == "CRAM") {
+        // We're using serialized writes, and we want to keep CRAM compression
+        // off those threads. Use htslib's threading to add more compression
+        // threads. TODO: Why not just always use htslib's compression
+        // threading? TODO: Figure out how many we should have based on how
+        // many writer threads we were set up with and how many of them we
+        // expect each compression thread to be able to handle.
+        hts_set_threads(sam_files[thread_number], HTSLIB_CRAM_THREADS); 
     }
     
     // Write the header again, which is the only way to re-initialize htslib's internals.
@@ -774,7 +817,6 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     bam_hdr_t* header = ensure_header(aln_batch.front().read_group(),
                                       aln_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln_batch.size());
@@ -813,7 +855,6 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
                                       thread_number);
     assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
@@ -850,7 +891,6 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     bam_hdr_t* header = ensure_header(aln1_batch.front().read_group(),
                                       aln1_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln1_batch.size() * 2);
@@ -901,7 +941,6 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
                                       thread_number);
     assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
