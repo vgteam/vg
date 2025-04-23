@@ -1736,7 +1736,7 @@ std::vector<Alignment> alignment_pieces_within(const Alignment& aln, const std::
     if (pieces.size() == 0 && piece_path.mapping_size() == aln.path().mapping_size()) {
         // We never left the target region, so just emit the full input alignment wiht all its annotations.
         pieces.emplace_back(aln);
-    } else {
+    } else if (piece_path.mapping_size() > 0) {
         // Emit the last partial piece
         emit_piece();
     }
