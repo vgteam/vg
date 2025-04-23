@@ -1683,7 +1683,68 @@ Alignment alignment_middle(const Alignment& aln, int len) {
     return strip_from_start(strip_from_end(aln, trim), trim);
 }
 
-vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
+std::vector<Alignment> alignment_pieces_within(const Alignment& aln, const std::function<bool(nid_t)>& node_in_set) {
+
+    std::vector<Alignment> pieces;
+
+    Path piece_path;
+    std::stringstream piece_seq;
+    std::stringstream piece_qual;
+
+    auto emit_piece = [&]() {
+         // Emit the partial alignment.
+        pieces.emplace_back();
+        
+        *pieces.back().mutable_path() = std::move(piece_path);
+        piece_path.clear_mapping();
+        
+        pieces.back().set_sequence(piece_seq.str());
+        // Reset the stringstream.
+        // Don't bother with clear() since we aren't reading from it.
+        // See <https://stackoverflow.com/a/20792>
+        piece_seq.str(std::string());
+
+        if (!aln.quality().empty()) {
+            pieces.back().set_quality(piece_qual.str());
+            piece_qual.str(std::string());
+        }
+        
+        // Preserve name and MAPQ, but discard everything else.
+        pieces.back().set_name(aln.name());
+        pieces.back().set_mapping_quality(aln.mapping_quality());
+    };
+
+    size_t to_offset = 0;
+    for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+        const Mapping& here = aln.path().mapping(i);
+        nid_t node_id = here.position().node_id();
+        auto to_length = mapping_to_length(here);
+        if (node_in_set(node_id)) {
+            // This node is still in the set, so extend the current alignment
+            piece_seq << aln.sequence().substr(to_offset, to_length);
+            if (!aln.quality().empty()) {
+                piece_qual << aln.quality().substr(to_offset, to_length);
+            }
+            *piece_path.add_mapping() = here;
+        } else if (piece_path.mapping_size() > 0) {
+            // We have left the set just now.
+            emit_piece();
+        }
+        to_offset += to_length;
+    }
+
+    if (pieces.size() == 0 && piece_path.mapping_size() == aln.path().mapping_size()) {
+        // We never left the target region, so just emit the full input alignment wiht all its annotations.
+        pieces.emplace_back(aln);
+    } else {
+        // Emit the last partial piece
+        emit_piece();
+    }
+
+    return pieces;
+}
+
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length) {
     vector<Alignment> revalns;
     for (auto& aln : alns) {
         revalns.push_back(reverse_complement_alignment(aln, node_length));
@@ -1692,7 +1753,7 @@ vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, c
 }
 
 Alignment reverse_complement_alignment(const Alignment& aln,
-                                       const function<int64_t(id_t)>& node_length) {
+                                       const function<int64_t(nid_t)>& node_length) {
     // We're going to reverse the alignment and all its mappings.
     // TODO: should we/can we do this in place?
     
@@ -1714,7 +1775,7 @@ Alignment reverse_complement_alignment(const Alignment& aln,
 }
     
 void reverse_complement_alignment_in_place(Alignment* aln,
-                                           const function<int64_t(id_t)>& node_length) {
+                                           const function<int64_t(nid_t)>& node_length) {
 
     reverse_complement_in_place(*aln->mutable_sequence());
     string* quality = aln->mutable_quality();
@@ -1792,7 +1853,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     return a3;
 }
 
-void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
+void translate_nodes(Alignment& a, const unordered_map<nid_t, pair<nid_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
         // Grab each mapping (includes its position)
@@ -2165,8 +2226,8 @@ void convert_Ts_to_Us(Alignment& alignment) {
     convert_alignment_char(alignment, 'T', 'U');
 }
 
-map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
-    map<id_t, int> quals;
+map<nid_t, int> alignment_quality_per_node(const Alignment& aln) {
+    map<nid_t, int> quals;
     int to_pos = 0; // offset in quals
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         auto& mapping = aln.path().mapping(i);
@@ -3187,7 +3248,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     
     aln.set_name(feature);
     if (is_reverse) {
-        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
+        reverse_complement_alignment_in_place(&aln, [&](vg::nid_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
     }
     return aln;
 }
@@ -3277,7 +3338,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     
     aln.set_name(feature);
     if (is_reverse) {
-        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
+        reverse_complement_alignment_in_place(&aln, [&](vg::nid_t node_id) { return graph->get_length(graph->get_handle(node_id)); });
     }
     return aln;
 }

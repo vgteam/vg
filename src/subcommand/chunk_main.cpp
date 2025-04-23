@@ -80,7 +80,8 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
          << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
-         << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
+         << "    -f, --fully-contained    only return alignments that are fully contained within the chunk" << endl
+         << "    -u, --cut-alignments     cut alignments to be fully contained within the chunk" << endl
          << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
@@ -113,6 +114,7 @@ int main_chunk(int argc, char** argv) {
     bool trace = false;
     bool no_embedded_haplotypes = false;
     bool fully_contained = false;
+    bool cut_alignments = false;
     int n_chunks = 0;
     size_t aln_split_size = 0;
     string output_format = "pg";
@@ -150,6 +152,7 @@ int main_chunk(int argc, char** argv) {
             {"trace", no_argument, 0, 'T'},
             {"no-embedded-haplotypes", no_argument, 0, OPT_NO_EMBEDDED_HAPLOTYPES},
             {"fully-contained", no_argument, 0, 'f'},
+            {"cut-alignments", no_argument, 0, 'u'},
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
@@ -162,7 +165,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tft:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "hx:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tfut:n:l:m:CMO:",
                 long_options, &option_index);
 
 
@@ -274,6 +277,10 @@ int main_chunk(int argc, char** argv) {
             fully_contained = true;
             break;
 
+        case 'u':
+            cut_alignments = true;
+            break;
+
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -308,9 +315,22 @@ int main_chunk(int argc, char** argv) {
         cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions" << endl;
         return 1;
     }
-    // need -a if using -f
-    if ((aln_split_size != 0 || fully_contained) && aln_files.empty()) {
-        cerr << "error:[vg chunk] read alignment file (gam or gaf) must be specified with -a when using -f or -m" << endl;
+    // need -a if using options that use it
+    if ((aln_split_size != 0 || fully_contained || cut_alignments) && aln_files.empty()) {
+        cerr << "error:[vg chunk] read alignment file must be specified with -a when using -f, -u, or -m" << endl;
+        return 1;
+    }
+    // GAF chunking just uses tabix lookup and forwards line strings right now,
+    // so it can't do anything that relies on parsing the alignments.
+    //
+    // TODO: Unify the input and output into swappable pieces and actually
+    // parse GAF.
+    if (fully_contained && aln_is_gaf) {
+        cerr << "error:[vg chunk] restricting to fully-contained alignments not yet implemented for GAF" << endl;
+        return 1;
+    }
+    if (cut_alignments && aln_is_gaf) {
+        cerr << "error:[vg chunk] cutting alignments not yet implemented for GAF" << endl;
         return 1;
     }
     if (components == true && context_steps >= 0) {
@@ -907,6 +927,8 @@ int main_chunk(int argc, char** argv) {
                             kstring_t str = {0,0,0};
                             if ( itr ) {
                                 while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &str) >= 0) {
+                                    // TODO: parse record and enforce full containment
+                                    // TODO: parse record and implement alignment cutting
                                     out_gaf_file << str.s << endl;
                                 }
                                 tbx_itr_destroy(itr);
@@ -932,9 +954,26 @@ int main_chunk(int argc, char** argv) {
                     
                         auto handle_read = [&](const Alignment& aln) {
                             check_read(aln, graph);
-                            emit(aln);
+                            if (cut_alignments) {
+                                // Cut down to just things in any range belonging to this region.
+                                vector<Alignment> pieces = alignment_pieces_within(aln, [&](nid_t id) -> bool {
+                                    // Return true if this ID is in any of the sorted ID ranges for the region.
+                                    // TODO: Would a set be better enough to be worth making here? It might have a lot of entries.
+                                    return vg::algorithms::is_in_sorted_id_ranges(id, region_id_ranges);
+                                });
+                                for (auto& aln : pieces) {
+                                    // Emit each piece where the alignment passed through the set of ranges.
+                                    emit(aln);
+                                }
+                            } else {
+                                // We're not cutting the alignments, so pass this one through.
+                                emit(aln);
+                            }
                         };
                         
+                        // The find() method guarantees that we will visit each
+                        // matching alignment only once, even if it matches
+                        // multiple ranges.
                         gam_index->find(cursor, region_id_ranges, handle_read, fully_contained);
                     }
                 }
@@ -1026,6 +1065,12 @@ int main_chunk(int argc, char** argv) {
              
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
+                // We assume the alignment is completely contained within one
+                // connected component, and so we don't need to check that or
+                // cut it down to the part for this connected component.
+                //
+                // TODO: Handle alignments that jump between connected
+                // components.
                 nid_t aln_node_id = aln.path().mapping(0).position().node_id();
                 unordered_map<nid_t, int32_t>::iterator comp_it = node_to_component.find(aln_node_id);                
                 if (comp_it != node_to_component.end()) {
