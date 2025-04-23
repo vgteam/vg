@@ -50,9 +50,9 @@ void help_chunk(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction (for -T)" << endl
-         << "    -a, --gam-name FILE      chunk this gam file instead of the graph (multiple allowed)" << endl
-         << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
-         << "    -F, --in-gaf             input alignment is a sorted bgzipped GAF" << endl 
+         << "    -a, --aln-name FILE      chunk this alignment file instead of the graph (multiple allowed)" << endl
+         << "    -g, --aln-and-graph      when used in combination with -a, both alignments and graph will be chunked" << endl 
+         << "    -F, --in-gaf             input alignment is a sorted bgzipped GAF (by default, expects GAM)" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive, multiple allowed)\n"
          << "                             path range TARGET=path[:pos1[-pos2]] to standard output" << endl
@@ -64,8 +64,8 @@ void help_chunk(char** argv) {
          << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
          << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
-         << "simple gam chunking:" << endl
-         << "    -m, --gam-split-size N   split gam (specified with -a, sort/index not required) up into chunks with at most N reads each" << endl
+         << "simple alignment chunking:" << endl
+         << "    -m, --aln-split-size N   split alignments (specified with -a, sort/index not required) up into chunks with at most N reads each" << endl
          << "component chunking:" << endl
          << "    -C, --components         create a chunk for each connected component.  if a targets given with (-p, -P, -r, -R), limit to components containing them" << endl
          << "    -M, --path-components    create a chunk for each path in the graph's connected component" << endl
@@ -95,9 +95,9 @@ int main_chunk(int argc, char** argv) {
 
     string xg_file;
     string gbwt_file;
-    vector<string> gam_files;
-    bool gam_and_graph = false;
-    bool gam_is_gaf = false;
+    vector<string> aln_files;
+    bool aln_and_graph = false;
+    bool aln_is_gaf = false;
     vector<string> region_strings;
     string path_list_file;
     int chunk_size = 0;
@@ -114,7 +114,7 @@ int main_chunk(int argc, char** argv) {
     bool no_embedded_haplotypes = false;
     bool fully_contained = false;
     int n_chunks = 0;
-    size_t gam_split_size = 0;
+    size_t aln_split_size = 0;
     string output_format = "pg";
     bool output_format_set = false;
     bool components = false;
@@ -131,7 +131,9 @@ int main_chunk(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"gbwt-name", required_argument, 0, 'G'},
+            {"aln-name", required_argument, 0, 'a'},
             {"gam-name", required_argument, 0, 'a'},
+            {"aln-and-graph", no_argument, 0, 'g'},
             {"gam-and-graph", no_argument, 0, 'g'},
             {"in-gaf", no_argument, 0, 'F'},
             {"path", required_argument, 0, 'p'},
@@ -151,6 +153,7 @@ int main_chunk(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
+            {"aln-split-size", required_argument, 0, 'm'},
             {"gam-split-size", required_argument, 0, 'm'},
             {"components", no_argument, 0, 'C'},
             {"path-components", no_argument, 0, 'M'},
@@ -179,15 +182,15 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'a':
-            gam_files.push_back(optarg);
+            aln_files.push_back(optarg);
             break;
             
         case 'g':
-            gam_and_graph = true;
+            aln_and_graph = true;
             break;            
 
         case 'F':
-            gam_is_gaf = true;
+            aln_is_gaf = true;
             break;            
 
         case 'p':
@@ -247,7 +250,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'm':
-            gam_split_size = parse<int>(optarg);
+            aln_split_size = parse<int>(optarg);
             break;
 
         case 'C':
@@ -300,13 +303,13 @@ int main_chunk(int argc, char** argv) {
 
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
-        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1)  +
+        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (aln_split_size == 0 ? 0 : 1)  +
         (path_components ? 1 : 0) > 1) {
         cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
-    if ((gam_split_size != 0 || fully_contained) && gam_files.empty()) {
+    if ((aln_split_size != 0 || fully_contained) && aln_files.empty()) {
         cerr << "error:[vg chunk] read alignment file (gam or gaf) must be specified with -a when using -f or -m" << endl;
         return 1;
     }
@@ -348,8 +351,8 @@ int main_chunk(int argc, char** argv) {
     // needs to be chunked, even if only gam output is requested,
     // because we use the graph to get the nodes we're looking for.
     // but we only write the subgraphs to disk if chunk_graph is true. 
-    bool chunk_gam = !gam_files.empty() && gam_split_size == 0;
-    bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
+    bool chunk_aln = !aln_files.empty() && aln_split_size == 0;
+    bool chunk_graph = aln_and_graph || (!chunk_aln && aln_split_size == 0);
 
     // parse the regions into a list before loading the graph, if we're
     // specifying regions by path name.
@@ -397,7 +400,7 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::ReferencePathOverlayHelper overlay_helper;
 
-    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0) || (id_range && chunk_gam) || components) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && aln_split_size == 0) || (id_range && chunk_aln) || components) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] graph or xg index (-x) required" << endl;
             return 1;
@@ -457,9 +460,9 @@ int main_chunk(int argc, char** argv) {
     vector<unique_ptr<GAMIndex>> gam_indexes;
     vector<unique_ptr<tbx_t>> gaf_tbxs;
     vector<unique_ptr<htsFile>> gaf_fps;
-    if (chunk_gam && !components) {
-        if (gam_is_gaf){
-            for (auto gaf_file : gam_files) {
+    if (chunk_aln && !components) {
+        if (aln_is_gaf){
+            for (auto gaf_file : aln_files) {
                 try {
                     tbx_t *gaf_tbx = NULL;
                     htsFile *gaf_fp = NULL;
@@ -484,7 +487,7 @@ int main_chunk(int argc, char** argv) {
                 }
             }
         } else {
-            for (auto gam_file : gam_files) {
+            for (auto gam_file : aln_files) {
                 try {
                     get_input_file(gam_file + ".gai", [&](istream& index_stream) {
                         gam_indexes.push_back(unique_ptr<GAMIndex>(new GAMIndex()));
@@ -586,7 +589,7 @@ int main_chunk(int argc, char** argv) {
     
     // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
     // misunderstandings
-    if (context_steps < 0 && gam_split_size == 0) {
+    if (context_steps < 0 && aln_split_size == 0) {
         if (id_range) {
             if (!context_length) {
                 context_steps = 1;
@@ -678,14 +681,14 @@ int main_chunk(int argc, char** argv) {
     }
 
     // now ready to get our chunk on
-    if (gam_split_size != 0) {
-        if(gam_is_gaf){
+    if (aln_split_size != 0) {
+        if(aln_is_gaf){
             cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split. A workaround would be to split the GAF file using split -l/-n which can split text files into chunks." << endl;
             return 1;
         }
-        for (size_t gi = 0; gi < gam_files.size(); ++gi) {
+        for (size_t gi = 0; gi < aln_files.size(); ++gi) {
             ifstream gam_stream;
-            string& gam_file = gam_files[gi];
+            string& gam_file = aln_files[gi];
             // Open the GAM file, whether splitting directly or seeking with an index
             gam_stream.open(gam_file);
             if (!gam_stream) {
@@ -694,7 +697,7 @@ int main_chunk(int argc, char** argv) {
             }
             // just chunk up every N reads in the gam without any path or id logic. Don't do anything else.
             string prefix = gi == 0 ? out_chunk_prefix : out_chunk_prefix + std::to_string(gi);
-            split_gam(gam_stream, gam_split_size, prefix);
+            split_gam(gam_stream, aln_split_size, prefix);
         }
         return 0;
     }
@@ -716,12 +719,12 @@ int main_chunk(int argc, char** argv) {
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
     // Todo: when operating on multiple gams, we make |threads| X |gams| cursors, even though
     // we only ever use |threads| threads.
-    vector<list<ifstream>> gam_streams_vec(gam_files.size());
-    vector<vector<GAMIndex::cursor_t>> cursors_vec(gam_files.size());
+    vector<list<ifstream>> gam_streams_vec(aln_files.size());
+    vector<vector<GAMIndex::cursor_t>> cursors_vec(aln_files.size());
     
-    if (chunk_gam & !gam_is_gaf) {
+    if (chunk_aln & !aln_is_gaf) {
         for (size_t gam_i = 0; gam_i < gam_streams_vec.size(); ++gam_i) {
-            auto& gam_file = gam_files[gam_i];
+            auto& gam_file = aln_files[gam_i];
             auto& gam_streams = gam_streams_vec[gam_i];
             auto& cursors = cursors_vec[gam_i];
             cursors.reserve(threads);
@@ -870,7 +873,7 @@ int main_chunk(int argc, char** argv) {
         }
         
         // optional gam chunking
-        if (chunk_gam) {
+        if (chunk_aln) {
             if (!components) {
                 // Work out the ID ranges to look up
                 vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
@@ -882,7 +885,7 @@ int main_chunk(int argc, char** argv) {
                     region_id_ranges = {{region.start, region.end}};
                 }
 
-                if(gam_is_gaf){
+                if(aln_is_gaf){
                     // use the indexed bgzipped GAFs
                     for (size_t gi = 0; gi < gaf_fps.size(); ++gi) {
                         auto& gaf_fp = gaf_fps[gi];
@@ -973,7 +976,7 @@ int main_chunk(int argc, char** argv) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
-                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : output_ext, 0, components);
+                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_aln ? ".gam" : output_ext, 0, components);
             if (trace) {
                 obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt", 0, components);
             }
@@ -982,8 +985,8 @@ int main_chunk(int argc, char** argv) {
     }
 
     // write out component gams
-    if (chunk_gam && components) {
-        if(gam_is_gaf){
+    if (chunk_aln && components) {
+        if(aln_is_gaf){
             cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by chunked by component. A workaround is to query one chromosome-component as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'." << endl;
             return 1;
         }
@@ -1036,7 +1039,7 @@ int main_chunk(int argc, char** argv) {
             }
         };
 
-        for (auto gam_file : gam_files) {
+        for (auto gam_file : aln_files) {
             get_input_file(gam_file, [&](istream& gam_stream) {
                     vg::io::for_each_parallel(gam_stream, chunk_gam_callback);
                 });
