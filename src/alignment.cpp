@@ -1900,11 +1900,8 @@ bool is_perfect(const Alignment& alignment) {
     // Check that the path is perfect
     for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
         auto& mapping = alignment.path().mapping(i);
-        for (size_t j = 0; j < mapping.edit_size(); ++j) {
-            auto& edit = mapping.edit(j);
-            if (!edit_is_match(edit)) {
-                return false;
-            }
+        if (!mapping_is_match(mapping)) {
+            return false;
         }
     }
     return true;
