@@ -1892,6 +1892,24 @@ int softclip_trim(Alignment& alignment) {
     return cut_start + cut_end;
 }
 
+bool is_perfect(const Alignment& alignment) {
+    // Non-aligned paths can't be perfect (code from subcommand/stats_main.cpp)
+    bool has_alignment = alignment.score() > 0 || alignment.path().mapping_size() > 0;
+    if (!has_alignment) return false;
+
+    // Check that the path is perfect
+    for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
+        auto& mapping = alignment.path().mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (!edit_is_match(edit)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
     if (!alignment_to_length(aln1) || !alignment_to_length(aln2)
         || !aln1.path().mapping_size() || !aln2.path().mapping_size()
