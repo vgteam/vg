@@ -26,6 +26,7 @@
 #include "../multipath_alignment_emitter.hpp"
 #include "../crash.hpp"
 #include "../watchdog.hpp"
+#include "../explainer.hpp"
 
 
 using namespace std;
@@ -105,6 +106,8 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
 
 int main_surject(int argc, char** argv) {
     
+    Explainer::save_explanations = true;
+
     if (argc == 2) {
         help_surject(argv);
         return 1;

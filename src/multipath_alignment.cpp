@@ -215,7 +215,24 @@ namespace vg {
         }
         return return_val;
     }
-    
+
+    int beauty_spaceship(const subpath_t* a, const subpath_t* b) {
+        if (a == b) {
+            // Same address or both null
+            return 0;
+        }
+        if (a == nullptr) {
+            // a is null and b is not, a is less
+            return -1;
+        }
+        if (b == nullptr) {
+            // b is null and a is not, a is greater
+            return 1;
+        }
+        // Otherwise neither is null. Count a and b gaps, and subtract a from b. a will be greater if b has more gaps than a.
+        // TODO: Implement
+    }
+
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
         
         vector<size_t> index = subpath_topological_order(multipath_aln, true);
@@ -586,6 +603,44 @@ namespace vg {
         // TODO: i'm sure there's a way to generalize this so i don't switch off for the whole
         // thing, but the iteration schemes are just different enough to be pretty annoying
         
+        // Use a lambda to unify the iteration over connections vs. immediate subpaths, and over forward vs. reverse modes.
+        // We consider the DP option at one index, for the DP cell at onother index, which works forward or reverse.
+        // In addition to considering scores, we also consider how beautiful or nice of a subpath alignment we're looking at, to break ties.
+        auto consider_dp_option = [&](const size_t& option_index, const int64_t& cell_index, const int32_t& option_score, bool replace_ties) {
+            // Find the potential subpath we could use
+            const subpath_t& option_subpath = multipath_aln.subpath(option_index);
+
+            // Figure out which existing candidate subpath we're comparing against.
+            // This might be by direct next() or by connection(), but that doesn't matter for comparison.
+            int64_t& winner_index = problem.prev_subpath[cell_index];
+            int32_t& winner_score = problem.prefix_score[cell_index];
+            const subpath_t* existing_winner = winner_index == -1 ? nullptr : multipath_aln.subpath(winner_index);
+
+            if (option_score < winner_score) {
+                // Don't replace, this is worse.
+                return;
+            }
+
+            if (option_score == winner_score) {
+                // We're a tie on score, so consider beauty
+                auto beauty_comparison = beauty_spaceship(&option_subpath, existing_winner);
+                if (beauty_comparison < 0) {
+                    // Don't replace, this is equal score but less beautiful
+                    return;
+                }
+                if (beauty_comparison == 0 && !replace_ties) {
+                    // Don't replace, this is a perfect tie and we aren't replacing on ties.
+                    return;
+                }
+            }
+
+            // Now we're either strictly better, or a perfect tie when replacing on ties.
+            // Do the replacement.
+            winner_index = option_index;
+            winner_score = option_score;
+        };
+
+        
         if (forward) {
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
                 const subpath_t& subpath = multipath_aln.subpath(i);
@@ -595,23 +650,19 @@ namespace vg {
                     int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
                     for (size_t j = 0; j < subpath.next_size(); ++j) {
                         int64_t next = subpath.next(j);
-                        problem.prefix_length[next] = thru_length;
+                        // Always update prefix length
+                        problem.prefix_length[next] = thru_length; 
                         
-                        // can we improve prefix score on following subpath through this one?
-                        if (extended_score >= problem.prefix_score[next]) {
-                            problem.prev_subpath[next] = i;
-                            problem.prefix_score[next] = extended_score;
-                        }
+                        // Consider subpath at i directly as an option to fill in next, replacing ties.
+                        consider_dp_option(i, next, extended_score, true);
                     }
                     // repeat DP across scored connections
                     for (size_t j = 0; j < subpath.connection_size(); ++j) {
                         const connection_t& connection = subpath.connection(j);
-                        
                         problem.prefix_length[connection.next()] = thru_length;
-                        if (extended_score + connection.score() >= problem.prefix_score[connection.next()]) {
-                            problem.prev_subpath[connection.next()] = i;
-                            problem.prefix_score[connection.next()] = extended_score + connection.score();
-                        }
+
+                        // Consider subpath at i with a connection as an option to fill in connection.next(), replacing ties.
+                        consider_dp_option(i, connection.next(), extended_score + connection.score(), true);
                     }
                 }
                 // check if an alignment is allowed to end here according to global/local rules and
@@ -625,6 +676,8 @@ namespace vg {
             }
         }
         else {
+            // We're doing the same DP but backward, so "prev_subpath" really points at the successor, and we need to not replace ties.
+
             // TODO: maybe this should be done with an unordered_set?
             vector<bool> is_start(multipath_aln.subpath_size(), false);
             for (auto i : multipath_aln.start()) {
@@ -634,19 +687,17 @@ namespace vg {
                 const subpath_t& subpath = multipath_aln.subpath(i);
                 // find the length and best score from subsequent subpaths
                 for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    auto n = subpath.next(j);
-                    problem.prefix_length[i] = problem.prefix_length[n];
-                    if (problem.prefix_score[n] > problem.prefix_score[i]) {
-                        problem.prefix_score[i] = problem.prefix_score[n];
-                        problem.prev_subpath[i] = n;
-                    }
+                    int64_t next = subpath.next(j);
+                    problem.prefix_length[i] = problem.prefix_length[next];
+
+                    // Consider subpath at next directly as an option to fill in i, not replacing ties.
+                    consider_dp_option(next, i, problem.prefix_score[next], false);
                 }
                 for (const auto& connection : subpath.connection()) {
                     problem.prefix_length[i] = problem.prefix_length[connection.next()];
-                    if (problem.prefix_score[connection.next()] + connection.score() > problem.prefix_score[i]) {
-                        problem.prefix_score[i] = problem.prefix_score[connection.next()] + connection.score();
-                        problem.prev_subpath[i] = connection.next();
-                    }
+
+                    // Consider subpath at connection.next() via connection as an option to fill in i, not replacing ties.
+                    consider_dp_option(connection.next(), i, problem.prefix_score[connection.next()] + connection.score(), false);
                 }
                 // add score and length of this subpath
                 problem.prefix_length[i] += path_to_length(subpath.path());

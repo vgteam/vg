@@ -6,6 +6,7 @@
 #include "sequence_complexity.hpp"
 #include "reverse_graph.hpp"
 #include "banded_global_aligner.hpp"
+#include "explainer.hpp"
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -13,7 +14,7 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/pad_band.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 //#define debug_shift_pruning
 
@@ -5375,6 +5376,13 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             reverse_alignment(intervening_sequence);
                             aln_connecting_graph = &reverse_graph;
                         }
+
+#ifdef debug_multipath_alignment
+                        // Dump the graph if we're explaining
+                        SubgraphExplainer exp(true);
+                        exp.subgraph(*aln_connecting_graph);
+#endif
+
                         vector<Alignment> alt_alignments;
                         try {
                             aligner->align_global_banded_multi(intervening_sequence, alt_alignments, *aln_connecting_graph, num_alns_iter,

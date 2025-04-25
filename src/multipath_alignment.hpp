@@ -139,6 +139,15 @@ namespace vg {
     string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);
     string debug_string(const multipath_alignment_t& multipath_aln);
+
+    /// Do a "spaceship" comparison (<0 for a is less, 0 for equal, >0 for b is
+    /// less) on the "beauty" of two subpaths (i.e. how much we think we will
+    /// want to deal with them at variant calling). If one of the subpath
+    /// pointers is null, it is worse. Otherwise, we do a heuristic inspection
+    /// to see which subpath's alignment is a nicer alignment to deal with, and
+    /// that's the one that wins. If the heuristic can't distinguish them, they
+    /// tie.
+    int beauty_spaceship(const subpath_t* a, const subpath_t* b);
     
     /// Put subpaths in topological order (assumed to be true for other algorithms)
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln);
