@@ -2716,6 +2716,28 @@ int path_to_length(const path_t& path) {
     return length;
 }
 
+int path_gap_count(const path_t& path) {
+    int count = 0;
+    bool in_gap = false;
+    for (auto& mapping : path.mapping()) {
+        for (auto& edit : mapping.edit()) {
+            if (edit.from_length() != edit.to_length()) {
+                // This is a gap edit
+                if (!in_gap) {
+                    count++;
+                    in_gap = true;
+                }
+            } else {
+                // This is not a gap edit
+                if (in_gap) {
+                    in_gap = false;
+                }
+            }
+        }
+    }
+    return count;
+}
+
 
 void reverse_complement_mapping_in_place(path_mapping_t* m,
                                          const function<int64_t(id_t)>& node_length) {

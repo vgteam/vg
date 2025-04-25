@@ -5322,7 +5322,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     continue;
                 }
                 
-                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, handlealgs::count_walks(&connecting_graph)) :
+                // In dynamic mode, we need to consider 1 more alignment than
+                // there are walks, to see if any walk has multiple
+                // equally-scoring alignments that we might care about.
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, handlealgs::count_walks(&connecting_graph) + 1) :
                                                          max_alt_alns;
                 
                 
@@ -5418,6 +5421,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     }
                 }
                 
+#ifdef debug_multipath_alignment
+                std::cerr << "After deduplication, have " << deduplicated.size() << " connecting alignments" << endl;
+#endif
+
                 bool added_direct_connection = false;
                 for (auto& connecting_alignment : deduplicated) {
 #ifdef debug_multipath_alignment

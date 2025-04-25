@@ -217,6 +217,7 @@ namespace vg {
     }
 
     int beauty_spaceship(const subpath_t* a, const subpath_t* b) {
+        std::cerr << "Compare beauty of " << a << " and " << b << std::endl;
         if (a == b) {
             // Same address or both null
             return 0;
@@ -229,8 +230,16 @@ namespace vg {
             // b is null and a is not, a is greater
             return 1;
         }
-        // Otherwise neither is null. Count a and b gaps, and subtract a from b. a will be greater if b has more gaps than a.
-        // TODO: Implement
+        
+        // Otherwise neither is null. Count a and b gaps, and subtract a from
+        // b. a will be greater if b has more gaps than a.
+        int a_gaps = path_gap_count(a->path());
+        int b_gaps = path_gap_count(b->path());
+        int comparison = b_gaps - a_gaps;
+
+        std::cerr << "First has " << a_gaps << " gaps and second has " << b_gaps << " gaps so comparison is " << comparison << std::endl;
+        
+        return comparison;
     }
 
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
@@ -614,7 +623,9 @@ namespace vg {
             // This might be by direct next() or by connection(), but that doesn't matter for comparison.
             int64_t& winner_index = problem.prev_subpath[cell_index];
             int32_t& winner_score = problem.prefix_score[cell_index];
-            const subpath_t* existing_winner = winner_index == -1 ? nullptr : multipath_aln.subpath(winner_index);
+            const subpath_t* existing_winner = winner_index == -1 ? nullptr : &multipath_aln.subpath(winner_index);
+
+            std::cerr << "Consider option path " << option_index << " with score " << option_score << " to fill cell " << cell_index << " with current score " << winner_score << " from option " << winner_index << std::endl;
 
             if (option_score < winner_score) {
                 // Don't replace, this is worse.
