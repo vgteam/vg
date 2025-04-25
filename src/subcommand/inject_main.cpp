@@ -126,7 +126,7 @@ int main_inject(int argc, char** argv) {
     PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());
 
     // We don't do HTS output formats but we do need an empty paths collection to make an alignment emitter
-    vector<tuple<path_handle_t, size_t, size_t>> paths;
+    SequenceDictionary paths;
     unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, paths, threads, xgidx);
 
     Aligner aligner;

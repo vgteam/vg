@@ -176,8 +176,8 @@ rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
-vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/yx.dict | grep -E "^@(SQ|HD)" > surjected-yx.dict
-vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/xy.dict | grep -E "^@(SQ|HD)" > surjected-xy.dict
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/yx.dict | sed 's/.M5:[a-zA-Z0-9]*//g' | grep -E "^@(SQ|HD)" > surjected-yx.dict
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/xy.dict | sed 's/.M5:[a-zA-Z0-9]*//g' | grep -E "^@(SQ|HD)" > surjected-xy.dict
 
 diff surjected-yx.dict small/yx.dict
 is "${?}" "0" "surjecting with a sequence dictionary in non-sorted order produces headers in non-sorted order"
