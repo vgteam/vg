@@ -737,6 +737,9 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
         if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
                              max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, max_avg_degree)) {
             pair<Region, pair<vector<handle_t>, vector<edge_t>>> region_contents;
+            if (containing_region) {
+                region_contents.first = *containing_region;
+            }            
             if (only_net_edges) {
                 unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, only_top_net_edges);
                 for (const edge_t& edge : net_edges) {
