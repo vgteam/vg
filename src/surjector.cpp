@@ -23,7 +23,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-#define debug_anchored_surject
+//#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -2990,8 +2990,8 @@ using namespace std;
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, *aln_graph, get_aligner(),
                                false,                                    // anchors as matches
-                               4,                                        // max alt alns
-                               true,                                     // dynamic alt alns
+                               40,                                       // max alt alns
+                               false,                                    // dynamic alt alns
                                numeric_limits<int64_t>::max(),           // max gap
                                0.0,                                      // pessimistic tail gap multiplier
                                max_tail_length,                          // max length of tail to align

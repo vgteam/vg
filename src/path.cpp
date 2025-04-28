@@ -1,6 +1,7 @@
 #include "path.hpp"
 #include <vg/io/stream.hpp>
 #include "region.hpp"
+#include "alignment.hpp"
 #include "crash.hpp"
 #include <sstream>
 
@@ -2887,6 +2888,17 @@ string debug_string(const edit_t& edit) {
     }
     to_return += "}";
     return to_return;
+}
+
+string debug_cigar_string(const path_t& path) {
+    std::vector<std::pair<int, char>> cigar;
+    for (auto& m : path.mapping()) {
+        // Gigar string generation isn't written for path_mapping_t, so use the Protobuf version.
+        Mapping mapping;
+        to_proto_mapping(m, mapping);
+        mapping_cigar(mapping, cigar, 'X');
+    }
+    return cigar_string(cigar);
 }
 
 int corresponding_length_internal(const path_t& path, int given_length, bool is_from_length, bool from_end) {

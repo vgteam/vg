@@ -216,8 +216,7 @@ namespace vg {
         return return_val;
     }
 
-    int beauty_spaceship(const subpath_t* a, const subpath_t* b) {
-        std::cerr << "Compare beauty of " << a << " and " << b << std::endl;
+    int beauty_spaceship(const path_t* a, const path_t* b) {
         if (a == b) {
             // Same address or both null
             return 0;
@@ -233,13 +232,29 @@ namespace vg {
         
         // Otherwise neither is null. Count a and b gaps, and subtract a from
         // b. a will be greater if b has more gaps than a.
-        int a_gaps = path_gap_count(a->path());
-        int b_gaps = path_gap_count(b->path());
+        int a_gaps = path_gap_count(*a);
+        int b_gaps = path_gap_count(*b);
         int comparison = b_gaps - a_gaps;
 
-        std::cerr << "First has " << a_gaps << " gaps and second has " << b_gaps << " gaps so comparison is " << comparison << std::endl;
-        
         return comparison;
+    }
+
+    int beauty_spaceship(const subpath_t* a, const subpath_t* b) {
+        if (a == b) {
+            // Same address or both null
+            return 0;
+        }
+        if (a == nullptr) {
+            // a is null and b is not, a is less
+            return -1;
+        }
+        if (b == nullptr) {
+            // b is null and a is not, a is greater
+            return 1;
+        }
+        
+        // Otherwise neither is null. Look at their paths.
+        return beauty_spaceship(&a->path(), &b->path());
     }
 
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
@@ -625,7 +640,9 @@ namespace vg {
             int32_t& winner_score = problem.prefix_score[cell_index];
             const subpath_t* existing_winner = winner_index == -1 ? nullptr : &multipath_aln.subpath(winner_index);
 
+#ifdef debug_multiple_tracebacks
             std::cerr << "Consider option path " << option_index << " with score " << option_score << " to fill cell " << cell_index << " with current score " << winner_score << " from option " << winner_index << std::endl;
+#endif
 
             if (option_score < winner_score) {
                 // Don't replace, this is worse.

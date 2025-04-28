@@ -158,10 +158,13 @@ namespace vg {
                                          int32_t band_padding = 0, bool permissive_banding = true,
                                          uint64_t max_cells = std::numeric_limits<uint64_t>::max()) const = 0;
         
-        /// store top scoring global alignments in the vector in descending score order up to a maximum number
-        /// of alternate alignments (including the optimal alignment). if there are fewer than the maximum
-        /// number of alignments in the return value, then the vector contains all possible alignments. the
+        /// Store top scoring global alignments in the vector in descending score order up to a maximum number
+        /// of alternate alignments (including the optimal alignment). If there are fewer than the maximum
+        /// number of alignments in the return value, then the vector contains all possible alignments. The
         /// optimal alignment will be stored in both the vector and the original alignment object.
+        ///
+        /// When multiple alignments have the same score, they are ordered deterministically but
+        /// arbitrarily.
         ///
         /// Throws BandMatricesTooBigException if the max_cells limit on DP matric size is hit.
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
