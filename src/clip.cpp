@@ -484,7 +484,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                          << contents_shallow.first.size() << "\t" << contents_shallow.second.size() << "\t"
                          << avg_degree << "\n";
                 } else if (only_net_edges) {
-                    unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, only_top_net_edges);
+                    unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, !only_top_net_edges);
                     for (const edge_t& edge : net_edges) {
                         edges_to_delete.insert(edge);
                         assert(pp_graph->has_edge(edge));
@@ -741,7 +741,7 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
                 region_contents.first = *containing_region;
             }            
             if (only_net_edges) {
-                unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, only_top_net_edges);
+                unordered_set<edge_t> net_edges = get_net_edges(pp_graph, snarl_manager, snarl, !only_top_net_edges);
                 for (const edge_t& edge : net_edges) {
                     region_contents.second.second.push_back(edge);
                     assert(pp_graph->has_edge(edge));
