@@ -288,6 +288,8 @@ There are multiple read mappers in `vg`:
 * `vg map` is a general-purpose read mapper.
 * `vg mpmap` does "multi-path" mapping, to allow describing local alignment uncertainty. [This is useful for transcriptomics.](#Transcriptomic-analysis)
 
+The graph alignment output format of these mappers (GAM/GAMP) may be [QC'ed by `vg filter --tsv-out`](https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-%E2%80%90%E2%80%90tsv%E2%80%90out).
+
 #### Mapping with `vg giraffe`
 
 To use `vg giraffe` to map reads, you will first need to prepare indexes. This is best done using `vg autoindex`. In order to get `vg autoindex` to use haplotype information from a VCF file, you can give it the VCF and the associated linear reference directly.
