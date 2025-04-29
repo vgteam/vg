@@ -9,6 +9,7 @@
 #include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
 #include "dozeu_pinning_overlay.hpp"
+#include "crash.hpp"
 #include "algorithms/distance_to_tail.hpp"
 
 //#define debug_print_score_matrices
@@ -26,8 +27,12 @@ static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
 
 GSSWAligner::~GSSWAligner(void) {
-    free(nt_table);
-    free(score_matrix);
+    if (nt_table) {
+        free(nt_table);
+    }
+    if (score_matrix) {
+        free(score_matrix);
+    }
 }
 
 GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
@@ -39,7 +44,8 @@ GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
     log_base = recover_log_base(_score_matrix, _gc_content, 1e-12);
     
     // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
-    // misleading, but a fair amount of code depends on them
+    // misleading, but a fair amount of code depends on them.
+    // This is a 4x4 matrix, so entry 0 is on-diagonal and 1 is off-diagonal.
     match = _score_matrix[0];
     mismatch = -_score_matrix[1];
     gap_open = _gap_open;
@@ -48,6 +54,8 @@ GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
     
     // table to translate chars to their integer value
     nt_table = gssw_create_nt_table();
+
+    // Subclass constructor will fill in our score_matrix member.
 }
 
 gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
@@ -352,6 +360,7 @@ double GSSWAligner::recover_log_base(const int8_t* score_matrix, double gc_conte
     
     // convert gc content into base-wise frequencies
     double* nt_freqs = (double*) malloc(sizeof(double) * 4);
+    crash_unless(nt_freqs != nullptr);
     nt_freqs[0] = 0.5 * (1 - gc_content);
     nt_freqs[1] = 0.5 * gc_content;
     nt_freqs[2] = 0.5 * gc_content;
@@ -1046,6 +1055,7 @@ Aligner::Aligner(const int8_t* _score_matrix,
     
     // add in the 5th row and column of 0s for N matches like GSSW wants
     score_matrix = (int8_t*) malloc(sizeof(int8_t) * 25);
+    crash_unless(score_matrix != nullptr);
     for (size_t i = 0, j = 0; i < 25; ++i) {
         if (i % 5 == 4 || i / 5 == 4) {
             score_matrix[i] = 0;
@@ -1132,6 +1142,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             gssw_graph_mapping** gms = nullptr;
             if (align_graph->get_node_count() > 0) {
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
+                crash_unless(pinning_nodes != nullptr);
                 size_t j = 0;
                 for (size_t i = 0; i < graph->size; i++) {
                     gssw_node* node = graph->nodes[i];
@@ -1712,6 +1723,7 @@ int8_t* QualAdjAligner::qual_adjusted_matrix(const int8_t* _score_matrix, double
     
     // TODO: duplicative with GSSWAligner()
     double* nt_freqs = (double*) malloc(sizeof(double) * 4);
+    crash_unless(nt_freqs != nullptr);
     nt_freqs[0] = 0.5 * (1 - gc_content);
     nt_freqs[1] = 0.5 * gc_content;
     nt_freqs[2] = 0.5 * gc_content;
@@ -1719,6 +1731,7 @@ int8_t* QualAdjAligner::qual_adjusted_matrix(const int8_t* _score_matrix, double
     
     // recover the emission probabilities of the align state of the HMM
     double* align_prob = (double*) malloc(sizeof(double) * 16);
+    crash_unless(align_prob != nullptr);
     
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
@@ -1729,6 +1742,7 @@ int8_t* QualAdjAligner::qual_adjusted_matrix(const int8_t* _score_matrix, double
     
     // compute the sum of the emission probabilities under a base error
     double* align_complement_prob = (double*) malloc(sizeof(double) * 16);
+    crash_unless(align_complement_prob != nullptr);
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             align_complement_prob[i * 4 + j] = 0.0;
@@ -1745,6 +1759,7 @@ int8_t* QualAdjAligner::qual_adjusted_matrix(const int8_t* _score_matrix, double
     
     // compute the adjusted alignment scores for each quality level
     int8_t* qual_adj_mat = (int8_t*) malloc(25 * (max_qual + 1) * sizeof(int8_t));
+    crash_unless(qual_adj_mat != nullptr);
     for (int q = 0; q <= max_qual; q++) {
         double err = pow(10.0, -q / 10.0);
         for (int i = 0; i < 5; i++) {
@@ -1875,6 +1890,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             if (align_graph->get_node_count() > 0) {
                 
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
+                crash_unless(pinning_nodes != nullptr);
                 size_t j = 0;
                 for (size_t i = 0; i < graph->size; i++) {
                     gssw_node* node = graph->nodes[i];
@@ -2418,6 +2434,7 @@ const Aligner* AlignerClient::get_regular_aligner() const {
 
 int8_t* AlignerClient::parse_matrix(istream& matrix_stream) {
     int8_t* matrix = (int8_t*) malloc(16 * sizeof(int8_t));
+    crash_unless(matrix != nullptr);
     for (size_t i = 0; i < 16; i++) {
         if (!matrix_stream.good()) {
             std::cerr << "error: vg Aligner::parse_matrix requires a 4x4 whitespace separated integer matrix\n";
@@ -2438,6 +2455,7 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
                                          int8_t full_length_bonus) {
     
     int8_t* matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+    crash_unless(matrix != nullptr);
     for (size_t i = 0; i < 16; ++i) {
         if (i % 5 == 0) {
             matrix[i] = match;

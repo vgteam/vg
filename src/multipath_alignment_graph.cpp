@@ -5391,7 +5391,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         vector<Alignment> alt_alignments;
                         try {
                             dp_aligner->align_global_banded_multi(intervening_sequence, alt_alignments, *aln_connecting_graph, num_alns_iter,
-                                                                                       band_padding_function(intervening_sequence, connecting_graph), true, max_band_cells);
+                                                                  band_padding_function(intervening_sequence, *aln_connecting_graph), true, max_band_cells);
                             if (dp_aligner != scoring_aligner) {
                                 for (auto& aln : alt_alignments) {
                                     aln.set_score(scoring_aligner->score_contiguous_alignment(aln, false, false));

@@ -311,7 +311,11 @@ namespace vg {
         
         // members
         DeletionAligner deletion_aligner;
+        /// Base to number mapping
         int8_t* nt_table = nullptr;
+        /// Scoring matrix. Is NOT a 4x4 matrix you can pass to
+        /// set_alignment_scores; might have a 5th column for Ns, or be
+        /// fancily quality-adjusted.
         int8_t* score_matrix = nullptr;
         /// Points scored for a match
         int8_t match;

@@ -23,7 +23,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-//#define debug_anchored_surject
+#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -43,7 +43,23 @@ using namespace std;
         
         // The AlignerClient doesn't set up our extra Aligner to start, so we have to do it.
         const GSSWAligner* aligner = get_regular_aligner();
-        set_dp_alignment_scores(aligner->score_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
+        // The aligner score matrix is 5x5, so we need to make a 4x4 version again.
+        int8_t* cut_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+        crash_unless(cut_matrix != nullptr);
+        for (size_t i = 0, j = 0; i < 25; ++i) {
+            if (i % 5 != 4 && i / 5 != 4) {
+                // This entry is kept
+                cut_matrix[j] = aligner->score_matrix[i];
+                ++j;
+            }
+        }
+        try {
+            set_dp_alignment_scores(cut_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
+        } catch (...) {
+            free(cut_matrix);
+            throw;
+        }
+        free(cut_matrix);
     }
 
     void Surjector::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
@@ -59,10 +75,16 @@ using namespace std;
         int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
         int8_t max_in_score = std::numeric_limits<int8_t>::max() / dp_score_scale;
         int8_t* scaled_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+        crash_unless(scaled_matrix != nullptr);
         for (int i = 0; i < 16; i++) {
             if (score_matrix[i] > max_in_score || score_matrix[i] < min_in_score) {
                 free(scaled_matrix);
                 throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+            }
+            if (i / 4 == i % 4 && score_matrix[i] < 0) {
+                // There's a negative value on the diagonal. Something is wrong.
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is negative along scoring matrix diagonal");
             }
             scaled_matrix[i] = score_matrix[i] * dp_score_scale;
         }
@@ -4103,8 +4125,9 @@ using namespace std;
                     continue;
                 }
 
-                // Simple slide in either direction
-                size_t slide_limit = std::min<size_t>(max_slide, chunk.first.second - chunk.first.first);
+                // Simple slide in either direction.
+                // Make sure to increase the slide range from the anchor size itself, in case we're looking at a partial repeat unit.
+                size_t slide_limit = std::min<size_t>(max_slide, (chunk.first.second - chunk.first.first) * 2);
                 for (int slide_distance = -(int)slide_limit; slide_distance < (int)slide_limit + 1; slide_distance++) {
                     if (slide_distance == 0) {
                         continue;
@@ -4189,7 +4212,9 @@ using namespace std;
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-                            //cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#ifdef debug_anchored_surject
+                            cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
                             if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for having context with low complexity at order " << order << ", p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
@@ -4202,8 +4227,9 @@ using namespace std;
                     }
                     else {
                         for (int order = 1; order <= 6; ++order) {
-                            //cerr << "unpadded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), order " << order << ", p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
-
+#ifdef debug_anchored_surject
+                            cerr << "unpadded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), order " << order << ", p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
                             if (chunk_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
