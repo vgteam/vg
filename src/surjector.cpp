@@ -2990,7 +2990,7 @@ using namespace std;
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, *aln_graph, get_aligner(),
                                false,                                    // anchors as matches
-                               40,                                       // max alt alns
+                               1,                                        // max alt alns
                                false,                                    // dynamic alt alns
                                numeric_limits<int64_t>::max(),           // max gap
                                0.0,                                      // pessimistic tail gap multiplier
