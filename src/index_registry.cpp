@@ -2086,6 +2086,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
                 size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), dummy, false, false);
                 
+                transcriptome.embed_transcript_paths(true, false);
+
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                     && transcript_file_nonempty(transcripts[idx])) {
                     cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcript_filename << " were found in graph chunk containing the following paths:" << endl;
@@ -3011,6 +3013,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             
             // save the graph with the transcript paths added
+            transcriptome.embed_transcript_paths(true, making_hsts);
             transcriptome.write_graph(&tx_graph_outfile);
             
             tx_graph_names[i] = tx_graph_name;
@@ -3215,6 +3218,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         
         // save the graph with the transcript paths added
+        transcriptome.embed_transcript_paths(true, making_hsts);
         transcriptome.write_graph(&tx_graph_outfile);
         tx_graph_names.push_back(tx_graph_name);
         
