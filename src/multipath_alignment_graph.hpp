@@ -193,11 +193,12 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length,
-                   bool simplify_topologies, size_t unmergeable_len, size_t band_padding, multipath_alignment_t& multipath_aln_out,
-                   SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
-                   const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false, bool align_in_reverse = false,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
+                   int64_t dp_score_scale, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                   double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
+                   size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
+                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
+                   bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
         /// Do intervening and tail alignments between the anchoring paths and
@@ -212,10 +213,11 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length,
-                   bool simplify_topologies, size_t unmergeable_len, const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
-                   multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
+                   int64_t dp_score_scale, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, 
+                   ouble pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
+                   const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function, multipath_alignment_t& multipath_aln_out,
+                   SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
                    const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
@@ -320,8 +322,8 @@ namespace vg {
         /// If dynamic alignment count is also selected, can indicate a minimum number
         /// of paths that must be in the extending graph in order to do an alignment
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
-        align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
+        align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
+                    int64_t dp_score_scale, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                     size_t min_paths, size_t max_tail_length, unordered_set<size_t>* sources = nullptr);
         
         /// Removes alignments that follow the same path through the graph, retaining only the

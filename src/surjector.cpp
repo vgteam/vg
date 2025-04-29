@@ -39,8 +39,50 @@ using namespace std;
         if (!graph) {
             cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
         }
+        
+        // When surjecting, we want to bias alignments to fewer distinct gaps.
+        // So we increase the default score parameters from what they would
+        // otherwise be, to get some more space at the low end.
+        this->set_alignment_scores(1 * score_denominator, 4 * score_denominator, 6 * score_denominator + 1, 1 * score_denominator, 5 * score_denominator);
     }
-    
+
+    void Surjector::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+        // Set the scores for our main aligners
+        AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+
+        // Scale up the matrix by the scale.
+        // We don't want to overflow the tiny score fields.
+        int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
+        int8_t max_in_score = std::numeric_limits<int8_t>::max() / dp_score_scale;
+        int8_t* scaled_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+        for (int i = 0; i < 16; i++) {
+            if (score_matrix[i] > max_in_score || score_matrix[i] < min_in_score) {
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+            }
+            scaled_matrix[i] = score_matrix[i] * dp_score_scale;
+        }
+        for (auto& score : {gap_open, gap_extend, full_length_bonus}) {
+            // Check each non-matrix score 
+            if (score > max_in_score || score < min_in_score) {
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score) + " plus offset " + std::to_string(offset) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+            }
+        }
+        if (gap_open * dp_score_scale > std::numeric_limits<int8_t>::max() - dp_gap_open_extra_cost) {
+            // We don't have room for the extra gap open penalty.
+            throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) " is too large after scaling; reduce by at least " + std::to_string(std::max(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
+        }
+
+        // Apply the scores
+        dp_aligner = std::unique_ptr<Aligner>(new Aligner(scaled_matrix, gap_open * dp_score_scale + dp_gap_open_extra_cost, gap_extend * dp_score_scale,
+                                                          full_length_bonus * dp_score_scale, this->gc_content_estimate));
+        
+        // Get rid of the scaled matrix
+        free(scaled_matrix);
+        
+    }
+
     Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
                                  bool allow_negative_scores, bool preserve_deletions) const {
     
