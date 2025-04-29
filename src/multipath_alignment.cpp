@@ -215,48 +215,7 @@ namespace vg {
         }
         return return_val;
     }
-
-    int beauty_spaceship(const path_t* a, const path_t* b) {
-        if (a == b) {
-            // Same address or both null
-            return 0;
-        }
-        if (a == nullptr) {
-            // a is null and b is not, a is less
-            return -1;
-        }
-        if (b == nullptr) {
-            // b is null and a is not, a is greater
-            return 1;
-        }
-        
-        // Otherwise neither is null. Count a and b gaps, and subtract a from
-        // b. a will be greater if b has more gaps than a.
-        int a_gaps = path_gap_count(*a);
-        int b_gaps = path_gap_count(*b);
-        int comparison = b_gaps - a_gaps;
-
-        return comparison;
-    }
-
-    int beauty_spaceship(const subpath_t* a, const subpath_t* b) {
-        if (a == b) {
-            // Same address or both null
-            return 0;
-        }
-        if (a == nullptr) {
-            // a is null and b is not, a is less
-            return -1;
-        }
-        if (b == nullptr) {
-            // b is null and a is not, a is greater
-            return 1;
-        }
-        
-        // Otherwise neither is null. Look at their paths.
-        return beauty_spaceship(&a->path(), &b->path());
-    }
-
+    
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
         
         vector<size_t> index = subpath_topological_order(multipath_aln, true);
@@ -628,8 +587,7 @@ namespace vg {
         // thing, but the iteration schemes are just different enough to be pretty annoying
         
         // Use a lambda to unify the iteration over connections vs. immediate subpaths, and over forward vs. reverse modes.
-        // We consider the DP option at one index, for the DP cell at onother index, which works forward or reverse.
-        // In addition to considering scores, we also consider how beautiful or nice of a subpath alignment we're looking at, to break ties.
+        // We consider the DP option at one index, for the DP cell at another index, which works forward or reverse.
         auto consider_dp_option = [&](const size_t& option_index, const int64_t& cell_index, const int32_t& option_score, bool replace_ties) {
             // Find the potential subpath we could use
             const subpath_t& option_subpath = multipath_aln.subpath(option_index);
@@ -649,17 +607,9 @@ namespace vg {
                 return;
             }
 
-            if (option_score == winner_score) {
-                // We're a tie on score, so consider beauty
-                auto beauty_comparison = beauty_spaceship(&option_subpath, existing_winner);
-                if (beauty_comparison < 0) {
-                    // Don't replace, this is equal score but less beautiful
-                    return;
-                }
-                if (beauty_comparison == 0 && !replace_ties) {
-                    // Don't replace, this is a perfect tie and we aren't replacing on ties.
-                    return;
-                }
+            if (option_score == winner_score && !replace_ties) {
+                // Don't replace, this is a perfect tie and we aren't replacing on ties.
+                return;
             }
 
             // Now we're either strictly better, or a perfect tie when replacing on ties.

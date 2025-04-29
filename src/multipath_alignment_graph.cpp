@@ -4261,36 +4261,6 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     void MultipathAlignmentGraph::deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns,
                                                        bool leftward, bool rightward) {
         
-        // When deduplicating by path, within equal-scoring alignments, we need
-        // to order them heuristically so the nicest, highest-scoring alignment
-        // for a path wins.
-        auto left_it = alt_alns.begin();
-        auto right_it = left_it;
-        while (left_it != alt_alns.end()) {
-            while (right_it != alt_alns.end() && right_it->second == left_it->second) {
-                // Extend the run of equal scores to include whaqt's at right_it.
-                ++right_it;
-            }
-#ifdef debug_multipath_alignment
-            std::cerr << "Sorting " << right_it - left_it << " alignments with score " << left_it->second << std::endl;
-#endif
-
-            // Now the range left_it to right_it is a contiguous run of equal scores. Sort it by the heuristic.
-            // Keep ties in the heuristic stable.
-            std::stable_sort(left_it, right_it, [&](const std::pair<path_t, int32_t>& a, const std::pair<path_t, int32_t>& b) {
-                // Do a greater-than comparison on the heuristic on the paths, because we want an ascending sort.
-                // TODO: Use spaceship-based sort when available.
-                return beauty_spaceship(&a.first, &b.first) > 0;
-            });
-
-#ifdef debug_multipath_alignment
-            std::cerr << "Best is " << debug_cigar_string(left_it->first) << std::endl;
-#endif
-            
-            // Look for the next contiguous score range.
-            left_it = right_it;
-        }
-
         // we use stable sort to keep the original score-ordering among alignments
         // that take the same path, which is descending by score
         stable_sort(alt_alns.begin(), alt_alns.end(),

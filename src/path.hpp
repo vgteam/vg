@@ -502,10 +502,6 @@ int path_from_length(const path_t& path);
 int mapping_to_length(const path_mapping_t& mapping);
 int path_to_length(const path_t& path);
 
-/// Count the number of distinct gaps along the given path's alignment.
-/// Abutting gaps are counted as one.
-int path_gap_count(const path_t& path);
-
 path_mapping_t reverse_complement_mapping(const path_mapping_t& m,
                                           const function<int64_t(id_t)>& node_length);
 path_t reverse_complement_path(const path_t& path,
