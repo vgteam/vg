@@ -939,7 +939,7 @@ size_t GSSWAligner::longest_detectable_gap(size_t read_length) const {
 }
 
 int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
-    bool strip_bonuses) const {
+    bool allow_left_bonus, bool allow_right_bonus) const {
     
     int score = 0;
     int read_offset = 0;
@@ -1008,21 +1008,19 @@ int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const f
         }
     }
 
-    if (!strip_bonuses) {
-        // We should report any bonuses used in the DP in the final score
-        if (!softclip_start(aln)) {
-            score += score_full_length_bonus(true, aln);
-        }
-        if (!softclip_end(aln)) {
-            score += score_full_length_bonus(false, aln);
-        }
+    // We should report any bonuses used in the DP in the final score
+    if (allow_left_bonus && !softclip_start(aln)) {
+        score += score_full_length_bonus(true, aln);
+    }
+    if (allow_right_bonus && !softclip_end(aln)) {
+        score += score_full_length_bonus(false, aln);
     }
     
     return score;
 }
 
-int32_t GSSWAligner::score_contiguous_alignment(const Alignment& aln, bool strip_bonuses) const {
-    return score_discontiguous_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
+int32_t GSSWAligner::score_contiguous_alignment(const Alignment& aln, bool allow_left_bonus, bool allow_right_bonus) const {
+    return score_discontiguous_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, allow_left_bonus, allow_right_bonus);
 }
 
 int32_t GSSWAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
@@ -2395,9 +2393,11 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
 AlignerClient::AlignerClient(double gc_content_estimate) : gc_content_estimate(gc_content_estimate) {
     
     // Adopt the default scoring parameters and make the aligners
-    set_alignment_scores(default_score_matrix,
-                         default_gap_open, default_gap_extension,
-                         default_full_length_bonus);
+    AlignerClient::set_alignment_scores(default_score_matrix,
+                                        default_gap_open, default_gap_extension,
+                                        default_full_length_bonus);
+    // Note that we can't make a virtual call here; if you override the method
+    // you also need to do extra work in your constructor!
 }
 
 const GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {

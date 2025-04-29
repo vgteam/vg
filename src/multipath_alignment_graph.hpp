@@ -190,13 +190,17 @@ namespace vg {
         /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
         /// hold a reference to the Alignment then?
         ///
+        /// If dp_aligner is different from scoring_aligner, it is used for
+        /// dynamic programming alignment operations, and the results are
+        /// rescored with scoring_aligner. Neither may be null.
+        ///
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
-                   int64_t dp_score_scale, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                   double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
-                   size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
+                   bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
+                   size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, size_t band_padding,
+                   multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
                    SnarlDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
                    bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
@@ -210,15 +214,20 @@ namespace vg {
         /// constructed! TODO: Shouldn't the class hold a reference to the
         /// Alignment then?
         ///
+        /// If dp_aligner is different from scoring_aligner, it is used for
+        /// dynamic programming alignment operations, and the results are
+        /// rescored with scoring_aligner. Neither may be null.
+        ///
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
-                   int64_t dp_score_scale, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, 
-                   ouble pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
-                   const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function, multipath_alignment_t& multipath_aln_out,
-                   SnarlManager* cutting_snarls = nullptr, SnarlDistanceIndex* dist_index = nullptr,
-                   const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false, bool align_in_reverse = false,
+                   bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
+                   size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len,
+                   const function<size_t(const Alignment&,const HandleGraph&)>& band_padding_function,
+                   multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
+                   SnarlDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
+                   bool allow_negative_scores = false, bool align_in_reverse = false,
                    uint64_t max_band_cells = std::numeric_limits<uint64_t>::max());
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
@@ -316,6 +325,10 @@ namespace vg {
         /// source subpaths and adds their numbers to the given set if not
         /// null.
         ///
+        /// If dp_aligner is different from scoring_aligner, it is used for
+        /// dynamic programming alignment operations, and the results are
+        /// rescored with scoring_aligner. Neither may be null.
+        ///
         /// If a tail is longer than max_tail_length, produces an alignment
         /// softclipping it.
         ///
@@ -323,8 +336,8 @@ namespace vg {
         /// of paths that must be in the extending graph in order to do an alignment
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
         align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* scoring_aligner, const GSSWAligner* dp_aligner,
-                    int64_t dp_score_scale, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
-                    size_t min_paths, size_t max_tail_length, unordered_set<size_t>* sources = nullptr);
+                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths,
+                    size_t max_tail_length, unordered_set<size_t>* sources = nullptr);
         
         /// Removes alignments that follow the same path through the graph, retaining only the
         /// highest scoring ones. If deduplicating leftward, then also removes paths that take a

@@ -119,7 +119,7 @@ using namespace std;
         std::unique_ptr<Aligner> dp_aligner;
         
         /// When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until set_alignment_scores() is called.)
-        int64_t dp_score_scale = 10;
+        int8_t dp_score_scale = 10;
         /// When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until set_alignment_scores() is called.)
         int8_t dp_gap_open_extra_cost = 1;
 
@@ -184,6 +184,9 @@ using namespace std;
         bool annotate_with_all_path_scores = false;
         
     protected:
+
+        /// Do the extra score setup for the DP-only Aligner.
+        void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,

@@ -38,18 +38,22 @@ using namespace std;
     Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
         if (!graph) {
             cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
+            exit(1);
         }
         
-        // When surjecting, we want to bias alignments to fewer distinct gaps.
-        // So we increase the default score parameters from what they would
-        // otherwise be, to get some more space at the low end.
-        this->set_alignment_scores(1 * score_denominator, 4 * score_denominator, 6 * score_denominator + 1, 1 * score_denominator, 5 * score_denominator);
+        // The AlignerClient doesn't set up our extra Aligner to start, so we have to do it.
+        const GSSWAligner* aligner = get_regular_aligner();
+        set_dp_alignment_scores(aligner->score_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
     }
 
     void Surjector::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
         // Set the scores for our main aligners
         AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
 
+        set_dp_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+    }
+
+    void Surjector::set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
         // Scale up the matrix by the scale.
         // We don't want to overflow the tiny score fields.
         int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
@@ -66,12 +70,12 @@ using namespace std;
             // Check each non-matrix score 
             if (score > max_in_score || score < min_in_score) {
                 free(scaled_matrix);
-                throw std::invalid_argument("Score value " + std::to_string(score) + " plus offset " + std::to_string(offset) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+                throw std::invalid_argument("Score value " + std::to_string(score) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
             }
         }
         if (gap_open * dp_score_scale > std::numeric_limits<int8_t>::max() - dp_gap_open_extra_cost) {
             // We don't have room for the extra gap open penalty.
-            throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) " is too large after scaling; reduce by at least " + std::to_string(std::max(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
+            throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) + " is too large after scaling; reduce by at least " + std::to_string(std::max<int8_t>(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
         }
 
         // Apply the scores
@@ -1379,6 +1383,8 @@ using namespace std;
                             }
                             
                             // do the alignment
+                            // TODO: Use the dp_aligner here, but also still account for quality (we need 2?)
+                            // TODO: Account for quality in all the other get_aligner calls!
                             get_aligner(!src_quality.empty())->align_global_banded(aln, connecting, 1, true);
                             
                             auto first_pos = aln.mutable_path()->mutable_mapping(0)->mutable_position();
@@ -3030,7 +3036,7 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
-            mp_aln_graph.align(source, *aln_graph, get_aligner(),
+            mp_aln_graph.align(source, *aln_graph, get_aligner(), dp_aligner.get(),
                                false,                                    // anchors as matches
                                1,                                        // max alt alns
                                false,                                    // dynamic alt alns

@@ -204,6 +204,8 @@ namespace vg {
         virtual int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const = 0;
                 
         /// Compute the score of a path against the given range of subsequence with the given qualities.
+        /// The Alignment is just to find the sequence begin and end to compare to seq_begin.
+        /// seq_begin is the first read base involved in the provided path to be scored.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring = false) const = 0;
         
@@ -292,12 +294,14 @@ namespace vg {
         /// May include full length bonus or not. TODO: bool flags are bad.
         virtual int32_t score_discontiguous_alignment(const Alignment& aln,
             const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
-            bool strip_bonuses = false) const;
+            bool allow_left_bonus = true,
+            bool allow_right_bonus = true) const;
         
         /// Use the score values in the aligner to score the given alignment assuming
         /// that there are no gaps between Mappings in the Path
         virtual int32_t score_contiguous_alignment(const Alignment& aln,
-                                                   bool strip_bonuses = false) const;
+                                                   bool allow_left_bonus = true,
+                                                   bool allow_right_bonue = true) const;
 
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
@@ -535,6 +539,9 @@ namespace vg {
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// score matrix should by a 4 x 4 array in the order (ACGT).
         /// Other overloads of set_alignment_scores all call this one.
+        /// Note that an override of this method can't be called from the
+        /// constructor, so when overriding it, make sure to also do your extra
+        /// work in the constructor.
         virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Allocates an array to hold a 4x4 substitution matrix and returns it
@@ -547,7 +554,8 @@ namespace vg {
         // GSSW aligners
         unique_ptr<QualAdjAligner> qual_adj_aligner;
         unique_ptr<Aligner> regular_aligner;
-        
+   
+    protected:
         // GC content estimate that we need for building the aligners.
         double gc_content_estimate;
     };
