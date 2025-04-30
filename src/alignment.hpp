@@ -246,17 +246,22 @@ Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
 vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2);
+/// Get an Alignment corresponding to the middle len bases of the given alignment
 Alignment alignment_middle(const Alignment& aln, int len);
-// generate a digest of the alignmnet
+/// Cut the Alignment into contiguous pieces visiting nodes in the given node set, defined by a membership predicate.
+/// Will pass the original Alignment through if it is fully contained.
+/// Cut pieces will not have score or annotations set, but will keep mapping quality.
+std::vector<Alignment> alignment_pieces_within(const Alignment& aln, const std::function<bool(nid_t)>& node_in_set);
+// generate a digest of the alignment
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
 // ends of their nodes. Offsets will be updated to count unused bases from node
 // start when considering the node in its new orientation.
-Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
-void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
-vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(nid_t)>& node_length);
+void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(nid_t)>& node_length);
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length);
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
