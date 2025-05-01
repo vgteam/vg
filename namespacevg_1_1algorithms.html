@@ -360,9 +360,12 @@ Functions</h2></td></tr>
 <tr class="separator:a012fced2754c445ec404ff5420018982"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e4cebdfc1e901db4588c4612653df96"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9e4cebdfc1e901db4588c4612653df96">simplify_siblings</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
 <tr class="separator:a9e4cebdfc1e901db4588c4612653df96"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a64bd6b3ff0d2e22bf752e29e3522a98d">sorted_id_ranges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="memdesc:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a sorted list of inclusive ranges of IDs used in the given HandleGraph.  <a href="namespacevg_1_1algorithms.html#a64bd6b3ff0d2e22bf752e29e3522a98d">More...</a><br /></td></tr>
-<tr class="separator:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab94713d614172af602155e6d44e0ede2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab94713d614172af602155e6d44e0ede2">sorted_id_ranges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="memdesc:ab94713d614172af602155e6d44e0ede2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a sorted list of inclusive ranges of IDs used in the given HandleGraph.  <a href="namespacevg_1_1algorithms.html#ab94713d614172af602155e6d44e0ede2">More...</a><br /></td></tr>
+<tr class="separator:ab94713d614172af602155e6d44e0ede2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0048bd04df3ddbe4f69fdb9165b9acd8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0048bd04df3ddbe4f69fdb9165b9acd8">is_in_sorted_id_ranges</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;value, const std::vector&lt; std::pair&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;&gt; &amp;ranges)</td></tr>
+<tr class="memdesc:a0048bd04df3ddbe4f69fdb9165b9acd8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get whether an ID is in a sorted list of inclusive ID ranges.  <a href="namespacevg_1_1algorithms.html#a0048bd04df3ddbe4f69fdb9165b9acd8">More...</a><br /></td></tr>
+<tr class="separator:a0048bd04df3ddbe4f69fdb9165b9acd8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8ff68675a6735fbd34ce736e67a9d52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac8ff68675a6735fbd34ce736e67a9d52">expand_subgraph_by_steps</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph, const uint64_t &amp;steps, bool forward_only=false)</td></tr>
 <tr class="memdesc:ac8ff68675a6735fbd34ce736e67a9d52"><td class="mdescLeft">&#160;</td><td class="mdescRight">expand the subgraph iteratively for this many steps  <a href="namespacevg_1_1algorithms.html#ac8ff68675a6735fbd34ce736e67a9d52">More...</a><br /></td></tr>
 <tr class="separator:ac8ff68675a6735fbd34ce736e67a9d52"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3456,6 +3459,36 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="a0048bd04df3ddbe4f69fdb9165b9acd8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0048bd04df3ddbe4f69fdb9165b9acd8">&#9670;&nbsp;</a></span>is_in_sorted_id_ranges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::algorithms::is_in_sorted_id_ranges </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>value</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; std::pair&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>ranges</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get whether an ID is in a sorted list of inclusive ID ranges. </p>
+
+</div>
+</div>
 <a id="ac8e4eb795d14d441c4b2944c070a1d78"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac8e4eb795d14d441c4b2944c070a1d78">&#9670;&nbsp;</a></span>is_tail_node()</h2>
 
@@ -5142,14 +5175,14 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
 
 </div>
 </div>
-<a id="a64bd6b3ff0d2e22bf752e29e3522a98d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a64bd6b3ff0d2e22bf752e29e3522a98d">&#9670;&nbsp;</a></span>sorted_id_ranges()</h2>
+<a id="ab94713d614172af602155e6d44e0ede2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab94713d614172af602155e6d44e0ede2">&#9670;&nbsp;</a></span>sorted_id_ranges()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt; vg::algorithms::sorted_id_ranges </td>
+          <td class="memname">std::vector&lt; std::pair&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt; &gt; vg::algorithms::sorted_id_ranges </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
