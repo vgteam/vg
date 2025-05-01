@@ -49,8 +49,8 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
  */
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions, 
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
-                           size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                           double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges, 
+                           size_t min_nodes, size_t min_edges, size_t min_nodes_shallow, size_t min_edges_shallow,
+                           double min_avg_degree, size_t min_reflen, double max_reflen_prop, size_t max_reflen, bool only_net_edges, 
                            bool only_top_net_edges, bool out_bed, bool verbose);
 
 
@@ -77,8 +77,8 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
  */
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                                               SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
-                                              size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
+                                              size_t min_nodes, size_t min_edges, size_t min_nodes_shallow, size_t min_edges_shallow,
+                                              double min_avg_degree, size_t min_reflen, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
                                               bool only_top_net_edges, bool out_bed, bool verbose);
 
 /**

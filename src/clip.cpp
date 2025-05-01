@@ -285,30 +285,33 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents_shallow,
                              int64_t ref_interval_length, const Region& region, path_handle_t path_handle,
-                             size_t max_nodes, size_t max_edges,
-                             size_t max_nodes_shallow, size_t max_edges_shallow,
-                             double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                             size_t min_nodes, size_t min_edges,
+                             size_t min_nodes_shallow, size_t min_edges_shallow,
+                             double min_avg_degree, double min_reflen, double max_reflen_prop, size_t max_reflen,
                              double& out_avg_degree) {
-
+    
     out_avg_degree = -1.;
     
     // if our snarl is to big vs the reference path, we do not process it
     double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(path_handle);
-    if (ref_prop > max_reflen_prop || ref_interval_length > max_reflen) {
+
+    if (ref_prop > max_reflen_prop || ref_interval_length > max_reflen || ref_interval_length < min_reflen) {
 #ifdef debug
         cerr << "skipping snarl " << pb2json(*snarl) << " with interval length " << ref_interval_length
              << " because its ref_prop of " << region.seq << " is " << ref_prop << " which is greater than " << max_reflen_prop
-             << " or its ref length " << ref_interval_length << " is greater than " << max_reflen << endl;
+             << " or its ref length " << ref_interval_length << " is greater than " << max_reflen
+             <<< " or its ref length " << ref_interval_length << " is less than " << min_reflen << endl;
 #endif
         return false;
     }
 
     // check the stats
-    bool filter_on = max_nodes > 0 || max_edges > 0 || max_nodes_shallow > 0 || max_edges_shallow > 0 || max_avg_degree > 0.;
-    bool complex_nodes = contents.first.size() > max_nodes;
-    bool complex_edges = contents.second.size() > max_edges;
-    bool complex_nodes_shallow = contents_shallow.first.size() > max_nodes_shallow;
-    bool complex_edges_shallow = contents_shallow.second.size() > max_edges_shallow;
+    bool filter_on = min_nodes > 0 || min_edges > 0 || min_nodes_shallow > 0 || min_edges_shallow > 0 || min_avg_degree > 0.;
+    filter_on = filter_on || min_reflen > 0 || max_reflen_prop < 1. || max_reflen < numeric_limits<size_t>::max();
+    bool complex_nodes = contents.first.size() > min_nodes;
+    bool complex_edges = contents.second.size() > min_edges;
+    bool complex_nodes_shallow = contents_shallow.first.size() > min_nodes_shallow;
+    bool complex_edges_shallow = contents_shallow.second.size() > min_edges_shallow;
     size_t total_degree = 0;
     for (id_t node_id : contents.first) {
         handle_t handle = graph->get_handle(node_id);
@@ -316,7 +319,7 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     }
     // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
     out_avg_degree = (double)total_degree / (2. *(double)contents.first.size());
-    bool complex_degree = out_avg_degree > max_avg_degree;        
+    bool complex_degree = out_avg_degree > min_avg_degree;        
     
     return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
 }
@@ -374,8 +377,8 @@ static unordered_set<edge_t> get_net_edges(const HandleGraph* graph, SnarlManage
 
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions, 
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
-                           size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                           double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
+                           size_t min_nodes, size_t min_edges, size_t min_nodes_shallow, size_t min_edges_shallow,
+                           double min_avg_degree, size_t min_reflen, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
                            bool only_top_net_edges, bool out_bed, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
@@ -474,8 +477,8 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
             }
             
             double avg_degree = -1;
-            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
-                                 max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, avg_degree)) {
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, min_nodes, min_edges,
+                                 min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen, max_reflen_prop, max_reflen, avg_degree)) {
                 if (out_bed) {
                     string snarl_name = (snarl->start().backward() ? "<" : ">") + std::to_string(snarl->start().node_id()) +
                         (snarl->end().backward() ? "<" : ">") + std::to_string(snarl->end().node_id());
@@ -702,12 +705,12 @@ void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_
 
 void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                                               SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len,
-                                              size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
-                                              double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
+                                              size_t min_nodes, size_t min_edges, size_t min_nodes_shallow, size_t min_edges_shallow,
+                                              double min_avg_degree, size_t min_reflen, double max_reflen_prop, size_t max_reflen, bool only_net_edges,
                                               bool only_top_net_edges, bool out_bed, bool verbose) {
 
     vector<pair<Region, pair<vector<handle_t>, vector<edge_t>>>> to_visit;
-        
+
     visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
                                                                                         int64_t start_pos, int64_t end_pos,
                                                                                         bool steps_reversed, const Region* containing_region) {
@@ -733,9 +736,10 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
         path_handle_t path_handle = pp_graph->get_path_handle_of_step(start_step);
         pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
         pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
+        double avg_degree = -1;
 
-        if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
-                             max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, max_avg_degree)) {
+        if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, min_nodes, min_edges,
+                             min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen, max_reflen_prop, max_reflen, avg_degree)) {
             pair<Region, pair<vector<handle_t>, vector<edge_t>>> region_contents;
             if (containing_region) {
                 region_contents.first = *containing_region;
