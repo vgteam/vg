@@ -29,13 +29,12 @@ void help_clip(char** argv) {
        << "    -s, --stubs               Clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
        << "    -S, --stubbify-paths      Clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
        << "snarl selection and clipping options:" << endl
-       << "   Note: If multiple options (-n/-e/-N-E-A) are used, they are combined with \"OR\"" << endl
        << "    -n, --min-nodes N         Clip out snarls with > N nodes" << endl
        << "    -e, --min-edges N         Clip out snarls with > N edges" << endl
-       << "    -N  --min-nodes-shallow N Clip out snarls with > N nodes not including nested snarls" << endl
-       << "    -E  --min-edges-shallow N Clip out snarls with > N edges not including nested snarls" << endl
+       << "    -B, --min-bases N         Clip out snarls with > N bases" << endl     
+       << "    -N, --min-nodes-shallow N Clip out snarls with > N nodes not including nested snarls" << endl
+       << "    -E, --min-edges-shallow N Clip out snarls with > N edges not including nested snarls" << endl
        << "    -a, --min-avg-degree N    Clip out snarls with average degree > N" << endl
-       << "   Note: Reflen options (-l/-L-A) override all other snarl selection options. If any are true, the snarl is ignored" << endl
        << "    -l, --min-reflen N        Ignore snarls whose reference traversal spans less than N bp" << endl     
        << "    -L, --min-reflen-prop F   Ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
        << "    -A, --max-reflen N        Ignore snarls whose reference traversal spans fewer than N bp" << endl
@@ -68,6 +67,7 @@ int main_clip(int argc, char** argv) {
 
     size_t min_nodes = 0;
     size_t min_edges = 0;
+    size_t min_bases = 0;
     size_t min_nodes_shallow = 0;
     size_t min_edges_shallow = 0;
     double min_avg_degree = 0.;
@@ -99,6 +99,7 @@ int main_clip(int argc, char** argv) {
             {"stubbify-paths", no_argument, 0, 'S'},
             {"min-nodes", required_argument, 0, 'n'},
             {"min-edges", required_argument, 0, 'e'},
+            {"min-bases", required_argument, 0, 'i'},
             {"min-nodes-shallow", required_argument, 0, 'N'},
             {"min-edges-shallow", required_argument, 0, 'E'},
             {"min-avg-degree", required_argument, 0, 'a'},
@@ -119,7 +120,7 @@ int main_clip(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:sSn:e:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "hb:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -153,6 +154,10 @@ int main_clip(int argc, char** argv) {
             min_edges = parse<size_t>(optarg);
             snarl_option = true;
             break;
+        case 'i':
+            min_bases = parse<size_t>(optarg);
+            snarl_option = true;
+            break;            
         case 'N':
             min_nodes_shallow = parse<size_t>(optarg);
             snarl_option = true;
@@ -372,7 +377,7 @@ int main_clip(int argc, char** argv) {
         } else {
             // do the contained snarls
             clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len,
-                                                     min_nodes, min_edges, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen, max_reflen_prop, max_reflen,
+                                                     min_nodes, min_edges, min_bases, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen, max_reflen_prop, max_reflen,
                                                      only_net_edges || only_top_net_edges, only_top_net_edges,
                                                      out_bed, verbose);
         }
@@ -399,7 +404,7 @@ int main_clip(int argc, char** argv) {
     }else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              min_nodes, min_edges, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen,
+                              min_nodes, min_edges, min_bases, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen,
                               max_reflen_prop, max_reflen, only_net_edges || only_top_net_edges, only_top_net_edges, out_bed, verbose);
     }
 
