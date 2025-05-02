@@ -28,16 +28,17 @@ void help_clip(char** argv) {
        << "stub clipping options:" << endl
        << "    -s, --stubs               Clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
        << "    -S, --stubbify-paths      Clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
-       << "snarl selection options:" << endl
-       << "    -n, --min-nodes N         Only clip out snarls with > N nodes" << endl
-       << "    -e, --min-edges N         Only clip out snarls with > N edges" << endl
-       << "    -N  --min-nodes-shallow N Only clip out snarls with > N nodes not including nested snarls" << endl
-       << "    -E  --min-edges-shallow N Only clip out snarls with > N edges not including nested snarls" << endl
-       << "    -a, --min-avg-degree N    Only clip out snarls with average degree > N" << endl
-       << "    -l, --min-reflen N        Only clip out snarls whose reference traversal spans more than N bp" << endl     
-       << "    -L, --min-reflen-prop F   Only clip out snarls whose reference traversal spans less than F (0<=F<=1) of the whole reference path" << endl
-       << "    -A, --max-reflen N        Only clip out snarls whose reference traversal spans fewer than N bp" << endl
-
+       << "snarl selection and clipping options:" << endl
+       << "   Note: If multiple options (-n/-e/-N-E-A) are used, they are combined with \"OR\"" << endl
+       << "    -n, --min-nodes N         Clip out snarls with > N nodes" << endl
+       << "    -e, --min-edges N         Clip out snarls with > N edges" << endl
+       << "    -N  --min-nodes-shallow N Clip out snarls with > N nodes not including nested snarls" << endl
+       << "    -E  --min-edges-shallow N Clip out snarls with > N edges not including nested snarls" << endl
+       << "    -a, --min-avg-degree N    Clip out snarls with average degree > N" << endl
+       << "   Note: Reflen options (-l/-L-A) override all other snarl selection options. If any are true, the snarl is ignored" << endl
+       << "    -l, --min-reflen N        Ignore snarls whose reference traversal spans less than N bp" << endl     
+       << "    -L, --min-reflen-prop F   Ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
+       << "    -A, --max-reflen N        Ignore snarls whose reference traversal spans fewer than N bp" << endl
        << "    -g  --net-edges           Only clip net-edges inside snarls" << endl
        << "    -G  --top-net_edges       Only clip net-edges inside top-level snarls" << endl
        << "big deletion edge clipping options:" << endl
