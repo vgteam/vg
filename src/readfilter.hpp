@@ -1628,7 +1628,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 }
             }
         } else {
-            cerr << endl << "Available statistics: <https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-%E2%80%90%E2%80%90tsv%E2%80%90out>" << endl;
+            cerr << endl << "Available fields: <https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-%E2%80%90%E2%80%90tsv%E2%80%90out>" << endl;
             throw runtime_error("error: Writing non-existent field to tsv: " + field);
         }
         if (i != output_fields.size()-1) {
