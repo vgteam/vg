@@ -1560,6 +1560,12 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << read.sequence();
         } else if (field == "length") {
             out << read.sequence().size(); 
+        } else if (field == "cigar") { 
+            vector<pair<int, char>> cigar;
+            for (const auto& mapping : read.path().mapping()) {
+                mapping_cigar(mapping, cigar, 'X');
+            }
+            out << cigar_string(cigar);
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
