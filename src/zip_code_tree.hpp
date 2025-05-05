@@ -93,11 +93,9 @@ class ZipCodeTree {
                 ..., dist:c2->end, dist:c1->end, dist:start->end, node_count, SNARL_END
 
       For snarls that aren't dags (called cyclic snarls, even though they could have an inversion 
-      and no cycles), the zip tree should represent all possible paths that the read could take 
-      through the snarl. All seeds on the snarl are split up into "runs" of seeds on the same chain
-      that are "close" to each other. The runs are sorted and orientated by their read coordinate 
-      and each run is made into a separate child chain like normal. A run may occur twice, once in 
-      each orientation. See get_cyclic_snarl_intervals() for details 
+      and no cycles), distances are stored as a triangular matrix at the start of the snarl.
+      The NODE_COUNT is also at the start, before the triangle. The matrix goes:
+      start_left, c1_left, c1_right, c2_left, c2_right, ..., end_left
 
 
       Everything is ordered according to the order of the highest-level chain (top-level chain or 
@@ -115,7 +113,8 @@ class ZipCodeTree {
     public:
 
     ///The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
+    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT,
+                           CYCLIC_SNARL_START, CYCLIC_SNARL_END, CYCLIC_SNARL_CHAIN_START, CYCLIC_SNARL_CHAIN_END};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
@@ -126,9 +125,12 @@ class ZipCodeTree {
 
         //For a seed, the index into seeds
         //For an edge, the distance value
-        //Empty for a bound
+        //For a cyclic snarl, its identifier
+        //For a cyclic snarl's child chain, the identifier of its parent
+        //Empty for other bounds
         size_t value : 59;
 
+        // TODO: not needed if we aren't going to reverse runs
         //For seeds, is the position of the seed traversed backwards in the tree?
         bool is_reversed;
 
@@ -164,6 +166,7 @@ class ZipCodeTree {
 protected:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
+    size_t cur_cyclic_snarl_id = 0;
 
 public:
     
@@ -279,6 +282,7 @@ public:
         /// Get the index and orientation of the seed we are currently at, and the distance to it.
         seed_result_t operator*() const;
 
+        /// TODO: probably need new states for new cyclic snarl handling
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
         enum State {
@@ -359,7 +363,9 @@ public:
 
     ///Print the zip code tree to stderr
     /// ( and ) are used for the starts and ends of snarls
+    /// { and } are used for the starts and ends of cyclic snarls
     /// [ and ] are used for the starts and ends of chains
+    /// < and > are used for the starts and ends of chains in cyclic snarls
     /// seeds are printed as their positions
     template<typename Minimizer>
     void print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const;

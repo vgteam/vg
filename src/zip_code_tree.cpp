@@ -32,10 +32,18 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimiz
             cerr << "(";
         } else if (item.get_type() == SNARL_END) {
             cerr << ")";
+        } else if (item.get_type() == CYCLIC_SNARL_START) {
+            cerr << "{";
+        } else if (item.get_type() == CYCLIC_SNARL_END) {
+            cerr << "}";
         } else if (item.get_type() == CHAIN_START) {
             cerr << "[";
         } else if (item.get_type() == CHAIN_END) {
             cerr << "]";
+        } else if (item.get_type() == CYCLIC_SNARL_CHAIN_START) {
+            cerr << "<";
+        } else if (item.get_type() == CYCLIC_SNARL_CHAIN_END) {
+            cerr << ">";
         } else if (item.get_type() == EDGE) {
             cerr << " " << item.get_value() << " ";
         } else if (item.get_type() == NODE_COUNT) {
@@ -47,6 +55,8 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimiz
     cerr << endl;
 }
 
+// TODO: at a minimum, no longer need to track if a chain is reversed
+// Also, different boundaries for cyclic snarl chains
 void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, 
                                const size_t& depth, size_t seed_index, bool chain_is_reversed) {
     //If this is the start of a new chain
@@ -144,6 +154,8 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
     }
 }
 
+// TODO: at a minimum, no longer need to track if a chain is reversed
+// Also, different boundaries for cyclic snarl chains
 void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, 
                                 const size_t& depth, const Seed& last_seed, bool chain_is_reversed) {
 
@@ -329,6 +341,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
     }
 }
 
+// TODO: at a minimum, no longer need to track if a chain is reversed
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, 
                        const size_t& depth, const size_t& seed_index, bool child_is_reversed,
                        bool chain_is_reversed) {
@@ -604,6 +617,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
 
 }
 
+// TODO: special case for cyclic snarls
 void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\tOpen new snarl at depth " << depth << endl;
@@ -620,6 +634,7 @@ void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_
     }
 }
 
+// TODO: special case for cyclic snarls
 void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, 
                                 const size_t& depth, const Seed& last_seed, bool last_is_reversed, bool is_cyclic_snarl) {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -773,6 +788,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
      }
 }
 
+// TODO: special case for putting cyclic snarl distances together?
 void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, const size_t& depth, 
                                 const Seed& seed, bool child_is_reversed, bool snarl_is_reversed, 
                                 bool to_snarl_end, bool is_cyclic_snarl) {
@@ -869,6 +885,7 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
     forest_state.sibling_indices_at_depth[depth].back().is_reversed = child_is_reversed;
 }
 
+// TODO: I don't think we need this once the cyclic snarl change-over is done?
 double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "get correlation from " << values.size() << " values: " << endl;
@@ -965,6 +982,7 @@ double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values
 }
 
 
+// TODO: different way of tracking cyclic snarls
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<Seed>& seeds, 
                                                                    const SnarlDistanceIndex& distance_index) const {
     size_t dag_count = 0;
@@ -1110,6 +1128,7 @@ bool ZipCodeTree::node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& di
     return is_cyclic_snarl;
 }
 
+// TODO: also handle cyclic snarls
 void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, 
                                     const vector<Seed>* seeds,
                                     size_t distance_limit) const {
@@ -1126,7 +1145,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         const tree_item_t& item = zip_code_tree[i];
         if (item.get_type() == SNARL_START) {
             if (!snarl_stack.empty()) {
-                //ALso check snarl distances and child count for non-root snarls
+                //Also check snarl distances and child count for non-root snarls
                 validate_snarl(zip_code_tree.begin() + i, distance_index, seeds, distance_limit); 
             }
             snarl_stack.push_back(SNARL_START);
@@ -1419,6 +1438,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
     }
 }
+// TODO: also handle cyclic snarls
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                                         const vector<Seed>* seeds, size_t distance_limit) const {
     vector<bool> has_seed (seeds->size(), false);
@@ -1440,7 +1460,7 @@ void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index
 }
 
 
-
+// TODO: special case for cyclic snarls
 //Helper function for validating a snarl. zip_iterator is an iterator to the snarl start
 void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
                                  const SnarlDistanceIndex& distance_index, 
@@ -1639,6 +1659,7 @@ auto ZipCodeTree::end() const -> iterator {
     return iterator(zip_code_tree.end(), zip_code_tree.end());
 }
 
+// TODO: pass information about cyclic snarls?
 ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(rbegin), rend(rend), distance_limit(distance_limit), stack_data(nullptr), current_state(S_START) {
 #ifdef debug_parse
     if (this->it != rend) {
@@ -1784,6 +1805,7 @@ auto ZipCodeTree::reverse_iterator::halt() -> void {
     it = rend;
 }
 
+// TODO: new case for cyclic snarls and things within them
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
 #ifdef debug_parse
     std::cerr << "Tick for state " << current_state << " on symbol " << it->get_type() << " at entry " << (rend - it + 1) << std::endl;
@@ -2577,6 +2599,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 const interval_state_t& ancestor_interval = forest_state.open_intervals.back();
                 const Seed& last_seed = seeds.at(forest_state.seed_sort_order[ancestor_interval.interval_end-1]);
 
+                // TODO: add new chain type as option?
                 if (ancestor_interval.code_type == ZipCode::CHAIN ||
                     ancestor_interval.code_type == ZipCode::NODE ||
                     ancestor_interval.code_type == ZipCode::ROOT_CHAIN ||
@@ -2638,7 +2661,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                 forward_list<interval_state_t> child_intervals;
                 get_next_intervals(forest_state, current_interval, child_intervals);
-
+                // TODO: get rid of this special handling!
                 get_cyclic_snarl_intervals(forest_state, minimizers, current_interval,
                                            forest_state.open_intervals.back(), child_intervals,
                                            forest_state.intervals_to_process);
@@ -2713,6 +2736,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                 
             } else {
+                // TODO: different handling for chains within cyclic snarls
                 // Open the root chain/node
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
@@ -2785,6 +2809,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         interval_state_t& ancestor_interval = forest_state.open_intervals.back();
         const Seed& last_seed = seeds.at(forest_state.seed_sort_order[ancestor_interval.interval_end-1]);
 
+        // TODO: add new chain type as option?
         if (ancestor_interval.code_type == ZipCode::CHAIN ||
             ancestor_interval.code_type == ZipCode::ROOT_CHAIN ||
             ancestor_interval.code_type == ZipCode::ROOT_NODE) {
@@ -2819,6 +2844,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
 }
 
+// TODO: this will be deleted once the new handling is added!
 template void ZipCodeForest::get_cyclic_snarl_intervals<MinimizerMapper::Minimizer>(forest_growing_state_t&, 
     const VectorView<MinimizerMapper::Minimizer>&, const ZipCodeForest::interval_state_t&, const ZipCodeForest::interval_state_t&, 
     const forward_list<ZipCodeForest::interval_state_t>&, forward_list<ZipCodeForest::interval_state_t>&) const;
@@ -3317,10 +3343,18 @@ std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
         return "SNARL_START";
     case vg::ZipCodeTree::SNARL_END:
         return "SNARL_END";
+    case vg::ZipCodeTree::CYCLIC_SNARL_START:
+        return "CYCLIC_SNARL_START";
+    case vg::ZipCodeTree::CYCLIC_SNARL_END:
+        return "CYCLIC_SNARL_END";
     case vg::ZipCodeTree::CHAIN_START:
         return "CHAIN_START";
     case vg::ZipCodeTree::CHAIN_END:
         return "CHAIN_END";
+    case vg::ZipCodeTree::CYCLIC_SNARL_CHAIN_START:
+        return "CYCLIC_SNARL_CHAIN_START";
+    case vg::ZipCodeTree::CYCLIC_SNARL_CHAIN_END:
+        return "CYCLIC_SNARL_CHAIN_END";
     case vg::ZipCodeTree::EDGE:
         return "EDGE";
     case vg::ZipCodeTree::NODE_COUNT:
