@@ -576,6 +576,7 @@ class ZipCodeForest {
         vector<interval_state_t> open_intervals;
     
         //For cyclic snarls, what is the limit for separating runs of seeds
+        // TODO: should no longer be needed
         size_t gap_distance_limit;
 
         //The overall distance limit for splitting of new connected components
@@ -625,6 +626,7 @@ class ZipCodeForest {
         //Is the sibling reversed. 
         //This is only used for children of snarls, to indicate that the child is traversed 
         //backwards 
+        //TODO: should no longer be needed
         bool is_reversed = false;
 
         child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) :
@@ -641,6 +643,7 @@ class ZipCodeForest {
 
         // is_reversed is true if that snarl tree node is reversed relative to the 
         // top-level chain
+        // TODO: should no longer be needed
         bool is_reversed : 1;
 
         //The type of the snarl tree structure.
@@ -655,10 +658,12 @@ class ZipCodeForest {
         // processed, the entire interval is already in the correct order, just reversed. 
         //If this is_reverse_ordered true, then the interval is sorted in the reverse order, so it
         // needs to be flipped before processing
+        // TODO: should no longer be needed
         bool is_reverse_ordered;
 
         //After flipping a reverse-ordered interval, all of the child intervals will be sorted
         //So remember if the interval doesn't need sorting
+        // TODO: should no longer be needed, since we don't need to flip
         bool is_ordered;
 
 
@@ -809,7 +814,7 @@ class ZipCodeForest {
 
     // Close a chain that ends at last_seed
     // If the chain was empty, remove it and anything relating to it in the parent snarl and 
-    // sibling_indices
+    // sibling_indicesforest_growing_state_t
     // If it can be spliced out, take out a subtree
     // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to 
     // everything before it in the snarl and remember the distance to the end of the chain
@@ -828,7 +833,7 @@ class ZipCodeForest {
                       bool child_is_reversed, bool chain_is_reversed);
 
     // Start a new snarl
-    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
+    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);
 
     // Close a snarl
     // depth is the depth of the snarl and last_seed is the last seed in the snarl
