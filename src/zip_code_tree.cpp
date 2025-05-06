@@ -33,9 +33,9 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimiz
         } else if (item.get_type() == SNARL_END) {
             cerr << ")";
         } else if (item.get_type() == CYCLIC_SNARL_START) {
-            cerr << "{";
+            cerr << "{" << item.get_value();
         } else if (item.get_type() == CYCLIC_SNARL_END) {
-            cerr << "}";
+            cerr << "}" << item.get_value();
         } else if (item.get_type() == CHAIN_START) {
             cerr << "[";
         } else if (item.get_type() == CHAIN_END) {
@@ -623,15 +623,14 @@ void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_
         cerr << "\t\tOpen new snarl at depth " << depth << endl;
 #endif
     auto opening_type = is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_START : ZipCodeTree::SNARL_START;
+    auto value = is_cyclic_snarl ? trees[forest_state.active_tree_index].cur_cyclic_snarl_id++ : std::numeric_limits<size_t>::max();
     //If this was a snarl, record the start of the snarl
-    trees[forest_state.active_tree_index].zip_code_tree.emplace_back(opening_type, 
-                                                                     std::numeric_limits<size_t>::max(), false);
+    trees[forest_state.active_tree_index].zip_code_tree.emplace_back(opening_type, value, false);
     
     if (depth != 0) {
         //Remember the start of the snarl to find distances later
         //Don't do this for a root snarl because technically there is no start node so there are no distances to it
-        forest_state.sibling_indices_at_depth[depth].push_back({opening_type, 
-                                                                std::numeric_limits<size_t>::max()});
+        forest_state.sibling_indices_at_depth[depth].push_back({opening_type, value});
     }
 }
 
@@ -788,9 +787,9 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                                                                      false);
         auto closing_type = forest_state.sibling_indices_at_depth[depth][0].type == ZipCodeTree::CYCLIC_SNARL_START 
             ? ZipCodeTree::CYCLIC_SNARL_END : ZipCodeTree::SNARL_END;
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, 
-                                                                     std::numeric_limits<size_t>::max(), 
-                                                                     false);
+        //Always same value as the snarl's opening: either an ID, or no ID
+        auto value = forest_state.sibling_indices_at_depth[depth][0].value;
+        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, value, false);
      }
 }
 
@@ -1148,12 +1147,16 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
     /**********  Make sure that all snarls/chains are opened and closed in a valid order ****************/
     bool has_seed = false;
     vector<tree_item_type_t> snarl_stack; 
+    vector<size_t> cyclic_snarl_id_stack;
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
         const tree_item_t& item = zip_code_tree[i];
         if (item.get_type() == SNARL_START || item.get_type() == CYCLIC_SNARL_START) {
             if (!snarl_stack.empty()) {
                 //Also check snarl distances and child count for non-root snarls
                 validate_snarl(zip_code_tree.begin() + i, distance_index, seeds, distance_limit); 
+            }
+            if (item.get_type() == CYCLIC_SNARL_START) {
+                cyclic_snarl_id_stack.push_back(item.get_value());
             }
             snarl_stack.push_back(item.get_type());
         } else if (item.get_type() == CHAIN_START) {
@@ -1164,6 +1167,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         } else if (item.get_type() == CYCLIC_SNARL_END) {
             assert(snarl_stack.back() == CYCLIC_SNARL_START);
             snarl_stack.pop_back();
+            assert(cyclic_snarl_id_stack.back() == item.get_value());
+            cyclic_snarl_id_stack.pop_back();
         } else if (item.get_type() == CHAIN_END) {
             assert(snarl_stack.back() == CHAIN_START);
             snarl_stack.pop_back();
