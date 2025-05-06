@@ -1519,7 +1519,7 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 //Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(5).get_type() == ZipCodeTree::CHAIN_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(5).get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
                 //Second seed (4)
                 REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 1);

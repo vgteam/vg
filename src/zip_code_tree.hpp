@@ -612,6 +612,7 @@ class ZipCodeForest {
 
         //A value associated with the item, either the offset in a chain, index of the snarl 
         //child start
+        //For a cyclic snarl start, this is the ID
         size_t value;  
     
         //For the children of snarls, the distance to the left and right of the chain, that gets 
@@ -803,6 +804,14 @@ class ZipCodeForest {
     //////////////////////////////////////////////////////
     ///////////          functions for building the trees
     /////////////////////////////////////////////////////
+
+    // Move a slice of a chain into a new tree
+    // Chain copied from forest_state.open_chains.back().first to end of ziptree
+    // If only a slice is moved, the last edge is not handled
+    // This is used when a chain is too far from the rest of the chain to be in the same tree
+    // Returns whether a whole chain was moved (true) or just a slice (false)
+    bool move_slice(forest_growing_state_t& forest_state, const size_t& depth,
+                    bool parent_is_cyclic_snarl, bool has_end);
 
     // Open a chain that starts at the current_seed
     // If the chain is in a snarl, then add empty edges for the distances to everything before it 
