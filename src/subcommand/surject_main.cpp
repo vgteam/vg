@@ -86,7 +86,7 @@ static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGrap
 /// doesn't agree with the nodes in the graph), print a message and stop the
 /// program. Is thread-safe.
 static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const HandleGraph& graph) {
-    // For multipaht alignments we just check node existence.
+    // For multipath alignments we just check node existence.
     for (auto& subpath : aln.subpath()) {
         for (auto& mapping : subpath.path().mapping()) {
             nid_t node_id = mapping.position().node_id();
@@ -99,6 +99,9 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
                 }
                 exit(1);
             }
+            // TODO: Check edge existence. It's possible to have an alignment
+            // have all the nodes but still not really belong to the graph,
+            // possibly leading to failures later.
         }
     }
 }

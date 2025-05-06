@@ -192,9 +192,9 @@ rm -f perpendicular.sam
 vg construct -r small/x.fa > x.vg
 cat <(vg view x.vg) <(vg view x.vg | grep P | sed 's/P\tx/P\ty/') | vg convert -g - > x.pathdup.vg
 vg index -x x.xg -g x.gcsa x.pathdup.vg
-vg sim -x x.xg -n 20 -l 40 -p 60 -v 10 -a > x.gam
-vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAM -I 60 -D 10 > mapped.gam
-vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAMP -I 60 -D 10 > mapped.gamp
+vg sim -x x.xg -n 20 -l 40 -p 60 -v 10 -a --random-seed 123 > x.gam
+vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAM -I 60 -D 10 -t 1 > mapped.gam
+vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAMP -I 60 -D 10 -t 1 > mapped.gamp
 
 is "$(vg surject -x x.xg -s -t 1 mapped.gam | grep -v '@' | wc -l)" 40 "GAM surject can return only primaries"
 is "$(vg surject -x x.xg -M -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return multimappings"
@@ -209,6 +209,7 @@ is "${?}" "1" "Surjection fails when using the wrong graph for GAM"
 is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAM to the wrong graph reports the problem"
 vg surject -x tiny.vg -s -t 1 -m mapped.gamp >/dev/null 2>err.txt
 is "${?}" "1" "Surjection fails when using the wrong graph for GAMP"
+wc -l err.txt
 cat err.txt 1>&2
 is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GAMP to the wrong graph reports the problem"
 
