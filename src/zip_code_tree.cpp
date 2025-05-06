@@ -1148,10 +1148,12 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         } else if (item.get_type() == CHAIN_END) {
             assert(snarl_stack.back() == CHAIN_START);
             snarl_stack.pop_back();
+            assert(snarl_stack.empty() || snarl_stack.back() == SNARL_START);
         } else if (item.get_type() == CYCLIC_SNARL_CHAIN_END) {
             assert(cyclic_snarl_id_stack.back() == item.get_value());
             assert(snarl_stack.back() == CYCLIC_SNARL_CHAIN_START);
             snarl_stack.pop_back();
+            assert(snarl_stack.empty() || snarl_stack.back() == CYCLIC_SNARL_START);
         } else if (item.get_type() == SEED) {
             has_seed = true;
         }
