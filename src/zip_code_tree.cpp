@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -786,7 +786,9 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::NODE_COUNT, 
                                                                      forest_state.sibling_indices_at_depth[depth].size()-1, 
                                                                      false);
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::SNARL_END, 
+        auto closing_type = forest_state.sibling_indices_at_depth[depth][0].type == ZipCodeTree::CYCLIC_SNARL_START 
+            ? ZipCodeTree::CYCLIC_SNARL_END : ZipCodeTree::SNARL_END;
+        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, 
                                                                      std::numeric_limits<size_t>::max(), 
                                                                      false);
      }
@@ -862,12 +864,12 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
                     bool right_side2 = child_is_reversed;
 
                     //If the sibling is the start, then get the distance to the appropriate bound
-                    size_t rank1 = sibling.type == ZipCodeTree::SNARL_START || ZipCodeTree::CYCLIC_SNARL_START
+                    size_t rank1 = sibling.type == ZipCodeTree::SNARL_START || sibling.type == ZipCodeTree::CYCLIC_SNARL_START
                                         ? (snarl_is_reversed ? 1 : 0)
                                         : sibling_seed.zipcode.get_rank_in_snarl(depth+1);
                     bool right_side1 = !sibling.is_reversed;
 
-                    size_t distance_to_end_of_last_child = sibling.type == ZipCodeTree::SNARL_START || ZipCodeTree::CYCLIC_SNARL_START ? 0
+                    size_t distance_to_end_of_last_child = sibling.type == ZipCodeTree::SNARL_START || sibling.type == ZipCodeTree::CYCLIC_SNARL_START ? 0
                                                      : sibling.distances.second;
                     //The bools for this are true if the distance is to/from the right side of the child
                     //We want the right side of 1 (which comes first in the dag ordering) to the left side of 2
@@ -1005,7 +1007,7 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<
 
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++ ) {
         const tree_item_t& current_item = zip_code_tree[i];
-        if (current_item.get_type() == ZipCodeTree::SNARL_START) {
+        if (current_item.get_type() == ZipCodeTree::SNARL_START || current_item.get_type() == ZipCodeTree::CYCLIC_SNARL_START) {
             //For the start of a snarl, make a note of the depth to check the next seed
             snarl_depths.emplace_back(current_depth);
 
@@ -1015,7 +1017,8 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<
             //For the start of a chain, increment the depth
             current_depth++;
         } else if (current_item.get_type() == ZipCodeTree::CHAIN_END 
-                    || current_item.get_type() == ZipCodeTree::SNARL_END) {
+                    || current_item.get_type() == ZipCodeTree::SNARL_END
+                    || current_item.get_type() == ZipCodeTree::CYCLIC_SNARL_END) {
             //For the end of a snarl or chain, decrement the depth
             current_depth--;
         } else if (current_item.get_type() == ZipCodeTree::SEED) {
@@ -1152,11 +1155,14 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
                 //Also check snarl distances and child count for non-root snarls
                 validate_snarl(zip_code_tree.begin() + i, distance_index, seeds, distance_limit); 
             }
-            snarl_stack.push_back(SNARL_START);
+            snarl_stack.push_back(item.get_type());
         } else if (item.get_type() == CHAIN_START) {
             snarl_stack.push_back(CHAIN_START);
         } else if (item.get_type() == SNARL_END) {
             assert(snarl_stack.back() == SNARL_START);
+            snarl_stack.pop_back();
+        } else if (item.get_type() == CYCLIC_SNARL_END) {
+            assert(snarl_stack.back() == CYCLIC_SNARL_START);
             snarl_stack.pop_back();
         } else if (item.get_type() == CHAIN_END) {
             assert(snarl_stack.back() == CHAIN_START);
@@ -1616,7 +1622,7 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_it
     //zip_iterator now points to the node count
     assert(from_positions.size()-1 == zip_iterator->get_value());
     zip_iterator++;
-    assert(zip_iterator->get_type() == SNARL_END);
+    assert(zip_iterator->get_type() == SNARL_END || zip_iterator->get_type() == CYCLIC_SNARL_END);
     return;
 };
 
@@ -1849,6 +1855,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
 #endif
             return true;
             break;
+        case CYCLIC_SNARL_END: // For now we treat these like regular snarls
         case SNARL_END:
             // Running distance along chain is on stack, and will need to be added to all the stored distances.
             state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the things in the snarl.
@@ -2041,6 +2048,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             // We might now be able to match chain starts again
             top() -= 1;
             break;
+        case CYCLIC_SNARL_END: // For now we treat these like regular snarls
         case SNARL_END:
             // We can't match chain starts until we leave the snarl
             top() += 1;
