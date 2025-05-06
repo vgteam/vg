@@ -1,5 +1,5 @@
 /**
- * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast short-read-to-haplotypes mapper
+ * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast read-to-haplotypes mapper
  */
 
 #include <omp.h>
@@ -704,7 +704,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
     << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
     << endl
-    << "Fast haplotype-aware short read mapper." << endl
+    << "Fast haplotype-aware read mapper." << endl
     << endl;
 
     cerr
