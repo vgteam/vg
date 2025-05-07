@@ -782,25 +782,6 @@ class ZipCodeForest {
                             const interval_state_t& interval,
                             std::forward_list<interval_state_t>& next_intervals) const;
 
-    /// Given intervals representing child chains on a cyclic snarl, re-partition them and get
-    /// new intervals representing runs of seeds that are "close" in each chain.
-    /// Like in get_next_intervals, new intervals are added to next_intervals in their sort order.
-    /// Two seeds are close to each other if: 
-    /// (1) the distance between them on the read is <= t, where t is a given distance limit, 
-    /// (2) the minimum distance between them on the chain is <= t, and 
-    /// (3) they are on the same strand in the read.
-    /// Runs are sorted by their latest position in the read, and oriented according to the
-    /// orientation of the read through the snarl. The orientation of the read in the snarl's parent
-    /// chain and in the snarl children are estimated by finding the spearman correlation of the 
-    /// seeds. If the orientation of a run is unclear, then it is duplicated to be oriented in each 
-    /// direction 
-    template<typename Minimizer>
-    void get_cyclic_snarl_intervals(forest_growing_state_t& forest_state,
-            const VectorView<Minimizer>& minimizers, const interval_state_t& snarl_interval,
-            const interval_state_t& parent_interval,
-            const forward_list<interval_state_t>& child_intervals,
-            forward_list<interval_state_t>& next_intervals) const;
-
     //////////////////////////////////////////////////////
     ///////////          functions for building the trees
     /////////////////////////////////////////////////////
@@ -858,12 +839,6 @@ class ZipCodeForest {
                              const size_t& depth, const Seed& seed, bool child_is_reversed, 
                              bool snarl_is_reversed, 
                              bool to_snarl_end, bool is_cyclic_snarl);
-
-
-    /// Given a vector of value pairs, and a bool indicating if the pair is used for the correlation,
-    /// return the correlation. This is the spearman correlation for now
-    static double get_correlation (const vector<std::pair<size_t, size_t>>& values);
-
 
 
     /************ Helper functions for debugging ************/
