@@ -1279,7 +1279,15 @@ int main_stats(int argc, char** argv) {
                             swap(start_pos, end_pos);
                             swap(start_step, end_step);                            
                         }
-                        end_pos += graph->get_length(pp_graph->get_handle_of_step(end_step));
+                        // we don't want the boundaries counting toward the snarl length
+                        // so if the start step is forward in the traversal, then subtract its lefnth
+                        if (!graph->get_is_reverse(graph->get_handle_of_step(start_step))) {
+                            start_pos += graph->get_length(graph->get_handle_of_step(start_step));
+                        }
+                        // and if the last step is backwards in the traversal, subtract its length
+                        if (graph->get_is_reverse(graph->get_handle_of_step(end_step))) {
+                            end_pos -= graph->get_length(graph->get_handle_of_step(end_step));
+                        }
                         cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
                              << end_pos << "\t";
 
