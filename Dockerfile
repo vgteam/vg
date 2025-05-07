@@ -38,10 +38,10 @@ RUN apt-get -qq -y update && \
 # that starts with RUN, or comments. And we pull out line continuation slashes.
 # TODO: can we read them here and in the Makefile from the README instead?
 ###DEPS_BEGIN###
-RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
+RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -y install \
     make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
     libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
-    samtools curl libcurl4-openssl-dev unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
+    samtools curl libcurl4-gnutls-dev unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
     raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
     tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc
