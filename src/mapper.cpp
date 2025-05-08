@@ -4956,12 +4956,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
         // Use an approximation
         return aligner->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             return approx_distance(last, next);
-        }, strip_bonuses);
+        }, !strip_bonuses, !strip_bonuses);
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
         return aligner->score_discontiguous_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
                 return graph_mixed_distance_estimate(last, next, min(32, (int)max_search));
-        }, strip_bonuses);
+        }, !strip_bonuses, !strip_bonuses);
     }
     
 }

@@ -37,6 +37,12 @@ using namespace std;
         
         Surjector(const PathPositionHandleGraph* graph);
         
+        /// Override alignment score setting to let DP use slightly adjusted scores.
+        /// The provided scores will be adjusted to increase gap open cost
+        /// slightly when doing DP, but output scores will be scored with the
+        /// provided parameters.
+        virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
         /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
         /// path segments to obtain an alignment that is fully restricted to the paths.
@@ -108,7 +114,17 @@ using namespace std;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
+
+        /// When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own Aligner
+        std::unique_ptr<Aligner> dp_aligner;
         
+        /// When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until set_alignment_scores() is called.)
+        int8_t dp_score_scale = 10;
+        /// When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until set_alignment_scores() is called.)
+        int8_t dp_gap_open_extra_cost = 1;
+
+        
+
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
         int64_t min_splice_length = 20;
         
@@ -168,6 +184,9 @@ using namespace std;
         bool annotate_with_all_path_scores = false;
         
     protected:
+
+        /// Do the extra score setup for the DP-only Aligner.
+        void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
