@@ -47,7 +47,7 @@ include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo libzstd
+PKG_CONFIG_DEPS := cairo libzstd 
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 # Note that we then must *always* link anything *else* that uses them statically.
 # Jansson has to be in here because it has to come after libvgio, which is in the static deps.
@@ -705,7 +705,7 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc $(LIB_DIR)/libhts%$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
 	+cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoreconf -i && autoheader && autoconf || true
 	+cd $(HTSLIB_DIR) && (./configure -n 2>&1 || true) | grep "build system type" | rev | cut -f1 -d' ' | rev >systype.txt
-	+cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="$(LDFLAGS) -L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --enable-libcurl --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
+	+cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="$(LDFLAGS) -L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # Build and install tabixpp for vcflib.
 $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)/*.hpp
