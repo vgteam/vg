@@ -2417,12 +2417,11 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
     });
 }
 
-template void ZipCodeForest::fill_in_forest<MinimizerMapper::Minimizer>(const vector<Seed>&, const VectorView<MinimizerMapper::Minimizer>&, const SnarlDistanceIndex&, size_t, size_t);
+template void ZipCodeForest::fill_in_forest<MinimizerMapper::Minimizer>(const vector<Seed>&, const VectorView<MinimizerMapper::Minimizer>&, const SnarlDistanceIndex&, size_t);
 
 template<typename Minimizer>
 void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<Minimizer>& minimizers,
-                                   const SnarlDistanceIndex& distance_index, size_t gap_distance_limit,
-                                   size_t distance_limit) {
+                                   const SnarlDistanceIndex& distance_index, size_t distance_limit) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Make a new forest with " << seeds.size() << " seeds with distance limit " << distance_limit << endl;
     for (auto& x : seeds) {
@@ -2453,7 +2452,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
     //Start by initializing the state
     //The forest state keeps track of the sort order of seeds, the intervals that need to be sorted,
     //and which intervals are open and incomplete. 
-    forest_growing_state_t forest_state(seeds, distance_index, gap_distance_limit, distance_limit);
+    forest_growing_state_t forest_state(seeds, distance_index, distance_limit);
 
     //Start with the root as the interval over seed_sort_order containing everything
     interval_state_t first_interval (0, seeds.size(), false, ZipCode::EMPTY, 0);

@@ -442,16 +442,9 @@ class ZipCodeForest {
     /// If a distance limit is given, then also partition the tree into subtrees that are
     /// farther than the distance_limit from each other
     /// Otherwise, the forest will just be connected components
-    /// The gap_distance_limit is the limit for making runs of seeds in a cyclic snarl- it 
-    /// should be roughly the distance that the dynamic programming is willing to jump to 
-    /// connect two consecutive minimizers 
-    ///TODO: I think the distance_limit should just be the same as the gap_distance_limit
-    /// If a distance_limit is given, then distances larger than the distance limit are not
-    /// guaranteed to be accurate, but will be greater than the distance_limit
     template<typename Minimizer>
     void fill_in_forest(const vector<Seed>& seeds, const VectorView<Minimizer>& minimizers, 
                       const SnarlDistanceIndex& distance_index,
-                      size_t gap_distance_limit,
                       size_t distance_limit = std::numeric_limits<size_t>::max());
 
     private:
@@ -574,18 +567,15 @@ class ZipCodeForest {
         //Intervals that are currently open. These represent ancestors of whatever is currently 
         //being worked on. So the size is the depth of the snarl tree
         vector<interval_state_t> open_intervals;
-    
-        //For cyclic snarls, what is the limit for separating runs of seeds
-        // TODO: should no longer be needed
-        size_t gap_distance_limit;
+
 
         //The overall distance limit for splitting of new connected components
         size_t distance_limit;
 
         // Constructor given seeds and a distance index
         forest_growing_state_t(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index, 
-                               size_t gap_distance_limit, size_t distance_limit) :
-            seeds(&seeds), distance_index(&distance_index), gap_distance_limit(gap_distance_limit),
+                               size_t distance_limit) :
+            seeds(&seeds), distance_index(&distance_index), 
             distance_limit(distance_limit), active_tree_index(std::numeric_limits<size_t>::max()) {
 
             //This represents the current sort order of the seeds
@@ -644,7 +634,6 @@ class ZipCodeForest {
 
         // is_reversed is true if that snarl tree node is reversed relative to the 
         // top-level chain
-        // TODO: should no longer be needed
         bool is_reversed : 1;
 
         //The type of the snarl tree structure.

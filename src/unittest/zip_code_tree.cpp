@@ -45,7 +45,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -89,7 +89,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -159,7 +159,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -268,7 +268,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -390,7 +390,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             for (auto& zip_tree : zip_forest.trees) {
@@ -435,7 +435,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -497,7 +497,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 2);
 
 
@@ -581,7 +581,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 4);
 
         }
@@ -629,7 +629,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -762,7 +762,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -836,7 +836,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -873,7 +873,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -910,7 +910,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -946,7 +946,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -980,7 +980,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1005,7 +1005,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1031,7 +1031,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 1);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 1);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1057,7 +1057,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1083,7 +1083,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1139,7 +1139,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
             zip_forest.validate_zip_forest(distance_index, &seeds, 4);
         }
@@ -1199,7 +1199,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max(), 4);
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 4);
             zip_forest.validate_zip_forest(distance_index, &seeds, 4);
         }
     }
@@ -1258,7 +1258,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
             // Don't validate seed order any more since that's not enforced
@@ -1292,7 +1292,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
@@ -1384,7 +1384,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
@@ -1471,7 +1471,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
@@ -1571,7 +1571,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1631,7 +1631,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 3);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1721,7 +1721,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1753,7 +1753,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1783,7 +1783,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 4);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1808,7 +1808,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1835,7 +1835,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1862,7 +1862,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1888,7 +1888,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -1988,7 +1988,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2019,7 +2019,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 2);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 4);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2048,7 +2048,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2079,7 +2079,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2139,7 +2139,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2206,7 +2206,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2275,7 +2275,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2318,7 +2318,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2395,7 +2395,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
@@ -2448,7 +2448,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
@@ -2490,7 +2490,7 @@ namespace unittest {
         VectorView<MinimizerMapper::Minimizer> minimizers;
 
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+        zip_forest.fill_in_forest(seeds, minimizers, distance_index);
         REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
         zip_tree.validate_zip_tree(distance_index, &seeds);
@@ -2532,7 +2532,7 @@ namespace unittest {
         VectorView<MinimizerMapper::Minimizer> minimizers;
 
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+        zip_forest.fill_in_forest(seeds, minimizers, distance_index);
         REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
         //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
@@ -2581,7 +2581,7 @@ namespace unittest {
         VectorView<MinimizerMapper::Minimizer> minimizers;
 
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 61);
+        zip_forest.fill_in_forest(seeds, minimizers, distance_index, 61);
         zip_forest.validate_zip_forest(distance_index, &seeds, 61);
     }
     TEST_CASE("Components of root", "[zip_tree]") {
@@ -2637,7 +2637,7 @@ namespace unittest {
 
 
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max(), 5);
+        zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 5);
         REQUIRE(zip_forest.trees.size() == 6);
         for (auto& tree : zip_forest.trees) {
             tree.validate_zip_tree(distance_index, &seeds);
@@ -2700,7 +2700,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
@@ -2760,7 +2760,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Snarl first" ) {
@@ -2780,7 +2780,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
@@ -2822,7 +2822,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove second child of snarl" ) {
@@ -2841,7 +2841,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
     }
@@ -2885,7 +2885,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove second child of snarl" ) {
@@ -2904,7 +2904,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove first child of snarl" ) {
@@ -2923,7 +2923,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
         SECTION( "Remove one chain" ) {
@@ -2941,7 +2941,7 @@ namespace unittest {
             VectorView<MinimizerMapper::Minimizer> minimizers;
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max(), 3);
+            zip_forest.fill_in_forest(seeds, minimizers, distance_index, 3);
             REQUIRE(zip_forest.trees.size()==1);
             zip_forest.validate_zip_forest(distance_index, &seeds, 3);
         }
@@ -3007,7 +3007,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 100, 100);
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 100);
             zip_forest.validate_zip_forest(distance_index, &seeds, 100);
         }
 
@@ -3049,7 +3049,7 @@ namespace unittest {
         VectorView<MinimizerMapper::Minimizer> minimizers;
 
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, minimizers, distance_index, std::numeric_limits<size_t>::max());
+        zip_forest.fill_in_forest(seeds, minimizers, distance_index);
         zip_forest.print_self(&seeds, &minimizers);
         zip_forest.validate_zip_forest(distance_index, &seeds);
     }
@@ -3109,7 +3109,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
@@ -3185,7 +3185,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
             vector<size_t> seed_order;
             for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
@@ -3235,7 +3235,7 @@ namespace unittest {
 
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100, 100);
+            zip_forest.fill_in_forest(seeds, minimizer_vector, dist_index, 100);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
@@ -3367,7 +3367,7 @@ namespace unittest {
                 VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
 
                 ZipCodeForest zip_forest;
-                zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, limit, limit);
+                zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, limit);
                 zip_forest.validate_zip_forest(distance_index, &seeds, limit);
                 REQUIRE(true); //Just to count
             }

@@ -634,7 +634,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, minimizers, *distance_index, 
-                                   max_graph_lookback_bases, aln.sequence().size() * zipcode_tree_scale);
+                                   aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
     if (show_work) {
