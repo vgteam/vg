@@ -130,7 +130,6 @@ class ZipCodeTree {
         //Empty for other bounds
         size_t value : 59;
 
-        // TODO: not needed if we aren't going to reverse runs
         //For seeds, is the position of the seed traversed backwards in the tree?
         bool is_reversed;
 
@@ -778,7 +777,7 @@ class ZipCodeForest {
 
     // Close a chain that ends at last_seed
     // If the chain was empty, remove it and anything relating to it in the parent snarl and 
-    // sibling_indicesforest_growing_state_t
+    // sibling_indices
     // If it can be spliced out, take out a subtree
     // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to 
     // everything before it in the snarl and remember the distance to the end of the chain

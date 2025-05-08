@@ -55,8 +55,6 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimiz
     cerr << endl;
 }
 
-// TODO: at a minimum, no longer need to track if a chain is reversed
-// Also, different boundaries for cyclic snarl chains
 void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, 
                                const size_t& depth, size_t seed_index, bool chain_is_reversed) {
     //If this is the start of a new chain
@@ -234,8 +232,6 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
     return move_full_chain;
 }
 
-// TODO: at a minimum, no longer need to track if a chain is reversed
-// Also, different boundaries for cyclic snarl chains
 void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, 
                                 const size_t& depth, const Seed& last_seed, bool chain_is_reversed) {
     bool parent_is_cyclic_snarl = depth > 0 && forest_state.sibling_indices_at_depth[depth-1].size() > 0
@@ -361,7 +357,6 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
     }
 }
 
-// TODO: at a minimum, no longer need to track if a chain is reversed
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, 
                        const size_t& depth, const size_t& seed_index, bool child_is_reversed,
                        bool chain_is_reversed) {
@@ -588,7 +583,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
 
 }
 
-// TODO: special case for cyclic snarls
 void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\tOpen new snarl at depth " << depth << endl;
@@ -605,7 +599,6 @@ void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_
     }
 }
 
-// TODO: special case for cyclic snarls
 void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, 
                                 const size_t& depth, const Seed& last_seed, bool last_is_reversed, bool is_cyclic_snarl) {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1010,7 +1003,6 @@ bool ZipCodeTree::node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& di
     return is_cyclic_snarl;
 }
 
-// TODO: also handle cyclic snarls
 void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, 
                                     const vector<Seed>* seeds,
                                     size_t distance_limit) const {
@@ -1338,7 +1330,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
     }
 }
-// TODO: also handle cyclic snarls
+
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                                         const vector<Seed>* seeds, size_t distance_limit) const {
     vector<bool> has_seed (seeds->size(), false);
@@ -1359,8 +1351,6 @@ void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index
     }
 }
 
-
-// TODO: special case for cyclic snarls
 //Helper function for validating a snarl. zip_iterator is an iterator to the snarl start
 void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
                                  const SnarlDistanceIndex& distance_index, 
@@ -2584,7 +2574,6 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
                 
             } else {
-                // TODO: different handling for chains within cyclic snarls
                 // Open the root chain/node
                 trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, 
                                                                              std::numeric_limits<size_t>::max(), 
@@ -2657,7 +2646,6 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         interval_state_t& ancestor_interval = forest_state.open_intervals.back();
         const Seed& last_seed = seeds.at(forest_state.seed_sort_order[ancestor_interval.interval_end-1]);
 
-        // TODO: add new chain type as option?
         if (ancestor_interval.code_type == ZipCode::CHAIN ||
             ancestor_interval.code_type == ZipCode::ROOT_CHAIN ||
             ancestor_interval.code_type == ZipCode::ROOT_NODE) {
