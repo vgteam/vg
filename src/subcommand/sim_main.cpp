@@ -780,7 +780,7 @@ int main_sim(int argc, char** argv) {
     // We define a function to score a using the aligner
     auto rescore = [&] (Alignment& aln) {
         // Score using exact distance.
-        aln.set_score(aligner.score_contiguous_alignment(aln, strip_bonuses));
+        aln.set_score(aligner.score_contiguous_alignment(aln, !strip_bonuses, !strip_bonuses));
     };
     
     // And a function to emit either single or paired reads, while recomputing scores.

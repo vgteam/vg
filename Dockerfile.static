@@ -1,6 +1,6 @@
 # Dockerfile for shipping just the vg binary you have
 # Run with DOCKER_BUILDKIT=1 to avoid shipping the whole vg directory as context
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 MAINTAINER vgteam
 
 WORKDIR /vg
