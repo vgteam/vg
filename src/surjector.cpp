@@ -38,9 +38,77 @@ using namespace std;
     Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
         if (!graph) {
             cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
+            exit(1);
         }
+        
+        // The AlignerClient doesn't set up our extra Aligner to start, so we have to do it.
+        const GSSWAligner* aligner = get_regular_aligner();
+        // The aligner score matrix is 5x5, so we need to make a 4x4 version again.
+        int8_t* cut_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+        crash_unless(cut_matrix != nullptr);
+        for (size_t i = 0, j = 0; i < 25; ++i) {
+            if (i % 5 != 4 && i / 5 != 4) {
+                // This entry is kept
+                cut_matrix[j] = aligner->score_matrix[i];
+                ++j;
+            }
+        }
+        try {
+            set_dp_alignment_scores(cut_matrix, aligner->gap_open, aligner->gap_extension, aligner->full_length_bonus);
+        } catch (...) {
+            free(cut_matrix);
+            throw;
+        }
+        free(cut_matrix);
     }
-    
+
+    void Surjector::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+        // Set the scores for our main aligners
+        AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+
+        set_dp_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+    }
+
+    void Surjector::set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+        // Scale up the matrix by the scale.
+        // We don't want to overflow the tiny score fields.
+        int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
+        int8_t max_in_score = std::numeric_limits<int8_t>::max() / dp_score_scale;
+        int8_t* scaled_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+        crash_unless(scaled_matrix != nullptr);
+        for (int i = 0; i < 16; i++) {
+            if (score_matrix[i] > max_in_score || score_matrix[i] < min_in_score) {
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+            }
+            if (i / 4 == i % 4 && score_matrix[i] < 0) {
+                // There's a negative value on the diagonal. Something is wrong.
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is negative along scoring matrix diagonal");
+            }
+            scaled_matrix[i] = score_matrix[i] * dp_score_scale;
+        }
+        for (auto& score : {gap_open, gap_extend, full_length_bonus}) {
+            // Check each non-matrix score 
+            if (score > max_in_score || score < min_in_score) {
+                free(scaled_matrix);
+                throw std::invalid_argument("Score value " + std::to_string(score) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+            }
+        }
+        if (gap_open * dp_score_scale > std::numeric_limits<int8_t>::max() - dp_gap_open_extra_cost) {
+            // We don't have room for the extra gap open penalty.
+            throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) + " is too large after scaling; reduce by at least " + std::to_string(std::max<int8_t>(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
+        }
+
+        // Apply the scores
+        dp_aligner = std::unique_ptr<Aligner>(new Aligner(scaled_matrix, gap_open * dp_score_scale + dp_gap_open_extra_cost, gap_extend * dp_score_scale,
+                                                          full_length_bonus * dp_score_scale, this->gc_content_estimate));
+        
+        // Get rid of the scaled matrix
+        free(scaled_matrix);
+        
+    }
+
     Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
                                  bool allow_negative_scores, bool preserve_deletions) const {
     
@@ -1337,6 +1405,8 @@ using namespace std;
                             }
                             
                             // do the alignment
+                            // TODO: Use the dp_aligner here, but also still account for quality (we need 2?)
+                            // TODO: Account for quality in all the other get_aligner calls!
                             get_aligner(!src_quality.empty())->align_global_banded(aln, connecting, 1, true);
                             
                             auto first_pos = aln.mutable_path()->mutable_mapping(0)->mutable_position();
@@ -2988,7 +3058,7 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
-            mp_aln_graph.align(source, *aln_graph, get_aligner(),
+            mp_aln_graph.align(source, *aln_graph, get_aligner(), dp_aligner.get(),
                                false,                                    // anchors as matches
                                1,                                        // max alt alns
                                false,                                    // dynamic alt alns
@@ -4055,8 +4125,9 @@ using namespace std;
                     continue;
                 }
 
-                // Simple slide in either direction
-                size_t slide_limit = std::min<size_t>(max_slide, chunk.first.second - chunk.first.first);
+                // Simple slide in either direction.
+                // Make sure to increase the slide range from the anchor size itself, in case we're looking at a partial repeat unit.
+                size_t slide_limit = std::min<size_t>(max_slide, (chunk.first.second - chunk.first.first) * 2);
                 for (int slide_distance = -(int)slide_limit; slide_distance < (int)slide_limit + 1; slide_distance++) {
                     if (slide_distance == 0) {
                         continue;
@@ -4141,7 +4212,9 @@ using namespace std;
                         SeqComplexity<6> context_complexity(read_context_begin, read_context_end);
                         // TODO: repetitive
                         for (int order = 1, max_order = 6; order <= max_order; ++order) {
-                            //cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#ifdef debug_anchored_surject
+                            cerr << "padded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(read_context_begin, read_context_end) << ", order " << order << " with p-value " << context_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
                             if (context_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for having context with low complexity at order " << order << ", p-value " << context_complexity.p_value(order) << " and anchor repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
@@ -4154,8 +4227,9 @@ using namespace std;
                     }
                     else {
                         for (int order = 1; order <= 6; ++order) {
-                            //cerr << "unpadded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), order " << order << ", p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
-
+#ifdef debug_anchored_surject
+                            cerr << "unpadded anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), order " << order << ", p-value " << chunk_complexity.p_value(order) << ", repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;
+#endif
                             if (chunk_complexity.p_value(order) < low_complexity_p_value) {
 #ifdef debug_anchored_surject
                                 cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]) pruned for being low complexity at order " << order << " with p-value " << chunk_complexity.p_value(order) << " and repetitive fraction " << chunk_complexity.repetitiveness(order) << endl;

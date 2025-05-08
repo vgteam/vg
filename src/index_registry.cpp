@@ -3011,6 +3011,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             
             // save the graph with the transcript paths added
+            transcriptome.embed_transcript_paths(true, making_hsts);
             transcriptome.write_graph(&tx_graph_outfile);
             
             tx_graph_names[i] = tx_graph_name;

@@ -51,6 +51,7 @@ void help_filter(char** argv) {
          << "    -v, --verbose              print out statistics on numbers of reads dropped by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -T, --tsv-out FIELD[;FIELD] do not write filtered gam but a tsv of the given fields" << endl
+         << "                                See \"Getting alignment statistics with ‐‐tsv‐out\" wiki page" << endl
          << "    -q, --min-mapq N           drop alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N        drop reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
