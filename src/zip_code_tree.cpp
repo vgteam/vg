@@ -2126,35 +2126,6 @@ void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state,
         max_sort_value = std::max(max_sort_value, sort_values_by_seed[zipcode_sort_order[i]].get_sort_value());
     }
 
-    // If everything is already sorted, we can stop here 
-
-    //Check if the interval is already sorted or needs to be reversed
-    if (interval.is_ordered) {
-        //The interval is already sorted so do nothing
-#ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\tTHe interval is already sorted" << endl;
-#endif
-        return;
-    } else if (interval.is_reverse_ordered) {
-        //Reverse the order. Get the order in reverse and fill it back in
-        vector<size_t> order_reversed(interval.interval_end-interval.interval_start);
-        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
-            order_reversed[i] = zipcode_sort_order[interval.interval_end-1-i];
-        }
-        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
-            zipcode_sort_order[interval.interval_start+i] = order_reversed[i];
-        }
-#ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\tThe interval was reversed. New order:" << endl;
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << " ";
-        }
-        cerr << endl;
-
-#endif
-        return;
-    }
-
 
     /***** Figure out which sort method we should use ***/
 
@@ -2251,7 +2222,6 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
     //Since nodes are really just seeds on the same chain, runs of nodes get put together even if they are
     // actually on different nodes, as long as the nodes are facing in the same direction
     //Also need to check the orientation
-    //For intervals corresponding to cyclic snarls, the orientation is based on the read, not the snarl
 
     //max() is used for the root, when the child's depth should be 0
     size_t child_depth = interval.code_type == ZipCode::EMPTY ? 0 : interval.depth+1;
@@ -2265,9 +2235,6 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
 #endif
         next_intervals.emplace_after(insert_itr, interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
                                    child_depth);
-        if (interval.is_ordered) {
-            next_intervals.front().is_ordered=true;
-        }
         return;
     }
 
@@ -2289,11 +2256,6 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
                                first_type, child_depth);
     ++insert_itr;
 
-    //If the parent interval was reversed, then this is the second copy of the parent, and it was sorted and processed
-    //in the forward direction already, and was reversed when sorting this interval, so it is sorted 
-    if (interval.is_ordered || interval.is_reverse_ordered) {
-        insert_itr->is_ordered=true;
-    }
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
         
         //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth

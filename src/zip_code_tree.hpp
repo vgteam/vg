@@ -643,25 +643,10 @@ class ZipCodeForest {
 
         size_t depth : 14;
 
-        //For children of cyclic snarls, an entire chain may be duplicated in the opposite 
-        // orientation immediately after the first copy. In this case, when the second copy is 
-        // processed, the entire interval is already in the correct order, just reversed. 
-        //If this is_reverse_ordered true, then the interval is sorted in the reverse order, so it
-        // needs to be flipped before processing
-        // TODO: should no longer be needed
-        bool is_reverse_ordered;
-
-        //After flipping a reverse-ordered interval, all of the child intervals will be sorted
-        //So remember if the interval doesn't need sorting
-        // TODO: should no longer be needed, since we don't need to flip
-        bool is_ordered;
-
 
         interval_state_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, 
                                     size_t depth) :
             interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth){
-            is_reverse_ordered = false;
-            is_ordered = false;
         }
     };
 
