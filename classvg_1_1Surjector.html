@@ -101,6 +101,8 @@ Public Types</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a4b083231c3ae02e3e14c3efb2a72eb1d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a4b083231c3ae02e3e14c3efb2a72eb1d">Surjector</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>)</td></tr>
 <tr class="separator:a4b083231c3ae02e3e14c3efb2a72eb1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af039b6915be8799a74c3b75e25b0873d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
+<tr class="separator:af039b6915be8799a74c3b75e25b0873d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4e4e4c28b1313850e647f4d258a0ea82"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a4e4e4c28b1313850e647f4d258a0ea82">surject</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
 <tr class="separator:a4e4e4c28b1313850e647f4d258a0ea82"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0ed6215f3860203803deb2f3078d93b4"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0ed6215f3860203803deb2f3078d93b4">multi_surject</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions_out, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
@@ -128,11 +130,18 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a1fde3e4537147030d153d403fd04ec77 inherit pub_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adbdd2fabd7a36353526663aede3cb555 inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#adbdd2fabd7a36353526663aede3cb555">set_alignment_scores</a> (std::istream &amp;matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="separator:adbdd2fabd7a36353526663aede3cb555 inherit pub_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79424f53b6e4f588da23ea531a600b84 inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a79424f53b6e4f588da23ea531a600b84">set_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
-<tr class="separator:a79424f53b6e4f588da23ea531a600b84 inherit pub_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:aff0ca9cc154747c421ba325fa7048507"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aff0ca9cc154747c421ba325fa7048507">dp_aligner</a></td></tr>
+<tr class="memdesc:aff0ca9cc154747c421ba325fa7048507"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own <a class="el" href="classvg_1_1Aligner.html">Aligner</a>.  <a href="classvg_1_1Surjector.html#aff0ca9cc154747c421ba325fa7048507">More...</a><br /></td></tr>
+<tr class="separator:aff0ca9cc154747c421ba325fa7048507"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9750e6f815ccbcb8ee14be2469f61886"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">dp_score_scale</a> = 10</td></tr>
+<tr class="memdesc:a9750e6f815ccbcb8ee14be2469f61886"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">More...</a><br /></td></tr>
+<tr class="separator:a9750e6f815ccbcb8ee14be2469f61886"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0499e86d68aa7e47be96b18bf34a099c"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">dp_gap_open_extra_cost</a> = 1</td></tr>
+<tr class="memdesc:a0499e86d68aa7e47be96b18bf34a099c"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">More...</a><br /></td></tr>
+<tr class="separator:a0499e86d68aa7e47be96b18bf34a099c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9046bb2c7267f996a6636518e2747b89"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">min_splice_length</a> = 20</td></tr>
 <tr class="memdesc:a9046bb2c7267f996a6636518e2747b89"><td class="mdescLeft">&#160;</td><td class="mdescRight">the minimum length deletion that the spliced algorithm will interpret as a splice event  <a href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">More...</a><br /></td></tr>
 <tr class="separator:a9046bb2c7267f996a6636518e2747b89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -199,6 +208,9 @@ Static Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:a6150307e30be3bb16531a0c28173bc9d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a6150307e30be3bb16531a0c28173bc9d">set_dp_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
+<tr class="memdesc:a6150307e30be3bb16531a0c28173bc9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Do the extra score setup for the DP-only <a class="el" href="classvg_1_1Aligner.html">Aligner</a>.  <a href="classvg_1_1Surjector.html#a6150307e30be3bb16531a0c28173bc9d">More...</a><br /></td></tr>
+<tr class="separator:a6150307e30be3bb16531a0c28173bc9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6474f90fe3cf3ea098a553916bd47ae9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a6474f90fe3cf3ea098a553916bd47ae9">surject_internal</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *source_aln, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> *source_mp_aln, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *alns_out, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; *mp_alns_out, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions_out, bool all_paths, bool allow_negative_scores, bool preserve_deletions) const</td></tr>
 <tr class="separator:a6474f90fe3cf3ea098a553916bd47ae9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2629f80135104fb8486ef823f525b843"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a2629f80135104fb8486ef823f525b843">realigning_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, bool rev_strand, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool preserve_N_alignments=false, bool sinks_are_anchors=false, bool sources_are_anchors=false, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; *all_path_ranges_out=nullptr) const</td></tr>
@@ -270,6 +282,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a118010284d37b604a7bcd7eb8dd13537"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a> = nullptr</td></tr>
 <tr class="memdesc:a118010284d37b604a7bcd7eb8dd13537"><td class="mdescLeft">&#160;</td><td class="mdescRight">the graph we're surjecting onto  <a href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">More...</a><br /></td></tr>
 <tr class="separator:a118010284d37b604a7bcd7eb8dd13537"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a></td></tr>
+<tr class="separator:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -1318,6 +1333,107 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
+<a id="af039b6915be8799a74c3b75e25b0873d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af039b6915be8799a74c3b75e25b0873d">&#9670;&nbsp;</a></span>set_alignment_scores()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::set_alignment_scores </td>
+          <td>(</td>
+          <td class="paramtype">const int8_t *&#160;</td>
+          <td class="paramname"><em>score_matrix</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>gap_open</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>gap_extend</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>full_length_bonus</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Override alignment score setting to let DP use slightly adjusted scores. The provided scores will be adjusted to increase gap open cost slightly when doing DP, but output scores will be scored with the provided parameters. </p>
+
+<p>Reimplemented from <a class="el" href="classvg_1_1AlignerClient.html#a79424f53b6e4f588da23ea531a600b84">vg::AlignerClient</a>.</p>
+
+</div>
+</div>
+<a id="a6150307e30be3bb16531a0c28173bc9d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6150307e30be3bb16531a0c28173bc9d">&#9670;&nbsp;</a></span>set_dp_alignment_scores()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::set_dp_alignment_scores </td>
+          <td>(</td>
+          <td class="paramtype">const int8_t *&#160;</td>
+          <td class="paramname"><em>score_matrix</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>gap_open</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>gap_extend</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramname"><em>full_length_bonus</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Do the extra score setup for the DP-only <a class="el" href="classvg_1_1Aligner.html">Aligner</a>. </p>
+
+</div>
+</div>
 <a id="ac4e7823cc2ce4b65bb8910ef2c1dcbee"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac4e7823cc2ce4b65bb8910ef2c1dcbee">&#9670;&nbsp;</a></span>set_path_position()</h2>
 
@@ -1867,6 +1983,54 @@ template&lt;class AlnType &gt; </div>
 </div><div class="memdoc">
 
 <p>while downsampling, try to get down to this coverage on each base </p>
+
+</div>
+</div>
+<a id="aff0ca9cc154747c421ba325fa7048507"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff0ca9cc154747c421ba325fa7048507">&#9670;&nbsp;</a></span>dp_aligner</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unique_ptr&lt;<a class="el" href="classvg_1_1Aligner.html">Aligner</a>&gt; vg::Surjector::dp_aligner</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own <a class="el" href="classvg_1_1Aligner.html">Aligner</a>. </p>
+
+</div>
+</div>
+<a id="a0499e86d68aa7e47be96b18bf34a099c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0499e86d68aa7e47be96b18bf34a099c">&#9670;&nbsp;</a></span>dp_gap_open_extra_cost</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int8_t vg::Surjector::dp_gap_open_extra_cost = 1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.) </p>
+
+</div>
+</div>
+<a id="a9750e6f815ccbcb8ee14be2469f61886"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9750e6f815ccbcb8ee14be2469f61886">&#9670;&nbsp;</a></span>dp_score_scale</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int8_t vg::Surjector::dp_score_scale = 10</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.) </p>
 
 </div>
 </div>

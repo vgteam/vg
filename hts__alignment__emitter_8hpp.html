@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -90,6 +91,8 @@ $(function() {
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SequenceDictionaryEntry.html">vg::SequenceDictionaryEntry</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html">vg::HTSWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">vg::HTSAlignmentEmitter</a></td></tr>
@@ -101,6 +104,11 @@ Classes</h2></td></tr>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a1ff0e710c53111ed4cd2a7389df9c945"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ff0e710c53111ed4cd2a7389df9c945">vg::SequenceDictionary</a> = std::vector&lt; SequenceDictionaryEntry &gt;</td></tr>
+<tr class="separator:a1ff0e710c53111ed4cd2a7389df9c945"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -117,14 +125,16 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const HandleGraph *graph, int flags)</td></tr>
-<tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0804d45293e20a884e5be58bc88b13f"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad0804d45293e20a884e5be58bc88b13f">vg::get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const PathPositionHandleGraph &amp;graph)</td></tr>
-<tr class="separator:ad0804d45293e20a884e5be58bc88b13f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">vg::extract_path_metadata</a> (const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, const PathPositionHandleGraph &amp;graph, bool subpath_support)</td></tr>
-<tr class="separator:aa381cdc7f966379fc7cc9ea11257f632"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1737cfb37d9842687a57735b62f3aef5"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1737cfb37d9842687a57735b62f3aef5">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const SequenceDictionary &amp;paths, size_t max_threads, const HandleGraph *graph, int flags)</td></tr>
+<tr class="separator:a1737cfb37d9842687a57735b62f3aef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab38586dd867111e675a7a8c09ea0df76"><td class="memItemLeft" align="right" valign="top">SequenceDictionary&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab38586dd867111e675a7a8c09ea0df76">vg::get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const PathPositionHandleGraph &amp;graph)</td></tr>
+<tr class="separator:ab38586dd867111e675a7a8c09ea0df76"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81570e268131bf82c49afe7a33045691"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a81570e268131bf82c49afe7a33045691">vg::index_sequence_dictionary</a> (const SequenceDictionary &amp;paths)</td></tr>
+<tr class="separator:a81570e268131bf82c49afe7a33045691"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Defines a system for emitting alignments and groups of alignments in multiple formats. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

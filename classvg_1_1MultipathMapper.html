@@ -655,6 +655,9 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a25c0af4ac91144555a4aebccd6fcb38a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0c64ee67ef473d5d5336ae6adf0b66e8"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1PathComponentIndex.html">PathComponentIndex</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0c64ee67ef473d5d5336ae6adf0b66e8">path_component_index</a></td></tr>
 <tr class="separator:a0c64ee67ef473d5d5336ae6adf0b66e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a></td></tr>
+<tr class="separator:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1PairedEndMapper"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1PairedEndMapper')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1PairedEndMapper.html">vg::PairedEndMapper</a></td></tr>
 <tr class="memitem:a9d232033ef120e15c47d13fab2750bc1 inherit pro_attribs_classvg_1_1PairedEndMapper"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html#a9d232033ef120e15c47d13fab2750bc1">fragment_length_distr</a></td></tr>
 <tr class="memdesc:a9d232033ef120e15c47d13fab2750bc1 inherit pro_attribs_classvg_1_1PairedEndMapper"><td class="mdescLeft">&#160;</td><td class="mdescRight">Holds the actual fragment length distribution and estimation information.  <a href="classvg_1_1PairedEndMapper.html#a9d232033ef120e15c47d13fab2750bc1">More...</a><br /></td></tr>
@@ -3786,7 +3789,7 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. </p>
+<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. Note that an override of this method can't be called from the constructor, so when overriding it, make sure to also do your extra work in the constructor. </p>
 
 </div>
 </div>

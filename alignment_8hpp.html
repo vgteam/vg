@@ -90,6 +90,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__io_8hpp.html">vg/io/alignment_io.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&gt;</code><br />
+<code>#include &quot;<a class="el" href="hts__alignment__emitter_8hpp.html">hts_alignment_emitter.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -135,10 +136,8 @@ Functions</h2></td></tr>
 <tr class="separator:a47574d693a9ae86d771ea34a0c91afaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0676eec9e08d9589fe286cabdd16ffb3"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0676eec9e08d9589fe286cabdd16ffb3">vg::hts_file_header</a> (string &amp;filename, string &amp;header)</td></tr>
 <tr class="separator:a0676eec9e08d9589fe286cabdd16ffb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abc01af3a6e386a06a2971c17a0e6d1b1"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abc01af3a6e386a06a2971c17a0e6d1b1">vg::hts_string_header</a> (string &amp;header, const map&lt; string, int64_t &gt; &amp;path_length, const map&lt; string, string &gt; &amp;rg_sample)</td></tr>
-<tr class="separator:abc01af3a6e386a06a2971c17a0e6d1b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeb8cd62602cb90541b2270a79aed7595"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeb8cd62602cb90541b2270a79aed7595">vg::hts_string_header</a> (string &amp;header, const vector&lt; pair&lt; string, int64_t &gt;&gt; &amp;path_order_and_length, const map&lt; string, string &gt; &amp;rg_sample)</td></tr>
-<tr class="separator:aeb8cd62602cb90541b2270a79aed7595"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae1b81217a83134c6339fb6324af3a14"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aae1b81217a83134c6339fb6324af3a14">vg::hts_string_header</a> (string &amp;header, const <a class="el" href="namespacevg.html#a1ff0e710c53111ed4cd2a7389df9c945">SequenceDictionary</a> &amp;sequence_dictionary, const map&lt; string, string &gt; &amp;rg_sample)</td></tr>
+<tr class="separator:aae1b81217a83134c6339fb6324af3a14"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a81c8bc6d3b973fd1a34c3457a9d2e401"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a81c8bc6d3b973fd1a34c3457a9d2e401">vg::write_alignment_to_file</a> (const Alignment &amp;aln, const string &amp;filename)</td></tr>
 <tr class="separator:a81c8bc6d3b973fd1a34c3457a9d2e401"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a642736d2f652e5ab522e1f26b874e097"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a642736d2f652e5ab522e1f26b874e097">vg::mapping_cigar</a> (const Mapping &amp;mapping, vector&lt; pair&lt; int, char &gt; &gt; &amp;cigar, char mismatch_operation='M')</td></tr>

@@ -297,6 +297,9 @@ Functions</h2></td></tr>
 <tr class="separator:a3961418e3f3af94c4275118e4693a2fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa015cfde6842fff0d0dcd81f7130c659"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa015cfde6842fff0d0dcd81f7130c659">locally_expand_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;parent, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from, int64_t max_dist)</td></tr>
 <tr class="separator:aa015cfde6842fff0d0dcd81f7130c659"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee179cfbe85394ee53d9be6c0f8af701"><td class="memItemLeft" align="right" valign="top">std::pair&lt; std::string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aee179cfbe85394ee53d9be6c0f8af701">md5_sum_path_with_length</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
+<tr class="memdesc:aee179cfbe85394ee53d9be6c0f8af701"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the Samtools-compatible hex MD5 sum and the length of a path in a graph, in one pass.  <a href="namespacevg_1_1algorithms.html#aee179cfbe85394ee53d9be6c0f8af701">More...</a><br /></td></tr>
+<tr class="separator:aee179cfbe85394ee53d9be6c0f8af701"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91a6bbd822f6380421a973f75036c3d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a91a6bbd822f6380421a973f75036c3d3">merge</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;start, size_t length)</td></tr>
 <tr class="separator:a91a6bbd822f6380421a973f75036c3d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0820d23864c46dc1bc71ec68aee4e55e"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0820d23864c46dc1bc71ec68aee4e55e">kargers_min_cut</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
@@ -3659,6 +3662,36 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions. Closes over the arguments by value. </p>
+
+</div>
+</div>
+<a id="aee179cfbe85394ee53d9be6c0f8af701"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee179cfbe85394ee53d9be6c0f8af701">&#9670;&nbsp;</a></span>md5_sum_path_with_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::pair&lt; std::string, size_t &gt; vg::algorithms::md5_sum_path_with_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the Samtools-compatible hex MD5 sum and the length of a path in a graph, in one pass. </p>
 
 </div>
 </div>

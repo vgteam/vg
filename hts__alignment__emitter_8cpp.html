@@ -79,8 +79,10 @@ $(function() {
 <code>#include &quot;<a class="el" href="alignment_8hpp.html">alignment.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="json2pb_8h.html">vg/io/json2pb.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="find__translation_8hpp.html">algorithms/find_translation.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="md5__sum__path_8hpp.html">algorithms/md5_sum_path.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="hfile__cppstream_8hpp.html">vg/io/hfile_cppstream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
+<code>#include &quot;<a class="el" href="crash_8hpp.html">crash.hpp</a>&quot;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -90,12 +92,12 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const HandleGraph *graph, int flags)</td></tr>
-<tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">vg::extract_path_metadata</a> (const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, const PathPositionHandleGraph &amp;graph, bool subpath_support)</td></tr>
-<tr class="separator:aa381cdc7f966379fc7cc9ea11257f632"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0804d45293e20a884e5be58bc88b13f"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad0804d45293e20a884e5be58bc88b13f">vg::get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const PathPositionHandleGraph &amp;graph)</td></tr>
-<tr class="separator:ad0804d45293e20a884e5be58bc88b13f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1737cfb37d9842687a57735b62f3aef5"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1737cfb37d9842687a57735b62f3aef5">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const SequenceDictionary &amp;paths, size_t max_threads, const HandleGraph *graph, int flags)</td></tr>
+<tr class="separator:a1737cfb37d9842687a57735b62f3aef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81570e268131bf82c49afe7a33045691"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; string, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a81570e268131bf82c49afe7a33045691">vg::index_sequence_dictionary</a> (const SequenceDictionary &amp;paths)</td></tr>
+<tr class="separator:a81570e268131bf82c49afe7a33045691"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab38586dd867111e675a7a8c09ea0df76"><td class="memItemLeft" align="right" valign="top">SequenceDictionary&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab38586dd867111e675a7a8c09ea0df76">vg::get_sequence_dictionary</a> (const string &amp;filename, const vector&lt; string &gt; &amp;path_names, const std::unordered_set&lt; std::string &gt; &amp;reference_samples, const PathPositionHandleGraph &amp;graph)</td></tr>
+<tr class="separator:ab38586dd867111e675a7a8c09ea0df76"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

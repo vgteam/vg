@@ -128,10 +128,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans, vector&lt; size_t &gt; *path_node_provenance=nullptr)</td></tr>
 <tr class="memdesc:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">More...</a><br /></td></tr>
 <tr class="separator:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0249c6ebb9691c114fe801f566bf964c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a0249c6ebb9691c114fe801f566bf964c">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, bool align_in_reverse=false, uint64_t max_band_cells=std::numeric_limits&lt; uint64_t &gt;::max())</td></tr>
-<tr class="separator:a0249c6ebb9691c114fe801f566bf964c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83adb80ffc74d2709c498820216709f9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a83adb80ffc74d2709c498820216709f9">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, const function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, bool align_in_reverse=false, uint64_t max_band_cells=std::numeric_limits&lt; uint64_t &gt;::max())</td></tr>
-<tr class="separator:a83adb80ffc74d2709c498820216709f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adf2a3fbebf346c3b581d553165c15a02"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adf2a3fbebf346c3b581d553165c15a02">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *scoring_aligner, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *dp_aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, bool align_in_reverse=false, uint64_t max_band_cells=std::numeric_limits&lt; uint64_t &gt;::max())</td></tr>
+<tr class="separator:adf2a3fbebf346c3b581d553165c15a02"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaafd4d231dde222e7dc64ff9c419ed5b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aaafd4d231dde222e7dc64ff9c419ed5b">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *scoring_aligner, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *dp_aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t max_tail_length, bool simplify_topologies, size_t unmergeable_len, const function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; &amp;band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false, bool align_in_reverse=false, uint64_t max_band_cells=std::numeric_limits&lt; uint64_t &gt;::max())</td></tr>
+<tr class="separator:aaafd4d231dde222e7dc64ff9c419ed5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a90ff13eb09622a6f5fa9238f6ec4950b">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const</td></tr>
 <tr class="separator:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4fc215d24f20c5ddc3916024c7ab62b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">get_connected_components</a> () const</td></tr>
@@ -184,8 +184,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:aaa64dbf4207ebe2fe75044d60be1d07e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aaa64dbf4207ebe2fe75044d60be1d07e">get_cut_segments</a> (<a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, SnarlDistanceIndex *dist_index, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, int64_t max_snarl_cut_size) const</td></tr>
 <tr class="memdesc:aaa64dbf4207ebe2fe75044d60be1d07e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the intervals of the path that lie inside of snarls.  <a href="classvg_1_1MultipathAlignmentGraph.html#aaa64dbf4207ebe2fe75044d60be1d07e">More...</a><br /></td></tr>
 <tr class="separator:aaa64dbf4207ebe2fe75044d60be1d07e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab340ca598eea6944dc841a9b76b73d48"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ab340ca598eea6944dc841a9b76b73d48">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths, size_t max_tail_length, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
-<tr class="separator:ab340ca598eea6944dc841a9b76b73d48"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac271f2ff52ff4425b2a04b80718c0df1"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac271f2ff52ff4425b2a04b80718c0df1">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *scoring_aligner, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *dp_aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths, size_t max_tail_length, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
+<tr class="separator:ac271f2ff52ff4425b2a04b80718c0df1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91aa5268618d2f4c1d7b8665108d455c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a91aa5268618d2f4c1d7b8665108d455c">reverse_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln) const</td></tr>
 <tr class="separator:a91aa5268618d2f4c1d7b8665108d455c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99e7522a1341bc3d5e7d0876156d0e24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a99e7522a1341bc3d5e7d0876156d0e24">add_decomposed_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, unordered_set&lt; size_t &gt; &amp;prohibited_merges, vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;shared_tail_alns, vector&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt;&gt; &amp;unshared_tail_alns, size_t attachment_idx, bool to_left, size_t unmergeable_len, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, SnarlDistanceIndex *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr)</td></tr>
@@ -922,8 +922,8 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a83adb80ffc74d2709c498820216709f9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a83adb80ffc74d2709c498820216709f9">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="aaafd4d231dde222e7dc64ff9c419ed5b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaafd4d231dde222e7dc64ff9c419ed5b">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -944,7 +944,13 @@ Static Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
-          <td class="paramname"><em>aligner</em>, </td>
+          <td class="paramname"><em>scoring_aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>dp_aligner</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1050,12 +1056,13 @@ Static Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Reachability edges must be in the graph. Also, choose the band padding dynamically as a function of the inter-MEM sequence and graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>If dp_aligner is different from scoring_aligner, it is used for dynamic programming alignment operations, and the results are rescored with scoring_aligner. Neither may be null.</p>
 <p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937" title="Put subpaths in topological order (assumed to be true for other algorithms)">topologically_order_subpaths()</a> before trying to run DP on it. </p>
 
 </div>
 </div>
-<a id="a0249c6ebb9691c114fe801f566bf964c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0249c6ebb9691c114fe801f566bf964c">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
+<a id="adf2a3fbebf346c3b581d553165c15a02"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adf2a3fbebf346c3b581d553165c15a02">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1076,7 +1083,13 @@ Static Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
-          <td class="paramname"><em>aligner</em>, </td>
+          <td class="paramname"><em>scoring_aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>dp_aligner</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1182,12 +1195,13 @@ Static Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Reachability edges must be in the graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>If dp_aligner is different from scoring_aligner, it is used for dynamic programming alignment operations, and the results are rescored with scoring_aligner. Neither may be null.</p>
 <p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937" title="Put subpaths in topological order (assumed to be true for other algorithms)">topologically_order_subpaths()</a> before trying to run DP on it. </p>
 
 </div>
 </div>
-<a id="ab340ca598eea6944dc841a9b76b73d48"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab340ca598eea6944dc841a9b76b73d48">&#9670;&nbsp;</a></span>align_tails()</h2>
+<a id="ac271f2ff52ff4425b2a04b80718c0df1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac271f2ff52ff4425b2a04b80718c0df1">&#9670;&nbsp;</a></span>align_tails()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1211,7 +1225,13 @@ Static Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
-          <td class="paramname"><em>aligner</em>, </td>
+          <td class="paramname"><em>scoring_aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>dp_aligner</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1268,6 +1288,7 @@ Static Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Generate alignments of the tails of the query sequence, beyond the sources and sinks. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the one that owns the sequence we are working on. Returns a map from tail (left=false, right=true), to a map from subpath number to all the Alignments of the tail off of that subpath. Also computes the source subpaths and adds their numbers to the given set if not null.</p>
+<p>If dp_aligner is different from scoring_aligner, it is used for dynamic programming alignment operations, and the results are rescored with scoring_aligner. Neither may be null.</p>
 <p>If a tail is longer than max_tail_length, produces an alignment softclipping it.</p>
 <p>If dynamic alignment count is also selected, can indicate a minimum number of paths that must be in the extending graph in order to do an alignment </p>
 

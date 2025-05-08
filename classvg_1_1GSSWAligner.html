@@ -122,7 +122,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a952bb420992b5e5e4c81388b015caf97"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a952bb420992b5e5e4c81388b015caf97">score_full_length_bonus</a> (bool left_side, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const =0</td></tr>
 <tr class="separator:a952bb420992b5e5e4c81388b015caf97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc950708e8d5ff812a838116c6b50910"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const =0</td></tr>
-<tr class="memdesc:adc950708e8d5ff812a838116c6b50910"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">More...</a><br /></td></tr>
 <tr class="separator:adc950708e8d5ff812a838116c6b50910"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4071f79659899761586807411d5ab767"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a4071f79659899761586807411d5ab767">score_gap</a> (size_t gap_length) const</td></tr>
 <tr class="memdesc:a4071f79659899761586807411d5ab767"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the score of an insert or deletion of the given length.  <a href="classvg_1_1GSSWAligner.html#a4071f79659899761586807411d5ab767">More...</a><br /></td></tr>
@@ -156,10 +155,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6f2bbbc1b2c955874ad531cab3bf4879"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6f2bbbc1b2c955874ad531cab3bf4879">longest_detectable_gap</a> (size_t read_length) const</td></tr>
 <tr class="memdesc:a6f2bbbc1b2c955874ad531cab3bf4879"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping, for a generic read.  <a href="classvg_1_1GSSWAligner.html#a6f2bbbc1b2c955874ad531cab3bf4879">More...</a><br /></td></tr>
 <tr class="separator:a6f2bbbc1b2c955874ad531cab3bf4879"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a795072356e28310d80f95bb5f0bb61f3"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a795072356e28310d80f95bb5f0bb61f3">score_discontiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:a795072356e28310d80f95bb5f0bb61f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95753239b9d5fa388198ea04ac6c559b"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a95753239b9d5fa388198ea04ac6c559b">score_contiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:a95753239b9d5fa388198ea04ac6c559b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52f906dfce2d0798e0fe0c39d04c0105"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a52f906dfce2d0798e0fe0c39d04c0105">score_discontiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool allow_left_bonus=true, bool allow_right_bonus=true) const</td></tr>
+<tr class="separator:a52f906dfce2d0798e0fe0c39d04c0105"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac61c025e427b0593a95d27feff6b89c3"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac61c025e427b0593a95d27feff6b89c3">score_contiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool allow_left_bonus=true, bool allow_right_bonue=true) const</td></tr>
+<tr class="separator:ac61c025e427b0593a95d27feff6b89c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35fe72b24fc734d75864275c8cc1257e"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a35fe72b24fc734d75864275c8cc1257e">remove_bonuses</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool pinned=false, bool pin_left=false) const</td></tr>
 <tr class="separator:a35fe72b24fc734d75864275c8cc1257e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1BaseAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1BaseAligner')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1BaseAligner.html">vg::BaseAligner</a></td></tr>
@@ -182,6 +181,7 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a7bd8654938361b8edf947fb888dcd6d8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1DeletionAligner.html">DeletionAligner</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a7bd8654938361b8edf947fb888dcd6d8">deletion_aligner</a></td></tr>
 <tr class="separator:a7bd8654938361b8edf947fb888dcd6d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73b117b8b0b894ce486bdb2c4eeeeb10"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a73b117b8b0b894ce486bdb2c4eeeeb10">nt_table</a> = nullptr</td></tr>
+<tr class="memdesc:a73b117b8b0b894ce486bdb2c4eeeeb10"><td class="mdescLeft">&#160;</td><td class="mdescRight">Base to number mapping.  <a href="classvg_1_1GSSWAligner.html#a73b117b8b0b894ce486bdb2c4eeeeb10">More...</a><br /></td></tr>
 <tr class="separator:a73b117b8b0b894ce486bdb2c4eeeeb10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ad471080a267eb489e31523ef2b5f2b"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a> = nullptr</td></tr>
 <tr class="separator:a9ad471080a267eb489e31523ef2b5f2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -465,7 +465,8 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). if there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. the optimal alignment will be stored in both the vector and the original alignment object.</p>
+<p>Store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). If there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. The optimal alignment will be stored in both the vector and the original alignment object.</p>
+<p>When multiple alignments have the same score, they are ordered deterministically but arbitrarily.</p>
 <p>Throws <a class="el" href="classvg_1_1BandMatricesTooBigException.html">BandMatricesTooBigException</a> if the max_cells limit on DP matric size is hit. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#addfd42ba76bc39c040b9028dd3995742">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a4b2637f4e841012103cf77fa09ef318f">vg::Aligner</a>.</p>
@@ -1714,8 +1715,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a95753239b9d5fa388198ea04ac6c559b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a95753239b9d5fa388198ea04ac6c559b">&#9670;&nbsp;</a></span>score_contiguous_alignment()</h2>
+<a id="ac61c025e427b0593a95d27feff6b89c3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac61c025e427b0593a95d27feff6b89c3">&#9670;&nbsp;</a></span>score_contiguous_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1733,7 +1734,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>allow_left_bonus</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_right_bonue</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1751,8 +1758,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a795072356e28310d80f95bb5f0bb61f3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a795072356e28310d80f95bb5f0bb61f3">&#9670;&nbsp;</a></span>score_discontiguous_alignment()</h2>
+<a id="a52f906dfce2d0798e0fe0c39d04c0105"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a52f906dfce2d0798e0fe0c39d04c0105">&#9670;&nbsp;</a></span>score_discontiguous_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1776,7 +1783,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>allow_left_bonus</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_right_bonus</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2128,8 +2141,7 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Compute the score of a path against the given range of subsequence with the given qualities. </p>
+<p>Compute the score of a path against the given range of subsequence with the given qualities. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> is just to find the sequence begin and end to compare to seq_begin. seq_begin is the first read base involved in the provided path to be scored. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#aee20bae08e744224825723a878d57bef">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a4537844a4aa7783f6a41c7cefd758602">vg::Aligner</a>.</p>
 
@@ -2363,6 +2375,8 @@ Protected Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>Base to number mapping. </p>
+
 </div>
 </div>
 <a id="a9ad471080a267eb489e31523ef2b5f2b"></a>
@@ -2376,6 +2390,7 @@ Protected Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Scoring matrix. Is NOT a 4x4 matrix you can pass to set_alignment_scores; might have a 5th column for Ns, or be fancily quality-adjusted. </p>
 
 </div>
 </div>

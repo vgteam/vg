@@ -847,6 +847,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a3915618267605133f2e9144c693e68e5"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">warned_about_bad_distribution</a> = ATOMIC_FLAG_INIT</td></tr>
 <tr class="memdesc:a3915618267605133f2e9144c693e68e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">We may need to complain exactly once that the distribution is bad.  <a href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">More...</a><br /></td></tr>
 <tr class="separator:a3915618267605133f2e9144c693e68e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a></td></tr>
+<tr class="separator:a65428f092aaa5d894b709e247cf0121a inherit pro_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
 Static Protected Attributes</h2></td></tr>
@@ -4743,7 +4746,7 @@ template&lt;typename Score &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. </p>
+<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. Note that an override of this method can't be called from the constructor, so when overriding it, make sure to also do your extra work in the constructor. </p>
 
 </div>
 </div>
@@ -4792,7 +4795,7 @@ template&lt;typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. </p>
+<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. Note that an override of this method can't be called from the constructor, so when overriding it, make sure to also do your extra work in the constructor. </p>
 
 <p>Reimplemented from <a class="el" href="classvg_1_1AlignerClient.html#a79424f53b6e4f588da23ea531a600b84">vg::AlignerClient</a>.</p>
 

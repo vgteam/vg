@@ -1,9 +1,9 @@
 var searchData=
 [
-  ['algorithms_7517',['algorithms',['../namespacehandlegraph_1_1algorithms.html',1,'handlegraph']]],
-  ['handlegraph_7518',['handlegraph',['../namespacehandlegraph.html',1,'']]],
-  ['haplo_7519',['haplo',['../namespacehaplo.html',1,'']]],
-  ['haplomath_7520',['haploMath',['../namespacehaplo_1_1haploMath.html',1,'haplo']]],
-  ['haplotypes_5fdefaults_7521',['haplotypes_defaults',['../namespacehaplotypes__defaults.html',1,'']]],
-  ['internal_7522',['internal',['../namespacehandlegraph_1_1algorithms_1_1internal.html',1,'handlegraph::algorithms']]]
+  ['algorithms_7533',['algorithms',['../namespacehandlegraph_1_1algorithms.html',1,'handlegraph']]],
+  ['handlegraph_7534',['handlegraph',['../namespacehandlegraph.html',1,'']]],
+  ['haplo_7535',['haplo',['../namespacehaplo.html',1,'']]],
+  ['haplomath_7536',['haploMath',['../namespacehaplo_1_1haploMath.html',1,'haplo']]],
+  ['haplotypes_5fdefaults_7537',['haplotypes_defaults',['../namespacehaplotypes__defaults.html',1,'']]],
+  ['internal_7538',['internal',['../namespacehandlegraph_1_1algorithms_1_1internal.html',1,'handlegraph::algorithms']]]
 ];

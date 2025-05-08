@@ -71,6 +71,7 @@ $(function() {
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1AlignerClient-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -125,14 +126,17 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a60d4602ba9be4861136af507f8eacaec"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a60d4602ba9be4861136af507f8eacaec">get_regular_aligner</a> () const</td></tr>
 <tr class="separator:a60d4602ba9be4861136af507f8eacaec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
+<tr class="memitem:a65428f092aaa5d894b709e247cf0121a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a></td></tr>
+<tr class="separator:a65428f092aaa5d894b709e247cf0121a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
 <tr class="memitem:ad808371671d657c01a8c0a57b34a2046"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1QualAdjAligner.html">QualAdjAligner</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046">qual_adj_aligner</a></td></tr>
 <tr class="separator:ad808371671d657c01a8c0a57b34a2046"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af164f37a5efb0c05b10fea3841b78e83"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#af164f37a5efb0c05b10fea3841b78e83">regular_aligner</a></td></tr>
 <tr class="separator:af164f37a5efb0c05b10fea3841b78e83"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65428f092aaa5d894b709e247cf0121a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a></td></tr>
-<tr class="separator:a65428f092aaa5d894b709e247cf0121a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Holds a set of alignment scores, and has methods to produce aligners of various types on demand, using those scores. Provides a <a class="el" href="classvg_1_1AlignerClient.html#a683c04ab96b613ea3459738beffe5982">get_aligner()</a> method to get ahold of a useful, possibly quality-adjusted <a class="el" href="classvg_1_1Aligner.html">Aligner</a>. Base functionality that is shared between alignment and surjections </p>
@@ -315,9 +319,9 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. </p>
+<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. Note that an override of this method can't be called from the constructor, so when overriding it, make sure to also do your extra work in the constructor. </p>
 
-<p>Reimplemented in <a class="el" href="classvg_1_1MultipathMapper.html#ad897513b9554b2dabebea47cc3f3da9f">vg::MultipathMapper</a>, and <a class="el" href="classvg_1_1MinimizerMapper.html#a98a602ac6b9f20d9da825d8a542ceebd">vg::MinimizerMapper</a>.</p>
+<p>Reimplemented in <a class="el" href="classvg_1_1MultipathMapper.html#ad897513b9554b2dabebea47cc3f3da9f">vg::MultipathMapper</a>, <a class="el" href="classvg_1_1MinimizerMapper.html#a98a602ac6b9f20d9da825d8a542ceebd">vg::MinimizerMapper</a>, and <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">vg::Surjector</a>.</p>
 
 </div>
 </div>
@@ -456,7 +460,7 @@ Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
