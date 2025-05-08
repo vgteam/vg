@@ -30,18 +30,18 @@ void help_vectorize(char** argv){
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
-         << "  -x --xg FILE       An xg index or graph of interest" << endl
-         << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
-         << "  -l --aln-label LABEL   Rename every alignment to LABEL when outputting alignment name." << endl
-         << "  -f --format        Tab-delimit output so it can be used in R." << endl
-         << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
-         << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
-         << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -x --xg FILE       an xg index or graph of interest" << endl
+         << "  -g --gcsa FILE     a gcsa2 index to use if generating MEM sketches" << endl
+         << "  -l --aln-label LABEL   rename every alignment to LABEL when outputting alignment name." << endl
+         << "  -f --format        tab-delimit output so it can be used in R." << endl
+         << "  -A --annotate      create a header with each node/edge's name and a column with alignment names." << endl
+         << "  -a --a-hot         instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
+         << "  -w --wabbit        output a format that's friendly to vowpal wabbit" << endl
          << "  -M --wabbit-mapping <FILE> output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
-         << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
-         << "  -p --mem-positions Add the positions to the MEM sketch of a given read based on the GCSA" << endl
-         << "  -H --mem-hit-max N Ignore MEMs with this many hits when extracting poisitions" << endl
-         << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
+         << "  -m --mem-sketch    generate a MEM sketch of a given read based on the GCSA" << endl
+         << "  -p --mem-positions add the positions to the MEM sketch of a given read based on the GCSA" << endl
+         << "  -H --mem-hit-max N ignore MEMs with this many hits when extracting poisitions" << endl
+         << "  -i --identity-hot  output a score vector based on percent identity and coverage" << endl
          << endl;
 }
 

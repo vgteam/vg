@@ -30,7 +30,7 @@ void help_concat(char** argv) {
          << "between graphs, they will be resolved (as in vg ids -j)" << endl
          << endl
          << "Options:" << endl
-         << "    -p, --only-join-paths         Only add edges necessary to join up appended paths (as opposed between all heads/tails)" << endl
+         << "    -p, --only-join-paths         only add edges necessary to join up appended paths (as opposed between all heads/tails)" << endl
          << endl;
 }
 

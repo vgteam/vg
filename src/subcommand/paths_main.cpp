@@ -33,7 +33,7 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "  input:" << endl
          << "    -x, --xg FILE            use the paths and haplotypes in this graph FILE. Supports GBZ haplotypes." <<endl
-         << "                             (Also accepts -v, --vg)" << endl
+         << "                             (also accepts -v, --vg)" << endl
          << "    -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
          << "                             (graph also required for most output options; -g takes priority over -x)" << endl
          << "  output graph (.vg format)" << endl

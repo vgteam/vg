@@ -30,9 +30,9 @@ void help_combine(char** argv) {
          << "Node IDs will be modified as needed to resolve conflicts (in same manner as vg ids -j)." << endl
          << endl
          << "Options:" << endl
-         << "    -c, --cat-proto       Merge graphs by converting each to Protobuf (if not already) and catting the results."
-         << "                          Node IDs not modified [DEPRECATED]" << endl
-         << "    -p, --connect-paths   Add edges necessary to connect paths with the same name present in different graphs." << endl
+         << "    -c, --cat-proto       merge graphs by converting each to Protobuf (if not already) and catting the results."
+         << "                          node IDs not modified [DEPRECATED]" << endl
+         << "    -p, --connect-paths   add edges necessary to connect paths with the same name present in different graphs." << endl
          << "                          ex: If path x is present in graphs N-1 and N, then an edge connecting the last node of x in N-1 " << endl
          << "                          and the first node of x in N will be added." << endl;
 }

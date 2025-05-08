@@ -191,4 +191,4 @@ int main_gamsort(int argc, char **argv)
     return 0;
 }
 
-static Subcommand vg_gamsort("gamsort", "Sort a GAM/GAF file or index a sorted GAM file.", main_gamsort);
+static Subcommand vg_gamsort("gamsort", "sort a GAM/GAF file or index a sorted GAM file.", main_gamsort);
