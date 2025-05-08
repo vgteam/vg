@@ -79,9 +79,9 @@ void help_chunk(char** argv) {
          << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
-         << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
+         << "    --no-embedded-haplotypes don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
+         << "    -O, --output-fmt         specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }

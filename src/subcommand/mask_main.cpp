@@ -51,8 +51,8 @@ void help_mask(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE       BED regions corresponding to path intervals of the graph to target (required)" << endl
-       << "    -g, --gbz-input      Input graph is in GBZ format" << endl
-       << "    -s, --snarls FILE    Snarls from vg snarls (computed directly if not provided)" << endl
+       << "    -g, --gbz-input      input graph is in GBZ format" << endl
+       << "    -s, --snarls FILE    snarls from vg snarls (computed directly if not provided)" << endl
     
        << endl;
 }    

@@ -485,14 +485,14 @@ void help_convert(char** argv) {
          << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines" << endl
          << "                           (multiple allowed, only rank-0 supported)" << endl
          << "    -B, --rgfa-pline       paths written as rGFA tags also written as lines" << endl
-         << "    -W, --no-wline         Write all paths as GFA P-lines instead of W-lines." << endl
-         << "                           Allows handling multiple phase blocks and subranges used together." << endl
-         << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm." << endl
-         << "                           Not compatible with other GFA output options or non-GBWT graphs." << endl
-         << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types," << endl
+         << "    -W, --no-wline         write all paths as GFA P-lines instead of W-lines." << endl
+         << "                           allows handling multiple phase blocks and subranges used together." << endl
+         << "    --gbwtgraph-algorithm  always use the GBWTGraph library GFA algorithm." << endl
+         << "                           not compatible with other GFA output options or non-GBWT graphs." << endl
+         << "    --vg-algorithm         always use the VG GFA algorithm. Works with all options and graph types," << endl
          << "                           but can't preserve original GFA coordinates." << endl
-         << "    --no-translation       When using the GBWTGraph algorithm, convert the graph directly to GFA." << endl
-         << "                           Do not use the translation to preserve original coordinates." << endl
+         << "    --no-translation       when using the GBWTGraph algorithm, convert the graph directly to GFA." << endl
+         << "                           do not use the translation to preserve original coordinates." << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl

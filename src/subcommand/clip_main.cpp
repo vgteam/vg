@@ -22,30 +22,30 @@ void help_clip(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given unless -d and -P used)." << endl
+       << "    -r, --snarls FILE         snarls from vg snarls (recomputed if not given unless -d and -P used)." << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out nodes and edges with path depth below N" << endl
+       << "    -d, --depth N             clip out nodes and edges with path depth below N" << endl
        << "stub clipping options:" << endl
-       << "    -s, --stubs               Clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
-       << "    -S, --stubbify-paths      Clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
+       << "    -s, --stubs               clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
+       << "    -S, --stubbify-paths      clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
        << "snarl complexity clipping options: [default mode]" << endl
-       << "    -n, --max-nodes N         Only clip out snarls with > N nodes" << endl
-       << "    -e, --max-edges N         Only clip out snarls with > N edges" << endl
-       << "    -N  --max-nodes-shallow N Only clip out snarls with > N nodes not including nested snarls" << endl
-       << "    -E  --max-edges-shallow N Only clip out snarls with > N edges not including nested snarls" << endl
-       << "    -a, --max-avg-degree N    Only clip out snarls with average degree > N" << endl
-       << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
-       << "    -L, --max-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
+       << "    -n, --max-nodes N         only clip out snarls with > N nodes" << endl
+       << "    -e, --max-edges N         only clip out snarls with > N edges" << endl
+       << "    -N  --max-nodes-shallow N only clip out snarls with > N nodes not including nested snarls" << endl
+       << "    -E  --max-edges-shallow N only clip out snarls with > N edges not including nested snarls" << endl
+       << "    -a, --max-avg-degree N    only clip out snarls with average degree > N" << endl
+       << "    -l, --max-reflen-prop F   ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
+       << "    -L, --max-reflen N        ignore snarls whose reference traversal spans more than N bp" << endl
        << "big deletion edge clipping options:" << endl
-       << "    -D, --max-deletion-edge N Clip out all edges whose endpoints have distance > N on a reference path" << endl
-       << "    -c, --context N           Search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
+       << "    -D, --max-deletion-edge N clip out all edges whose endpoints have distance > N on a reference path" << endl
+       << "    -c, --context N           search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
        << "general options: " << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
-       << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
-       << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
-       << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
+       << "    -P, --path-prefix STRING  do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
+       << "    -m, --min-fragment-len N  don't write novel path fragment if it is less than N bp long" << endl
+       << "    -B, --output-bed          write BED-style file of affected intervals instead of clipped graph. " << endl
+       << "                              columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
        << "    -t, --threads N           number of threads to use [default: all available]" << endl
-       << "    -v, --verbose             Print some logging messages" << endl
+       << "    -v, --verbose             print some logging messages" << endl
        << endl;
 }    
 
