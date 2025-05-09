@@ -88,10 +88,11 @@ Inheritance diagram for vg::Progressive:</div>
 <area href="classvg_1_1HaplotypeIndexer.html" alt="vg::HaplotypeIndexer" shape="rect" coords="191,112,372,136"/>
 <area href="classvg_1_1MSAConverter.html" alt="vg::MSAConverter" shape="rect" coords="191,168,372,192"/>
 <area href="classvg_1_1RareVariantSimplifier.html" alt="vg::RareVariantSimplifier" shape="rect" coords="191,224,372,248"/>
-<area href="classvg_1_1SmallSnarlSimplifier.html" alt="vg::SmallSnarlSimplifier" shape="rect" coords="191,280,372,304"/>
-<area href="classvg_1_1StreamSorter.html" alt="vg::StreamSorter&lt; Message &gt;" shape="rect" coords="191,336,372,360"/>
-<area href="classvg_1_1VariantAdder.html" alt="vg::VariantAdder" shape="rect" coords="191,392,372,416"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="191,448,372,472"/>
+<area href="classvg_1_1ReadFilter.html" alt="vg::ReadFilter&lt; Read &gt;" shape="rect" coords="191,280,372,304"/>
+<area href="classvg_1_1SmallSnarlSimplifier.html" alt="vg::SmallSnarlSimplifier" shape="rect" coords="191,336,372,360"/>
+<area href="classvg_1_1StreamSorter.html" alt="vg::StreamSorter&lt; Message &gt;" shape="rect" coords="191,392,372,416"/>
+<area href="classvg_1_1VariantAdder.html" alt="vg::VariantAdder" shape="rect" coords="191,448,372,472"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="191,504,372,528"/>
   </map>
 </div></div>
 <table class="memberdecls">
@@ -103,6 +104,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a1cce3f715516ed2bbb4ce3a312b01e02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a75d4e92a36a277be5bc0cee5d01f5ca1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1">create_progress</a> (long count)</td></tr>
 <tr class="separator:a75d4e92a36a277be5bc0cee5d01f5ca1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab723d3c5d61a8abe560b501c92d5bb1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#ab723d3c5d61a8abe560b501c92d5bb1c">ensure_progress</a> (long count)</td></tr>
+<tr class="separator:ab723d3c5d61a8abe560b501c92d5bb1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d64e6aa69bc094c163f4827602a302c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a0d64e6aa69bc094c163f4827602a302c">update_progress</a> (long i)</td></tr>
 <tr class="separator:a0d64e6aa69bc094c163f4827602a302c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1de11917caf25974a02e2f5c3946280"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#ab1de11917caf25974a02e2f5c3946280">increment_progress</a> ()</td></tr>
@@ -201,6 +204,25 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Destroy the current progress bar, if it exists. </p>
+
+</div>
+</div>
+<a id="ab723d3c5d61a8abe560b501c92d5bb1c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab723d3c5d61a8abe560b501c92d5bb1c">&#9670;&nbsp;</a></span>ensure_progress()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Progressive::ensure_progress </td>
+          <td>(</td>
+          <td class="paramtype">long&#160;</td>
+          <td class="paramname"><em>count</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Ensure a progress bar is active with the given number of items to process. If no bar is active, one is created with a default message or the last message passed to <a class="el" href="classvg_1_1Progressive.html#a4eb5050eb36ed519cbfa398748ef183b">preload_progress()</a>. Does nothing if show_progress is false. </p>
 
 </div>
 </div>
