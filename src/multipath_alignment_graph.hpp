@@ -326,8 +326,9 @@ namespace vg {
         /// null.
         ///
         /// If dp_aligner is different from scoring_aligner, it is used for
-        /// dynamic programming alignment operations, and the results are
-        /// rescored with scoring_aligner. Neither may be null.
+        /// dynamic programming alignment operations (where its scores do not
+        /// risk overflow), and the results are rescored with scoring_aligner.
+        /// Neither may be null.
         ///
         /// If a tail is longer than max_tail_length, produces an alignment
         /// softclipping it.

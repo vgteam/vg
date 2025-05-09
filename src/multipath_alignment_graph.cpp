@@ -6182,16 +6182,32 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 });
 #endif
                 
+                // Dozeu and GSSW are both 16-bit. So we can't let our tail
+                // scores get too high. The dp aligner probably has higher
+                // scores, so we should use it only if the scores fit and
+                // use the scoring aligner directly otherwise.
+
+                // TODO: This assumes the match score is the *highest*
+                // match score in the quality-adjusted matrix, while the
+                // aligner usually loads the first.
+                int64_t tail_max_score = ((int64_t) dp_aligner->match) * right_tail_sequence.sequence().size() + ((int64_t) dp_aligner->full_length_bonus);
+                auto tail_aligner = tail_max_score < std::numeric_limits<int16_t>::max() ? dp_aligner : scoring_aligner;
+#ifdef debug_multipath_alignment
+                cerr << "align right with aligner " << tail_aligner << " because aligner " << dp_aligner << " gives max score " << tail_max_score << endl;
+#endif
+
+                // TODO: What if the scoring_aligner also has scores that are too large?
+
                 // align against the graph
                 
                 if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
-                    cerr << "align right with dozeu with gap " << gap << endl;
+                    cerr << "align right with dozeu with gap " << gap << " for length " << right_tail_sequence.sequence().size() << endl;
 #endif
                     // we can speed things up by using the dozeu pinned alignment
                     alt_alignments.emplace_back(move(right_tail_sequence));
-                    dp_aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
-                    if (dp_aligner != scoring_aligner) {
+                    tail_aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
+                    if (tail_aligner != scoring_aligner) {
                         alt_alignments.back().set_score(scoring_aligner->score_contiguous_alignment(alt_alignments.back(), false, true));
                     }
                 }
@@ -6215,8 +6231,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
 #endif
                     }
-                    dp_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                    if (dp_aligner != scoring_aligner) {
+                    tail_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                    if (tail_aligner != scoring_aligner) {
                         for (auto& aln : alt_alignments) {
                             aln.set_score(scoring_aligner->score_contiguous_alignment(aln, false, true));
                         }
@@ -6298,6 +6314,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         cerr << "trimming tail from length " << tail_length << " to " << aligning_tail_length << endl;
                     }
 #endif
+
                     int64_t gap =  min(max_gap, dp_aligner->longest_detectable_gap(alignment.sequence().size() - tail_length + aligning_tail_length,
                                                                                                         aligning_tail_length));
                     if (pessimistic_tail_gap_multiplier) {
@@ -6358,16 +6375,22 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     });
 #endif
                         
+                    int64_t tail_max_score = ((int64_t) dp_aligner->match) * left_tail_sequence.sequence().size() + ((int64_t) dp_aligner->full_length_bonus);
+                    auto tail_aligner = tail_max_score < std::numeric_limits<int16_t>::max() ? dp_aligner : scoring_aligner;
+#ifdef debug_multipath_alignment
+                    cerr << "align left with aligner " << tail_aligner << " because aligner " << dp_aligner << " gives max score " << tail_max_score << endl;
+#endif
+
                     // align against the graph
                     
                     if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
-                        cerr << "align left with dozeu using gap " << gap << endl;
+                        cerr << "align left with dozeu with gap " << gap << " for length " << left_tail_sequence.sequence().size() << endl;
 #endif
                         // we can speed things up by using the dozeu pinned alignment
                         alt_alignments.emplace_back(move(left_tail_sequence));
-                        dp_aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
-                        if (dp_aligner != scoring_aligner) {
+                        tail_aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
+                        if (tail_aligner != scoring_aligner) {
                             alt_alignments.back().set_score(scoring_aligner->score_contiguous_alignment(alt_alignments.back(), true, false));
                         }
                     }
@@ -6388,8 +6411,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                         }
                         
-                        dp_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
-                        if (dp_aligner != scoring_aligner) {
+                        tail_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        if (tail_aligner != scoring_aligner) {
                             for (auto& aln : alt_alignments) {
                                 aln.set_score(scoring_aligner->score_contiguous_alignment(aln, true, false));
                             }
