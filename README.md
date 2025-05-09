@@ -288,7 +288,7 @@ There are multiple read mappers in `vg`:
 * `vg map` is a general-purpose read mapper.
 * `vg mpmap` does "multi-path" mapping, to allow describing local alignment uncertainty. [This is useful for transcriptomics.](#Transcriptomic-analysis)
 
-The graph alignment output format of these mappers (GAM/GAMP) may be [QC'ed by `vg filter --tsv-out`](https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-%E2%80%90%E2%80%90tsv%E2%80%90out).
+The graph alignment output format of these mappers (GAM/GAMP) may be [QC'ed by `vg filter --tsv-out`](https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-vg-filter).
 
 #### Mapping with `vg giraffe`
 
