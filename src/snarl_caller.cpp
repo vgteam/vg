@@ -1,7 +1,7 @@
 #include "snarl_caller.hpp"
 #include "genotypekit.hpp"
 
-//#define debug
+// #define debug
 
 namespace vg {
 
@@ -950,5 +950,461 @@ vector<int> PoissonSupportSnarlCaller::rank_by_support(const vector<Support>& su
     return ranks;
 }
 
+ReadBasedSnarlCaller::ReadBasedSnarlCaller(PathHandleGraph& graph) :
+    graph(graph){
+    
+}
 
+ReadBasedSnarlCaller::~ReadBasedSnarlCaller() {
+    
+}
+
+pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadBasedSnarlCaller::genotype(const Snarl& snarl,
+                                                                                    const vector<SnarlTraversal>& traversals,
+                                                                                    int ref_trav_idx,
+                                                                                    int ploidy,
+                                                                                    const string& ref_path_name,
+                                                                                    pair<size_t, size_t> ref_range) {
+
+    // TO HELP DEBUG
+#ifdef debug
+    if(snarl.start().node_id() < 17454 || snarl.end().node_id() > 17457){
+        vector<int> best_genotype;
+        return make_pair(best_genotype, unique_ptr<SnarlCaller::CallInfo>(nullptr));
+    }
+#endif
+    
+    // parse traversals
+    // use maps to quickly checks if a node is in a traversal, which one and at which offset
+    // trav_nodes[node_id][trav_id] -> [offset1, offset2, ...]
+    map<id_t, map<int, vector<size_t>>> trav_nodes;
+    vector<size_t> trav_len(traversals.size(), 0);
+    // also extract subalignments touching the traversals
+    map<string, vector<MappingPos>> alns;
+    map<string, int> mapqs;
+    // save start/end sequence within snarl to know if we expect some misaligned read ends
+    vector<string> snarl_seq_s;
+    vector<string> snarl_seq_e;
+    int max_snarl_seq_hom = 2;
+    // loop over traversals
+    for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
+        const SnarlTraversal& trav = traversals[trav_idx];
+        size_t offset = 0;
+        string sseq_s = "";
+        string sseq_e = "";
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            id_t nid = trav.visit(i).node_id();
+            if(!trav_nodes.count(nid)){
+                // first time we encouter that node, create a new map
+                 trav_nodes[nid] = map <int, vector<size_t>>();
+                // copy the alignments if some reads overlap this node
+                if (cached_alns.count(nid)){
+                    for (const auto& caln : cached_alns[nid]){
+                        if (!mapqs.count(caln.first)){
+#ifdef debug
+                            cerr << "extracting " << caln.first << endl;
+#endif
+                            // first time we see that read
+                            mapqs[caln.first] = cached_alns_mapqs[caln.first];
+                            alns[caln.first] = vector<MappingPos>();
+                        }
+                        for (const auto& cmap : caln.second){
+                                alns[caln.first].push_back(cmap);
+                        }
+
+                    }
+                }
+            }
+            if(!trav_nodes[nid].count(trav_idx)){
+                // first time this traversal encounter this node
+                vector<size_t> offsets;
+                trav_nodes[nid][trav_idx] = offsets;
+            }
+            trav_nodes[nid][trav_idx].push_back(offset);
+            // cerr << "trav: " << trav_idx << " node: " << nid << " offset: " << offset << endl;
+            offset += graph.get_length(graph.get_handle(nid));
+            // add to snarl sequences
+            if (i > 0){
+                if (sseq_s.size() < max_snarl_seq_hom + 1) {
+                    sseq_s = sseq_s + graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+                }
+                if (sseq_e.size() < max_snarl_seq_hom + 1) {
+                    sseq_e = sseq_e + graph.get_sequence(graph.get_handle(trav.visit(trav.visit_size()-i-1).node_id(), !trav.visit(trav.visit_size()-i-1).backward()));
+                }
+            }
+        }
+        snarl_seq_s.push_back(sseq_s);
+        snarl_seq_e.push_back(sseq_e);
+#ifdef debug
+        cerr << "trav" << trav_idx << ": " << sseq_s << "\t" << sseq_e << endl;
+#endif
+        trav_len[trav_idx] = offset;
+    }
+
+    // measure how much homology exists between the path sequence within the snarl
+    // to help know if we expect misaligned read ends
+    int snarl_seq_hom = 0;
+    for (int tid1 = 0; tid1 < traversals.size() && snarl_seq_hom <= max_snarl_seq_hom; ++tid1){
+        for (int tid2 = tid1 + 1; tid2 < traversals.size() && snarl_seq_hom <= max_snarl_seq_hom; ++tid2){
+            // check starting sequence
+            int seq_pos = 0;
+            while(seq_pos < snarl_seq_s[tid1].size() && seq_pos < snarl_seq_s[tid2].size() && snarl_seq_s[tid1][seq_pos] == snarl_seq_s[tid2][seq_pos]) {
+                seq_pos++;
+            }
+            snarl_seq_hom = max(snarl_seq_hom, seq_pos);
+            // check end sequence
+            seq_pos = 0;
+            while(seq_pos < snarl_seq_e[tid1].size() && seq_pos < snarl_seq_e[tid2].size() && snarl_seq_e[tid1][seq_pos] == snarl_seq_e[tid2][seq_pos]) {
+                seq_pos++;
+            }
+            snarl_seq_hom = max(snarl_seq_hom, seq_pos);
+        }
+    }
+
+#ifdef debug
+    if (snarl_seq_hom > max_snarl_seq_hom) {
+        cerr << "Snarl sequence homology detected of at least " << snarl_seq_hom << "bp" << endl;
+    }
+#endif            
+    
+    // sort alignments
+    bool nogap = true;
+    for (auto& aln : alns){
+        std::sort(aln.second.begin(), aln.second.end(), [&] (const MappingPos& mp1, const MappingPos& mp2) {
+            return mp1.position < mp2.position;
+        });
+
+        int curpos = -1;
+        for (MappingPos& mp : aln.second) {
+            if (curpos != -1 && (mp.position != curpos + 1 && mp.position != curpos - 1)) {
+                // there is a gap in the alignment, maybe created by a cycle that should be dealt with
+                nogap = false;
+#ifdef debug
+                cerr << "gap observed in " << aln.first << endl;
+#endif
+
+            }
+            curpos = mp.position;
+        }
+    }
+    // TODO split non-continuous alignments if we notice gaps? e.g. made by cycles
+    
+#ifdef debug
+    cerr << traversals.size() << " traversal involving " << trav_nodes.size() << " nodes in snarl " << snarl.start().node_id() << "-" << snarl.end().node_id() << ". " << alns.size() << " reads extracted" << endl;
+    cerr << "traversal lengths: ";
+    for (int trav_idx = 0; trav_idx < traversals.size(); ++trav_idx) {
+        cerr << "\t" << trav_idx << ": " << trav_len[trav_idx];
+    }
+    cerr << endl;
+#endif
+    
+    // compute score/prob of each read on each traversal
+    vector<map<string, double>> probs(traversals.size());
+    int match_score = 1;
+    int mismatch_score = -4;
+    int gap_score = -6;
+    vector<int> trav_support(traversals.size(), 0);
+    for (const auto& aln : alns){
+        // to save the scores for this read across all traversals
+        vector<int> tscores(traversals.size());
+        int max_score =  -numeric_limits<int>::max();
+        bool informative_read = false;
+        for (int trav_id = 0; trav_id < traversals.size(); ++trav_id){
+            // score for that traversal and that read
+            int cur_score = 0;
+            // last node in common between traversal and aln
+            // to help detect gaps on the traversal side
+            id_t last_cnode = 0;
+            // record gaps on the traversal
+            int gap_trav = 0;
+            // record gaps on the alignment side
+            int gap_aln = 0;
+            // record softclip
+            int soft_clip = 0;
+            // remember if previous part was a misalignment candidate
+            bool misaligned_cand = false;
+            bool misaligned_cand_prev = false;
+            // process alignment
+            for (int map_id = 0; map_id < aln.second.size(); ++map_id) {
+                id_t nid = aln.second[map_id].mapping.position().node_id();
+                if (trav_nodes[nid].count(trav_id)){
+                    int sread_len = 0;
+                    for (size_t edi = 0; edi < aln.second[map_id].mapping.edit_size(); ++edi) {
+                        const auto& edit = aln.second[map_id].mapping.edit(edi);
+                        if (edit.to_length() == edit.from_length()){
+                            if (edit.sequence().empty()){
+                                // matches
+                                cur_score += match_score * edit.to_length();
+                            } else {
+                                // mismatches
+                                cur_score += mismatch_score * edit.to_length();
+                            }
+                        } else if (edit.to_length() == 0) {
+                            // deletion
+                            cur_score += gap_score * edit.to_length();
+                        } else {
+                            // insertion
+                            cur_score += gap_score * edit.from_length();
+                        }
+                        sread_len += edit.from_length();
+                    }
+                    // this part is potentially misaligned if there is homology, it's the beginning of a mapping and it's short (but not the full node)...
+                    misaligned_cand_prev = misaligned_cand;
+                    misaligned_cand = snarl_seq_hom > max_snarl_seq_hom && (map_id == 0 || map_id == aln.second.size() - 1) && sread_len <= 20 && sread_len != graph.get_length(graph.get_handle(nid));
+                    // aln and traversal match, update the traversal offset                
+                    if (last_cnode > 0){
+                        // check if there has been a gap on the traversal side
+                        // the gap size is the minimum gap between all pairs of offsets
+                        // for the previous node in common and this one
+                        int min_gap = numeric_limits<int>::max();
+                        for (int of1 = 0; of1 < trav_nodes[last_cnode][trav_id].size(); ++of1){
+                            for (int of2 = 0; of2 < trav_nodes[nid][trav_id].size(); ++of2){
+                                // cerr << "min gap score? " << nid << "/" << trav_nodes[nid][trav_id][of2] << " " << last_cnode << "/" << trav_nodes[last_cnode][trav_id][of1]  << " trav: " << trav_id << " read: " << aln_id << endl;
+                                int cgap_f = trav_nodes[nid][trav_id][of2] - trav_nodes[last_cnode][trav_id][of1] - graph.get_length(graph.get_handle(last_cnode));
+                                int cgap_b = trav_nodes[last_cnode][trav_id][of1] - trav_nodes[nid][trav_id][of2] - graph.get_length(graph.get_handle(nid));
+                                // cerr << "   -> " << cgap << endl;
+                                if (cgap_f >= 0 & cgap_f < min_gap){
+                                    min_gap = cgap_f;
+                                } else if (cgap_b >= 0 & cgap_b < min_gap){
+                                    min_gap = cgap_b;
+                                }
+                            }
+                        }
+                        // count as a gap if there is no homology or it's not the first/last mapping bit
+                        if (!misaligned_cand && !misaligned_cand_prev) {
+                            gap_trav += min_gap;
+                        }
+                    }
+                    last_cnode = nid;
+                } else {
+                    // update the gaps on the aln side
+                    // add the number of base in the read
+                    for (size_t edi = 0; edi < aln.second[map_id].mapping.edit_size(); ++edi) {
+                        if (map_id == 0 | map_id == aln.second.size() - 1){
+                            // differentiate potential soft-clips. TODO don't just at the last node, handle when the end of the reads traverses multiple nodes (not in the path of interest)
+                            soft_clip += aln.second[map_id].mapping.edit(edi).to_length();
+                        } else {
+                            gap_aln += aln.second[map_id].mapping.edit(edi).to_length();
+                        }
+                    }
+                }
+            }
+            // adjust with the gaps on the alignment and traversal side
+            if (gap_aln > gap_trav) {
+                cur_score += gap_score * (gap_aln - gap_trav) + mismatch_score * gap_trav;
+            } else {
+                cur_score += gap_score * (gap_trav - gap_aln) + mismatch_score * gap_aln;
+            }
+            // add small sofclip penalty
+            if (snarl_seq_hom > max_snarl_seq_hom) {
+                if (soft_clip > 20) {
+                    // assume it's misaligned up to 20 bp, then stop counting as a match (but don't penalize as a gap either)
+                    soft_clip = 20;
+                }
+                // count softclipped bases as a matched, assuming they might be misaligned and could be aligned as well on that path
+                cur_score += soft_clip;
+            } else {
+                // no homology: count the soft-clip as a normal gap
+                cur_score += gap_score * soft_clip;
+            }
+            // save score
+            tscores[trav_id] = cur_score;
+#ifdef debug
+            cerr << aln.first << " trav" << trav_id << ": " << cur_score << endl;
+#endif
+            // check if that read has a different score in the traversals
+            if (trav_id > 0 && cur_score != max_score) {
+                // yes, it's an informative read that we'll need to keep
+                informative_read = true;
+            }
+            if (cur_score > max_score){
+                max_score = cur_score;
+            }
+        }
+        if (!informative_read) {
+            // skip if not informative (same score across all traversals)
+            continue;
+        }
+        // compute (approximative) probabilities from the alignment score
+        double log_sum_score = 0;
+        for (int trav_id = 0; trav_id < traversals.size(); ++trav_id){
+            log_sum_score += exp((tscores[trav_id] - max_score));
+            // take this opportunity to update the traversal support info
+            // note: a read will be double counted if multiple path have the same maximum alignment score
+            if (tscores[trav_id] == max_score) {
+                trav_support[trav_id]++;
+            }
+        }
+        log_sum_score = max_score + log(log_sum_score);
+        // save alignment probabilities
+        for (int trav_id = 0; trav_id < traversals.size(); ++trav_id){
+            double pscore = exp(tscores[trav_id] - log_sum_score);
+            probs[trav_id][aln.first] = pscore;
+        }
+    }
+
+    // DEBUG print probs for each aln
+#ifdef debug
+    for (const auto& aln : alns) {
+        cerr << aln.first;
+        for (int trav_id=0; trav_id < traversals.size(); ++trav_id) {
+            cerr << "\t" << probs[trav_id][aln.first];
+        }
+        cerr << endl;
+    }
+#endif
+    
+    // find best pair of traversal
+    double best_prob = -numeric_limits<double>::max();
+    double second_best_prob = -numeric_limits<double>::max();
+    int best_tid1 = 0;
+    int best_tid2 = 0;
+    double err_prob = .0001;
+    double t_err_prob = .0001;
+    vector<double> gls;
+    for (int tid1 = 0; tid1 < traversals.size(); ++tid1){
+        for (int tid2 = tid1; tid2 < traversals.size(); ++tid2){
+            // compute a global prob for this traversal pair
+            double pprob = 0;
+            // not completely sure about this but potentially good to downweight large traversals?
+            int trav_max_len = max(trav_len[tid1], trav_len[tid2]);
+            // for (const auto& aln : alns) {
+            for (const auto& aln : probs[tid1]) {
+                t_err_prob = max(err_prob, pow(10, -double(mapqs[aln.first])/10));                
+                pprob += log(t_err_prob / trav_max_len + (1 - t_err_prob) * 1/2 * (probs[tid1][aln.first]/trav_len[tid1] + probs[tid2][aln.first]/trav_len[tid2]));
+            }
+#ifdef debug
+            cerr << "genotype prob: " << tid1 << "/" << tid2 << " " << pprob << endl;
+#endif
+            gls.push_back(pprob);
+            // update best pair if prob is higher
+            // also keep second best score to compute a quality estimate later
+            if (pprob > best_prob) {
+                second_best_prob = best_prob;
+                best_prob = pprob;
+                best_tid1 = tid1;
+                best_tid2 = tid2;
+            } else if(pprob > second_best_prob) {
+                second_best_prob = pprob;
+            }
+        }
+    }
+
+    // infinite probabilities could happen if we overflow, and could be a sign that the alignment score/probs are wrong (maybe we do need to split alignments that got fragmented when focusin on that snarl)
+    if (isinf(best_prob)){
+        cerr << "warning: snarl " << snarl.start().node_id() << "-" << snarl.end().node_id() <<
+            " Infinite genotype probability. ";
+        if (!nogap) {
+            cerr << "Gap seen in at least one read.";
+        }
+        cerr << endl;
+    }
+    
+    // prepare information about the call
+    ReadCallInfo* call_info = new ReadCallInfo();
+
+    // genotype log-likelihoods
+    // normalize by the total read probabilities (not necessary really, just to get more interpretable LL)
+    double ll_reads = 0;
+    for (auto gl: gls) {
+        ll_reads += exp(gl - best_prob);
+    }
+    ll_reads = best_prob + log(ll_reads);
+    for (auto gl: gls) {
+        call_info->gl.push_back(gl - ll_reads);
+    }
+    
+    // genotype quality as the likelihood ratio of the best genotype and the second best
+    // log so it's the difference
+    call_info->gq = best_prob - second_best_prob;
+
+    // read support
+    call_info->rs = probs[0].size();
+    call_info->as = trav_support;
+    
+    vector<int> best_genotype;
+    best_genotype.push_back(best_tid1);
+    best_genotype.push_back(best_tid2);
+#ifdef debug
+    cerr << "best genotype (ref " << ref_trav_idx << "): " << best_tid1 << "/" << best_tid2 << endl;
+#endif
+    return make_pair(best_genotype, unique_ptr<SnarlCaller::CallInfo>(call_info));
+}
+
+void ReadBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
+                                                const vector<SnarlTraversal>& traversals,
+                                                const vector<int>& genotype,
+                                                const unique_ptr<CallInfo>& call_info,
+                                                const string& sample_name,
+                                                vcflib::Variant& variant) {
+
+    assert(traversals.size() == variant.alleles.size());
+
+    const SnarlCaller::CallInfo* s_call_info = call_info.get();
+    const ReadCallInfo* p_call_info = dynamic_cast<const ReadCallInfo*>(call_info.get());
+
+    // read support
+    variant.format.push_back("RS");
+    variant.samples[sample_name]["RS"].push_back(std::to_string(p_call_info->rs));
+    variant.format.push_back("AS");
+    for (auto allele_supp: p_call_info->as) {
+        variant.samples[sample_name]["AS"].push_back(std::to_string(allele_supp));
+    }
+    
+    variant.format.push_back("GQ");
+    // convert log-ll to phred-scaled log10 ll
+    int gq = min((int)256, max((int)0, (int)(10 * p_call_info->gq  / 2.30258)));
+    variant.samples[sample_name]["GQ"].push_back(std::to_string(gq));
+
+    // genotype log-ll
+    variant.format.push_back("GL");
+    for (auto gl: p_call_info->gl) {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(3) << round(gl*1000) / 1000;
+        variant.samples[sample_name]["GL"].push_back(ss.str());
+    }
+
+    // for now QUAL is the same as the genotype quality
+    variant.quality = gq;
+    
+    // TODO define a special FILTER when read support or GQ is low?
+    variant.filter = "PASS";
+    
+}
+
+void ReadBasedSnarlCaller::update_vcf_header(string& header) const {
+    header += "##FORMAT=<ID=AS,Number=.,Type=Integer,Description=\"Read support for the ref and alt alleles in the order listed\">\n";
+    header += "##FORMAT=<ID=RS,Number=1,Type=Integer,Description=\"Read support\">\n";
+    header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
+    header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled probability estimate of the called genotype\">\n";
+}
+
+void ReadBasedSnarlCaller::clear_cached_reads() {
+    cached_alns.clear();
+    cached_alns_mapqs.clear();
+}
+    
+void ReadBasedSnarlCaller::add_cached_read(const Alignment& aln) {
+    // read name
+    string rname = aln.name();
+    if (cached_alns_mapqs.count(rname)){
+        rname = rname + "_2";
+    }
+    // save mapq
+    cached_alns_mapqs[rname] = aln.mapping_quality();
+    // save sequence of Mapping objects
+    for (size_t mid = 0; mid < aln.path().mapping_size(); ++mid) {
+        auto& mapping = aln.path().mapping(mid);
+        size_t nid = mapping.position().node_id();
+        if (!cached_alns.count(nid)){
+            cached_alns[nid] = map<string, vector<MappingPos>>();
+        }
+        if (!cached_alns[nid].count(rname)){
+            cached_alns[nid][rname] = vector<MappingPos>();
+        }
+        cached_alns[nid][rname].push_back({mapping, mid});
+    }
+}
+    
+    
 }

@@ -3281,4 +3281,69 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     }
     return aln;
 }
+
+void GAFindex::load(const string& gaf_filename){
+    try {
+        tbx_t *gaf_tbx_l = NULL;
+        htsFile *gaf_fp_l = NULL;
+        if (!gaf_filename.empty()){
+            gaf_tbx_l = tbx_index_load3(gaf_filename.c_str(), NULL, 0);
+            if ( !gaf_tbx_l ){
+                cerr << "Could not load .tbi/.csi index of " << gaf_filename << endl;
+                exit(1);
+            }
+            int nseq;
+            gaf_fp_l = hts_open(gaf_filename.c_str(),"r");
+            if ( !gaf_fp_l ) {
+                cerr << "Could not open " << gaf_filename << endl;
+                exit(1);
+            }
+            gaf_fp = unique_ptr<htsFile>(gaf_fp_l);
+            gaf_tbx = unique_ptr<tbx_t>(gaf_tbx_l);
+        }
+    } catch (...) {
+        cerr << "error: unable to load GAF index file: " << gaf_filename << "" << endl;
+        exit(1);
+    }
+}
+    
+void GAFindex::find(const HandleGraph& graph, id_t node_id,
+                    const function<void(const Alignment&)> handle_result){
+    find(graph, vector<pair<id_t, id_t>>{{node_id, node_id}}, handle_result);
+}
+    
+void GAFindex::find(const HandleGraph& graph, id_t min_node, id_t max_node,
+                    const function<void(const Alignment&)> handle_result){
+    find(graph, vector<pair<id_t, id_t>>{{min_node, max_node}}, handle_result);    
+}
+    
+void GAFindex::find(const HandleGraph& graph, const vector<pair<id_t, id_t>>& ranges,
+                    const function<void(const Alignment&)> handle_result,
+              bool only_fully_contained){
+    assert(gaf_fp.get() != nullptr);
+    assert(gaf_tbx.get() != nullptr);
+
+    // loop over ranges
+    for (auto range : ranges) {
+        // the query is in the form {node}:START_NODE-END_NODE
+        string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
+        // query the node range
+        hts_itr_t *itr = tbx_itr_querys(gaf_tbx.get(), reg.c_str());
+        kstring_t s_buffer = KS_INITIALIZE; // NOTE used to be {0, 0, 0} but I imagine/hope it's the same as {0, 0, NULL}
+        if ( itr ) {
+            while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &s_buffer) >= 0) {
+                // s_buffer has the GAF record as a string
+                // convert to alignment and apply function
+                gafkluge::GafRecord record;
+                gafkluge::parse_gaf_record(ks_str(&s_buffer), record);
+                Alignment aln;
+                gaf_to_alignment(graph, record, aln);
+                // TODO JEAN check that alignment touches a node in the range (or is fully contained)
+                handle_result(aln);
+            }
+            tbx_itr_destroy(itr);
+        }
+    }
+}
+
 }

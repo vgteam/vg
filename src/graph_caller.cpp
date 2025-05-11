@@ -2378,6 +2378,361 @@ string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<s
 }
 
 
+HapCaller::HapCaller(const PathPositionHandleGraph& graph,
+              ReadBasedSnarlCaller& snarl_caller, 
+              SnarlManager& snarl_manager,
+              SnarlDistanceIndex& distance_index,
+              GBWTTraversalFinder& traversal_finder,
+              GAFindex& reads,
+              const string& sample_name,
+              const vector<string>& ref_paths,
+              const vector<size_t>& ref_path_offsets,
+              const vector<int>& ref_path_ploidies,
+              bool genotype_snarls,
+              const pair<size_t, size_t>& allele_length_range) :
+    GraphCaller(snarl_caller, snarl_manager),
+    distance_index(distance_index),
+    VCFOutputCaller(sample_name),
+    graph(graph),
+    traversal_finder(traversal_finder),
+    reads(reads),
+    ref_paths(ref_paths),
+    genotype_snarls(genotype_snarls),
+    allele_length_range(allele_length_range)
+{
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
+    }
+
+}
+   
+HapCaller::~HapCaller() {
+
+}
+
+void HapCaller::call_top_level_snarl_block(size_t block_size){
+#ifdef debug
+    cerr << "Calling top level snarls by block of about " << block_size << endl;
+#endif
+
+    ReadBasedSnarlCaller* rb_snarl_caller = dynamic_cast<ReadBasedSnarlCaller*>(&snarl_caller);
+    
+    distance_index.for_each_child(distance_index.get_root(), [&](const handlegraph::net_handle_t& chain) {
+        if (distance_index.is_chain(chain)) {
+            std::vector<handlegraph::net_handle_t> snarls;
+            size_t start_offset = 0;
+
+            auto process_snarls = [&] () {
+                if (snarls.size() > 0) {
+                    nid_t s1 = distance_index.node_id(distance_index.get_node_from_sentinel(distance_index.get_bound(snarls.front(), false, true)));
+                    nid_t s2 = distance_index.node_id(distance_index.get_node_from_sentinel(distance_index.get_bound(snarls.back(), true, true)));
+#ifdef debug
+                    cerr << "Snarl group from " << s1 << "-" << s2 << endl;
+#endif
+                    
+                    // load reads
+                    rb_snarl_caller->clear_cached_reads();
+                    auto handle_read = [&](const Alignment& aln) {
+                        rb_snarl_caller->add_cached_read(aln);
+                    };
+                    reads.find(graph, s1, s2, handle_read);
+
+                }
+                    
+                // prepare the snarls to process
+                std::vector<Snarl> snarls_to_process;
+                vector<handlegraph::net_handle_t> snarls_to_merge;
+                for (int sid = 0; sid < snarls.size(); ++sid){
+                    // check if overlap a region
+                    if (overlaps_regions(snarls[sid])){
+                        snarls_to_merge.emplace_back(snarls[sid]);
+                    } else {
+                        if (snarls_to_merge.size() > 0) {
+                            // there are snarls that needed to be merged
+                            // make a fake snarl like in call_top_level_chains
+                            Snarl fake_snarl;
+                            // define first boundary
+                            net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls_to_merge.front(), false, true));
+                            fake_snarl.mutable_start()->set_node_id(distance_index.node_id(bound));
+                            fake_snarl.mutable_start()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                            // define second boundary
+                            bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls_to_merge.back(), true, false));
+                            fake_snarl.mutable_end()->set_node_id(distance_index.node_id(bound));
+                            fake_snarl.mutable_end()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                            // call it
+                            snarls_to_process.push_back(fake_snarl);
+                            // clear the set of snarls to merge
+                            snarls_to_merge.clear();
+                        }
+                        // call the current snarl
+                        net_handle_t bound_nh = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls[sid], false, true)); //TODO: Check that this gets the start bound facing in
+                        // const Snarl* snarl_o = snarl_manager.into_which_snarl(distance_index.node_id(bound_nh),
+                        //                                                       distance_index.ends_at(bound_nh) != SnarlDistanceIndex::END);
+                        Snarl snarl_o;
+                        // define first boundary
+                        net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls[sid], false, true));
+                        snarl_o.mutable_start()->set_node_id(distance_index.node_id(bound));
+                        snarl_o.mutable_start()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                        // cerr << "fake snarl starting at " << distance_index.node_id(bound) << endl;
+                        // define second boundary
+                        bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls[sid], true, false));
+                        snarl_o.mutable_end()->set_node_id(distance_index.node_id(bound));
+                        snarl_o.mutable_end()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                        snarls_to_process.push_back(snarl_o);
+
+                    }
+                }
+                // check if we ended with a snarl to merge
+                if (snarls_to_merge.size() > 0) {
+                    // make a fake snarl
+                    Snarl fake_snarl;
+                    // define first boundary
+                    net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls_to_merge.front(), false, true));
+                    fake_snarl.mutable_start()->set_node_id(distance_index.node_id(bound));
+                    fake_snarl.mutable_start()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                    // cerr << "fake snarl starting at " << distance_index.node_id(bound) << endl;
+                    // define second boundary
+                    bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarls_to_merge.back(), true, false));
+                    fake_snarl.mutable_end()->set_node_id(distance_index.node_id(bound));
+                    fake_snarl.mutable_end()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                    // cerr << "fake snarl ending at " << distance_index.node_id(bound) << endl;
+                    // call it
+                    snarls_to_process.push_back(fake_snarl);
+                    // clear the set of snarls to merge
+                    snarls_to_merge.clear();
+                }
+
+                // process the snarls in parallel
+#pragma omp parallel
+                {
+#pragma omp single
+                    {
+                        for (int i = 0; i < snarls_to_process.size(); i++) {
+#pragma omp task firstprivate(i)
+                            {
+                                call_snarl(snarls_to_process[i]);
+                            }
+                        }
+                    }
+                }
+                
+                // clear the snarl buffer
+                snarls.clear();
+            };
+            
+            distance_index.for_each_child(chain, [&] (const handlegraph::net_handle_t& child) {
+                if (distance_index.is_node(child) && (distance_index.get_prefix_sum_value(child) - start_offset > block_size) && !overlaps_regions(child)) {
+                    start_offset = distance_index.get_prefix_sum_value(child);
+                    process_snarls();
+                } else if (distance_index.is_snarl(child)) {
+                    snarls.emplace_back(child);
+                }
+            });
+
+            if (snarls.size() > 0) {
+                process_snarls();
+            }
+        }
+    });
+}
+    
+bool HapCaller::call_snarl(const Snarl& managed_snarl) {
+    // copy to work on to do things like flip -- calling any snarl_manager code that
+    // wants a pointer will crash. 
+    Snarl snarl = managed_snarl;
+    
+    // can't call one-node or out-of graph snarls
+    if (snarl.start().node_id() == snarl.end().node_id() ||
+        !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
+#ifdef debug
+        cerr << "can't call one-node or out-of graph snarls" << endl;
+#endif
+        return false;
+    }
+        
+    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+
+    // as we're writing to VCF, we need a reference path through the snarl.  we
+    // look it up directly from the graph, and abort if we can't find one
+    set<string> start_path_names;
+    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
+            string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+            if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
+                start_path_names.insert(name);
+            }
+            return true;
+        });
+    
+    set<string> end_path_names;
+    if (!start_path_names.empty()) {
+        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+                if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {                
+                    end_path_names.insert(name);
+                }
+                return true;
+            });
+    }
+    
+    // we do the full intersection (instead of more quickly finding the first common path)
+    // so that we always take the lexicographically lowest path, rather than depending
+    // on the order of iteration which could change between implementations / runs.
+    vector<string> common_names;
+    std::set_intersection(start_path_names.begin(), start_path_names.end(),
+                          end_path_names.begin(), end_path_names.end(),
+                          std::back_inserter(common_names));
+
+    if (common_names.empty()) {
+#ifdef debug
+        cerr << "empty common names" << endl;
+#endif
+        return false;
+    }
+
+    string& ref_path_name = common_names.front();
+
+    // find the reference traversal and coordinates using the path position graph interface
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    if (get<0>(ref_interval) == -1) {
+        // could not find reference path interval consistent with snarl due to orientation conflict
+#ifdef debug
+        cerr << "could not find reference path interval consistent with snarl due to orientation conflict" << endl;
+#endif
+        return false;
+    }
+    if (get<2>(ref_interval) == true) {
+        // calling code assumes snarl forward on reference
+        flip_snarl(snarl);
+        ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    }
+
+    step_handle_t cur_step = get<3>(ref_interval);
+    step_handle_t last_step = get<4>(ref_interval);
+    if (get<2>(ref_interval)) {
+        std::swap(cur_step, last_step);
+    }
+    bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+
+    SnarlTraversal ref_trav;
+    while (true) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(graph.get_id(cur_handle));
+        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
+        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
+            break;
+        } else if (get<2>(ref_interval) == true) {
+            if (!graph.has_previous_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_previous_step(cur_step);
+        } else {
+            if (!graph.has_next_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_next_step(cur_step);
+        }
+    }
+    assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+
+    vector<SnarlTraversal> travs = traversal_finder.find_traversals(snarl);
+
+    // optional traversal length clamp can, ex, avoid trying to resolve a giant snarl    
+    if (allele_length_range.first > 0 || allele_length_range.second < numeric_limits<size_t>::max()) {
+        size_t max_trav_len = 0;
+        for (const SnarlTraversal & trav : travs) {
+            size_t trav_len = 0;
+            for (size_t i = 1; i < trav.visit_size() - 1; ++i) {
+                trav_len += graph.get_length(graph.get_handle(trav.visit(i).node_id()));
+            }
+            max_trav_len = max(max_trav_len, trav_len);
+            if (max_trav_len > allele_length_range.second) {
+                return false;
+            }
+        }
+        if (max_trav_len < allele_length_range.first) {
+            return false;
+        }
+    }
+
+    // order the traversals
+    vector<SnarlTraversal> travs_o;
+    // the reference path will be first
+    int ref_trav_idx = 0;
+    travs_o.push_back(ref_trav);
+    for (int i = 0; i < travs.size(); ++i) {
+        if (travs[i] != ref_trav) {
+            travs_o.push_back(travs[i]);
+        }
+    }
+    
+    bool ret_val = true;
+
+    vector<int> trav_genotype;
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    int ploidy = ref_ploidies[ref_path_name];
+    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs_o, ref_trav_idx, ploidy, ref_path_name,
+                                                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+
+    assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+    
+    ret_val = emit_variant(graph, snarl_caller, snarl, travs_o, trav_genotype,
+                           ref_trav_idx, trav_call_info, ref_path_name,
+                           ref_offsets[ref_path_name], genotype_snarls, ploidy);
+    
+    return ret_val;
+}
+
+string HapCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                             const vector<size_t>& contig_length_overrides) const {
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    snarl_caller.update_vcf_header(header);
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
+}
+
+void HapCaller::update_regions(const vector<Region>& regions) {
+    nodes_in_regions.clear();
+    for (const auto& region : regions){
+        // extract our path range into the graph
+        // cerr << region.seq << ":" << region.start << "-" << region.end << endl;
+        path_handle_t path_handle = graph.get_path_handle(region.seq);
+        step_handle_t start_step = graph.get_step_at_position(path_handle, region.start);
+        step_handle_t end_step = graph.get_step_at_position(path_handle, region.end);    
+        step_handle_t end_plus_one_step = graph.has_next_step(end_step) ? graph.get_next_step(end_step) : graph.path_end(path_handle) ;
+        for (step_handle_t step = start_step; step != end_plus_one_step; step = graph.get_next_step(step)) {
+            handle_t step_handle = graph.get_handle_of_step(step);
+            // cerr << "node in region: " << graph.get_id(step_handle) << endl;
+            nodes_in_regions[graph.get_id(step_handle)] = true;
+        };
+    }
+    // maybe could get away with node ranges like, assuming the nodes are topolically sorted and
+    // we're only testing overlap with boundary nodes of top-level snarls
+    // handle_t start_handle = graph.get_handle_of_step(start_step);
+    // int64_t input_start_node = graph.get_id(start_handle);
+    // handle_t end_handle = graph.get_handle_of_step(end_step);
+    // int64_t input_end_node = graph.get_id(end_handle);
+}
+
+bool HapCaller::overlaps_regions(const handlegraph::net_handle_t snarl) {
+    if (!distance_index.is_snarl(snarl)){
+        return (false);
+    }
+    size_t nid1 = distance_index.node_id(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, true)));
+    size_t nid2 = distance_index.node_id(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, true, true)));
+    return (nodes_in_regions.count(nid1) || nodes_in_regions.count(nid2));
+}
+
 SnarlGraph::SnarlGraph(const HandleGraph* backing_graph, SnarlManager& snarl_manager, vector<const Snarl*> snarls) :
     backing_graph(backing_graph),
     snarl_manager(snarl_manager) {

@@ -15,6 +15,7 @@
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
+#include "snarl_distance_index.hpp"
 
 namespace vg {
 
@@ -539,6 +540,86 @@ protected:
     NestedCachedPackedTraversalSupportFinder& nested_support_finder;
 };
 
+    
+/**
+ * HapCaller : Uses traversals from haplotypes (GBWT/GBZ) and aligned reads
+ */
+class HapCaller : public GraphCaller, public VCFOutputCaller {
+public:
+    HapCaller(const PathPositionHandleGraph& graph,
+              ReadBasedSnarlCaller& snarl_caller, 
+              SnarlManager& snarl_manager,
+              SnarlDistanceIndex& distance_index,
+              GBWTTraversalFinder& traversal_finder,
+              GAFindex& reads,
+              const string& sample_name,
+              const vector<string>& ref_paths,
+              const vector<size_t>& ref_path_offsets,
+              const vector<int>& ref_path_ploidies,
+              bool genotype_snarls,
+              const pair<size_t, size_t>& allele_length_range);
+   
+    virtual ~HapCaller();
+
+    /// Run call_snarl() on every top-level snarl in the manager.
+    /// For any that return false, try the children, etc. (when recurse_on_fail true)
+    /// Snarls are processed in parallel
+    virtual void call_top_level_snarl_block(size_t block_size);
+
+    virtual bool call_snarl(const Snarl& snarl);
+
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
+
+
+    // to merge snarls in user-defined regions (e.g. STRs)
+    virtual void update_regions(const vector<Region>& regions);
+
+    virtual bool overlaps_regions(const handlegraph::net_handle_t snarl);
+
+protected:
+
+    /// the graph
+    const PathPositionHandleGraph& graph;
+
+    /// the traversal finder
+    GBWTTraversalFinder& traversal_finder;
+
+    /// the distance index
+    SnarlDistanceIndex& distance_index;
+
+    /// Get object with indexed reads
+    GAFindex& reads;
+
+    // nodes touching regions where snarls should be processed together
+    map<size_t, bool> nodes_in_regions;
+    
+    /// keep track of the reference paths
+    vector<string> ref_paths;
+    unordered_set<string> ref_path_set;
+
+    /// keep track of offsets in the reference paths
+    map<string, size_t> ref_offsets;
+    
+    /// keep traco of the ploidies (todo: just one map for all path stuff!!)
+    map<string, int> ref_ploidies;
+
+    /// until we support nested snarls, cap snarl size we attempt to process
+    size_t max_snarl_edges = 10000;
+
+    /// toggle whether to genotype every snarl
+    /// (by default, uncalled snarls are skipped, and coordinates are flattened
+    ///  out to minimize variant size -- this turns all that off)
+    bool genotype_snarls;
+
+    /// clamp calling to alleles of a given length range
+    /// more specifically, a snarl is only called if
+    /// 1) its largest allele is >= allele_length_range.first and
+    /// 2) all alleles are < allele_length_range.second
+    pair<size_t, size_t> allele_length_range;    
+
+};
+    
 
 /** Simplification of a NetGraph that ignores chains.  It is designed only for
     traversal finding.  Todo: generalize NestedFlowCaller to the point where we 

@@ -18,7 +18,7 @@ FROM base AS build
 ARG THREADS=8
 ARG TARGETARCH
 
-# If you didn't `make version` berfore building the Docker, you can provide a
+# If you didn't `make version` before building the Docker, you can provide a
 # version value here to claim to be.
 ARG VG_GIT_VERSION
 ENV VG_GIT_VERSION=${VG_GIT_VERSION:-unknown}

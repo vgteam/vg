@@ -8,6 +8,7 @@
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <sstream>
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "genotypekit.hpp"
@@ -21,7 +22,6 @@ using namespace std;
 
 /**
  * SnarlCaller: Given a list of traversals through a site, come up with a genotype
- * come up with a genotype
  */ 
 class SnarlCaller {
 public:
@@ -286,6 +286,90 @@ protected:
     bool use_mapq;
 
 };
+
+
+struct MappingPos {
+    Mapping mapping;
+    size_t position;
+
+    MappingPos() {
+        mapping = Mapping();
+        position = 0;
+    }
+
+    MappingPos(Mapping in_mapping, size_t in_position) {
+        mapping = in_mapping;
+        position = in_position;
+    }
+
+    // // Assignment operator function
+    // MappingPos& operator=(const MappingPos& mp) {
+    //     if (&mp != this) { // Avoid self-assignment
+    //         this->mapping = mp.mapping;
+    //         this->position = mp.position;
+    //     }
+    //     return *this;
+    // }
+
+
+    // swap(const vg::MappingPos&, const vg::MappingPos&)
+    
+};
+
+/**
+ * Caller that relies indexed mapped reads.
+ * Query reads for the subgraph of interest from a read index,
+ * then find best diplotype with RPVG-style approach.
+ */ 
+class ReadBasedSnarlCaller : public SnarlCaller {
+public:
+    ReadBasedSnarlCaller(PathHandleGraph& graph);
+
+    virtual ~ReadBasedSnarlCaller();
+
+    struct ReadCallInfo : public SnarlCaller::CallInfo {
+        virtual ~ReadCallInfo() = default;
+        vector<double> gl;
+        int rs;
+        vector<int> as;
+        double gq;
+    };
+    
+    /// Get the genotype of a site
+    virtual pair<vector<int>, unique_ptr<CallInfo>>  genotype(const Snarl& snarl,
+                                                              const vector<SnarlTraversal>& traversals,
+                                                              int ref_trav_idx,
+                                                              int ploidy,
+                                                              const string& ref_path_name,
+                                                              pair<size_t, size_t> ref_range);
+
+    virtual void update_vcf_info(const Snarl& snarl,
+                                 const vector<SnarlTraversal>& traversals,
+                                 const vector<int>& genotype,
+                                 const unique_ptr<CallInfo>& call_info,
+                                 const string& sample_name,
+                                 vcflib::Variant& variant);
+
+    /// Define any header fields needed by the above
+    virtual void update_vcf_header(string& header) const;
+
+    /// Update cached reads
+    virtual void clear_cached_reads();
+
+    virtual void add_cached_read(const Alignment& aln);
+
+protected:
+
+    PathHandleGraph& graph;
+    
+    // cached alignments
+    // map(node -> map(readname -> [mapping+pos, mapping+pos, ...]))
+    map<size_t, map<string, vector<MappingPos>>> cached_alns;
+    map<string, int> cached_alns_mapqs;
+
+};
+
+// TODO define sorting using position
 
 
 // debug helpers

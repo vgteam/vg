@@ -382,6 +382,32 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 
+// Indexed GAF object
+class GAFindex {
+public:
+
+    /// Load an index from a file.
+    void load(const string& gaf_filename);
+
+    /// Call the given callback on all the alignments in the index that visit the given node.
+    void find(const HandleGraph& graph, id_t node_id, const function<void(const Alignment&)> handle_result);
+
+    /// Call the given callback on all the alignments in the index that visit a node in the given inclusive range.
+    void find(const HandleGraph& graph, id_t min_node, id_t max_node, const function<void(const Alignment&)> handle_result);
+
+    /// Call the given callback on all the alignments in the index that visit a node in any of the given sorted, coalesced inclusive ranges.
+    /// Emits each alignment at most once.
+    /// If only_fully_contained is set, only messages where *all* the involved nodes are in one of the ranges will match.
+    void find(const HandleGraph& graph, const vector<pair<id_t, id_t>>& ranges, const function<void(const Alignment&)> handle_result,
+              bool only_fully_contained = false);
+
+protected:
+
+    unique_ptr<tbx_t> gaf_tbx;
+    unique_ptr<htsFile> gaf_fp;
+
+};
+    
 }
 
 #endif
