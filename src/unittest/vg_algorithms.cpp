@@ -46,7 +46,7 @@ Node* find_node(Graph& g, int64_t id) {
 }
         
 TEST_CASE( "Connecting graph extraction produces expected results in an acyclic graph",
-           "[algorithms]" ) {
+           "[algorithms][extract_connecting_graph]" ) {
             
     VG vg;
             
@@ -421,8 +421,530 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
         REQUIRE(found_edge_1);
     }
 }
+
+TEST_CASE( "Connecting graph extraction works on a cyclic graph from the left",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    // We can come around to the back of the first node from inside the piece we want to extract.
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, h1);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+    
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a cyclic graph from the right",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    // We can come around to the back of the last node from inside the piece we want to extract.
+    graph.create_edge(h3, h2);
+    graph.create_edge(h2, h3);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a reversing graph from the right coming around the left",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    // We can come around to the back of the first node from inside the piece we want to extract.
+    graph.create_edge(h3, h2);
+    graph.create_edge(graph.flip(h1), h3);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a reversing graph from the left coming around the right",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    // We can come around to the back of the last node from inside the piece we want to extract.
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, graph.flip(h2));
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on an internal reversing edge towards the left",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, graph.flip(h3));
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on an internal reversing edge towards the right",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h3, h2);
+    graph.create_edge(graph.flip(h3), h3);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a reversing edge on the left node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h1, graph.flip(h1));
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a reversing edge on the right node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(graph.flip(h2), h2);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a self loop on the left node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h1, h1);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works on a self loop on the right node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h2);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We may or may not get nodes that are only on paths between the anchors
+    // that involve cycles through the anchors.
+
+    // We should not duplicate any nodes
+    REQUIRE(trans.size() == retained_node_ids.size());
+    // We should have both anchor nodes
+    REQUIRE(retained_node_ids.count(graph.get_id(h1)));
+    REQUIRE(retained_node_ids.count(graph.get_id(h2)));
+}
+
+TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the left node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, graph.flip(h1));
+    graph.create_edge(graph.flip(h1), h2);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // If we can't duplicate any nodes, there's no way to get a graph that has
+    // the connection path and also cut the nodes/keep them as tips. So we
+    // expect an empty graph.
+    REQUIRE(retained_node_ids.empty());
+    REQUIRE(extractor.get_node_count() == 0);
+}
+
+TEST_CASE( "Connecting graph extraction works when a connection is only possibly by doubling back through the right node",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+    handle_t h3 = graph.create_handle("A");
+
+    graph.create_edge(h3, h2);
+    graph.create_edge(graph.flip(h3), h2);
+    graph.create_edge(h1, graph.flip(h2));
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 2);
+    pos_t pos_2 = make_pos_t(graph.get_id(h2), false, 1);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // If we can't duplicate any nodes, there's no way to get a graph that has
+    // the connection path and also cut the nodes/keep them as tips. So we
+    // expect an empty graph.
+    REQUIRE(retained_node_ids.empty());
+    REQUIRE(extractor.get_node_count() == 0);
+}
+
+TEST_CASE( "Connecting graph extraction works when you can turn around on the right and come back to the same node to get a path",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, graph.flip(h1));
+
+    // Add possible tips
+    handle_t h3 = graph.create_handle("A");
+    handle_t h4 = graph.create_handle("A");
+    handle_t h5 = graph.create_handle("A");
+    handle_t h6 = graph.create_handle("A");
+    graph.create_edge(h2, h3);
+    graph.create_edge(h1, h4);
+    graph.create_edge(h5, h4);
+    graph.create_edge(h6, h1);
+            
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), false, 3);
+    pos_t pos_2 = make_pos_t(graph.get_id(h1), true, 3);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We should see two versions of the one bounding node, and one of the connecting node.
+    // We shoudl not have extra tips from any of the other nodes.
+    REQUIRE(retained_node_ids.size() == 2);
+    
+    std::unordered_set<std::string> node_sequences;
+    extractor.for_each_handle([&](const handle_t& h) {
+        node_sequences.insert(extractor.get_sequence(h));    
+    });
+
+    // We should have the part of the first node to the right of the start cut point
+    REQUIRE(node_sequences.count("T"));
+    // And the connecting node in its local forward orientation.
+    REQUIRE(node_sequences.count("ACA"));
+    // And the part of the first node before (on the reverse strand) the end
+    // point, but still in the original local forward orientation.
+    REQUIRE(node_sequences.count("ATT"));
+}
+
+TEST_CASE( "Connecting graph extraction works when you can turn around on the left and come back to the same node to get a path",
+           "[algorithms][extract_connecting_graph]" ) {
+            
+    bdsg::HashGraph graph;
+
+    handle_t h1 = graph.create_handle("GATT");
+    handle_t h2 = graph.create_handle("ACA");
+
+    graph.create_edge(h2, h1);
+    graph.create_edge(graph.flip(h2), h1);
+
+    // Add possible tips
+    handle_t h3 = graph.create_handle("A");
+    handle_t h4 = graph.create_handle("A");
+    handle_t h5 = graph.create_handle("A");
+    handle_t h6 = graph.create_handle("A");
+    graph.create_edge(h2, h3);
+    graph.create_edge(h1, h4);
+    graph.create_edge(h5, h4);
+    graph.create_edge(h6, h1);
+    
+    // We have to flip the anchors too because they both are reachable for one
+    // terminal of the node
+    pos_t pos_1 = make_pos_t(graph.get_id(h1), true, 3);
+    pos_t pos_2 = make_pos_t(graph.get_id(h1), false, 3);
+                
+    bdsg::HashGraph extractor;
+    auto trans = algorithms::extract_connecting_graph(&graph, &extractor, 100, pos_1, pos_2, true);
+
+    // Collect all the node IDs we kept
+    std::unordered_set<id_t> retained_node_ids;
+    for (auto& kv : trans) {
+        retained_node_ids.insert(kv.second);
+    }
+
+    // We should see two versions of the one bounding node, and one of the connecting node.
+    // We shoudl not have extra tips from any of the other nodes.
+    REQUIRE(retained_node_ids.size() == 2);
+    
+    std::unordered_set<std::string> node_sequences;
+    extractor.for_each_handle([&](const handle_t& h) {
+        node_sequences.insert(extractor.get_sequence(h));    
+    });
+
+    // We should have the part of the first node to the left of the end cut point
+    REQUIRE(node_sequences.count("GAT"));
+    // And the connecting node in its local forward orientation.
+    REQUIRE(node_sequences.count("ACA"));
+    // And the part of the first node after (on the reverse strand) the start
+    // point, but still in the original local forward orientation.
+    REQUIRE(node_sequences.count("G"));
+}
         
-TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms]" ) {
+TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms][extract_connecting_graph]" ) {
     VG vg;
             
     Node* n0 = vg.create_node("CGA");
@@ -563,8 +1085,42 @@ TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[
     }
 }
         
+TEST_CASE( "Connecting graph extraction works on a cool loop without leaving extra tips in strict max length mode",
+           "[algorithms][extract_connecting_graph]" ) {
+                  
+    string graph_json = R"(
+    {"edge": [{"from": "185927720", "to": "185927722"}, {"from": "185927721", "from_start": true, "to": "185927722"}, {"from": "185927722", "to": "186681786", "to_end": true}, {"from": "185927722", "to": "185927723"}, {"from": "186681786", "to": "186683083"}, {"from": "186681786", "from_start": true, "to": "186681787", "to_end": true}, {"from": "186681787", "to": "186683069", "to_end": true}, {"from": "186681787", "from_start": true, "to": "186681789"}, {"from": "186681787", "from_start": true, "to": "186681788", "to_end": true}, {"from": "186681788", "from_start": true, "to": "186681790", "to_end": true}, {"from": "186681789", "to": "186681790", "to_end": true}, {"from": "186681790", "from_start": true, "to": "186681792", "to_end": true}, {"from": "186683069", "from_start": true, "to": "186683079", "to_end": true}, {"from": "186683079", "from_start": true, "to": "186683080", "to_end": true}, {"from": "186683080", "from_start": true, "to": "186683081", "to_end": true}, {"from": "186683081", "from_start": true, "to": "186683083", "to_end": true}], "node": [{"id": "185927720", "sequence": "G"}, {"id": "185927721", "sequence": "A"}, {"id": "185927722", "sequence": "ACCGGG"}, {"id": "185927723", "sequence": "AGTGGGGG"}, {"id": "186681786", "sequence": "C"}, {"id": "186681787", "sequence": "TGGGAGTCTAAGTCTCTTTTGATCACACTTTAAAGACCAAAAGGTAGAAGCGCAAAGACGTTATCTGTCCAATATTACAAACCTAGTAAGTGGTGGAATTTGGCCTTGAACCCAGATCTGTAACTCCAGAGCCGAAGTGCTTCACCCACCTCCCTGTGGTG"}, {"id": "186681788", "sequence": "G"}, {"id": "186681789", "sequence": "T"}, {"id": "186681790", "sequence": "TAT"}, {"id": "186681792", "sequence": "T"}, {"id": "186683069", "sequence": "G"}, {"id": "186683079", "sequence": "G"}, {"id": "186683080", "sequence": "TACCCCGGAATCCCTGCCGCGGCCCCTCGGGCCTGTCCACATCCCTCTGCCCCTCCCAGACCTCTGTCCTTCCACCAATCGCCTCCCGCAGCCCCGAGCCGCCACTCCCAGTCCCCCGAGTCCCTGCCGCGCGCCCTCGCGCCTGTCCACATCCCTCTGCCCATCCGAGACCTCTGTCCTTACACCACTAGCCACCCCACGTGGGACTTCCATGGCTTCTGAGTACAAGGCCAGCCCCCCGGCCCACCAGCTTTCGGAATGCCTGCTTACCTCTTTTTCTGTAGA"}, {"id": "186683081", "sequence": "CCGG"}, {"id": "186683083", "sequence": "C"}]}
+    )";
+            
+    Graph source;
+    json2pb(source, graph_json.c_str(), graph_json.size());
+            
+    VG vg;
+    vg.extend(source);
+            
+    bdsg::HashGraph extractor;
+            
+    auto max_dist = 9999;
+    pos_t src_pos = make_pos_t(186681787, false, 161);
+    pos_t dest_pos = make_pos_t(186681787, true, 131);
+
+    // If we have strict max length set to false, we may get extra tips.
+    unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&vg, &extractor,  max_dist, src_pos, dest_pos, false);
+    std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&extractor);
+    // There ought to be at least the two tips
+    REQUIRE(tip_handles.size() >= 2);
+   
+    extractor.clear();
+
+    // If we have strict connecting-ness set to true, we won't get any extra tips.
+    connect_trans = algorithms::extract_connecting_graph(&vg, &extractor,  max_dist, src_pos, dest_pos, true);
+    tip_handles = handlegraph::algorithms::find_tips(&extractor);
+    // There ought to be just the two tips
+    REQUIRE(tip_handles.size() == 2);
+}
+
 TEST_CASE( "Connecting graph extraction works on a particular case without leaving dangling edges",
-           "[algorithms]" ) {
+           "[algorithms][extract_connecting_graph]" ) {
                   
     string graph_json = R"(
 {

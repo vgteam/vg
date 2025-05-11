@@ -47,7 +47,7 @@ include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo libzstd
+PKG_CONFIG_DEPS := cairo libzstd 
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 # Note that we then must *always* link anything *else* that uses them statically.
 # Jansson has to be in here because it has to come after libvgio, which is in the static deps.
@@ -717,15 +717,17 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 	+echo "Cflags: -I$(CWD)/$(INC_DIR)" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 	+echo "Libs: -L$(CWD)/$(LIB_DIR) -ltabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 
-# Build vcflib. Install the library and headers but not binaries or man pages.
-# We need to build as RelWithDebInfo to avoid vcflib using its own
+# Build vcflib. Build the library and any needed binarise. Install the library
+# and headers but not binaries or man pages. We need to build as RelWithDebInfo
+# to avoid vcflib using its own
 # -march=native, which would conflict with the -march that comes in through
-# CXXFLAGS from the vg Dockerfile.
-# We also need to use the magic path hint to let CMake find Mac OpenMP.
-# We need to use /usr first for CMake search or Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only fully installed in /usr.
+# CXXFLAGS from the vg Dockerfile. We also need to use the magic path hint to
+# let CMake find Mac OpenMP. We need to use /usr first for CMake search or
+# Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only
+# fully installed in /usr.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build .
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build . --target vcflib vcf2tsv
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -776,7 +778,7 @@ $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinche
 # We also need to clear out its cmake stuff in case it found a wrong Bison and cached it.
 $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(wildcard $(RAPTOR_DIR)/build/*)
 	which bison
-	+cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
+	+cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
 	+touch $(LIB_DIR)/libraptor2.a
 
 # We need rapper from Raptor for the tests

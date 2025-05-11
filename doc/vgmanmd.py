@@ -12,7 +12,11 @@ cmds.sort()
 
 
 # parse short descriptions
-desc_inf = open('./doc/vgmanmd.desc.md', 'rt')
+try:
+    desc_inf = open('./doc/vgmanmd.desc.md', 'rt')
+except FileNotFoundError:
+    desc_inf = open('vgmanmd.desc.md', 'rt')
+
 desc = {}
 cur_desc = ''
 cur_header = ''
@@ -68,10 +72,13 @@ print("====")
 for cmd in cmds:
     print('## {cmd}\n\n'.format(cmd=cmd))
     try:
-        # Try first with the help option to try and get all options described.
-        ret = subprocess.run(['vg', cmd, '--help'], capture_output=True)
+        # Try first with the help option to get all options described.
+        # Use check=True to raise CalledProcessError on non-zero exit codes (e.g., when --help fails),
+        # allowing us to fall back to running the command without --help.
+        ret = subprocess.run(['vg', cmd, '--help'], capture_output=True, check=True)
     except subprocess.CalledProcessError:
-        # Then try subcommand without -h because not everything has -h
+        # Fallback to running the subcommand alone because some
+        # vg subcommands (e.g., construct) don’t recognize --help
         ret = subprocess.run(['vg', cmd], capture_output=True)
     print('```')
     if cmd in desc:

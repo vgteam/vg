@@ -41,7 +41,7 @@ using vg::operator<<;
 //#define debug_chaining
 
 /**
- * Represents a piece fo a graph node matching to a piece of a read. Can be
+ * Represents a piece of a graph node matching to a piece of a read. Can be
  * chained together.
  */
 class Anchor {

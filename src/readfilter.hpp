@@ -14,6 +14,7 @@
 #include "IntervalTree.h"
 #include "annotation.hpp"
 #include "multipath_alignment_emitter.hpp"
+#include "progressive.hpp"
 #include <vg/io/alignment_emitter.hpp>
 #include <vg/vg.pb.h>
 #include <vg/io/stream.hpp>
@@ -34,7 +35,7 @@ using namespace std;
 struct Counts;
 
 template<typename Read>
-class ReadFilter {
+class ReadFilter : public Progressive {
 public:
     
     // Filtering parameters
@@ -282,7 +283,7 @@ private:
     /** 
      * Does has the given annotation and does it match
      */
-     bool matches_annotation(const Read& read) const;
+    bool matches_annotation(const Read& read) const;
     
     /**
      * Check if the alignment is marked as being correctly mapped
@@ -488,11 +489,25 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         }
     }
     
+    preload_progress("filter read file");
+
+    auto progress_function = [&](size_t offset, size_t length) {
+        if (length != std::numeric_limits<size_t>::max()) {
+            // We actually have progress data
+            // To avoid keeping state, we make the progress system keep state
+            ensure_progress(length);
+            // And then we do an update
+            update_progress(offset);
+        }
+    };
+
     if (interleaved) {
-        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size);
+        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size, progress_function);
     } else {
-        vg::io::for_each_parallel(*in, lambda, batch_size);
+        vg::io::for_each_parallel(*in, lambda, batch_size, progress_function);
     }
+
+    destroy_progress();
 
     if (write_tsv) {
         // Add a terminating newline
@@ -1552,6 +1567,8 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << softclip_end(read);
         } else if (field == "identity") {
             out << read.identity();
+        } else if (field == "is_perfect") {
+            out << is_perfect(read);
         } else if (field == "mapping_quality") {
             out << get_mapq(read); 
         } else if (field == "sequence") {

@@ -51,6 +51,7 @@ void help_filter(char** argv) {
          << "    -v, --verbose              print out statistics on numbers of reads dropped by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -T, --tsv-out FIELD[;FIELD] do not write filtered gam but a tsv of the given fields" << endl
+         << "                                See \"Getting alignment statistics with ‐‐tsv‐out\" wiki page" << endl
          << "    -q, --min-mapq N           drop alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N        drop reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
@@ -66,7 +67,8 @@ void help_filter(char** argv) {
          << "    -l, --first-alignment      keep only the first alignment for each read. Must be run with 1 thread" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
-         << "    -t, --threads N            number of threads [1]" << endl;
+         << "    -t, --threads N            number of threads [1]" << endl
+         << "        --progress             show progress" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -121,11 +123,14 @@ int main_filter(int argc, char** argv) {
     string output_fields = "";
     bool correctly_mapped = false;
     bool first_alignment = false;
+    bool show_progress = false;
 
     size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
     // What XG index, if any, should we load to support the other options?
     string xg_name;
+
+    constexpr int OPT_PROGRESS = 1000;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -170,6 +175,7 @@ int main_filter(int argc, char** argv) {
                 {"complement", no_argument, 0, 'U'},
                 {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
+                {"progress", no_argument, 0, OPT_PROGRESS},
                 {0, 0, 0, 0}
             };
 
@@ -365,6 +371,9 @@ int main_filter(int argc, char** argv) {
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
+        case OPT_PROGRESS:
+            show_progress = true;
+            break;
 
         case 'h':
         case '?':
@@ -486,6 +495,8 @@ int main_filter(int argc, char** argv) {
         filter.complement_filter = complement_filter;
         filter.batch_size = batch_size;
         filter.threads = get_thread_count();
+        filter.show_progress = show_progress;
+        
         filter.graph = xindex;
     };
     

@@ -20,6 +20,7 @@
 #include "../dagified_graph.hpp"
 #include "../ssw_aligner.hpp"
 #include "../aligner.hpp"
+#include "../minimizer_mapper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -42,6 +43,7 @@ void help_align(char** argv) {
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
          << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
+         << "    -w, --between POS,POS align the sequence between the two positions, specified as node ID, + or -, offset" << endl
          << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl;
 }
@@ -70,6 +72,8 @@ int main_align(int argc, char** argv) {
     bool banded_global = false;
     bool pinned_alignment = false;
     bool pin_left = false;
+    pos_t left_anchor;
+    pos_t right_anchor;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -92,11 +96,12 @@ int main_align(int argc, char** argv) {
             {"full-l-bonus", required_argument, 0, 'T'},
             {"pinned", no_argument, 0, 'p'},
             {"pin-left", no_argument, 0, 'L'},
+            {"between", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pL",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pLw:",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -165,6 +170,19 @@ int main_align(int argc, char** argv) {
             pin_left = true;
             break;
 
+        case 'w':
+            {
+                std::string to_parse(optarg);
+                auto comma_index = to_parse.find(",");
+                if (comma_index == std::string::npos || comma_index == 0 || comma_index + 1 == to_parse.size()) {
+                    std::cerr << "error:[vg align] Argument to --between must be two comma-separated psoitions." << std::endl;
+                    exit(1);
+                }
+                left_anchor = parse<pos_t>(to_parse.substr(0, comma_index));
+                right_anchor = parse<pos_t>(to_parse.substr(comma_index + 1)); 
+            }
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -174,6 +192,23 @@ int main_align(int argc, char** argv) {
 
         default:
             abort ();
+        }
+    }
+
+    vg::Explainer::save_explanations = debug;
+
+    if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
+        if (!ref_seq.empty()) {
+            std::cerr << "error:[vg align] Cannot align between positions when using a reference sequence." << std::endl;
+            exit(1);
+        }
+        if (pinned_alignment) {
+            std::cerr << "error:[vg align] Alignign between positions always uses pinned alignment." << std::endl;
+            exit(1);
+        }
+        if (banded_global) {
+            std::cerr << "error:[vg align] Alignign between positions always uses banded global alignment." << std::endl;
+            exit(1);
         }
     }
 
@@ -226,29 +261,42 @@ int main_align(int argc, char** argv) {
         Aligner aligner = Aligner(score_matrix, gap_open, gap_extend, full_length_bonus, vg::default_gc_content);
         
         free(score_matrix);
-        
-        // put everything on the forward strand
-        StrandSplitGraph split(&(*graph));
-        
-        // dagify it as far as we might ever want
-        DagifiedGraph dag(&split, seq.size() + aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
-        
+
         alignment.set_sequence(seq);
-        if (pinned_alignment) {
-            aligner.align_pinned(alignment, dag, pin_left);
-        }
-        else if (banded_global) {
-            aligner.align_global_banded(alignment, dag, 1, true);
-        }
-        else {
-            aligner.align(alignment, dag, true);
-        }
+
+        if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
+            // Align between positions
+            
+            // Pick some plausible extraction parameters.
+            size_t max_path_length = seq.size() * 2;
+            size_t max_gap_length = seq.size() / 2;
+            MinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, max_path_length, max_gap_length, graph.get(), &aligner, alignment, seq_name.empty() ? nullptr : &seq_name);
+
+        } else {
+            // Align directly to the full provided graph.
         
-        // translate back from the overlays
-        translate_oriented_node_ids(*alignment.mutable_path(), [&](vg::id_t node_id) {
-            handle_t under = split.get_underlying_handle(dag.get_underlying_handle(dag.get_handle(node_id)));
-            return make_pair(graph->get_id(under), graph->get_is_reverse(under));
-        });
+            // put everything on the forward strand
+            StrandSplitGraph split(graph.get());
+            
+            // dagify it as far as we might ever want
+            DagifiedGraph dag(&split, seq.size() + aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
+            
+            if (pinned_alignment) {
+                aligner.align_pinned(alignment, dag, pin_left);
+            }
+            else if (banded_global) {
+                aligner.align_global_banded(alignment, dag, 1, true);
+            }
+            else {
+                aligner.align(alignment, dag, true);
+            }
+            
+            // translate back from the overlays
+            translate_oriented_node_ids(*alignment.mutable_path(), [&](vg::id_t node_id) {
+                handle_t under = split.get_underlying_handle(dag.get_underlying_handle(dag.get_handle(node_id)));
+                return make_pair(graph->get_id(under), graph->get_is_reverse(under));
+            });
+        }
     }
 
     if (!seq_name.empty()) {

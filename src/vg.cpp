@@ -6033,7 +6033,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 for (Edge* e : edges_of(get_node(id))) {
                     // We may have to modify the edge, so make a place to hold
                     // a modified copy. This lets us work as if all edges are
-                    // end to start wehn working on their from and to later.
+                    // end to start when working on their from and to later.
                     unique_ptr<Edge> clone;
                     if (e->from_start() && e->to_end()) {
                         // Flip doubly-reversing edges from the input, which
@@ -6116,7 +6116,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                     }
                 }
             }
-            // update the minimum minimim return length
+            // update the minimum minimum return length
             min_min_return_length = curr_min_min_return_length;
             // finish if we've reached our target min walk length
             if (target_min_walk_length &&

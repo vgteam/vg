@@ -16,6 +16,7 @@
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 #include <vg/io/alignment_emitter.hpp>
+#include "hts_alignment_emitter.hpp"
 
 namespace vg {
 
@@ -67,10 +68,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
-                             const map<string, int64_t>& path_length,
-                             const map<string, string>& rg_sample);
-bam_hdr_t* hts_string_header(string& header,
-                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const SequenceDictionary& sequence_dictionary,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
@@ -246,17 +244,22 @@ Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
 vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2);
+/// Get an Alignment corresponding to the middle len bases of the given alignment
 Alignment alignment_middle(const Alignment& aln, int len);
-// generate a digest of the alignmnet
+/// Cut the Alignment into contiguous pieces visiting nodes in the given node set, defined by a membership predicate.
+/// Will pass the original Alignment through if it is fully contained.
+/// Cut pieces will not have score or annotations set, but will keep mapping quality.
+std::vector<Alignment> alignment_pieces_within(const Alignment& aln, const std::function<bool(nid_t)>& node_in_set);
+// generate a digest of the alignment
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
 // ends of their nodes. Offsets will be updated to count unused bases from node
 // start when considering the node in its new orientation.
-Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
-void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
-vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(nid_t)>& node_length);
+void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(nid_t)>& node_length);
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length);
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
@@ -272,6 +275,9 @@ string signature(const Alignment& aln);
 pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
 string middle_signature(const Alignment& aln, int len);
 pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
+// Return whether the path is a perfect match (i.e. contains no non-match edits)
+// and has no soft clips (e.g. like in vg stats -a)
+bool is_perfect(const Alignment& alignment);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);

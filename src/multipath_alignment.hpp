@@ -139,7 +139,7 @@ namespace vg {
     string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);
     string debug_string(const multipath_alignment_t& multipath_aln);
-    
+
     /// Put subpaths in topological order (assumed to be true for other algorithms)
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln);
     

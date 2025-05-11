@@ -746,7 +746,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
         return {{0, vector<size_t>()}};
     }
         
-    // Convert form traceback and penalty to score and traceback.
+    // Convert from traceback and penalty to score and traceback.
     // Everything is already sorted.
     vector<pair<int, vector<size_t>>> to_return;
     to_return.reserve(tracebacks.size());

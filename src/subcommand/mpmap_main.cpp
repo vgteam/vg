@@ -112,7 +112,8 @@ void help_mpmap(char** argv) {
     << "  -F, --output-fmt TYPE     format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path" << endl
     << "                            alignments, 'SAM', 'BAM', or 'CRAM' for linear reference alignments (may also require -S) [GAMP]" << endl
     << "  -S, --ref-paths FILE      paths in the graph either 1) one per line in a text file, or 2) in an HTSlib .dict, to treat as" << endl
-    << "                            reference sequences for HTSlib formats (see -F) [all paths]" << endl
+    << "                            reference sequences for HTSlib formats (see -F) [all reference paths, all generic paths]" << endl
+    << "      --ref-name NAME       reference assembly in the graph to use for HTSlib formats (see -F) [all references]" << endl 
     << "  -N, --sample NAME         add this sample name to output" << endl
     << "  -R, --read-group NAME     add this read group to output" << endl
     << "  -p, --suppress-progress   do not report progress to stderr" << endl
@@ -218,6 +219,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_MOTIF_PAIRS 1036
     #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
     #define OPT_DROP_SUBGRAPH 1038
+    #define OPT_REF_NAME 1039
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -230,6 +232,7 @@ int main_mpmap(int argc, char** argv) {
     string fastq_name_2;
     string gam_file_name;
     string ref_paths_name;
+    std::unordered_set<std::string> reference_assembly_names;
     string intron_distr_name;
     int match_score = default_match;
     int mismatch_score = default_mismatch;
@@ -400,6 +403,7 @@ int main_mpmap(int argc, char** argv) {
             {"comments-as-tags", no_argument, 0, 'C'},
             {"same-strand", no_argument, 0, 'T'},
             {"ref-paths", required_argument, 0, 'S'},
+            {"ref-name", required_argument, 0, OPT_REF_NAME},
             {"output-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
@@ -605,6 +609,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'S':
                 ref_paths_name = optarg;
+                break;
+
+            case OPT_REF_NAME:
+                reference_assembly_names.insert(optarg);
                 break;
                 
             case 's':
@@ -1197,6 +1205,10 @@ int main_mpmap(int argc, char** argv) {
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg mpmap] Reference path file (-S) is only used when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
+    }
+    if (!reference_assembly_names.empty() && !hts_output) {
+        cerr << "warning:[vg mpmap] Reference assembly names (--ref-name) are only used when output format (-F) is SAM, BAM, or CRAM." << endl;
+        reference_assembly_names.clear();
     }
     
     if (num_alt_alns <= 0) {
@@ -1849,7 +1861,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load structures that we need for HTS lib outputs
     unordered_set<path_handle_t> surjection_paths;
-    vector<pair<string, int64_t>> path_names_and_length;
+    SequenceDictionary paths;
     unique_ptr<Surjector> surjector(nullptr);
     if (hts_output) {
         // init the data structures
@@ -1864,17 +1876,15 @@ int main_mpmap(int argc, char** argv) {
         if (!ref_paths_name.empty()) {
             log_progress("Choosing reference paths from " + ref_paths_name);
         } else {
-            log_progress("No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences.");
+            log_progress("No reference path file given. Autodetecting reference sequences.");
         }
         
         // Load all the paths in the right order
-        vector<tuple<path_handle_t, size_t, size_t>> paths = get_sequence_dictionary(ref_paths_name, {}, *path_position_handle_graph);
+        paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *path_position_handle_graph);
         // Make them into a set for directing surjection.
-        for (const auto& path_info : paths) {
-            surjection_paths.insert(get<0>(path_info));
+        for (const SequenceDictionaryEntry& path_info : paths) {
+            surjection_paths.insert(path_info.path_handle);
         }
-        // Copy out the metadata for making the emitter later
-        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph).first;
     }
     
     // barrier sync the background threads
@@ -2091,7 +2101,7 @@ int main_mpmap(int argc, char** argv) {
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
                                                                        path_position_handle_graph,
-                                                                       &path_names_and_length);
+                                                                       &paths);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     if (transcriptomic) {

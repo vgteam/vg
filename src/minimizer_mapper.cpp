@@ -2262,69 +2262,84 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 
                 if (found_pair && (double) mapped_aln.score() < (double) best_alignment_scores[index.read] * paired_rescue_score_limit) {
                     //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
+                    // TODO: Add a filter here
                     return true;
                 }
 
-                //Rescue the alignment
+                // Rescue the alignment (possibly leaving it unaligned if no significant alignment is found)
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[1 - index.read], index.read == 0);
+
+                bool properly_paired = false;
+                double score;
 
                 if (rescued_aln.path().mapping_size() != 0) {
                     //If we actually found an alignment
-
+                    
+                    // Compute the distance
                     int64_t fragment_dist = index.read == 0 ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
-
-                    double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
-
-                    set_annotation(mapped_aln, "rescuer", true);
-                    set_annotation(rescued_aln, "rescued", true);
+                    
+                    // Use it to make a pair score
+                    score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
+                    
+                    // Use it to possibly declare proper pairing.
+                    properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
+                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev());
+                    
+                    // Put it on the alignments
                     set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
                     set_annotation(rescued_aln, "fragment_length", distance_to_annotation(fragment_dist));
-                    bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
-                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
-                    set_annotation(mapped_aln, "proper_pair", properly_paired);
-                    set_annotation(rescued_aln, "proper_pair", properly_paired);
-
-                    //Since we're still accumulating a list of indexes of pairs of alignments,
-                    //add the new alignment to the list of alignments 
-                    //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
-                    //
-                    read_alignment_index_t mapped_index = index.without_read();
-                    read_alignment_index_t rescued_index {alignments.size() - 1, alignments.back()[1 - index.read].size()};
-                    alignments.back()[1 - index.read].emplace_back(std::move(rescued_aln));
-                    rescued_count[index.read]++;
                     
-                    alignment_groups.back()[1 - index.read].emplace_back();
-                    std::array<read_alignment_index_t, 2> index_pair;
-                    index_pair[index.read] = mapped_index;
-                    index_pair[1 - index.read] = rescued_index;
-                    
-                    paired_alignments.emplace_back(std::move(index_pair));
-#ifdef debug_validate_index_references
-                    for (auto r : {0, 1}) {
-                        // Make sure we refer to things that exist.
-                        paired_alignments.back().at(r).check_for_read_in(r, alignments);
-                    }
-#endif
-                    
-                    paired_scores.emplace_back(score);
+                    // Track it for the distribution
                     fragment_distances.emplace_back(fragment_dist);
-                    pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
-                    better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.fragment]);
+                } else {
+                    // If there's no rescue result, the score of the pair is the score of the one actually-aligned read
+                    score = mapped_aln.score();
+                }
+                
+                // Add the annotations that don't always need a fragment distance.
+                set_annotation(mapped_aln, "rescuer", true);
+                set_annotation(rescued_aln, "rescued", true);
+                set_annotation(mapped_aln, "proper_pair", properly_paired);
+                set_annotation(rescued_aln, "proper_pair", properly_paired);
+
+                //Since we're still accumulating a list of indexes of pairs of alignments,
+                //add the new alignment to the list of alignments 
+                //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
+                //
+                read_alignment_index_t mapped_index = index.without_read();
+                read_alignment_index_t rescued_index {alignments.size() - 1, alignments.back()[1 - index.read].size()};
+                alignments.back()[1 - index.read].emplace_back(std::move(rescued_aln));
+                rescued_count[index.read]++;
+                
+                alignment_groups.back()[1 - index.read].emplace_back();
+                std::array<read_alignment_index_t, 2> index_pair;
+                index_pair[index.read] = mapped_index;
+                index_pair[1 - index.read] = rescued_index;
+                
+                paired_alignments.emplace_back(std::move(index_pair));
+#ifdef debug_validate_index_references
+                for (auto r : {0, 1}) {
+                    // Make sure we refer to things that exist.
+                    paired_alignments.back().at(r).check_for_read_in(r, alignments);
+                }
+#endif
+                
+                paired_scores.emplace_back(score);
+                pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
+                better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.fragment]);
 
 #ifdef print_minimizer_table
-                    alignment_was_rescued.emplace_back(index.read == 1, index.read == 0);
+                alignment_was_rescued.emplace_back(index.read == 1, index.read == 0);
 #endif
-                    if (track_provenance) {
-                        funnels[index.read].pass("max-rescue-attempts", j);
-                        funnels[index.read].project(j);
-                        funnels[1 - index.read].introduce();
-                        for (auto r : {0, 1}) {
-                            funnels[r].score(funnels[r].latest(), score);
-                        }
-                    }
-                }
                 if (track_provenance) {
+                    funnels[index.read].pass("max-rescue-attempts", j);
+                    funnels[index.read].project(j);
+                    // Introduce the (sometimes unaligned) rescue alignment.
+                    funnels[1 - index.read].introduce();
+                    for (auto r : {0, 1}) {
+                        funnels[r].score(funnels[r].latest(), score);
+                    }
                     funnels[index.read].processed_input();
                     funnels[index.read].substage_stop();
                 }
