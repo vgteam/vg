@@ -2380,7 +2380,6 @@ string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<s
 
 HapCaller::HapCaller(const PathPositionHandleGraph& graph,
               ReadBasedSnarlCaller& snarl_caller, 
-              SnarlManager& snarl_manager,
               SnarlDistanceIndex& distance_index,
               GBWTTraversalFinder& traversal_finder,
               GAFindex& reads,
@@ -2390,7 +2389,7 @@ HapCaller::HapCaller(const PathPositionHandleGraph& graph,
               const vector<int>& ref_path_ploidies,
               bool genotype_snarls,
               const pair<size_t, size_t>& allele_length_range) :
-    GraphCaller(snarl_caller, snarl_manager),
+    snarl_caller(snarl_caller),
     distance_index(distance_index),
     VCFOutputCaller(sample_name),
     graph(graph),
@@ -2398,7 +2397,8 @@ HapCaller::HapCaller(const PathPositionHandleGraph& graph,
     reads(reads),
     ref_paths(ref_paths),
     genotype_snarls(genotype_snarls),
-    allele_length_range(allele_length_range)
+    allele_length_range(allele_length_range),
+    show_progress(false)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -2412,6 +2412,10 @@ HapCaller::~HapCaller() {
 
 }
 
+void HapCaller::set_show_progress(bool show_progress) {
+    this->show_progress = show_progress;
+}
+    
 void HapCaller::call_top_level_snarl_block(size_t block_size){
 #ifdef debug
     cerr << "Calling top level snarls by block of about " << block_size << endl;

@@ -544,11 +544,10 @@ protected:
 /**
  * HapCaller : Uses traversals from haplotypes (GBWT/GBZ) and aligned reads
  */
-class HapCaller : public GraphCaller, public VCFOutputCaller {
+class HapCaller : public VCFOutputCaller {
 public:
     HapCaller(const PathPositionHandleGraph& graph,
               ReadBasedSnarlCaller& snarl_caller, 
-              SnarlManager& snarl_manager,
               SnarlDistanceIndex& distance_index,
               GBWTTraversalFinder& traversal_finder,
               GAFindex& reads,
@@ -561,6 +560,8 @@ public:
    
     virtual ~HapCaller();
 
+    void set_show_progress(bool show_progress);
+    
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
@@ -587,6 +588,12 @@ protected:
 
     /// the distance index
     SnarlDistanceIndex& distance_index;
+
+    /// Our Genotyper
+    SnarlCaller& snarl_caller;
+
+    /// Toggle progress messages
+    bool show_progress;
 
     /// Get object with indexed reads
     GAFindex& reads;

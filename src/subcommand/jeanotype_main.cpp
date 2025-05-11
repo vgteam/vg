@@ -26,7 +26,6 @@ void help_jeanotype(char** argv) {
        << endl
        << "    -g, --gaf FILE          read alignments from this indexed bgzipped GAF file" << endl
        << "    -b, --bed-name FILE     BED defining regions to call together (short tandem repeats)" << endl
-       << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -d, --dist-name FILE    cluster using this distance index" << endl
        << "    -l, --block-size N      call blocks of snarls covering ~N bp. Default is 1000000" << endl
        << "    -a, --genotype-snarls   genotype every snarl, including reference calls (use to compare multiple samples)" << endl
@@ -46,7 +45,6 @@ int main_jeanotype(int argc, char** argv) {
     string gaf_filename;
     string dist_filename;
     string bed_filename;
-    string snarl_filename;
     vector<string> ref_paths;
     string ref_sample;
     vector<size_t> ref_path_offsets;
@@ -73,7 +71,6 @@ int main_jeanotype(int argc, char** argv) {
             {"max-length", required_argument, 0, 'C'},
             {"bed-name", required_argument, 0, 'b'},
             {"sample", required_argument, 0, 's'},            
-            {"snarls", required_argument, 0, 'r'},
             {"block-size", required_argument, 0, 'l'},
             {"ref-path", required_argument, 0, 'p'},
             {"ref-sample", required_argument, 0, 'S'},            
@@ -85,7 +82,7 @@ int main_jeanotype(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "ag:d:b:s:r:c:l:p:C:S:t:h",
+        c = getopt_long (argc, argv, "ag:d:b:s:c:l:p:C:S:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -125,9 +122,6 @@ int main_jeanotype(int argc, char** argv) {
             break;
         case 's':
             sample_name = optarg;
-            break;
-        case 'r':
-            snarl_filename = optarg;
             break;
         case 'p':
             ref_paths.push_back(optarg);
@@ -326,21 +320,6 @@ int main_jeanotype(int argc, char** argv) {
 
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
-    // if (!snarl_filename.empty()) {
-    //     ifstream snarl_file(snarl_filename.c_str());
-    //     if (!snarl_file) {
-    //         cerr << "Error [vg jeanotype]: Unable to load snarls file: " << snarl_filename << endl;
-    //         return 1;
-    //     }
-    //     if (show_progress) cerr << "Loading snarls from " << snarl_filename << endl;
-    //     snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
-    //     if (show_progress) cerr << "Loaded snarls" << endl;
-    // } else {
-    //     if (show_progress) cerr << "Computing snarls" << endl;
-    //     IntegratedSnarlFinder finder(*graph);
-    //     if (show_progress) cerr << "Computed snarls" << endl;
-    //     snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
-    // }
     
     unique_ptr<TraversalFinder> traversal_finder;
     GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index);
@@ -360,7 +339,7 @@ int main_jeanotype(int argc, char** argv) {
     
     HapCaller* hap_caller = new HapCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                           *dynamic_cast<ReadBasedSnarlCaller*>(snarl_caller.get()),
-                                          *snarl_manager, *distance_index, *gbwt_traversal_finder,
+                                          *distance_index, *gbwt_traversal_finder,
                                           *reads,
                                           sample_name,
                                           ref_paths, ref_path_offsets,
@@ -395,22 +374,8 @@ int main_jeanotype(int argc, char** argv) {
     }
     
     if (show_progress) cerr << "Calling snarls" << endl;
-    // hap_caller->call_top_level_snarls(*graph, GraphCaller::RecurseAlways);
-    // hap_caller->call_top_level_chains(*graph, 200, 200, GraphCaller::RecurseAlways);
     hap_caller->call_top_level_snarl_block(block_size);
     if (show_progress) cerr << "Called snarls" << endl;
-
-    // use from rpvg in the snarl_caller later
-    // AlignmentPathFinder<vg::Alignment> align_path_finder(paths_index, library_type, score_not_qual, use_allelic_mapq, pre_frag_length_dist.maxLength(), max_partial_offset, est_missing_noise_prob, max_score_diff, min_best_score_filter);
-    // unaligned_read_count = findAlignmentPaths<vg::Alignment>(alignments_istream, align_paths_buffer_queue, align_path_finder, num_threads);
-
-
-    // PathEstimator * path_estimator;
-    // path_estimator = new PathGroupPosteriorEstimator(ploidy, use_hap_gibbs, prob_precision);
-    // path_estimator->estimate(&(path_cluster_estimates->back().second), read_path_cluster_probs, &mt_rng);
-
-    // mt19937 mt_rng = mt19937(rng_seed + i);
-    // path_estimator->estimate(&(path_cluster_estimates->back().second), read_path_cluster_probs, &mt_rng);
 
     // Output VCF
     cout << header << flush;
