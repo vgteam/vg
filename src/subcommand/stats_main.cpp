@@ -658,6 +658,8 @@ int main_stats(int argc, char** argv) {
             // And substitutions
             size_t total_substitutions = 0;
             size_t total_substituted_bases = 0;
+            // And matches
+            size_t total_matched_bases = 0;
             // And softclips
             size_t total_softclips = 0;
             size_t total_softclipped_bases = 0;
@@ -702,6 +704,7 @@ int main_stats(int argc, char** argv) {
                 total_deleted_bases += other.total_deleted_bases;
                 total_substitutions += other.total_substitutions;
                 total_substituted_bases += other.total_substituted_bases;
+                total_matched_bases += other.total_matched_bases;
                 total_softclips += other.total_softclips;
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
@@ -922,6 +925,9 @@ int main_stats(int argc, char** argv) {
                                 // Record the actual substitution
                                 stats.substitutions.push_back(make_pair(node_id, edit));
                             }
+                        } else {
+                            // This is a match
+                            stats.total_matched_bases += edit.from_length();
                         }
 
                     }
@@ -1109,6 +1115,7 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
+        cout << "Matches: " << combined.total_matched_bases << " bp" << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
