@@ -862,40 +862,43 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
         child_info_t chain = forest_state.sibling_indices_at_depth[depth][chain_i];
         ZipCode first_seed_zip = forest_state.seeds->at(chain.value+1).zipcode;
         size_t first_seed_rank = first_seed_zip.get_rank_in_snarl(depth+1);
-
         net_handle_t snarl_handle = first_seed_zip.get_net_handle(depth, forest_state.distance_index);
-        size_t distance_to_chain_end = forest_state.sibling_indices_at_depth[depth].back().distances.second;
-        size_t distance_to_chain_start = forest_state.sibling_indices_at_depth[depth].back().distances.first;
 
-        // TODO: actually calculate self loops
+        // Distance in between chain bounds
+        size_t between_chain_dist;
+        // Distance from chain bounds to the edge of the seeds
+        size_t chain_flank_dist;
+
         // self -> self loop
-        dist_matrix.emplace_back(ZipCodeTree::EDGE, std::numeric_limits<size_t>::max(), false);
+        between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
+            first_seed_rank, !chain.is_reversed, first_seed_rank, !chain.is_reversed);
+        chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.second, chain.distances.second);
+        dist_matrix.emplace_back(ZipCodeTree::EDGE, SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist), false);
+
         if (is_left_side) {
             // c_left -> c_right loop
-            dist_matrix.emplace_back(ZipCodeTree::EDGE, std::numeric_limits<size_t>::max(), false);
+            between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
+                first_seed_rank, !chain.is_reversed, first_seed_rank, chain.is_reversed);
+            chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.first, chain.distances.second);
+            dist_matrix.emplace_back(ZipCodeTree::EDGE, SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist), false);
         }
 
         // To other chains
         for (size_t j = chain_i + 1; j < sibling_count; ++j) {
             const auto& sibling = forest_state.sibling_indices_at_depth[depth][j];
             auto& sibling_seed = forest_state.seeds->at(trees[forest_state.active_tree_index].zip_code_tree[sibling.value+1].get_value());
+            size_t sibling_rank = sibling_seed.zipcode.get_rank_in_snarl(depth+1);
 
-            // End of this chain to the start of the next
-            size_t between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
-                first_seed_rank, !chain.is_reversed, 
-                sibling_seed.zipcode.get_rank_in_snarl(depth+1), sibling.is_reversed);
-            // Last seed to end of this chain, and start of next chain to its first seed
-            size_t chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.second, sibling.distances.first);
             // -> sib_left
+            between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
+                first_seed_rank, !chain.is_reversed, sibling_rank, sibling.is_reversed);
+            chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.second, sibling.distances.first);
             dist_matrix.emplace_back(ZipCodeTree::EDGE, SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist), false);
 
-            // End of this chain to the end of the next
-            between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
-                first_seed_rank, !chain.is_reversed, 
-                sibling_seed.zipcode.get_rank_in_snarl(depth+1), !sibling.is_reversed);
-            // Last seed to end of this chain, and end of next chain to its last seed
-            chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.second, sibling.distances.second);
             // -> sib_right
+            between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
+                first_seed_rank, !chain.is_reversed, sibling_rank, !sibling.is_reversed);
+            chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.second, sibling.distances.second);
             dist_matrix.emplace_back(ZipCodeTree::EDGE, SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist), false);
         }
 
