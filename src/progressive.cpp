@@ -59,6 +59,14 @@ void Progressive::create_progress(long count) {
     }
 }
 
+void Progressive::ensure_progress(long count) {
+    if (show_progress) {
+        if (!progress || progress_count != count) {
+            create_progress(count);
+        }
+    }
+}
+
 void Progressive::preload_progress(const string& message) {
     if (show_progress && !progress) {
         // Set the message. We can't change it if a progress bar exists

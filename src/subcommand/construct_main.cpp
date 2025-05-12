@@ -47,7 +47,7 @@ void help_construct(char** argv) {
          << "shared construction options:" << endl
          << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
-         << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
+         << "                           note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
 
 }

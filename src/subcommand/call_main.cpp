@@ -34,40 +34,40 @@ void help_call(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
-       << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 2,4]" << endl
-       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
-       << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to probablistic model" << endl
-       << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "    -k, --pack FILE          supports created from vg pack for given input graph" << endl
+       << "    -m, --min-support M,N    minimum allele support (M) and minimum site support (N) for call [default = 2,4]" << endl
+       << "    -e, --baseline-error X,Y baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
+       << "    -B, --bias-mode          use old ratio-based genotyping algorithm as opposed to probablistic model" << endl
+       << "    -b, --het-bias M,N       homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "GAF options:" << endl
-       << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
-       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
-       << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
+       << "    -G, --gaf               output GAF genotypes instead of VCF" << endl
+       << "    -T, --traversals        output all candidate traversals in GAF without doing any genotyping" << endl
+       << "    -M, --trav-padding N    extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
-       << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
-       << "    -A, --all-snarls        Genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
-       << "    -c, --min-length N      Genotype only snarls with at least one traversal of length >= N" << endl
-       << "    -C, --max-length N      Genotype only snarls where all traversals have length <= N" << endl
-       << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
-       << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
-       << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
-       << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
-       << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
-       << "    -z, --gbz               Only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
-       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
-       << "    -O, --gbz-translation   Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
-       << "    -p, --ref-path NAME     Reference path to call on (multipile allowed. defaults to all paths)" << endl
-       << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p)" << endl
-       << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
-       << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
-       << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
+       << "    -a, --genotype-snarls   genotype every snarl, including reference calls (use to compare multiple samples)" << endl
+       << "    -A, --all-snarls        genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
+       << "    -c, --min-length N      genotype only snarls with at least one traversal of length >= N" << endl
+       << "    -C, --max-length N      genotype only snarls where all traversals have length <= N" << endl
+       << "    -f, --ref-fasta FILE    reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
+       << "    -i, --ins-fasta FILE    insertions fasta (required if VCF contains symbolic insertions)" << endl
+       << "    -s, --sample NAME       sample name [default=SAMPLE]" << endl
+       << "    -r, --snarls FILE       snarls (from vg snarls) to avoid recomputing." << endl
+       << "    -g, --gbwt FILE         only call genotypes that are present in given GBWT index." << endl
+       << "    -z, --gbz               only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
+       << "    -N, --translation FILE  node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
+       << "    -O, --gbz-translation   use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
+       << "    -p, --ref-path NAME     reference path to call on (multipile allowed. defaults to all paths)" << endl
+       << "    -S, --ref-sample NAME   call on all paths with given sample name (cannot be used with -p)" << endl
+       << "    -o, --ref-offset N      offset in reference path (multiple allowed, 1 per path)" << endl
+       << "    -l, --ref-length N      override length of reference in the contig field of output VCF" << endl
+       << "    -d, --ploidy N          ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
        << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
        << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
        << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
-       << "    -n, --nested            Activate nested calling mode (experimental)" << endl
-       << "    -I, --chains            Call chains instead of snarls (experimental)" << endl
-       << "        --progress          Show progress" << endl
+       << "    -n, --nested            activate nested calling mode (experimental)" << endl
+       << "    -I, --chains            call chains instead of snarls (experimental)" << endl
+       << "        --progress          show progress" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
