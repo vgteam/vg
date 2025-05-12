@@ -25,8 +25,14 @@ import math
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf8')
 
-# We depend on our local histogram.py
-import histogram
+try:
+    # We depend on our local histogram.py
+    import histogram
+    HISTOGRAMS_ENABLED = True
+except ImportError as e:
+    sys.stderr.write(f"Cannot make histograms because: {e}\n")
+    HISTOGRAMS_ENABLED = False
+
 
 FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "There are nine subspecies of giraffe, each occupying separate regions of Africa. Some researchers consider some subspecies to be separate species entirely.",
@@ -294,8 +300,13 @@ def read_line_oriented_json(lines):
     for line in lines:
         line = line.strip()
         if len(line) > 0:
-            yield json.loads(line)
-
+            try:
+                decoded = json.loads(line)
+            except json.decoder.JSONDecodeError as e:
+                sys.stderr.write(f"Could not decode JSON because: {e}\n")
+                sys.stderr.write(f"Offending JSON: {line}\n")
+            else:
+                yield decoded
 
 def read_read_views(vg, filename):
     """
@@ -964,6 +975,8 @@ def main(args):
 
     for read in read_read_views(options.vg, options.input):
         # For the data we need on each read
+
+        print(read)
         
         if params is None:
             # Go get the mapping parameters
@@ -984,9 +997,10 @@ def main(args):
     
     # Print the table now in case plotting fails
     print_table(read_count, stats_total, params)
-    
-    # Make filter statistic histograms
-    plot_filter_statistic_histograms(options.outdir, stats_total)
+   
+    if HISTOGRAMS_ENABLED:
+        # Make filter statistic histograms
+        plot_filter_statistic_histograms(options.outdir, stats_total)
     
 def entrypoint():
     """
