@@ -941,12 +941,13 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
     dist_matrix.emplace_back(ZipCodeTree::EDGE, std::numeric_limits<size_t>::max(), false);
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Distance matrix: (" << dist_matrix.front().get_value() << " nodes)" << endl;
+    size_t matrix_i = 1;
     for (size_t i = 0; i < sibling_count*2; i++) {
         for (size_t j = 0; j < sibling_count*2; j++) {
             if (j < i) {
                 cerr << "\t";
             } else {
-                size_t dist = dist_matrix[i * (sibling_count * 2 + 1) + j].get_value();
+                size_t dist = dist_matrix[matrix_i++].get_value();
                 if (dist == std::numeric_limits<size_t>::max()) {
                     cerr << "inf\t";
                 } else {
