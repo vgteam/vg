@@ -735,7 +735,6 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
 
         }
     } else {
-        cerr << "Fourth case" << endl;
         // Add final distances
         if (is_cyclic_snarl) {
             add_cyclic_snarl_distances(forest_state, depth, last_is_reversed);
@@ -1641,6 +1640,10 @@ void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator
                                         const vector<Seed>* seeds,
                                         size_t distance_limit) const {
     // TODO: implement once cyclic snarl distance matrix is complete
+    while (zip_iterator->get_type() != CYCLIC_SNARL_END) {
+        zip_iterator++;
+    }
+    zip_iterator--;
 }
 
 ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
