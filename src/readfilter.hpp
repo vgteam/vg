@@ -1575,6 +1575,12 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << read.sequence();
         } else if (field == "length") {
             out << read.sequence().size(); 
+        } else if (field == "cigar") { 
+            vector<pair<int, char>> cigar;
+            for (const auto& mapping : read.path().mapping()) {
+                mapping_cigar(mapping, cigar, 'X');
+            }
+            out << cigar_string(cigar);
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
@@ -1582,7 +1588,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             // describing the Struct and not what the Struct describes if
             // we pb2json it.
             //
-            // So make Protobuf serialize it for us the specail Struct way
+            // So make Protobuf serialize it for us the special Struct way
             std::string buffer;
             google::protobuf::util::JsonPrintOptions opts;
             auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
@@ -1637,7 +1643,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 }
             }
         } else {
-            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+            cerr << endl << "Available fields: <https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-vg-filter>" << endl;
             throw runtime_error("error: Writing non-existent field to tsv: " + field);
         }
         if (i != output_fields.size()-1) {
