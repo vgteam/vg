@@ -1115,7 +1115,11 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Matches: " << combined.total_matched_bases << " bp" << endl;
+        cout << "Matches: " << combined.total_matched_bases << " bp";
+        if (combined.total_alignments > 0) {
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+        }
+        cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
