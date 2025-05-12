@@ -2647,6 +2647,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
             read_mapq = max(min(capped_mapq, 120.0) / 2.0, 0.0);
             
+            // Unaligned reads always have MAPQ 0, even if they're the obvious
+            // right answer given pairing constraints.
+            bool is_aligned = (mappings[r].front().path().mapping_size() > 0);
+            if (!is_aligned) {
+                read_mapq = 0;
+            }
+            
             // Save the MAPQ
             mappings[r].front().set_mapping_quality(read_mapq);
             
@@ -2656,7 +2663,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     cerr << log_name() << "MAPQ for read " << (r + 1) << " is " << read_mapq << ", was " << uncapped_mapq
                         << " capped by fragment cluster cap " << fragment_cluster_cap
                         << ", score group cap " << (mapq_score_groups[r] / 2.0)
-                        << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)  << endl;
+                        << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)
+                        << ", alignedness " << is_aligned << endl;
                 }
             }
         }
