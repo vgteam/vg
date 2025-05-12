@@ -33,7 +33,8 @@ try:
     import histogram
     HISTOGRAMS_ENABLED = True
 except ImportError as e:
-    sys.stderr.write(f"Cannot make histograms because: {e}\n")
+    if __name__ == "__main__":
+        sys.stderr.write(f"Cannot make histograms because: {e}\n")
     HISTOGRAMS_ENABLED = False
 
 
