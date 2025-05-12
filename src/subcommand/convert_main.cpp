@@ -614,6 +614,13 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
             // TODO: Should we preserve empty paths here?
         };
         
+        // Copy over the existing generic paths, except ones that get promoted to haplotype paths
+        input->for_each_path_matching({PathSense::GENERIC}, {}, {}, [&](const path_handle_t& path) {
+            if (hap_samples.empty() || hap_samples.count(input->get_locus_name(path)) == 0) {
+                copy_path(path, input->get_path_name(path));
+            }
+        });
+
         // Copy over the existing reference paths
         input->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
             copy_path(path, input->get_path_name(path));
@@ -674,20 +681,10 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
                                                                haplotype,
                                                                phase_block,
                                                                subrange);
-                
                 // Copy out to the xg
                 copy_path(path, new_name);
             });
         }
-
-        // Copy across generic paths that weren't promoted to haplotypes
-        input->for_each_path_matching({PathSense::GENERIC}, {}, {}, [&](const path_handle_t& path) {
-            if (hap_samples.count(input->get_locus_name(path))) {
-                // Skip those we already promoted to haplotype sense
-                return;
-            }
-            copy_path(path, input->get_path_name(path));
-        });
         
         if (!drop_haplotypes) {
             // Copy across any other haplotypes.
@@ -709,6 +706,13 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
     
     // Make sure we aren't working with fragmented haplotypes that can't convert to reference sense.
     auto sample_to_haplotypes = check_duplicate_path_names(input, ref_samples);
+
+    // Copy over the existing generic paths, except ones that get promoted to haplotype paths
+    input->for_each_path_matching({PathSense::GENERIC}, {}, {}, [&](const path_handle_t& path) {
+        if (hap_samples.empty() || hap_samples.count(input->get_locus_name(path)) == 0) {
+        handlegraph::algorithms::copy_path(input, path, output);
+        }
+    });
     
     // Copy all reference paths that exist already
     input->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
@@ -779,15 +783,6 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
             handlegraph::algorithms::copy_path(input, path, output, into_path);
         });
     }
-    
-    // Copy across any generic paths that weren't promoted to haplotypes.
-    input->for_each_path_matching({PathSense::GENERIC}, {}, {}, [&](const path_handle_t& path) {
-        if (hap_samples.count(input->get_locus_name(path))) {
-            // Skip those we already promoted to haplotype sense
-            return;
-        }
-        handlegraph::algorithms::copy_path(input, path, output);
-    });
 
     if (!drop_haplotypes) {
         // Copy across any other haplotypes.
