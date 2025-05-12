@@ -1288,7 +1288,7 @@ Static Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Generate alignments of the tails of the query sequence, beyond the sources and sinks. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the one that owns the sequence we are working on. Returns a map from tail (left=false, right=true), to a map from subpath number to all the Alignments of the tail off of that subpath. Also computes the source subpaths and adds their numbers to the given set if not null.</p>
-<p>If dp_aligner is different from scoring_aligner, it is used for dynamic programming alignment operations, and the results are rescored with scoring_aligner. Neither may be null.</p>
+<p>If dp_aligner is different from scoring_aligner, it is used for dynamic programming alignment operations (where its scores do not risk overflow), and the results are rescored with scoring_aligner. Neither may be null.</p>
 <p>If a tail is longer than max_tail_length, produces an alignment softclipping it.</p>
 <p>If dynamic alignment count is also selected, can indicate a minimum number of paths that must be in the extending graph in order to do an alignment </p>
 
