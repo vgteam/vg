@@ -579,11 +579,11 @@ int main_chunk(int argc, char** argv) {
                     Region region;
                     vector<string> parts = split_delims(range, ":");
                     if (parts.size() == 1) {
-                        convert(parts.front(), region.start);
+                        vg::convert(parts.front(), region.start);
                         region.end = region.start;
                     } else {
-                        convert(parts.front(), region.start);
-                        convert(parts.back(), region.end);
+                        vg::convert(parts.front(), region.start);
+                        vg::convert(parts.back(), region.end);
                     }
                     regions.push_back(region);
                 }
@@ -892,7 +892,7 @@ int main_chunk(int argc, char** argv) {
             vg::io::save_handle_graph(subgraph.get(), *out_stream);
         }
         
-        // optional gam chunking
+        // optional read chunking
         if (chunk_aln) {
             if (!components) {
                 // Work out the ID ranges to look up
@@ -903,6 +903,11 @@ int main_chunk(int argc, char** argv) {
                 } else {
                     // Use the region we were asked for
                     region_id_ranges = {{region.start, region.end}};
+                }
+
+                std::cerr << "Look up reads for " << region_id_ranges.size() << " ID ranges:" << std::endl;
+                for (auto& range : region_id_ranges) {
+                    std::cerr << "\t" << range.first << "-" << range.second << std::endl;
                 }
 
                 if(aln_is_gaf){
@@ -919,6 +924,62 @@ int main_chunk(int argc, char** argv) {
                             cerr << "error[vg chunk]: can't open output gaf file " << gaf_name << endl;
                             exit(1);
                         }
+                       
+                        // TODO: Factor out lookup and share with find, be the one true place to query GAF ranges and never use tbx_itr_querys.
+
+                        // If we just query each range, we get duplicate reads
+                        // when a read overlaps multiple ranges. We nee to use
+                        // an htslib multi-region iterator instead.
+                        //
+                        // According to
+                        // <https://github.com/samtools/htslib/issues/785#issuecomment-433869384>,
+                        // "If the target regions overlap, hts_itr_t visits the
+                        // overlapping section twice, while hts_itr_multi_t
+                        // removes this overlap.". And according to
+                        // <https://github.com/samtools/htslib/issues/785#issuecomment-464135842>,
+                        // "a read will only be output once even if it covers
+                        // more than one region".
+                        //
+                        // But, htslib multi-region iterators don't support tabix files yet. See <https://github.com/samtools/htslib/issues/1913>.
+                        
+                        // To make a multi-region iterator, we first need to make a region list (and free it later).
+                        // So we need to make all the strings
+                        std::vector<std::string> region_specs;
+                        region_specs.reserve(region_id_ranges.size());
+                        for (auto& range : region_id_ranges) {
+                            std::stringstream ss;
+                            ss << "{node}:" << range.first << "-" << range.second;
+                            region_specs.emplace_back(std::move(ss.str()));
+                        }
+                        // And the array of pointers to them
+                        std::vector<char*> region_spec_pointers;
+                        region_spec_pointers.reserve(region_specs.size());
+                        for (auto& spec_string : region_specs) {
+                            region_spec_pointers.push_back(region_spec.c_str());
+                        }
+                        
+                        // Convert into an HTSlib reglist.
+                        int regist_count;
+                        hts_reglist_t* reglist = hts_reglist_create(region_spec_pointers.data(), region_spec_pointers.size(), &regist_count, gaf_tbx, (hts_name2id_f)(tbx_name2id));
+                        if (reglist == nullptr) {
+                            throw std::runtime_error("Could not make HTSlib reglist of " + std::to_string(region_id_ranges.size()) + " regions");
+                        }
+                        try {
+                            // Now we can use the allocated region list.
+
+                            hts_itr_t* itr = hts_itr_regions(gaf_tbx->idx, reglist, regist_count, (hts_name2id_f)(tbx_name2id), gaf_tbx, hts_itr_multi_query_func *itr_specific, tbx_readrec, hts_seek_func *seek, hts_tell_func *tell);
+
+
+
+                            // Free the region list that we're done with.
+                            hts_reglist_free(reglist, regist_count);
+                        } catch (...) {
+                            // Make sure to free memory on error
+                            hts_reglist_free(reglist, regist_count);
+                            throw;
+                        }
+
+
 
                         // loop over ranges and print GAF records
                         for (auto range : region_id_ranges) {
