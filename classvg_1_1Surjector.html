@@ -139,7 +139,7 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a9750e6f815ccbcb8ee14be2469f61886"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">dp_score_scale</a> = 10</td></tr>
 <tr class="memdesc:a9750e6f815ccbcb8ee14be2469f61886"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">More...</a><br /></td></tr>
 <tr class="separator:a9750e6f815ccbcb8ee14be2469f61886"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0499e86d68aa7e47be96b18bf34a099c"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">dp_gap_open_extra_cost</a> = 1</td></tr>
+<tr class="memitem:a0499e86d68aa7e47be96b18bf34a099c"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">dp_gap_open_extra_cost</a> = 0</td></tr>
 <tr class="memdesc:a0499e86d68aa7e47be96b18bf34a099c"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">More...</a><br /></td></tr>
 <tr class="separator:a0499e86d68aa7e47be96b18bf34a099c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9046bb2c7267f996a6636518e2747b89"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">min_splice_length</a> = 20</td></tr>
@@ -2009,7 +2009,7 @@ template&lt;class AlnType &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int8_t vg::Surjector::dp_gap_open_extra_cost = 1</td>
+          <td class="memname">int8_t vg::Surjector::dp_gap_open_extra_cost = 0</td>
         </tr>
       </table>
 </div><div class="memdoc">

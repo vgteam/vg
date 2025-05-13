@@ -125,9 +125,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a72309d1c25433c7e3a6e3e7dac0930fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8b15018e5e8f03ef99d63ab382e484f5"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#a8b15018e5e8f03ef99d63ab382e484f5">query</a> (<a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;entry) const</td></tr>
 <tr class="separator:a8b15018e5e8f03ef99d63ab382e484f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaf906b5e74e2a072cd1f6a90ca685381"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#aaf906b5e74e2a072cd1f6a90ca685381">print_options</a> (ostream &amp;out, <a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f">OptionFormat</a> format=<a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa91af5705f16502125e8b2187e64202c0">OptionFormat::CLI</a>) const</td></tr>
-<tr class="memdesc:aaf906b5e74e2a072cd1f6a90ca685381"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print all options set, in the given format.  <a href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#aaf906b5e74e2a072cd1f6a90ca685381">More...</a><br /></td></tr>
-<tr class="separator:aaf906b5e74e2a072cd1f6a90ca685381"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab45a9dc2d2a03389a8f7c49919a6d467"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#ab45a9dc2d2a03389a8f7c49919a6d467">print_options</a> (ostream &amp;out, <a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f">OptionFormat</a> format=<a class="el" href="namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9fa91af5705f16502125e8b2187e64202c0">OptionFormat::CLI</a>) const</td></tr>
+<tr class="separator:ab45a9dc2d2a03389a8f7c49919a6d467"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01f89740d89e82cf12c204c28ec01fd2"><td class="memItemLeft" align="right" valign="top">virtual std::vector&lt; std::pair&lt; std::string, std::string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#a01f89740d89e82cf12c204c28ec01fd2">get_help</a> () const</td></tr>
 <tr class="separator:a01f89740d89e82cf12c204c28ec01fd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af521b678294674ffcd04b670b5cde737"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html#af521b678294674ffcd04b670b5cde737">make_long_options</a> (std::vector&lt; struct option &gt; &amp;dest) const</td></tr>
@@ -590,8 +589,8 @@ template&lt;typename Receiver &gt; </div>
 
 </div>
 </div>
-<a id="aaf906b5e74e2a072cd1f6a90ca685381"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaf906b5e74e2a072cd1f6a90ca685381">&#9670;&nbsp;</a></span>print_options()</h2>
+<a id="ab45a9dc2d2a03389a8f7c49919a6d467"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab45a9dc2d2a03389a8f7c49919a6d467">&#9670;&nbsp;</a></span>print_options()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -600,7 +599,7 @@ template&lt;typename Receiver &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::subcommand::GroupedOptionGroup::print_options </td>
+          <td class="memname">bool vg::subcommand::GroupedOptionGroup::print_options </td>
           <td>(</td>
           <td class="paramtype">ostream &amp;&#160;</td>
           <td class="paramname"><em>out</em>, </td>
@@ -623,10 +622,9 @@ template&lt;typename Receiver &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Print all options set, in the given format. Returns true if any output was produced. </p>
 
-<p>Print all options set, in the given format. </p>
-
-<p>Implements <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html#ad3063622c78d2a03519fcbc077c4cdcc">vg::subcommand::BaseOptionGroup</a>.</p>
+<p>Implements <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html#a6544d93300c9426d3812fee8ebe029e2">vg::subcommand::BaseOptionGroup</a>.</p>
 
 </div>
 </div>
