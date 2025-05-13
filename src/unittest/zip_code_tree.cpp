@@ -1481,27 +1481,29 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //[1+0/0 3 ( 0 [4+0/1] 18446744073709551615  12 [4+0/1rev] 18446744073709551615  2  2 [3-0/2 1 3-1/3] 5  18446744073709551615  8  8  3) 0 5+0/4]
-                //[1+0/0 3 {0 0 <4+0/1> 18446744073709551615  9 <3-1/3rev 1 3-0/2rev> 0  8  8  2}0 0 5+0/4]
+                //[1+0/0 3 {0 3 inf  0  12  9  2  8  inf  inf  inf  2  8  inf  inf  2  8  inf  inf  0  inf  0  inf <4+0/1><3-1/3rev 1 3-0/2rev>}0 0 5+0/4]
+                
                 //Check some random elements
 
                 //First seed
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
+                //Node count
+                REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::NODE_COUNT);
                 //Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(5).get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
                 //Second seed (4)
-                REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_type() == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 1);
-
-                // TODO: once tree is completely moved over, recheck these bits
-                //Third seed (4 in the other direction
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(11).get_type() == ZipCodeTree::SEED);
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 1);
-
-                //Fourth seed (3-1
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::SEED);
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_value() == 2);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_value() == 1);
+                //Third seed (3-1)
+                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::SEED);
+                // Second chain within snarl may be reversed
+                if (zip_forest.trees[0].get_item_at_index(30).get_value() == 2) {
+                    REQUIRE(!zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
+                } else {
+                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_is_reversed());
+                    REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_value() == 3);
+                }
 
             }
 
