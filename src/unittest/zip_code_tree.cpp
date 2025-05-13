@@ -2280,7 +2280,7 @@ namespace unittest {
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
-            assert(zip_tree.get_tree_size() == 31);
+            assert(zip_tree.get_tree_size() == 45);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);

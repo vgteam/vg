@@ -958,7 +958,8 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
     // Though it may be possible to loop back to snarl end, it will never be optimal
     dist_matrix.emplace_back(ZipCodeTree::EDGE, std::numeric_limits<size_t>::max(), false);
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "Distance matrix: (" << dist_matrix.front().get_value() << " nodes)" << endl;
+    size_t num_chains = dist_matrix.front().get_value()-1;
+    cerr << "Distance matrix: (" << num_chains << " chain" << (num_chains == 1 ? "" : "s") << ")" << endl;
     size_t matrix_i = 1;
     for (size_t i = 0; i < sibling_count*2; i++) {
         for (size_t j = 0; j < sibling_count*2; j++) {
