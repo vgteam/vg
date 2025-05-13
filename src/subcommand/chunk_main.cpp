@@ -17,6 +17,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../convert.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -905,11 +906,6 @@ int main_chunk(int argc, char** argv) {
                     region_id_ranges = {{region.start, region.end}};
                 }
 
-                std::cerr << "Look up reads for " << region_id_ranges.size() << " ID ranges:" << std::endl;
-                for (auto& range : region_id_ranges) {
-                    std::cerr << "\t" << range.first << "-" << range.second << std::endl;
-                }
-
                 if(aln_is_gaf){
                     // use the indexed bgzipped GAFs
                     for (size_t gi = 0; gi < gaf_fps.size(); ++gi) {
@@ -925,10 +921,10 @@ int main_chunk(int argc, char** argv) {
                             exit(1);
                         }
                        
-                        // TODO: Factor out lookup and share with find, be the one true place to query GAF ranges and never use tbx_itr_querys.
+                        // TODO: Factor out lookup and share with find, be the one true place to query GAF ranges.
 
                         // If we just query each range, we get duplicate reads
-                        // when a read overlaps multiple ranges. We nee to use
+                        // when a read overlaps multiple ranges. We want to use
                         // an htslib multi-region iterator instead.
                         //
                         // According to
@@ -940,59 +936,102 @@ int main_chunk(int argc, char** argv) {
                         // "a read will only be output once even if it covers
                         // more than one region".
                         //
-                        // But, htslib multi-region iterators don't support tabix files yet. See <https://github.com/samtools/htslib/issues/1913>.
+                        // But, htslib multi-region iterators don't support
+                        // tabix files yet. See
+                        // <https://github.com/samtools/htslib/issues/1913>. So
+                        // we have to fake it with single-region iterators
+                        // until that's fixed.
                         
-                        // To make a multi-region iterator, we first need to make a region list (and free it later).
-                        // So we need to make all the strings
-                        std::vector<std::string> region_specs;
-                        region_specs.reserve(region_id_ranges.size());
-                        for (auto& range : region_id_ranges) {
-                            std::stringstream ss;
-                            ss << "{node}:" << range.first << "-" << range.second;
-                            region_specs.emplace_back(std::move(ss.str()));
-                        }
-                        // And the array of pointers to them
-                        std::vector<char*> region_spec_pointers;
-                        region_spec_pointers.reserve(region_specs.size());
-                        for (auto& spec_string : region_specs) {
-                            region_spec_pointers.push_back(region_spec.c_str());
-                        }
-                        
-                        // Convert into an HTSlib reglist.
-                        int regist_count;
-                        hts_reglist_t* reglist = hts_reglist_create(region_spec_pointers.data(), region_spec_pointers.size(), &regist_count, gaf_tbx, (hts_name2id_f)(tbx_name2id));
-                        if (reglist == nullptr) {
-                            throw std::runtime_error("Could not make HTSlib reglist of " + std::to_string(region_id_ranges.size()) + " regions");
-                        }
-                        try {
-                            // Now we can use the allocated region list.
+                        // To hack around the duplicate entries from the query,
+                        // we keep all the GAF records around as strings in
+                        // memory.
+                        std::unordered_set<std::string> seen_records;
 
-                            hts_itr_t* itr = hts_itr_regions(gaf_tbx->idx, reglist, regist_count, (hts_name2id_f)(tbx_name2id), gaf_tbx, hts_itr_multi_query_func *itr_specific, tbx_readrec, hts_seek_func *seek, hts_tell_func *tell);
-
-
-
-                            // Free the region list that we're done with.
-                            hts_reglist_free(reglist, regist_count);
-                        } catch (...) {
-                            // Make sure to free memory on error
-                            hts_reglist_free(reglist, regist_count);
-                            throw;
-                        }
-
-
+                        // TODO: If this becomes a memory usage problem before
+                        // htslib implements the multi-iterator, switch to
+                        // keeping the records organized by their ending node
+                        // ID in an ordered map of sets. Then we could throw
+                        // out all earlier sets when we start a range that
+                        // begins after their end point, and we can still check
+                        // membership with a lookup on endpoint and then a
+                        // lookup in the set. 
 
                         // loop over ranges and print GAF records
                         for (auto range : region_id_ranges) {
-                            string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
+                            string reg = "{node}:" + vg::convert(range.first) + "-" + vg::convert(range.second);
                             hts_itr_t *itr = tbx_itr_querys(gaf_tbx.get(), reg.c_str());
-                            kstring_t str = {0,0,0};
-                            if ( itr ) {
+                            if (!itr) {
+                                continue;
+                            }
+                            kstring_t str;
+                            ks_initialize(&str);
+                            try {
                                 while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &str) >= 0) {
-                                    // TODO: parse record and enforce full containment
-                                    // TODO: parse record and implement alignment cutting
-                                    out_gaf_file << str.s << endl;
+                                    // The iterator will allocate/expand/overwrite the kstring_t storage, but we need to free it later.
+                        
+                                    // Store the record as a C++ string.
+                                    std::string record_string(ks_str(&str));
+
+                                    // Parse the GAF record we got from the index
+                                    gafkluge::GafRecord record;
+                                    gafkluge::parse_gaf_record(record_string, record);
+
+                                    // We also have to account for how, even if a GAF
+                                    // record overlaps a tabix ID range, that just means it
+                                    // has a node ID before the range start and a node ID
+                                    // after the range end. It doesn't guarantee that those
+                                    // are ever the *same* ID; the GAF record might
+                                    // completely skip all the IDs in the range.
+
+                                    // Make sure the record intersects the range and doesn't just have IDs above and below it
+                                    auto gaf_record_intersects_range = [](const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range) {
+                                        for (const gafkluge::GafStep& step : record.path) {
+                                            if (step.is_stable) {
+                                                // We can't parse the name field as a node ID, it's a path name.
+                                                throw std::runtime_error("Cannot parse GAF record with stable step on: " + step.name);
+                                            }
+                                            nid_t node_id = std::stol(step.name);
+                                            if (node_id >= range.first && node_id < range.second) {
+                                                // Found an intersection
+                                                return true;
+                                            }
+                                        }
+                                        // No intersection was ever found
+                                        return false;
+                                    };
+
+                                    if (!gaf_record_intersects_range(record, range)) {
+                                        // We don't actually intersect the range, so skip this record.
+                                        continue;
+                                    }
+
+                                    auto found = seen_records.find(record_string);
+                                    if (found == seen_records.end()) {
+                                        // This is a novel record.
+                                        // TODO: Handle GAF files that
+                                        // repeat the same record multiple
+                                        // times, where we actually want to
+                                        // keep the repeats.
+
+                                        // TODO: implement enforcing full containment
+                                        // TODO: implement alignment cutting
+                                        
+                                        // Handle the record (by printing its unparsed version instead of re-serializing).
+                                        out_gaf_file << record_string << endl;
+
+                                        // Mark it as handled and move it into the set.
+                                        seen_records.emplace_hint(found, std::move(record_string));
+                                    }
                                 }
+
+                                // Make sure the iterator and kstring_t are cleaned up.
                                 tbx_itr_destroy(itr);
+                                // This is safe to do even if the kstring_t's buffer is not allocated.
+                                ks_free(&str);
+                            } catch(...) {
+                                tbx_itr_destroy(itr);
+                                ks_free(&str);
+                                throw;
                             }
                         }
                         out_gaf_file.close();
