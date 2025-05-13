@@ -727,9 +727,9 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             assert(trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_START
                    || trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
 #endif
-            tree_item_type_t old_type = forest_state.sibling_indices_at_depth[depth-1].back().type;
+            tree_item_type_t chain_start_type = is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_CHAIN_START : ZipCodeTree::CHAIN_START;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
-            forest_state.sibling_indices_at_depth[depth-1].push_back({ old_type, forest_state.open_intervals[forest_state.open_intervals.size()-2].is_reversed ? last_seed.zipcode.get_length(depth-1, true)
+            forest_state.sibling_indices_at_depth[depth-1].push_back({ chain_start_type, forest_state.open_intervals[forest_state.open_intervals.size()-2].is_reversed ? last_seed.zipcode.get_length(depth-1, true)
                                                                                                        : 0});
             forest_state.sibling_indices_at_depth[depth-1].back().chain_component = last_seed.zipcode.get_last_chain_component(depth-1, true);
 
