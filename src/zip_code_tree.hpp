@@ -411,6 +411,14 @@ public:
                                const SnarlDistanceIndex& distance_index, 
                                const vector<Seed>* seeds,
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    
+    ///Store last seed's position and rank at the end of those lists
+    void store_last_seed_position_and_rank(std::vector<tree_item_t>::const_iterator& zip_iterator, 
+                                           const SnarlDistanceIndex& distance_index, 
+                                           const vector<Seed>* seeds,
+                                           std::vector<pos_t>& positions,
+                                           std::vector<pair<size_t, bool>>& ranks,
+                                           bool store_left) const;
 
     ///Helper function for validate_snarl to check a distance matrix against an index
     ///Distance matrix is triangular, with distances to all previous children stored
@@ -419,17 +427,17 @@ public:
     void validate_distance_matrix(const SnarlDistanceIndex& distance_index,
                                   const std::vector<size_t>& dist_matrix,
                                   const std::vector<pos_t>& positions,
+                                  const std::vector<pair<size_t, bool>>& ranks,
                                   bool has_self_loops,
                                   size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
     ///Helper function for validate_snarl for a chain
     ///zip_iterator is an iterator to the chain start
     ///zip_iterator will be set to the chain end
-    ///Returns the position of the first seed in the chain
-    pos_t validate_chain(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                         const SnarlDistanceIndex& distance_index, 
-                         const vector<Seed>* seeds,
-                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    void validate_chain(std::vector<tree_item_t>::const_iterator& zip_iterator, 
+                        const SnarlDistanceIndex& distance_index, 
+                        const vector<Seed>* seeds,
+                        size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
     /// Count the number of snarls involved in the tree
     /// Returns a pair of <dag count, non-dag count>
