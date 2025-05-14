@@ -94,8 +94,10 @@ class ZipCodeTree {
 
       For snarls that aren't dags (called cyclic snarls, even though they could have an inversion 
       and no cycles), distances are stored as a triangular matrix at the start of the snarl.
-      The NODE_COUNT is also at the start, before the triangle. The matrix goes:
-      start_left, c1_left, c1_right, c2_left, c2_right, ..., end_left
+      The NODE_COUNT is also at the start, before the triangle. The order goes:
+      start_left, c1_left, c1_right, c2_left, c2_right, ..., end_left; the triangle is:
+          start->start, c1_left->c1_left, start->c1_left, c1_right->c1_right, c1_left->c1_right,
+              start->c1_right, ..., c1_right->end, c1_left->end, start->end
 
 
       Everything is ordered according to the order of the highest-level chain (top-level chain or 
@@ -148,6 +150,11 @@ class ZipCodeTree {
             }
         }
         tree_item_type_t get_type() const { return type; }
+        // Convenience functions for checking cyclic or non cyclic bounds together
+        bool is_snarl_start() const { return type == SNARL_START || type == CYCLIC_SNARL_START; }
+        bool is_snarl_end() const { return type == SNARL_END || type == CYCLIC_SNARL_END; }
+        bool is_chain_start() const { return type == CHAIN_START || type == CYCLIC_SNARL_CHAIN_START; }
+        bool is_chain_end() const { return type == CHAIN_END || type == CYCLIC_SNARL_CHAIN_END; }
         size_t get_value() const { 
             return value == ((size_t)1 << 59) - 1
                    ? std::numeric_limits<size_t>::max()
@@ -386,25 +393,44 @@ public:
 
     ///Helper function for validate_zip_tree for just a snarl
     ///zip_iterator is an iterator to the snarl start
+    ///zip_iterator will be set to the snarl end
     ///Calls validate_non_cyclic_snarl or validate_cyclic_snarl as necessary
-    void validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
+    void validate_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                         const SnarlDistanceIndex& distance_index, 
                         const vector<Seed>* seeds,
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
-    ///Helper function for validate_snarl for just a non-cyclic snarl
-    void validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
+    ///Helper function for validate_snarl for a non-cyclic snarl
+    void validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                                    const SnarlDistanceIndex& distance_index, 
                                    const vector<Seed>* seeds,
                                    size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
-    ///Helper function for validate_snarl for just a cyclic snarl
-    void validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
+    ///Helper function for validate_snarl for a cyclic snarl
+    void validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                                const SnarlDistanceIndex& distance_index, 
                                const vector<Seed>* seeds,
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
+    ///Helper function for validate_snarl to check a distance matrix against an index
+    ///Distance matrix is triangular, with distances to all previous children stored
+    ///Positions are of the last seed in each child chain, unless the end is a snarl
+    ///Any positions with node ID of 0 are ignored
+    void validate_distance_matrix(const SnarlDistanceIndex& distance_index,
+                                  const std::vector<size_t>& dist_matrix,
+                                  const std::vector<pos_t>& positions,
+                                  bool has_self_loops,
+                                  size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
+    ///Helper function for validate_snarl for a chain
+    ///zip_iterator is an iterator to the chain start
+    ///zip_iterator will be set to the chain end
+    ///Returns the position of the first seed in the chain
+    pos_t validate_chain(std::vector<tree_item_t>::const_iterator& zip_iterator, 
+                         const SnarlDistanceIndex& distance_index, 
+                         const vector<Seed>* seeds,
+                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    
     /// Count the number of snarls involved in the tree
     /// Returns a pair of <dag count, non-dag count>
     /// Assumes that the tree has already been filled in
