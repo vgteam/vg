@@ -898,8 +898,8 @@ pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_tra
     }
 
 #ifdef debug
-    cerr << "Finding traversals of " << (graph->get_is_reverse(snarl_start) ? "<" : ">") << graph->get_id(snarl_start)
-         << (graph->get_is_reverse(snarl_end) ? "<" : ">") << graph->get_id(snarl_edn) << " using PathTraversalFinder" << endl
+    cerr << "Finding traversals of " << (graph.get_is_reverse(snarl_start) ? "<" : ">") << graph.get_id(snarl_start)
+         << (graph.get_is_reverse(snarl_end) ? "<" : ">") << graph.get_id(snarl_end) << " using PathTraversalFinder" << endl
          << " - there are " << start_steps.size() << " start_steps, " << end_steps.size() << " end_steps"
          << " and " << end_path_handles.size() << " end_path_handles" << endl;
 #endif
@@ -907,13 +907,13 @@ pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_tra
     vector<Traversal> out_travs;
     vector<pair<step_handle_t, step_handle_t> > out_steps;
 
-    // collect edges that lead out the snarl to make sure we don't search in the wrong direction
-    unordered_set<edge_t> block_edges;
+    // collect nodes on edges that lead out the snarl to make sure we don't search in the wrong direction
+    unordered_set<nid_t> block_nodes;
     graph.follow_edges(snarl_start, true, [&](handle_t prev) {
-        block_edges.insert(graph.edge_handle(prev, snarl_start));
+        block_nodes.insert(graph.get_id(prev));
     });
     graph.follow_edges(snarl_end, false, [&](handle_t next) {
-        block_edges.insert(graph.edge_handle(snarl_end, next));
+        block_nodes.insert(graph.get_id(next));
     });
 
     for (const step_handle_t& start_step : start_steps) {
@@ -939,10 +939,11 @@ pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_tra
                     step_handle_t next_step = graph.get_next_step(step);
                     handle_t next_handle = graph.get_handle_of_step(next_step);
                     // todo: we only need this check once
-                    if (!block_edges.count(graph.edge_handle(handle, next_handle))) {
+                    if (next_handle == end_check ||
+                        !block_nodes.count(graph.get_id(graph.get_handle_of_step(next_step)))) {
                         step = next_step;
                         can_continue = true;
-                    } 
+                    }
                 }
             }
 
@@ -963,9 +964,10 @@ pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_tra
                     can_continue = false;
                     if (graph.has_previous_step(step) && handle != snarl_end) {
                         step_handle_t prev_step = graph.get_previous_step(step);
-                        handle_t prev_handle = graph.flip(graph.get_handle_of_step(prev_step));
+                        handle_t prev_handle = graph.get_handle_of_step(prev_step);
                         // todo: we only need this check once
-                        if (!block_edges.count(graph.edge_handle(prev_handle, handle))) {
+                        if (prev_handle == end_check ||
+                            !block_nodes.count(graph.get_id(prev_handle))) {
                             step = prev_step;
                             can_continue = true;
                         } 
@@ -975,7 +977,12 @@ pair<vector<Traversal>, vector<PathInterval>> PathTraversalFinder::find_path_tra
             if (graph.get_handle_of_step(step) == end_check) {
                 out_travs.push_back(trav);
                 out_steps.push_back(make_pair(start_step, step));
-            } 
+            } else {
+#ifdef debug
+                cerr << "     - failed to find reverse traversal of path " << graph.get_path_name(start_path_handle) << endl;
+#endif
+                
+            }
         }
     }
     
