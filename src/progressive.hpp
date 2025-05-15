@@ -59,6 +59,13 @@ public:
      */
     void create_progress(long count);
     /**
+     * Ensure a progress bar is active with the given number of items to
+     * process. If no bar is active, one is created with a default message or
+     * the last message passed to preload_progress(). Does nothing if
+     * show_progress is false.
+     */
+    void ensure_progress(long count);
+    /**
      * Update the progress bar, noting that the given number of items have been
      * processed. Does nothing if no progress bar is displayed.
      */

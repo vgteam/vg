@@ -284,11 +284,11 @@ If you have more than one sequence, or you are working on a large graph, you wil
 
 There are multiple read mappers in `vg`:
 
-* `vg giraffe` is designed to be fast for highly accurate short reads, against graphs with haplotype information.
+* `vg giraffe` is designed to be fast for highly accurate short reads, against graphs with haplotype information. It also now has a chaining mode to use for long reads.
 * `vg map` is a general-purpose read mapper.
 * `vg mpmap` does "multi-path" mapping, to allow describing local alignment uncertainty. [This is useful for transcriptomics.](#Transcriptomic-analysis)
 
-The graph alignment output format of these mappers (GAM/GAMP) may be [QC'ed by `vg filter --tsv-out`](https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-%E2%80%90%E2%80%90tsv%E2%80%90out).
+The graph alignment output format of these mappers (GAM/GAMP) may be [QC'ed by `vg filter --tsv-out`](https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-vg-filter).
 
 #### Mapping with `vg giraffe`
 

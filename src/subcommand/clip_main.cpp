@@ -22,34 +22,34 @@ void help_clip(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if unspecified and -n,-e,-N,-E,-a,-l,-L, or -D used)." << endl
+       << "    -r, --snarls FILE         snarls from vg snarls (recomputed if unspecified and -n,-e,-N,-E,-a,-l,-L, or -D used)." << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out nodes and edges with path depth below N (note you can use snarl selection and bed options to target subregions)" << endl
+       << "    -d, --depth N             clip out nodes and edges with path depth below N (note you can use snarl selection and bed options to target subregions)" << endl
        << "stub clipping options:" << endl
-       << "    -s, --stubs               Clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
-       << "    -S, --stubbify-paths      Clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
+       << "    -s, --stubs               clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
+       << "    -S, --stubbify-paths      clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
        << "snarl selection and clipping options:" << endl
-       << "    -n, --min-nodes N         Clip out snarls with > N nodes" << endl
-       << "    -e, --min-edges N         Clip out snarls with > N edges" << endl
-       << "    -B, --min-bases N         Clip out snarls with > N bases" << endl     
-       << "    -N, --min-nodes-shallow N Clip out snarls with > N nodes not including nested snarls" << endl
-       << "    -E, --min-edges-shallow N Clip out snarls with > N edges not including nested snarls" << endl
-       << "    -a, --min-avg-degree N    Clip out snarls with average degree > N" << endl
-       << "    -l, --min-reflen N        Ignore snarls whose reference traversal spans less than N bp" << endl     
-       << "    -L, --min-reflen-prop F   Ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
-       << "    -A, --max-reflen N        Ignore snarls whose reference traversal spans fewer than N bp" << endl
-       << "    -g  --net-edges           Only clip net-edges inside snarls" << endl
-       << "    -G  --top-net_edges       Only clip net-edges inside top-level snarls" << endl
+       << "    -n, --min-nodes N         clip out snarls with > N nodes" << endl
+       << "    -e, --min-edges N         clip out snarls with > N edges" << endl
+       << "    -B, --min-bases N         clip out snarls with > N bases" << endl     
+       << "    -N, --min-nodes-shallow N clip out snarls with > N nodes not including nested snarls" << endl
+       << "    -E, --min-edges-shallow N clip out snarls with > N edges not including nested snarls" << endl
+       << "    -a, --min-avg-degree N    clip out snarls with average degree > N" << endl
+       << "    -l, --min-reflen N        ignore snarls whose reference traversal spans less than N bp" << endl     
+       << "    -L, --min-reflen-prop F   ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
+       << "    -A, --max-reflen N        ignore snarls whose reference traversal spans fewer than N bp" << endl
+       << "    -g  --net-edges           only clip net-edges inside snarls" << endl
+       << "    -G  --top-net_edges       only clip net-edges inside top-level snarls" << endl
        << "big deletion edge clipping options:" << endl
-       << "    -D, --max-deletion-edge N Clip out all edges whose endpoints have distance > N on a reference path" << endl
-       << "    -c, --context N           Search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
+       << "    -D, --max-deletion-edge N clip out all edges whose endpoints have distance > N on a reference path" << endl
+       << "    -c, --context N           search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
        << "general options: " << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
-       << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
-       << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
-       << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
+       << "    -P, --path-prefix STRING  do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
+       << "    -m, --min-fragment-len N  don't write novel path fragment if it is less than N bp long" << endl
+       << "    -B, --output-bed          write BED-style file of affected intervals instead of clipped graph. " << endl
+       << "                              columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
        << "    -t, --threads N           number of threads to use [default: all available]" << endl
-       << "    -v, --verbose             Print some logging messages" << endl
+       << "    -v, --verbose             print some logging messages" << endl
        << endl;
 }    
 
