@@ -428,13 +428,12 @@ public:
                                const vector<Seed>* seeds,
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
-    ///Store last seed's position and rank at the end of those lists
-    void store_last_seed_position_and_rank(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                                           const SnarlDistanceIndex& distance_index, 
-                                           const vector<Seed>* seeds,
-                                           std::vector<pos_t>& positions,
-                                           std::vector<pair<size_t, bool>>& ranks,
-                                           bool store_left) const;
+    ///Store current seed's position and rank at the end of those lists
+    void store_seed_position_and_rank(tree_item_t child, 
+                                     const SnarlDistanceIndex& distance_index, 
+                                     const vector<Seed>* seeds,
+                                     std::vector<pos_t>& positions,
+                                     std::vector<pair<size_t, bool>>& ranks) const;
 
     ///Helper function for validate_snarl to check a distance matrix against an index
     ///Distance matrix is triangular, with distances to all previous children stored
