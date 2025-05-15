@@ -391,6 +391,23 @@ public:
                            const vector<Seed>* seeds,
                            size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
+    ///Helper function for validate_zip_tree to check snarl/chain boundaries
+    ///Ensures that all boundaries get closed properly and that at least one seed is present
+    ///Also checks cyclic snarl IDs
+    void validate_boundaries(const SnarlDistanceIndex& distance_index, 
+                             const vector<Seed>* seeds,
+                             size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    
+    ///Helper function for validate_zip_tree to check that everything is in the right order
+    void validate_zip_tree_order(const SnarlDistanceIndex& distance_index, 
+                                 const vector<Seed>* seeds) const;
+
+    ///Helper function for validate_zip_tree to check that the distances between seeds are correct
+    ///Uses the same iterator logic that the main chaining code does
+    void validate_seed_distances(const SnarlDistanceIndex& distance_index, 
+                                 const vector<Seed>* seeds,
+                                 size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+
     ///Helper function for validate_zip_tree for just a snarl
     ///zip_iterator is an iterator to the snarl start
     ///zip_iterator will be set to the snarl end

@@ -1132,16 +1132,12 @@ bool ZipCodeTree::node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& di
     return is_cyclic_snarl;
 }
 
-void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, 
-                                    const vector<Seed>* seeds,
-                                    size_t distance_limit) const {
+void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index, 
+                                      const vector<Seed>* seeds,
+                                      size_t distance_limit) const {
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "Validate tree with distance limit " << distance_limit << endl;
+    std::cerr << "Validating that zip code tree's boundaries match up" << std::endl;
 #endif
-
-    assert(zip_code_tree.size() != 0);
-
-    /**********  Make sure that all snarls/chains are opened and closed in a valid order ****************/
     bool has_seed = false;
     vector<tree_item_type_t> snarl_stack; 
     vector<size_t> cyclic_snarl_id_stack;
@@ -1188,8 +1184,13 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         }
     }
     assert(has_seed);
+}
 
-    /************ Make sure that everything is in a valid order ****************/
+void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_index, 
+                                          const vector<Seed>* seeds) const {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Validate tree order" << endl;
+#endif
     size_t previous_seed_index = std::numeric_limits<size_t>::max();
     bool previous_is_invalid = false;
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
@@ -1266,6 +1267,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
                                    ? seeds->at(current_item.get_value()).zipcode.get_length(depth) 
                                         - offset(seeds->at(current_item.get_value()).pos)
                                    : offset(seeds->at(current_item.get_value()).pos);
+                    //Chains within cyclic snarls can be in arbitrary order
                     if (!current_is_in_cyclic_snarl) {
                         if (!a_is_reversed) {
                             //If they are in previous_seed_index snarl or they are facing forward on a chain, then order by
@@ -1348,13 +1350,22 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         } else if (current_item.get_type() == CHAIN_END || current_item.get_type() == CYCLIC_SNARL_CHAIN_END) {
             //And can't end with edges
             assert(zip_code_tree[i-1].get_type() != EDGE);
+        } else if (current_item.get_type() == CYCLIC_SNARL_START) {
+            //Cyclic snarls start with their node counts
+            assert(zip_code_tree[i+1].get_type() == NODE_COUNT);
+        } else if (current_item.get_type() == SNARL_END) {
+            //Non-cyclic snarls end with their node count
+            assert(zip_code_tree[i-1].get_type() == NODE_COUNT);
         }
     }
+}
 
-
-
-    /************* Check distances and snarl tree relationships *******************/
-
+void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_index, 
+                                          const vector<Seed>* seeds,
+                                          size_t distance_limit) const {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Validate distances between seeds via iterator" << endl;
+#endif
     //Start from the end of the zip tree and walk left, checking each pair of seeds
     for (auto start_itr_left  = zip_code_tree.rbegin() ; 
          start_itr_left != zip_code_tree.rend() ; ++ start_itr_left ) {
@@ -1372,7 +1383,6 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         bool start_is_reversed = start_itr_left->get_is_reversed() ? !is_rev(start_seed.pos) 
                                                                    : is_rev(start_seed.pos);
 
-        //For cyclic snarls, the tree distance isn't always guaranteed to be the same as the minimum distance
         // I think that the smallest distance between any pair of seeds will be guaranteed to be the same as the
         // actual minimum distance, so store the minimum (non infinite) distance here
         // The first pair of size_t's are indices into seeds (start then next), 
@@ -1427,10 +1437,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
             bool distance_is_invalid = node_is_invalid(id(next_seed.pos), distance_index, distance_limit) ||
                                node_is_invalid(id(start_seed.pos), distance_index, distance_limit);
 
-            if (in_non_dag_snarl) {
-                //TODO: I don't actually know how to check these properly
-
-            } else if (!distance_is_invalid && index_distance <= distance_limit) {
+            if (!distance_is_invalid && index_distance <= distance_limit) {
                 if (start_pos == next_pos) {
                     if (tree_distance != 0 && tree_distance != index_distance) {
                         for (auto& seed : *seeds) {
@@ -1463,6 +1470,20 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
         }
 
     }
+}
+
+void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, 
+                                    const vector<Seed>* seeds,
+                                    size_t distance_limit) const {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Validate tree with distance limit " << distance_limit << endl;
+#endif
+
+    assert(zip_code_tree.size() != 0);
+
+    validate_boundaries(distance_index, seeds, distance_limit);
+    validate_zip_tree_order(distance_index, seeds);
+    validate_seed_distances(distance_index, seeds, distance_limit);
 }
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
