@@ -90,10 +90,9 @@ FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "Giraffes have never been observed swimming.",
          "Mozambique requires power lines to be 39 feet high so giraffes can safely pass underneath."]
 
-def parse_args(args):
+def parse_args():
     """
-    Takes in the command-line arguments list (args), and returns a nice argparse
-    result with fields for all the options.
+    Returns a nice argparse result with fields for all the options.
     
     Borrows heavily from the argparse documentation examples:
     <http://docs.python.org/library/argparse.html>
@@ -121,11 +120,7 @@ def parse_args(args):
     parser.add_argument("outdir",
                         help="directory to place output in")
     
-    # The command line arguments start with the program name, which we don't
-    # want to treat as an argument for argparse. So we remove it.
-    args = args[1:]
-        
-    return parser.parse_args(args)
+    return parser.parse_args()
     
 def sniff_params(read):
     """
@@ -1368,7 +1363,7 @@ def explain_filters_in(stats_total, vg):
 
     explain_filters(filters_and_stages, vg)
 
-def main(args):
+def main():
     """
     Parses command line arguments and do the work of the program.
     "args" specifies the program arguments, with args[0] being the executable
@@ -1377,7 +1372,7 @@ def main(args):
    
     print(random.choice(FACTS), file = sys.stderr)
     
-    options = parse_args(args) # This holds the nicely-parsed options object
+    options = parse_args() # This holds the nicely-parsed options object
     
     # Make the output directory if it doesn't exist
     os.makedirs(options.outdir, exist_ok=True)
@@ -1417,15 +1412,7 @@ def main(args):
         # Make filter statistic histograms
         plot_filter_statistic_histograms(options.outdir, stats_total)
     
-def entrypoint():
-    """
-    0-argument entry point for setuptools to call.
-    """
-    
-    # Provide main with its arguments and handle exit codes
-    sys.exit(main(sys.argv))
-    
 if __name__ == "__main__" :
-    entrypoint()
+    main()
         
 
