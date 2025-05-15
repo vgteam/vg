@@ -16,15 +16,10 @@
 using namespace std;
 namespace vg {
 
-template void ZipCodeTree::print_self<MinimizerMapper::Minimizer>(const vector<Seed>*, const VectorView<MinimizerMapper::Minimizer>*) const;
-
-template<typename Minimizer>
-void ZipCodeTree::print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const {
+void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
     for (const tree_item_t item : zip_code_tree) {
         if (item.get_type() == SEED) {
-            cerr << seeds->at(item.get_value()).pos << "/" 
-                 << (minimizers->size() == 0 ? 0
-                                             : (*minimizers)[seeds->at(item.get_value()).source].value.offset);
+            cerr << seeds->at(item.get_value()).pos;
             if (item.get_is_reversed()) {
                 cerr << "rev";
             }
@@ -78,8 +73,7 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
                 //If we're starting a new tree then the last one must be valid
                 if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
                     cerr << "Last tree: " << endl;
-                    VectorView<MinimizerMapper::Minimizer> empty;
-                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds);
                     trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
                 }
 #endif
@@ -196,8 +190,7 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
         }
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Validate the new slice" << endl;
-        VectorView<MinimizerMapper::Minimizer> empty;
-        trees.back().print_self(forest_state.seeds, &empty);
+        trees.back().print_self(forest_state.seeds);
         trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
         
@@ -225,8 +218,7 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
 
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Validate slice" << endl;
-        VectorView<MinimizerMapper::Minimizer> empty;
-        trees.back().print_self(forest_state.seeds, &empty);
+        trees.back().print_self(forest_state.seeds);
         trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
     }
@@ -453,8 +445,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
                 //If we're starting a new tree then the last one must be valid
                 if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
                     cerr << "Last tree: " << endl;
-                    VectorView<MinimizerMapper::Minimizer> empty;
-                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds);
                     trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
                 }
 #endif
@@ -524,8 +515,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
 #ifdef DEBUG_ZIP_CODE_TREE
                 //Validate the slice
                 cerr << "Validate removed slice: " << endl;
-                VectorView<MinimizerMapper::Minimizer> empty;
-                trees.back().print_self(forest_state.seeds, &empty);
+                trees.back().print_self(forest_state.seeds);
                 trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
                 }
@@ -1640,7 +1630,6 @@ void ZipCodeTree::store_last_seed_position_and_rank(std::vector<tree_item_t>::co
                                                         distance_index.get_depth(right_handle),
                                                         distance_index);
         if (store_left) {
-            // Double-store for the dummy left side
             positions.emplace_back(left_pos);
             ranks.emplace_back(distance_index.get_rank_in_parent(right_handle), !is_reversed);
         }
@@ -2600,10 +2589,7 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
     });
 }
 
-template void ZipCodeForest::fill_in_forest<MinimizerMapper::Minimizer>(const vector<Seed>&, const VectorView<MinimizerMapper::Minimizer>&, const SnarlDistanceIndex&, size_t);
-
-template<typename Minimizer>
-void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<Minimizer>& minimizers,
+void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                                    const SnarlDistanceIndex& distance_index, size_t distance_limit) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Make a new forest with " << seeds.size() << " seeds with distance limit " << distance_limit << endl;
@@ -2647,7 +2633,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
 
     while (!forest_state.intervals_to_process.empty()) {
 #ifdef DEBUG_ZIP_CODE_TREE
-        print_self(&seeds, &minimizers);
+        print_self(&seeds);
 #endif
         // For each unprocessed interval, process it
         // First, check if anything needs to be closed, which will happen if the interval's depth is 
@@ -2710,7 +2696,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                     close_snarl(forest_state, depth, last_seed, ancestor_interval.is_reversed); 
                 }
 
-                print_self(&seeds, &minimizers);
+                print_self(&seeds);
 
                 //Clear the list of children of the snarl tree structure at this level
                 forest_state.sibling_indices_at_depth[depth].clear();
@@ -2770,8 +2756,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 //If we're starting a new tree then the last one must be valid
                 if (forest_state.active_tree_index != std::numeric_limits<size_t>::max()) {
                     cerr << "Last connected component: " << endl;
-                    VectorView<MinimizerMapper::Minimizer> empty;
-                    trees[forest_state.active_tree_index].print_self(forest_state.seeds, &empty);
+                    trees[forest_state.active_tree_index].print_self(forest_state.seeds);
                     trees[forest_state.active_tree_index].validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
                 }
 #endif
@@ -2904,7 +2889,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
         trees.erase(trees.begin() + forest_state.active_tree_index);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
-    print_self(&seeds, &minimizers);
+    print_self(&seeds);
     validate_zip_forest(distance_index, &seeds, distance_limit);
     assert(forest_state.open_chains.empty());
     assert(forest_state.open_intervals.empty());

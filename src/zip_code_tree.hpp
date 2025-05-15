@@ -373,8 +373,7 @@ public:
     /// [ and ] are used for the starts and ends of chains
     /// < and > are used for the starts and ends of chains in cyclic snarls
     /// seeds are printed as their positions
-    template<typename Minimizer>
-    void print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const;
+    void print_self(const vector<Seed>* seeds) const;
 
     /// Is the given node in a multicomponent chain, looping chain, or anything else that would cause
     /// it to not have exact distances?
@@ -506,10 +505,9 @@ class ZipCodeForest {
     /// If a distance limit is given, then also partition the tree into subtrees that are
     /// farther than the distance_limit from each other
     /// Otherwise, the forest will just be connected components
-    template<typename Minimizer>
-    void fill_in_forest(const vector<Seed>& seeds, const VectorView<Minimizer>& minimizers, 
-                      const SnarlDistanceIndex& distance_index,
-                      size_t distance_limit = std::numeric_limits<size_t>::max());
+    void fill_in_forest(const vector<Seed>& seeds, 
+                       const SnarlDistanceIndex& distance_index,
+                       size_t distance_limit = std::numeric_limits<size_t>::max());
 
     private:
 
@@ -887,12 +885,11 @@ class ZipCodeForest {
 
     public:
 
-    template<typename Minimizer>
-    void print_self(const vector<Seed>* seeds, const VectorView<Minimizer>* minimizers) const {
+    void print_self(const vector<Seed>* seeds) const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
             cerr << i << ": ";
-            tree.print_self(seeds, minimizers);
+            tree.print_self(seeds);
         }
     }
     void validate_zip_forest(const SnarlDistanceIndex& distance_index, 
