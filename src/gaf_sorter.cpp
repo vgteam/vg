@@ -158,7 +158,7 @@ void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>
 gbwt::vector_type as_gbwt_path(const GAFSorterRecord& record, bool& ok) {
     gbwt::vector_type result;
     str_view path = record.get_field(GAFSorterRecord::PATH_FIELD);
-    if (path.size == 0 && path[0] == '*') {
+    if (path.size == 1 && path[0] == '*') {
         // Unaligned read.
         return result;
     }
@@ -344,6 +344,9 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
             if (hts_getline(input, '\n', &s_buffer) < 0) {
                 if (params.progress) {
                     std::cerr << "Sorting directly to the final output" << std::endl;
+                    if (!params.gbwt_file.empty()) {
+                        std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
+                    }
                 }
                 GAFSorterFile out(output_file, params.gbwt_file);
                 sort_gaf_lines(std::move(lines), params.key_type, params.stable, out);
