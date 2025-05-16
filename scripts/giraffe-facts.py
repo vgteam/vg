@@ -1440,7 +1440,15 @@ def main():
         # Make filter statistic histograms
         plot_filter_statistic_histograms(options.outdir, stats_total)
     
-if __name__ == "__main__" :
+def entrypoint():
+    """
+    0-argument entry point for setuptools to call.
+    """
+
+    # Provide main with its arguments and handle exit codes
     sys.exit(main())
+
+if __name__ == "__main__" :
+    entrypoint()
         
 
