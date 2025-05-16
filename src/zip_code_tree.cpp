@@ -836,7 +836,6 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
     forest_state.sibling_indices_at_depth[depth].back().is_reversed = child_is_reversed;
 }
 
-/// TODO: THIS IS VERY WRONG
 void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_state, 
                                                const size_t& depth, bool snarl_is_reversed) {
 #ifdef DEBUG_ZIP_CODE_TREE
