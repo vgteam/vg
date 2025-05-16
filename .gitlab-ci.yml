@@ -7,6 +7,10 @@
 # Make sure to use :latest so we re-check and re-pull if needed on every run.
 image: quay.io/vgteam/vg_ci_prebake:latest
 
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
 before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
@@ -62,6 +66,7 @@ stages:
 # still takes longer than the Docker build, so we put it in the test stage
 # alongside other longer jobs.
 local-build-test-job:
+  interruptible: true
   stage: test
   cache:
     # Gitlab isn't clever enough to fill PR caches from the main branch, so we
@@ -114,6 +119,7 @@ local-build-test-job:
 
 # We define one job to do the Docker container build
 build-job:
+  interruptible: true
   stage: build
   script:
     - CI_REPO=${CI_REGISTRY}/vgteam/vg
@@ -150,6 +156,7 @@ build-job:
 # To ship a final production Docker tag, we need the ARM and x86 builds
 # happening in the same command so we can push one multiarch manifest.
 production-build-job:
+  interruptible: true
   stage: test
   only:
     - /^arm/
@@ -197,6 +204,7 @@ production-build-job:
 # We also run the toil-vg/pytest-based tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
 test-job:
+  interruptible: true
   stage: test
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
@@ -243,6 +251,7 @@ test-job:
 
 # We have a final job in the last stage to compose an HTML report
 report-job:
+  interruptible: true
   stage: report
   # Run this even when the tests fail, because otherwise we won't hear about it.
   # Hopefully if the actual build failed we fail at the docker pull and we don't upload stuff for no version.
@@ -262,6 +271,7 @@ report-job:
     
 # We need a separate job to build the Doxygen docs
 docs-job:
+    interruptible: true
     stage: build
     script:
       - doc/publish-docs.sh
