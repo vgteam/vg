@@ -17,6 +17,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../convert.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -579,11 +580,11 @@ int main_chunk(int argc, char** argv) {
                     Region region;
                     vector<string> parts = split_delims(range, ":");
                     if (parts.size() == 1) {
-                        convert(parts.front(), region.start);
+                        vg::convert(parts.front(), region.start);
                         region.end = region.start;
                     } else {
-                        convert(parts.front(), region.start);
-                        convert(parts.back(), region.end);
+                        vg::convert(parts.front(), region.start);
+                        vg::convert(parts.back(), region.end);
                     }
                     regions.push_back(region);
                 }
@@ -892,7 +893,7 @@ int main_chunk(int argc, char** argv) {
             vg::io::save_handle_graph(subgraph.get(), *out_stream);
         }
         
-        // optional gam chunking
+        // optional read chunking
         if (chunk_aln) {
             if (!components) {
                 // Work out the ID ranges to look up
@@ -920,20 +921,16 @@ int main_chunk(int argc, char** argv) {
                             exit(1);
                         }
 
-                        // loop over ranges and print GAF records
-                        for (auto range : region_id_ranges) {
-                            string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
-                            hts_itr_t *itr = tbx_itr_querys(gaf_tbx.get(), reg.c_str());
-                            kstring_t str = {0,0,0};
-                            if ( itr ) {
-                                while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &str) >= 0) {
-                                    // TODO: parse record and enforce full containment
-                                    // TODO: parse record and implement alignment cutting
-                                    out_gaf_file << str.s << endl;
-                                }
-                                tbx_itr_destroy(itr);
-                            }
-                        }
+                        for_each_gaf_record_in_ranges(gaf_fp.get(), gaf_tbx.get(), region_id_ranges, [&](const std::string& record_string) {
+                            // For each unique matching GAF record's unparsed string
+
+                            // TODO: implement enforcing full containment
+                            // TODO: implement alignment cutting
+                            
+                            // Handle the record (by printing it).
+                            out_gaf_file << record_string << endl;
+                        }); 
+
                         out_gaf_file.close();
                     }
                 } else {
