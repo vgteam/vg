@@ -1441,6 +1441,6 @@ def main():
         plot_filter_statistic_histograms(options.outdir, stats_total)
     
 if __name__ == "__main__" :
-    main()
+    sys.exit(main())
         
 
