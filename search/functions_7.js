@@ -408,7 +408,7 @@ var searchData=
   ['graph_5fpos_5fat_5fpath_5fposition_9634',['graph_pos_at_path_position',['../classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7',1,'xg::XG::graph_pos_at_path_position(const path_handle_t &amp;path, size_t path_pos) const'],['../classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296',1,'xg::XG::graph_pos_at_path_position(const std::string &amp;name, size_t path_pos) const']]],
   ['graph_5fstart_9635',['graph_start',['../classvg_1_1algorithms_1_1Anchor.html#ac7bd5f21e10bae0f6dacb3fcc623752f',1,'vg::algorithms::Anchor']]],
   ['graph_5fto_5fgfa_9636',['graph_to_gfa',['../namespacevg.html#ad8c4a075bb9301c8050d89ed8e6a33b9',1,'vg']]],
-  ['graph_5fto_5fxg_5fadjusting_5fpaths_9637',['graph_to_xg_adjusting_paths',['../convert__main_8cpp.html#afe37e7186bce3c6128d32b210f99a9a5',1,'convert_main.cpp']]],
+  ['graph_5fto_5fxg_5fadjusting_5fpaths_9637',['graph_to_xg_adjusting_paths',['../convert__main_8cpp.html#a24c0f1041e122cdcc799e2faa9a7011a',1,'convert_main.cpp']]],
   ['graphcaller_9638',['GraphCaller',['../classvg_1_1GraphCaller.html#a621386ff80a0fe3289719c75c282bc5a',1,'vg::GraphCaller']]],
   ['graphsynchronizer_9639',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html#addf1e96558546d4f5e708827b9eb4d67',1,'vg::GraphSynchronizer']]],
   ['greedymindistanceclusterer_9640',['GreedyMinDistanceClusterer',['../classvg_1_1GreedyMinDistanceClusterer.html#a603a74649e16204cace3e714ebe67a74',1,'vg::GreedyMinDistanceClusterer']]],

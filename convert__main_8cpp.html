@@ -118,10 +118,10 @@ Functions</h2></td></tr>
 <tr class="separator:a61c2208fb6645c58f794c57e1851a194"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca425ac5df78dde7681385a5341abb1b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#aca425ac5df78dde7681385a5341abb1b">no_multiple_inputs</a> (<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a> input)</td></tr>
 <tr class="separator:aca425ac5df78dde7681385a5341abb1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe37e7186bce3c6128d32b210f99a9a5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#afe37e7186bce3c6128d32b210f99a9a5">graph_to_xg_adjusting_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, bool drop_haplotypes)</td></tr>
-<tr class="separator:afe37e7186bce3c6128d32b210f99a9a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a97c9047b1f01a6c50b89cae4249dbdae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a97c9047b1f01a6c50b89cae4249dbdae">add_and_adjust_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, bool drop_haplotypes)</td></tr>
-<tr class="separator:a97c9047b1f01a6c50b89cae4249dbdae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24c0f1041e122cdcc799e2faa9a7011a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a24c0f1041e122cdcc799e2faa9a7011a">graph_to_xg_adjusting_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, const std::string &amp;hap_locus, const std::string &amp;new_sample, bool drop_haplotypes)</td></tr>
+<tr class="separator:a24c0f1041e122cdcc799e2faa9a7011a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7365b83f6878b851b9473bdfed4dfaa8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a7365b83f6878b851b9473bdfed4dfaa8">add_and_adjust_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, const std::string &amp;hap_locus, const std::string &amp;new_sample, bool drop_haplotypes)</td></tr>
+<tr class="separator:a7365b83f6878b851b9473bdfed4dfaa8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd9dc3a752930342a8096088f2d4b742"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#abd9dc3a752930342a8096088f2d4b742">main_convert</a> (int argc, char **argv)</td></tr>
 <tr class="separator:abd9dc3a752930342a8096088f2d4b742"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4355d9c8b84855c02d82983d0cd8eb2f"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; std::string, std::unordered_set&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a4355d9c8b84855c02d82983d0cd8eb2f">check_duplicate_path_names</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, const std::unordered_set&lt; std::string &gt; &amp;ref_samples)</td></tr>
@@ -176,8 +176,8 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a97c9047b1f01a6c50b89cae4249dbdae"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a97c9047b1f01a6c50b89cae4249dbdae">&#9670;&nbsp;</a></span>add_and_adjust_paths()</h2>
+<a id="a7365b83f6878b851b9473bdfed4dfaa8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7365b83f6878b851b9473bdfed4dfaa8">&#9670;&nbsp;</a></span>add_and_adjust_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -199,6 +199,18 @@ Variables</h2></td></tr>
           <td></td>
           <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
           <td class="paramname"><em>ref_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>hap_locus</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>new_sample</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -245,8 +257,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="afe37e7186bce3c6128d32b210f99a9a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afe37e7186bce3c6128d32b210f99a9a5">&#9670;&nbsp;</a></span>graph_to_xg_adjusting_paths()</h2>
+<a id="a24c0f1041e122cdcc799e2faa9a7011a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a24c0f1041e122cdcc799e2faa9a7011a">&#9670;&nbsp;</a></span>graph_to_xg_adjusting_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -268,6 +280,18 @@ Variables</h2></td></tr>
           <td></td>
           <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
           <td class="paramname"><em>ref_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>hap_locus</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>new_sample</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
