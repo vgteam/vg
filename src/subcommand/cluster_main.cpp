@@ -159,7 +159,7 @@ int main_cluster(int argc, char** argv) {
                     cerr << "error:[vg cluster] Couldn't open GCSA file " << optarg << endl;
                     exit(1);
                 }
-                registry.provide("Giraffe GCSA", optarg);
+                registry.provide("GCSA", optarg);
                 break;
             
             case 'G':
