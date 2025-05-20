@@ -53,6 +53,7 @@ void help_cluster(char** argv) {
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -l, --long-reads              minimizer index is for long reads" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+    << "  -p, --prefix PREFIX           prefix to find indexes at" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore minimizers with more than this many locations [500]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
@@ -108,6 +109,7 @@ int main_cluster(int argc, char** argv) {
             {"minimizer-name", required_argument, 0, 'm'},
             {"long-reads", no_argument, 0, 'l'},
             {"dist-name", required_argument, 0, 'd'},
+            {"prefix", required_argument, 0, 'p'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"score-fraction", required_argument, 0, 'F'},
@@ -222,6 +224,14 @@ int main_cluster(int argc, char** argv) {
                     exit(1);
                 }
                 registry.provide("Giraffe Distance Index", optarg);
+                break;
+
+            case 'p':
+                if (!optarg || !*optarg) {
+                    cerr << "error:[vg cluster] Must provide prefix with -p." << endl;
+                    exit(1);
+                }
+                registry.set_prefix(optarg);
                 break;
             
             case 'c':
