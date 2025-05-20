@@ -341,11 +341,10 @@ int main_cluster(int argc, char** argv) {
     // we try in order of priority.
     unordered_map<string, vector<string>> indexes_and_extensions = {
         {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
-        {"XG", {"xg"}},
-        {"Giraffe GBWT", {"gbwt"}},
-        {"GBWTGraph", {"gg"}},
         {"Giraffe Distance Index", {"dist"}},
-        {minimizer_index_type, {long_reads ? "longread.withzip.min" : "shortread.withzip.min",}}
+        {minimizer_index_type, {long_reads ? "longread.withzip.min" : "shortread.withzip.min"}},
+        {long_reads ? "Long Read Zipcodes" : "Short Read Zipcodes", 
+            {long_reads ? "longread.zipcodes" : "shortread.zipcodes"}}
     };
     //Get minimizer indexes
     for (auto& completed : registry.completed_indexes()) {
@@ -373,7 +372,9 @@ int main_cluster(int argc, char** argv) {
     // TODO: add memory options like autoindex?
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
 
-    auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
+    auto index_targets = long_reads 
+                         ? VGIndexes::get_default_long_giraffe_indexes() 
+                         : VGIndexes::get_default_short_giraffe_indexes();
 
     //Make sure we have all necessary indexes
     try {
