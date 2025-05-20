@@ -71,7 +71,6 @@ int main_cluster(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    bool use_minimizers = true;
     string xg_name;
     string gcsa_name;
     string zipcode_name;
@@ -142,8 +141,6 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 'g':
-                use_minimizers = true;
-
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg cluster] Must provide GCSA file with -g." << endl;
                     exit(1);
@@ -302,73 +299,57 @@ int main_cluster(int argc, char** argv) {
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
 
-    if (!use_minimizers) {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        xg_index = overlay_helper.apply(path_handle_graph.get());
-        if (!gcsa_name.empty()) {
-            gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-            lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
-        }
+    // The IndexRegistry doesn't try to infer index files based on the
+    // basename, so do that here. We can have multiple extension options that
+    // we try in order of priority.
+    unordered_map<string, vector<string>> indexes_and_extensions = {
+        {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
+        {"XG", {"xg"}},
+        {"Giraffe GBWT", {"gbwt"}},
+        {"GBWTGraph", {"gg"}},
+        {"Giraffe Distance Index", {"dist"}},
+        {"Minimizers", {"min"}}
+    };
+    //Get minimizer indexes
+    for (auto& completed : registry.completed_indexes()) {
+        // Drop anything we already got from the list
+        indexes_and_extensions.erase(completed);
     }
-
-    //Get the minimizer indexes using the index registry
-    if (use_minimizers) {
-
-        // The IndexRegistry doesn't try to infer index files based on the
-        // basename, so do that here. We can have multiple extension options that
-        // we try in order of priority.
-        unordered_map<string, vector<string>> indexes_and_extensions = {
-            {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
-            {"XG", {"xg"}},
-            {"Giraffe GBWT", {"gbwt"}},
-            {"GBWTGraph", {"gg"}},
-            {"Giraffe Distance Index", {"dist"}},
-            {"Minimizers", {"min"}}
-        };
-        //Get minimizer indexes
-        for (auto& completed : registry.completed_indexes()) {
-            // Drop anything we already got from the list
-            indexes_and_extensions.erase(completed);
-        }
-        for (auto& index_and_extensions : indexes_and_extensions) {
-            // For each index type
-            for (auto& extension : index_and_extensions.second) {
-                // For each extension in priority order
-                string inferred_filename = registry.get_prefix() + "." + extension;
-                if (ifstream(inferred_filename).is_open()) {
-                    // A file with the appropriate name exists and we can read it
-                    registry.provide(index_and_extensions.first, inferred_filename);
-                    // Report it because this may not be desired behavior
-                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
-                    // Skip other extension options for the index
-                    break;
-                }
+    for (auto& index_and_extensions : indexes_and_extensions) {
+        // For each index type
+        for (auto& extension : index_and_extensions.second) {
+            // For each extension in priority order
+            string inferred_filename = registry.get_prefix() + "." + extension;
+            if (ifstream(inferred_filename).is_open()) {
+                // A file with the appropriate name exists and we can read it
+                registry.provide(index_and_extensions.first, inferred_filename);
+                // Report it because this may not be desired behavior
+                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                // Skip other extension options for the index
+                break;
             }
         }
-        // create in-memory objects
+    }
+    // create in-memory objects
 
-        // Don't try and use all the memory.
-        // TODO: add memory options like autoindex?
-        registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
+    // Don't try and use all the memory.
+    // TODO: add memory options like autoindex?
+    registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
 
-        auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
+    auto index_targets = VGIndexes::get_default_short_giraffe_indexes();
 
-        //Make sure we have all necessary indexes
-        try {
-            registry.make_indexes(index_targets);
-        }
-        catch (InsufficientInputException ex) {
-            cerr << "error:[vg cluster] Input is not sufficient to create indexes" << endl;
-            cerr << ex.what();
-            return 1;
-        }
-
+    //Make sure we have all necessary indexes
+    try {
+        registry.make_indexes(index_targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg cluster] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
     }
 
     //Get the minimizer index
-    auto minimizer_index = use_minimizers 
-                         ? vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0))
-                         : nullptr;
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
     //Get the zipcodes
     ZipCodeCollection oversized_zipcodes;
@@ -380,14 +361,10 @@ int main_cluster(int argc, char** argv) {
     }
 
     // Grab the GBZ
-    auto gbz = use_minimizers
-             ? vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0))
-             : nullptr;
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     //Get the distance index
-    auto distance_index = use_minimizers
-                        ? vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0))
-                        : vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
 
 
 
