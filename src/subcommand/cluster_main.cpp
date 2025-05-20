@@ -46,6 +46,7 @@ void help_cluster(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+    << "  -f, --gbz-format              input graph is in GBZ format (contains both a graph and haplotypes)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
     << "  -G, --gbwt-name FILE          use this gbwt" << endl
     << "  -B, --gbwtgraph-name FILE     use this gbwtgraph" << endl
@@ -71,7 +72,8 @@ int main_cluster(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    string xg_name;
+    string graph_name = "";
+    bool gbz_format = false;
     string gcsa_name;
     string zipcode_name;
     string distance_name;
@@ -96,6 +98,7 @@ int main_cluster(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"gbz-format", no_argument, 0, 'f'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"gbwtgraph-name", required_argument, 0, 'B'},
@@ -134,10 +137,11 @@ int main_cluster(int argc, char** argv) {
                     exit(1);
                 }
                 //Remember the string for MEMs
-                xg_name = optarg;
+                graph_name = optarg;
+                break;
 
-                //Give the file to the index registry for clustering minimizers
-                registry.provide("XG", optarg);
+            case 'f':
+                gbz_format = true;
                 break;
                 
             case 'g':
@@ -266,6 +270,17 @@ int main_cluster(int argc, char** argv) {
         }
     }
     
+    if (graph_name.empty()) {
+        cerr << "error:[vg cluster] Must provide a graph file with -x." << endl;
+        exit(1);
+    }
+
+    // Give the file to the index registry for clustering minimizers
+    if (gbz_format) {
+        registry.provide("GBZ", graph_name);
+    } else {
+        registry.provide("XG", graph_name);
+    }
 
     // We define a child class to expose protected stuff
     // This is copied from the minimizer mapper unit tests
