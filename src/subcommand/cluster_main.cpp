@@ -51,6 +51,7 @@ void help_cluster(char** argv) {
     << "  -G, --gbwt-name FILE          use this gbwt" << endl
     << "  -B, --gbwtgraph-name FILE     use this gbwtgraph" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+    << "  -l, --long-reads              minimizer index is for long reads" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore minimizers with more than this many locations [500]" << endl
@@ -76,6 +77,8 @@ int main_cluster(int argc, char** argv) {
     bool gbz_format = false;
     string gcsa_name;
     string zipcode_name;
+    string minimizer_name = "";
+    bool long_reads = false;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
@@ -103,6 +106,7 @@ int main_cluster(int argc, char** argv) {
             {"gbwt-name", required_argument, 0, 'G'},
             {"gbwtgraph-name", required_argument, 0, 'B'},
             {"minimizer-name", required_argument, 0, 'm'},
+            {"long-reads", no_argument, 0, 'l'},
             {"dist-name", required_argument, 0, 'd'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
@@ -196,10 +200,12 @@ int main_cluster(int argc, char** argv) {
                     cerr << "error:[vg cluster] Couldn't open minimizer file " << optarg << endl;
                     exit(1);
                 }
-                registry.provide("Minimizers", optarg);
+                minimizer_name = optarg;
                 break;
                 
-
+            case 'l':
+                long_reads = true;
+                break;
                 
             case 'd':
                 distance_name = optarg;
@@ -282,6 +288,12 @@ int main_cluster(int argc, char** argv) {
         registry.provide("XG", graph_name);
     }
 
+    std::string minimizer_index_type = long_reads ? "Long Read Minimizers" : "Short Read Minimizers";
+
+    if (!minimizer_name.empty()) {
+        registry.provide(minimizer_index_type, minimizer_name);
+    }
+
     // We define a child class to expose protected stuff
     // This is copied from the minimizer mapper unit tests
     class TestMinimizerMapper : public MinimizerMapper {
@@ -323,7 +335,7 @@ int main_cluster(int argc, char** argv) {
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
         {"Giraffe Distance Index", {"dist"}},
-        {"Minimizers", {"min"}}
+        {minimizer_index_type, {long_reads ? "longread.withzip.min" : "shortread.withzip.min",}}
     };
     //Get minimizer indexes
     for (auto& completed : registry.completed_indexes()) {
@@ -364,7 +376,7 @@ int main_cluster(int argc, char** argv) {
     }
 
     //Get the minimizer index
-    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_index_type).at(0));
 
     //Get the zipcodes
     ZipCodeCollection oversized_zipcodes;
