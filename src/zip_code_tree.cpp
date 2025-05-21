@@ -40,7 +40,13 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
         } else if (item.get_type() == CYCLIC_SNARL_CHAIN_END) {
             cerr << ">";
         } else if (item.get_type() == EDGE) {
-            cerr << " " << item.get_value() << " ";
+            cerr << " ";
+            if (item.get_value() == std::numeric_limits<size_t>::max()) {
+                cerr << "inf";
+            } else {
+                cerr << item.get_value();
+            }
+            cerr << " ";
         } else if (item.get_type() == NODE_COUNT) {
             cerr << " " << item.get_value();
         } else {
@@ -890,7 +896,6 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
             first_seed_rank, first_seed_side, first_seed_rank, first_seed_side);
         
         chain_flank_dist = SnarlDistanceIndex::sum(first_seed_flank, first_seed_flank);
-        cerr << "self -> self: " << between_chain_dist << " + " << chain_flank_dist << endl;
         dist_matrix.emplace_back(ZipCodeTree::EDGE, chain_flank_dist, false);
 
         if (is_right_side) {
@@ -898,7 +903,6 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
             between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
                 first_seed_rank, !chain.is_reversed, first_seed_rank, chain.is_reversed);
             chain_flank_dist = SnarlDistanceIndex::sum(chain.distances.first, chain.distances.second);
-            cerr << "c_left -> c_right: " << between_chain_dist << " + " << chain_flank_dist << endl;
             dist_matrix.emplace_back(ZipCodeTree::EDGE, SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist), false);
         }
 
@@ -1728,19 +1732,17 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
                 continue;
             }
             net_handle_t to_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(to_pos)));
-            net_handle_t snarl_handle = distance_index.get_parent(to_handle);
-            assert(distance_index.is_snarl(snarl_handle));
+            net_handle_t from_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(from_pos)));
+            net_handle_t parent_handle = to_handle == from_handle ? to_handle : distance_index.get_parent(to_handle);
 
             size_t matrix_distance;
             if (has_self_loops) {
                 matrix_distance = dist_matrix[(i * (i+1) / 2) + (i-j)];
-                cerr << "i: " << i << " j: " << j << " matrix_distance: " << matrix_distance << endl;
             } else {
                 matrix_distance = dist_matrix[(i * (i-1) / 2) + (i-j)];
             }
 
-            size_t tree_distance = distance_index.distance_in_snarl(snarl_handle, 
-                ranks[i].first, ranks[i].second, ranks[j].first, ranks[j].second);
+            size_t tree_distance = distance_index.distance_in_parent(parent_handle, to_handle, from_handle);
 
             if (tree_distance != matrix_distance && tree_distance < distance_limit) {
                 cerr << "Distance mismatch between " << from_pos << " and " << to_pos << endl;

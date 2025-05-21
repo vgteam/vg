@@ -2354,9 +2354,9 @@ namespace unittest {
             // c1_left -> c1_left
             REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 0);
             // c1_right -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(7).get_value() == 18);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(8).get_value() == 18);
             // c1_left -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(8).get_value() == 22);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(9).get_value() == 22);
         }
     }
 
