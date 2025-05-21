@@ -566,7 +566,7 @@ def batched(input_iterator, batch_size):
         # Then we just have to trim down the extended batches.
         return ([x for x in batch if x is not sentinel] for batch in itertools.zip_longest(*([iter(input_iterator)] * batch_size), fillvalue=sentinel))
 
-def map_reduce(input_iterable, map_function, reduce_function, zero_function, map_function_arg, threads=16):
+def map_reduce(input_iterable, map_function, reduce_function, zero_function, threads=16):
     """
     Do a parallel map-reduce operation on the input iterable.
 
@@ -581,7 +581,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function, map
         # Do it all in one thread
         reduced = zero_function()
         for item in input_iterable:
-            reduced = reduce_function(reduced, map_function(item, map_function_arg))
+            reduced = reduce_function(reduced, map_function(item))
         return reduced
    
     MAP_CHUNK_SIZE = 100
@@ -600,7 +600,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function, map
     # <https://alexwlchan.net/2019/adventures-with-concurrent-futures/>.
 
     # Futures for map tasks in progress
-    map_in_flight = {executor.submit(map_function, item, map_function_arg) 
+    map_in_flight = {executor.submit(map_function, item) 
                      for item in itertools.islice(input_iterator, max_tasks)}
     # Futures for reduce tasks in progress
     reduce_in_flight = set()
@@ -643,7 +643,7 @@ def map_reduce(input_iterable, map_function, reduce_function, zero_function, map
         new_tasks = max_tasks - len(map_in_flight) - len(reduce_in_flight)
         if new_tasks > 0:
             # Top up mapping to have at most the set number of jobs in flight
-            map_in_flight |= {executor.submit(map_function, item, map_function_arg) 
+            map_in_flight |= {executor.submit(map_function, item) 
                               for item in itertools.islice(input_iterator, new_tasks)}
 
     # When everything is done, finish reduction in this thread
@@ -1425,8 +1425,8 @@ def main():
     read_lines = read_read_lines(options.vg, options.input, threads=max(1, options.threads // 2))
    
     # Map it to stats and reduce it to total stats
-    stats_total = map_reduce(read_lines, read_line_to_stats, add_in_stats, collections.OrderedDict, 
-                             options.track_last, threads=max(1, options.threads // 2))
+    stats_total = map_reduce(read_lines, functools.partial(read_line_to_stats, track_last=options.track_last), 
+                             add_in_stats, collections.OrderedDict, threads=max(1, options.threads // 2))
 
     # After processing all the reads
     
