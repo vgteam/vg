@@ -957,6 +957,10 @@ Functions</h2></td></tr>
 <tr class="separator:a0213498a2e9a6cc5c9cb64d30754b4c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7112300f258fd0f25fea0ecf56579373"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7112300f258fd0f25fea0ecf56579373">fastq_paired_two_files_for_each</a> (const string &amp;file1, const string &amp;file2, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, bool comment_as_tags)</td></tr>
 <tr class="separator:a7112300f258fd0f25fea0ecf56579373"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af80206e8af1bef12f89bfb37865f25f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af80206e8af1bef12f89bfb37865f25f0">for_each_gaf_record_in_ranges</a> (htsFile *gaf_fp, tbx_t *gaf_tbx, const vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> &gt;&gt; &amp;ranges, const std::function&lt; void(const std::string &amp;)&gt; &amp;iteratee)</td></tr>
+<tr class="separator:af80206e8af1bef12f89bfb37865f25f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ea07d675d2ce1b9f3831931f9d7fa2d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5ea07d675d2ce1b9f3831931f9d7fa2d">gaf_record_intersects_range</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record, const std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;range)</td></tr>
+<tr class="separator:a5ea07d675d2ce1b9f3831931f9d7fa2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a637c855dffc0296c6575ae8a4cac6b43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43">parse_rg_sample_map</a> (char *hts_header, map&lt; string, string &gt; &amp;rg_sample)</td></tr>
 <tr class="memdesc:a637c855dffc0296c6575ae8a4cac6b43"><td class="mdescLeft">&#160;</td><td class="mdescRight">Populate a mapping from read group to sample name, given the text BAM header.  <a href="namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43">More...</a><br /></td></tr>
 <tr class="separator:a637c855dffc0296c6575ae8a4cac6b43"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -10532,6 +10536,47 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="af80206e8af1bef12f89bfb37865f25f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af80206e8af1bef12f89bfb37865f25f0">&#9670;&nbsp;</a></span>for_each_gaf_record_in_ranges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::for_each_gaf_record_in_ranges </td>
+          <td>(</td>
+          <td class="paramtype">htsFile *&#160;</td>
+          <td class="paramname"><em>gaf_fp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">tbx_t *&#160;</td>
+          <td class="paramname"><em>gaf_tbx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>ranges</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(const std::string &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find each distinct GAF record intersecting any of the given sorted node ID ranges. Presents the GAF record as a string, even though it is parsed internally. If you need the gfakluge::GafRecord, refactor this function instead of parsing it again. </p>
+
+</div>
+</div>
 <a id="ab3d4de4fa2fda6bfcd6eaa77080c67ad"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab3d4de4fa2fda6bfcd6eaa77080c67ad">&#9670;&nbsp;</a></span>for_each_kmer()</h2>
 
@@ -11056,6 +11101,35 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5ea07d675d2ce1b9f3831931f9d7fa2d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5ea07d675d2ce1b9f3831931f9d7fa2d">&#9670;&nbsp;</a></span>gaf_record_intersects_range()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::gaf_record_intersects_range </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>record</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>range</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return True if the given parsed GAF record has any node IDs that occur in the given ID range. Raises an exception if any GAF path entries aren't ID visits. </p>
 
 </div>
 </div>
