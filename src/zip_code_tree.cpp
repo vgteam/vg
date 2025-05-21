@@ -691,35 +691,31 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                 size_t previous_index = trees[forest_state.active_tree_index].zip_code_tree.size() - 1;
                 bool found_sibling = false;
                 size_t opened_snarls = 0;
-                tree_item_type_t previous_type;
+                tree_item_t previous_item;
                 while (!found_sibling) {
-                    previous_type = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type();
-                    if (opened_snarls == 0 && previous_type== ZipCodeTree::SEED) {
+                    previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
+                    if (opened_snarls == 0 && previous_item.get_type() == ZipCodeTree::SEED) {
                         found_sibling = true;
-                    } else if (previous_type == ZipCodeTree::SNARL_END || previous_type == ZipCodeTree::CYCLIC_SNARL_END) {
+                    } else if (previous_item.is_snarl_end()) {
                         opened_snarls ++;
                         previous_index--;
-                    } else if ((previous_type == ZipCodeTree::SNARL_START  || previous_type  == ZipCodeTree::CYCLIC_SNARL_START) 
-                                && opened_snarls == 0) {
+                    } else if (previous_item.is_snarl_start() && opened_snarls == 0) {
                         found_sibling = true;
-                    } else if (previous_type == ZipCodeTree::SNARL_START  || previous_type  == ZipCodeTree::CYCLIC_SNARL_START) {
+                    } else if (previous_item.is_snarl_start()) {
                         opened_snarls--;
                         previous_index--;
                     } else {
                         previous_index--;
                     }
                 }
-                previous_type = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type();
-                if (previous_index != 0 && (previous_type == ZipCodeTree::CHAIN_START || previous_type == ZipCodeTree::CYCLIC_SNARL_CHAIN_START)) {
+                previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
+                if (previous_index != 0 && previous_item.is_chain_start()) {
                     previous_index--;
                 }
 #ifdef DEBUG_ZIP_CODE_TREE
-                previous_type = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index).get_type();
-                assert(( previous_type== ZipCodeTree::SEED 
-                    || previous_type == ZipCodeTree::SNARL_START 
-                    || previous_type == ZipCodeTree::CYCLIC_SNARL_START
-                    || previous_type == ZipCodeTree::CHAIN_START
-                    || previous_type == ZipCodeTree::CYCLIC_SNARL_CHAIN_START));
+                previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
+                assert(previous_item.get_type() == ZipCodeTree::SEED 
+                       || previous_item.is_snarl_start() || previous_item.is_chain_start());
                 cerr << "New start of previous open chain: " << previous_index << endl;;
 #endif
                 forest_state.open_chains.back().first = previous_index;
@@ -732,8 +728,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         } else {
             //If this was the first thing in the chain, update the previous sibling in the chain to be the start of the chain
 #ifdef DEBUG_ZIP_CODE_TREE
-            assert(trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_START
-                   || trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
+            assert(trees[forest_state.active_tree_index].zip_code_tree.back().is_chain_start());
 #endif
             tree_item_type_t chain_start_type = is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_CHAIN_START : ZipCodeTree::CHAIN_START;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
@@ -1378,10 +1373,10 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
             }
             previous_seed_index = current_item.get_value();
             previous_is_invalid = current_is_invalid;
-        } else if (current_item.get_type() == CHAIN_START || current_item.get_type() == CYCLIC_SNARL_CHAIN_START) {
+        } else if (current_item.is_chain_start()) {
             //Chains can't start with edges
             assert(zip_code_tree[i+1].get_type() != EDGE);
-        } else if (current_item.get_type() == CHAIN_END || current_item.get_type() == CYCLIC_SNARL_CHAIN_END) {
+        } else if (current_item.is_chain_end()) {
             //And can't end with edges
             assert(zip_code_tree[i-1].get_type() != EDGE);
         } else if (current_item.get_type() == CYCLIC_SNARL_START) {
