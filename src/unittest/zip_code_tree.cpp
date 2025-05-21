@@ -2303,7 +2303,7 @@ namespace unittest {
         }
     }
 
-    TEST_CASE( "zip tree self loop", "[zip_tree]" ) {
+    TEST_CASE( "zip tree self loops", "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA");
@@ -2350,6 +2350,13 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
 
+            // Check self-loop distances
+            // c1_left -> c1_left
+            REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 0);
+            // c1_right -> c1_right
+            REQUIRE(zip_forest.trees[0].get_item_at_index(7).get_value() == 18);
+            // c1_left -> c1_right
+            REQUIRE(zip_forest.trees[0].get_item_at_index(8).get_value() == 22);
         }
     }
 
