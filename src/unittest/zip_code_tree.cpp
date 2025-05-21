@@ -2303,6 +2303,56 @@ namespace unittest {
         }
     }
 
+    TEST_CASE( "zip tree self loop", "[zip_tree]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAA");
+        Node* n2 = graph.create_node("AAAGCAAAAAA");
+        Node* n3 = graph.create_node("TT");
+        Node* n4 = graph.create_node("GACAAAAAAAAAAAAAAAAAAAA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n2, n2, true, false);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n3, n2, false, true);
+        Edge* e5 = graph.create_edge(n2, n4, true, false);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        
+
+        //graph.to_dot(cerr);
+
+        SECTION( "Cyclic snarl with seeds on either side" ) {
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(1, false, 0), 0);
+            positions.emplace_back(make_pos_t(2, false, 0), 1);
+            positions.emplace_back(make_pos_t(2, false, 1), 2);
+            positions.emplace_back(make_pos_t(2, false, 2), 3);
+            positions.emplace_back(make_pos_t(2, false, 0), 4);
+            positions.emplace_back(make_pos_t(2, false, 1), 5);
+            positions.emplace_back(make_pos_t(2, false, 2), 6);
+            positions.emplace_back(make_pos_t(4, false, 0), 7);
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (auto pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, pos.second, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            zip_forest.validate_zip_forest(distance_index, &seeds);
+
+        }
+    }
+
     TEST_CASE("zip tree handles complicated nested snarls", "[zip_tree]" ) {
         
         // Load an example graph
