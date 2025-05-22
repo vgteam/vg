@@ -436,6 +436,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             //If the parent is a multicomponent chain, then they might be in different components
             distance_between = std::numeric_limits<size_t>::max();
         } else {
+            cerr << "Distance between: " << current_offset << " " << previous_offset << endl;
             distance_between = std::max(current_offset, previous_offset) - std::min(current_offset, previous_offset);
         }
 
@@ -544,7 +545,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             }
 
         } else {
-            if (distance_between == 0 && (parent_is_cyclic_snarl || grandparent_is_cyclic_snarl) &&
+            if (distance_between == 0 && prev_type == ZipCodeTree::EDGE && 
+                (parent_is_cyclic_snarl || grandparent_is_cyclic_snarl) &&
                 (current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE || is_trivial_chain)) {
                 // No need to store the same seed twice since we can cycle back to get it
                 skip_child = true;
@@ -1731,9 +1733,18 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
                 // Skip the placeholder
                 continue;
             }
-            net_handle_t to_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(to_pos)));
-            net_handle_t from_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(from_pos)));
-            net_handle_t parent_handle = to_handle == from_handle ? to_handle : distance_index.get_parent(to_handle);
+            net_handle_t to_handle = distance_index.get_node_net_handle(id(to_pos));
+            net_handle_t from_handle = distance_index.get_node_net_handle(id(from_pos));
+            net_handle_t parent_handle;
+            if (distance_index.get_parent(to_handle) == distance_index.get_parent(from_handle)) {
+                // These are nodes in the same chain
+                parent_handle = distance_index.get_parent(to_handle);
+            } else {
+                // Go another level up
+                to_handle = distance_index.get_parent(to_handle);
+                from_handle = distance_index.get_parent(from_handle);
+                parent_handle = distance_index.get_parent(to_handle);
+            }
 
             size_t matrix_distance;
             if (has_self_loops) {
