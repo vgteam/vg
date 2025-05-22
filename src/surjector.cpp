@@ -117,7 +117,9 @@ using namespace std;
     }
 
     Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
-                                 bool allow_negative_scores, bool preserve_deletions) const {
+                                 bool allow_negative_scores, bool preserve_deletions,
+                                 const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                 const unordered_set<path_handle_t>* decoy_paths) const {
     
         // Allocate the annotation info
         string path_name_out;
@@ -125,7 +127,8 @@ using namespace std;
         bool path_rev_out;
         
         // Do the surjection
-        Alignment surjected = surject(source, paths, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
+        Alignment surjected = surject(source, paths, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions,
+                                      alt_scaffold_paths, decoy_paths);
         
         // Pack all the info into the refpos field
         surjected.clear_refpos();
@@ -140,11 +143,13 @@ using namespace std;
     vector<Alignment> Surjector::multi_surject(const Alignment& source,
                                                const unordered_set<path_handle_t>& paths,
                                                bool allow_negative_scores,
-                                               bool preserve_deletions) const {
+                                               bool preserve_deletions,
+                                               const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                               const unordered_set<path_handle_t>* decoy_paths) const {
         vector<Alignment> surjected;
         vector<tuple<string, int64_t, bool>> positions;
         surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
-                         true, allow_negative_scores, preserve_deletions);
+                         true, allow_negative_scores, preserve_deletions, alt_scaffold_paths, decoy_paths);
         
         for (size_t i = 0; i < surjected.size(); ++i) {
             surjected[i].clear_refpos();
@@ -159,11 +164,12 @@ using namespace std;
 
     Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths, string& path_name_out,
                                  int64_t& path_pos_out, bool& path_rev_out, bool allow_negative_scores,
-                                 bool preserve_deletions) const {
+                                 bool preserve_deletions, const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                 const unordered_set<path_handle_t>* decoy_paths) const {
         vector<Alignment> surjected;
         vector<tuple<string, int64_t, bool>> position;
         surject_internal(&source, nullptr, &surjected, nullptr, paths, position,
-                         false, allow_negative_scores, preserve_deletions);
+                         false, allow_negative_scores, preserve_deletions, alt_scaffold_paths, decoy_paths);
         path_name_out = get<0>(position.front());
         path_pos_out = get<1>(position.front());
         path_rev_out = get<2>(position.front());
@@ -174,22 +180,26 @@ using namespace std;
                                                const unordered_set<path_handle_t>& paths,
                                                vector<tuple<string, int64_t, bool>>& positions_out,
                                                bool allow_negative_scores,
-                                               bool preserve_deletions) const {
+                                               bool preserve_deletions,
+                                               const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                               const unordered_set<path_handle_t>* decoy_paths) const {
         vector<Alignment> surjected;
         surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
-                         true, allow_negative_scores, preserve_deletions);
+                         true, allow_negative_scores, preserve_deletions, alt_scaffold_paths, decoy_paths);
         
         return surjected;
     }
 
     multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const unordered_set<path_handle_t>& paths,
                                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                                             bool allow_negative_scores, bool preserve_deletions) const {
+                                             bool allow_negative_scores, bool preserve_deletions,
+                                             const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                             const unordered_set<path_handle_t>* decoy_paths) const {
 
         vector<multipath_alignment_t> surjected;
         vector<tuple<string, int64_t, bool>> position;
         surject_internal(nullptr, &source, nullptr, &surjected, paths, position,
-                         false, allow_negative_scores, preserve_deletions);
+                         false, allow_negative_scores, preserve_deletions, alt_scaffold_paths, decoy_paths);
         
         path_name_out = std::move(get<0>(position.front()));
         path_pos_out = get<1>(position.front());
@@ -202,10 +212,12 @@ using namespace std;
                                                            const unordered_set<path_handle_t>& paths,
                                                            vector<tuple<string, int64_t, bool>>& positions_out,
                                                            bool allow_negative_scores,
-                                                           bool preserve_deletions) const {
+                                                           bool preserve_deletions,
+                                                           const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                                           const unordered_set<path_handle_t>* decoy_paths) const {
         vector<multipath_alignment_t> surjected;
         surject_internal(nullptr, &source, nullptr, &surjected, paths, positions_out,
-                         true, allow_negative_scores, preserve_deletions);
+                         true, allow_negative_scores, preserve_deletions, alt_scaffold_paths, decoy_paths);
         
         return surjected;
     }
@@ -214,7 +226,9 @@ using namespace std;
                                      vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,
                                      vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
-                                     bool allow_negative_scores, bool preserve_deletions) const {
+                                     bool allow_negative_scores, bool preserve_deletions,
+                                     const unordered_set<path_handle_t>* alt_scaffold_paths,
+                                     const unordered_set<path_handle_t>* decoy_paths) const {
 
         
         // we need one and only one data type: Alignment or multipath_alignment_t
@@ -352,11 +366,17 @@ using namespace std;
             }
             else if (source_aln) {
                 // spliced GAM -> GAM surjection
+                string tags;
+                string* tag_ptr = nullptr;
+                if (has_annotation(*source_aln, "tags")) {
+                    tags = std::move(get_annotation<string>(*source_aln, "tags"));
+                    tag_ptr = &tags;
+                }
                 auto surjection = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
                                                   source_aln->mapping_quality(), surj_record.first.first, surj_record.first.second,
                                                   surj_record.second.first, surj_record.second.second,
                                                   connections[surj_record.first], path_range,
-                                                  allow_negative_scores, preserve_deletions);
+                                                  allow_negative_scores, preserve_deletions, tag_ptr);
                 if (surjection.subpath_size() != 0) {
                     // this internal method is written for multipath alignments, so we need to convert to standard alignments
                     aln_surjections[surj_record.first] = make_pair(Alignment(), path_range);
@@ -367,12 +387,19 @@ using namespace std;
             else {
                 // surjecting a multipath alignment (they always use the spliced pathway even if not
                 // doing spliced alignment)
+                const string* tag_ptr = nullptr;
+                if (source_mp_aln->has_annotation("tags")) {
+                    auto anno = source_mp_aln->get_annotation("tags");
+                    if (anno.first == multipath_alignment_t::String) {
+                        tag_ptr = (const string*) anno.second;
+                    }
+                }
                 auto surjection = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                   source_mp_aln->quality(), source_mp_aln->mapping_quality(),
                                                   surj_record.first.first, surj_record.first.second,
                                                   surj_record.second.first, surj_record.second.second,
                                                   connections[surj_record.first], path_range,
-                                                  allow_negative_scores, preserve_deletions);
+                                                  allow_negative_scores, preserve_deletions, tag_ptr);
                 if (surjection.subpath_size() != 0) {
                     // the surjection was a success
                     
@@ -386,12 +413,17 @@ using namespace std;
             }
         }
         
-        // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
-        if (aln_surjections.empty() && mp_aln_surjections.empty()) {
-            // this surjection didn't get aligned
+        auto emit_unmapped = [&]() {
             positions_out.emplace_back("", -1, false);
             if (source_mp_aln) {
-                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality()));
+                const string* tag_ptr = nullptr;
+                if (source_mp_aln->has_annotation("tags")) {
+                    auto anno = source_mp_aln->get_annotation("tags");
+                    if (anno.first == multipath_alignment_t::String) {
+                        tag_ptr = (const string*) anno.second;
+                    }
+                }
+                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality(), tag_ptr));
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
@@ -399,6 +431,12 @@ using namespace std;
             else {
                 alns_out->emplace_back(make_null_alignment(*source_aln));
             }
+        };
+        
+        // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
+        if (aln_surjections.empty() && mp_aln_surjections.empty()) {
+            // this surjection didn't get aligned
+            emit_unmapped();
             return;
         }
         
@@ -418,12 +456,18 @@ using namespace std;
             vector<tuple<int32_t, path_handle_t, bool>> path_strands;
             if (source_aln) {
                 for (const auto& surjection : aln_surjections) {
+                    if (decoy_paths && decoy_paths->count(surjection.first.first)) {
+                        continue;
+                    }
                     path_strands.emplace_back(surjection.second.first.score(),
                                               surjection.first.first, surjection.first.second);
                 }
             }
             else {
                 for (const auto& surjection : mp_aln_surjections) {
+                    if (decoy_paths && decoy_paths->count(surjection.first.first)) {
+                        continue;
+                    }
                     path_strands.emplace_back(optimal_alignment_score(surjection.second.first, allow_negative_scores),
                                               surjection.first.first, surjection.first.second);
                 }
@@ -434,30 +478,98 @@ using namespace std;
             }
         }
         else {
-            // choose which path surjection was best
+            // choose which path surjection was best,
             pair<path_handle_t, bool> best_path_strand;
-            int32_t score = numeric_limits<int32_t>::min();
+            int32_t best_score = numeric_limits<int32_t>::min();
+            
+            // the logic of whether we prefer one path's surjection to another
+            auto prefer = [&](path_handle_t path, int32_t score) -> bool {
+//                std::cerr << "# read " << source_aln->name() << " checking whether we prefer " << graph->get_path_name(path) << " " << score << " to " << (best_score == numeric_limits<int32_t>::min() ? string("") : graph->get_path_name(best_path_strand.first)) << " " << best_score << endl;
+                if (best_score == numeric_limits<int32_t>::min()) {
+                    // always keep the first option
+//                    cerr << "first" << endl;
+                    return true;
+                }
+                if (avoid_alt_paths && alt_scaffold_paths) {
+                    // to avoid alts, prefer any non-alt, non-decoy alignment to an alt scaffold, regardless of score
+                    // if we are avoiding alts. for an alt and a decoy, we let the comparison be on the basis of score
+                    if (!alt_scaffold_paths->count(path) && alt_scaffold_paths->count(best_path_strand.first)) {
+                        if (!decoy_paths || (!decoy_paths->count(path) && !decoy_paths->count(best_path_strand.first))) {
+//                            cerr << "replacing to avoid alt" << endl;
+                            return true;
+                        }
+                    }
+                    else if (alt_scaffold_paths->count(path) && !alt_scaffold_paths->count(best_path_strand.first)) {
+                        if (!decoy_paths || (!decoy_paths->count(path) && !decoy_paths->count(best_path_strand.first))) {
+//                            cerr << "retaining to avoid alt" << endl;
+                            return false;
+                        }
+                    }
+                }
+                if (score > best_score) {
+                    // keep the best-scoring alignment
+//                    cerr << "best" << endl;
+                    return true;
+                }
+                if (score == best_score) {
+                    // the scores are tied, so we resolve based on decoy/alt/ref status
+                    if (decoy_paths) {
+                        // always replace a tied decoy
+                        if (decoy_paths->count(best_path_strand.first)) {
+//                            cerr << "replacing to get rid of decoy" << endl;
+                            return true;
+                        }
+                        else if (decoy_paths->count(path)) {
+//                            cerr << "retaining to get rid of decoy" << endl;
+                            return false;
+                        }
+                    }
+                    if (alt_scaffold_paths) {
+                        // prefer a non-alt, non-decoy path to a tied alt scaffold
+                        if (alt_scaffold_paths->count(best_path_strand.first) && !alt_scaffold_paths->count(path)) {
+//                            cerr << "replacing to get rid of alt" << endl;
+                            return true;
+                        }
+                        else if (alt_scaffold_paths->count(path) && !alt_scaffold_paths->count(best_path_strand.first)) {
+//                            cerr << "retaining to get rid of alt" << endl;
+                            return false;
+                        }
+                    }
+                }
+//                cerr << "don't prefer" << endl;
+                return false;
+            };
+            
             for (const auto& surjection : aln_surjections) {
-                if (surjection.second.first.score() >= score) {
+                if (prefer(surjection.first.first, surjection.second.first.score())) {
 #ifdef debug_anchored_surject
-                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surjection.second.first.score() << ": " << pb2json(surjection.second.first) << endl;
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " is most preferred with score of " << surjection.second.first.score() << ": " << pb2json(surjection.second.first) << endl;
 #endif
-                    score = surjection.second.first.score();
+                    best_score = surjection.second.first.score();
                     best_path_strand = surjection.first;
                 }
             }
             for (const auto& surjection : mp_aln_surjections) {
                 
-                int32_t surj_score = optimal_alignment_score(surjection.second.first, allow_negative_scores);
-                if (surj_score >= score) {
+                int32_t score = optimal_alignment_score(surjection.second.first, allow_negative_scores);
+                if (prefer(surjection.first.first, score)) {
 #ifdef debug_anchored_surject
-                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surj_score << ": " << debug_string(surjection.second.first) << endl;
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " is most preferred with score of " << score << ": " << debug_string(surjection.second.first) << endl;
 #endif
-                    score = surj_score;
+                    best_score = score;
                     best_path_strand = surjection.first;
                 }
             }
-            strands_to_output.emplace_back(best_path_strand);
+            
+            if (!decoy_paths || !decoy_paths->count(best_path_strand.first)) {
+                strands_to_output.emplace_back(best_path_strand);
+            }
+        }
+        
+        if (strands_to_output.empty()) {
+            // all of the surjections were filtered out as decoys
+            emit_unmapped();
+            return;
         }
         
         for (size_t i = 0; i < strands_to_output.size(); ++i) {
@@ -2078,7 +2190,8 @@ using namespace std;
                                                      vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                      vector<tuple<size_t, size_t, int32_t>>& connections,
                                                      pair<step_handle_t, step_handle_t>& path_range_out,
-                                                     bool allow_negative_scores, bool deletions_as_splices) const {
+                                                     bool allow_negative_scores, bool deletions_as_splices,
+                                                     const string* tags) const {
                 
 #ifdef debug_spliced_surject
         cerr << "doing spliced/multipath surject on path " << graph->get_path_name(path_handle) << endl;
@@ -2852,7 +2965,7 @@ using namespace std;
             if (copy_path.mapping_size() == 0) {
                 // the DP chose a segment that was unsurjectable
                 path_range_out.first = path_range_out.second = graph->path_end(path_handle);
-                surjected = make_null_mp_alignment(src_sequence, src_quality);
+                surjected = make_null_mp_alignment(src_sequence, src_quality, tags);
                 return surjected;
             }
 #ifdef debug_spliced_surject
@@ -4723,14 +4836,21 @@ using namespace std;
         if (source.has_fragment_prev()) {
             *null.mutable_fragment_prev() = source.fragment_prev();
         }
+        if (has_annotation(source, "tags")) {
+            set_annotation(null, "tags", get_annotation<string>(source, "tags"));
+        }
         return null;
     }
 
     multipath_alignment_t Surjector::make_null_mp_alignment(const string& src_sequence,
-                                                            const string& src_quality) {
+                                                            const string& src_quality,
+                                                            const string* tags) {
         multipath_alignment_t null;
         null.set_sequence(src_sequence);
         null.set_quality(src_quality);
+        if (tags) {
+            null.set_annotation("tags", tags);
+        }
         return null;
     }
 

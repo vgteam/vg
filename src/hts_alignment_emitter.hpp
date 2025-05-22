@@ -42,9 +42,12 @@ enum alignment_emitter_flags_t {
     /// When surjecting, discard low-complexity anchors and realign more freely
     /// against the target path.
     ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4,
+    /// When surjecting, only produce alignments to alt scaffolds if there is not
+    /// possible alignment to a primary reference sequence
+    ALIGNMENT_EMITTER_FLAG_HTS_AVOID_ALT_SCAFFOLD_PATHS = 8,
     /// Emit graph alignments in named segment (i.e. GFA space) instead of
     /// numerical node ID space.
-    ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 8
+    ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 16
 };
 
 /// Represents a path or subpath's sequence dictionary information. Holds
@@ -80,9 +83,11 @@ using SequenceDictionary = std::vector<SequenceDictionaryEntry>;
 ///
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
                                                    const SequenceDictionary& paths, size_t max_threads,
-                                                   const HandleGraph* graph = nullptr, int flags = ALIGNMENT_EMITTER_FLAG_NONE);
+                                                   const HandleGraph* graph = nullptr, int flags = ALIGNMENT_EMITTER_FLAG_NONE,
+                                                   const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
+                                                   const unordered_set<path_handle_t>* decoy_paths = nullptr);
 
 /**
  * Get sequence dictionary information suitable for use with

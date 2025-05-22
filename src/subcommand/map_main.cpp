@@ -88,6 +88,9 @@ void help_map(char** argv) {
          << "    --surject-to TYPE             surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "    --ref-name NAME               name of reference assembly in the graph for HTSlib output" << endl
+         << "    --alt-scaffold-paths FILE     prefer to produce alignments to other reference paths than those in FILE in HTSlib output" << endl
+         << "    --avoid-alt-scaffolds         only produce alignments to paths in --alt-scaffold-paths if no other paths are possible" << endl
+         << "    --decoy-paths FILE            treat reads that align best to the paths in FILE as unmapped in HTSlib output" << endl
          << "    --buffer-size INT             buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare                 realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table            for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -115,6 +118,9 @@ int main_map(int argc, char** argv) {
     #define OPT_REF_PATHS 1003
     #define OPT_REF_NAME 1004
     #define OPT_COMMENTS_AS_TAGS 1005
+    #define OPT_DECOY_PATHS 1006
+    #define OPT_ALT_SCAFFOLD_PATHS 1007
+    #define OPT_AVOID_ALT_SCAFFOLDS 1008
     string matrix_file_name;
     string seq;
     string qual;
@@ -133,6 +139,9 @@ int main_map(int argc, char** argv) {
     string output_format = "GAM";
     string ref_paths_name;
     std::unordered_set<std::string> reference_assembly_names;
+    string decoy_paths_file;
+    string alt_scaffold_paths_file;
+    bool avoid_alts = false;
     bool exclude_unaligned = false;
     bool debug = false;
     float min_score = 0;
@@ -267,6 +276,9 @@ int main_map(int argc, char** argv) {
                 {"surject-to", required_argument, 0, '5'},
                 {"ref-paths", required_argument, 0, OPT_REF_PATHS},
                 {"ref-name", required_argument, 0, OPT_REF_NAME},
+                {"decoy-paths", required_argument, 0, OPT_DECOY_PATHS},
+                {"alt-scaffold-paths", required_argument, 0, OPT_ALT_SCAFFOLD_PATHS},
+                {"avoid-alt-scaffolds", no_argument, 0, OPT_AVOID_ALT_SCAFFOLDS},
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
@@ -541,9 +553,21 @@ int main_map(int argc, char** argv) {
         case OPT_REF_PATHS:
             ref_paths_name = optarg;
             break;
-
+                
         case OPT_REF_NAME:
             reference_assembly_names.insert(optarg);
+            break;
+                
+        case OPT_DECOY_PATHS:
+            decoy_paths_file = optarg;
+            break;
+            
+        case OPT_ALT_SCAFFOLD_PATHS:
+            alt_scaffold_paths_file = optarg;
+            break;
+            
+        case OPT_AVOID_ALT_SCAFFOLDS:
+            avoid_alts = true;
             break;
 
         case '8':
@@ -767,12 +791,72 @@ int main_map(int argc, char** argv) {
    
     // Look up all the paths we might need to surject to.
     SequenceDictionary paths;
+    unordered_set<path_handle_t> decoy_paths;
+    unordered_set<path_handle_t> alt_scaffold_paths;
     if (hts_output) {
         paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *xgidx);
+        
+        if (!decoy_paths_file.empty()) {
+            ifstream decoy_stream(decoy_paths_file);
+            if (!decoy_stream) {
+                cerr << "error: could not open decoy path file " << decoy_paths_file << endl;
+                exit(1);
+            }
+            string line;
+            while (decoy_stream) {
+                getline(decoy_stream, line);
+                if (line.empty()) {
+                    continue;
+                }
+                if (!xgidx->has_path(line)) {
+                    cerr << "error: graph does not contain a path matching decoy " << line << endl;
+                    exit(1);
+                }
+                decoy_paths.insert(xgidx->get_path_handle(line));
+            }
+        }
+        
+        if (!alt_scaffold_paths_file.empty()) {
+            ifstream alt_stream(alt_scaffold_paths_file);
+            if (!alt_stream) {
+                cerr << "error: could not open alt scaffold path file " << alt_scaffold_paths_file << endl;
+                exit(1);
+            }
+            unordered_set<string> alt_path_names;
+            string line;
+            while (alt_stream) {
+                getline(alt_stream, line);
+                if (line.empty()) {
+                    continue;
+                }
+                alt_path_names.insert(line);
+            }
+            
+            unordered_set<string> alt_path_names_seen;
+            for (const auto& seq_dict_entry : paths) {
+                if (alt_path_names.count(seq_dict_entry.base_path_name)) {
+                    alt_path_names_seen.insert(seq_dict_entry.base_path_name);
+                    alt_scaffold_paths.insert(seq_dict_entry.path_handle);
+                }
+            }
+            
+            if (alt_path_names_seen.size() != alt_path_names.size()) {
+                for (const auto& alt_name : alt_path_names) {
+                    if (!alt_path_names_seen.count(alt_name)) {
+                        cerr << "warning: alt scaffold path " << alt_name << " was not provided as a surjection target and will therefore not receive any reads" << endl;
+                    }
+                }
+            }
+        }
     }
     
     // Set up output to an emitter that will handle serialization and surjection
-    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, paths, thread_count, xgidx);
+    int flags = ALIGNMENT_EMITTER_FLAG_NONE;
+    if (avoid_alts) {
+        flags |= ALIGNMENT_EMITTER_FLAG_HTS_AVOID_ALT_SCAFFOLD_PATHS;
+    }
+    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, paths, thread_count, xgidx,
+                                                                                   flags, &alt_scaffold_paths, &decoy_paths);
 
     // We have one function to dump alignments into
     auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 64
+plan tests 71
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -267,4 +267,19 @@ is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj long
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
 rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt
+
+vg gbwt -g g.gbz --gbz-format -G graphs/gfa_with_ref_alt_decoy.gfa
+vg index -j g.dist g.gbz
+vg minimizer -k 4 -w 1 -d g.dist -o g.min -z g.zip g.gbz
+
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1") | samtools view -F 4 | wc -l | sed 's/^[[:space:]]*//g') 4 "Reads that overlap reference surject to it"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1") | samtools view -f 4 | grep off_ref_alt | wc -l | sed 's/^[[:space:]]*//g') 1 "Reads that do not overlap reference do not surject to it"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1"; echo "GRCh38#0#chr1_decoy") | samtools view -N <(echo decoy) | grep chr1_decoy | wc -l | sed 's/^[[:space:]]*//g') 1 "Reads can align to the decoy when it is not indicated as a decoy"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1") --decoy-paths <(echo "GRCh38#0#chr1_decoy") | samtools view -N <(echo decoy) -f 4 | wc -l | sed 's/^[[:space:]]*//g') 1 "Reads that align best to a decoy are unmapped"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1"; echo "GRCh38#0#chr1_alt") --decoy-paths <(echo "GRCh38#0#chr1_decoy") | samtools view -N <(echo full_alt; echo off_ref_alt) -F 4 | wc -l | sed 's/^[[:space:]]*//g') 2 "Reads can align to an alt scaffold that is not provided as an alt"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1"; echo "GRCh38#0#chr1_alt"; echo "GRCh38#0#chr1_alt2") --decoy-paths <(echo "GRCh38#0#chr1_decoy") --alt-scaffold-paths <(echo "GRCh38#0#chr1_alt"; echo "GRCh38#0#chr1_alt2") | samtools view -F 4 | grep "GRCh38#0#chr1_alt" | wc -l | sed 's/^[[:space:]]*//g') 2 "Reads can align to alt scaffolds but only do so if they score better than primary ref"
+is $(vg giraffe -Z g.gbz -m g.min -d g.dist -z g.zip -f reads/alt_decoy.fq -o BAM --extension-set-min-score 1 --ref-paths <(echo "GRCh38#0#chr1"; echo "GRCh38#0#chr1_alt"; echo "GRCh38#0#chr1_alt2") --decoy-paths <(echo "GRCh38#0#chr1_decoy") --alt-scaffold-paths <(echo "GRCh38#0#chr1_alt"; echo "GRCh38#0#chr1_alt2") --avoid-alt-scaffolds | samtools view -F 4 | grep "GRCh38#0#chr1_alt" | wc -l | sed 's/^[[:space:]]*//g') 1 "Reads can avoid aligning to alt scaffolds when possible"
+
+rm g.gbz g.dist g.min g.zip
+
 

@@ -1,0 +1,34 @@
+H	VN:Z:1.1	RS:Z:GRCh38
+S	1	GACTTA
+S	2	A
+S	3	TTACTT
+S	4	C
+S	5	GTGAGG
+S	6	A
+S	7	C
+S	8	A
+S	9	A
+S	10	T
+S	11	T
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+L	1	+	4	+	0M
+L	2	+	4	+	0M
+L	3	+	5	+	0M
+L	4	+	5	+	0M
+L	5	+	6	+	0M
+L	6	+	7	+	0M
+L	6	+	8	+	0M
+L	6	+	10	+	0M
+L	7	+	9	+	0M
+L	8	+	9	+	0M
+L	10	+	9	+	0M
+L	10	+	11	+	0M
+L	11	+	9	+	0M
+P	GRCh38#0#chr1	1+,4+,5+,6+,7+,9+	*,*,*,*,*
+P	GRCh38#0#chr1_alt	1+,3+,5+	*,*
+P	GRCh38#0#chr1_alt2	1+,4+,5+,6+,8+,9+	*,*,*,*,*
+P	GRCh38#0#chr1_decoy	4+,5+,6+,10+,11+,9+	*,*
+W	sample1	1	chr1	0	8	>1>4>5>6>7>9
+W	CHM13	0	chr1	0	9	>1>2>4>5>6>8>9
+W	sample1	2	chr1	0	8	>1>4>5>6>7>9

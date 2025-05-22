@@ -86,6 +86,23 @@ pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstr
     return make_pair(weights, params);
 }
 
+unordered_set<path_handle_t> parse_path_file(istream& in, const PathHandleGraph& graph) {
+    unordered_set<path_handle_t> paths;
+    string line;
+    while (in) {
+        getline(in, line);
+        if (line.empty()) {
+            continue;
+        }
+        if (!graph.has_path(line)) {
+            cerr << "error: graph does not contain a path matching input " << line << endl;
+            exit(1);
+        }
+        paths.insert(graph.get_path_handle(line));
+    }
+    return paths;
+}
+
 void help_mpmap(char** argv) {
     cerr
     << "usage: " << argv[0] << " mpmap [options] -x graph.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
@@ -93,80 +110,83 @@ void help_mpmap(char** argv) {
     << endl
     << "basic options:" << endl
     << "graph/index:" << endl
-    << "  -x, --graph-name FILE     graph (required; XG format recommended but other formats are valid, see `vg convert`) " << endl
-    << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair for MEMs (required; both FILE and FILE.lcp, see `vg index`)" << endl
-    //<< "  -H, --gbwt-name FILE         use this GBWT haplotype index for population-based MAPQs" << endl
-    << "  -d, --dist-name FILE      use this snarl distance index for clustering (recommended, see `vg index`)" << endl
-    //<< "      --linear-index FILE      use this sublinear Li and Stephens index file for population-based MAPQs" << endl
-    //<< "      --linear-path PATH       use the given path name as the path that the linear index is against" << endl
-    << "  -s, --snarls FILE         align to alternate paths in these snarls (unnecessary if providing -d, see `vg snarls`)" << endl
+    << "  -x, --graph-name FILE          graph (required; XG format recommended but other formats are valid, see `vg convert`) " << endl
+    << "  -g, --gcsa-name FILE           use this GCSA2/LCP index pair for MEMs (required; both FILE and FILE.lcp, see `vg index`)" << endl
+    //<< "  -H, --gbwt-name FILE              use this GBWT haplotype index for population-based MAPQs" << endl
+    << "  -d, --dist-name FILE           use this snarl distance index for clustering (recommended, see `vg index`)" << endl
+    //<< "      --linear-index FILE           use this sublinear Li and Stephens index file for population-based MAPQs" << endl
+    //<< "      --linear-path PATH            use the given path name as the path that the linear index is against" << endl
+    << "  -s, --snarls FILE              align to alternate paths in these snarls (unnecessary if providing -d, see `vg snarls`)" << endl
     << "input:" << endl
-    << "  -f, --fastq FILE          input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
-    << "  -i, --interleaved         input contains interleaved paired ends" << endl
-    << "  -C, --comments-as-tags    intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl
+    << "  -f, --fastq FILE               input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
+    << "  -i, --interleaved              input contains interleaved paired ends" << endl
+    << "  -C, --comments-as-tags         intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl
     << "algorithm presets:" << endl
-    << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [RNA]" << endl
-    << "  -l, --read-length TYPE    read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
-    << "  -e, --error-rate TYPE     error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
+    << "  -n, --nt-type TYPE             sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [RNA]" << endl
+    << "  -l, --read-length TYPE         read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
+    << "  -e, --error-rate TYPE          error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
-    << "  -F, --output-fmt TYPE     format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path" << endl
-    << "                            alignments, 'SAM', 'BAM', or 'CRAM' for linear reference alignments (may also require -S) [GAMP]" << endl
-    << "  -S, --ref-paths FILE      paths in the graph either 1) one per line in a text file, or 2) in an HTSlib .dict, to treat as" << endl
-    << "                            reference sequences for HTSlib formats (see -F) [all reference paths, all generic paths]" << endl
-    << "      --ref-name NAME       reference assembly in the graph to use for HTSlib formats (see -F) [all references]" << endl 
-    << "  -N, --sample NAME         add this sample name to output" << endl
-    << "  -R, --read-group NAME     add this read group to output" << endl
-    << "  -p, --suppress-progress   do not report progress to stderr" << endl
+    << "  -F, --output-fmt TYPE          format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path" << endl
+    << "                                 alignments, 'SAM', 'BAM', or 'CRAM' for linear reference alignments (may also require -S) [GAMP]" << endl
+    << "  -S, --ref-paths FILE           paths in the graph either 1) one per line in a text file, or 2) in an HTSlib .dict, to treat as" << endl
+    << "                                 reference sequences for HTSlib formats (see -F) [all reference paths, all generic paths]" << endl
+    << "      --ref-name NAME            reference assembly in the graph to use for HTSlib formats (see -F) [all references]" << endl
+    << "      --alt-scaffold-paths FILE  prefer to produce alignments to other reference paths than those in FILE in HTSlib output (see -F)" << endl
+    << "      --avoid-alt-scaffolds      only produce alignments to paths in --alt-scaffold-paths if no other paths are possible" << endl
+    << "      --decoy-paths FILE         treat reads that align best to the paths in FILE as unmapped in HTSlib output formats (see -F)" << endl
+    << "  -N, --sample NAME              add this sample name to output" << endl
+    << "  -R, --read-group NAME          add this read group to output" << endl
+    << "  -p, --suppress-progress        do not report progress to stderr" << endl
     //<< "algorithm:" << endl
-    //<< "       --min-dist-cluster       use the minimum distance based clusterer (requires a distance index from -d)" << endl
+    //<< "       --min-dist-cluster            use the minimum distance based clusterer (requires a distance index from -d)" << endl
 //    << "scoring:" << endl
-//    << "  -E, --long-read-scoring      set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
+//    << "  -E, --long-read-scoring           set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
     << "computational parameters:" << endl
-    << "  -t, --threads INT         number of compute threads to use [all available]" << endl
+    << "  -t, --threads INT              number of compute threads to use [all available]" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
-    //<< "  -v, --tvs-clusterer          use the target value search-based clusterer (requires a distance index from -d)" << endl
-    //<< "  -a, --alt-paths INT          align to (up to) this many alternate paths in snarls [10]" << endl
-    //<< "      --suppress-tail-anchors  don't produce extra anchors when aligning to alternate paths in snarls" << endl
-    //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
-    << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
-    << "  -M, --max-multimaps INT   report (up to) this many mappings per read [10 rna / 1 dna]" << endl
-    << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
-    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
-    << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
-    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
-    << "  -I, --frag-mean FLOAT     mean for a pre-determined fragment length distribution (also requires -D)" << endl
-    << "  -D, --frag-stddev FLOAT   standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
-    //<< "  -B, --no-calibrate           do not auto-calibrate mismapping dectection" << endl
-    << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
-    //<< "  -P, --max-p-val FLOAT        background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
-    //<< "  -U, --report-group-mapq   add an annotation for the collective mapping quality of all reported alignments" << endl
-    //<< "      --padding-mult FLOAT     pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
-    //<< "      --max-paths INT          consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
-    //<< "      --top-tracebacks         consider paths for each alignment based only on alignment score and not based on haplotypes" << endl
-    //<< "  -r, --reseed-length INT      reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
-    //<< "  -W, --reseed-diff FLOAT      require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    //<< "  -K, --clust-length INT       minimum MEM length used in clustering [automatic]" << endl
-    //<< "  -F, --stripped-match         use stripped match algorithm instead of MEMs" << endl
-    << "  -c, --hit-max INT         use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 100 RNA]" << endl
-    //<< "  --approx-exp FLOAT           let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
-    //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
-    //<< "  --always-check-population    always try to population-score reads, even if there is only a single mapping" << endl
-    //<< "  --delay-population           do not apply population scoring at intermediate stages of the mapping algorithm" << endl
-    //<< "  --force-haplotype-count INT  assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
-    //<< "  --drop-subgraph FLOAT    drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    //<< "  --prune-exp FLOAT            prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
+    //<< "  -v, --tvs-clusterer               use the target value search-based clusterer (requires a distance index from -d)" << endl
+    //<< "  -a, --alt-paths INT               align to (up to) this many alternate paths in snarls [10]" << endl
+    //<< "      --suppress-tail-anchors       don't produce extra anchors when aligning to alternate paths in snarls" << endl
+    //<< "  -T, --same-strand                 read pairs are from the same strand of the DNA/RNA molecule" << endl
+    << "  -X, --not-spliced              do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
+    << "  -M, --max-multimaps INT        report (up to) this many mappings per read [10 rna / 1 dna]" << endl
+    << "  -a, --agglomerate-alns         combine separate multipath alignments into one (possibly disconnected) alignment" << endl
+    << "  -r, --intron-distr FILE        intron length distribution (from scripts/intron_length_distribution.py)" << endl
+    << "  -Q, --mq-max INT               cap mapping quality estimates at this much [60]" << endl
+    << "  -b, --frag-sample INT          look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
+    << "  -I, --frag-mean FLOAT          mean for a pre-determined fragment length distribution (also requires -D)" << endl
+    << "  -D, --frag-stddev FLOAT        standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
+    //<< "  -B, --no-calibrate                do not auto-calibrate mismapping dectection" << endl
+    << "  -G, --gam-input FILE           input GAM (for stdin, use -)" << endl
+    //<< "  -P, --max-p-val FLOAT             background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
+    //<< "  -U, --report-group-mapq        add an annotation for the collective mapping quality of all reported alignments" << endl
+    //<< "      --padding-mult FLOAT          pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
+    << "  -u, --map-attempts INT         perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
+    //<< "      --max-paths INT               consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
+    //<< "      --top-tracebacks              consider paths for each alignment based only on alignment score and not based on haplotypes" << endl
+    //<< "  -r, --reseed-length INT           reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
+    //<< "  -W, --reseed-diff FLOAT           require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
+    //<< "  -K, --clust-length INT            minimum MEM length used in clustering [automatic]" << endl
+    //<< "  -F, --stripped-match              use stripped match algorithm instead of MEMs" << endl
+    << "  -c, --hit-max INT              use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 100 RNA]" << endl
+    //<< "  --approx-exp FLOAT                let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
+    //<< "  --recombination-penalty FLOAT      use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
+    //<< "  --always-check-population         always try to population-score reads, even if there is only a single mapping" << endl
+    //<< "  --delay-population                do not apply population scoring at intermediate stages of the mapping algorithm" << endl
+    //<< "  --force-haplotype-count INT       assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
+    //<< "  --drop-subgraph FLOAT         drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
+    //<< "  --prune-exp FLOAT                 prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
-    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments even when base qualities are available" << endl
-    << "  -q, --match INT           use this match score [1]" << endl
-    << "  -z, --mismatch INT        use this mismatch penalty [4 low error, 1 high error]" << endl
-    << "  -o, --gap-open INT        use this gap open penalty [6 low error, 1 high error]" << endl
-    << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT    add this score to alignments that align each end of the read [mismatch+1 short, 0 long]" << endl
-    << "  -w, --score-matrix FILE   read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
-    << "  -m, --remove-bonuses      remove full length alignment bonuses in reported scores" << endl;
+    << "  -A, --no-qual-adjust           do not perform base quality adjusted alignments even when base qualities are available" << endl
+    << "  -q, --match INT                use this match score [1]" << endl
+    << "  -z, --mismatch INT             use this mismatch penalty [4 low error, 1 high error]" << endl
+    << "  -o, --gap-open INT             use this gap open penalty [6 low error, 1 high error]" << endl
+    << "  -y, --gap-extend INT           use this gap extension penalty [1]" << endl
+    << "  -L, --full-l-bonus INT         add this score to alignments that align each end of the read [mismatch+1 short, 0 long]" << endl
+    << "  -w, --score-matrix FILE        read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
+    << "  -m, --remove-bonuses           remove full length alignment bonuses in reported scores" << endl;
     //<< "computational parameters:" << endl
     //<< "  -Z, --buffer-size INT        buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;
 }
@@ -220,6 +240,9 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
     #define OPT_DROP_SUBGRAPH 1038
     #define OPT_REF_NAME 1039
+    #define OPT_DECOY_PATHS 1040
+    #define OPT_ALT_SCAFFOLD_PATHS 1041
+    #define OPT_AVOID_ALT_SCAFFOLDS 1042
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -232,6 +255,8 @@ int main_mpmap(int argc, char** argv) {
     string fastq_name_2;
     string gam_file_name;
     string ref_paths_name;
+    string decoy_paths_name;
+    string alt_scaffold_paths_name;
     std::unordered_set<std::string> reference_assembly_names;
     string intron_distr_name;
     int match_score = default_match;
@@ -370,6 +395,7 @@ int main_mpmap(int argc, char** argv) {
     int reversing_walk_length = 1;
     int min_splice_length = 20;
     int mem_accelerator_length = 12;
+    bool avoid_alt_scaffolds = false;
     bool no_output = false;
     bool comments_as_tags = false;
     string out_format = "GAMP";
@@ -404,6 +430,9 @@ int main_mpmap(int argc, char** argv) {
             {"same-strand", no_argument, 0, 'T'},
             {"ref-paths", required_argument, 0, 'S'},
             {"ref-name", required_argument, 0, OPT_REF_NAME},
+            {"decoy-paths", required_argument, 0, OPT_DECOY_PATHS},
+            {"alt-scaffold-paths", required_argument, 0, OPT_ALT_SCAFFOLD_PATHS},
+            {"avoid-alt-scaffolds", no_argument, 0, OPT_AVOID_ALT_SCAFFOLDS},
             {"output-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
@@ -610,9 +639,21 @@ int main_mpmap(int argc, char** argv) {
             case 'S':
                 ref_paths_name = optarg;
                 break;
-
+                
             case OPT_REF_NAME:
                 reference_assembly_names.insert(optarg);
+                break;
+                
+            case OPT_DECOY_PATHS:
+                decoy_paths_name = optarg;
+                break;
+                
+            case OPT_ALT_SCAFFOLD_PATHS:
+                alt_scaffold_paths_name = optarg;
+                break;
+                
+            case OPT_AVOID_ALT_SCAFFOLDS:
+                avoid_alt_scaffolds = true;
                 break;
                 
             case 's':
@@ -1209,6 +1250,10 @@ int main_mpmap(int argc, char** argv) {
     if (!reference_assembly_names.empty() && !hts_output) {
         cerr << "warning:[vg mpmap] Reference assembly names (--ref-name) are only used when output format (-F) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
+    }
+    if (!decoy_paths_name.empty() && !hts_output) {
+        cerr << "warning:[vg mpmap] Decoy paths (--decoy-paths) are only used when output format (-F) is SAM, BAM, or CRAM." << endl;
+        decoy_paths_name = "";
     }
     
     if (num_alt_alns <= 0) {
@@ -1859,15 +1904,20 @@ int main_mpmap(int argc, char** argv) {
         log_progress("Completed loading LS index");
     }
     
+    
+    
     // Load structures that we need for HTS lib outputs
     unordered_set<path_handle_t> surjection_paths;
     SequenceDictionary paths;
+    unordered_set<path_handle_t> decoy_paths;
+    unordered_set<path_handle_t> alt_scaffold_paths;
     unique_ptr<Surjector> surjector(nullptr);
     if (hts_output) {
         // init the data structures
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
+        surjector->avoid_alt_paths = avoid_alt_scaffolds;
         if (transcriptomic) {
             // FIXME: replicating the behavior in surject_main
             surjector->max_subgraph_bases_per_read_base = Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT;
@@ -1884,6 +1934,54 @@ int main_mpmap(int argc, char** argv) {
         // Make them into a set for directing surjection.
         for (const SequenceDictionaryEntry& path_info : paths) {
             surjection_paths.insert(path_info.path_handle);
+        }
+        
+        if (!decoy_paths_name.empty()) {
+            ifstream decoy_stream(decoy_paths_name);
+            if (!decoy_stream) {
+                cerr << "error:[vg mpmap] could not open decoy path file " << decoy_paths_name << endl;
+                exit(1);
+            }
+            decoy_paths = std::move(parse_path_file(decoy_stream, *path_position_handle_graph));
+            for (auto path : decoy_paths) {
+                bool new_path = surjection_paths.insert(path).second;
+                if (!new_path) {
+                    cerr << "warning:[vg mpmap] path " << path_position_handle_graph->get_path_name(path) << " has been provided as a decoy and will therefore not receive any reads" << endl;
+                }
+            }
+        }
+        
+        if (!alt_scaffold_paths_name.empty()) {
+            unordered_set<string> alt_scaffold_path_names;
+            ifstream alt_stream(alt_scaffold_paths_name);
+            if (!alt_stream) {
+                cerr << "error:[vg mpmap] could not open alt scaffolds path file " << alt_scaffold_paths_name << endl;
+                exit(1);
+            }
+            string line;
+            while (alt_stream) {
+                getline(alt_stream, line);
+                if (line.empty()) {
+                    continue;
+                }
+                alt_scaffold_path_names.insert(line);
+            }
+            
+            unordered_set<string> alt_path_names_seen;
+            for (const auto& seq_dict_entry : paths) {
+                if (alt_scaffold_path_names.count(seq_dict_entry.base_path_name)) {
+                    alt_path_names_seen.insert(seq_dict_entry.base_path_name);
+                    alt_scaffold_paths.insert(seq_dict_entry.path_handle);
+                }
+            }
+            
+            if (alt_path_names_seen.size() != alt_scaffold_path_names.size()) {
+                for (const auto& alt_name : alt_scaffold_path_names) {
+                    if (!alt_path_names_seen.count(alt_name)) {
+                        cerr << "warning:[vg mpmap] alt scaffold path " << alt_name << " was not provided as a surjection target and will therefore not receive any reads" << endl;
+                    }
+                }
+            }
         }
     }
     
@@ -2145,7 +2243,7 @@ int main_mpmap(int argc, char** argv) {
                 auto& path_pos = path_positions[i];
                 mp_alns[i] = surjector->surject(mp_alns[i], surjection_paths,
                                                 get<0>(path_pos), get<2>(path_pos), get<1>(path_pos),
-                                                true, transcriptomic);
+                                                true, transcriptomic, &alt_scaffold_paths, &decoy_paths);
             }
         }
         
@@ -2238,10 +2336,10 @@ int main_mpmap(int argc, char** argv) {
                 auto& path_pos_2 = path_positions[i].second;
                 mp_aln_pairs[i].first = surjector->surject(mp_aln_pairs[i].first, surjection_paths,
                                                            get<0>(path_pos_1), get<2>(path_pos_1), get<1>(path_pos_1),
-                                                           true, transcriptomic);
+                                                           true, transcriptomic, &alt_scaffold_paths, &decoy_paths);
                 mp_aln_pairs[i].second = surjector->surject(mp_aln_pairs[i].second, surjection_paths,
                                                             get<0>(path_pos_2), get<2>(path_pos_2), get<1>(path_pos_2),
-                                                            true, transcriptomic);
+                                                            true, transcriptomic, &alt_scaffold_paths, &decoy_paths);
             }
         }
         
@@ -2330,10 +2428,10 @@ int main_mpmap(int argc, char** argv) {
                 auto& path_pos_2 = path_positions[i].second;
                 mp_alns_1[i] = surjector->surject(mp_alns_1[i], surjection_paths,
                                                   get<0>(path_pos_1), get<2>(path_pos_1), get<1>(path_pos_1),
-                                                  true, transcriptomic);
+                                                  true, transcriptomic, &alt_scaffold_paths, &decoy_paths);
                 mp_alns_2[i] = surjector->surject(mp_alns_2[i], surjection_paths,
                                                   get<0>(path_pos_2), get<2>(path_pos_2), get<1>(path_pos_2),
-                                                  true, transcriptomic);
+                                                  true, transcriptomic, &alt_scaffold_paths, &decoy_paths);
             }
         }
         

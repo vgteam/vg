@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <iostream>
 
 #include "subcommand.hpp"
 
@@ -30,7 +31,7 @@
 
 using namespace std;
 using namespace vg;
-using namespace vg::subcommand; 
+using namespace vg::subcommand;
 
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
@@ -41,7 +42,10 @@ void help_surject(char** argv) {
          << "  -t, --threads N          number of threads to use" << endl
          << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
          << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
-         << "  -n, --into-ref NAME      surject into this reference assembly" << endl 
+         << "  -n, --into-ref NAME      surject into this reference assembly" << endl
+         << "  -o, --alt-paths FILE     treat paths listed in FILE as alt scaffolds and break ties in favor of other paths" << endl
+         << "  -v, --avoid-alt-paths    only surject into paths from --alt-paths if there is no other path to surject to" << endl
+         << "  -d, --decoy-paths FILE   treat reads that align best to the paths in FILE as unmapped" << endl
          << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
@@ -118,6 +122,9 @@ int main_surject(int argc, char** argv) {
     vector<string> path_names;
     std::unordered_set<std::string> reference_assembly_names;
     string path_file;
+    string decoy_file;
+    string alt_scaffolds_file;
+    bool avoid_alts = false;
     string output_format = "GAM";
     string input_format = "GAM";
     bool spliced = false;
@@ -141,7 +148,7 @@ int main_surject(int argc, char** argv) {
     bool multimap = false;
     bool validate = true;
     bool show_progress = false;
-
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -155,6 +162,9 @@ int main_surject(int argc, char** argv) {
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
             {"into-ref", required_argument, 0, 'n'},
             {"ref-sample", required_argument, 0, 'n'}, // Provide an alias to match Giraffe
+            {"decoy-paths", required_argument, 0, 'd'},
+            {"alt-paths", required_argument, 0, 'o'},
+            {"avoid-alt-paths", no_argument, 0, 'v'},
             {"subpath-local", no_argument, 0, 'l'},
             {"max-tail-len", required_argument, 0, 'T'},
             {"max-graph-scale", required_argument, 0, 'g'},
@@ -181,154 +191,166 @@ int main_surject(int argc, char** argv) {
             {"progress", no_argument, 0, 'r'},
             {0, 0, 0, 0}
         };
-
+        
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LMVw:r",
-                long_options, &option_index);
-
+        c = getopt_long (argc, argv, "hx:p:F:n:d:o:vlT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LMVw:r",
+                         long_options, &option_index);
+        
         // Detect the end of the options.
         if (c == -1)
             break;
-
+        
         switch (c)
         {
-
-        case 'x':
-            xg_name = optarg;
-            break;
-
-        case 'p':
-            path_names.push_back(optarg);
-            break;
-
-        case 'F':
-            path_file = optarg;
-            break;
-
-        case 'n':
-            reference_assembly_names.insert(optarg);
-            break;
-        
-        case 'l':
-            subpath_global = false;
-            break;
-
-        case 'T':
-            max_tail_len = parse<size_t>(optarg);
-            break;
-
-        case 'g':
-            max_graph_scale.reset(new double(parse<double>(optarg)));
-            break;
-
-        case 'i':
-            interleaved = true;
-            break;
                 
-        case 'M':
-            multimap = true;
-            break;
-
-        case 'G':
-            input_format = "GAF";
-            break;
+            case 'x':
+                xg_name = optarg;
+                break;
                 
-        case 'm':
-            input_format = "GAMP";
-            break;
-            
-        case 'c':
-            output_format = "CRAM";
-            break;
-
-        case 'b':
-            output_format = "BAM";
-            break;
-
-        case 's':
-            compress_level = -1;
-            output_format = "SAM";
-            break;
+            case 'p':
+                path_names.push_back(optarg);
+                break;
                 
-        case 'S':
-            spliced = true;
-            break;
+            case 'F':
+                path_file = optarg;
+                break;
                 
-        case 'P':
-            prune_anchors = true;
-            break;
-
-        case 'I':
-            max_slide = parse<int64_t>(optarg);
-            break;
-            
-        case 'a':
-            max_anchors = parse<size_t>(optarg);
-            break;
-            
-        case 'A':
-            qual_adj = true;
-            break;
-
-        case 'E':
-            extra_gap_cost = parse<int8_t>(optarg);
-            break;
-
-        case 'N':
-            sample_name = optarg;
-            break;
-            
-        case 'R':
-            read_group = optarg;
-            break;
-            
-        case 'f':
-            max_frag_len = parse<int32_t>(optarg);
-            break;
-
-        case 'C':
-            compress_level = parse<int>(optarg);
-            break;
-            
-        case 'V':
-            validate = false;
-            break;
-            
-        case 'w':
-            watchdog_timeout = parse<size_t>(optarg);
-            break;
-
-        case 'r':
-            show_progress = true;
-            break;
-            
-        case 't':
-            omp_set_num_threads(parse<int>(optarg));
-            break;
+            case 'n':
+                reference_assembly_names.insert(optarg);
+                break;
                 
-        case 'L':
-            annotate_with_all_path_scores = true;
-            break;
-
-        case 'h':
-        case '?':
-            help_surject(argv);
-            exit(1);
-            break;
-
-        default:
-            abort ();
+            case 'd':
+                decoy_file = optarg;
+                break;
+                
+            case 'o':
+                alt_scaffolds_file = optarg;
+                break;
+                
+            case 'v':
+                avoid_alts = true;
+                break;
+                
+            case 'l':
+                subpath_global = false;
+                break;
+                
+            case 'T':
+                max_tail_len = parse<size_t>(optarg);
+                break;
+                
+            case 'g':
+                max_graph_scale.reset(new double(parse<double>(optarg)));
+                break;
+                
+            case 'i':
+                interleaved = true;
+                break;
+                
+            case 'M':
+                multimap = true;
+                break;
+                
+            case 'G':
+                input_format = "GAF";
+                break;
+                
+            case 'm':
+                input_format = "GAMP";
+                break;
+                
+            case 'c':
+                output_format = "CRAM";
+                break;
+                
+            case 'b':
+                output_format = "BAM";
+                break;
+                
+            case 's':
+                compress_level = -1;
+                output_format = "SAM";
+                break;
+                
+            case 'S':
+                spliced = true;
+                break;
+                
+            case 'P':
+                prune_anchors = true;
+                break;
+                
+            case 'I':
+                max_slide = parse<int64_t>(optarg);
+                break;
+                
+            case 'a':
+                max_anchors = parse<size_t>(optarg);
+                break;
+                
+            case 'A':
+                qual_adj = true;
+                break;
+                
+            case 'E':
+                extra_gap_cost = parse<int8_t>(optarg);
+                break;
+                
+            case 'N':
+                sample_name = optarg;
+                break;
+                
+            case 'R':
+                read_group = optarg;
+                break;
+                
+            case 'f':
+                max_frag_len = parse<int32_t>(optarg);
+                break;
+                
+            case 'C':
+                compress_level = parse<int>(optarg);
+                break;
+                
+            case 'V':
+                validate = false;
+                break;
+                
+            case 'w':
+                watchdog_timeout = parse<size_t>(optarg);
+                break;
+                
+            case 'r':
+                show_progress = true;
+                break;
+                
+            case 't':
+                omp_set_num_threads(parse<int>(optarg));
+                break;
+                
+            case 'L':
+                annotate_with_all_path_scores = true;
+                break;
+                
+            case 'h':
+            case '?':
+                help_surject(argv);
+                exit(1);
+                break;
+                
+            default:
+                abort ();
         }
     }
-
+    
     string file_name = get_input_file_name(optind, argc, argv);
-
+    
     if (have_input_file(optind, argc, argv)) {
         // We only take one input file.
         cerr << "error[vg surject] Extra argument provided: " << get_input_file_name(optind, argc, argv, false) << endl;
         exit(1);
     }
-
+    
     // Create a preprocessor to apply read group and sample name overrides in place
     auto set_metadata = [&](Alignment& update) {
         if (!sample_name.empty()) {
@@ -338,7 +360,7 @@ int main_surject(int argc, char** argv) {
             update.set_read_group(read_group);
         }
     };
-
+    
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     // If we add an overlay for path position queries, use one optimized for
@@ -362,19 +384,86 @@ int main_surject(int argc, char** argv) {
     if (show_progress) {
         cerr << "Finding paths..." << endl;
     }
-
+    
     // Get the paths to surject into and their length information, either from
     // the given file, or from the provided list, or from sniffing the graph.
     SequenceDictionary sequence_dictionary = get_sequence_dictionary(path_file, path_names, reference_assembly_names, *xgidx);
     // Clear out path_names so we don't accidentally use it
     path_names.clear();
-
-    // Convert to a set for membership testing 
+    
+    // Convert to a set for membership testing
     unordered_set<path_handle_t> paths;
     paths.reserve(sequence_dictionary.size());
     for (auto& entry : sequence_dictionary) {
         paths.insert(entry.path_handle);
     }
+    
+    unordered_set<path_handle_t> decoy_paths;
+    if (!decoy_file.empty()) {
+        ifstream decoy_stream(decoy_file);
+        if (!decoy_stream) {
+            cerr << "error: could not open decoy file " << decoy_file << endl;
+            exit(1);
+        }
+        string line;
+        while (decoy_stream) {
+            getline(decoy_stream, line);
+            if (line.empty()) {
+                continue;
+            }
+            if (!xgidx->has_path(line)) {
+                cerr << "error: graph does not contain a path matching decoy " << line << endl;
+                exit(1);
+            }
+            // add these to both sets of paths so that we perform surjection to them but can filter
+            // the results
+            auto decoy_handle = xgidx->get_path_handle(line);
+            bool is_new_decoy = decoy_paths.insert(decoy_handle).second;
+            if (is_new_decoy) {
+                bool is_new_path = paths.insert(decoy_handle).second;
+                if (!is_new_path) {
+                    cerr << "warning: Path " << line << " was provided both as a path to project onto and as a decoy. This will result in no alignments being produced for this path" << endl;
+                }
+            }
+        }
+    }
+    unordered_set<path_handle_t> alt_paths;
+    if (!alt_scaffolds_file.empty()) {
+        
+        // get the names of the sequences that are alt scaffolds
+        unordered_set<string> alt_path_names;
+        ifstream alt_stream(alt_scaffolds_file);
+        if (!alt_stream) {
+            cerr << "error: could not open alt scaffold file " << alt_scaffolds_file << endl;
+            exit(1);
+        }
+        string line;
+        while (alt_stream) {
+            getline(alt_stream, line);
+            if (!line.empty()) {
+                alt_path_names.insert(line);
+            }
+        }
+        
+        // figure out which path handles among the surjection targets correspond to alts
+        unordered_set<string> alts_seen;
+        for (const auto& seq_dict_entry : sequence_dictionary) {
+            if (alt_path_names.count(seq_dict_entry.base_path_name)) {
+                alt_paths.insert(seq_dict_entry.path_handle);
+                alts_seen.insert(seq_dict_entry.base_path_name);
+            }
+        }
+        
+        // sanity check
+        if (alts_seen.size() != alt_path_names.size()) {
+            for (const auto& alt_path_name : alt_path_names) {
+                if (!alts_seen.count(alt_path_name)) {
+                    cerr << "warning: alt scaffold path " << alt_path_name << " was not provided as a surjection target and will not receive any reads" << endl;
+                }
+            }
+        }
+    }
+    
 
     if (show_progress) {
         cerr << "Building Surjector for " << paths.size() << " paths..." << endl;
@@ -408,6 +497,7 @@ int main_surject(int argc, char** argv) {
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
     }
     surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
+    surjector.avoid_alt_paths = avoid_alts;
 
     // Count our threads
     int thread_count = vg::get_thread_count();
@@ -504,8 +594,8 @@ int main_surject(int argc, char** argv) {
                     // Surject and emit.
                     if (multimap) {
                         
-                        auto surjected1 = surjector.multi_surject(src1, paths, subpath_global, spliced);
-                        auto surjected2 = surjector.multi_surject(src2, paths, subpath_global, spliced);
+                        auto surjected1 = surjector.multi_surject(src1, paths, subpath_global, spliced, &alt_paths, &decoy_paths);
+                        auto surjected2 = surjector.multi_surject(src2, paths, subpath_global, spliced, &alt_paths, &decoy_paths);
                         
                         // we have to pair these up manually
                         unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
@@ -540,8 +630,8 @@ int main_surject(int argc, char** argv) {
                     }
                     else {
                         // FIXME: these aren't forced to be on the same path, which could be fucky
-                        alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced),
-                                                     surjector.surject(src2, paths, subpath_global, spliced),
+                        alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced, &alt_paths, &decoy_paths),
+                                                     surjector.surject(src2, paths, subpath_global, spliced, &alt_paths, &decoy_paths),
                                                      max_frag_len);
                     }
                     total_reads_surjected += 2;
@@ -584,10 +674,10 @@ int main_surject(int argc, char** argv) {
                     
                     // Surject and emit the single read.
                     if (multimap) {
-                        alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced));
+                        alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced, &alt_paths, &decoy_paths));
                     }
                     else {
-                        alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
+                        alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced, &alt_paths, &decoy_paths));
                     }
                     total_reads_surjected++;
                     if (watchdog) {
@@ -676,8 +766,8 @@ int main_surject(int argc, char** argv) {
                             // TODO: highly repetitive with the version above for Alignments
                             
                             vector<tuple<string, int64_t, bool>> positions1, positions2;
-                            auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
-                            auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
+                            auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced, &alt_paths, &decoy_paths);
+                            auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced, &alt_paths, &decoy_paths);
                             
                             // we have to pair these up manually
                             unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
@@ -734,10 +824,10 @@ int main_surject(int argc, char** argv) {
                             positions.emplace_back();
                             surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
                                                                      get<2>(positions.front().first), get<1>(positions.front().first),
-                                                                     subpath_global, spliced),
+                                                                     subpath_global, spliced, &alt_paths, &decoy_paths),
                                                    surjector.surject(mp_src2, paths, get<0>(positions.front().second),
                                                                      get<2>(positions.front().second), get<1>(positions.front().second),
-                                                                     subpath_global, spliced));
+                                                                     subpath_global, spliced, &alt_paths, &decoy_paths));
                         }
                                             
                         // write to output
@@ -780,7 +870,7 @@ int main_surject(int argc, char** argv) {
                         if (multimap) {
                             
                             vector<tuple<string, int64_t, bool>> multi_positions;
-                            surjected = surjector.multi_surject(mp_src, paths, multi_positions, subpath_global, spliced);
+                            surjected = surjector.multi_surject(mp_src, paths, multi_positions, subpath_global, spliced, &alt_paths, &decoy_paths);
                             
                             // positions are in different orders in these two interfaces
                             for (auto& position : multi_positions) {
@@ -791,7 +881,7 @@ int main_surject(int argc, char** argv) {
                             positions.emplace_back();
                             surjected.emplace_back(surjector.surject(mp_src, paths, get<0>(positions.front()),
                                                                      get<2>(positions.front()), get<1>(positions.front()),
-                                                                     subpath_global, spliced));
+                                                                     subpath_global, spliced, &alt_paths, &decoy_paths));
                         }
                         
                         // write to output
