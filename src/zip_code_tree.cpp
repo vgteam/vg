@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -877,9 +877,8 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
         seed_info_t(size_t i, size_t f, bool s) : index(i), flank_offset(f), side(s) {}
     };
 
-    // Seed indexes & their flank offsets
     vector<seed_info_t> seeds;
-    // Get the first seeds of each chain
+    // Get edge seeds for each chain
     for (size_t i = 1; i < sibling_count; ++i) {
         child_info_t cur_chain = forest_state.sibling_indices_at_depth[depth][i];
 
@@ -916,8 +915,8 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
     // Most of the triangle
     for (size_t i = 0; i < seeds.size(); ++i) {
         // Current chain
-        auto& first_seed = forest_state.seeds->at(seeds[i].index);
-        size_t first_seed_rank = first_seed.zipcode.get_rank_in_snarl(depth+1);
+        const Seed& first_seed = forest_state.seeds->at(seeds[i].index);
+        size_t first_rank = first_seed.zipcode.get_rank_in_snarl(depth+1);
 
         // Distance in between chain bounds
         size_t between_chain_dist;
@@ -927,18 +926,12 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
         size_t edge_dist;
 
         for (int64_t j = i; j >= 0; --j) {
-            
             const auto& next_seed = forest_state.seeds->at(seeds[j].index);
             size_t next_rank = next_seed.zipcode.get_rank_in_snarl(depth+1);
 
             between_chain_dist = forest_state.distance_index->distance_in_snarl(snarl_handle, 
-                    first_seed_rank, seeds[i].side, next_rank, seeds[j].side);
+                    first_rank, seeds[i].side, next_rank, seeds[j].side);
             chain_flank_dist = SnarlDistanceIndex::sum(seeds[i].flank_offset, seeds[j].flank_offset);
-            cerr << first_seed.pos << " -> " << next_seed.pos << endl;
-            cerr << first_seed_rank << " " << seeds[i].side << " -> " 
-                 << next_rank << " " << seeds[j].side << endl;
-            cerr << "i: " << i << " j: " << j << " -> " 
-                 << between_chain_dist << " + " << chain_flank_dist << endl;
             if (i == j) {
                 // Self loop; if the between_chain_distance is non infinite
                 // then there must be a self-loop at the edge of the chain
@@ -973,8 +966,8 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
 
     // Start -> end is simply the length of the snarl
     dist_matrix.emplace_back(ZipCodeTree::EDGE, forest_state.seeds->at(
-        forest_state.sibling_indices_at_depth[depth][0].value+1 // Arbitrary seed in the snarl
-    ).zipcode.get_length(depth), false);
+        seeds[0].index).zipcode.get_length(depth), false); // Arbitrary seed in the snarl
+
 #ifdef DEBUG_ZIP_CODE_TREE
     size_t num_chains = dist_matrix.front().get_value();
     cerr << "Distance matrix: (" << num_chains << " chain" << (num_chains == 1 ? "" : "s") << ")" << endl;
@@ -1593,7 +1586,6 @@ void ZipCodeTree::validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iter
 
     // Placeholder for snarl start
     positions.emplace_back(make_pos_t(0, false, 0));
-    ranks.emplace_back(0, false);
     zip_iterator++;
     while (zip_iterator->get_type() != NODE_COUNT) {
         if (zip_iterator->get_type() == EDGE) {
@@ -1602,7 +1594,7 @@ void ZipCodeTree::validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iter
             validate_chain(zip_iterator, distance_index, seeds, distance_limit);
             // Back up to last child
             zip_iterator--;
-            store_seed_position_and_rank(*zip_iterator, distance_index, seeds, positions, ranks);
+            store_seed_position(*zip_iterator, distance_index, seeds, positions);
             // Skip forward to the end of the chain again
             zip_iterator++;
         }
@@ -1610,14 +1602,13 @@ void ZipCodeTree::validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iter
     }
     // Placeholder for snarl end
     positions.emplace_back(make_pos_t(0, false, 0));
-    ranks.emplace_back(0, false);
 
     //zip_iterator now points to the node count
     assert(positions.size()-2 == zip_iterator->get_value());
     zip_iterator++;
     assert(zip_iterator->get_type() == SNARL_END);
 
-    validate_distance_matrix(distance_index, dist_matrix, positions, ranks, false, distance_limit);
+    validate_distance_matrix(distance_index, dist_matrix, positions, false, distance_limit);
 };
 
 void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
@@ -1650,13 +1641,12 @@ void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator
     vector<pair<size_t, bool>> ranks;
     // Placeholder for snarl start
     positions.emplace_back(make_pos_t(0, false, 0));
-    ranks.emplace_back(0, false);
     while (zip_iterator->get_type() != CYCLIC_SNARL_END) {
         assert(zip_iterator->get_type() == CYCLIC_SNARL_CHAIN_START);
         assert(zip_iterator->get_value() == snarl_id);
         // Skip forward to first child
         zip_iterator++;
-        store_seed_position_and_rank(*zip_iterator, distance_index, seeds, positions, ranks, true);
+        store_seed_position(*zip_iterator, distance_index, seeds, positions, true);
         // Back up to start of the chain
         zip_iterator--;
 
@@ -1664,7 +1654,7 @@ void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator
 
         // Back up to last child
         zip_iterator--;
-        store_seed_position_and_rank(*zip_iterator, distance_index, seeds, positions, ranks, false);
+        store_seed_position(*zip_iterator, distance_index, seeds, positions, false);
         // Skip to next chain start
         zip_iterator += 2;
     }
@@ -1672,23 +1662,21 @@ void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator
 
     // Placeholder for snarl end
     positions.emplace_back(make_pos_t(0, false, 0));
-    ranks.emplace_back(0, false);
     assert(positions.size() / 2 == node_count);
     
-    validate_distance_matrix(distance_index, dist_matrix, positions, ranks, true, distance_limit);
+    validate_distance_matrix(distance_index, dist_matrix, positions, true, distance_limit);
 }
 
-void ZipCodeTree::store_seed_position_and_rank(tree_item_t child, 
-                                               const SnarlDistanceIndex& distance_index, 
-                                               const vector<Seed>* seeds,
-                                               std::vector<pos_t>& positions,
-                                               std::vector<pair<size_t, bool>>& ranks,
-                                               bool reverse) const {
+void ZipCodeTree::store_seed_position(tree_item_t child, 
+                                      const SnarlDistanceIndex& distance_index, 
+                                      const vector<Seed>* seeds,
+                                      std::vector<pos_t>& positions,
+                                      bool reverse) const {
     // Is this actually a seed?
     if (child.get_type() == SEED) {
         pos_t seed_pos = seeds->at(child.get_value()).pos;
-        net_handle_t seed_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(seed_pos)));
-        
+
+        // is reversed in the ziptree XOR is the first seed of a cyclic snarl chain
         if (child.get_is_reversed() != reverse) {
             seed_pos = make_pos_t(id(seed_pos), !is_rev(seed_pos),
                                   distance_index.minimum_length(
@@ -1696,18 +1684,15 @@ void ZipCodeTree::store_seed_position_and_rank(tree_item_t child,
         }
 
         positions.push_back(seed_pos);
-        ranks.emplace_back(distance_index.get_rank_in_parent(seed_handle), is_reversed);
     } else {
         // Can't verify if the current child is a snarl
         positions.emplace_back(make_pos_t(0, false, 0));
-        ranks.emplace_back(0, false);
     }
 }
 
 void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_index,
                                            const std::vector<size_t>& dist_matrix,
                                            const std::vector<pos_t>& positions,
-                                           const std::vector<pair<size_t, bool>>& ranks,
                                            bool has_self_loops,
                                            size_t distance_limit) const {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1720,70 +1705,69 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
         assert(dist_matrix.size() == (positions.size() * (positions.size() - 1)) / 2);
     }
 
+#ifdef DEBUG_ZIP_CODE_TREE
     for (const auto pos : positions) {
-        cerr << "pos: " << id(pos) << " " << (is_rev(pos) ? "rev " : " ")  << offset(pos) << endl;
+        cerr << "pos: " << id(pos) << (is_rev(pos) ? " rev " : " ")  << offset(pos) << endl;
     }
+#endif
+
+    // Current positions
+    pos_t from_pos;
+    pos_t to_pos;
+    // Handles for calculating distances
+    net_handle_t to_handle;
+    net_handle_t from_handle;
+    net_handle_t parent_handle;
+    // Distances being compared
+    size_t matrix_distance;
+    size_t true_distance;
 
     // Check distances between all pairs of seeds
     for (size_t i = 0; i < positions.size(); i++) {
-        pos_t from_pos = positions[i];
+        from_pos = positions[i];
         if (id(from_pos) == 0) {
             // Skip the placeholder
             continue;
         }
 
-        size_t end_index = has_self_loops ? i : i - 1;
-        for (size_t j = 0; j <= end_index; j++) {
-            pos_t to_pos = positions[j];
+        for (size_t j = 0; j <= (has_self_loops ? i : i - 1); j++) {
+            to_pos = positions[j];
             if (id(to_pos) == 0) {
                 // Skip the placeholder
                 continue;
             }
-            net_handle_t to_handle = distance_index.get_node_net_handle(id(to_pos), is_rev(to_pos));
-            cerr << "to_pos: " << id(to_pos) << " " << is_rev(to_pos) << endl;
-            net_handle_t from_handle = distance_index.get_node_net_handle(id(from_pos), is_rev(from_pos));
-            cerr << "from_pos: " << id(from_pos) << " " << is_rev(from_pos) << endl;
-            net_handle_t parent_handle;
-            size_t true_distance;
-            if (distance_index.get_parent(to_handle) == distance_index.get_parent(from_handle)) {
-                cerr << "Same parent" << endl;
-                // These are nodes in the same chain
-                parent_handle = distance_index.get_parent(to_handle);
-                true_distance = distance_index.distance_in_parent(parent_handle, to_handle, from_handle);
-            } else {
-                cerr << "Different parents" << endl;
-                // Go another level up
-                //to_handle = distance_index.get_parent(to_handle);
-                //from_handle = distance_index.get_parent(from_handle);
-                parent_handle = distance_index.get_parent(distance_index.get_parent(to_handle));
-                true_distance = distance_index.minimum_distance(id(to_pos), is_rev(to_pos), offset(to_pos),
-                    id(from_pos), is_rev(from_pos), offset(from_pos), true);
-                if (true_distance != std::numeric_limits<size_t>::max() && is_rev(from_pos)) {
-                    //If the seed we ended at got reversed, then add 1
-                    true_distance += 1;
-                }
-                if (true_distance != std::numeric_limits<size_t>::max() && is_rev(to_pos)) {
-                    //If the seed we're starting from got reversed, then subtract 1
-                    true_distance -= 1;
-                }
 
-            }
+            to_handle = distance_index.get_node_net_handle(id(to_pos), is_rev(to_pos));
+            from_handle = distance_index.get_node_net_handle(id(from_pos), is_rev(from_pos));
 
-            size_t matrix_distance;
+            // Find appropriate shared parent
             if (has_self_loops) {
-                matrix_distance = dist_matrix[(i * (i+1) / 2) + (i-j)];
+                // Assume parent is to_pos's chain
+                parent_handle = distance_index.get_parent(to_handle);
+                if ((i + 1) / 2 != (j + 1) / 2) {
+                    // Inter-chain connection, so go up one level to the snarl
+                    parent_handle = distance_index.get_parent(to_handle);
+                }
             } else {
-                matrix_distance = dist_matrix[(i * (i-1) / 2) + (i-j)];
+                // Non-cyclic snarls work on the level of chains, not seeds
+                to_handle = distance_index.get_parent(to_handle);
+                from_handle = distance_index.get_parent(from_handle);
+                parent_handle = distance_index.get_parent(to_handle);
             }
 
             true_distance = distance_index.distance_in_parent(parent_handle, to_handle, from_handle);
-            cerr << "true_distance: " << true_distance << endl;
             // Add distance within node for to_handle
             true_distance = SnarlDistanceIndex::sum(true_distance, distance_index.minimum_length(to_handle) - offset(to_pos));
-            cerr << "added: " << distance_index.minimum_length(to_handle) - offset(to_pos) << endl;
             // Add distance within node for from_handle
             true_distance = SnarlDistanceIndex::sum(true_distance, distance_index.minimum_length(from_handle) - offset(from_pos));
-            cerr << "added: " << distance_index.minimum_length(from_handle) - offset(from_pos) << endl;
+
+            if (has_self_loops) {
+                // ith triangular number (distance matrix up to previous row), then offset along next row
+                matrix_distance = dist_matrix[(i * (i+1) / 2) + (i-j)];
+            } else {
+                // Lacking self-loops mean one less row (no start -> start), so i-1th triangular number
+                matrix_distance = dist_matrix[(i * (i-1) / 2) + (i-j)];
+            }
 
             if (true_distance != matrix_distance && true_distance < distance_limit) {
                 cerr << "Distance mismatch between " << from_pos << " and " << to_pos << endl;

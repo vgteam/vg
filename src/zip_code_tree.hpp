@@ -428,13 +428,13 @@ public:
                                const vector<Seed>* seeds,
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
-    ///Store current seed's position and rank at the end of those lists
-    void store_seed_position_and_rank(tree_item_t child, 
-                                     const SnarlDistanceIndex& distance_index, 
-                                     const vector<Seed>* seeds,
-                                     std::vector<pos_t>& positions,
-                                     std::vector<pair<size_t, bool>>& ranks,
-                                     bool reverse = false) const;
+    ///Store current seed's position at the end of the list
+    ///Possibly reverse seed (for the first seed in a cyclic snarl)
+    void store_seed_position(tree_item_t child, 
+                             const SnarlDistanceIndex& distance_index, 
+                             const vector<Seed>* seeds,
+                             std::vector<pos_t>& positions,
+                             bool reverse = false) const;
 
     ///Helper function for validate_snarl to check a distance matrix against an index
     ///Distance matrix is triangular, with distances to all previous children stored
@@ -443,7 +443,6 @@ public:
     void validate_distance_matrix(const SnarlDistanceIndex& distance_index,
                                   const std::vector<size_t>& dist_matrix,
                                   const std::vector<pos_t>& positions,
-                                  const std::vector<pair<size_t, bool>>& ranks,
                                   bool has_self_loops,
                                   size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
