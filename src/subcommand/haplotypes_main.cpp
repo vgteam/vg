@@ -831,16 +831,18 @@ void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes
             << chain_id << "\t"
             << haplotypes.chains[chain_id].contig_name << "\t"
             << total_length << std::endl;
-        // For each subchain: type, id, start, end, length, number of kmers.
+        // For each subchain: type, id, start, end, length, number of kmers, number of sequences.
         for (size_t i = 0; i < ref_intervals.size(); i++) {
             size_t kmers = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].kmers.size();
+            size_t sequences = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].sequences.size();
             std::cout
                 << ref_intervals[i].type_as_char() << "\t"
                 << ref_intervals[i].id << "\t"
                 << ref_intervals[i].start << "\t"
                 << ref_intervals[i].end << "\t"
                 << ref_intervals[i].length() << "\t"
-                << kmers << std::endl;
+                << kmers << "\t"
+                << sequences << std::endl;
         }
     }
 }
