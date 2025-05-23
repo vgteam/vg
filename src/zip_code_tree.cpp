@@ -935,6 +935,8 @@ void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_st
                     first_seed_rank, seeds[i].side, next_rank, seeds[j].side);
             chain_flank_dist = SnarlDistanceIndex::sum(seeds[i].flank_offset, seeds[j].flank_offset);
             cerr << first_seed.pos << " -> " << next_seed.pos << endl;
+            cerr << first_seed_rank << " " << seeds[i].side << " -> " 
+                 << next_rank << " " << seeds[j].side << endl;
             cerr << "i: " << i << " j: " << j << " -> " 
                  << between_chain_dist << " + " << chain_flank_dist << endl;
             if (i == j) {
@@ -1686,11 +1688,8 @@ void ZipCodeTree::store_seed_position_and_rank(tree_item_t child,
     if (child.get_type() == SEED) {
         pos_t seed_pos = seeds->at(child.get_value()).pos;
         net_handle_t seed_handle = distance_index.get_parent(distance_index.get_node_net_handle(id(seed_pos)));
-        bool is_reversed = seed_is_reversed_at_depth(seeds->at(child.get_value()), 
-                                                     distance_index.get_depth(seed_handle),
-                                                     distance_index);
-
-        if (is_reversed != reverse) {
+        
+        if (child.get_is_reversed() != reverse) {
             seed_pos = make_pos_t(id(seed_pos), !is_rev(seed_pos),
                                   distance_index.minimum_length(
                                     distance_index.get_node_net_handle(id(seed_pos))) - offset(seed_pos));
@@ -1719,6 +1718,10 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
         assert(dist_matrix.size() == (positions.size() * (positions.size() + 1)) / 2);
     } else {
         assert(dist_matrix.size() == (positions.size() * (positions.size() - 1)) / 2);
+    }
+
+    for (const auto pos : positions) {
+        cerr << "pos: " << id(pos) << " " << (is_rev(pos) ? "rev " : " ")  << offset(pos) << endl;
     }
 
     // Check distances between all pairs of seeds
