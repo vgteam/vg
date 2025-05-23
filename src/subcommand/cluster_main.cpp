@@ -527,6 +527,13 @@ int main_cluster(int argc, char** argv) {
                     dag_non_dag_count.second += tree_count.second;
                 }
 
+                std::string cyclic_snarl_sizes_string;
+                for (const auto& zip_tree : zip_forest.trees) {
+                    for (const auto& size : zip_tree.cyclic_snarl_sizes(seeds, *distance_index)) {
+                        cyclic_snarl_sizes_string += std::to_string(size) + ",";
+                    }
+                }
+
                 // And with hit count clustered
                 set_annotation(aln, "seed_count", (double)seeds.size());
 
@@ -539,10 +546,13 @@ int main_cluster(int argc, char** argv) {
                 //The number of snarls that aren't dags
                 set_annotation(aln, "zip_tree_non_dag_count", dag_non_dag_count.second);
 
+                //CSV of the sizes of the cyclic snarls
+                set_annotation(aln, "zip_tree_cyclic_snarl_sizes", cyclic_snarl_sizes_string);
+
                 // TODO: parallelize this
                 #pragma omp critical (cout)
                 emitter.write(std::move(aln));
-                
+
             } else {
                 // Cluster the seeds. Get sets of input seed indexes that go together.
                 // Make sure to time it.
