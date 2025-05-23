@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 21
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
@@ -95,3 +95,16 @@ is $(vg clip tiny-stubs.gfa -sS -P x | vg stats -HT - | sort -nk 2 | awk '{print
 
 
 rm -f tiny.gfa tiny-stubs.gfa region.bed tiny-nostubs.gfa
+
+vg clip graphs/snarl-clip.gfa -A 2 -d 2 -P x > sc-A2d2.gfa
+is $(vg find -x sc-A2d2.gfa -n 4 | wc -l) "0" "Node 4 correctly clipped with snarl length and depth filter"
+is $(vg stats sc-A2d2.gfa -N) "14" "No other nodes were clipped with snarl length and depth filter"
+
+rm -f sc-A2d2.gfa
+
+vg clip graphs/chain-clip.gfa -A 2 -d1 -P x -g > sc-A2d1g.gfa
+is $(vg stats -E sc-A2d1g.gfa) "30" "One net edges clipped"
+is $(vg stats -N sc-A2d1g.gfa) "22" "No other nodes were clipped with net edge filter"
+
+rm -f sc-A2d1g.gfa
+
