@@ -433,7 +433,8 @@ public:
                                      const SnarlDistanceIndex& distance_index, 
                                      const vector<Seed>* seeds,
                                      std::vector<pos_t>& positions,
-                                     std::vector<pair<size_t, bool>>& ranks) const;
+                                     std::vector<pair<size_t, bool>>& ranks,
+                                     bool reverse = false) const;
 
     ///Helper function for validate_snarl to check a distance matrix against an index
     ///Distance matrix is triangular, with distances to all previous children stored
