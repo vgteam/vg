@@ -1068,28 +1068,6 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<
     return std::make_pair(dag_count, non_dag_count);
 }
 
-std::vector<size_t> ZipCodeTree::cyclic_snarl_sizes(const vector<Seed>& seeds, 
-                                                    const SnarlDistanceIndex& distance_index) const{
-    std::vector<size_t> cyclic_snarl_sizes;
-    std::vector<std::pair<bool, size_t>> current_snarl_starts;
-
-    for (size_t i = 0 ; i < zip_code_tree.size() ; i++ ) {
-        const tree_item_t& current_item = zip_code_tree[i];
-        if (current_item.is_snarl_start()) {
-            current_snarl_starts.emplace_back(current_item.get_type() == CYCLIC_SNARL_START, i);
-        } else if (current_item.is_snarl_end()) {
-            if (current_snarl_starts.back().first) {
-                //If this snarl was cyclic, then add the size to the list
-                size_t snarl_size = 1 + i - current_snarl_starts.back().second;
-                cyclic_snarl_sizes.emplace_back(snarl_size);
-            }
-            current_snarl_starts.pop_back();
-        }
-    }
-
-    return cyclic_snarl_sizes;
-}
-
 bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
     if (seed.zipcode.get_is_reversed_in_parent(depth)) {
         return true;
