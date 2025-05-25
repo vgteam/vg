@@ -446,6 +446,7 @@ int main_cluster(int argc, char** argv) {
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
             VectorView<MinimizerMapper::Minimizer> minimizers;
+            std::vector<size_t> minimizer_score_order;
             
             if (mapper) {
                 // Find MEMs
@@ -488,7 +489,7 @@ int main_cluster(int argc, char** argv) {
                 LazyRNG rng([&]() {
                     return aln.sequence();
                 });
-                std::vector<size_t> minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read, rng);
+                minimizer_score_order = minimizer_mapper.sort_minimizers_by_score(minimizers_in_read, rng);
 
                 // Minimizers sorted by best score first
                 minimizers = {minimizers_in_read, minimizer_score_order};
