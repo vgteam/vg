@@ -121,7 +121,7 @@ using namespace std;
         /// When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until set_alignment_scores() is called.)
         int8_t dp_score_scale = 10;
         /// When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until set_alignment_scores() is called.)
-        int8_t dp_gap_open_extra_cost = 1;
+        int8_t dp_gap_open_extra_cost = 0;
 
         
 

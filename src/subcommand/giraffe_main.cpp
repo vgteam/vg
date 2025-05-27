@@ -732,8 +732,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     cerr
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
-    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
-    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
+    << "  -f, --fastq-in FILE           read and align FASTQ- or FASTA-format reads from FILE (two are allowed, one for each mate)" << endl
+    << "  -i, --interleaved             GAM/FASTQ/FASTA input is interleaved pairs, for paired-end alignment" << endl
     << "  --comments-as-tags            intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl;
 
     cerr
