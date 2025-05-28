@@ -1789,7 +1789,7 @@ namespace vg {
 #endif
 
         // Set up a progress bar through the chromosome
-        create_progress("building graph for " + vcf_contig, reference_end - leading_offset);
+        create_progress("building " + vcf_contig, reference_end - leading_offset);
 
         // Scan through variants until we find one that is on this contig and in this region.
         // If we're using an index, we ought to already be at the right place.
