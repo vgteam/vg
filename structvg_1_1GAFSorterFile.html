@@ -82,9 +82,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af670f663bdc199541c477f5e1b9f2fa1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#af670f663bdc199541c477f5e1b9f2fa1">GAFSorterFile</a> ()</td></tr>
 <tr class="memdesc:af670f663bdc199541c477f5e1b9f2fa1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor that creates a compressed temporary file.  <a href="structvg_1_1GAFSorterFile.html#af670f663bdc199541c477f5e1b9f2fa1">More...</a><br /></td></tr>
 <tr class="separator:af670f663bdc199541c477f5e1b9f2fa1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a142dc1ad57eaf36df97cc3adaab32b76"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#a142dc1ad57eaf36df97cc3adaab32b76">GAFSorterFile</a> (const std::string &amp;<a class="el" href="structvg_1_1GAFSorterFile.html#afce787dd14404878037f84dbc532f010">name</a>)</td></tr>
-<tr class="memdesc:a142dc1ad57eaf36df97cc3adaab32b76"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a> that creates a raw GAF file with the given name.  <a href="structvg_1_1GAFSorterFile.html#a142dc1ad57eaf36df97cc3adaab32b76">More...</a><br /></td></tr>
-<tr class="separator:a142dc1ad57eaf36df97cc3adaab32b76"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65f8a2a17f42da81bebbdbb55cfad9b0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#a65f8a2a17f42da81bebbdbb55cfad9b0">GAFSorterFile</a> (const std::string &amp;<a class="el" href="structvg_1_1GAFSorterFile.html#afce787dd14404878037f84dbc532f010">name</a>, const std::string &amp;<a class="el" href="structvg_1_1GAFSorterFile.html#a1717807835e18e81707ff4827fff9eae">gbwt_file</a>=&quot;&quot;)</td></tr>
+<tr class="memdesc:a65f8a2a17f42da81bebbdbb55cfad9b0"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Constructor.html">Constructor</a> that creates a raw GAF file with the given name and an optional GBWT file.  <a href="structvg_1_1GAFSorterFile.html#a65f8a2a17f42da81bebbdbb55cfad9b0">More...</a><br /></td></tr>
+<tr class="separator:a65f8a2a17f42da81bebbdbb55cfad9b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4aeea0bf0cf5656a40213734bf6727e1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#a4aeea0bf0cf5656a40213734bf6727e1">~GAFSorterFile</a> ()</td></tr>
 <tr class="memdesc:a4aeea0bf0cf5656a40213734bf6727e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">If the file is temporary, the destructor removes the file.  <a href="structvg_1_1GAFSorterFile.html#a4aeea0bf0cf5656a40213734bf6727e1">More...</a><br /></td></tr>
 <tr class="separator:a4aeea0bf0cf5656a40213734bf6727e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -115,6 +115,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:afce787dd14404878037f84dbc532f010"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#afce787dd14404878037f84dbc532f010">name</a></td></tr>
 <tr class="memdesc:afce787dd14404878037f84dbc532f010"><td class="mdescLeft">&#160;</td><td class="mdescRight">File name.  <a href="structvg_1_1GAFSorterFile.html#afce787dd14404878037f84dbc532f010">More...</a><br /></td></tr>
 <tr class="separator:afce787dd14404878037f84dbc532f010"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1717807835e18e81707ff4827fff9eae"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#a1717807835e18e81707ff4827fff9eae">gbwt_file</a></td></tr>
+<tr class="memdesc:a1717807835e18e81707ff4827fff9eae"><td class="mdescLeft">&#160;</td><td class="mdescRight">File name for the GBWT index, if any.  <a href="structvg_1_1GAFSorterFile.html#a1717807835e18e81707ff4827fff9eae">More...</a><br /></td></tr>
+<tr class="separator:a1717807835e18e81707ff4827fff9eae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae47355fa81d7e481053c8a593be89597"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterFile.html#ae47355fa81d7e481053c8a593be89597">records</a></td></tr>
 <tr class="memdesc:ae47355fa81d7e481053c8a593be89597"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of records.  <a href="structvg_1_1GAFSorterFile.html#ae47355fa81d7e481053c8a593be89597">More...</a><br /></td></tr>
 <tr class="separator:ae47355fa81d7e481053c8a593be89597"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -157,8 +160,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a142dc1ad57eaf36df97cc3adaab32b76"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a142dc1ad57eaf36df97cc3adaab32b76">&#9670;&nbsp;</a></span>GAFSorterFile() <span class="overload">[2/4]</span></h2>
+<a id="a65f8a2a17f42da81bebbdbb55cfad9b0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a65f8a2a17f42da81bebbdbb55cfad9b0">&#9670;&nbsp;</a></span>GAFSorterFile() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -170,8 +173,18 @@ Public Attributes</h2></td></tr>
           <td class="memname">vg::GAFSorterFile::GAFSorterFile </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>name</em></td><td>)</td>
+          <td class="paramname"><em>name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_file</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -181,7 +194,7 @@ Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a> that creates a raw GAF file with the given name. </p>
+<p><a class="el" href="classvg_1_1Constructor.html">Constructor</a> that creates a raw GAF file with the given name and an optional GBWT file. </p>
 
 </div>
 </div>
@@ -478,6 +491,22 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Is this file compressed? </p>
+
+</div>
+</div>
+<a id="a1717807835e18e81707ff4827fff9eae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1717807835e18e81707ff4827fff9eae">&#9670;&nbsp;</a></span>gbwt_file</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::GAFSorterFile::gbwt_file</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>File name for the GBWT index, if any. </p>
 
 </div>
 </div>

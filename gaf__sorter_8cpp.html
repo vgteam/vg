@@ -84,6 +84,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="zstdutil_8hpp.html">zstdutil.hpp</a>&quot;</code><br />
 <code>#include &lt;htslib/hfile.h&gt;</code><br />
 <code>#include &lt;htslib/hts.h&gt;</code><br />
+<code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -92,6 +93,12 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:ac5404d4ee52ed6c0fd82c8170910301c"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac5404d4ee52ed6c0fd82c8170910301c">vg::as_gbwt_path</a> (const GAFSorterRecord &amp;record, bool &amp;ok)</td></tr>
+<tr class="separator:ac5404d4ee52ed6c0fd82c8170910301c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01d75b9f4caceab73edc37f61c160f0c"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::GBWTBuilder &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01d75b9f4caceab73edc37f61c160f0c">vg::create_gbwt_builder</a> (const GAFSorterFile &amp;output)</td></tr>
+<tr class="separator:a01d75b9f4caceab73edc37f61c160f0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa7cec67d3c64a5a7dc89ff53d53ebc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa7cec67d3c64a5a7dc89ff53d53ebc8">vg::finish_gbwt_construction</a> (gbwt::GBWTBuilder *builder, GAFSorterFile &amp;output)</td></tr>
+<tr class="separator:aaa7cec67d3c64a5a7dc89ff53d53ebc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf006c1658945badd41f55d1a13efe8f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abf006c1658945badd41f55d1a13efe8f">vg::sort_gaf</a> (const std::string &amp;input_file, const std::string &amp;output_file, const GAFSorterParameters &amp;params)</td></tr>
 <tr class="separator:abf006c1658945badd41f55d1a13efe8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e0b5ddbd1b0532655c9fe9088245f2d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e0b5ddbd1b0532655c9fe9088245f2d">vg::sort_gaf_lines</a> (std::unique_ptr&lt; std::vector&lt; std::string &gt;&gt; lines, GAFSorterRecord::key_type key_type, bool stable, GAFSorterFile &amp;output)</td></tr>
