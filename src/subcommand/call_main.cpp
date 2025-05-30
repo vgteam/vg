@@ -518,12 +518,16 @@ int main_call(int argc, char** argv) {
         set<string> ref_sample_names;
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                PathSense path_sense = PathMetadata::parse_sense(name);
+                PathSense path_sense = graph->get_sense(path_handle);
                 if (!Paths::is_alt(name) && path_sense != PathSense::HAPLOTYPE) {
-                    string sample_name = PathMetadata::parse_sample_name(name);
+                    string sample_name = graph->get_sample_name(path_handle);
                     if (ref_sample.empty() || sample_name == ref_sample) {                        
                         ref_paths.push_back(name);
                         // keep track of length best we can using maximum coordinate in event of subpaths
+                        
+                        // TODO: We can get the subrange from the graph but not
+                        // the base path name yet, so we do this from the path
+                        // name.
                         subrange_t subrange;
                         string base_name = Paths::strip_subrange(name, &subrange);
                         size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
