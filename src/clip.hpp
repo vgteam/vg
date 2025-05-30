@@ -85,6 +85,7 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
  * clip out deletion edges 
  */
 void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_deletion, int64_t context_steps,
+                         int64_t min_depth,
                          const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose);
 
 /**
