@@ -284,7 +284,7 @@ int main_deconstruct(int argc, char** argv){
         // No paths specified: use them all
         graph->for_each_path_handle([&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
-            if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
+            if (!Paths::is_alt(name) && graph->get_sense(path_handle) != PathSense::HAPLOTYPE) {
                 refpaths.push_back(name);
             } else {
                 found_hap = true;
