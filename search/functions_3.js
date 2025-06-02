@@ -86,7 +86,7 @@ var searchData=
   ['clip_5fcontained_5flow_5fdepth_5fnodes_5fand_5fedges_8520',['clip_contained_low_depth_nodes_and_edges',['../namespacevg.html#aace8f923f5ddf8cc20a313d244f57e7b',1,'vg']]],
   ['clip_5fcontained_5fsnarls_8521',['clip_contained_snarls',['../namespacevg.html#a694a55ce02198466c5d3617ff37d2c53',1,'vg']]],
   ['clip_5fcontained_5fstubs_8522',['clip_contained_stubs',['../namespacevg.html#afc1766ad15ac6853f074a743d19873fc',1,'vg']]],
-  ['clip_5fdeletion_5fedges_8523',['clip_deletion_edges',['../namespacevg.html#a4f58b3aa775dcde39a1d511a9d838b97',1,'vg']]],
+  ['clip_5fdeletion_5fedges_8523',['clip_deletion_edges',['../namespacevg.html#a65fd47b7ac3fbe6aa965c20a65aee1ed',1,'vg']]],
   ['clip_5flow_5fdepth_5fnodes_5fand_5fedges_8524',['clip_low_depth_nodes_and_edges',['../namespacevg.html#aeaa0f9143fd06ff6948f2b548e4dde12',1,'vg']]],
   ['clip_5flow_5fdepth_5fnodes_5fand_5fedges_5fgeneric_8525',['clip_low_depth_nodes_and_edges_generic',['../namespacevg.html#a1c4eb49afa34726115d01e380372669a',1,'vg']]],
   ['clip_5fstubs_8526',['clip_stubs',['../namespacevg.html#ae596e7d9757cad372b5aaeb5e8a5146e',1,'vg']]],
