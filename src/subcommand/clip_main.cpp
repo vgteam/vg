@@ -234,12 +234,6 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
 
-    // to do: I think it could be a good idea to combine these options
-    if (min_depth >= 0 && max_deletion >= 0) {
-        cerr << "error:[vg-clip] -d cannot (yet?) be used with -D" << endl;
-        return 1;
-    }
-
     // ditto about combining
     if ((stub_clipping || stubbify_reference) && (min_depth >= 0 || max_deletion >= 0)) {
         cerr << "error:[vg-clip] -s and -S cannot (yet?) be used with -d or -D" << endl;
@@ -369,7 +363,7 @@ int main_clip(int argc, char** argv) {
         }
     }        
     
-    if (min_depth >= 0) {
+    if (min_depth >= 0 && max_deletion < 0) {
         // run the depth clipping       
         if (bed_regions.empty()) {            
             // do the whole graph
@@ -384,7 +378,7 @@ int main_clip(int argc, char** argv) {
         
     } else if (max_deletion >= 0) {
         // run the deletion edge clipping on the whole graph
-        clip_deletion_edges(graph.get(), max_deletion, context_steps, ref_prefixes, min_fragment_len, verbose);
+        clip_deletion_edges(graph.get(), max_deletion, context_steps, min_depth, ref_prefixes, min_fragment_len, verbose);
     } else if (stub_clipping || stubbify_reference) {
         // run the stub clipping
         if (bed_path.empty()) {            

@@ -1025,8 +1025,30 @@ static int64_t get_max_deletion(const PathHandleGraph* graph,
     return delta;
 }
 
+static int64_t edge_depth(PathHandleGraph* graph, edge_t edge, int64_t max_val) {
+    // make absolutely sure it's canonical
+    edge = graph->edge_handle(edge.first, edge.second);
+    int64_t depth = 0;
+    graph->for_each_step_on_handle(edge.first, [&](step_handle_t step) {
+        path_handle_t path_handle = graph->get_path_handle_of_step(step);
+        step_handle_t prev = graph->get_previous_step(step);
+        if (prev != graph->path_front_end(path_handle) &&
+            graph->edge_handle(graph->get_handle_of_step(prev), graph->get_handle_of_step(step)) == edge) {
+            ++depth;
+        } else {
+            step_handle_t next = graph->get_next_step(step);
+            if (next != graph->path_end(path_handle) &&
+                graph->edge_handle(graph->get_handle_of_step(step), graph->get_handle_of_step(next)) == edge) {
+                ++depth;
+            }
+        }
+        return depth < max_val;
+    });
+    return depth;
+}
+
 void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_deletion,
-                         int64_t context_steps,
+                         int64_t context_steps, int64_t min_depth,
                          const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
     
     // load up the reference paths and their ids
@@ -1058,6 +1080,19 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
         }
         multimap<int64_t, edge_t> length_to_edge = find_deletion_candidate_edges(graph, ref_path, handle_to_position,
                                                                                  max_deletion, context_steps, edge_blacklist);
+        if (min_depth > 0) {
+            multimap<int64_t, edge_t> length_to_edge_filtered;
+            for (const auto& len_edge : length_to_edge) {
+                if (edge_depth(graph, len_edge.second, min_depth) < min_depth) {
+                    length_to_edge_filtered.insert(len_edge);
+                }
+            }
+#ifdef debug
+            cerr << "candidate edge count: " << length_to_edge.size() << " --> filtered count " << length_to_edge_filtered.size()
+                 << endl;
+#endif
+            swap(length_to_edge_filtered, length_to_edge);
+        }
 
         if (verbose) {
             cerr << "[vg clip]: Found " << length_to_edge.size() << " candidate deletion edges for " << graph->get_path_name(ref_path);
