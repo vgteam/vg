@@ -676,10 +676,11 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
         Transcript * transcript = &(parsed_transcripts_it.first->second);
 
-        assert(transcript->name == transcript_id);
-        assert(transcript->is_reverse == is_reverse);
-        assert(transcript->chrom == chrom);
-        assert(transcript->chrom_length == chrom_lengths_it->second);
+        // Make sure the transcript we inserted or already found is the right transcript.
+        if (transcript->name != transcript_id || transcript->is_reverse != is_reverse || transcript->chrom != chrom || transcript->chrom_length != chrom_lengths_it->second) {
+            cerr << "\tERROR: There are multiple distinct transcripts with ID " << transcript_id <<". We have already seen a transcript " << transcript->name << " on strand " << transcript->is_reverse << " of contig " << transcript->chrom << " length " << transcript->chrom_length << " but on line " << line_number << " there is a transcript " << transcript_id << " on strand " << is_reverse << " of contig " << chrom << " length " << chrom_lengths_it->second << ". Fix the input transcript set to not re-use transcript IDs." << endl;
+            exit(1);
+        }
 
         if (use_haplotype_paths) {
             
