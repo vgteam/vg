@@ -288,7 +288,6 @@ public:
         /// Get the index and orientation of the seed we are currently at, and the distance to it.
         seed_result_t operator*() const;
 
-        /// TODO: probably need new states for new cyclic snarl handling
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
         enum State {
@@ -678,7 +677,6 @@ class ZipCodeForest {
         //Is the sibling reversed. 
         //This is only used for children of snarls, to indicate that the child is traversed 
         //backwards 
-        //TODO: should no longer be needed
         bool is_reversed = false;
 
         child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) :
