@@ -2212,16 +2212,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case CYCLIC_SNARL_CHAIN_START: // For now we treat these like regular snarls
         case CHAIN_START:
             if (top() == 0) {
-                // Parent snarl may be a top-level snarl.
-                if (depth() == 1) {
-                    // We have hit the start of a top-level snarl
-#ifdef debug_parse
-                    std::cerr << "Hit start of top-level snarl" << std::endl;
-#endif
-                    halt();
-                    // When we halt we have to return true to show the halting position.
-                    return true;
-                }
+                // Parent snarl may be a top-level snarl, but we don't need to
+                // do anything special in that case.
 
                 // This is the start of the chain we were wanting to skip.
                 pop();
