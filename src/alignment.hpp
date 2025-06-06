@@ -106,6 +106,12 @@ Alignment bam_to_alignment(const bam1_t *b,
                            const PathPositionHandleGraph* graph);
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
+// the CIGAR string of the graph alignment
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand = false);
+// the CS-style (i.e. verbose) CIGAR difference string of the graph alignment
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand = false);
+// the cs-style (i.e. compact) CIGAR difference string of the graph alignment
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_stand = false);
 /**
  * Add a CIGAR operation to a vector representing the parsed CIGAR string.
  *
