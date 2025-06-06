@@ -658,6 +658,8 @@ int main_stats(int argc, char** argv) {
             // And substitutions
             size_t total_substitutions = 0;
             size_t total_substituted_bases = 0;
+            // And matches
+            size_t total_matched_bases = 0;
             // And softclips
             size_t total_softclips = 0;
             size_t total_softclipped_bases = 0;
@@ -702,6 +704,7 @@ int main_stats(int argc, char** argv) {
                 total_deleted_bases += other.total_deleted_bases;
                 total_substitutions += other.total_substitutions;
                 total_substituted_bases += other.total_substituted_bases;
+                total_matched_bases += other.total_matched_bases;
                 total_softclips += other.total_softclips;
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
@@ -922,6 +925,9 @@ int main_stats(int argc, char** argv) {
                                 // Record the actual substitution
                                 stats.substitutions.push_back(make_pair(node_id, edit));
                             }
+                        } else {
+                            // This is a match
+                            stats.total_matched_bases += edit.from_length();
                         }
 
                     }
@@ -1109,6 +1115,11 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
+        cout << "Matches: " << combined.total_matched_bases << " bp";
+        if (combined.total_alignments > 0) {
+            cout << " (" << combined.total_matched_bases / static_cast<double>(combined.total_alignments) << " bp/alignment)";
+        }
+        cout << endl;
         cout << "Softclips: " << combined.total_softclipped_bases << " bp in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : combined.softclips) {
@@ -1279,7 +1290,15 @@ int main_stats(int argc, char** argv) {
                             swap(start_pos, end_pos);
                             swap(start_step, end_step);                            
                         }
-                        end_pos += graph->get_length(pp_graph->get_handle_of_step(end_step));
+                        // we don't want the boundaries counting toward the snarl length
+                        // so if the start step is forward in the traversal, then subtract its lefnth
+                        if (!graph->get_is_reverse(graph->get_handle_of_step(start_step))) {
+                            start_pos += graph->get_length(graph->get_handle_of_step(start_step));
+                        }
+                        // and if the last step is backwards in the traversal, subtract its length
+                        if (graph->get_is_reverse(graph->get_handle_of_step(end_step))) {
+                            end_pos -= graph->get_length(graph->get_handle_of_step(end_step));
+                        }
                         cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
                              << end_pos << "\t";
 
