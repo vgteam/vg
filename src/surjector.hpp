@@ -182,6 +182,7 @@ using namespace std;
         size_t max_anchors = std::numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
+        bool annotate_with_graph_alignment = false;
         
     protected:
 
@@ -318,13 +319,16 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
+        void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const;
+        
+        void annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const;
+        
         template<class AlnType>
         static int32_t get_score(const AlnType& aln);
         
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
-
 
     template<class AlnType>
     string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const {

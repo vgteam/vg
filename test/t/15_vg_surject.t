@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 55
+plan tests 56
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -176,6 +176,8 @@ vg surject -x j.sub.vg r.sub.gam -s --ref-paths path_info.tsv > r.sub.sam
 cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' -e 's/.M5:[a-zA-Z0-9]*//g' > r.manual.sam
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly fetches base path length from input file"
+
+if "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep "GR:Z:" | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with the graph-space alignment"
 
 rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.sub.vg j.sub.gcsa r.sub.gam r.sub.sam r.sub.sam
 

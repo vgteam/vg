@@ -44,7 +44,10 @@ enum alignment_emitter_flags_t {
     ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4,
     /// Emit graph alignments in named segment (i.e. GFA space) instead of
     /// numerical node ID space.
-    ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 8
+    ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 8,
+    /// When surjecting, annotate HTSlib records with a cs-style difference string that
+    /// expresses the alignment in graph space in the "GR" tag
+    ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG = 16
 };
 
 /// Represents a path or subpath's sequence dictionary information. Holds

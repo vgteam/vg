@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 64
+plan tests 65
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -77,6 +77,8 @@ rm -Rf grid-out
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
 is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"
 rm -f mapped-nobonus.gam
+
+is "$(vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq -o BAM --add-graph-aln | samtools view | grep "GR:Z:" | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with graph alignment"
 
 vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
 

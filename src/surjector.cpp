@@ -395,9 +395,15 @@ using namespace std;
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*mp_alns_out, *source_mp_aln, false);
+                }
             }
             else {
                 alns_out->emplace_back(make_null_alignment(*source_aln));
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*alns_out, *source_aln, false);
+                }
             }
             return;
         }
@@ -483,6 +489,10 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     set_annotation(alns_out->back(), "all_scores", annotation_string);
                 }
+                
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*alns_out, *source_aln, path_strand.second);
+                }
             }
             else {
                 auto& surjection = mp_aln_surjections[path_strand];
@@ -503,6 +513,9 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     mp_alns_out->back().set_annotation("all_scores", annotation_string);
                 }
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*mp_alns_out, *source_mp_aln, path_strand.second);
+                }
 #ifdef debug_anchored_surject
                 cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
 #endif
@@ -519,7 +532,6 @@ using namespace std;
             cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
 #endif
         }
-        
     }
 
     vector<vector<size_t>> Surjector::reverse_adjacencies(const vector<vector<size_t>>& adj) const {
@@ -4734,6 +4746,30 @@ using namespace std;
         return null;
     }
 
+    void Surjector::annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const {
+        auto cigar = graph_cs_cigar(source, *graph, rev_strand);
+        if (cigar.empty()) {
+            return;
+        }
+        for (auto& surjection : surjections) {
+            set_annotation(surjection, "graph_cigar", cigar);
+        }
+    }
+
+    void Surjector::annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const {
+        
+        Alignment opt;
+        optimal_alignment(source, opt, false);
+        
+        // TODO: repetitive with Alignment version
+        auto cigar = graph_cs_cigar(opt, *graph, rev_strand);
+        if (cigar.empty()) {
+            return;
+        }
+        for (auto& surjection : surjections) {
+            surjection.set_annotation("graph_cigar", cigar);
+        }
+    }
 
     template<>
     int32_t Surjector::get_score(const Alignment& aln) {
