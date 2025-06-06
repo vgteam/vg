@@ -24,9 +24,7 @@ using namespace std;
 
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
                                                    const SequenceDictionary& paths, size_t max_threads,
-                                                   const HandleGraph* graph, int flags,
-                                                   const unordered_set<path_handle_t>* alt_scaffold_paths,
-                                                   const unordered_set<path_handle_t>* decoy_paths) {
+                                                   const HandleGraph* graph, int flags) {
 
     
     unique_ptr<AlignmentEmitter> emitter;
@@ -39,27 +37,6 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         if (path_graph == nullptr) {
             cerr << "error[vg::get_alignment_emitter]: No graph available supporting path length queries needed for " << format << " output." << endl;
             exit(1);
-        }
-        
-        // Do a sanity check to see if paths are being provided as decoys and reference contigs
-        if (decoy_paths) {
-            unordered_set<path_handle_t> decoy_and_dict_paths;
-            for (const auto& path : paths) {
-                if (decoy_paths->count(path.path_handle)) {
-                    decoy_and_dict_paths.insert(path.path_handle);
-                }
-            }
-            if (!decoy_and_dict_paths.empty()) {
-                vector<string> names;
-                for (auto path_handle : decoy_and_dict_paths) {
-                    names.emplace_back(std::move(path_graph->get_path_name(path_handle)));
-                }
-                sort(names.begin(), names.end());
-                cerr << "Warning: The following sequences are included in both the sequence dictionary and among the decoy sequences, which will lead to them not receiving any reads:" << endl;
-                for (const auto& name : names) {
-                    cerr << '\t' << name << endl;
-                }
-            }
         }
         
         // Find the subpaths in the dictionary        
@@ -81,16 +58,10 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             for (const auto& path_info : paths) {
                 target_paths.insert(path_info.path_handle);
             }
-            if (decoy_paths) {
-                for (auto decoy_path : *decoy_paths) {
-                    target_paths.insert(decoy_path);
-                }
-            }
             // Interpose a surjecting AlignmentEmitter
             emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter),
                 flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS,
-                flags & ALIGNMENT_EMITTER_FLAG_HTS_AVOID_ALT_SCAFFOLD_PATHS,
-                alt_scaffold_paths, decoy_paths);
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG);
         }
     
     } else {

@@ -13,30 +13,19 @@ namespace vg {
 
 using namespace std;
 
-SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, const unordered_set<path_handle_t>& paths,
-    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool avoid_alt_scaffold_paths,
-    const unordered_set<path_handle_t>* alt_scaffold_paths, const unordered_set<path_handle_t>* decoy_paths) : surjector(graph), paths(paths), backing(std::move(backing)) {
+SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
+    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool add_graph_alignment_tag) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
     // Configure the surjector
     surjector.prune_suspicious_anchors = prune_suspicious_anchors;
-    surjector.avoid_alt_paths = avoid_alt_scaffold_paths;
+    surjector.annotate_with_graph_alignment = add_graph_alignment_tag;
     
-    if (decoy_paths) {
-        this->decoy_paths = *decoy_paths;
-        for (auto decoy : this->decoy_paths) {
-            // so that decoys will be considered as projection targets
-            this->paths.insert(decoy);
-        }
-    }
-    if (alt_scaffold_paths) {
-        this->alt_scaffold_paths = *alt_scaffold_paths;
-    }
 }
 
 void SurjectingAlignmentEmitter::surject_alignments_in_place(vector<Alignment>& alns) const {
     for (auto& aln : alns) {
         // Surject each alignment and annotate with surjected path position
-        aln = surjector.surject(aln, paths, surject_subpath_global, false, &alt_scaffold_paths, &decoy_paths);
+        aln = surjector.surject(aln, paths, surject_subpath_global);
     }
 }
 

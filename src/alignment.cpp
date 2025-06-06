@@ -989,13 +989,18 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "SS", 'Z', all_scores.size() + 1, (uint8_t*) all_scores.c_str());
     }
     
+    if (has_annotation(alignment, "graph_cigar")) {
+        string graph_cigar = get_annotation<string>(alignment, "graph_cigar");
+        bam_aux_append(bam, "GR", 'Z', graph_cigar.size() + 1, (uint8_t*) graph_cigar.c_str());
+    }
+    
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
         // encode the alignments SAM tags
         auto parsed_tags = parse_sam_tags(get_annotation<string>(alignment, "tags"));
         for (const auto& tag : parsed_tags) {
             
-            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS") {
+            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR") {
                 // we handle these tags separately
                 continue;
             }
@@ -1384,6 +1389,177 @@ void simplify_cigar(vector<pair<int, char>>& cigar) {
         }
     }
     cigar.resize(cigar.size() - removed);
+}
+
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand) {
+    vector<pair<int, char>> cigar;
+    const auto& path = aln.path();
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            char op;
+            int len;
+            if (edit.from_length() == edit.to_length()) {
+                if (!edit.sequence().empty()) {
+                    op = 'X';
+                }
+                else {
+                    op = '=';
+                }
+                len = edit.from_length();
+            }
+            else if (edit.from_length() != 0) {
+                op = 'D';
+                len = edit.from_length();
+            }
+            else {
+                if ((i == 0 && j == 0) ||
+                    (i + 1 == path.mapping_size() && j + 1 == mapping.edit_size())) {
+                    op = 'S';
+                }
+                else {
+                    op = 'I';
+                }
+                len = edit.to_length();
+            }
+            
+            if (!cigar.empty() && cigar.back().second == op) {
+                cigar.back().first += len;
+            }
+            else {
+                cigar.emplace_back(len, op);
+            }
+        }
+    }
+    
+    // TODO: use this for the I/D merging, but it's overkill for the
+    // adjacent operations
+    simplify_cigar(cigar);
+    
+    if (rev_strand) {
+        reverse(cigar.begin(), cigar.end());
+    }
+    
+    return cigar;
+}
+
+string graph_CS_cigar_internal(const Alignment& aln, const HandleGraph& graph, bool rev_strand, bool verbose_format) {
+    
+    // states that can be extended across edits (except null)
+    enum Operation {Null, Match, Insert, Delete};
+        
+    stringstream strm;
+    
+    const auto& path = aln.path();
+    const auto& seq = aln.sequence();
+    
+    Operation curr_op = Null;
+    size_t read_idx = rev_strand ? seq.size() : 0;
+    size_t match_len = 0;
+    int64_t incr = rev_strand ? -1 : 1;
+    for (int64_t i = rev_strand ? aln.path().mapping_size() - 1 : 0; i < aln.path().mapping_size() && i >= 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        const auto& pos = mapping.position();
+        handle_t handle = graph.get_handle(pos.node_id(), pos.is_reverse());
+        size_t offset = pos.offset();
+        if (rev_strand) {
+            offset += mapping_from_length(mapping);
+        }
+        for (int64_t j = rev_strand ? mapping.edit_size() - 1 : 0; j < mapping.edit_size() && j >= 0; j += incr) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() == edit.to_length()) {
+                // aligned base
+                if (edit.sequence().empty()) {
+                    if (curr_op != Match) {
+                        strm << (verbose_format ? '=' : ':');
+                        curr_op = Match;
+                    }
+                    if (verbose_format) {
+                        if (rev_strand) {
+                            strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                        }
+                        else {
+                            strm << seq.substr(read_idx, edit.to_length());
+                        }
+                    }
+                    else {
+                        match_len += edit.to_length();
+                    }
+                }
+                else {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    string graph_subseq = graph.get_subsequence(handle, offset - (rev_strand ? edit.from_length(): 0),
+                                                                edit.from_length());
+                    for (int64_t k = rev_strand ? edit.from_length() - 1 : 0; k < edit.from_length() && k >= 0; k += incr) {
+                        char gnt = graph_subseq[k];
+                        char rnt = seq[read_idx + k - (rev_strand ? edit.from_length() : 0)];
+                        if (rev_strand) {
+                            gnt = reverse_complement(gnt);
+                            rnt = reverse_complement(rnt);
+                        }
+                        strm << '*' << gnt;
+                        if (verbose_format) {
+                            strm << "->";
+                        }
+                        strm << rnt;
+                    }
+                    curr_op = Null;
+                }
+            }
+            else if (edit.from_length() != 0) {
+                // deletion
+                if (curr_op != Delete) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '-';
+                    curr_op = Delete;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(graph.get_subsequence(handle, offset - edit.from_length(), edit.from_length()));
+                }
+                else {
+                    strm << graph.get_subsequence(handle, offset, edit.from_length());
+                }
+            }
+            else if (edit.to_length() != 0) {
+                // insertion
+                if (curr_op != Insert) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '+';
+                    curr_op = Insert;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                }
+                else {
+                    strm << seq.substr(read_idx, edit.to_length());
+                }
+            }
+            read_idx += edit.to_length() * incr;
+            offset += edit.from_length() * incr;
+        }
+    }
+    if (match_len != 0) {
+        strm << match_len;
+        match_len = 0;
+    }
+    return strm.str();
+}
+
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, true);
+}
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, false);
 }
 
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,

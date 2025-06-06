@@ -60,18 +60,14 @@ using namespace std;
                           int64_t& path_pos_out,
                           bool& path_rev_out,
                           bool allow_negative_scores = false,
-                          bool preserve_deletions = false,
-                          const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                          const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                          bool preserve_deletions = false) const;
         
         /// Same as above, but include alignments to all paths instead of only the optimal one
         vector<Alignment> multi_surject(const Alignment& source,
                                         const unordered_set<path_handle_t>& paths,
                                         vector<tuple<string, int64_t, bool>>& positions_out,
                                         bool allow_negative_scores = false,
-                                        bool preserve_deletions = false,
-                                        const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                                        const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                                        bool preserve_deletions = false) const;
                           
         /// Extract the portions of an alignment that are on a chosen set of
         /// paths and try to align realign the portions that are off of the
@@ -90,17 +86,13 @@ using namespace std;
         Alignment surject(const Alignment& source,
                           const unordered_set<path_handle_t>& paths,
                           bool allow_negative_scores = false,
-                          bool preserve_deletions = false,
-                          const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                          const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                          bool preserve_deletions = false) const;
         
         /// Same as above, but include alignments to all paths instead of only the optimal one
         vector<Alignment> multi_surject(const Alignment& source,
                                         const unordered_set<path_handle_t>& paths,
                                         bool allow_negative_scores = false,
-                                        bool preserve_deletions = false,
-                                        const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                                        const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                                        bool preserve_deletions = false) const;
         
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
@@ -111,25 +103,18 @@ using namespace std;
                                       string& path_name_out, int64_t& path_pos_out,
                                       bool& path_rev_out,
                                       bool allow_negative_scores = false,
-                                      bool preserve_deletions = false,
-                                      const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                                      const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                                      bool preserve_deletions = false) const;
         
         /// Same as above, but include alignments to all paths instead of only the optimal one
         vector<multipath_alignment_t> multi_surject(const multipath_alignment_t& source,
                                                     const unordered_set<path_handle_t>& paths,
                                                     vector<tuple<string, int64_t, bool>>& positions_out,
                                                     bool allow_negative_scores = false,
-                                                    bool preserve_deletions = false,
-                                                    const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-                                                    const unordered_set<path_handle_t>* decoy_paths = nullptr) const;
+                                                    bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
 
-        /// If alt paths are provided, only produce an alignment to them if there are no non-alt options
-        bool avoid_alt_paths = false;
-        
         /// When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own Aligner
         std::unique_ptr<Aligner> dp_aligner;
         
@@ -197,6 +182,7 @@ using namespace std;
         size_t max_anchors = std::numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
+        bool annotate_with_graph_alignment = false;
         
     protected:
 
@@ -207,9 +193,7 @@ using namespace std;
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
                               vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
-                              bool allow_negative_scores, bool preserve_deletions,
-                              const unordered_set<path_handle_t>* alt_scaffold_paths,
-                              const unordered_set<path_handle_t>* decoy_paths) const;
+                              bool allow_negative_scores, bool preserve_deletions) const;
         
         Alignment
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
@@ -232,8 +216,7 @@ using namespace std;
                         vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                         vector<tuple<size_t, size_t, int32_t>>& connections,
                         pair<step_handle_t, step_handle_t>& path_range_out,
-                        bool allow_negative_scores, bool deletions_as_splices,
-                        const string* tags = nullptr) const;
+                        bool allow_negative_scores, bool deletions_as_splices) const;
         
         ///////////////////////
         // Support methods for the realigning surject algorithm
@@ -334,8 +317,11 @@ using namespace std;
         static Alignment make_null_alignment(const Alignment& source);
         
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
-                                                            const string& src_quality,
-                                                            const string* tags = nullptr);
+                                                            const string& src_quality);
+        
+        void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const;
+        
+        void annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const;
         
         template<class AlnType>
         static int32_t get_score(const AlnType& aln);
@@ -343,7 +329,6 @@ using namespace std;
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
-
 
     template<class AlnType>
     string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const {

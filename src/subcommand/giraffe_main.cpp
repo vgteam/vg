@@ -260,13 +260,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "only align extension sets if their score is within INT of the best score",
         double_is_nonnegative
     );
-    comp_opts.add_range(
-        "extension-set-min-score",
-        &MinimizerMapper::extension_set_min_score,
-        MinimizerMapper::default_extension_set_min_score,
-        "never align extension sets with a score smaller than this",
-        int_is_nonnegative
-    );
     comp_opts.add_flag(
         "no-dp", 'O',
         &MinimizerMapper::do_dp,
@@ -763,13 +756,11 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
     << "  --ref-name NAME               name of reference assembly in the graph to use for HTSlib output" << endl
-    << "  --decoy-paths FILE            treat reads that align best to the paths in FILE as unmapped in HTSlib output" << endl
-    << "  --alt-scaffold-paths FILE     prefer to produce alignments to other reference paths than those in FILE in HTSlib output" << endl
-    << "  --avoid-alt-scaffolds         only produce alignments to paths in --alt-scaffold-paths if no other paths are possible" << endl
     << "  --named-coordinates           produce GAM/GAF outputs in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr
         << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
+        << "  --add-graph-aln               annotate linear formats with the graph alignment in the GR tag as a cs-style difference string" << endl
         << "  -n, --discard                 discard all output alignments (for profiling)" << endl
         << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
         << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -817,14 +808,13 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_REF_NAME = 1009;
     constexpr int OPT_SHOW_WORK = 1010;
     constexpr int OPT_NAMED_COORDINATES = 1011;
-    constexpr int OPT_DECOY_PATHS = 1012;
-    constexpr int OPT_ALT_SCAFFOLD_PATHS = 1013;
-    constexpr int OPT_AVOID_ALT_SCAFFOLDS = 1014;
+    constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1113;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
-    constexpr int OPT_COMMENTS_AS_TAGS = 1104;
+
 
     // initialize parameters with their default options
     
@@ -902,16 +892,13 @@ int main_giraffe(int argc, char** argv) {
 
     // For HTSlib formats, where do we get sequence header info?
     std::string ref_paths_name;
-    // Filepath to a list of paths to be considered decoys in HTSlib output
-    std::string decoy_paths_name;
-    // Filepath to a list of paths to be considered alt scaffolds in HTSlib output
-    std::string alt_scaffold_paths_name;
     // What assemblies shoudl we use when autodetecting reference paths?
     std::unordered_set<std::string> reference_assembly_names;
     // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
-    // And should we only produce alignments to alt scaffolds if no other paths are options?
-    bool avoid_alt_scaffolds = false;
+    
+    // When surjecting, should we annotate the reads with the graph alignment?
+    bool add_graph_alignment = false;
     
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -1185,10 +1172,8 @@ int main_giraffe(int argc, char** argv) {
         {"read-group", required_argument, 0, 'R'},
         {"output-format", required_argument, 0, 'o'},
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
-        {"decoy-paths", required_argument, 0, OPT_DECOY_PATHS},
-        {"alt-scaffold-paths", required_argument, 0, OPT_ALT_SCAFFOLD_PATHS},
-        {"avoid-alt-scaffolds", no_argument, 0, OPT_AVOID_ALT_SCAFFOLDS},
         {"prune-low-cplx", no_argument, 0, 'P'},
+        {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1413,18 +1398,6 @@ int main_giraffe(int argc, char** argv) {
             case OPT_REF_PATHS:
                 ref_paths_name = optarg;
                 break;
-                
-            case OPT_DECOY_PATHS:
-                decoy_paths_name = optarg;
-                break;
-                
-            case OPT_ALT_SCAFFOLD_PATHS:
-                alt_scaffold_paths_name = optarg;
-                break;
-                
-            case OPT_AVOID_ALT_SCAFFOLDS:
-                avoid_alt_scaffolds = true;
-                break;
 
             case OPT_REF_NAME:
                 reference_assembly_names.insert(optarg);
@@ -1436,6 +1409,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
+                break;
+                
+            case OPT_ADD_GRAPH_ALIGNMENT:
+                add_graph_alignment = true;
                 break;
 
             case 'n':
@@ -1599,14 +1576,6 @@ int main_giraffe(int argc, char** argv) {
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning: [vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
-    }
-    if (!decoy_paths_name.empty() && !hts_output) {
-        cerr << "warning: [vg giraffe] Decoy path file (--decoy-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
-        decoy_paths_name = "";
-    }
-    if (!alt_scaffold_paths_name.empty() && !hts_output) {
-        cerr << "warning: [vg giraffe] Alt scaffold path file (--alt-scaffold-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
-        decoy_paths_name = "";
     }
     if (!reference_assembly_names.empty() && !hts_output) {
         cerr << "warning: [vg giraffe] Reference assembly names (--ref-name) are only used when output format (-o) is SAM, BAM, or CRAM." << endl;
@@ -1948,6 +1917,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("prune-low-cplx", prune_anchors);
+        report_flag("add-graph-aln", add_graph_alignment);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
@@ -2051,63 +2021,6 @@ int main_giraffe(int argc, char** argv) {
                 paths = get_sequence_dictionary(ref_paths_name, {}, reference_assembly_names, *path_position_graph);
             }
             
-            // FIXME: would be much more elegant to have the parsing of decoys and alts in one central
-            // place rather than in all of the mappers' main functions
-            unordered_set<path_handle_t> decoy_paths;
-            if (!decoy_paths_name.empty()) {
-                ifstream decoy_stream(decoy_paths_name);
-                if (!decoy_stream) {
-                    cerr << "error: could not open decoy path file " << decoy_paths_name << endl;
-                    exit(1);
-                }
-                string line;
-                while (decoy_stream) {
-                    getline(decoy_stream, line);
-                    if (line.empty()) {
-                        continue;
-                    }
-                    if (!path_position_graph->has_path(line)) {
-                        cerr << "error: graph does not contain a path matching decoy " << line << endl;
-                        exit(1);
-                    }
-                   decoy_paths.insert(path_position_graph->get_path_handle(line));
-                }
-            }
-            
-            unordered_set<path_handle_t> alt_scaffold_paths;
-            if (!alt_scaffold_paths_name.empty()) {
-                unordered_set<string> alt_scaffold_path_names;
-                ifstream alt_stream(alt_scaffold_paths_name);
-                if (!alt_stream) {
-                    cerr << "error: could not open alt scaffolds path file " << alt_scaffold_paths_name << endl;
-                    exit(1);
-                }
-                string line;
-                while (alt_stream) {
-                    getline(alt_stream, line);
-                    if (line.empty()) {
-                        continue;
-                    }
-                    alt_scaffold_path_names.insert(line);
-                }
-                
-                unordered_set<string> alt_path_names_seen;
-                for (const auto& seq_dict_entry : paths) {
-                    if (alt_scaffold_path_names.count(seq_dict_entry.base_path_name)) {
-                        alt_path_names_seen.insert(seq_dict_entry.base_path_name);
-                        alt_scaffold_paths.insert(seq_dict_entry.path_handle);
-                    }
-                }
-                
-                if (alt_path_names_seen.size() != alt_scaffold_path_names.size()) {
-                    for (const auto& alt_name : alt_scaffold_path_names) {
-                        if (!alt_path_names_seen.count(alt_name)) {
-                            cerr << "warning: alt scaffold path " << alt_name << " was not provided as a surjection target and will therefore not receive any reads" << endl;
-                        }
-                    }
-                }
-            }
-            
             // Set up output to an emitter that will handle serialization and surjection.
             // Unless we want to discard all the alignments in which case do that.
             unique_ptr<AlignmentEmitter> alignment_emitter;
@@ -2125,8 +2038,9 @@ int main_giraffe(int argc, char** argv) {
                     // When not surjecting, use named segments instead of node IDs.
                     flags |= ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES;
                 }
-                if (avoid_alt_scaffolds) {
-                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_AVOID_ALT_SCAFFOLD_PATHS;
+                if (add_graph_alignment) {
+                    // When surjecting, add the graph alignment tag
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
@@ -2134,7 +2048,7 @@ int main_giraffe(int argc, char** argv) {
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
                 alignment_emitter = get_alignment_emitter(output_filename, output_format,
                                                           paths, thread_count,
-                                                          emitter_graph, flags, &alt_scaffold_paths, &decoy_paths);
+                                                          emitter_graph, flags);
             }
 
             // Stick any metadata in the emitter near the front of the stream.

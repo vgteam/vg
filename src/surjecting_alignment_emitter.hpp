@@ -34,10 +34,8 @@ public:
      * anchors when surjecting and lets those parts of reads be realigned.
      */
     SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph,
-        const unordered_set<path_handle_t>& paths, unique_ptr<AlignmentEmitter>&& backing,
-        bool prune_suspicious_anchors = false, bool avoid_alt_scaffold_paths = false,
-        const unordered_set<path_handle_t>* alt_scaffold_paths = nullptr,
-        const unordered_set<path_handle_t>* decoy_paths = nullptr);
+        unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing,
+        bool prune_suspicious_anchors = false, bool add_graph_alignment_tag = false);
    
     ///  Force full length alignment in surjection resolution 
     bool surject_subpath_global = true;
@@ -72,12 +70,6 @@ protected:
 
     /// Paths to surject into
     unordered_set<path_handle_t> paths;
-    
-    /// Paths to surject into with lower priority
-    unordered_set<path_handle_t> alt_scaffold_paths;
-    
-    /// Paths to return unmapped reads for
-    unordered_set<path_handle_t> decoy_paths;
     
     /// AlignmentEmitter to emit to once done
     unique_ptr<AlignmentEmitter> backing;
