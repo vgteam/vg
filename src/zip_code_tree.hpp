@@ -170,7 +170,32 @@ class ZipCodeTree {
 protected:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
+    //Map of snarl IDs to their start indexes in the zip code tree
+    unordered_map<size_t, size_t> snarl_start_indexes;
     size_t next_snarl_id = 0;
+
+public:
+
+    /*************** Methods for interacting with snarl_start_indexes ***********/
+
+    //Get type of snarl by ID
+    bool is_snarl_cyclic(size_t snarl_id) const {
+        return snarl_start_indexes.count(snarl_id) && 
+               zip_code_tree[snarl_start_indexes.at(snarl_id)].get_type() == CYCLIC_SNARL_START;    
+    }
+
+    //Add snarl start of given type and return its ID
+    size_t open_snarl(bool is_cyclic_snarl);
+
+    //Remove snarls from snarl_start_indexes that are past the given index
+    //Return that subset of snarl_start_indexes, with indexes decreased by the given index
+    //Used for moving a slice of snarls to a new tree
+    unordered_map<size_t, size_t> forget_snarls_past_index(size_t index);
+
+    //Shift all snarls AFTER the snarl of start_snarl_id forward by shift_amount
+    //Doesn't shift the snarls in the zip code tree, just the memory
+    //This is used when adding distance matrices to the start of snarls
+    void shift_snarls_forward(size_t start_snarl_id, size_t shift_amount);
 
 public:
     
@@ -368,7 +393,6 @@ public:
     /// ( and ) are used for the starts and ends of snarls
     /// { and } are used for the starts and ends of cyclic snarls
     /// [ and ] are used for the starts and ends of chains
-    /// < and > are used for the starts and ends of chains in cyclic snarls
     /// seeds are printed as their positions
     void print_self(const vector<Seed>* seeds) const;
 
