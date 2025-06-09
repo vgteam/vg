@@ -24,17 +24,17 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
                 cerr << "rev";
             }
         } else if (item.get_type() == DAG_SNARL_START) {
-            cerr << "(" << item.get_value() << " ";
+            cerr << "(";
         } else if (item.get_type() == DAG_SNARL_END) {
-            cerr << ")" << item.get_value() << " ";
+            cerr << ")";
         } else if (item.get_type() == CYCLIC_SNARL_START) {
-            cerr << "{" << item.get_value() << " ";
+            cerr << "{";
         } else if (item.get_type() == CYCLIC_SNARL_END) {
-            cerr << "}" << item.get_value() << " ";
+            cerr << "}";
         } else if (item.get_type() == CHAIN_START) {
-            cerr << "[" << item.get_value() << " ";
+            cerr << "[";
         } else if (item.get_type() == CHAIN_END) {
-            cerr << "]" << item.get_value() << " ";
+            cerr << "]";
         } else if (item.get_type() == EDGE) {
             cerr << " ";
             if (item.get_value() == std::numeric_limits<size_t>::max()) {
@@ -1128,7 +1128,6 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
     vector<size_t> snarl_id_stack;
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
         const tree_item_t& item = zip_code_tree[i];
-        cerr << item.get_type() << endl;
         if (item.is_snarl_start()) {
             if (tree_stack.size() == 1) {
                 //Also check snarl distances and child count for non-root top-level snarls (is recursive)
