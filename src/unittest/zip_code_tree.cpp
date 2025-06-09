@@ -1410,7 +1410,7 @@ namespace unittest {
                 //Node count
                 REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::NODE_COUNT);
                 //Chain start
-                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CYCLIC_SNARL_CHAIN_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CHAIN_START);
                 //Second seed (4)
                 REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(27).get_value() == 1);
@@ -1502,11 +1502,11 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 //Start of cyclic snarl
-                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::SNARL_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::DAG_SNARL_START);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_value() == 5);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::SNARL_END);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::DAG_SNARL_END);
 
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::EDGE);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 4);

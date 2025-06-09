@@ -115,8 +115,8 @@ class ZipCodeTree {
     public:
 
     ///The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT,
-                           CYCLIC_SNARL_START, CYCLIC_SNARL_END, CYCLIC_SNARL_CHAIN_START, CYCLIC_SNARL_CHAIN_END};
+    enum tree_item_type_t {SEED=0, DAG_SNARL_START, DAG_SNARL_END, CHAIN_START, CHAIN_END,
+                           EDGE, NODE_COUNT, CYCLIC_SNARL_START, CYCLIC_SNARL_END};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
@@ -151,10 +151,8 @@ class ZipCodeTree {
         }
         tree_item_type_t get_type() const { return type; }
         // Convenience functions for checking cyclic or non cyclic bounds together
-        bool is_snarl_start() const { return type == SNARL_START || type == CYCLIC_SNARL_START; }
-        bool is_snarl_end() const { return type == SNARL_END || type == CYCLIC_SNARL_END; }
-        bool is_chain_start() const { return type == CHAIN_START || type == CYCLIC_SNARL_CHAIN_START; }
-        bool is_chain_end() const { return type == CHAIN_END || type == CYCLIC_SNARL_CHAIN_END; }
+        bool is_snarl_start() const { return type == DAG_SNARL_START || type == CYCLIC_SNARL_START; }
+        bool is_snarl_end() const { return type == DAG_SNARL_END || type == CYCLIC_SNARL_END; }
         size_t get_value() const { 
             return value == ((size_t)1 << 59) - 1
                    ? std::numeric_limits<size_t>::max()
@@ -172,7 +170,7 @@ class ZipCodeTree {
 protected:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
-    size_t cur_cyclic_snarl_id = 0;
+    size_t next_snarl_id = 0;
 
 public:
     
@@ -409,17 +407,17 @@ public:
     ///Helper function for validate_zip_tree for just a snarl
     ///zip_iterator is an iterator to the snarl start
     ///zip_iterator will be set to the snarl end
-    ///Calls validate_non_cyclic_snarl or validate_cyclic_snarl as necessary
+    ///Calls validate_dag_snarl or validate_cyclic_snarl as necessary
     void validate_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                         const SnarlDistanceIndex& distance_index, 
                         const vector<Seed>* seeds,
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
-    ///Helper function for validate_snarl for a non-cyclic snarl
-    void validate_non_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                                   const SnarlDistanceIndex& distance_index, 
-                                   const vector<Seed>* seeds,
-                                   size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    ///Helper function for validate_snarl for a DAG snarl
+    void validate_dag_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
+                            const SnarlDistanceIndex& distance_index, 
+                            const vector<Seed>* seeds,
+                            size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
     ///Helper function for validate_snarl for a cyclic snarl
     void validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
@@ -662,8 +660,10 @@ class ZipCodeForest {
 
         //A value associated with the item, either the offset in a chain, index of the snarl 
         //child start
-        //For a cyclic snarl start, this is the ID
         size_t value;  
+
+        // Snarl ID; only used for snarl starts
+        size_t snarl_id;
     
         //For the children of snarls, the distance to the left and right of the chain, that gets 
         //added to edges in the snarl
@@ -680,7 +680,7 @@ class ZipCodeForest {
         bool is_reversed = false;
 
         child_info_t(ZipCodeTree::tree_item_type_t type, size_t value) :
-            type(type), value(value) {}
+            type(type), value(value), snarl_id(std::numeric_limits<size_t>::max()) {}
     };
 
     /// This gets used for sorting. It represents one interval along zipcode_sort_order, which 
@@ -824,8 +824,7 @@ class ZipCodeForest {
     // If only a slice is moved, the last edge is not handled
     // This is used when a chain is too far from the rest of the chain to be in the same tree
     // Returns whether a whole chain was moved (true) or just a slice (false)
-    bool move_slice(forest_growing_state_t& forest_state, const size_t& depth,
-                    bool parent_is_cyclic_snarl, bool has_end);
+    bool move_slice(forest_growing_state_t& forest_state, const size_t& depth);
 
     // Open a chain that starts at the current_seed
     // If the chain is in a snarl, then add empty edges for the distances to everything before it 
