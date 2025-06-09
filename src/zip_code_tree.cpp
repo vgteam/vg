@@ -869,7 +869,7 @@ void ZipCodeTree::shift_snarls_forward(size_t start_snarl_id, size_t shift_amoun
             // Shift the snarl start index
             snarl_start.second += shift_amount;
         }
-    }\
+    }
 }
 
 void ZipCodeForest::add_cyclic_snarl_distances(forest_growing_state_t& forest_state, 
