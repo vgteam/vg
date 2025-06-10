@@ -85,19 +85,18 @@ class ZipCodeTree {
       A snarl is comprised of the two bounds, one or more chains, and the distances among them.
       SEEDs are always contained within a chain.
       Immediately after the SNARL_START, there is a NODE_COUNT storing the number of children in the
-      snarl. After that is the upper triangle of a distance matrix. 
+      snarl. After that is the lower triangle of a distance matrix. Distances involving bounds
+      exclusively may be possible, but are treated as inf since they are never used.
       A DAG snarl with two chains would look like:
-          DAG_SNARL_START, node_count, dist:start->c1, dist:start->c2, dist:start->end,
-                dist:c1->c2, dist:c1->end, dist:c2->end, chain1, chain2, DAG_SNARL_END
+          DAG_SNARL_START, node_count, dist:start->c1, dist:start->c2, dist:c1->c2, inf,
+                dist:c1->end, dist:c2->end, chain1, chain2, DAG_SNARL_END
 
       For snarls that aren't DAGs (called cyclic snarls, even though they could have an inversion 
       and no cycles), distances are stored to either end of each chain, including self-loops.
-      Self-loops for the end bounds are treated as inf distance, even if possible, because they
-      will never be used so they're not worth storing.
       A cyclic snarl with one chain would look like:
-          CYCLIC_SNARL_START, node_count, inf, dist:start->c1_L, dist:start->c1_R, dist:start->end
-                dist:c1_L->c1_L, dist:c1_L->c1_R, dist:c1_L->end, dist:c1_R->c1_R, dist:c1_R->end,
-                inf, chain1, CYCLIC_SNARL_END
+          CYCLIC_SNARL_START, node_count, inf, dist:start->c1_L, dist:c1_L->c1_L,
+                dist:start->c1_R, dist:c1_L->c1_R, dist:c1_R->c1_R, inf, dist:c1_L->end,
+                dist:c1_R->end, inf, chain1, CYCLIC_SNARL_END
 
       Everything is ordered according to the order of the highest-level chain (top-level chain or 
       child of a top-level snarl).
@@ -904,11 +903,11 @@ class ZipCodeForest {
     vector<seed_info_t> get_edge_seeds(const forest_growing_state_t& forest_state, 
                                        const size_t& depth) const;
 
-    // Helper for add_distance_matrix() to add the first row of the distance matrix
-    void add_edges_from_start(vector<tree_item_t>& dist_matrix,
-                              forest_growing_state_t& forest_state, 
-                              const size_t& depth, const vector<seed_info_t>& edge_seeds,
-                              bool snarl_is_reversed, bool is_cyclic_snarl) const;
+    // Helper for add_distance_matrix() to add the last row of the distance matrix
+    void add_edges_to_end(vector<tree_item_t>& dist_matrix,
+                          forest_growing_state_t& forest_state, 
+                          const size_t& depth, const vector<seed_info_t>& edge_seeds,
+                          bool snarl_is_reversed, bool is_cyclic_snarl) const;
     
     // Helper for add_distance_matrix() to add the chains' rows to the distance matrix
     void add_edges_for_chains(vector<tree_item_t>& dist_matrix,
