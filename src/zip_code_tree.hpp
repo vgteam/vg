@@ -195,6 +195,15 @@ public:
     //This is used when adding distance matrices to the start of snarls
     void shift_snarls_forward(size_t start_snarl_id, size_t shift_amount);
 
+    //Look up distances relevant to a given chain, for stacking up distances in the iterator
+    //chain_num is one-indexed, so the first chain is 1, and the last is N
+    //right_side indicates if distances are from the chain's right or left side
+    vector<size_t> get_distances_from_chain(size_t snarl_id, size_t chain_num, bool right_side) const;
+
+    //Helper for get_distances_from_chain()
+    //Look up a single value within a triangular distance matrix
+    size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const;
+
 public:
     
     /**

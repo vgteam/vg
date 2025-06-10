@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -8,7 +8,7 @@
 #include "minimizer_mapper.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
-//#define debug_parse
+#define debug_parse
 
 // Set to compile in assertions to check the zipcode tree parsing logic
 //#define check_parse
@@ -883,6 +883,70 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
     // Shift memorized snarl start indexes
     trees[forest_state.active_tree_index].shift_snarls_forward(
         forest_state.sibling_indices_at_depth[depth][0].snarl_id, num_edges + 1);
+}
+
+vector<size_t> ZipCodeTree::get_distances_from_chain(size_t snarl_id, size_t chain_num, bool right_side) const {
+    // Read snarl header
+    bool is_cyclic = is_snarl_cyclic(snarl_id);
+    size_t dist_matrix_start = snarl_start_indexes.at(snarl_id) + 2;
+    size_t num_chains = zip_code_tree[dist_matrix_start - 1].get_value();
+#ifdef debug_parse
+    cerr << "Get distances for snarl " << snarl_id << " with " << num_chains << " chain(s); "
+         << "stacking for chain " << chain_num << "'s "
+         << (right_side ? "right" : "left") << " side" << endl;
+    assert(chain_num <= num_chains);
+#endif
+
+    vector<size_t> distances;
+
+    if (is_cyclic) {
+        size_t cur_row = chain_num * 2 - (right_side ? 0 : 1);
+        // Cyclic snarl always stacks all lefts on top of then all rights 
+        // Due to "bouncing", c1_L is on top, and c1_R is on bottom
+        for (size_t i = 1; i <= num_chains; i++) {
+            // Right sides from c1 to cN
+            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2));
+        }
+        for (size_t i = num_chains; i >= 1; i--) {
+            // Left sides from cN to c1
+            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2 - 1));
+        }
+    } else {
+        if (right_side) {
+            // DAG snarl, going left to right: get distances to all chains to right
+            for (size_t i = num_chains; i > chain_num; i--) {
+                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
+            }
+        } else {
+            // DAG snarl, going right to left: get distances to all chains to left
+            for (size_t i = 1; i < chain_num; i++) {
+                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
+            }
+        }
+    }
+
+#ifdef debug_parse
+    cerr << "Distances (bottom to top): ";
+    for (const auto& dist : distances) {
+        cerr << dist << " ";
+    }
+    cerr << endl;
+#endif
+    return distances;
+}
+
+size_t ZipCodeTree::get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const {
+    if (row < col) {
+        // We only store the lower triangle, so swap the row and column
+        size_t temp = row;
+        row = col;
+        col = temp;
+    }
+
+    // Triangular number of elements in previous rows, then offset by col
+    size_t within_matrix_i = has_main_diagonal ? (row * (row + 1)) / 2 + col
+                                               : (row * (row - 1)) / 2 + col;
+    return zip_code_tree[matrix_start_i + within_matrix_i].get_value();
 }
 
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<Seed>& seeds, 
