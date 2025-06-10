@@ -1421,31 +1421,17 @@ void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index
     }
 }
 
-
 void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                                  const SnarlDistanceIndex& distance_index, 
                                  const vector<Seed>* seeds,
                                  size_t distance_limit) const {
-    //Is this actually a snarl?
+#ifdef DEBUG_ZIP_CODE_TREE
+    std::cerr << "Validating snarl" << std::endl;
+#endif
+    // Snarl header
     assert(zip_iterator->is_snarl_start());
-    if (zip_iterator->get_type() == ZipCodeTree::DAG_SNARL_START) {
-        validate_dag_snarl(zip_iterator, distance_index, seeds, distance_limit);
-        assert(zip_iterator->get_type() == ZipCodeTree::DAG_SNARL_END);
-    } else if (zip_iterator->get_type() == ZipCodeTree::CYCLIC_SNARL_START) {
-        validate_cyclic_snarl(zip_iterator, distance_index, seeds, distance_limit);
-        assert(zip_iterator->get_type() == ZipCodeTree::CYCLIC_SNARL_END);
-    }
-}
-
-void ZipCodeTree::validate_dag_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                                     const SnarlDistanceIndex& distance_index, 
-                                     const vector<Seed>* seeds,
-                                     size_t distance_limit) const {
-#ifdef DEBUG_ZIP_CODE_TREE
-    std::cerr << "Validating DAG snarl" << std::endl;
-#endif
-    // Snarl header
-    assert(zip_iterator->get_type() == ZipCodeTree::DAG_SNARL_START);
+    bool is_cyclic_snarl = (zip_iterator->get_type() == ZipCodeTree::CYCLIC_SNARL_START);
+    
     size_t snarl_id = zip_iterator->get_value();
     zip_iterator++;
     assert(zip_iterator->get_type() == ZipCodeTree::NODE_COUNT);
@@ -1460,72 +1446,25 @@ void ZipCodeTree::validate_dag_snarl(std::vector<tree_item_t>::const_iterator& z
         zip_iterator++;
     }
 
-    assert(dist_matrix.size() == node_count * (node_count + 1) / 2);
-
-    net_handle_t snarl_handle = distance_index.get_root();
-
-    // Read chains
-    vector<pos_t> positions;
-    // Placeholder for snarl start
-    positions.emplace_back(make_pos_t(0, false, 0));
-    while (zip_iterator->get_type() != ZipCodeTree::DAG_SNARL_END) {
-        assert(zip_iterator->get_type() == ZipCodeTree::CHAIN_START);
-        assert(zip_iterator->get_value() == snarl_id);
-
-        validate_chain(zip_iterator, distance_index, seeds, distance_limit);
-
-        // Back up to last child
-        zip_iterator--;
-        store_seed_position(*zip_iterator, distance_index, seeds, positions);
-        // Skip to next chain start
-        zip_iterator += 2;
-    }
-    assert(zip_iterator->get_value() == snarl_id);
-
-    assert(positions.size() == node_count);
-    // Placeholder for snarl end
-    positions.emplace_back(make_pos_t(0, false, 0));
-
-    validate_distance_matrix(distance_index, dist_matrix, positions, false, distance_limit);
-};
-
-void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                                        const SnarlDistanceIndex& distance_index, 
-                                        const vector<Seed>* seeds,
-                                        size_t distance_limit) const {
-#ifdef DEBUG_ZIP_CODE_TREE
-    std::cerr << "Validating cyclic snarl" << std::endl;
-#endif
-    // Snarl header
-    assert(zip_iterator->get_type() == ZipCodeTree::CYCLIC_SNARL_START);
-    size_t snarl_id = zip_iterator->get_value();
-    zip_iterator++;
-    assert(zip_iterator->get_type() == ZipCodeTree::NODE_COUNT);
-    // Nodes are children plus the snarl start
-    size_t node_count = zip_iterator->get_value()+1;
-    zip_iterator++;
-
-    // Read distance matrix - can't use until we read the chains
-    vector<size_t> dist_matrix;
-    while (zip_iterator->get_type() == ZipCodeTree::EDGE) {
-        dist_matrix.push_back(zip_iterator->get_value());
-        zip_iterator++;
-    }
-
-    assert(dist_matrix.size() == (node_count*2) * (node_count*2 + 1) / 2);
+    assert(dist_matrix.size() == is_cyclic_snarl ? (node_count*2) * (node_count*2 + 1) / 2
+                                                 : node_count * (node_count + 1) / 2);
 
     // Read chains
     vector<pos_t> positions;
     // Placeholder for snarl start
     positions.emplace_back(make_pos_t(0, false, 0));
-    while (zip_iterator->get_type() != ZipCodeTree::CYCLIC_SNARL_END) {
+    while (!zip_iterator->is_snarl_end()) {
         assert(zip_iterator->get_type() == ZipCodeTree::CHAIN_START);
         assert(zip_iterator->get_value() == snarl_id);
-        // Skip forward to first child
-        zip_iterator++;
-        store_seed_position(*zip_iterator, distance_index, seeds, positions, true);
-        // Back up to start of the chain
-        zip_iterator--;
+
+        // Only need to store first seeds for cyclic snarls
+        if (is_cyclic_snarl) {
+            // Skip forward to first child
+            zip_iterator++;
+            store_seed_position(*zip_iterator, distance_index, seeds, positions, true);
+            // Back up to start of the chain
+            zip_iterator--;
+        }
 
         validate_chain(zip_iterator, distance_index, seeds, distance_limit);
 
@@ -1535,13 +1474,16 @@ void ZipCodeTree::validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator
         // Skip to next chain start
         zip_iterator += 2;
     }
+    assert(zip_iterator->get_type() == is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_END 
+                                                       : ZipCodeTree::DAG_SNARL_END);
     assert(zip_iterator->get_value() == snarl_id);
 
     // Placeholder for snarl end
     positions.emplace_back(make_pos_t(0, false, 0));
-    assert(positions.size() / 2 == node_count);
+    assert(positions.size() == is_cyclic_snarl ? node_count * 2
+                                               : node_count + 1);
     
-    validate_distance_matrix(distance_index, dist_matrix, positions, true, distance_limit);
+    validate_distance_matrix(distance_index, dist_matrix, positions, is_cyclic_snarl, distance_limit);
 }
 
 void ZipCodeTree::store_seed_position(tree_item_t child, 

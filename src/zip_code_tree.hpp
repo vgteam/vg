@@ -430,23 +430,10 @@ public:
     ///Helper function for validate_zip_tree for just a snarl
     ///zip_iterator is an iterator to the snarl start
     ///zip_iterator will be set to the snarl end
-    ///Calls validate_dag_snarl or validate_cyclic_snarl as necessary
     void validate_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
                         const SnarlDistanceIndex& distance_index, 
                         const vector<Seed>* seeds,
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
-    
-    ///Helper function for validate_snarl for a DAG snarl
-    void validate_dag_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                            const SnarlDistanceIndex& distance_index, 
-                            const vector<Seed>* seeds,
-                            size_t distance_limit = std::numeric_limits<size_t>::max()) const;
-
-    ///Helper function for validate_snarl for a cyclic snarl
-    void validate_cyclic_snarl(std::vector<tree_item_t>::const_iterator& zip_iterator, 
-                               const SnarlDistanceIndex& distance_index, 
-                               const vector<Seed>* seeds,
-                               size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
     ///Store current seed's position at the end of the list
     ///Possibly reverse seed (for the first seed in a cyclic snarl)
