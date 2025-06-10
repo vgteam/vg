@@ -1495,23 +1495,26 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //[1+0/0 3 ( 0 [2+0/0] 4  0  1) 0 3+0/0 1 3+1/0 5 ( 0 [4+0/0 2 ( 0 [5+0/0] 2  0  1) 0 6+0/0] 4  1 [7+1/0] 2  6  0  2) 0 8+0/0 2 8+2/0]
+                //0 1  2 3 4 5  6  7 8 9 10 12 13 14 15 16 17 19 20 21 22 23 24
+                //[1+0 3 (1  0  4  0 [2+0]) 0 3+0 1 3+1 5 (2  0  4  1  6  2  0 [4+0 2 (1  0  2  0 [5+0]) 0 6+0][7+1]) 0 8+0 2 8+2]
                 //Check some random elements
 
                 //First seed
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
-                //Start of cyclic snarl
+                //Start of snarl
                 REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::DAG_SNARL_START);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_type() == ZipCodeTree::SEED);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(25).get_value() == 5);
+                
+                //Parts of distance matrix
+                REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_value() == 4);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(21).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(21).get_value() == 1);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_type() == ZipCodeTree::DAG_SNARL_END);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 5);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 4);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(35).get_type() == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(35).get_value() == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(36).get_type() == ZipCodeTree::DAG_SNARL_END);
 
             }
 
