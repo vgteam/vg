@@ -1495,8 +1495,7 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //0 1  2 3 4 5  6  7 8 9 10 12 13 14 15 16 17 19 20 21 22 23 24
-                //[1+0 3 (1  0  4  0 [2+0]) 0 3+0 1 3+1 5 (2  0  4  1  6  2  0 [4+0 2 (1  0  2  0 [5+0]) 0 6+0][7+1]) 0 8+0 2 8+2]
+                //[1+0 3 (1  0  0  4 [2+0]) 0 3+0 1 3+1 5 (2  0  1  0  4  6  2 [4+0 2 (1  0  0  2 [5+0]) 0 6+0][7+1]) 0 8+0 2 8+2]
                 //Check some random elements
 
                 //First seed
@@ -1507,9 +1506,9 @@ namespace unittest {
                 
                 //Parts of distance matrix
                 REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_type() == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_value() == 4);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(21).get_type() == ZipCodeTree::EDGE);
-                REQUIRE(zip_forest.trees[0].get_item_at_index(21).get_value() == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_value() == 1);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(22).get_type() == ZipCodeTree::EDGE);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(22).get_value() == 4);
 
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 5);
@@ -2355,11 +2354,11 @@ namespace unittest {
 
             // Check self-loop distances
             // c1_left -> c1_left
-            REQUIRE(zip_forest.trees[0].get_item_at_index(6).get_value() == 0);
-            // c1_right -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(8).get_value() == 18);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(9).get_value() == 0);
             // c1_left -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(9).get_value() == 22);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 22);
+            // c1_right -> c1_right
+            REQUIRE(zip_forest.trees[0].get_item_at_index(12).get_value() == 18);
         }
     }
 
