@@ -895,9 +895,12 @@ class ZipCodeForest {
                              const size_t& depth, const Seed& seed, bool child_is_reversed, 
                              bool snarl_is_reversed, bool to_snarl_end);
 
-    // Add a triangular distance matrix for a cyclic snarl to its front
-    void add_cyclic_snarl_distances(forest_growing_state_t& forest_state, 
-                                    const size_t& depth, bool snarl_is_reversed);
+    // Add a triangular distance matrix for a snarl to its front
+    // The matrix starts with a NODE_COUNT with the number of child chains,
+    // and then is a list of EDGEs; for each item in order, all distances to it
+    // from all previous items, possibly including self-loops
+    void add_distance_matrix(forest_growing_state_t& forest_state, 
+                             const size_t& depth, bool snarl_is_reversed);
 
 
     /************ Helper functions for debugging ************/
