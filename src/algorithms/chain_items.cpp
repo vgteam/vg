@@ -309,7 +309,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
-        for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
+        for (ZipCodeTree::seed_iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
 

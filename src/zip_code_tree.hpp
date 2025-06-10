@@ -244,25 +244,25 @@ public:
     /**
      * Iterator that visits all seeds right to left in the tree's in-order traversal.
      */
-    class iterator {
+    class seed_iterator {
     public:
         /// Make an iterator wrapping the given iterator, until the given end.
-        iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
+        seed_iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
         
         // Iterators are copyable and movable.
-        iterator(const iterator& other) = default;
-        iterator(iterator&& other) = default;
-        iterator& operator=(const iterator& other) = default;
-        iterator& operator=(iterator&& other) = default;
+        seed_iterator(const seed_iterator& other) = default;
+        seed_iterator(seed_iterator&& other) = default;
+        seed_iterator& operator=(const seed_iterator& other) = default;
+        seed_iterator& operator=(seed_iterator&& other) = default;
 
         /// Advance right
-        iterator& operator++();
+        seed_iterator& operator++();
 
         /// Compare for equality to see if we hit end
-        bool operator==(const iterator& other) const;
+        bool operator==(const seed_iterator& other) const;
 
         /// Compare for inequality
-        inline bool operator!=(const iterator& other) const {
+        inline bool operator!=(const seed_iterator& other) const {
             return !(*this == other);
         }
         
@@ -281,9 +281,9 @@ public:
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
-    iterator begin() const;
+    seed_iterator begin() const;
     /// Get the end iterator for seeds in the tree, left to right.
-    iterator end() const;
+    seed_iterator end() const;
 
     /**
      * Iterator that looks left in the tree from a seed, possibly up to a maximum base distance.
@@ -386,7 +386,7 @@ public:
     };
 
     /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit
-    reverse_iterator look_back(const iterator& from, 
+    reverse_iterator look_back(const seed_iterator& from, 
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
     reverse_iterator rend() const;
@@ -982,7 +982,7 @@ template <> struct hash<vg::ZipCodeTree::seed_result_t>
 /// Explain to the STL algorithms what kind of iterator the zip code tree
 /// forward iterator is.
 template<>
-struct iterator_traits<vg::ZipCodeTree::iterator>{
+struct iterator_traits<vg::ZipCodeTree::seed_iterator>{
     using value_type = vg::ZipCodeTree::oriented_seed_t;   
     using iterator_category = forward_iterator_tag;
 };

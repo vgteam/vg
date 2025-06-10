@@ -1674,14 +1674,14 @@ void ZipCodeTree::validate_chain(vector<tree_item_t>::const_iterator& zip_iterat
     }
 }
 
-ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
+ZipCodeTree::seed_iterator::seed_iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
     while (this->it != this->end && this->it->get_type() != SEED) {
         // Immediately advance to the first seed
         ++this->it;
     }
 }
 
-auto ZipCodeTree::iterator::operator++() -> iterator& {
+auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
     ++it;
     while (it != end && it->get_type() != SEED) {
         // Advance to the next seed, or the end.
@@ -1690,16 +1690,16 @@ auto ZipCodeTree::iterator::operator++() -> iterator& {
     return *this;
 }
 
-auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
+auto ZipCodeTree::seed_iterator::operator==(const seed_iterator& other) const -> bool {
     // Ends don't matter for comparison.
     return it == other.it;
 }
     
-auto ZipCodeTree::iterator::operator*() const -> oriented_seed_t {
+auto ZipCodeTree::seed_iterator::operator*() const -> oriented_seed_t {
     return {it->get_value(), it->get_is_reversed()};
 }
 
-auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
+auto ZipCodeTree::seed_iterator::remaining_tree() const -> size_t {
     size_t to_return = end - it - 1;
 #ifdef debug_parse
     std::cerr << "From " << &*it << " there are " << to_return << " slots after" << std::endl;
@@ -1707,12 +1707,12 @@ auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
     return to_return;
 }
 
-auto ZipCodeTree::begin() const -> iterator {
-    return iterator(zip_code_tree.begin(), zip_code_tree.end());
+auto ZipCodeTree::begin() const -> seed_iterator {
+    return seed_iterator(zip_code_tree.begin(), zip_code_tree.end());
 }
 
-auto ZipCodeTree::end() const -> iterator {
-    return iterator(zip_code_tree.end(), zip_code_tree.end());
+auto ZipCodeTree::end() const -> seed_iterator {
+    return seed_iterator(zip_code_tree.end(), zip_code_tree.end());
 }
 
 // TODO: pass information about cyclic snarls?
@@ -2137,7 +2137,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
     return false;
 }
 
-auto ZipCodeTree::look_back(const iterator& from, size_t distance_limit) const -> reverse_iterator {
+auto ZipCodeTree::look_back(const seed_iterator& from, size_t distance_limit) const -> reverse_iterator {
     return reverse_iterator(zip_code_tree.rbegin() + from.remaining_tree(), zip_code_tree.rend(), distance_limit);
 }
 auto ZipCodeTree::rend() const -> reverse_iterator {
