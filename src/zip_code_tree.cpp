@@ -1953,6 +1953,43 @@ auto ZipCodeTree::distance_iterator::state(State new_state) -> void {
     current_state = new_state;
 }
 
+bool ZipCodeTree::distance_iterator::entered_snarl() const {
+    return (right_to_left && it->is_snarl_end())
+           || (!right_to_left && it->is_snarl_start());
+}
+
+bool ZipCodeTree::distance_iterator::exited_snarl() const {
+    return (right_to_left && it->is_snarl_start())
+           || (!right_to_left && it->is_snarl_end());
+}
+
+bool ZipCodeTree::distance_iterator::entered_chain() const {
+    return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_END)
+           || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_START);
+}
+
+bool ZipCodeTree::distance_iterator::exited_chain() const {
+    return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_START)
+           || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_END);
+}
+
+void ZipCodeTree::distance_iterator::skip_chain() {
+    // Tracker for how nested we are in snarls
+    // We are only allowed to stop skipping when at the same nestedness
+    push(0);
+    state(S_SKIP_CHAIN);
+}
+
+void ZipCodeTree::distance_iterator::initialize_chain() {
+    if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
+        // Running distance is already too high so skip the chain
+        skip_chain();
+    } else {
+        // Do the chain
+        state(S_SCAN_CHAIN);
+    }
+}
+
 auto ZipCodeTree::distance_iterator::halt() -> void {
 #ifdef debug_parse
     std::cerr << "Halt iteration!" << std::endl;
@@ -2056,9 +2093,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 } else {
                     // We need to try the next thing in the parent snarl,
                     // so skip the rest of the chain.
-                    // We're skipping in 0 nested snarls right now.
-                    push(0);
-                    state(S_SKIP_CHAIN);
+                    skip_chain();
                 }
             }
             break;
@@ -2101,15 +2136,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 // When we halt we have to return true to show the position.
                 return true;
             } else {
-                // So now we have the running distance for this next chain.
-                if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
-                    // Running distance is already too high so skip the chain
-                    push(0);
-                    state(S_SKIP_CHAIN);
-                } else {
-                    // Do the chain
-                    state(S_SCAN_CHAIN);
-                }
+                initialize_chain();
             }
             break;
         case CYCLIC_SNARL_START: // For now we treat these like regular snarls
@@ -2163,14 +2190,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         case CHAIN_END:
             // We've encountered a chain to look at, and the running distance
             // into the chain is already on the stack.
-            if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
-                // Running distance is already too high so skip over the chain
-                push(0);
-                state(S_SKIP_CHAIN);
-            } else {
-                // Do the chain
-                state(S_SCAN_CHAIN);
-            }
+            initialize_chain();
             break;
         case EDGE:
             // We've found edge data in the snarl, but we already know the
@@ -3024,8 +3044,14 @@ std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state) {
         return "S_FIND_CHAIN";
     case vg::ZipCodeTree::distance_iterator::S_SCAN_DAG_SNARL:
         return "S_SCAN_DAG_SNARL";
+    case vg::ZipCodeTree::distance_iterator::S_SCAN_CYCLIC_SNARL:
+        return "S_SCAN_CYCLIC_SNARL";
     case vg::ZipCodeTree::distance_iterator::S_SKIP_CHAIN:
         return "S_SKIP_CHAIN";
+    case vg::ZipCodeTree::distance_iterator::S_SKIP_SNARL:
+        return "S_SKIP_SNARL";
+    case vg::ZipCodeTree::distance_iterator::S_FIND_DIST_MATRIX:
+        return "S_FIND_DIST_MATRIX";
     default:
         throw std::runtime_error("Unimplemented zip code tree reverse iterator state");
     }

@@ -385,6 +385,8 @@ public:
         /// Reverse the top two elements of the stack
         void swap();
 
+        // Helper functions for the automaton
+
         /// Current state of the automaton
         State current_state;
 
@@ -397,6 +399,27 @@ public:
 
         /// Throw a domain_error that the current state/symbol combo is unimplemented.
         void unimplemented_error();
+
+        // Check if the current symbol is an entrance/exit,
+        // based on the direction the iterator is going.
+        bool entered_snarl() const;
+        bool exited_snarl() const;
+        bool entered_chain() const;
+        bool exited_chain() const;
+
+        // Set up the automaton to start skipping through a chain.
+        void skip_chain();
+
+        // Decide what to do right after entering a new chain.
+        // This chain's distance should be on top of the stack.
+        void initialize_chain();
+
+        // Decide what to do right after entering a new snarl.
+        void initialize_snarl(size_t chain_num);
+
+        // Decide what to do when re-entering a snarl,
+        // having already stacked up distances
+        void continue_snarl();
 
         /// Tick the automaton, looking at the symbol at *it and updating the
         /// stack and current_state. Returns true to yield a value at the
