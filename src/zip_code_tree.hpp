@@ -305,7 +305,7 @@ public:
         /// the given rend, with the given distance limit.
         distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
                           vector<tree_item_t>::const_reverse_iterator rend, 
-                          std::stack<size_t> chain_numbers,
+                          std::stack<size_t> chain_numbers, bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
@@ -347,6 +347,8 @@ public:
         std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
         size_t distance_limit;
+        /// Whether we are looking right to left (true) or left to right (false)
+        bool right_to_left;
         /// Stack for computing distances.
         /// Not allocated unless we actually go to use it, so rend() deosn't need to carry one.
         std::unique_ptr<std::stack<size_t>> stack_data;
@@ -400,9 +402,9 @@ public:
 
     };
 
-    /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit
-    distance_iterator look_back(const seed_iterator& from, 
-                               size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    /// Get a iterator starting from where a forward iterator is, up to a distance limit
+    distance_iterator find_distances(const seed_iterator& from, bool right_to_left = true,
+                                     size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
     distance_iterator rend() const;
 

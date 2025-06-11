@@ -63,7 +63,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 1);
             // The only seed can't see any other seeds
@@ -123,7 +123,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 2);
             // The first seed can't see any other seeds
@@ -206,7 +206,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
@@ -340,7 +340,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
@@ -456,7 +456,7 @@ namespace unittest {
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto& zip_tree : zip_forest.trees) {
                 for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                    std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                    std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
                 }
             }
             REQUIRE(reverse_views.size() == 2);
@@ -526,7 +526,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             //std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             //for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-            //    std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            //    std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             //}
             //REQUIRE(reverse_views.size() == 4);
             //// The first seed can't see any other seeds
@@ -683,7 +683,7 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                std::copy(zip_tree.find_distances(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 3);
             if (seed_indexes.at(0).is_reverse) {

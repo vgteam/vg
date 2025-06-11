@@ -1790,9 +1790,10 @@ auto ZipCodeTree::end() const -> seed_iterator {
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
-    vector<tree_item_t>::const_reverse_iterator rend, std::stack<size_t> chain_numbers, size_t distance_limit) : 
-    it(rbegin), rend(rend), chain_numbers(chain_numbers), distance_limit(distance_limit),
-    stack_data(nullptr), current_state(S_START){
+    vector<tree_item_t>::const_reverse_iterator rend, std::stack<size_t> chain_numbers, 
+    bool right_to_left, size_t distance_limit) : 
+    it(rbegin), rend(rend), chain_numbers(chain_numbers), right_to_left(right_to_left),
+    distance_limit(distance_limit), stack_data(nullptr), current_state(S_START) {
 #ifdef debug_parse
     if (this->it != rend) {
         std::cerr << "Able to do first initial tick." << std::endl;
@@ -1824,14 +1825,14 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
 ZipCodeTree::distance_iterator::distance_iterator(const distance_iterator& other) : 
     it(other.it), rend(other.rend), distance_limit(other.distance_limit), chain_numbers(std::move(other.chain_numbers)),
     stack_data(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr), 
-    current_state(other.current_state) {
+    right_to_left(other.right_to_left), current_state(other.current_state) {
     // Nothing to do!
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(distance_iterator&& other) : 
     it(std::move(other.it)), rend(std::move(other.rend)), chain_numbers(std::move(other.chain_numbers)),
     distance_limit(std::move(other.distance_limit)), stack_data(std::move(other.stack_data)),
-    current_state(std::move(other.current_state)) {
+    right_to_left(other.right_to_left), current_state(std::move(other.current_state)) {
     // Nothing to do!
 }
 
@@ -1841,6 +1842,7 @@ auto ZipCodeTree::distance_iterator::operator=(const distance_iterator& other) -
     chain_numbers = other.chain_numbers;
     distance_limit = other.distance_limit;
     stack_data.reset(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr);
+    right_to_left = other.right_to_left;
     current_state = other.current_state;
     return *this;
 }
@@ -1851,6 +1853,7 @@ auto ZipCodeTree::distance_iterator::operator=(distance_iterator&& other) -> dis
     chain_numbers = std::move(other.chain_numbers);
     distance_limit = std::move(other.distance_limit);
     stack_data = std::move(other.stack_data);
+    right_to_left = std::move(other.right_to_left);
     current_state = std::move(other.current_state);
     return *this;
 }
@@ -1862,13 +1865,21 @@ auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
 #ifdef debug_parse
     std::cerr << "Skipping over a " << it->get_type() << " which we assume was handled already." << std::endl;
 #endif
-        ++it;
+        if (right_to_left) {
+            ++it;
+        } else {
+            --it;
+        }
 
     }
     while (it != rend && !tick()) {
         // Skip ahead to the next seed we actually want to yield,
         // or to the end of the data.
-        ++it;
+        if (right_to_left) {
+            ++it;
+        } else {
+            --it;
+        }
     }
 #ifdef debug_parse
     if (it == rend) {
@@ -2241,9 +2252,11 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
     return false;
 }
 
-auto ZipCodeTree::look_back(const seed_iterator& from, size_t distance_limit) const -> distance_iterator {
-    return distance_iterator(zip_code_tree.rbegin() + from.remaining_tree(), zip_code_tree.rend(), 
-                            from.chain_numbers, distance_limit);
+auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
+                                 size_t distance_limit) const -> distance_iterator {
+    return distance_iterator(zip_code_tree.rbegin() + from.remaining_tree(), 
+                            right_to_left ? zip_code_tree.rend() : zip_code_tree.rbegin(), 
+                            from.chain_numbers, right_to_left, distance_limit);
 }
 auto ZipCodeTree::rend() const -> distance_iterator {
     return distance_iterator(zip_code_tree.rend(), zip_code_tree.rend(), std::stack<size_t>(), 0);
