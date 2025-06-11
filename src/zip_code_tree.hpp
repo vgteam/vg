@@ -147,6 +147,10 @@ class ZipCodeTree {
                 value = raw_value;
             }
         }
+
+        // Non-edges always have a "false" for is_reversed
+        tree_item_t ( tree_item_type_t type, size_t raw_value) 
+            : tree_item_t(type, raw_value, false) {}
         tree_item_type_t get_type() const { return type; }
         // Convenience functions for checking cyclic or non cyclic bounds together
         bool is_snarl_start() const { return type == DAG_SNARL_START || type == CYCLIC_SNARL_START; }
@@ -385,6 +389,9 @@ public:
         /// Stop parsing because nothing else can be below the distance limit.
         /// This moves the current iterator it.
         void halt();
+
+        /// Throw a domain_error that the current state/symbol combo is unimplemented.
+        void unimplemented_error();
 
         /// Tick the automaton, looking at the symbol at *it and updating the
         /// stack and current_state. Returns true to yield a value at the
