@@ -299,29 +299,29 @@ public:
      *
      * See https://github.com/benedictpaten/long_read_giraffe_chainer_prototype/blob/b590c34055474b0c901a681a1aa99f1651abb6a4/zip_tree_iterator.py.
      */
-    class reverse_iterator {
+    class distance_iterator {
     public:
         /// Make a reverse iterator wrapping the given reverse iterator, until
         /// the given rend, with the given distance limit.
-        reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
-                         vector<tree_item_t>::const_reverse_iterator rend, 
-                         std::stack<size_t> chain_numbers,
-                         size_t distance_limit = std::numeric_limits<size_t>::max());
+        distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
+                          vector<tree_item_t>::const_reverse_iterator rend, 
+                          std::stack<size_t> chain_numbers,
+                          size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
-        reverse_iterator(const reverse_iterator& other);
-        reverse_iterator(reverse_iterator&& other);
-        reverse_iterator& operator=(const reverse_iterator& other);
-        reverse_iterator& operator=(reverse_iterator&& other);
+        distance_iterator(const distance_iterator& other);
+        distance_iterator(distance_iterator&& other);
+        distance_iterator& operator=(const distance_iterator& other);
+        distance_iterator& operator=(distance_iterator&& other);
 
         /// Move left
-        reverse_iterator& operator++();
+        distance_iterator& operator++();
 
         /// Compare for equality to see if we hit end (the past-the-left position)
-        bool operator==(const reverse_iterator& other) const;
+        bool operator==(const distance_iterator& other) const;
 
         /// Compare for inequality
-        inline bool operator!=(const reverse_iterator& other) const {
+        inline bool operator!=(const distance_iterator& other) const {
             return !(*this == other);
         }
         
@@ -401,10 +401,10 @@ public:
     };
 
     /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit
-    reverse_iterator look_back(const seed_iterator& from, 
+    distance_iterator look_back(const seed_iterator& from, 
                                size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
-    reverse_iterator rend() const;
+    distance_iterator rend() const;
 
 
 public:
@@ -961,7 +961,7 @@ class ZipCodeForest {
 /// Print an item type to a stream
 std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
 /// Pritn an iterator state to a stream
-std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state);
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state);
 
 }
 
@@ -970,7 +970,7 @@ namespace std {
 /// Make an item type into a string
 std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type);
 /// Make an iterator state into a string
-std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state);
+std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state);
 
 /// Hash functor to hash oriented_seed_t with std::hash
 template <> struct hash<vg::ZipCodeTree::oriented_seed_t>
@@ -1005,7 +1005,7 @@ struct iterator_traits<vg::ZipCodeTree::seed_iterator>{
 /// Explain to the STL algorithms what kind of iterator the zip code tree
 /// reverse iterator is.
 template<>
-struct iterator_traits<vg::ZipCodeTree::reverse_iterator>{
+struct iterator_traits<vg::ZipCodeTree::distance_iterator>{
     using value_type = vg::ZipCodeTree::seed_result_t;   
     using iterator_category = forward_iterator_tag;
 };
