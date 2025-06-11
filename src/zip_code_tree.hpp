@@ -246,6 +246,11 @@ public:
      */
     class seed_iterator {
     public:
+        // How far inside of a cyclic snarl are we?
+        size_t cyclic_snarl_nested_depth = 0;
+        // Within each parent snarl, which chain are we in?
+        stack<size_t> chain_numbers;
+
         /// Make an iterator wrapping the given iterator, until the given end.
         seed_iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
         
@@ -296,6 +301,7 @@ public:
         /// the given rend, with the given distance limit.
         reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
                          vector<tree_item_t>::const_reverse_iterator rend, 
+                         std::stack<size_t> chain_numbers,
                          size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
@@ -333,6 +339,8 @@ public:
         vector<tree_item_t>::const_reverse_iterator it;
         /// Where the rend is where we have to stop
         vector<tree_item_t>::const_reverse_iterator rend;
+        /// Within each parent snarl, which chain are we in?
+        std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
         size_t distance_limit;
         /// Stack for computing distances.
