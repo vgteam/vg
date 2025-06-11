@@ -180,12 +180,6 @@ public:
 
     /*************** Methods for interacting with snarl_start_indexes ***********/
 
-    //Get type of snarl by ID
-    bool is_snarl_cyclic(size_t snarl_id) const {
-        return snarl_start_indexes.count(snarl_id) && 
-               zip_code_tree[snarl_start_indexes.at(snarl_id)].get_type() == CYCLIC_SNARL_START;    
-    }
-
     //Add snarl start of given type and return its ID
     size_t open_snarl(bool is_cyclic_snarl);
 
@@ -198,15 +192,6 @@ public:
     //Doesn't shift the snarls in the zip code tree, just the memory
     //This is used when adding distance matrices to the start of snarls
     void shift_snarls_forward(size_t start_snarl_id, size_t shift_amount);
-
-    //Look up distances relevant to a given chain, for stacking up distances in the iterator
-    //chain_num is one-indexed, so the first chain is 1, and the last is N
-    //right_side indicates if distances are from the chain's right or left side
-    vector<size_t> get_distances_from_chain(size_t snarl_id, size_t chain_num, bool right_side) const;
-
-    //Helper for get_distances_from_chain()
-    //Look up a single value within a triangular distance matrix
-    size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const;
 
 public:
     
@@ -251,12 +236,17 @@ public:
     class seed_iterator {
     public:
         // How far inside of a cyclic snarl are we?
-        size_t cyclic_snarl_nested_depth = 0;
+        size_t cyclic_snarl_nested_depth;
         // Within each parent snarl, which chain are we in?
         stack<size_t> chain_numbers;
+        /// References to the zip code tree to let us look up distance matrices
+        const vector<tree_item_t>& zip_code_tree;
+        const unordered_map<size_t, size_t>& snarl_start_indexes;
 
         /// Make an iterator wrapping the given iterator, until the given end.
-        seed_iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
+        seed_iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end,
+                      const vector<tree_item_t>& zip_code_tree,
+                      const unordered_map<size_t, size_t>& snarl_start_indexes);
         
         // Iterators are copyable and movable.
         seed_iterator(const seed_iterator& other) = default;
@@ -305,6 +295,8 @@ public:
         /// the given rend, with the given distance limit.
         distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
                           vector<tree_item_t>::const_reverse_iterator rend, 
+                          const vector<tree_item_t>& zip_code_tree,
+                          const unordered_map<size_t, size_t>& snarl_start_indexes,
                           std::stack<size_t> chain_numbers, bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
@@ -352,6 +344,9 @@ public:
         size_t distance_limit;
         /// Whether we are looking right to left (true) or left to right (false)
         bool right_to_left;
+        /// References to the zip code tree to let us look up distance matrices
+        const vector<tree_item_t>& zip_code_tree;
+        const unordered_map<size_t, size_t>& snarl_start_indexes;
         /// Stack for computing distances.
         /// Not allocated unless we actually go to use it, so rend() deosn't need to carry one.
         std::unique_ptr<std::stack<size_t>> stack_data;
@@ -385,7 +380,22 @@ public:
         /// Reverse the top two elements of the stack
         void swap();
 
-        // Helper functions for the automaton
+        // Methods to look up distances to stack
+
+        bool snarl_is_cyclic(size_t snarl_id) const {
+            return zip_code_tree[snarl_start_indexes.at(snarl_id)].get_type() == CYCLIC_SNARL_START;
+        }
+
+        //Look up distances relevant to a given chain, for stacking up distances in the iterator
+        //chain_num is one-indexed, so the first chain is 1, and the last is N
+        //right_side indicates if distances are from the chain's right or left side
+        vector<size_t> get_distances_from_chain(size_t snarl_id, size_t chain_num, bool right_side) const;
+
+        //Helper for get_distances_from_chain()
+        //Look up a single value within a triangular distance matrix
+        size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const;
+
+        // Helper functions for the automaton's state machine
 
         /// Current state of the automaton
         State current_state;

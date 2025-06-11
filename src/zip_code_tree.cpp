@@ -927,70 +927,6 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
         forest_state.sibling_indices_at_depth[depth][0].snarl_id, num_edges + 1);
 }
 
-vector<size_t> ZipCodeTree::get_distances_from_chain(size_t snarl_id, size_t chain_num, bool right_side) const {
-    // Read snarl header
-    bool is_cyclic = is_snarl_cyclic(snarl_id);
-    size_t dist_matrix_start = snarl_start_indexes.at(snarl_id) + 2;
-    size_t num_chains = zip_code_tree[dist_matrix_start - 1].get_value();
-#ifdef debug_parse
-    cerr << "Get distances for snarl " << snarl_id << " with " << num_chains << " chain(s); "
-         << "stacking for chain " << chain_num << "'s "
-         << (right_side ? "right" : "left") << " side" << endl;
-    assert(chain_num <= num_chains);
-#endif
-
-    vector<size_t> distances;
-
-    if (is_cyclic) {
-        size_t cur_row = chain_num * 2 - (right_side ? 0 : 1);
-        // Cyclic snarl always stacks all lefts on top of then all rights 
-        // Due to "bouncing", c1_L is on top, and c1_R is on bottom
-        for (size_t i = 1; i <= num_chains; i++) {
-            // Right sides from c1 to cN
-            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2));
-        }
-        for (size_t i = num_chains; i >= 1; i--) {
-            // Left sides from cN to c1
-            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2 - 1));
-        }
-    } else {
-        if (right_side) {
-            // DAG snarl, going left to right: get dists to all chains to right
-            for (size_t i = num_chains; i > chain_num; i--) {
-                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
-            }
-        } else {
-            // DAG snarl, going right to left: get dists to all chains to left
-            for (size_t i = 1; i < chain_num; i++) {
-                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
-            }
-        }
-    }
-
-#ifdef debug_parse
-    cerr << "Distances (bottom to top): ";
-    for (const auto& dist : distances) {
-        cerr << dist << " ";
-    }
-    cerr << endl;
-#endif
-    return distances;
-}
-
-size_t ZipCodeTree::get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const {
-    if (row < col) {
-        // We only store the lower triangle, so swap the row and column
-        size_t temp = row;
-        row = col;
-        col = temp;
-    }
-
-    // Triangular number of elements in previous rows, then offset by col
-    size_t within_matrix_i = has_main_diagonal ? (row * (row + 1)) / 2 + col
-                                               : (row * (row - 1)) / 2 + col;
-    return zip_code_tree[matrix_start_i + within_matrix_i].get_value();
-}
-
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<Seed>& seeds, 
                                                                    const SnarlDistanceIndex& distance_index) const {
     size_t dag_count = 0;
@@ -1407,9 +1343,11 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
         //Walk through the tree starting from the vector iterator going left,
         //and check the distance
-        for (distance_iterator tree_itr_left (start_itr_left, zip_code_tree.rend(), chain_numbers) ;
-             tree_itr_left != distance_iterator(zip_code_tree.rend(), zip_code_tree.rend(), std::stack<size_t>()) ;
-             ++tree_itr_left) {
+        distance_iterator distance_itr_start = distance_iterator(
+            start_itr_left, zip_code_tree.rend(), zip_code_tree, snarl_start_indexes, chain_numbers);
+        distance_iterator distance_itr_end = distance_iterator(
+            zip_code_tree.rend(), zip_code_tree.rend(), zip_code_tree, snarl_start_indexes, std::stack<size_t>());
+        for (distance_iterator tree_itr_left = distance_itr_start; tree_itr_left != distance_itr_end; ++tree_itr_left) {
 
             seed_result_t next_seed_result = *tree_itr_left;
             const Seed& next_seed = seeds->at(next_seed_result.seed);
@@ -1732,9 +1670,12 @@ void ZipCodeTree::validate_chain(vector<tree_item_t>::const_iterator& zip_iterat
 }
 
 ZipCodeTree::seed_iterator::seed_iterator(vector<tree_item_t>::const_iterator begin, 
-                                          vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
+    vector<tree_item_t>::const_iterator end, const vector<tree_item_t>& zip_code_tree,
+    const unordered_map<size_t, size_t>& snarl_start_indexes) : it(begin), end(end), zip_code_tree(zip_code_tree),
+    snarl_start_indexes(snarl_start_indexes), cyclic_snarl_nested_depth(0), chain_numbers(std::stack<size_t>()) {
+    
+    // Immediately advance to the first seed
     while (this->it != this->end && this->it->get_type() != SEED) {
-        // Immediately advance to the first seed
         ++this->it;
     }
 }
@@ -1782,17 +1723,19 @@ auto ZipCodeTree::seed_iterator::remaining_tree() const -> size_t {
 }
 
 auto ZipCodeTree::begin() const -> seed_iterator {
-    return seed_iterator(zip_code_tree.begin(), zip_code_tree.end());
+    return seed_iterator(zip_code_tree.begin(), zip_code_tree.end(), zip_code_tree, snarl_start_indexes);
 }
 
 auto ZipCodeTree::end() const -> seed_iterator {
-    return seed_iterator(zip_code_tree.end(), zip_code_tree.end());
+    return seed_iterator(zip_code_tree.end(), zip_code_tree.end(), zip_code_tree, snarl_start_indexes);
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
-    vector<tree_item_t>::const_reverse_iterator rend, std::stack<size_t> chain_numbers, 
+    vector<tree_item_t>::const_reverse_iterator rend, const vector<tree_item_t>& zip_code_tree,
+    const unordered_map<size_t, size_t>& snarl_start_indexes, std::stack<size_t> chain_numbers, 
     bool right_to_left, size_t distance_limit) : 
-    it(rbegin), rend(rend), chain_numbers(chain_numbers), right_to_left(right_to_left),
+    it(rbegin), rend(rend), zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
+    chain_numbers(chain_numbers), right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(nullptr), current_state(S_START) {
 #ifdef debug_parse
     if (this->it != rend) {
@@ -1825,14 +1768,16 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
 ZipCodeTree::distance_iterator::distance_iterator(const distance_iterator& other) : 
     it(other.it), rend(other.rend), distance_limit(other.distance_limit), chain_numbers(std::move(other.chain_numbers)),
     stack_data(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr), 
-    right_to_left(other.right_to_left), current_state(other.current_state) {
+    right_to_left(other.right_to_left), zip_code_tree(other.zip_code_tree),
+    snarl_start_indexes(other.snarl_start_indexes), current_state(other.current_state) {
     // Nothing to do!
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(distance_iterator&& other) : 
     it(std::move(other.it)), rend(std::move(other.rend)), chain_numbers(std::move(other.chain_numbers)),
     distance_limit(std::move(other.distance_limit)), stack_data(std::move(other.stack_data)),
-    right_to_left(other.right_to_left), current_state(std::move(other.current_state)) {
+    right_to_left(other.right_to_left), zip_code_tree(std::move(other.zip_code_tree)),
+    snarl_start_indexes(std::move(other.snarl_start_indexes)), current_state(std::move(other.current_state)) {
     // Nothing to do!
 }
 
@@ -1949,6 +1894,89 @@ auto ZipCodeTree::distance_iterator::swap() -> void {
     stack().push(temp);
 }
 
+vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t snarl_id, size_t chain_num, 
+                                                                        bool right_side) const {
+    // Read snarl header
+    bool is_cyclic = snarl_is_cyclic(snarl_id);
+    size_t dist_matrix_start = snarl_start_indexes.at(snarl_id) + 2;
+    size_t num_chains = zip_code_tree[dist_matrix_start - 1].get_value();
+#ifdef debug_parse
+    cerr << "Get distances for snarl " << snarl_id << " with " << num_chains << " chain(s); "
+         << "stacking for chain " << chain_num << "'s "
+         << (right_side ? "right" : "left") << " side" << endl;
+    assert(chain_num <= num_chains || chain_num == std::numeric_limits<size_t>::max());
+#endif
+
+    vector<size_t> distances;
+
+    if (is_cyclic) {
+        size_t cur_row; 
+        if (chain_num == 0) {
+            // Chain 0 means the snarl start
+            cur_row = 0;
+        } else if (chain_num == std::numeric_limits<size_t>::max()) {
+            // Chain max means the snarl end
+            cur_row = num_chains * 2 + 1;
+        } else {
+            // Otherwise, we are in a chain
+            cur_row = chain_num * 2 - (right_side ? 0 : 1);
+        }
+
+        // Cyclic snarl always stacks all lefts on top of then all rights 
+        // Due to "bouncing", c1_L is on top, and c1_R is on bottom
+        for (size_t i = 1; i <= num_chains; i++) {
+            // Right sides from c1 to cN
+            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2));
+        }
+        for (size_t i = num_chains; i >= 1; i--) {
+            // Left sides from cN to c1
+            distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2 - 1));
+        }
+    } else {
+        if (chain_num == std::numeric_limits<size_t>::max()) {
+            // Chain max means the snarl end
+            chain_num = num_chains + 1;
+        }
+
+        if (right_side) {
+            // DAG snarl, going left to right: get dists to all chains to right
+            for (size_t i = num_chains; i > chain_num; i--) {
+                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
+            }
+        } else {
+            // DAG snarl, going right to left: get dists to all chains to left
+            for (size_t i = 1; i < chain_num; i++) {
+                distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
+            }
+        }
+    }
+
+#ifdef debug_parse
+    cerr << "Distances (bottom to top): ";
+    for (const auto& dist : distances) {
+        cerr << dist << " ";
+    }
+    cerr << endl;
+#endif
+    return distances;
+}
+
+size_t ZipCodeTree::distance_iterator::get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, 
+                                                        size_t row, size_t col) const {
+    if (row < col) {
+        // We only store the lower triangle, so swap the row and column
+        size_t temp = row;
+        row = col;
+        col = temp;
+    }
+
+    // Triangular number of elements in previous rows, then offset by col
+    size_t within_matrix_i = has_main_diagonal ? (row * (row + 1)) / 2 + col
+                                               : (row * (row - 1)) / 2 + col;
+    return zip_code_tree[matrix_start_i + within_matrix_i].get_value();
+}
+
+
 auto ZipCodeTree::distance_iterator::state(State new_state) -> void {
     current_state = new_state;
 }
@@ -1987,6 +2015,54 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
     } else {
         // Do the chain
         state(S_SCAN_CHAIN);
+    }
+}
+
+void ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
+    // By default, after stacking up distances we need to find the first chain
+    State final_state = S_FIND_CHAIN;
+    if (snarl_is_cyclic(it->get_value())) {
+        // Memorize previous direction
+        push(right_to_left ? 1 : 0);
+#ifdef debug_parse
+    std::cerr << "Entering cyclic snarl " << it->get_value() << " going " << right_to_left << std::endl;
+#endif
+        if (right_to_left) {
+            // Cyclic snarl R->L needs to skip the chains to get
+            // to starting spot; thus, scan to find distance matrix
+            final_state = S_FIND_DIST_MATRIX;
+        }
+    }
+
+    // Save running distance at top of stack, with an extra copy for adding to
+    dup();
+
+    // Add distances to chain's running distance
+    for (const auto& distance : get_distances_from_chain(it->get_value(), chain_num, !right_to_left)) {
+        dup();
+        // Add in the edge value to make a running distance
+        // for the thing this edge is for.
+        // Account for if the edge is actually unreachable.
+#ifdef debug_parse
+    std::cerr << "\tTo current running parent distance " << top() << " add edge " << it->get_value() << std::endl;
+#endif
+        top() = SnarlDistanceIndex::sum(top(), it->get_value());
+        // Flip top 2 elements, so now parent running distance is on top,
+        // over edge running distance.
+        swap();
+    }
+    // Remove parent running distance
+    pop();
+
+    state(final_state);
+}
+
+void ZipCodeTree::distance_iterator::continue_snarl() {
+    // Different scanning states based on snarl type
+    if (snarl_is_cyclic(it->get_value())) {
+        state(S_SCAN_CYCLIC_SNARL);
+    } else {
+        state(S_SCAN_DAG_SNARL);
     }
 }
 
@@ -2275,11 +2351,13 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
 auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
                                  size_t distance_limit) const -> distance_iterator {
     return distance_iterator(zip_code_tree.rbegin() + from.remaining_tree(), 
-                            right_to_left ? zip_code_tree.rend() : zip_code_tree.rbegin(), 
-                            from.chain_numbers, right_to_left, distance_limit);
+                             right_to_left ? zip_code_tree.rend() : zip_code_tree.rbegin(), 
+                             from.zip_code_tree, from.snarl_start_indexes,
+                             from.chain_numbers, right_to_left, distance_limit);
 }
 auto ZipCodeTree::rend() const -> distance_iterator {
-    return distance_iterator(zip_code_tree.rend(), zip_code_tree.rend(), std::stack<size_t>(), 0);
+    return distance_iterator(zip_code_tree.rend(), zip_code_tree.rend(), zip_code_tree,
+                             snarl_start_indexes, std::stack<size_t>(), 0);
 }
 
 
