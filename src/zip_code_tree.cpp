@@ -2010,7 +2010,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         case DAG_SNARL_END:
             // Running distance along chain is on stack,
             // and will need to be added to all the stored distances.
-            state(S_STACK_SNARL); // Stack up distances in the snarl.
+            state(S_FIND_CHAIN); // Stack up distances in the snarl.
             break;
         case CHAIN_START:
             if (depth() == 1) {
@@ -2025,7 +2025,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
 #ifdef debug_parse
     std::cerr << "\tNever entered snarl; collect distances from zipcode tree." << std::endl;
 #endif
-                state(S_STACK_SNARL);
+                state(S_FIND_CHAIN);
             } else {
                 // We did enter the parent snarl already.
                 // Discard the running distance along this chain,
@@ -2033,7 +2033,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 pop();
                 // Running distance for next chain,
                 // or running distance to cross the snarl, will be under it.
-                state(S_SCAN_SNARL);
+                state(S_SCAN_DAG_SNARL);
             }
             break;
         case EDGE:
@@ -2066,7 +2066,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             unimplemented_error(); 
         }
         break;
-    case S_STACK_SNARL:
+    case S_FIND_CHAIN:
         // State where we are stacking up the stored edge values, the first
         // time we get to a particular snarl.
         //
@@ -2143,7 +2143,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             unimplemented_error(); 
         }
         break;
-    case S_SCAN_SNARL:
+    case S_SCAN_DAG_SNARL:
         // State where we are going through a snarl and doing all its chains.
         //
         // Stack has at the top running distances to use for each chain still
@@ -2226,7 +2226,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 pop();
                 // Running distance for next chain,
                 // or running distance to cross the snarl, will be under it.
-                state(S_SCAN_SNARL);
+                state(S_SCAN_DAG_SNARL);
             }
             // Otherwise this is the start of a chain inside 
             // a child snarl we are skipping over and we ignore it.
@@ -3020,10 +3020,10 @@ std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state) {
         return "S_START";
     case vg::ZipCodeTree::distance_iterator::S_SCAN_CHAIN:
         return "S_SCAN_CHAIN";
-    case vg::ZipCodeTree::distance_iterator::S_STACK_SNARL:
-        return "S_STACK_SNARL";
-    case vg::ZipCodeTree::distance_iterator::S_SCAN_SNARL:
-        return "S_SCAN_SNARL";
+    case vg::ZipCodeTree::distance_iterator::S_FIND_CHAIN:
+        return "S_FIND_CHAIN";
+    case vg::ZipCodeTree::distance_iterator::S_SCAN_DAG_SNARL:
+        return "S_SCAN_DAG_SNARL";
     case vg::ZipCodeTree::distance_iterator::S_SKIP_CHAIN:
         return "S_SKIP_CHAIN";
     default:

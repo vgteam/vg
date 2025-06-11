@@ -333,9 +333,12 @@ public:
         enum State {
             S_START,
             S_SCAN_CHAIN,
-            S_STACK_SNARL,
-            S_SCAN_SNARL,
-            S_SKIP_CHAIN
+            S_FIND_CHAIN,
+            S_SCAN_DAG_SNARL,
+            S_SCAN_CYCLIC_SNARL,
+            S_SKIP_CHAIN,
+            S_SKIP_SNARL,
+            S_FIND_DIST_MATRIX
         };
 
     private:
