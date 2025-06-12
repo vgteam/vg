@@ -1675,7 +1675,7 @@ ZipCodeTree::seed_iterator::seed_iterator(vector<tree_item_t>::const_iterator be
     
     // Immediately advance to the first seed
     while (this->it != this->end && this->it->get_type() != SEED) {
-        ++this->it;
+        ++(*this);
     }
 }
 
@@ -1748,11 +1748,7 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
     while (this->it != rend && !tick()) {
         // Skip ahead to the first seed we actually want to yield,
         //or to the end of the data.
-        if (right_to_left) {
-            ++this->it;
-        } else {
-            --this->it;
-        }
+        ++(*this);
 #ifdef debug_parse
         if (this->it != rend) {
             std::cerr << "Able to do another initial tick." << std::endl;
@@ -2123,6 +2119,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
     } else {
         std::cerr << "empty";
     }
+    std::cerr << std::endl;
 #endif
     switch (current_state) {
     case S_START:
