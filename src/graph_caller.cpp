@@ -109,7 +109,7 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
         cerr << endl;
 #endif
         // Break up the chain
-        vector<Chain> chain_pieces = break_chain(graph, *chain, max_edges, max_trivial);
+        vector<Chain> chain_pieces = break_chain(graph, snarl_manager, *chain, max_edges, max_trivial);
 
         for (Chain& chain_piece : chain_pieces) {
             // Make a fake snarl spanning the chain
@@ -158,7 +158,8 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
     }
 }
 
-vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial) {
+vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, SnarlManager& snarl_manager,
+                                       const Chain& chain, size_t max_edges, size_t max_trivial) {
     
     vector<Chain> chain_frags;
 

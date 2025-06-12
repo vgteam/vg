@@ -54,10 +54,9 @@ public:
     /// toggle progress messages
     void set_show_progress(bool show_progress);
 
-protected:
-
     /// Break up a chain into bits that we want to call using size heuristics
-    vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
+    static vector<Chain> break_chain(const HandleGraph& graph, SnarlManager& snarl_manager, const Chain& chain,
+                                     size_t max_edges, size_t max_trivial);
     
 protected:
 

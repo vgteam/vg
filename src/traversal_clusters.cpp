@@ -5,6 +5,7 @@
 #include "snarls.hpp"
 #include "clip.hpp"
 #include "algorithms/dfs.hpp"
+#include "graph_caller.hpp"
 
 //#define debug
 
@@ -397,23 +398,37 @@ void merge_equivalent_traversals_in_graph(MutablePathHandleGraph* graph, const u
         IntegratedSnarlFinder finder(*graph);
         SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
 
-        deque<const Snarl*> queue;
-        snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) {
-            queue.push_back(snarl);
+        // note: this chain fragment recursion logic is taken from vg call
+        //       (where it was only ever a fairly hacky prototype)
+        deque<Chain> queue;
+        snarl_manager.for_each_top_level_chain([&](const Chain* chain) {
+            queue.push_back(*chain);
         });
 
         while (!queue.empty()) {
-            const Snarl* snarl = queue.front();
+            Chain chain = queue.front();
             queue.pop_front();
-            handle_t start_handle = graph->get_handle(snarl->start().node_id(), snarl->start().backward());
-            handle_t end_handle = graph->get_handle(snarl->end().node_id(), snarl->end().backward());
-            merge_equivalent_traversals_in_snarl(graph, selected_paths, path_trav_finder, start_handle, end_handle);
-            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            for (const Snarl* child : children) {
-                queue.push_back(child);
+            
+            vector<Chain> chain_pieces = GraphCaller::break_chain(*graph, snarl_manager, chain, 50000, 5000000);
+            for (const Chain& chain_piece : chain_pieces) {                
+                Visit chain_start = chain_piece.front().second == true ? reverse(chain_piece.front().first->end()) :
+                    chain_piece.front().first->start();
+                Visit chain_end =  chain_piece.back().second == true ? reverse(chain_piece.back().first->start()) :
+                    chain_piece.back().first->end();
+                handle_t start_handle = graph->get_handle(chain_start.node_id(), chain_start.backward());
+                handle_t end_handle = graph->get_handle(chain_end.node_id(), chain_end.backward());            
+                merge_equivalent_traversals_in_snarl(graph, selected_paths, path_trav_finder, start_handle, end_handle);
+
+                for (pair<const Snarl*, bool> chain_link : chain_piece) {
+                    const deque<Chain>& child_chains = snarl_manager.chains_of(chain_link.first);
+                    for (const auto& child_chain : child_chains) {
+                        queue.push_back(child_chain);
+                    }
+                }
             }
         }
     } else {
+        assert(false); // to switch back to this codepath (which should happen) need to add chains support (as above)
         // compute the snarls using the distance index
         // this is what we want to do going forward since it uses the new api, no protobuf etc,
         // but unfortunately it seems way slower on some graphs, hence
