@@ -1316,6 +1316,10 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
     ZipCodeTree::seed_iterator dest = begin();
     bool right_to_left = true;
     while (dest != end()) {
+#ifdef debug_parse
+    std::cerr << "-----------------------------------------" << std::endl;
+    std::cerr << (right_to_left ? "Right to left" : "Left to right") << std::endl;
+#endif
         //The seed that the iterator points to
         ZipCodeTree::oriented_seed_t dest_seed = *dest;
         pos_t start_seed_pos = seeds->at(dest_seed.seed).pos;
@@ -1344,20 +1348,20 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
             net_handle_t start_handle = distance_index.get_node_net_handle(
                                             id(start_seed_pos),
-                                            is_rev(start_seed_pos) != start_is_reversed);
+                                            start_is_reversed);
             net_handle_t next_handle = distance_index.get_node_net_handle(
                                             id(next_seed.pos),  
-                                            is_rev(next_seed.pos) != next_is_reversed);
+                                            next_is_reversed);
 
             size_t index_distance = distance_index.minimum_distance(
                 id(next_seed.pos), is_rev(next_seed.pos), offset(next_seed.pos),
                 id(start_seed_pos), is_rev(start_seed_pos), offset(start_seed_pos), true);
 
-            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
             }
-            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(start_seed_pos) != start_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && start_is_reversed) {
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
