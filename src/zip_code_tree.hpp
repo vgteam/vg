@@ -316,6 +316,11 @@ public:
         inline bool operator!=(const distance_iterator& other) const {
             return !(*this == other);
         }
+
+        /// Is the iteration done?
+        inline bool done() const {
+            return it == rend;
+        }
         
         /// Get the index and orientation of the seed we are currently at, and the distance to it.
         seed_result_t operator*() const;

@@ -309,11 +309,11 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
-        for (ZipCodeTree::seed_iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
+        ZipCodeTree::seed_iterator dest = zip_code_tree.begin();
+        bool right_to_left = true;
+        while (dest != zip_code_tree.end()) {
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
-
-
 
             // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
             std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
@@ -323,11 +323,16 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 continue;
             }
 
+            if (!right_to_left) {
+                // Going backwards
+                dest_seed.is_reverse = !dest_seed.is_reverse;
+            }
+
 #ifdef debug_transition
             std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
 #endif
 
-            for (ZipCodeTree::distance_iterator source = zip_code_tree.find_distances(dest, max_graph_lookback_bases); source != zip_code_tree.rend(); ++source) {
+            for (ZipCodeTree::distance_iterator source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); !source.done(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
 
@@ -378,6 +383,19 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     // We have a transition between different orientations relative to the read. Don't show that.
                     continue;
                 }
+            }
+            if (dest.cyclic_snarl_nested_depth > 0) {
+                if (right_to_left) {
+                    // Seeds in cyclic snarls are checked in both directions
+                    right_to_left = false;
+                } else {
+                    right_to_left = true;
+                    // After going in both directions, we can advance
+                    ++dest;
+                }
+            } else {
+                // Seeds in non-cyclic snarls are only checked in one direction.
+                ++dest;
             }
         }
 
