@@ -425,7 +425,9 @@ public:
         void initialize_chain();
 
         // Decide what to do right after entering a new snarl.
-        void initialize_snarl(size_t chain_num);
+        // Return whether the initialization was successful,
+        // i.e. whether the snarl was a non-root snarl.
+        bool initialize_snarl(size_t chain_num);
 
         // Decide what to do when re-entering a snarl,
         // having already stacked up distances
