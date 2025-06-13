@@ -54,7 +54,7 @@ void help_mod(char** argv) {
          << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -A, --remove-path       keep only nodes and edges which are not part of any path" << endl
-         << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -k, --keep-path NAME    keep only nodes and edges in the path (may repeat)" << endl
          << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
          << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
          << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
@@ -83,7 +83,7 @@ int main_mod(int argc, char** argv) {
         return 1;
     }
 
-    string path_name;
+    set<string> path_names;
     bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
@@ -217,7 +217,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'k':
-            path_name = optarg;
+            path_names.emplace(optarg);
             break;
 
         case 'o':
@@ -595,10 +595,19 @@ int main_mod(int argc, char** argv) {
         return vg_graph;
     };
     
-    if (!path_name.empty()) {
+    if (!path_names.empty()) {
         // TODO: turn into an algorithm or reimplement
         ensure_vg();
-        vg_graph->keep_path(path_name);
+        set<string> kept_paths;
+        vg_graph->keep_paths(path_names, kept_paths);
+        if (path_names.size() != kept_paths.size()) {
+            cerr << "[vg mod]: warning: some paths were not found in the graph, and will not be kept" << endl;
+            for (const auto& path_name : path_names) {
+                if (kept_paths.count(path_name) == 0) {
+                    cerr << "\t\t\t" << path_name << endl;
+                }
+            }
+        }
     }
 
     if (unchop) {
