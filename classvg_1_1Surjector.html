@@ -191,6 +191,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a5a735901a421d305e6cbf13a016fdc9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99dc61c54ce73a8db8526b0f935a14c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a99dc61c54ce73a8db8526b0f935a14c9">annotate_with_all_path_scores</a> = false</td></tr>
 <tr class="separator:a99dc61c54ce73a8db8526b0f935a14c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20b070bccfd79546db5d7b355ec1c67e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a20b070bccfd79546db5d7b355ec1c67e">annotate_with_graph_alignment</a> = false</td></tr>
+<tr class="separator:a20b070bccfd79546db5d7b355ec1c67e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -256,6 +258,10 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a54b0b7fe9db83a6cfdbebf9dbeb81f04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab65da876e448d86bc64985c0b14d3e78"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ab65da876e448d86bc64985c0b14d3e78">prune_unconnectable</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; vector&lt; tuple&lt; size_t, int32_t, bool &gt;&gt;&gt; &amp;splice_adj, vector&lt; size_t &gt; &amp;component, vector&lt; vector&lt; size_t &gt;&gt; &amp;comp_groups, vector&lt; <a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks) const</td></tr>
 <tr class="separator:ab65da876e448d86bc64985c0b14d3e78"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae70dd73663bac5290ae8bea071398687"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ae70dd73663bac5290ae8bea071398687">annotate_graph_cigar</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;surjections, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, bool rev_strand) const</td></tr>
+<tr class="separator:ae70dd73663bac5290ae8bea071398687"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa63dbbe536119793928a5468ae1d6b4d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aa63dbbe536119793928a5468ae1d6b4d">annotate_graph_cigar</a> (vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;surjections, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, bool rev_strand) const</td></tr>
+<tr class="separator:aa63dbbe536119793928a5468ae1d6b4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a2f3a789bca074bfbbeb327e74992d9cc inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a2f3a789bca074bfbbeb327e74992d9cc">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:a2f3a789bca074bfbbeb327e74992d9cc inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -333,6 +339,90 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="ae70dd73663bac5290ae8bea071398687"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae70dd73663bac5290ae8bea071398687">&#9670;&nbsp;</a></span>annotate_graph_cigar() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::annotate_graph_cigar </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>surjections</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa63dbbe536119793928a5468ae1d6b4d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa63dbbe536119793928a5468ae1d6b4d">&#9670;&nbsp;</a></span>annotate_graph_cigar() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::annotate_graph_cigar </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>surjections</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="adf6d3d9d2bec77f147192b05fc4df18b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#adf6d3d9d2bec77f147192b05fc4df18b">&#9670;&nbsp;</a></span>compute_path_interval()</h2>
 
@@ -1890,6 +1980,20 @@ template&lt;class AlnType &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::Surjector::annotate_with_all_path_scores = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a20b070bccfd79546db5d7b355ec1c67e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a20b070bccfd79546db5d7b355ec1c67e">&#9670;&nbsp;</a></span>annotate_with_graph_alignment</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Surjector::annotate_with_graph_alignment = false</td>
         </tr>
       </table>
 </div><div class="memdoc">
