@@ -783,7 +783,7 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
                                      const size_t& depth, const vector<seed_info_t>& edge_seeds,
                                      bool snarl_is_reversed, bool is_cyclic_snarl) const {
     // start -> end is simply length of snarl
-    dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_seeds[0].seed.zipcode.get_length(depth+1));
+    dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_seeds[0].seed.zipcode.get_length(depth));
 
     // DAG snarls only have distances from chain ends to snarl end
     size_t start_i = is_cyclic_snarl ? 0 : 1;
