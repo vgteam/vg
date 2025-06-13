@@ -1400,7 +1400,7 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //[1+0 3 {0 2 inf  0  0  4  inf  12  10  inf  7  9  0  inf  inf  inf  2  inf  inf  8  5  0  8 <4+0><3-1rev 1 3-0rev>}0 0 5+0]
+                //[1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf  2  inf  inf  2  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 0 5+0]
                 
                 //Check some random elements
 
