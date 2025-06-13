@@ -343,6 +343,8 @@ public:
         vector<tree_item_t>::const_reverse_iterator it;
         /// Where the rend is where we have to stop
         vector<tree_item_t>::const_reverse_iterator rend;
+        /// Where we started from (remember to return 0 distance when looping around)
+        vector<tree_item_t>::const_reverse_iterator origin;
         /// Within each parent snarl, which chain are we in?
         std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
