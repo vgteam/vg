@@ -965,7 +965,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadBasedSnarlCaller::genot
                                                                                     int ploidy,
                                                                                     const string& ref_path_name,
                                                                                     pair<size_t, size_t> ref_range) {
-
+    
     // TO HELP DEBUG
 #ifdef debug
     if(snarl.start().node_id() < 17454 || snarl.end().node_id() > 17457){
@@ -1253,8 +1253,9 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadBasedSnarlCaller::genot
         cerr << endl;
     }
 #endif
-    
+
     // find best pair of traversal
+    // TODO take ploidy into account
     double best_prob = -numeric_limits<double>::max();
     double second_best_prob = -numeric_limits<double>::max();
     int best_tid1 = 0;
@@ -1317,7 +1318,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadBasedSnarlCaller::genot
     // genotype quality as the likelihood ratio of the best genotype and the second best
     // log so it's the difference
     call_info->gq = best_prob - second_best_prob;
-
+    
     // read support
     call_info->rs = probs[0].size();
     call_info->as = trav_support;

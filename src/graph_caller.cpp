@@ -2516,7 +2516,8 @@ void HapCaller::call_top_level_snarl_block(size_t block_size){
                         for (int i = 0; i < snarls_to_process.size(); i++) {
 #pragma omp task firstprivate(i)
                             {
-                                call_snarl(snarls_to_process[i]);
+                                call_snarl_recursively(snarls_to_process[i]);
+                                // recurse if failed?
                             }
                         }
                     }
@@ -2692,6 +2693,53 @@ bool HapCaller::call_snarl(const Snarl& managed_snarl) {
     return ret_val;
 }
 
+void HapCaller::call_snarl_recursively(const Snarl& managed_snarl){
+    bool was_called;
+    vector<Snarl> snarls_to_process;
+    snarls_to_process.push_back(managed_snarl);
+    while (snarls_to_process.size() > 0) {
+        Snarl current_snarl = snarls_to_process.back();
+        snarls_to_process.pop_back();
+        was_called = call_snarl(current_snarl);
+        if (was_called) {
+            continue;
+        }
+        // TODO figure out how to get the snarls children of this one from the distance index, even in the case of "fake" snarls we made sometimes.
+        // find nethandle for that snarl
+        net_handle_t bound1 = distance_index.get_node_net_handle(current_snarl.start().node_id(),
+                                                                 current_snarl.start().backward());
+        // find chains within that snarl
+        vector<net_handle_t> chains;
+        distance_index.follow_net_edges(bound1, &graph, false, [&](const net_handle_t& next) {
+            // the next and only child should be the snarl that we want
+            // add each child chain to our vector
+            distance_index.for_each_child(next, [&] (const handlegraph::net_handle_t& child) {
+                if (distance_index.is_chain(child)) {
+                    chains.push_back(child);
+                }
+            });
+        });
+        // for each chain the potential children snarls
+        for (auto chain: chains) {
+            distance_index.for_each_child(chain, [&] (const handlegraph::net_handle_t& child) {
+                if (distance_index.is_snarl(child)) {
+                    // prepare Snarl object
+                    Snarl new_snarl;
+                    // define first boundary
+                    net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(child, false, true));
+                    new_snarl.mutable_start()->set_node_id(distance_index.node_id(bound));
+                    new_snarl.mutable_start()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                    // define second boundary
+                    bound = distance_index.get_node_from_sentinel(distance_index.get_bound(child, true, false));
+                    new_snarl.mutable_end()->set_node_id(distance_index.node_id(bound));
+                    new_snarl.mutable_end()->set_backward(distance_index.ends_at(bound) != SnarlDistanceIndex::END);
+                    snarls_to_process.push_back(new_snarl);
+                }
+            });            
+        }
+    }
+}
+    
 string HapCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                              const vector<size_t>& contig_length_overrides) const {
     string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);

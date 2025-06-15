@@ -569,6 +569,8 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
+    virtual void call_snarl_recursively(const Snarl& snarl);
+    
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
