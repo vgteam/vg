@@ -163,6 +163,8 @@ gbwt::vector_type as_gbwt_path(const GAFSorterRecord& record, bool& ok) {
         return result;
     }
 
+    // FIXME: Flip orientation if the path is reversed. This should not happen with vg output.
+
     size_t start = 0;
     while (start < path.size) {
         bool is_reverse;
