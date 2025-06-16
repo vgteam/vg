@@ -1327,6 +1327,10 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
         //This takes into account the position & orientation of tree traversal
         bool start_is_reversed = (*dest).is_reverse ? !is_rev(start_seed.pos) 
                                                     : is_rev(start_seed.pos);
+        if (!right_to_left) {
+            //Going in the wrong direction
+            start_is_reversed = !start_is_reversed;
+        }
 
         // The distance between any pair of seeds is the minimum distance
 
@@ -2048,6 +2052,7 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
     if (snarl_is_cyclic(it->get_value())) {
         // Memorize previous direction
         push(right_to_left ? 1 : 0);
+        swap();
         if (right_to_left) {
             // Cyclic snarl R->L needs to skip the chains to get
             // to starting spot; thus, scan to find distance matrix
@@ -2299,6 +2304,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             // Finished left sides, now doing right sides.
             right_to_left = !right_to_left;
         } else if (it->get_type() == EDGE) {
+            // Put original direction over distance to bound
+            swap();
 #ifdef debug_parse
     std::cerr << "Finished cyclic snarl, resetting direction to "
               << (top() == 1 ? "right to left" : "left to right" ) << std::endl;

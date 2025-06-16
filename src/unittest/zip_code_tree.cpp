@@ -1400,7 +1400,7 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //[1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf  2  inf  inf  2  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 0 5+0]
+                //[1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf  2  inf  inf  8  inf  8  5  0  inf [4+0][3-1rev 1 3-0rev]} 0 5+0]
                 
                 //Check some random elements
 
@@ -2024,6 +2024,7 @@ namespace unittest {
             }
 
             ZipCodeForest zip_forest;
+            // [1+0 3 {2  inf  0  inf  6  inf  inf  0  inf  inf  inf  6  inf  6  inf  inf  3  inf  3  inf  3  inf [3+0][2+0]} 0 4+0 3 (1  0  0  3 [5+0]) 0 6+0]
             zip_forest.fill_in_forest(seeds, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
