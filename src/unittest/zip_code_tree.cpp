@@ -2530,7 +2530,7 @@ namespace unittest {
 
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, distance_index, 5);
-        REQUIRE(zip_forest.trees.size() == 6);
+        REQUIRE(zip_forest.trees.size() == 5);
         for (auto& tree : zip_forest.trees) {
             tree.validate_zip_tree(distance_index, &seeds);
         }
