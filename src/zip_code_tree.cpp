@@ -324,6 +324,10 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, 
                        const size_t& depth, const size_t& seed_index, bool child_is_reversed,
                        bool chain_is_reversed) {
+    tree_item_t prev_item = trees[forest_state.active_tree_index].zip_code_tree.back();
+    pos_t prev_seed_pos = prev_item.get_type() == ZipCodeTree::SEED 
+                        ? forest_state.seeds->at(prev_item.get_value()).pos 
+                        : pos_t();
     const Seed& current_seed = forest_state.seeds->at(seed_index);
     auto cur_id = depth > 1 ? forest_state.sibling_indices_at_depth[depth-2][0].snarl_id 
                             : std::numeric_limits<size_t>::max();
@@ -512,6 +516,10 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
                     trees[forest_state.active_tree_index].zip_code_tree.size(), true);
             }
 
+        } else if (distance_between == 0 && prev_seed_pos == current_seed.pos
+                   && (current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE || is_trivial_chain)) {
+            //Don't store duplciate seeds
+            skip_child = true;
         } else {
             //If we didn't start a new tree, then add the edge
             trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::EDGE, distance_between);
@@ -1479,21 +1487,29 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                                         const vector<Seed>* seeds, size_t distance_limit) const {
-    vector<bool> has_seed (seeds->size(), false);
+    unordered_set<std::string> seed_pos;
+    for (const auto& seed : *seeds) {
+        seed_pos.insert(std::to_string(seed.pos));
+    }
+
     for (const auto& tree : trees) {
         tree.validate_zip_tree(distance_index, seeds, distance_limit);
         for (size_t i = 0 ; i < tree.zip_code_tree.size() ; i++) {
             const tree_item_t& item = tree.zip_code_tree[i];
             if (item.get_type() == ZipCodeTree::SEED) {
-                has_seed[item.get_value()] = true;
+                std::string cur_pos = std::to_string(seeds->at(item.get_value()).pos);
+                if (seed_pos.find(cur_pos) != seed_pos.end()) {
+                    seed_pos.erase(cur_pos);
+                }
             }
         }
     }
 
-    for (size_t i = 0 ; i < has_seed.size() ; i++) {
-        bool x = has_seed[i];
-        if (!x) { cerr << "Missing seed " << seeds->at(i).pos << endl;}
-        assert(x);
+    if (!seed_pos.empty()) {
+        for (const auto& cur_pos : seed_pos) {
+            cerr << "Missing seed " << cur_pos << endl;
+        }
+        assert(seed_pos.empty());
     }
 }
 
