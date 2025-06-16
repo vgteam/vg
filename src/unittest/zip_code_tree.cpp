@@ -73,11 +73,12 @@ namespace unittest {
 
         SECTION( "Two seeds" ) {
  
-            id_t seed_nodes[] = {1, 1};
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(1, false, 1);
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (id_t n : seed_nodes) {
-                pos_t pos = make_pos_t(n, false, 0);
+            for (pos_t pos : positions) {
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
                 zipcode.fill_in_full_decoder();
@@ -103,9 +104,9 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 1);
 
-            //THe other seed
+            //The other seed
             REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
             REQUIRE((zip_tree.get_item_at_index(3).get_value() == 0 ||
                      zip_tree.get_item_at_index(3).get_value() == 1));
@@ -133,7 +134,7 @@ namespace unittest {
             REQUIRE(reverse_views.count({1, false}));
             REQUIRE(reverse_views[{1, false}].size() == 1);
             REQUIRE(reverse_views[{1, false}][0].seed == 0);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
+            REQUIRE(reverse_views[{1, false}][0].distance == 1);
             REQUIRE(reverse_views[{1, false}][0].is_reverse == false);
         }
 
@@ -141,7 +142,7 @@ namespace unittest {
  
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
-            positions.emplace_back(1, false, 0);
+            positions.emplace_back(1, false, 1);
             positions.emplace_back(1, false, 2);
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
@@ -164,23 +165,21 @@ namespace unittest {
             //Chain start
             REQUIRE(zip_tree.get_item_at_index(0).get_type() == ZipCodeTree::CHAIN_START);
 
-            //Seed (either one because they're the same position)
+            //Seed
             REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(1).get_value() == 0 ||
-                     zip_tree.get_item_at_index(1).get_value() == 1));
+            REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(2).get_value() == 1);
 
-            //THe other seed
+            //The other seed
             REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
-            REQUIRE((zip_tree.get_item_at_index(3).get_value() == 0 ||
-                     zip_tree.get_item_at_index(3).get_value() == 1));
+            REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(4).get_value() == 2);
+            REQUIRE(zip_tree.get_item_at_index(4).get_value() == 1);
 
             //The other seed
             REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
@@ -212,17 +211,17 @@ namespace unittest {
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
             REQUIRE(reverse_views[{0, false}].size() == 0);
-            // The second seed can see the first seed at distance 0
+            // The second seed can see the first seed at distance 1
             REQUIRE(reverse_views.count({1, false}));
             REQUIRE(reverse_views[{1, false}].size() == 1);
             REQUIRE(reverse_views[{1, false}][0].seed == 0);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
+            REQUIRE(reverse_views[{1, false}][0].distance == 1);
             REQUIRE(reverse_views[{1, false}][0].is_reverse == false);
-            // The third seed can see both previous seeds, in reverse order, at distance 2.
+            // The third seed can see both previous seeds, in reverse order
             REQUIRE(reverse_views.count({2, false}));
             REQUIRE(reverse_views[{2, false}].size() == 2);
             REQUIRE(reverse_views[{2, false}][0].seed == 1);
-            REQUIRE(reverse_views[{2, false}][0].distance == 2);
+            REQUIRE(reverse_views[{2, false}][0].distance == 1);
             REQUIRE(reverse_views[{2, false}][0].is_reverse == false);
             REQUIRE(reverse_views[{2, false}][1].seed == 0);
             REQUIRE(reverse_views[{2, false}][1].distance == 2);
