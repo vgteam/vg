@@ -1325,16 +1325,13 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
         //Do we want the distance going left in the node
         //This takes into account the position & orientation of tree traversal
-        bool start_is_reversed;
-        
+        bool start_is_reversed = (*dest).is_reverse ? !is_rev(start_seed.pos) 
+                                                    : is_rev(start_seed.pos);
+
         // The distance between any pair of seeds is the minimum distance
 
         //Walk through the tree starting from dest and check the distance
         distance_iterator distance_itr_start = find_distances(dest, right_to_left);
-        if (!distance_itr_start.done()) {
-            start_is_reversed = (*distance_itr_start).is_reverse ? !is_rev(start_seed.pos) 
-                                                                 : is_rev(start_seed.pos);
-        }
         for (distance_iterator tree_itr_left = distance_itr_start; !tree_itr_left.done(); ++tree_itr_left) {
 
             seed_result_t next_seed_result = *tree_itr_left;
@@ -1346,20 +1343,20 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
             net_handle_t start_handle = distance_index.get_node_net_handle(
                                             id(start_seed.pos),
-                                            start_is_reversed);
+                                            is_rev(start_seed.pos) != start_is_reversed);
             net_handle_t next_handle = distance_index.get_node_net_handle(
                                             id(next_seed.pos),  
-                                            next_is_reversed);
+                                            is_rev(next_seed.pos) != next_is_reversed);
 
             size_t index_distance = distance_index.minimum_distance(
                 id(next_seed.pos), is_rev(next_seed.pos), offset(next_seed.pos),
                 id(start_seed.pos), is_rev(start_seed.pos), offset(start_seed.pos), true);
 
-            if (index_distance != std::numeric_limits<size_t>::max() && next_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
             }
-            if (index_distance != std::numeric_limits<size_t>::max() && start_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(start_seed.pos) != start_is_reversed) {
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
@@ -1849,6 +1846,8 @@ auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
     // We know the running distance to this seed will be at the top of the stack
     seed_result_t to_return;
     to_return.seed = it->get_value();
+    cerr << (right_to_left ? "Right to left" : "Left to right") << " distance to seed " 
+         << to_return.seed << " is " << stack_data->top() << endl;
     to_return.is_reverse = right_to_left ? it->get_is_reversed()
                                          : !it->get_is_reversed();
     to_return.distance = (it == origin) ? 0 : stack_data->top();
@@ -2044,6 +2043,7 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
 #endif
     // By default, after stacking up distances we need to find the first chain
     State final_state = S_FIND_CHAIN;
+    bool original_right_to_left = right_to_left;
     size_t chain_nestedness; 
     if (snarl_is_cyclic(it->get_value())) {
         // Memorize previous direction
@@ -2063,7 +2063,7 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
         }
     }
 
-    vector<size_t> distances = get_distances_from_chain(it->get_value(), chain_num, !right_to_left);
+    vector<size_t> distances = get_distances_from_chain(it->get_value(), chain_num, !original_right_to_left);
     if (distances.empty()) {
 #ifdef debug_parse
     std::cerr << "Tried to stack up distances for a root-level snarl; halting now." << std::endl;
@@ -2151,7 +2151,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // Stack is empty and we must be at a seed to start at.
         if (it->get_type() == SEED) {
 #ifdef debug_parse
-std::cerr << "Skip over seed " << it->get_value() << std::endl;
+    std::cerr << "Skip over seed " << it->get_value() << std::endl;
 #endif
             push(0);
             state(S_SCAN_CHAIN);
@@ -2415,8 +2415,7 @@ std::cerr << "Skip over seed " << it->get_value() << std::endl;
         } else if (it->get_type() == EDGE) {
             if (top() == 0) {
 #ifdef debug_parse
-    std::cerr << "Found distance matrix for cyclic snarl " << it->get_value()
-              << "; turning around now" << std::endl;
+    std::cerr << "Found distance matrix for cyclic snarl; turning around now" << std::endl;
 #endif
                 // This is the distance matrix we were wanting to skip to.
                 // Discard the chain nestedness level
