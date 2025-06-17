@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -1355,28 +1355,24 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
             size_t tree_distance = next_seed_result.distance;
 
-            net_handle_t start_handle = distance_index.get_node_net_handle(
-                                            id(start_seed.pos),
-                                            is_rev(start_seed.pos) != start_is_reversed);
-            net_handle_t next_handle = distance_index.get_node_net_handle(
-                                            id(next_seed.pos),  
-                                            is_rev(next_seed.pos) != next_is_reversed);
+            net_handle_t start_handle = distance_index.get_node_net_handle(id(start_seed.pos));
+            net_handle_t next_handle = distance_index.get_node_net_handle(id(next_seed.pos));
             size_t start_length = distance_index.minimum_length(start_handle);
             size_t next_length = distance_index.minimum_length(next_handle);
 
-            pos_t start_pos = start_is_reversed
+            pos_t start_pos = is_rev(start_seed.pos)
                             ? make_pos_t(id(start_seed.pos), !is_rev(start_seed.pos), 
                                          start_length - offset(start_seed.pos))
                             : start_seed.pos;
-            pos_t next_pos = next_is_reversed
+            pos_t next_pos = is_rev(next_seed.pos)
                            ? make_pos_t(id(next_seed.pos), !is_rev(next_seed.pos),
                                         next_length - offset(next_seed.pos))
                            : next_seed.pos;
 
             size_t index_distance = distance_index.minimum_distance(
-                id(next_pos), is_rev(next_pos), offset(next_pos),
-                id(start_pos), is_rev(start_pos), offset(start_pos));
-            cerr << "\tIndex distance: " << next_pos << "->" << start_pos << "=" << index_distance << endl;
+                id(next_seed.pos), is_rev(next_seed.pos), offset(next_seed.pos),
+                id(start_seed.pos), is_rev(start_seed.pos), offset(start_seed.pos), true);
+            cerr << "\tIndex distance: " << next_seed.pos << "->" << start_seed.pos << "=" << index_distance << endl;
 
             if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
