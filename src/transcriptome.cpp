@@ -573,6 +573,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
     }
 
     spp::sparse_hash_map<string, Transcript> parsed_transcripts;
+    spp::sparse_hash_map<string, size_t> duplicate_ID_count;
     spp::sparse_hash_set<string> excluded_transcripts;
 
     int32_t line_number = 0;
@@ -658,6 +659,32 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
             if (transcript_id.empty()) {
 
                 transcript_id = parse_attribute_value(attribute, transcript_tag);
+
+                if (parsed_transcripts.contains(transcript_id)) {
+                    // Must de-duplicate transcript ID.
+                    auto previous_transcript = parsed_transcripts.at(transcript_id);
+
+                    if (previous_transcript.name != transcript_id 
+                        || previous_transcript.is_reverse != is_reverse 
+                        || previous_transcript.chrom != chrom
+                        || previous_transcript.chrom_length != chrom_lengths_it->second) {
+                        
+                        size_t duplicate_count = duplicate_ID_count.at(transcript_id);
+                        // De-duplicate by appending a counter to the end
+                        string de_dup_id = transcript_id + "_" + to_string(duplicate_count+1);
+
+                        cerr << "\tWARNING: Transcript ID " << transcript_id << " has already been used "
+                             << duplicate_count << " time" << (duplicate_count == 1 ? "" : "s") << endl;
+                        cerr << "\t         naming the " << chrom << " instance " << de_dup_id << endl;
+
+                        // These should be one step, but I dunno how to update a sparse_hash_map
+                        duplicate_ID_count.erase(transcript_id);
+                        duplicate_ID_count.emplace(transcript_id, duplicate_count + 1);
+                        transcript_id = de_dup_id;
+                    }
+                }
+
+                duplicate_ID_count.emplace(transcript_id, 1);
             }
 
             if (!transcript_id.empty()) {
@@ -676,11 +703,10 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
         Transcript * transcript = &(parsed_transcripts_it.first->second);
 
-        // Make sure the transcript we inserted or already found is the right transcript.
-        if (transcript->name != transcript_id || transcript->is_reverse != is_reverse || transcript->chrom != chrom || transcript->chrom_length != chrom_lengths_it->second) {
-            cerr << "\tERROR: There are multiple distinct transcripts with ID " << transcript_id <<". We have already seen a transcript " << transcript->name << " on strand " << transcript->is_reverse << " of contig " << transcript->chrom << " length " << transcript->chrom_length << " but on line " << line_number << " there is a transcript " << transcript_id << " on strand " << is_reverse << " of contig " << chrom << " length " << chrom_lengths_it->second << ". Fix the input transcript set to not re-use transcript IDs." << endl;
-            exit(1);
-        }
+        assert(transcript->name == transcript_id);
+        assert(transcript->is_reverse == is_reverse);
+        assert(transcript->chrom == chrom);
+        assert(transcript->chrom_length == chrom_lengths_it->second);
 
         if (use_haplotype_paths) {
             
