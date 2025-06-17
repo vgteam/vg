@@ -2853,7 +2853,7 @@ namespace unittest {
             positions.emplace_back(make_pos_t(3, false, 0), 3);
             positions.emplace_back(make_pos_t(5, false, 0), 4);
             positions.emplace_back(make_pos_t(2, false, 8), 15);
-            positions.emplace_back(make_pos_t(4, false, 5), 16);
+            positions.emplace_back(make_pos_t(4, false, 0), 16);
             positions.emplace_back(make_pos_t(5, false, 0), 17);
             positions.emplace_back(make_pos_t(7, false, 0), 18);
 
