@@ -351,6 +351,8 @@ public:
         size_t distance_limit;
         /// Whether we are looking right to left (true) or left to right (false)
         bool right_to_left;
+        /// Original direction to remember when we're at the original position
+        bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
         const unordered_map<size_t, size_t>& snarl_start_indexes;

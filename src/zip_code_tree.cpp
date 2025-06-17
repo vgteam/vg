@@ -517,7 +517,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
             }
 
         } else if (distance_between == 0 && prev_seed_pos == current_seed.pos
-                   && (current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE || is_trivial_chain)) {
+                   && (current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE || is_trivial_chain)
+                   && (child_is_reversed != is_rev(current_seed.pos)) == prev_item.get_is_reversed()) {
             //Don't store duplicate seeds
             skip_child = true;
         } else {
@@ -1360,10 +1361,22 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
             net_handle_t next_handle = distance_index.get_node_net_handle(
                                             id(next_seed.pos),  
                                             is_rev(next_seed.pos) != next_is_reversed);
+            size_t start_length = distance_index.minimum_length(start_handle);
+            size_t next_length = distance_index.minimum_length(next_handle);
+
+            pos_t start_pos = start_is_reversed
+                            ? make_pos_t(id(start_seed.pos), !is_rev(start_seed.pos), 
+                                         start_length - offset(start_seed.pos))
+                            : start_seed.pos;
+            pos_t next_pos = next_is_reversed
+                           ? make_pos_t(id(next_seed.pos), !is_rev(next_seed.pos),
+                                        next_length - offset(next_seed.pos))
+                           : next_seed.pos;
 
             size_t index_distance = distance_index.minimum_distance(
-                id(next_seed.pos), is_rev(next_seed.pos), offset(next_seed.pos),
-                id(start_seed.pos), is_rev(start_seed.pos), offset(start_seed.pos), true);
+                id(next_pos), is_rev(next_pos), offset(next_pos),
+                id(start_pos), is_rev(start_pos), offset(start_pos));
+            cerr << "\tIndex distance: " << next_pos << "->" << start_pos << "=" << index_distance << endl;
 
             if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
@@ -1373,18 +1386,6 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
-            pos_t start_pos = is_rev(start_seed.pos) 
-                            ? make_pos_t(id(start_seed.pos), 
-                                         false, 
-                                         distance_index.minimum_length(start_handle) - offset(start_seed.pos) )
-                            : start_seed.pos;
-            pos_t next_pos = is_rev(next_seed.pos) 
-                           ? make_pos_t(id(next_seed.pos), 
-                                        false, 
-                                        distance_index.minimum_length(next_handle) - offset(next_seed.pos) )
-                           : next_seed.pos;
-            size_t start_length = distance_index.minimum_length(start_handle);
-            size_t next_length = distance_index.minimum_length(next_handle);
 
             bool distance_is_invalid = node_is_invalid(id(next_seed.pos), distance_index, distance_limit) ||
                                node_is_invalid(id(start_seed.pos), distance_index, distance_limit);
@@ -1405,8 +1406,6 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                         cerr << "\tWarning: distance mismatch found" << endl;
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") 
                              << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
-                        cerr << "Forward positions: " << start_pos << " " << next_pos << " and lengths " 
-                             << start_length << " " << next_length << endl;
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
                         cerr << "With distance limit: " << distance_limit << endl;
                     failing_seeds[make_pair(first_pos, second_pos)] = make_pair(tree_distance, index_distance);
@@ -1773,7 +1772,7 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
     const unordered_map<size_t, size_t>& snarl_start_indexes, std::stack<size_t> chain_numbers, 
     bool right_to_left, size_t distance_limit) : 
     it(rbegin), rend(rend), origin(rbegin), zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
-    chain_numbers(chain_numbers), right_to_left(right_to_left),
+    chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(nullptr), current_state(S_START) {
 #ifdef debug_parse
     if (this->it != rend) {
@@ -1806,16 +1805,18 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
 ZipCodeTree::distance_iterator::distance_iterator(const distance_iterator& other) : 
     it(other.it), rend(other.rend), origin(other.origin), distance_limit(other.distance_limit), chain_numbers(std::move(other.chain_numbers)),
     stack_data(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr), 
-    right_to_left(other.right_to_left), zip_code_tree(other.zip_code_tree),
-    snarl_start_indexes(other.snarl_start_indexes), current_state(other.current_state) {
+    right_to_left(other.right_to_left), original_right_to_left(other.original_right_to_left),
+    zip_code_tree(other.zip_code_tree), snarl_start_indexes(other.snarl_start_indexes),
+    current_state(other.current_state) {
     // Nothing to do!
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(distance_iterator&& other) : 
     it(std::move(other.it)), rend(std::move(other.rend)), origin(other.origin), chain_numbers(std::move(other.chain_numbers)),
     distance_limit(std::move(other.distance_limit)), stack_data(std::move(other.stack_data)),
-    right_to_left(other.right_to_left), zip_code_tree(std::move(other.zip_code_tree)),
-    snarl_start_indexes(std::move(other.snarl_start_indexes)), current_state(std::move(other.current_state)) {
+    right_to_left(other.right_to_left), original_right_to_left(std::move(other.original_right_to_left)),
+    zip_code_tree(std::move(other.zip_code_tree)), snarl_start_indexes(std::move(other.snarl_start_indexes)),
+    current_state(std::move(other.current_state)) {
     // Nothing to do!
 }
 
@@ -1827,6 +1828,7 @@ auto ZipCodeTree::distance_iterator::operator=(const distance_iterator& other) -
     distance_limit = other.distance_limit;
     stack_data.reset(other.stack_data ? new std::stack<size_t>(*other.stack_data) : nullptr);
     right_to_left = other.right_to_left;
+    original_right_to_left = other.original_right_to_left;
     current_state = other.current_state;
     return *this;
 }
@@ -1839,6 +1841,7 @@ auto ZipCodeTree::distance_iterator::operator=(distance_iterator&& other) -> dis
     distance_limit = std::move(other.distance_limit);
     stack_data = std::move(other.stack_data);
     right_to_left = std::move(other.right_to_left);
+    original_right_to_left = std::move(other.original_right_to_left);
     current_state = std::move(other.current_state);
     return *this;
 }
@@ -1890,11 +1893,14 @@ auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
     // We know the running distance to this seed will be at the top of the stack
     seed_result_t to_return;
     to_return.seed = it->get_value();
+#ifdef debug_parse
     cerr << (right_to_left ? "Right to left" : "Left to right") << " distance to seed " 
          << to_return.seed << " is " << stack_data->top() << endl;
+#endif
     to_return.is_reverse = right_to_left ? it->get_is_reversed()
                                          : !it->get_is_reversed();
-    to_return.distance = (it == origin) ? 0 : stack_data->top();
+    // If we're at the exact same position, the distance must be 0
+    to_return.distance = (it == origin && right_to_left == original_right_to_left) ? 0 : stack_data->top();
     return to_return;
 }
 
