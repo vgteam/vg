@@ -493,13 +493,6 @@ void validate_haplotypes(const Haplotypes& haplotypes,
                          size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity);
 
-bool ends_with(const std::string& str, const std::string& suffix) {
-    if (str.length() < suffix.length()) {
-        return false;
-    }
-    return (str.substr(str.length() - suffix.length()) == suffix);
-}
-
 std::string get_name(const std::string& graph_name, const std::string& extension) {
     size_t length = graph_name.length();
     if (ends_with(graph_name, gbwtgraph::GBZ::EXTENSION)) {

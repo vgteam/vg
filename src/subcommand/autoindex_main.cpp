@@ -231,12 +231,22 @@ int main_autoindex(int argc, char** argv) {
                 }
                 break;
             case 'r':
+                if (ends_with(optarg, vg::GZ_SUFFIX)) {
+                        cerr << "[autoindex] ERROR: FASTA file " << optarg
+                             << " appears to be gzipped. Decompress it before use." << endl;    
+                    return 1;
+                }
                 registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
                 vcf_names.push_back(optarg);
                 break;
             case 'i':
+                if (ends_with(optarg, vg::GZ_SUFFIX)) {
+                        cerr << "[autoindex] ERROR: FASTA file " << optarg
+                             << " appears to be gzipped. Decompress it before use." << endl;    
+                    return 1;
+                }
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
