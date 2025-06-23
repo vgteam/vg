@@ -2214,14 +2214,21 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // under that running distances to use for the other chains in the
         // snarl's parent snarl, etc.
         if (it->get_type() == SEED) {
-            // Emit seed here with distance at top of stack.
+            bool cur_is_rev = right_to_left ? it->get_is_reversed() : !it->get_is_reversed();
+            bool origin_is_rev = original_right_to_left ? origin->get_is_reversed() : !origin->get_is_reversed();
+            if (cur_is_rev == origin_is_rev) {
+                // Emit seed here with distance at top of stack.
 #ifdef check_parse
     crash_unless(depth() > 0);
 #endif
 #ifdef debug_parse
     std::cerr << "Yield seed " << it->get_value() << ", distance " << top() << std::endl;
 #endif
-            return true;
+                return true;
+            } else {
+                // This seed is in the opposite read orientation,
+                // thus it could not be used anyhow: we skip it
+            }
         } else if (entered_snarl()) {
             // Running distance along chain is on stack,
             // and will need to be added to all the stored distances.
