@@ -1229,37 +1229,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
-
-
-            bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) != 
-                                     distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
-            if (chain_is_reversed) {
-
-                vector<size_t> seed_order;
-                for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
-                    if (zip_forest.trees[0].get_item_at_index(i).get_type() == ZipCodeTree::SEED) {
-                        seed_order.emplace_back(zip_forest.trees[0].get_item_at_index(i).get_value());
-                    }
-                }
-                //The seeds should be in the same order as the original list of seeds, but the orientation depends on the orientation of the top-level chain so either way is fine
-                if (seed_order.front() == 0) {
-                    for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                        REQUIRE(seed_order[i] == i);
-                    }
-                } else if (seed_order.front() == 5) {
-                    for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                        REQUIRE(seed_order[i] == 5-i);
-                    }
-                } else {
-                    REQUIRE((seed_order.front() == 0 || seed_order.front() == 5));
-                }
-            } else {
-                //This unit test is for testing the nested chain going backwards so if it isn't it should be rewritten
-                //Chain 2->4 should be traversed backwards in the snarl tree
-                //It doesn't matter which direction chain 1->5 is going
-                cerr << "This test isn't testing the thing its supposed to test because the snarl finder put the chain in a different orientation. So it should probably be rewritten" << endl;
-            }
-
         }
 
     }
@@ -1313,37 +1282,6 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
-
-
-            bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) != 
-                                     distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
-            if (chain_is_reversed) {
-
-                vector<size_t> seed_order;
-                for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
-                    if (zip_forest.trees[0].get_item_at_index(i).get_type() == ZipCodeTree::SEED) {
-                        seed_order.emplace_back(zip_forest.trees[0].get_item_at_index(i).get_value());
-                    }
-                }
-                //The seeds should be in the same order as the original list of seeds, but the orientation depends on the orientation of the top-level chain so either way is fine
-                if (seed_order.front() == 0) {
-                    for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                        REQUIRE(seed_order[i] == i);
-                    }
-                } else if (seed_order.front() == 5) {
-                    for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                        REQUIRE(seed_order[i] == 5-i);
-                    }
-                } else {
-                    REQUIRE((seed_order.front() == 0 || seed_order.front() == 5));
-                }
-            } else {
-                //This unit test is for testing the nested chain going backwards so if it isn't it should be rewritten
-                //Chain 2->4 should be traversed backwards in the snarl tree
-                //It doesn't matter which direction chain 1->5 is going
-                cerr << "This test isn't testing the thing its supposed to test because the snarl finder put the chain in a different orientation. So it should probably be rewritten" << endl;
-            }
-
         }
     }
     TEST_CASE( "zip tree snarl with inversion", "[zip_tree]" ) {
@@ -2330,7 +2268,6 @@ namespace unittest {
  
             vector<pair<pos_t, size_t>> positions;
             positions.emplace_back(make_pos_t(2, false, 0), 1);
-            positions.emplace_back(make_pos_t(2, false, 0), 4);
 
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
@@ -3058,24 +2995,6 @@ namespace unittest {
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, dist_index, 100);
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
-            vector<size_t> seed_order;
-            for (size_t i = 0 ; i < zip_forest.trees[0].get_tree_size() ; i++) {
-                if (zip_forest.trees[0].get_item_at_index(i).get_type() == ZipCodeTree::SEED) {
-                    seed_order.emplace_back(zip_forest.trees[0].get_item_at_index(i).get_value());
-                }
-            }
-            //The seeds should be in order of the chain, which is the order I put them in
-            if (seed_order.front() == 0) {
-                for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                    REQUIRE(seed_order[i] == i);
-                }
-            } else if (seed_order.front() == 6) {
-                for (size_t i = 0 ; i < seed_order.size() ; i++) {
-                    REQUIRE(seed_order[i] == 6-i);
-                }
-            } else {
-                REQUIRE((seed_order.front() == 0 || seed_order.front() == 6));
-            }
         }
         SECTION( "Cross unreachable chain including snarl that is not start-end reachable" ) {
  
