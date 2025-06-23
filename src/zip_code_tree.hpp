@@ -474,9 +474,6 @@ public:
     bool node_is_invalid(nid_t id, const SnarlDistanceIndex& distance_index, 
                          size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
-    /// Is the node in a cyclic (non-dag) snarl?
-    bool node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& distance_index) const; 
-
     ///Check that the tree is correct
     void validate_zip_tree(const SnarlDistanceIndex& distance_index, 
                            const vector<Seed>* seeds,

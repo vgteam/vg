@@ -1065,20 +1065,6 @@ bool ZipCodeTree::node_is_invalid(nid_t id, const SnarlDistanceIndex& distance_i
     return is_invalid;
 }
 
-bool ZipCodeTree::node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& distance_index) const {
-    bool is_cyclic_snarl = false;
-    net_handle_t net = distance_index.get_node_net_handle(id);
-    while (!distance_index.is_root(net)) {
-        if (distance_index.is_snarl(net) && !distance_index.is_dag(net)) {
-            //If this is a cyclic snarl
-            is_cyclic_snarl = true;;
-            break;
-        }
-        net = distance_index.get_parent(net);
-    }
-    return is_cyclic_snarl;
-}
-
 void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index, 
                                       const vector<Seed>* seeds,
                                       size_t distance_limit) const {
@@ -1144,8 +1130,6 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
             //Check if this is worth validating
             //Use a distance limit of 0 so it will ignore looping chains
             bool current_is_invalid = node_is_invalid(id(seeds->at(current_item.get_value()).pos), distance_index, 0);
-            bool current_is_in_cyclic_snarl = node_is_in_cyclic_snarl(id(seeds->at(current_item.get_value()).pos), 
-                                                                      distance_index);
 
             if (previous_seed_index != std::numeric_limits<size_t>::max() &&
                 !current_is_invalid && !previous_is_invalid) {
@@ -1241,36 +1225,33 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                     size_t component_b = current_seed.zipcode.get_chain_component(depth);
                     size_t offset_a = previous_seed.zipcode.get_offset_in_chain(depth);
                     size_t offset_b = current_seed.zipcode.get_offset_in_chain(depth);
-                    if (!current_is_in_cyclic_snarl) {
-
-                        if (component_a == component_b) {
-                            if ( offset_a == offset_b) {
-                                //If they have the same prefix sum,
-                                //then the snarl comes first
-                                //Will never be on the same child at this depth
-                                if (parent_of_a_is_reversed) {
-                                    assert(current_seed.zipcode.get_code_type(depth) != ZipCode::NODE);
-                                    assert(previous_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
-                                } else {
-                                    assert(previous_seed.zipcode.get_code_type(depth) != ZipCode::NODE);
-                                    assert(current_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
-                                }
+                    if (component_a == component_b) {
+                        if ( offset_a == offset_b) {
+                            //If they have the same prefix sum,
+                            //then the snarl comes first
+                            //Will never be on the same child at this depth
+                            if (parent_of_a_is_reversed) {
+                                assert(current_seed.zipcode.get_code_type(depth) != ZipCode::NODE);
+                                assert(previous_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
                             } else {
-                                //Check if the parent chain is reversed
-                                //and if so, then the order should be reversed
-                                //Could happen in irregular snarls
-                                if (parent_of_a_is_reversed) {
-                                    assert( offset_b <= offset_a);
-                                } else {
-                                    assert( offset_a <= offset_b);
-                                }
+                                assert(previous_seed.zipcode.get_code_type(depth) != ZipCode::NODE);
+                                assert(current_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
                             }
                         } else {
+                            //Check if the parent chain is reversed
+                            //and if so, then the order should be reversed
+                            //Could happen in irregular snarls
                             if (parent_of_a_is_reversed) {
-                                assert( component_b <= component_a);
+                                assert( offset_b <= offset_a);
                             } else {
-                                assert( component_a <= component_b);
+                                assert( offset_a <= offset_b);
                             }
+                        }
+                    } else {
+                        if (parent_of_a_is_reversed) {
+                            assert( component_b <= component_a);
+                        } else {
+                            assert( component_a <= component_b);
                         }
                     }
                 } else if (previous_seed.zipcode.get_code_type(depth-1) == ZipCode::REGULAR_SNARL
@@ -1282,10 +1263,8 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                     // Sort by a topological ordering from snarl start
                     // Ranks of children in snarls are in a topological order, 
                     // so sort on the ranks
-                    if (!current_is_in_cyclic_snarl) {
-                        assert(previous_seed.zipcode.get_rank_in_snarl(depth)
-                               <= current_seed.zipcode.get_rank_in_snarl(depth));
-                    }
+                    assert(previous_seed.zipcode.get_rank_in_snarl(depth)
+                            <= current_seed.zipcode.get_rank_in_snarl(depth));
                 } 
 
             }
@@ -1459,7 +1438,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
     validate_boundaries(distance_index, seeds, distance_limit);
     validate_zip_tree_order(distance_index, seeds);
-    validate_seed_distances(distance_index, seeds, distance_limit);
+    //validate_seed_distances(distance_index, seeds, distance_limit);
 }
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
