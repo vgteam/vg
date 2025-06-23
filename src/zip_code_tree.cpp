@@ -1312,14 +1312,9 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
         //The seed that the iterator points to
         const Seed& start_seed = seeds->at((*dest).seed);
 
-        //Do we want the distance going left in the node
-        //This takes into account the position & orientation of tree traversal
-        bool start_is_reversed = (*dest).is_reverse ? !is_rev(start_seed.pos) 
-                                                    : is_rev(start_seed.pos);
-        if (!right_to_left) {
-            //Going in the wrong direction
-            start_is_reversed = !start_is_reversed;
-        }
+        //Which direction do we traverse the seed?
+        const bool start_is_reversed = right_to_left ? (*dest).is_reverse
+                                                     : !(*dest).is_reverse;
 
         //Walk through the tree starting from dest and check the distance
         distance_iterator distance_itr_start = find_distances(dest, right_to_left);
@@ -1327,8 +1322,7 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
             seed_result_t next_seed_result = *tree_itr_left;
             const Seed& next_seed = seeds->at(next_seed_result.seed);
-            const bool next_is_reversed = next_seed_result.is_reverse ? !is_rev(next_seed.pos) 
-                                                                      : is_rev(next_seed.pos);
+            const bool next_is_reversed = next_seed_result.is_reverse;
 
             size_t tree_distance = next_seed_result.distance;
 
@@ -1355,7 +1349,7 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
             }
-            if (index_distance != std::numeric_limits<size_t>::max() && (*dest).is_reverse) {
+            if (index_distance != std::numeric_limits<size_t>::max() && (*dest).is_reverse == right_to_left) {
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
@@ -1438,7 +1432,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
     validate_boundaries(distance_index, seeds, distance_limit);
     validate_zip_tree_order(distance_index, seeds);
-    //validate_seed_distances(distance_index, seeds, distance_limit);
+    validate_seed_distances(distance_index, seeds, distance_limit);
 }
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 

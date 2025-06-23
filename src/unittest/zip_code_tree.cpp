@@ -2268,6 +2268,7 @@ namespace unittest {
  
             vector<pair<pos_t, size_t>> positions;
             positions.emplace_back(make_pos_t(2, false, 0), 1);
+            positions.emplace_back(make_pos_t(2, true, 11), 1);
 
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
@@ -2291,9 +2292,9 @@ namespace unittest {
             positions.emplace_back(make_pos_t(2, false, 0), 1);
             positions.emplace_back(make_pos_t(2, false, 1), 2);
             positions.emplace_back(make_pos_t(2, false, 2), 3);
-            positions.emplace_back(make_pos_t(2, false, 0), 4);
-            positions.emplace_back(make_pos_t(2, false, 1), 5);
-            positions.emplace_back(make_pos_t(2, false, 2), 6);
+            positions.emplace_back(make_pos_t(2, true, 11), 4);
+            positions.emplace_back(make_pos_t(2, true, 10), 5);
+            positions.emplace_back(make_pos_t(2, true, 9), 6);
             positions.emplace_back(make_pos_t(4, false, 0), 7);
 
             //all are in the same cluster
