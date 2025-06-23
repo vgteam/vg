@@ -1852,16 +1852,6 @@ auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
     to_return.seed = it->get_value();
     size_t distance = stack_data->top();
 
-
-    // Do I need to have the ziptree output something other than what is stored?
-    if (!original_right_to_left) {
-        // Change to include/exclude starting position if iterator was reversed
-        //distance = origin->get_is_reversed() ? distance - 1 : distance + 1;
-    }
-    if (!right_to_left) {
-        // Change to include/exclude ending position if iterator is reversed
-        //distance = it->get_is_reversed() ? distance - 1 : distance + 1;
-    }
 #ifdef debug_parse
     cerr << (right_to_left ? "Right to left" : "Left to right") << " distance to seed " 
          << to_return.seed << " is " << distance << endl;
