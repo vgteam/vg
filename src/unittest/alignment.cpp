@@ -389,5 +389,80 @@ TEST_CASE("CIGAR generation forces adjacent insertions and deletions to obey GAT
     
 }
 
+TEST_CASE("Conversion to GAF removes an unused final node", "[alignment]") {
+    VG graph;
+    graph.create_node("GATTACA", 1);
+    graph.create_node("CAT", 2);
+    graph.create_node("GATTA", 3);
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(2, false));
+    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
+
+    Alignment aln;
+    {
+        aln.set_sequence("TACACTTAC");
+        aln.set_name("softclip-at-end");
+        Path* path = aln.mutable_path();
+
+        // TACA to 1:3
+        Mapping* mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(1);
+        mapping->mutable_position()->set_is_reverse(false);
+        mapping->mutable_position()->set_offset(3);
+        mapping->set_rank(1);
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(4);
+        edit->set_to_length(4);
+
+        // CTT to 2:0
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(2);
+        mapping->mutable_position()->set_is_reverse(false);
+        mapping->mutable_position()->set_offset(0);
+        mapping->set_rank(2);
+        edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+        edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+        edit->set_sequence("T");
+        edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+
+        // AC to 3:0 as a softclip
+        mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(3);
+        mapping->mutable_position()->set_is_reverse(false);
+        mapping->mutable_position()->set_offset(0);
+        mapping->set_rank(3);
+        edit = mapping->add_edit();
+        edit->set_from_length(0);
+        edit->set_to_length(2);
+        edit->set_sequence("AC");
+    }
+
+    // The unused final node should be removed and path_end should be set correctly.
+    gafkluge::GafRecord gaf = alignment_to_gaf(graph, aln, nullptr, true, false, false);
+    SECTION("GAF record is correct") {
+        REQUIRE(gaf.query_name == aln.name());
+        REQUIRE(gaf.query_length == aln.sequence().size());
+        REQUIRE(gaf.query_start == 0);
+        REQUIRE(gaf.query_end == aln.sequence().size());
+        REQUIRE(gaf.path.size() == 2);
+        REQUIRE(gaf.path[0].name == "1");
+        REQUIRE(gaf.path[0].is_reverse == false);
+        REQUIRE(gaf.path[1].name == "2");
+        REQUIRE(gaf.path[1].is_reverse == false);
+        size_t path_length = graph.get_length(graph.get_handle(1)) + graph.get_length(graph.get_handle(2));
+        REQUIRE(gaf.path_length == path_length);
+        REQUIRE(gaf.path_start == aln.path().mapping(0).position().offset());
+        REQUIRE(gaf.path_end == path_length);
+        std::string difference_string = gaf.opt_fields["cs"].second;
+        std::string true_difference_string = ":5*AT:1+AC";
+        REQUIRE(difference_string == true_difference_string);
+    }
+}
+
 }
 }

@@ -37,7 +37,7 @@ public:
     ///  already be surjected. If alignments have connections, requires a graph
     MultipathAlignmentEmitter(const string& filename, size_t num_threads, const string out_format = "GAMP",
                               const PathPositionHandleGraph* graph = nullptr,
-                              const vector<pair<string, int64_t>>* path_order_and_length = nullptr);
+                              const SequenceDictionary* sequence_dictionary = nullptr);
     ~MultipathAlignmentEmitter();
     
     /// Choose a read group to apply to all emitted alignments

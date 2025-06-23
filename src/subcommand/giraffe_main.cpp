@@ -732,8 +732,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     cerr
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
-    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
-    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
+    << "  -f, --fastq-in FILE           read and align FASTQ- or FASTA-format reads from FILE (two are allowed, one for each mate)" << endl
+    << "  -i, --interleaved             GAM/FASTQ/FASTA input is interleaved pairs, for paired-end alignment" << endl
     << "  --comments-as-tags            intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl;
 
     cerr
@@ -760,6 +760,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     if (full_help) {
         cerr
         << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
+        << "  --add-graph-aln               annotate linear formats with the graph alignment in the GR tag as a cs-style difference string" << endl
         << "  -n, --discard                 discard all output alignments (for profiling)" << endl
         << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
         << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -807,11 +808,13 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_REF_NAME = 1009;
     constexpr int OPT_SHOW_WORK = 1010;
     constexpr int OPT_NAMED_COORDINATES = 1011;
+    constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1113;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
-    constexpr int OPT_COMMENTS_AS_TAGS = 1104;
+
 
     // initialize parameters with their default options
     
@@ -893,6 +896,9 @@ int main_giraffe(int argc, char** argv) {
     std::unordered_set<std::string> reference_assembly_names;
     // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
+    
+    // When surjecting, should we annotate the reads with the graph alignment?
+    bool add_graph_alignment = false;
     
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -1167,6 +1173,7 @@ int main_giraffe(int argc, char** argv) {
         {"output-format", required_argument, 0, 'o'},
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
         {"prune-low-cplx", no_argument, 0, 'P'},
+        {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1402,6 +1409,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
+                break;
+                
+            case OPT_ADD_GRAPH_ALIGNMENT:
+                add_graph_alignment = true;
                 break;
 
             case 'n':
@@ -1906,6 +1917,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("prune-low-cplx", prune_anchors);
+        report_flag("add-graph-aln", add_graph_alignment);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
@@ -2002,7 +2014,7 @@ int main_giraffe(int argc, char** argv) {
         {
         
             // Look up all the paths we might need to surject to.
-            vector<tuple<path_handle_t, size_t, size_t>> paths;
+            SequenceDictionary paths;
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);
@@ -2025,6 +2037,10 @@ int main_giraffe(int argc, char** argv) {
                 if (named_coordinates) {
                     // When not surjecting, use named segments instead of node IDs.
                     flags |= ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES;
+                }
+                if (add_graph_alignment) {
+                    // When surjecting, add the graph alignment tag
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.

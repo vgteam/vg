@@ -17,6 +17,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../convert.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -79,10 +80,10 @@ void help_chunk(char** argv) {
          << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
-         << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
-         << "    -f, --fully-contained    only return alignments that are fully contained within the chunk" << endl
+         << "    --no-embedded-haplotypes don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
+         << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
          << "    -u, --cut-alignments     cut alignments to be fully contained within the chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
+         << "    -O, --output-fmt         specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -579,11 +580,11 @@ int main_chunk(int argc, char** argv) {
                     Region region;
                     vector<string> parts = split_delims(range, ":");
                     if (parts.size() == 1) {
-                        convert(parts.front(), region.start);
+                        vg::convert(parts.front(), region.start);
                         region.end = region.start;
                     } else {
-                        convert(parts.front(), region.start);
-                        convert(parts.back(), region.end);
+                        vg::convert(parts.front(), region.start);
+                        vg::convert(parts.back(), region.end);
                     }
                     regions.push_back(region);
                 }
@@ -892,7 +893,7 @@ int main_chunk(int argc, char** argv) {
             vg::io::save_handle_graph(subgraph.get(), *out_stream);
         }
         
-        // optional gam chunking
+        // optional read chunking
         if (chunk_aln) {
             if (!components) {
                 // Work out the ID ranges to look up
@@ -920,20 +921,16 @@ int main_chunk(int argc, char** argv) {
                             exit(1);
                         }
 
-                        // loop over ranges and print GAF records
-                        for (auto range : region_id_ranges) {
-                            string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
-                            hts_itr_t *itr = tbx_itr_querys(gaf_tbx.get(), reg.c_str());
-                            kstring_t str = {0,0,0};
-                            if ( itr ) {
-                                while (tbx_itr_next(gaf_fp.get(), gaf_tbx.get(), itr, &str) >= 0) {
-                                    // TODO: parse record and enforce full containment
-                                    // TODO: parse record and implement alignment cutting
-                                    out_gaf_file << str.s << endl;
-                                }
-                                tbx_itr_destroy(itr);
-                            }
-                        }
+                        for_each_gaf_record_in_ranges(gaf_fp.get(), gaf_tbx.get(), region_id_ranges, [&](const std::string& record_string) {
+                            // For each unique matching GAF record's unparsed string
+
+                            // TODO: implement enforcing full containment
+                            // TODO: implement alignment cutting
+                            
+                            // Handle the record (by printing it).
+                            out_gaf_file << record_string << endl;
+                        }); 
+
                         out_gaf_file.close();
                     }
                 } else {

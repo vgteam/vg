@@ -14,6 +14,7 @@
 #include "IntervalTree.h"
 #include "annotation.hpp"
 #include "multipath_alignment_emitter.hpp"
+#include "progressive.hpp"
 #include <vg/io/alignment_emitter.hpp>
 #include <vg/vg.pb.h>
 #include <vg/io/stream.hpp>
@@ -34,7 +35,7 @@ using namespace std;
 struct Counts;
 
 template<typename Read>
-class ReadFilter {
+class ReadFilter : public Progressive {
 public:
     
     // Filtering parameters
@@ -282,7 +283,7 @@ private:
     /** 
      * Does has the given annotation and does it match
      */
-     bool matches_annotation(const Read& read) const;
+    bool matches_annotation(const Read& read) const;
     
     /**
      * Check if the alignment is marked as being correctly mapped
@@ -488,11 +489,25 @@ void ReadFilter<Read>::filter_internal(istream* in) {
         }
     }
     
+    preload_progress("filter read file");
+
+    auto progress_function = [&](size_t offset, size_t length) {
+        if (length != std::numeric_limits<size_t>::max()) {
+            // We actually have progress data
+            // To avoid keeping state, we make the progress system keep state
+            ensure_progress(length);
+            // And then we do an update
+            update_progress(offset);
+        }
+    };
+
     if (interleaved) {
-        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size);
+        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size, progress_function);
     } else {
-        vg::io::for_each_parallel(*in, lambda, batch_size);
+        vg::io::for_each_parallel(*in, lambda, batch_size, progress_function);
     }
+
+    destroy_progress();
 
     if (write_tsv) {
         // Add a terminating newline
@@ -1560,6 +1575,12 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             out << read.sequence();
         } else if (field == "length") {
             out << read.sequence().size(); 
+        } else if (field == "cigar") { 
+            vector<pair<int, char>> cigar;
+            for (const auto& mapping : read.path().mapping()) {
+                mapping_cigar(mapping, cigar, 'X');
+            }
+            out << cigar_string(cigar);
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
@@ -1567,7 +1588,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             // describing the Struct and not what the Struct describes if
             // we pb2json it.
             //
-            // So make Protobuf serialize it for us the specail Struct way
+            // So make Protobuf serialize it for us the special Struct way
             std::string buffer;
             google::protobuf::util::JsonPrintOptions opts;
             auto status = google::protobuf::util::MessageToJsonString(read.annotation(), &buffer, opts);
@@ -1622,7 +1643,7 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 }
             }
         } else {
-            cerr << "I didn't implement all fields for tsv's so if I missed something let me know and I'll add it -Xian" << endl;
+            cerr << endl << "Available fields: <https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-vg-filter>" << endl;
             throw runtime_error("error: Writing non-existent field to tsv: " + field);
         }
         if (i != output_fields.size()-1) {
