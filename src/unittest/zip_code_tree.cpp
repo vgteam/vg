@@ -2326,6 +2326,27 @@ namespace unittest {
 
         //graph.to_dot(cerr);
 
+        SECTION( "One seed" ) {
+ 
+            vector<pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(2, false, 0), 1);
+            positions.emplace_back(make_pos_t(2, false, 0), 4);
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (auto pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos.first);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({ pos.first, pos.second, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            zip_forest.validate_zip_forest(distance_index, &seeds);
+        }
+
         SECTION( "Cyclic snarl with seeds on either side" ) {
  
             vector<pair<pos_t, size_t>> positions;
