@@ -332,7 +332,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << found_dest_anchor->second << std::endl;
 #endif
 
-            for (ZipCodeTree::distance_iterator source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); !source.done(); ++source) {
+            for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); !source.done(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
 
@@ -384,7 +384,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     continue;
                 }
             }
-            if (dest.cyclic_snarl_nested_depth > 0) {
+            if (dest.in_cyclic_snarl()) {
                 if (right_to_left) {
                     // Seeds in cyclic snarls are checked in both directions
                     right_to_left = false;
