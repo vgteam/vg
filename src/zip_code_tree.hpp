@@ -1012,6 +1012,7 @@ class ZipCodeForest {
     /// Open a chain that starts at the current_seed
     /// Also record its presence and distance-to-start in the parent snarl
     /// If needed, seed_index is the index into seeds of the chain's first seed
+    /// Assumes that the chain *has* a parent snarl, i.e. isn't top-level
     void open_chain(forest_growing_state_t& forest_state, const size_t& depth, 
                     size_t seed_index, bool chain_is_reversed);
 
