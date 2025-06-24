@@ -122,12 +122,17 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
 
 unordered_map<size_t, size_t> ZipCodeTree::forget_snarls_past_index(size_t index) {
     unordered_map<size_t, size_t> removed_snarls;
+
+    // Loop through all possibly used snarl IDs
     for (size_t i = 0; i < next_snarl_id; i++) {
+        // Is this snarl still in the ziptree, and if so, is it after index?
         if (snarl_start_indexes.count(i) && snarl_start_indexes[i] >= index) {
+            // Indexes must be shifted before being saved in removed_snarls
             removed_snarls[i] = snarl_start_indexes[i] - index;
             snarl_start_indexes.erase(i);
         }
     }
+
     return removed_snarls;
 }
 
@@ -142,8 +147,10 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
     }
 
     size_t slice_start_i = forest_state.open_chains.back().first;
+    // Iterators to ends of slice, for insertion/erasure
     auto start_of_slice = trees[forest_state.active_tree_index].zip_code_tree.begin() + slice_start_i;
     auto end_of_slice = trees[forest_state.active_tree_index].zip_code_tree.end();
+    // Are we moving a full chain or just a slice of one?
     bool move_full_chain = start_of_slice->get_type() == ZipCodeTree::CHAIN_START;
 
     // Pull out memory map of snarl start indexes to transfer to the new tree
@@ -155,23 +162,23 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
     cerr << "Copy a slice from the middle of the chain to the end" << endl;
     assert(start_of_slice->get_type() == ZipCodeTree::SEED || start_of_slice->is_snarl_start());
 #endif
-        //We're copying a slice of the chain from the middle to the end
-        //Start a new chain in the new subtree
+        // We're copying a slice of the chain from the middle to the end
+        // Must add an artificial start to the slice
         trees.back().zip_code_tree.emplace_back(new_start);
 
-        //Scoot all the snarl start indexes forward one
+        // Scoot all the snarl start indexes forward one
         for (auto& snarl_start : transferred_snarl_starts) {
             snarl_start.second++;
         }
     }
 
-    //Copy everything in the slice into the new tree
+    // Copy everything in the slice into the new tree
     trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
             std::make_move_iterator(start_of_slice), std::make_move_iterator(end_of_slice));
-    //Erase the slice
+    // Erase the slice
     trees[forest_state.active_tree_index].zip_code_tree.erase(start_of_slice, end_of_slice);
 
-    //Reset chain ends to have no ID
+    // Force-reset chain ends to have no ID
     trees.back().zip_code_tree.front() = new_start;
     trees.back().zip_code_tree.back() = new_end;
     // Transfer index memory
