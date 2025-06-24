@@ -1345,7 +1345,7 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 //Node count
-                REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::NODE_COUNT);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_COUNT);
                 //Chain start
                 REQUIRE(zip_forest.trees[0].get_item_at_index(26).get_type() == ZipCodeTree::CHAIN_START);
                 //Second seed (4)

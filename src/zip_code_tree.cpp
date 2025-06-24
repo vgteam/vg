@@ -3,9 +3,7 @@
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code_tree.hpp"
-#include <structures/union_find.hpp>
 #include "crash.hpp"
-#include "minimizer_mapper.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
 //#define debug_parse
@@ -43,10 +41,11 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
                 cerr << item.get_value();
             }
             cerr << " ";
-        } else if (item.get_type() == NODE_COUNT) {
+        } else if (item.get_type() == CHAIN_COUNT) {
             cerr << item.get_value() << " ";
         } else {
-            throw std::runtime_error("[zip tree]: Trying to print a zip tree item of the wrong type");
+            throw std::runtime_error("[zip tree]: Trying to print a zip tree item of unsupported type: " 
+                                     + std::to_string(item.get_type()));
         }
     }
     cerr << endl;
@@ -881,7 +880,7 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
 
     // Child count (all siblings minus the snarl start) preceeds the matrix
     // This provides context to make reading the matrix easier
-    dist_matrix.emplace_back(ZipCodeTree::NODE_COUNT, sibling_count - 1);
+    dist_matrix.emplace_back(ZipCodeTree::CHAIN_COUNT, sibling_count - 1);
 
     if (is_cyclic_snarl) {
         // start -> start may be possible, but is not optimal so we ignore it
@@ -1269,7 +1268,7 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
         } else if (current_item.is_snarl_start()) {
             if (i != 0) {
                 //Non-root snarls start with their node counts
-                assert(zip_code_tree[i+1].get_type() == ZipCodeTree::NODE_COUNT);
+                assert(zip_code_tree[i+1].get_type() == ZipCodeTree::CHAIN_COUNT);
             }
         }
     }
@@ -1467,7 +1466,7 @@ void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator& zip_i
     
     size_t snarl_id = zip_iterator->get_value();
     zip_iterator++;
-    assert(zip_iterator->get_type() == ZipCodeTree::NODE_COUNT);
+    assert(zip_iterator->get_type() == ZipCodeTree::CHAIN_COUNT);
     // Nodes are children plus the snarl start
     size_t node_count = zip_iterator->get_value()+1;
     zip_iterator++;
@@ -1898,12 +1897,12 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
     // Read snarl header
     bool is_cyclic = snarl_is_cyclic(snarl_id);
     size_t dist_matrix_start = snarl_start_indexes.at(snarl_id) + 2;
-    tree_item_t node_count = zip_code_tree[dist_matrix_start - 1];
-    if (node_count.get_type() == ZipCodeTree::CHAIN_START) {
+    tree_item_t chain_count = zip_code_tree[dist_matrix_start - 1];
+    if (chain_count.get_type() == ZipCodeTree::CHAIN_START) {
         // This must be a root snarl, without a distance matrix
         return vector<size_t>();
     }
-    size_t num_chains = node_count.get_value();
+    size_t num_chains = chain_count.get_value();
 #ifdef debug_parse
     cerr << "Get distances for snarl " << snarl_id << " with " << num_chains << " chain(s); "
          << "stacking for chain " << chain_num << "'s "
@@ -2254,7 +2253,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         //
         // Stack has the running distance along the parent chain, and over that
         // that the stacked running distances for items in the snarl.
-        if (it->get_type() == EDGE || it->get_type() == NODE_COUNT) {
+        if (it->get_type() == EDGE || it->get_type() == CHAIN_COUNT) {
             // Skip over distance matrix; we have already used it
         } else if (entered_chain()) {
             initialize_chain();
@@ -2278,7 +2277,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // Stack has at the top running distances to use for each chain still
         // to be visited in the snarl, and under those the same for the snarl
         // above that, etc.
-        if (it->get_type() == EDGE || it->get_type() == NODE_COUNT) {
+        if (it->get_type() == EDGE || it->get_type() == CHAIN_COUNT) {
             // Skip over distance matrix; we have already used it
         } else if (exited_snarl()) {
             // Stack holds running distance along parent chain plus edge
@@ -2339,7 +2338,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // And under that it has the running distance for ther next thing in
         // the snarl, which had better exist or we shouldn't be trying to skip
         // the chain, we should have halted.
-        if (it->get_type() == SEED || it->get_type() == EDGE || it->get_type() == NODE_COUNT) {
+        if (it->get_type() == SEED || it->get_type() == EDGE || it->get_type() == CHAIN_COUNT) {
             // We don't emit seeds until the chain is over,
             // and we ignore edges/distance matrices
         } else if (exited_snarl()) {
@@ -2377,7 +2376,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // until we get back to the level we want to skip past the snarl start.
         //
         // Under that is the running distance along the parent chain.
-        if (it->get_type() == SEED || it->get_type() == EDGE || it->get_type() == NODE_COUNT) {
+        if (it->get_type() == SEED || it->get_type() == EDGE || it->get_type() == CHAIN_COUNT) {
             // We don't emit seeds until the snarl is over,
             // and we ignore edges/distance matrices
         } else if (exited_chain()) {
@@ -2412,7 +2411,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         //
         // We have already stacked up the running distances to use for each
         // chain if we start on the left, which is where the matrix is.
-        if (it->get_type() == SEED || it->get_type() == NODE_COUNT) {
+        if (it->get_type() == SEED || it->get_type() == CHAIN_COUNT) {
             // We don't emit seeds until the snarl is over
         } else if (entered_snarl() || exited_snarl()) {
             // Child snarl we're skipping over
@@ -3204,8 +3203,8 @@ std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
         return "CHAIN_END";
     case vg::ZipCodeTree::EDGE:
         return "EDGE";
-    case vg::ZipCodeTree::NODE_COUNT:
-        return "NODE_COUNT";
+    case vg::ZipCodeTree::CHAIN_COUNT:
+        return "CHAIN_COUNT";
     default:
         throw std::runtime_error("Unimplemented zip code tree item type");
     }
