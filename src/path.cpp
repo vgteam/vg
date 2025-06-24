@@ -2538,6 +2538,11 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
 }
 
 bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path) {
+    // TODO: Reimplement around for_each_overlapping_subpath(), accounting for
+    // a -1 end and multiple subpaths starting after the start meaning no
+    // containing subpath, but otherwise allowing -1 region bounds with
+    // subpaths.
+
     // We might be asking for a part of a subpath, or a part of a base path.
     if (graph.has_path(region.seq)) {
         // It's a base path we have all of, or a subpath we have exactly.
@@ -2559,7 +2564,7 @@ bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& regio
         bool found_contained = false;
 
         for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
-            // We should have some subrange if we get here. Also the region coordunates are specified.
+            // We should have some subrange if we get here. Also the region coordinates are specified.
             subrange_t candidate_subrange = graph.get_subrange(candidate);
             crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
             if (candidate_subrange.first <= region.start && candidate_subrange.first + candidate_subrange.second > region.end + 1) {
@@ -2576,6 +2581,53 @@ bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& regio
         
         // Return whether we found the containing subpath.
         return found_contained;
+    }
+}
+
+bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& region, const std::function<bool(const path_handle_t& path, size_t start_offset, size_t past_end_offset)>& iteratee) {
+    // We might be asking for a part of a subpath, or a part of a base path.
+    if (graph.has_path(region.seq)) {
+        // It's a base path we have all of, or a subpath we have exactly.
+        path_handle_t path = graph.get_path_handle(region.seq);
+        
+        if (region.end == -1) {
+            // Infer the region endpoint from the path
+            region.end = graph.get_path_length(path) - 1;
+        }
+
+        // The region start point will be 0 if not set.
+        region.start = max((int64_t)0, region.start);
+
+        // Show the requested region of the explicitly-named path.
+        return iteratee(path, region.start, region.end + 1);
+     } else {
+        // Maybe it's a base path and we only have a subpath.
+        // Just loop over all the subpaths and show the right parts of the right ones.
+        // TODO: Implement an index on the subpaths.
+        return for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
+            // We should have some subrange if we get here.
+            subrange_t candidate_subrange = graph.get_subrange(candidate);
+            crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
+            if (candidate_subrange.second == PathMetadata::NO_END_POSITION) {
+                // Populate the candidate subrange end
+                candidate_subrange.second = candidate_subrange.first + graph.get_path_length(candidate);  
+            }
+            if ((region.start == -1 || candidate_subrange.first + candidate_subrange.second > region.start) && (region.end == -1 || candidate_subrange.first < region.end + 1)) {
+                // The subranges are 0-based exclusive and the regions are 0-based inclusive.
+                // This subrange intersects this region.
+                
+                // If the region has a start other than -1 and starts after the subpath does, cut into the subpath on the left.
+                // We need the explicit comparison against -1 because we can't usefully compare a signed -1 to an unsigned number.
+                size_t intersection_start = (region.start != -1 && region.start > candidate_subrange.first) ? (region.start - candidate_subrange.first) : 0;
+                // If the region ends somewhere other than -1 and ends before the subpath does, cut into the subpath on the right.
+                size_t intersection_end = (region.end != -1 && region.end + 1 < candidate_subrange.second) ? region.end + 1 - candidate_subrange.first : candidate_subrange.second - candidate_subrange.first;
+                
+                // Show the iteratee the intersecting part.
+                return iteratee(candidate, intersection_start, intersection_end);
+            }
+
+            return true;
+        });
     }
 }
 
@@ -2635,6 +2687,12 @@ std::string get_path_base_name(const PathPositionHandleGraph& graph, const path_
                                               graph.get_phase_block(path),
                                               PathMetadata::NO_SUBRANGE);
     }
+}
+
+size_t get_path_base_offset(const PathPositionHandleGraph& graph, const path_handle_t& path) {
+    subrange_t subrange = graph.get_subrange(path);
+    // NO_SUBRANGE doesn't necessarily have a 0 in the first field.
+    return subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
 }
 
 
