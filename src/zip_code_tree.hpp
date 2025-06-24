@@ -944,50 +944,55 @@ class ZipCodeForest {
 
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////   Functions for sorting and finding intervals of seeds along the snarl tree
-    /////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    //  Functions for sorting/finding intervals of seeds along the snarl tree
+    ////////////////////////////////////////////////////////////////////////////
 
 
-    /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given
-    /// depth)  Sorting is roughly linear along the top-level chains, in a topological-ish order in
-    /// snarls. Uses radix_sort_zipcodes and default_sort_zipcodes
-    /// For chains, everything is sorted with the prefix sum value of the chain itself from the distance index,
-    /// not the order in the chain in the zip code tree. Everything will be sorted in the order of the zip 
-    /// code tree, but the values will be set from the distance index. This means that later, the values
-    /// may be out of order or may need to be subtracted from the length of the chain to get the distances
-    /// to the ends of the chain
+    /// Sorts an interval, which must contain seeds on the same snarl/chain/node
+    /// Sorting is linear-ish along top-level chains, topological-ish in snarls.
+    /// Uses radix_sort_zipcodes() and default_sort_zipcodes*()
+    ///
+    /// For chains, everything is sorted with the prefix sum value of the chain
+    /// itself from the distance index, not the order in the zip code tree.
+    /// Everything will be sorted in the order of the zip code tree, 
+    /// but the values will be set from the distance index. Later, the values
+    /// may be out of order or may need to be subtracted from the length of
+    /// the chain to get the distance to the ends of the chain
     void sort_one_interval(forest_growing_state_t& forest_state, 
                            const interval_state_t& interval) const;
 
-    /// Helper function to sort the seeds using radix sort
-    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of
-    /// indices into seeds
-    /// reverse_order is true if the order should be reversed. The interval also has an is_reversed
-    /// field, which refers to the orientation in the snarl tree
-    /// This should run in linear time, but it is dependent on the values being sorted on to have a
-    /// small range
-    /// min_ and max_value are the minimum and maximum value being sorted on
-    /// If sort_by_chain_component is true, then sort on the chain component in sort_values
+    /// Helper function for sort_one_interval() to sort seeds using radix sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order,
+    /// a vector of indices into seeds. Reverse order if reverse_order.
+    /// The interval also has an is_reversed field, which refers to the
+    /// orientation in the snarl tree. min_ and max_value are the minimum and
+    /// maximum value being sorted on. If sort_by_chain_component is true, then
+    //// sort on the chain component in sort_values
+    ///
+    /// This should run in linear time, but is dependent on the values
+    /// being sorted on to have a small range
     void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, 
                              const vector<sort_value_t>& sort_values_by_seed,
                              const interval_state_t& interval, bool reverse_order,
-                             size_t min_value, size_t max_value, bool sort_by_chain_component=false) const; 
+                             size_t min_value, size_t max_value, bool sort_by_chain_component = false) const; 
 
-    /// Helper function to sort the seeds using std::sort
-    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector 
-    /// of indices into seeds
+    /// Helper function for sort_one_interval() to sort seeds using std::sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, 
+    /// a vector of indices into seeds
     void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, 
                                const vector<sort_value_t>& sort_values_by_seed,
                                const interval_state_t& interval, bool reverse_order) const; 
 
 
 
-    /// Assuming that the range of seeds in sort_values_by_seeds given by the interval is sorted,
-    /// add the intervals of the children of the interval to the front of next_intervals. The new
-    /// intervals get added in their sort order, so the start of a chain will be at the start of
-    /// the list, to be popped first. For children of chains, seeds that are on the chain itself 
-    ///and not nested will be put on the same interval if there are no seeds in snarls between them,
+    /// Assuming that the range of seeds in forest_state.sort_values_by_seed
+    /// given by interval is sorted, prepend child intervals to next_intervals.
+    /// The new intervals get added in their sort order, so the start of a chain
+    /// will be at the start of the list, to be popped first.
+    ///
+    /// For children of chains, seeds on the chain itself and not nested will
+    /// be on the same interval if there are no seeds in snarls between them,
     /// even if they are not on the same node
     void get_next_intervals(forest_growing_state_t& forest_state, 
                             const interval_state_t& interval,
@@ -997,76 +1002,68 @@ class ZipCodeForest {
     ///////////          functions for building the trees
     /////////////////////////////////////////////////////
 
-    // Move a slice of a chain into a new tree
-    // Chain copied from forest_state.open_chains.back().first to end of ziptree
-    // If only a slice is moved, the last edge is not handled
-    // This is used when a chain is too far from the rest of the chain to be in the same tree
-    // Returns whether a whole chain was moved (true) or just a slice (false)
+    /// Move a slice of a chain into a new tree
+    /// Chain copied from forest_state.open_chains.back().first to end
+    /// Chain IDs are reset to inf because there is no longer a parent snarl
+    /// This is used when a part is too far from the rest to be in the same tree
+    /// Returns whether a whole chain was moved (true) or just a slice (false)
     bool move_slice(forest_growing_state_t& forest_state, const size_t& depth);
 
-    // Open a chain that starts at the current_seed
-    // If the chain is in a snarl, then add empty edges for the distances to everything before it 
-    // in the snarl (found with sibling_indices_at_depth) 
-    // Open the chain, and record its presence and distance-to-start in the parent snarl, if 
-    // necessary seed_index is the index into seeds of the first seed in the chain
+    /// Open a chain that starts at the current_seed
+    /// Also record its presence and distance-to-start in the parent snarl
+    /// If needed, seed_index is the index into seeds of the chain's first seed
     void open_chain(forest_growing_state_t& forest_state, const size_t& depth, 
                     size_t seed_index, bool chain_is_reversed);
 
-    // Close a chain that ends at last_seed
-    // If the chain was empty, remove it and anything relating to it in the parent snarl and 
-    // sibling_indices
-    // If it can be spliced out, take out a subtree
-    // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to 
-    // everything before it in the snarl and remember the distance to the end of the chain
+    /// Close a chain that ends at last_seed
+    /// If the chain was empty, remove it and anything relating to it
+    /// If must be spliced out, take out a subtree
+    /// Otherwise, add the end of the chain and, if the chain was in a snarl,
+    /// remember the distance to the end of the chain
     void close_chain(forest_growing_state_t& forest_state, const size_t& depth, 
                      const Seed& last_seed, bool chain_is_reversed);
 
-    // Add the current seed (or snarl starting at the seed) and its distance to the previous thing 
-    // in a chain
-    // If the seed is far enough from the previous thing in the chain and it can be a new slice, 
-    // split off a subtree
-    // depth is the depth of the child of the chain (which may also be the chain depth if it 
-    // is trivial)
-    // seed_index is the index of the current seed in the list of seeds
+    /// Add a seed (or snarl starting at a seed) and the preceeding chain edge
+    /// If the seed is far enough from the previous thing in the chain and
+    /// it can be a new slice, split off a subtree
+    /// depth is chain child's depth (may also be chain depth if trivial)
+    /// seed_index is the index of the current seed in the list of seeds
     void add_child_to_chain(forest_growing_state_t& forest_state,
-                      const size_t& depth, const size_t& seed_index, 
-                      bool child_is_reversed, bool chain_is_reversed);
+                            const size_t& depth, const size_t& seed_index, 
+                            bool child_is_reversed, bool chain_is_reversed);
 
-    // Start a new snarl
+    /// Start a new snarl of the given type at the given depth
+    /// Assigns the snarl the next available ID
     void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);
 
-    // Close a snarl
-    // depth is the depth of the snarl and last_seed is the last seed in the snarl
-    // If the snarl has no children, then delete the whole thing
-    // Otherwise, add all necessary distances and close it
+    /// Close a snarl at the given depth with the given last_seed
+    /// If the snarl has no children, then delete the whole thing
+    /// Otherwise, add all necessary distances and close it
     void close_snarl(forest_growing_state_t& forest_state, const size_t& depth, 
                      const Seed& last_seed, bool last_is_reversed);
 
-    // Add all the distances from everything in the snarl to either the last child of the snarl or,
-    // if to_snarl_end is true, to the end bound of the snarl
-    // depth is the depth of the snarl
-    void add_snarl_distances(forest_growing_state_t& forest_state,
-                             const size_t& depth, const Seed& seed, bool child_is_reversed, 
-                             bool snarl_is_reversed, bool to_snarl_end);
-
-    // Add a triangular distance matrix for a snarl to its front
-    // The matrix starts with a CHAIN_COUNT with the number of child chains,
-    // and then is a list of EDGEs; for each item in order, all distances to it
-    // from all previous items, possibly including self-loops
+    /// Add a triangular distance matrix for a snarl to its front
+    /// The matrix starts with a CHAIN_COUNT with the number of child chains,
+    /// and then is a list of EDGEs; for each item in order, all distances to it
+    /// from all previous items, possibly including self-loops
     void add_distance_matrix(forest_growing_state_t& forest_state, 
                              const size_t& depth, bool snarl_is_reversed);
 
-    // Helper for add_distance_matrix() to look up seeds on the edges of each chain
+    /// Helper for add_distance_matrix()
+    /// Look up seeds for chain edges and remember seed_info_t for each
+    /// Returns [c1_L, c1_R, c2_L, c2_R, ...] for each chain side in the snarl
     vector<seed_info_t> get_edge_seeds(const forest_growing_state_t& forest_state, 
                                        const size_t& depth) const;
 
-    // Helper for add_distance_matrix() to add the last row of the distance matrix
+    /// Helper for add_distance_matrix() to add the last row
+    /// These are edges from everything prior to the snarl end bound
     void add_edges_to_end(vector<tree_item_t>& dist_matrix,
                           forest_growing_state_t& forest_state, 
                           const size_t& depth, const vector<seed_info_t>& edge_seeds,
                           bool snarl_is_reversed, bool is_cyclic_snarl) const;
     
-    // Helper for add_distance_matrix() to add the chains' rows to the distance matrix
+    /// Helper for add_distance_matrix() to add the chains' rows
+    /// These are edges from everything prior to the given chain end bound
     void add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                               forest_growing_state_t& forest_state, 
                               const size_t& depth, const vector<seed_info_t>& edge_seeds,
