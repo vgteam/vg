@@ -48,6 +48,7 @@ void help_gamsort(char **argv)
     std::cerr << "    -c, --chunk-size N      number of reads per chunk (default: " << GAFSorterParameters::RECORDS_PER_FILE << ")" << std::endl;
     std::cerr << "    -m, --merge-width N     number of files to merge at once (default: " << GAFSorterParameters::FILES_PER_MERGE << ")" << std::endl;
     std::cerr << "    -S, --stable            use stable sorting" << std::endl;
+    std::cerr << "    -g, --gbwt-output FILE  write a GBWT index of the paths to FILE" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -82,11 +83,12 @@ int main_gamsort(int argc, char **argv)
             { "chunk-size", required_argument, 0, 'c' },
             { "merge-width", required_argument, 0, 'm' },
             { "stable", no_argument, 0, 'S' },
+            { "gbwt-output", required_argument, 0, 'g' },
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "pst:i:dGc:m:Sh", long_options, &option_index);
+        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:h", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -131,6 +133,9 @@ int main_gamsort(int argc, char **argv)
             break;
         case 'S':
             gaf_params.stable = true;
+            break;
+        case 'g':
+            gaf_params.gbwt_file = optarg;
             break;
 
         case 'h':
@@ -191,4 +196,4 @@ int main_gamsort(int argc, char **argv)
     return 0;
 }
 
-static Subcommand vg_gamsort("gamsort", "Sort a GAM/GAF file or index a sorted GAM file.", main_gamsort);
+static Subcommand vg_gamsort("gamsort", "sort a GAM/GAF file or index a sorted GAM file.", main_gamsort);

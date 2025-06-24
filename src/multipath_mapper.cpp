@@ -6244,7 +6244,7 @@ namespace vg {
 #endif
             
             // do the connecting alignments and fill out the multipath_alignment_t object
-            multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
+            multi_aln_graph.align(alignment, *align_dag, aligner, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
                                   use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, std::numeric_limits<size_t>::max(),
                                   simplify_topologies, max_tail_merge_supress_length, choose_band_padding, multipath_aln_out,
                                   snarl_manager, distance_index, &translator);
@@ -6295,7 +6295,7 @@ namespace vg {
         multi_aln_graph.remove_transitive_edges(topological_order);
         
         // do the connecting alignments and fill out the multipath_alignment_t object
-        multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
+        multi_aln_graph.align(alignment, subgraph, aligner, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
                               use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, std::numeric_limits<size_t>::max(),
                               simplify_topologies, max_tail_merge_supress_length, choose_band_padding, multipath_aln_out);
         

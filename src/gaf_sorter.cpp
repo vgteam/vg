@@ -17,6 +17,9 @@
 #include <htslib/hfile.h>
 #include <htslib/hts.h>
 
+// For building a GBWT index of the paths.
+#include <gbwt/dynamic_gbwt.h>
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -152,6 +155,43 @@ void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>
     }
 }
 
+gbwt::vector_type as_gbwt_path(const GAFSorterRecord& record, bool& ok) {
+    gbwt::vector_type result;
+    str_view path = record.get_field(GAFSorterRecord::PATH_FIELD);
+    if (path.size == 1 && path[0] == '*') {
+        // Unaligned read.
+        return result;
+    }
+
+    // FIXME: Flip orientation if the path is reversed. This should not happen with vg output.
+
+    size_t start = 0;
+    while (start < path.size) {
+        bool is_reverse;
+        if (path[start] == '<') {
+            is_reverse = true;
+        } else if (path[start] == '>') {
+            is_reverse = false;
+        } else {
+            is_reverse = false;
+            ok = false;
+            std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            return result;
+        }
+        start++;
+        gbwt::size_type node_id = 0;
+        auto res = std::from_chars(path.data + start, path.data + path.size, node_id);
+        if (res.ec != std::errc() || node_id == 0) {
+            ok = false;
+            std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            return result;
+        }
+        result.push_back(gbwt::Node::encode(node_id, is_reverse));
+        start = res.ptr - path.data;
+    }
+    return result;
+}
+
 //------------------------------------------------------------------------------
 
 GAFSorterFile::GAFSorterFile() :
@@ -160,8 +200,8 @@ GAFSorterFile::GAFSorterFile() :
     this->name = temp_file::create("gaf-sorter");
 }
 
-GAFSorterFile::GAFSorterFile(const std::string& name) :
-    name(name), records(0),
+GAFSorterFile::GAFSorterFile(const std::string& name, const std::string& gbwt_file) :
+    name(name), gbwt_file(gbwt_file), records(0),
     temporary(false), compressed(false), raw_gaf(true), removed(false), ok(true) {
 }
 
@@ -210,6 +250,29 @@ void GAFSorterFile::remove_temporary() {
         temp_file::remove(this->name);
         this->removed = true;
         this->ok = false;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+std::unique_ptr<gbwt::GBWTBuilder> create_gbwt_builder(const GAFSorterFile& output) {
+    if (output.gbwt_file.empty()) {
+        return nullptr;
+    }
+    gbwt::size_type node_width = sizeof(gbwt::vector_type::value_type) * 8;
+    return std::make_unique<gbwt::GBWTBuilder>(node_width);
+}
+
+void finish_gbwt_construction(gbwt::GBWTBuilder* builder, GAFSorterFile& output) {
+    if (builder == nullptr) {
+        return;
+    }
+    builder->finish();
+    try {
+        sdsl::simple_sds::serialize_to(builder->index, output.gbwt_file);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [gaf_sorter] could not write GBWT index to " << output.gbwt_file << ": " << e.what() << std::endl;
+        output.ok = false;
     }
 }
 
@@ -283,12 +346,15 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
             if (hts_getline(input, '\n', &s_buffer) < 0) {
                 if (params.progress) {
                     std::cerr << "Sorting directly to the final output" << std::endl;
+                    if (!params.gbwt_file.empty()) {
+                        std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
+                    }
                 }
-                std::unique_ptr<GAFSorterFile> out(new GAFSorterFile(output_file));
-                sort_gaf_lines(std::move(lines), params.key_type, params.stable, std::ref(*out));
+                GAFSorterFile out(output_file, params.gbwt_file);
+                sort_gaf_lines(std::move(lines), params.key_type, params.stable, out);
                 ks_free(&s_buffer);
                 hts_close(input);
-                if (out->ok) {
+                if (out.ok) {
                     report_time();
                     return true;
                 } else {
@@ -370,8 +436,11 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
     {
         if (params.progress) {
             std::cerr << "Starting the final merge" << std::endl;
+            if (!params.gbwt_file.empty()) {
+                std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
+            }
         }
-        GAFSorterFile out(output_file);
+        GAFSorterFile out(output_file, params.gbwt_file);
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (std::unique_ptr<GAFSorterFile>& file : files) {
             inputs->push_back(std::move(*file));
@@ -420,6 +489,9 @@ void sort_gaf_lines(
         std::sort(records.begin(), records.end());
     }
 
+    // Create a GBWT index, if GBWT output is requested.
+    std::unique_ptr<gbwt::GBWTBuilder> builder = create_gbwt_builder(output);
+
     // Write the sorted records to the output file.
     auto out = output.open_output();
     if (!output.ok) {
@@ -428,8 +500,19 @@ void sort_gaf_lines(
     }
     for (GAFSorterRecord& record : records) {
         output.write(record, *out.first);
+        if (builder != nullptr) {
+            gbwt::vector_type path = as_gbwt_path(record, output.ok);
+            if (!output.ok) {
+                // We already printed an error message.
+                return;
+            }
+            builder->insert(path, true);
+        }
     }
     out.second.reset();
+
+    // Finish the GBWT construction, if necessary.
+    finish_gbwt_construction(builder.get(), output);
 }
 
 //------------------------------------------------------------------------------
@@ -502,12 +585,21 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         return;
     }
 
-    // Output buffer.
+    // Output buffers.
     std::vector<GAFSorterRecord> buffer;
+    std::unique_ptr<gbwt::GBWTBuilder> builder = create_gbwt_builder(output);
     buffer.reserve(buffer_size);
     auto write_buffer = [&]() {
         for (GAFSorterRecord& record : buffer) {
             output.write(record, *out.first);
+            if (builder != nullptr) {
+                gbwt::vector_type path = as_gbwt_path(record, output.ok);
+                if (!output.ok) {
+                    // We already printed an error message.
+                    return;
+                }
+                builder->insert(path, true);
+            }
         }
         buffer.clear();
     };
@@ -529,7 +621,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         if (buffer.size() >= buffer_size) {
             write_buffer();
             if (!output.ok) {
-                std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write to " << output.name << std::endl;
+                std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write the output buffer" << std::endl;
                 return;
             }
         }
@@ -548,7 +640,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
     if (!buffer.empty()) {
         write_buffer();
         if (!output.ok) {
-            std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write to " << output.name << std::endl;
+            std::cerr << "error: [gaf_sorter] merge_gaf_records() failed to write the output buffer" << std::endl;
             return;
         }
     }
@@ -559,6 +651,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         in[i].second.reset();
     }
     out.second.reset();
+    finish_gbwt_construction(builder.get(), output);
 }
 
 //------------------------------------------------------------------------------

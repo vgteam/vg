@@ -523,6 +523,8 @@ string debug_string(const path_t& path);
 string debug_string(const path_mapping_t& mapping);
 string debug_string(const edit_t& edit);
 
+string debug_cigar_string(const path_t& path);
+
 /*
  * Implementations of inline methods
  */
