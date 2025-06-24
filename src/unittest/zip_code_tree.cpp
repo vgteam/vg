@@ -2267,7 +2267,7 @@ namespace unittest {
         SECTION( "One seed" ) {
  
             vector<pair<pos_t, size_t>> positions;
-            positions.emplace_back(make_pos_t(2, false, 0), 1);
+            positions.emplace_back(make_pos_t(2, false, 0), 0);
             positions.emplace_back(make_pos_t(2, true, 11), 1);
 
             //all are in the same cluster
@@ -2317,7 +2317,7 @@ namespace unittest {
             // c1_left -> c1_right
             REQUIRE(zip_forest.trees[0].get_item_at_index(9).get_value() == 22);
             // c1_right -> c1_right
-            REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 18);
+            REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
         }
     }
 

@@ -8,7 +8,7 @@
 #include "minimizer_mapper.hpp"
 
 // Set for verbose logging from the zip code tree parsing logic
-#define debug_parse
+//#define debug_parse
 
 // Set to compile in assertions to check the zipcode tree parsing logic
 //#define check_parse
@@ -854,17 +854,7 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
             }
 
             chain_flank_dist = SnarlDistanceIndex::sum(edge_seeds[from_i].flank_offset, edge_seeds[to_i].flank_offset);
-            if (from_i == to_i) {
-                // Self loop; if the between_chain_distance is non infinite
-                // then there must be a self-loop at the edge of the chain
-                // thus we only need to double back over the chain flanks
-                bool loop_is_possible = between_chain_dist == std::numeric_limits<size_t>::max();
-                edge_dist = loop_is_possible ? std::numeric_limits<size_t>::max()
-                                             : chain_flank_dist;
-            } else {
-                // Distance between chains
-                edge_dist = SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist);
-            }
+            edge_dist = SnarlDistanceIndex::sum(between_chain_dist, chain_flank_dist);
 
             dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_dist);
         }
@@ -1343,15 +1333,14 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
             size_t index_distance = distance_index.minimum_distance(
                 id(next_pos), is_rev(next_pos), offset(next_pos),
                 id(start_pos), is_rev(start_pos), offset(start_pos), false);
-            cerr << "\tIndex distance: " << next_pos << "->" << start_pos << "=" << index_distance << endl;
 
-            if (index_distance != std::numeric_limits<size_t>::max() && next_seed_result.is_reverse) {
-                //If the seed we're starting from got reversed, then subtract 1
-                index_distance -= 1;
-            }
             if (index_distance != std::numeric_limits<size_t>::max() && (*dest).is_reverse == right_to_left) {
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
+            }
+            if (index_distance != std::numeric_limits<size_t>::max() && next_seed_result.is_reverse) {
+                //If the seed we're starting from got reversed, then subtract 1
+                index_distance -= 1;
             }
 
             bool distance_is_invalid = node_is_invalid(id(next_seed.pos), distance_index, distance_limit) ||
@@ -1359,11 +1348,13 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
             if (!distance_is_invalid && index_distance <= distance_limit) {
                 if ((start_pos == next_pos && tree_distance != 0 && tree_distance != index_distance)
                     || (start_pos != next_pos && tree_distance !=  index_distance)) {
-                        cerr << "\tWarning: distance mismatch found" << endl;
-                        cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") 
-                             << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
-                        cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
-                        cerr << "With distance limit: " << distance_limit << endl;
+#ifdef debug_parse
+    cerr << "\tWarning: distance mismatch found" << endl;
+    cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") 
+            << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+    cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+    cerr << "With distance limit: " << distance_limit << endl;
+#endif
                     failing_seeds[{next_seed_result.seed, next_is_reversed}] = make_pair(tree_distance, index_distance);
                 } else {
                     passing_seeds.insert({next_seed_result.seed, next_is_reversed});
