@@ -213,8 +213,7 @@ public:
     /*************** Methods for snarl_start_indexes ***********/
 
     /// Add snarl start of given type, using the next available snarl ID
-    /// Returns the snarl ID used
-    size_t open_snarl(bool is_cyclic_snarl);
+    void open_snarl(bool is_cyclic_snarl);
 
     /// Remove snarls from snarl_start_indexes that are past the given index
     /// Used for moving a slice of snarls to a new tree
@@ -766,7 +765,7 @@ class ZipCodeForest {
         /// farther than distance_limit from anything else in the snarl tree.
         ///
         /// If the index is for a CHAIN_START, it includes the whole chain.
-        /// If it points to a SEED, then it is a slice.
+        /// If it points to a SEED/SNARL_START, then it is a slice.
         ///
         /// Any time something gets added to a chain or the chain is closed,
         /// check if the distance to anything following is >distance_limit.

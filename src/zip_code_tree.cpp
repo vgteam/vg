@@ -499,164 +499,150 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
 void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl) {
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "\t\tOpen new snarl at depth " << depth << endl;
+    cerr << "\t\tOpen new " << (is_cyclic_snarl ? "cyclic" : "DAG") << " snarl at depth " << depth << endl;
 #endif
-    auto opening_type = is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_START : ZipCodeTree::DAG_SNARL_START;
-    //If this was a snarl, record the start of the snarl
-    size_t cur_id = trees[forest_state.active_tree_index].open_snarl(is_cyclic_snarl);
+    trees[forest_state.active_tree_index].open_snarl(is_cyclic_snarl);
+    tree_item_t snarl_start = trees[forest_state.active_tree_index].zip_code_tree.back();
 
-    //Remember the start of the snarl for distances & ID
-    forest_state.sibling_indices_at_depth[depth].push_back({opening_type, std::numeric_limits<size_t>::max()});
-    forest_state.sibling_indices_at_depth[depth].back().snarl_id = cur_id;
+    // Remember the start of the snarl for distances & ID
+    forest_state.sibling_indices_at_depth[depth].push_back(
+        {snarl_start.get_type(), std::numeric_limits<size_t>::max()});
+    forest_state.sibling_indices_at_depth[depth].back().snarl_id = snarl_start.get_value();
 }
 
-size_t ZipCodeTree::open_snarl(bool is_cyclic_snarl) {
+void ZipCodeTree::open_snarl(bool is_cyclic_snarl) {
     size_t cur_id = next_snarl_id++;
     zip_code_tree.emplace_back(is_cyclic_snarl ? CYCLIC_SNARL_START : DAG_SNARL_START, cur_id);
-    // Remember the start was put
+    // Remember where the start was put
     snarl_start_indexes[cur_id] = zip_code_tree.size() - 1;
-    return cur_id;
 }
 
-void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, 
+void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
                                 const size_t& depth, const Seed& last_seed, bool last_is_reversed) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tclose a snarl at depth " << depth << endl;
 #endif
-    bool is_cyclic_snarl = forest_state.sibling_indices_at_depth[depth][0].type == ZipCodeTree::CYCLIC_SNARL_START;
-    size_t cur_id = forest_state.sibling_indices_at_depth[depth][0].snarl_id;
+    child_info_t snarl_start = forest_state.sibling_indices_at_depth[depth][0];
 
     if (trees[forest_state.active_tree_index].zip_code_tree.size() == 1) {
-        //If this would be an empty snarl, then just remove it
+        // If this would be an empty snarl, then just remove it
         trees.erase(trees.begin() + forest_state.active_tree_index);
-        trees[forest_state.active_tree_index].snarl_start_indexes.erase(cur_id);
+        trees[forest_state.active_tree_index].snarl_start_indexes.erase(snarl_start.snarl_id);
     } else if (depth == 0) {
-        //If this is a root snarl, then we don't need distances so just close it
-        //Root snarls are treated as DAG snarls; 
-        //they don't store distances so it doesn't matter
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::DAG_SNARL_END, cur_id);
-
+        // If this is a root snarl, we don't need distances so just close it
+        // Root snarls are treated as DAG snarls, but they don't store distances
+        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
+            ZipCodeTree::DAG_SNARL_END, snarl_start.snarl_id);
     } else if (forest_state.sibling_indices_at_depth[depth].size() == 1) {
-        //Since some of the children of the snarl
-        //may have been removed to separate subtrees,
-        //the snarl may actually be empty now
-        //If there is only one "child" (the snarl start), 
-        //then the snarl is actually empty, so delete it
-
+        // Only "child" is snarl start since all chains were spliced out
+        // Thus, this snarl is empty and we should remove it
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\t\tThe snarl is actually empty so remove it" << endl;
     assert(trees[forest_state.active_tree_index].zip_code_tree.back().is_snarl_start());
 #endif        
-        //Pop the snarl start out
+        // Pop the snarl start out
         trees[forest_state.active_tree_index].zip_code_tree.pop_back();
-        trees[forest_state.active_tree_index].snarl_start_indexes.erase(cur_id);
+        trees[forest_state.active_tree_index].snarl_start_indexes.erase(snarl_start.snarl_id);
 
-        //If this was the first thing in the chain, then we're done.
-        //Otherwise, there was an edge to remove
+        // If this was the first thing in the chain, then we're done.
+        // Otherwise, there was an edge to remove
         if (trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::EDGE) {
-            //If the snarl was in the middle of a chain,
-            //then we need to take out the edge and update
-            //the previous thing in the chain with its prefix sum
+            // Take out chain edge and update previous thing in the chain
 
-            //This was the distance from the last thing to the snarl start
+            // Distance from the last thing to the snarl start
             size_t previous_edge = trees[forest_state.active_tree_index].zip_code_tree.back().get_value();
             trees[forest_state.active_tree_index].zip_code_tree.pop_back();
-
-            //This is the distance from the start of the chain to the snarl end
+            // Distance from the start of the chain to the snarl end
             size_t snarl_prefix_sum = forest_state.sibling_indices_at_depth[depth-1].back().value;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
 
-            //Snarl prefix sum is now distance from chain start to snarl start
+            // Snarl prefix sum is now distance from chain start to snarl start
             snarl_prefix_sum = SnarlDistanceIndex::minus(snarl_prefix_sum, last_seed.zipcode.get_length(depth));
-
-            //Now update sibling_indices_at_depth to be previous thing in chain
+            // Now update sibling_indices_at_depth to be previous thing in chain
             forest_state.sibling_indices_at_depth[depth-1].push_back({
                 trees[forest_state.active_tree_index].zip_code_tree.back().get_type(),
                 SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge)});
+
             //If it was in the first component, then this is correct.
-            //If it was in a later component, then it was too 
-            //far away anyway so it doesn't matter
+            //If a later component, then it's too far away anyway
             //TODO: I think this might cause problems if it was a looping chain
             forest_state.sibling_indices_at_depth[depth-1].back().chain_component = 0;
 
-
-            //At this point, the open_chain for the parent chain is either
-            //before the removed snarl, the snarl itself, or after the snarl.
-            //If the open_chain was before or at the snarl, nothing has changed.
-            //If it is after the snarl, then the snarl
-            //wasn't the start of a new slice so we back it up to the previous 
-            //child and say that it was not the start of a new slice.
-            //TODO
-            //If it was the snarl itself, then the next child added to the chain
-            //will be the next open_chain, but I
-            //haven't implemented this yet- it won't change the correctness
-            if (depth > 0 && forest_state.open_chains.size() > 0 
-                && forest_state.open_chains.back().first 
-                   >= trees[forest_state.active_tree_index].zip_code_tree.size()) {
-                //If a chain slice could have started at or after this snarl
+            // At this point, the open_chain for the parent chain is either
+            // before the removed snarl, the snarl itself, or after the snarl.
+            // If the open_chain was before or at the snarl, nothing has changed.
+            // If it is after the snarl, then the snarl
+            // wasn't the start of a new slice so we back it up to the previous
+            // child and say that it was not the start of a new slice.
+            // TODO
+            // If it was the snarl itself, then the next child added to the chain
+            // will be the next open_chain, but I
+            // haven't implemented this yet- it won't change the correctness
+            bool chain_after_snarl = forest_state.open_chains.back().first
+                   >= trees[forest_state.active_tree_index].zip_code_tree.size();
+            if (depth > 0 && forest_state.open_chains.size() > 0 && chain_after_snarl) {
+                // If a chain slice could have started at or after this snarl
 #ifdef DEBUG_ZIP_CODE_TREE
     assert(forest_state.open_chains.back().second);
 #endif
-                //Find the start of the previous child
+                // Find the start of the previous child
                 size_t previous_index = trees[forest_state.active_tree_index].zip_code_tree.size() - 1;
-                bool found_sibling = false;
+                // Snarl nestedness
                 size_t opened_snarls = 0;
                 tree_item_t previous_item;
-                while (!found_sibling) {
+
+                // Hunt backwards in ziptree for previous child
+                while (true) {
                     previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
-                    if (opened_snarls == 0 && previous_item.get_type() == ZipCodeTree::SEED) {
-                        found_sibling = true;
+                    
+                    if (opened_snarls == 0 && (previous_item.get_type() == ZipCodeTree::SEED
+                                               || previous_item.is_snarl_start())) {
+                        // Found a non-nested previous item (snarl or seed)
+                        break;
                     } else if (previous_item.is_snarl_end()) {
-                        opened_snarls ++;
-                        previous_index--;
-                    } else if (previous_item.is_snarl_start() && opened_snarls == 0) {
-                        found_sibling = true;
+                        // Entering nested snarl
+                        opened_snarls++;
                     } else if (previous_item.is_snarl_start()) {
+                        // Leaving nested snarl
                         opened_snarls--;
-                        previous_index--;
-                    } else {
-                        previous_index--;
                     }
-                }
-                previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
-                if (previous_index != 0 && previous_item.get_type() == ZipCodeTree::CHAIN_START) {
+                    // Try again, one back
                     previous_index--;
                 }
+
+                previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
 #ifdef DEBUG_ZIP_CODE_TREE
-    previous_item = trees[forest_state.active_tree_index].zip_code_tree.at(previous_index);
-    assert(previous_item.get_type() == ZipCodeTree::SEED 
-            || previous_item.is_snarl_start() || previous_item.get_type() == ZipCodeTree::CHAIN_START);
+    assert(previous_item.get_type() == ZipCodeTree::SEED || previous_item.is_snarl_start());
     cerr << "New start of previous open chain: " << previous_index << endl;;
 #endif
                 forest_state.open_chains.back().first = previous_index;
-                forest_state.open_chains.back().second = false;
-                
+                forest_state.open_chains.back().second = false;      
             }
 #ifdef DEBUG_ZIP_CODE_TREE
     assert(forest_state.sibling_indices_at_depth[depth-1].back().value >= 0);
 #endif
         } else {
-            //If this was the first thing in the chain, 
-            //update the previous sibling in the chain to be the chain start
+            // If this was the first thing in the chain,
+            // update the previous sibling in the chain to be the chain start
 #ifdef DEBUG_ZIP_CODE_TREE
-    assert(trees[forest_state.active_tree_index].zip_code_tree.back().get_type() 
-           == ZipCodeTree::CHAIN_START);
+    assert(trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::CHAIN_START);
 #endif
             bool prev_reversed = forest_state.open_intervals[forest_state.open_intervals.size()-2].is_reversed;
             size_t offset = prev_reversed ? last_seed.zipcode.get_length(depth-1, true) : 0;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
             forest_state.sibling_indices_at_depth[depth-1].push_back({ZipCodeTree::CHAIN_START, offset});
-            forest_state.sibling_indices_at_depth[depth-1].back().chain_component 
+            forest_state.sibling_indices_at_depth[depth-1].back().chain_component
                 = last_seed.zipcode.get_last_chain_component(depth-1, true);
-
         }
     } else {
-        // Finish off snarl by adding in a distance matrix
+        // Snarl was not removed, so finish off with distance matrix & end bound
         add_distance_matrix(forest_state, depth, last_is_reversed);
-        auto closing_type = is_cyclic_snarl ? ZipCodeTree::CYCLIC_SNARL_END : ZipCodeTree::DAG_SNARL_END;
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, cur_id);
+        auto closing_type = snarl_start.type == ZipCodeTree::CYCLIC_SNARL_START ? ZipCodeTree::CYCLIC_SNARL_END
+                                                                                : ZipCodeTree::DAG_SNARL_END;
+        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, snarl_start.snarl_id);
      }
 }
+
 
 void ZipCodeTree::shift_snarls_forward(size_t start_snarl_id, size_t shift_amount) {
     size_t move_after_index = snarl_start_indexes[start_snarl_id];
