@@ -905,45 +905,50 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
 #ifdef DEBUG_ZIP_CODE_TREE
     std::cerr << "Validating that zip code tree's boundaries match up" << std::endl;
 #endif
+    // We want to have at least one seed
     bool has_seed = false;
-    vector<tree_item_type_t> tree_stack; 
-    vector<size_t> snarl_id_stack;
+    // Open bounds in snarl tree (e.g. chain, below that a parent snarl, etc.)
+    std::stack<tree_item_t> tree_stack;
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
         const tree_item_t& item = zip_code_tree[i];
         if (item.is_snarl_start()) {
-            if (tree_stack.size() == 1) {
-                //Also check snarl distances and child count 
-                //for non-root top-level snarls (is recursive)
+            // If there is a top-level chain, top-level snarls are depth 1
+            // If there's a root snarl, top-level snarls are depth 2
+            if (tree_stack.size() == 1 || tree_stack.size() == 2) {
+                // Also check snarl distances and child count 
+                // for non-root top-level snarls (is recursive)
                 vector<tree_item_t>::const_iterator cur_snarl_start = zip_code_tree.begin() + i;
                 validate_snarl(cur_snarl_start, distance_index, seeds, distance_limit);
             }
 
-            if (!snarl_id_stack.empty()) {
-                // Snarl IDs must be in increasing order
-                assert(snarl_id_stack.back() < item.get_value());
-            }
-            snarl_id_stack.push_back(item.get_value());
-            tree_stack.push_back(item.get_type());
+            tree_stack.push(item);
         } else if (item.get_type() == CHAIN_START) {
-            // Snarl ID should match, except for top-level chain
-            assert(tree_stack.empty() || snarl_id_stack.back() == item.get_value());
-            tree_stack.push_back(item.get_type());
+            if (tree_stack.empty()) {
+                // Top-level chain should have a snarl ID of inf
+                assert(item.get_value() == std::numeric_limits<size_t>::max());
+            } else {
+                // Child chains should have the same snarl ID as parent snarl
+                assert(tree_stack.top().get_value() == item.get_value());
+            }
+            tree_stack.push(item);
         } else if (item.is_snarl_end()) {
             // Should have opened with the correct snarl type
-            assert(tree_stack.back() == (item.get_type() == DAG_SNARL_END ? DAG_SNARL_START : CYCLIC_SNARL_START));
-            tree_stack.pop_back();
-            
+            assert(tree_stack.top().get_type() == (item.get_type() == DAG_SNARL_END ? DAG_SNARL_START 
+                                                                                    : CYCLIC_SNARL_START));
             // IDs should match
-            assert(snarl_id_stack.back() == item.get_value());
-            snarl_id_stack.pop_back();
+            assert(tree_stack.top().get_value() == item.get_value());
+            
+            tree_stack.pop();
+            // Either this was a top-level snarl, or there's a parent chain
+            assert(tree_stack.empty() || tree_stack.top().get_type() == CHAIN_START);
         } else if (item.get_type() == CHAIN_END) {
             // Snarl ID should match, except for top-level chain
-            assert(tree_stack.size() == 1 || snarl_id_stack.back() == item.get_value());
+            assert(tree_stack.size() == 1 || tree_stack.top().get_value() == item.get_value());
 
-            assert(tree_stack.back() == CHAIN_START);
-            tree_stack.pop_back();
-            assert(tree_stack.empty() || tree_stack.back() == DAG_SNARL_START 
-                   || tree_stack.back() == CYCLIC_SNARL_START);
+            assert(tree_stack.top().get_type() == CHAIN_START);
+            tree_stack.pop();
+            // Either this was a top-level chain, or there's a parent snarl
+            assert(tree_stack.empty() || tree_stack.top().is_snarl_start());
         } else if (item.get_type() == SEED) {
             has_seed = true;
         }

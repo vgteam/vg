@@ -530,6 +530,7 @@ public:
     /// Helper function for validate_zip_tree() to check snarl/chain boundaries
     /// Ensures that all boundaries are matched in type and ID
     /// Also checks that there is at least one seed in the tree
+    /// Calls validate_snarl() for each snarl in the top-level chain
     void validate_boundaries(const SnarlDistanceIndex& distance_index, 
                              const vector<Seed>* seeds,
                              size_t distance_limit = std::numeric_limits<size_t>::max()) const;
