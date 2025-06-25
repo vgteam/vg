@@ -346,7 +346,7 @@ public:
         distance_iterator& operator++();
 
         /// Compare for equality to see if we hit end
-        bool operator==(const distance_iterator& other) const;
+        bool operator==(const distance_iterator& other) const { return it == other.it; }
 
         /// Compare for inequality
         inline bool operator!=(const distance_iterator& other) const {
