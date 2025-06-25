@@ -2937,12 +2937,6 @@ namespace unittest {
         SECTION("One cluster on the same node plus extra node") {
             // 0: [2+0rev 0 (2  inf  9  9  inf  0  inf [5+0rev][1+0rev])]
             // 1: [4+0rev 0 (1  1  0  0 [3+0rev])]
-            net_handle_t n = dist_index.get_node_net_handle(n3->id());
-            while (!dist_index.is_root(n)) {
-                cerr << dist_index.net_handle_as_string(n) << endl;
-                n = dist_index.get_parent(n);
-            }
- 
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
