@@ -966,8 +966,8 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
         const tree_item_t& current_item = zip_code_tree[i];
         if (current_item.get_type() == SEED) {
-            //Check if this is worth validating
-            //Use a distance limit of 0 so it will ignore looping chains
+            // Check if this is worth validating
+            // Use a distance limit of 0 so it will ignore looping chains
             bool current_is_invalid = node_is_invalid(id(seeds->at(current_item.get_value()).pos), distance_index, 0);
 
             if (previous_seed_index != std::numeric_limits<size_t>::max() &&
@@ -979,13 +979,12 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
             << seeds->at(current_item.get_value()).pos << endl;
 #endif
 
-                //Comparator returning previous_seed_index < current_item.value
+                // Comparator returning previous_seed_index < current_item.value
                 size_t depth = 0;
 
-                //Keep track of the orientation of each seed
-                //Everything should be sorted according to
-                //the orientation in the top-level structure,
-                //so if things are traversed backwards, reverse the orientation
+                // Keep track of the orientation of each seed
+                // Everything is sorted by orientation in top-level structure,
+                // so if things are traversed backwards, reverse the orientation
                 bool a_is_reversed = false;
                 bool b_is_reversed = false;
                 const Seed& previous_seed = seeds->at(previous_seed_index);
@@ -993,8 +992,7 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                 while (depth < previous_seed.zipcode.max_depth()
                        && depth < current_seed.zipcode.max_depth()
                        && ZipCode::is_equal(previous_seed.zipcode, current_seed.zipcode, depth)) {
-
-                    //Remember the orientation
+                    // Remember the orientation
                     if (ZipCodeTree::seed_is_reversed_at_depth(previous_seed, depth, distance_index)) { 
                         a_is_reversed = !a_is_reversed;
                     }
@@ -1005,10 +1003,10 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                     depth++;
                 }
 
-                //Remember the orientation of the parent too
+                // Remember the orientation of the parent too
                 size_t parent_of_a_is_reversed = a_is_reversed;
 
-                //Check the orientations one last time
+                // Check the orientations one last time
                 if (ZipCodeTree::seed_is_reversed_at_depth(previous_seed, depth, distance_index)) { 
                     a_is_reversed = !a_is_reversed;
                 }
@@ -1019,15 +1017,14 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t different at depth " << depth << endl;
 #endif
-                //Either depth is last thing in previous_seed or current_seed
-                //or they are different at this depth
-
+                // Either depth is last thing in previous_seed or current_seed
+                // or they are different at this depth
 
                 if ( ZipCode::is_equal(previous_seed.zipcode, current_seed.zipcode, depth)) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\tthey are on the same node" << endl;
 #endif
-                    //If they are equal, then they must be on the same node
+                    // If they are equal, then they must be on the same node
 
                     size_t offset1 = is_rev(previous_seed.pos)
                                       ? previous_seed.zipcode.get_length(depth) - offset(previous_seed.pos)
@@ -1036,39 +1033,37 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                                      ? current_seed.zipcode.get_length(depth) - offset(current_seed.pos)
                                      : offset(current_seed.pos);
                     if (!a_is_reversed) {
-                        //If they are in previous_seed_index snarl 
-                        //or they are facing forward on a chain, then order by
-                        //the offset in the node
-                        assert( offset1 <= offset2);
+                        // If they are in previous_seed_index snarl or
+                        // facing forward on a chain, order by offset in node
+                        assert(offset1 <= offset2);
                     } else {
-                        //Otherwise, the node is facing backwards in the chain, 
-                        //so order backwards in node
-                        assert( offset2 <= offset1);
+                        // Otherwise, the node is facing backwards in the chain, 
+                        // so order backwards in node
+                        assert(offset2 <= offset1);
                     }
                 }  else if (depth == 0) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\tThey are on different connected components" << endl;
 #endif
-                    //If they are on different connected components, 
-                    //sort by connected component
+                    // If they are on different connected components, 
+                    // sort by connected component
                     assert(previous_seed.zipcode.get_distance_index_address(0)
                            <= current_seed.zipcode.get_distance_index_address(0));
-                    
                 }  else if (previous_seed.zipcode.get_code_type(depth-1) == ZipCode::CHAIN 
                             || previous_seed.zipcode.get_code_type(depth-1) == ZipCode::ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t they are children of a common chain" << endl;
 #endif
-                    //If previous_seed and current_seed are children of a chain
+                    // If previous_seed and current_seed are children of a chain
                     size_t component_a = previous_seed.zipcode.get_chain_component(depth);
                     size_t component_b = current_seed.zipcode.get_chain_component(depth);
                     size_t offset_a = previous_seed.zipcode.get_offset_in_chain(depth);
                     size_t offset_b = current_seed.zipcode.get_offset_in_chain(depth);
                     if (component_a == component_b) {
-                        if ( offset_a == offset_b) {
-                            //If they have the same prefix sum,
-                            //then the snarl comes first
-                            //Will never be on the same child at this depth
+                        if (offset_a == offset_b) {
+                            // If they have the same prefix sum,
+                            // then the snarl comes first
+                            // Will never be on the same child at this depth
                             if (parent_of_a_is_reversed) {
                                 assert(current_seed.zipcode.get_code_type(depth) != ZipCode::NODE);
                                 assert(previous_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
@@ -1077,20 +1072,20 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
                                 assert(current_seed.zipcode.get_code_type(depth) == ZipCode::NODE); 
                             }
                         } else {
-                            //Check if the parent chain is reversed
-                            //and if so, then the order should be reversed
-                            //Could happen in irregular snarls
+                            // Check if the parent chain is reversed
+                            // and if so, then the order should be reversed
+                            // Could happen in irregular snarls
                             if (parent_of_a_is_reversed) {
-                                assert( offset_b <= offset_a);
+                                assert(offset_b <= offset_a);
                             } else {
-                                assert( offset_a <= offset_b);
+                                assert(offset_a <= offset_b);
                             }
                         }
                     } else {
                         if (parent_of_a_is_reversed) {
-                            assert( component_b <= component_a);
+                            assert(component_b <= component_a);
                         } else {
-                            assert( component_a <= component_b);
+                            assert(component_a <= component_b);
                         }
                     }
                 } else if (previous_seed.zipcode.get_code_type(depth-1) == ZipCode::REGULAR_SNARL
@@ -1110,14 +1105,14 @@ void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_ind
             previous_seed_index = current_item.get_value();
             previous_is_invalid = current_is_invalid;
         } else if (current_item.get_type() == ZipCodeTree::CHAIN_START) {
-            //Chains can't start with edges
+            // Chains can't start with edges
             assert(zip_code_tree[i+1].get_type() != ZipCodeTree::EDGE);
         } else if (current_item.get_type() == ZipCodeTree::CHAIN_END) {
-            //And can't end with edges
+            // And can't end with edges
             assert(zip_code_tree[i-1].get_type() != ZipCodeTree::EDGE);
         } else if (current_item.is_snarl_start()) {
             if (i != 0) {
-                //Non-root snarls start with their node counts
+                // Non-root snarls start with their node counts
                 assert(zip_code_tree[i+1].get_type() == ZipCodeTree::CHAIN_COUNT);
             }
         }
