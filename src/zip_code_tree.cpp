@@ -691,6 +691,8 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
     dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_seeds[0].seed.zipcode.get_length(depth));
 
     // DAG snarls only have distances from chain ends to snarl end
+    // seed 1 -> end, 3 -> end, etc.
+    // Cyclic snarls have distances from all sides to the end
     size_t start_i = is_cyclic_snarl ? 0 : 1;
     size_t increment = is_cyclic_snarl ? 1 : 2;
     for (size_t i = start_i; i < edge_seeds.size(); i += increment) {
@@ -728,6 +730,7 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
     size_t edge_dist;
 
     // DAG snarls find distances FROM ends TO starts only
+    // seed 0 ->, seed 2 ->, etc.
     size_t increment = is_cyclic_snarl ? 1 : 2;
     for (size_t to_i = 0; to_i < edge_seeds.size(); to_i += increment) {
         // Edge from start
@@ -739,11 +742,9 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
         // Current chain
         size_t to_rank = edge_seeds[to_i].seed.zipcode.get_rank_in_snarl(depth+1);
 
+        // TO chain starts means -> seed 1, -> seed 3, etc.
         size_t start_from = is_cyclic_snarl ? 0 : 1;
-        // Start at previous chain end for DAGs,
-        // but make sure to not overflow size_t
-        size_t end_from = is_cyclic_snarl ? to_i : (to_i == 0 ? 0 : to_i - 1);
-        for (int64_t from_i = start_from; from_i <= end_from; from_i += increment) {
+        for (int64_t from_i = start_from; from_i <= to_i; from_i += increment) {
             size_t from_rank = edge_seeds[from_i].seed.zipcode.get_rank_in_snarl(depth+1);
 
             if (is_regular_snarl) {
