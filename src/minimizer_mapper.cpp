@@ -4123,10 +4123,14 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                     // This range is empty somehow, so skip it.
                     return true;
                 }
-                // If the range is nonempty, the past_end_offset is at least 1.
+
+#ifdef debug
+                std::cerr << "Path " << this->path_graph->get_path_name(path) << " overlaps " << target_region << " from " << start_offset << " to " << past_end_offset << " and has length " << this->path_graph->get_path_length(path) << std::endl;
+#endif
 
                 // Find the bounding steps on the subpath range
                 step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, start_offset);
+                // If the range is nonempty, the past_end_offset is at least 1.
                 step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, past_end_offset - 1);
                 
                 // It must be an actual path range because we were given it to iterate over

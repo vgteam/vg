@@ -2538,83 +2538,84 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
 }
 
 bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path) {
-    // TODO: Reimplement around for_each_overlapping_subpath(), accounting for
-    // a -1 end and multiple subpaths starting after the start meaning no
-    // containing subpath, but otherwise allowing -1 region bounds with
-    // subpaths.
-
-    // We might be asking for a part of a subpath, or a part of a base path.
-    if (graph.has_path(region.seq)) {
-        // It's a base path we have all of, or a subpath we have exactly.
-        path = graph.get_path_handle(region.seq);
-
-        if (region.end == -1) {
-            // Infer the region endpoint from the path
-            region.end = graph.get_path_length(path) - 1;
-        }
-
-        // The region start point will be 0 if not set.
-        region.start = max((int64_t)0, region.start);
-
-        return true;
-    } else if (region.start < 0 || region.end < 0) {
+    bool found_overlapping = false;
+    path_handle_t overlapping;
+    size_t overlap_length = 0;
+    // Look at overlapping subpaths and fill in the region if we find one exact
+    // match that isn't just a GBZ first subpath.
+    for_each_overlapping_subpath(graph, region, [&](const path_handle_t& candidate, size_t start_offset, size_t past_end_offset) {
+        // To distinguish multiple 0-length regions, we set a flag.
+        found_overlapping = true;
+        // Keep only the first overlapping subpath.
+        overlapping = candidate;
+        // And the length of the overlap.
+        overlap_length = past_end_offset - start_offset;
+#ifdef debug
+        std::cerr << "Found overlap with region of length " << overlap_length << std::endl;
+#endif
         return false;
-    } else {
-        // Maybe it's a base path and we only have a subpath.
-        bool found_contained = false;
+    });
+#ifdef debug
+    std::cerr << "Region now runs " << region.start << "-" << region.end << std::endl;
+#endif
 
-        for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
-            // We should have some subrange if we get here. Also the region coordinates are specified.
-            subrange_t candidate_subrange = graph.get_subrange(candidate);
-            crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
-            if (candidate_subrange.first <= region.start && candidate_subrange.first + candidate_subrange.second > region.end + 1) {
-                // The subranges are 0-based exclusive and the regions are 0-based inclusive.
-                // This subrange fully contains this region.
-                path = candidate;
-
-                found_contained = true;
-                // Use first result
-                return false;
-            }
-            return true;
-        });
-        
-        // Return whether we found the containing subpath.
-        return found_contained;
+    // At this point, the region is filled in if possible.
+    if (region.start == -1 || region.end == -1) {
+        // So if the region isn't fully filled in, there's no single path for
+        // it, so there's no containing path.
+        return false;
     }
+
+    if (found_overlapping && overlap_length == region.end + 1 - region.start) {
+        // To contain the region, the length of the overlap must equal the length
+        // of the region.
+        path = overlapping;
+        return true;
+    }
+
+    // Otherwise, we found something that intersects the region but doesn't contain it.
+    // Because subpaths don't overlap, this means no subpath can contain the region.
+    return false;
 }
 
 bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& region, const std::function<bool(const path_handle_t& path, size_t start_offset, size_t past_end_offset)>& iteratee) {
-    // We might be asking for a part of a subpath, or a part of a base path.
-    if (graph.has_path(region.seq)) {
-        // It's a base path we have all of, or a subpath we have exactly.
-        path_handle_t path = graph.get_path_handle(region.seq);
-        
-        if (region.end == -1) {
-            // Infer the region endpoint from the path
-            region.end = graph.get_path_length(path) - 1;
+    // Track the number of subpaths of this base path, and the last one we saw.
+    size_t path_count = 0;
+    path_handle_t last_path;
+
+    // We need to always query at least twice even if the iteratee asked to
+    // stop on the first call, to know whether we're looking at a full base
+    // path or not.
+    bool iteratee_active = true;
+
+    for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
+        // We will have no subrange for a full path, or for a first subpath in a GBWT/GBZ.
+
+        // So populate subrange bounds for even those cases.
+        subrange_t candidate_subrange = graph.get_subrange(candidate);
+        if (candidate_subrange == PathMetadata::NO_SUBRANGE) {
+            candidate_subrange.first = 0;
+            candidate_subrange.second = PathMetadata::NO_END_POSITION;
+        }
+        if (candidate_subrange.second == PathMetadata::NO_END_POSITION) {
+            candidate_subrange.second = candidate_subrange.first + graph.get_path_length(candidate);  
         }
 
-        // The region start point will be 0 if not set.
-        region.start = max((int64_t)0, region.start);
+#ifdef debug
+        std::cerr << "Candidate subpath running " << candidate_subrange.first << "-" << candidate_subrange.second << std::endl;
+#endif
 
-        // Show the requested region of the explicitly-named path.
-        return iteratee(path, region.start, region.end + 1);
-     } else {
-        // Maybe it's a base path and we only have a subpath.
-        // Just loop over all the subpaths and show the right parts of the right ones.
-        // TODO: Implement an index on the subpaths.
-        return for_each_subpath_of(graph, region.seq, [&](const path_handle_t& candidate) {
-            // We should have some subrange if we get here.
-            subrange_t candidate_subrange = graph.get_subrange(candidate);
-            crash_unless(candidate_subrange != PathMetadata::NO_SUBRANGE);
-            if (candidate_subrange.second == PathMetadata::NO_END_POSITION) {
-                // Populate the candidate subrange end
-                candidate_subrange.second = candidate_subrange.first + graph.get_path_length(candidate);  
-            }
-            if ((region.start == -1 || candidate_subrange.first + candidate_subrange.second > region.start) && (region.end == -1 || candidate_subrange.first < region.end + 1)) {
+        // Remember we saw a path, and it was this one
+        path_count++;
+        last_path = candidate;
+        
+        if (iteratee_active) {
+            if ((region.start == -1 || candidate_subrange.second > region.start) && (region.end == -1 || candidate_subrange.first < region.end + 1)) {
                 // The subranges are 0-based exclusive and the regions are 0-based inclusive.
                 // This subrange intersects this region.
+#ifdef debug
+                std::cerr << "Subpath intersects region" << std::endl;
+#endif
                 
                 // If the region has a start other than -1 and starts after the subpath does, cut into the subpath on the left.
                 // We need the explicit comparison against -1 because we can't usefully compare a signed -1 to an unsigned number.
@@ -2623,19 +2624,49 @@ bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& 
                 size_t intersection_end = (region.end != -1 && region.end + 1 < candidate_subrange.second) ? region.end + 1 - candidate_subrange.first : candidate_subrange.second - candidate_subrange.first;
                 
                 // Show the iteratee the intersecting part.
-                return iteratee(candidate, intersection_start, intersection_end);
+                iteratee_active = iteratee(candidate, intersection_start, intersection_end);
+            } else {
+#ifdef debug
+                std::cerr << "Subpath does not intersect region" << std::endl;
+#endif
             }
+        }
 
-            return true;
-        });
+        return path_count == 1 || iteratee_active;
+    });
+
+#ifdef debug
+    std::cerr << "Overlapped path count: " << path_count << std::endl;
+#endif
+
+    if (path_count == 1) {
+        // There's only one subpath in the graph matching this base path.
+        if (graph.get_path_name(last_path) == region.seq) {
+            // It's exactly the path we asked for (either a full base path, or
+            // an initial subpath in a GBZ where there aren't any other
+            // subpaths on the base path, or a subpath we named directly.)
+#ifdef debug
+            std::cerr << "Found exact path name match without extra subpaths" << std::endl;
+#endif
+            if (region.start == -1) {
+                // Infer a region start
+                region.start = 0;
+            }
+            if (region.end == -1) {
+                // Infer a region end
+                region.end = graph.get_path_length(last_path) - 1;
+            }
+        }
     }
+
+    return iteratee_active;
+    
 }
 
 bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee) {
-    if (graph.has_path(path_name)) {
-        // Just look at the full path.
-        return iteratee(graph.get_path_handle(path_name));
-    }
+    // In a GBWT or GBZ, the first fragment is indistinguishable from a full
+    // base path if it starts at 0. The only way to tell the difference is by
+    // the presence of other fragments on the same base path.
     
     // Parse out the metadata of the thing we want subpaths of
     PathSense sense;
@@ -2653,11 +2684,25 @@ bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& pat
                                   subrange);
                                   
     if (subrange != PathMetadata::NO_SUBRANGE) {
-        // The path name described a subpath, and we didn't find it.
-        // Don't call the iteratee.
+        // The path name described a subpath. Look for it specifically.
+#ifdef debug
+        std::cerr << "Path name appears to itself be a subpath" << std::endl;
+#endif
+        if (graph.has_path(path_name)) {
+            // We found exactly that subpath with that name.
+#ifdef debug
+            std::cerr << "That subpath exists" << std::endl;
+#endif
+            return iteratee(graph.get_path_handle(path_name));
+        }
+#ifdef debug
+        std::cerr << "That subpath does not exist" << std::endl;
+#endif
+        // If we don't find it, don't call the iteratee.
         return true;
     }
-    
+
+    // Otherwise, the path name described a base path.
     // Look at every subpath on it
     return graph.for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
         // TODO: There's no way to search by haplotype and phase block, we have to scan
@@ -2669,7 +2714,9 @@ bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& pat
             // Skip this phase block
             return true;
         }
-        // Don't need to check subrange, we know we don't have one and this candidate does.
+        // Don't need to check subrange, we know we don't have one and this
+        // candidate either has one or is missing one because it's a 0-based
+        // fragment in a GBZ.
         return iteratee(match);    
     });
 }

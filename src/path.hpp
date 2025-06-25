@@ -393,18 +393,15 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 /// itself a part of a subpath) and return true, or return false if no such
 /// subpath can be found.
 ///
+/// Interprets the Region as 0-based, end-inclusive.
+///
 /// If one or both region coordinates are -1, and a path with the exact name is
-/// found, fills them in from that path.
+/// found, and there are no further subpaths of that path, fills them in from
+/// that path.
 bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path);
 
 /// Find the subpaths overlapping the given Region (possibly a full base path,
 /// or itself a part of a subpath) and iterate over them.
-/// 
-/// If one or both region coordinates are -1, and a path with the exact name is
-/// found, fills them in from that path. Otherwise, interprets them as meaning
-/// to go all the way to the start/end of the base path.
-///
-/// Interprets the Region as 0-based, end-inclusive.
 ///
 /// Calls the callback with each relevant subpath (possibly the base path), and
 /// the 0-based start and past-end offsets along the subpath that intersect the
@@ -413,6 +410,14 @@ bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& regio
 /// get_path_base_offset().
 ///
 /// Iteratee returns false to stop.
+///
+/// If one or both region coordinates are -1, and a path with the exact name is
+/// found, and there are no further subpaths of that path, fills them in from
+/// that path. Otherwise, interprets them as meaning to go all the way to the
+/// start/end of the base path. The Region is modified after the callback calls
+/// are complete.
+///
+/// Interprets the Region as 0-based, end-inclusive.
 ///
 /// Returns true if we reached the end, and false if asked to stop.
 bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& region, const std::function<bool(const path_handle_t& path, size_t start_offset, size_t past_end_offset)>& iteratee);
