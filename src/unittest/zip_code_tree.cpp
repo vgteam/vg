@@ -2914,7 +2914,7 @@ namespace unittest {
         }
     }
     TEST_CASE("Looping chain zipcode tree", "[zip_tree]") {
-        //TODO: This might change but it's a chain 2rev->2rev
+        // chain 2rev->2rev
         VG graph;
 
         Node* n1 = graph.create_node("ACACGTTGC");

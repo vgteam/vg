@@ -564,7 +564,6 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
 
             //If it was in the first component, then this is correct.
             //If a later component, then it's too far away anyway
-            //TODO: I think this might cause problems if it was a looping chain
             forest_state.sibling_indices_at_depth[depth-1].back().chain_component = 0;
 
             // At this point, the open_chain for the parent chain is either
