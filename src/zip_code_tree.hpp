@@ -576,7 +576,7 @@ public:
     /// Count the number of snarls involved in the tree
     /// Returns a pair of <dag count, cyclic count>
     /// Assumes that the tree has already been filled in
-    std::pair<size_t, size_t> dag_and_cyclic_snarl_count(const vector<Seed>& seeds) const;
+    std::pair<size_t, size_t> dag_and_cyclic_snarl_count() const;
 
 protected:
 
@@ -595,11 +595,7 @@ protected:
     static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, 
                                            const SnarlDistanceIndex& distance_index);
 
-
-
-
     friend class ZipCodeForest;
-
 }; 
 
 /*
@@ -683,8 +679,6 @@ class ZipCodeForest {
 
      **************************************************************************/
 
-
-
     private:
 
     ////////////////////////////////////////////////////
@@ -692,7 +686,6 @@ class ZipCodeForest {
     /////////// Data structures for building a zip tree
     //////////
     ////////////////////////////////////////////////////
-
 
     /// Structs which need to be declared for forest_growing_state_t
     /// See definitions later
@@ -966,8 +959,6 @@ class ZipCodeForest {
                                const vector<sort_value_t>& sort_values_by_seed,
                                const interval_state_t& interval, bool reverse_order) const; 
 
-
-
     /// Assuming that the range of seeds in forest_state.sort_values_by_seed
     /// given by interval is sorted, prepend child intervals to next_intervals.
     /// The new intervals get added in their sort order, so the start of a chain
@@ -1054,7 +1045,6 @@ class ZipCodeForest {
 
     /************ Helper functions for debugging ************/
 
-
     public:
 
     /// Print each zip code tree in the forest to stderr
@@ -1073,8 +1063,6 @@ class ZipCodeForest {
     void validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                              const vector<Seed>* seeds,
                              size_t distance_limit=std::numeric_limits<size_t>::max()) const;
-
-
 };
 
 /// Print an item type to a stream
@@ -1135,6 +1123,5 @@ struct iterator_traits<vg::ZipCodeTree::distance_iterator>{
 
 
 }
-
 
 #endif

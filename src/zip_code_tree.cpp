@@ -822,7 +822,7 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
         forest_state.sibling_indices_at_depth[depth][0].snarl_id, num_edges + 1);
 }
 
-std::pair<size_t, size_t> ZipCodeTree::dag_and_cyclic_snarl_count(const vector<Seed>& seeds) const {
+std::pair<size_t, size_t> ZipCodeTree::dag_and_cyclic_snarl_count() const {
     size_t dag_count = 0;
     size_t cyclic_count = 0;
 
@@ -1404,12 +1404,6 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
     } else {
         assert(dist_matrix.size() == (positions.size() * (positions.size() - 1)) / 2);
     }
-
-#ifdef DEBUG_ZIP_CODE_TREE
-    for (const auto pos : positions) {
-        cerr << "pos: " << id(pos) << (is_rev(pos) ? " rev " : " ")  << offset(pos) << endl;
-    }
-#endif
 
     // Current positions
     pos_t from_pos, to_pos;
