@@ -294,15 +294,13 @@ public:
         seed_iterator& operator++();
 
         /// Compare for equality to see if we hit end
-        bool operator==(const seed_iterator& other) const;
+        bool operator==(const seed_iterator& other) const { return it == other.it; }
 
         /// Compare for inequality
-        inline bool operator!=(const seed_iterator& other) const {
-            return !(*this == other);
-        }
+        inline bool operator!=(const seed_iterator& other) const { return !(*this == other); }
         
         /// Get the index and orientation of the seed we are currently at.
-        oriented_seed_t operator*() const;
+        oriented_seed_t operator*() const { return {it->get_value(), it->get_is_reversed()}; }
 
         /// Get the number of tree storage slots left in the iterator.
         /// We need this to make reverse iterators from forward ones.
@@ -320,9 +318,9 @@ public:
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
-    seed_iterator begin() const;
+    seed_iterator begin() const { return seed_iterator(zip_code_tree.begin(), *this); }
     /// Get the end iterator for seeds in the tree, left to right.
-    seed_iterator end() const;
+    seed_iterator end() const { return seed_iterator(zip_code_tree.end(), *this); }
 
     /**
      * Iterator that looks sideways in the tree from a seed,
@@ -343,12 +341,6 @@ public:
                           const unordered_map<size_t, size_t>& snarl_start_indexes,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
-
-        // Iterators are copyable and movable
-        distance_iterator(const distance_iterator& other) = default;
-        distance_iterator(distance_iterator&& other) = default;
-        distance_iterator& operator=(const distance_iterator& other) = default;
-        distance_iterator& operator=(distance_iterator&& other) = default;
 
         /// Move in right_to_left direction until we hit another seed or the end
         distance_iterator& operator++();
@@ -458,7 +450,7 @@ public:
         State current_state;
 
         /// Adopt a new state.
-        void state(State new_state);
+        void state(State new_state) { current_state = new_state; }
 
         /// Stop parsing because nothing else can be below the distance limit.
         /// This moves the current iterator it.
@@ -469,10 +461,14 @@ public:
 
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
-        bool entered_snarl() const;
-        bool exited_snarl() const;
-        bool entered_chain() const;
-        bool exited_chain() const;
+        bool entered_snarl() const { return (right_to_left && it->is_snarl_end())
+                                             || (!right_to_left && it->is_snarl_start()); }
+        bool exited_snarl() const { return (right_to_left && it->is_snarl_start())
+                                            || (!right_to_left && it->is_snarl_end()); }
+        bool entered_chain() const { return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_END)
+                                             || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_START); }
+        bool exited_chain() const { return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_START)
+                                            || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_END); }
 
         /// Set up the automaton to start skipping through a chain.
         void skip_chain();
@@ -1095,9 +1091,13 @@ class ZipCodeForest {
 };
 
 /// Print an item type to a stream
-std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
+inline std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
+    return out << std::to_string(type);
+}
 /// Pritn an iterator state to a stream
-std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state);
+inline std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state) {
+    return out << std::to_string(state);
+}
 
 }
 

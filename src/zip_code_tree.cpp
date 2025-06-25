@@ -643,7 +643,6 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
      }
 }
 
-
 void ZipCodeTree::shift_snarls_forward(size_t start_snarl_id, size_t shift_amount) {
     size_t move_after_index = snarl_start_indexes[start_snarl_id];
     for (auto& snarl_start : snarl_start_indexes) {
@@ -1589,29 +1588,12 @@ auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
     return *this;
 }
 
-auto ZipCodeTree::seed_iterator::operator==(const seed_iterator& other) const -> bool {
-    // Ends don't matter for comparison.
-    return it == other.it;
-}
-    
-auto ZipCodeTree::seed_iterator::operator*() const -> oriented_seed_t {
-    return {it->get_value(), it->get_is_reversed()};
-}
-
 auto ZipCodeTree::seed_iterator::remaining_tree() const -> size_t {
     size_t to_return = end - it - 1;
 #ifdef debug_parse
     std::cerr << "From " << &*it << " there are " << to_return << " slots after" << std::endl;
 #endif
     return to_return;
-}
-
-auto ZipCodeTree::begin() const -> seed_iterator {
-    return seed_iterator(zip_code_tree.begin(), *this);
-}
-
-auto ZipCodeTree::end() const -> seed_iterator {
-    return seed_iterator(zip_code_tree.end(), *this);
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, 
@@ -1731,11 +1713,7 @@ auto ZipCodeTree::distance_iterator::dup() -> void {
 }
 
 auto ZipCodeTree::distance_iterator::depth() const -> size_t {
-    if (!stack_data) {
-        return 0;
-    } else {
-        return stack_data->size();
-    }
+    return !stack_data ? 0 : stack_data->size();
 }
 
 auto ZipCodeTree::distance_iterator::swap() -> void {
@@ -1841,31 +1819,6 @@ size_t ZipCodeTree::distance_iterator::get_matrix_value(size_t matrix_start_i, b
     size_t within_matrix_i = has_main_diagonal ? (row * (row + 1)) / 2 + col
                                                : (row * (row - 1)) / 2 + col;
     return zip_code_tree[matrix_start_i + within_matrix_i].get_value();
-}
-
-
-auto ZipCodeTree::distance_iterator::state(State new_state) -> void {
-    current_state = new_state;
-}
-
-bool ZipCodeTree::distance_iterator::entered_snarl() const {
-    return (right_to_left && it->is_snarl_end())
-           || (!right_to_left && it->is_snarl_start());
-}
-
-bool ZipCodeTree::distance_iterator::exited_snarl() const {
-    return (right_to_left && it->is_snarl_start())
-           || (!right_to_left && it->is_snarl_end());
-}
-
-bool ZipCodeTree::distance_iterator::entered_chain() const {
-    return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_END)
-           || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_START);
-}
-
-bool ZipCodeTree::distance_iterator::exited_chain() const {
-    return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_START)
-           || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_END);
 }
 
 void ZipCodeTree::distance_iterator::skip_chain() {
@@ -2311,15 +2264,6 @@ auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
 }
 auto ZipCodeTree::rend() const -> distance_iterator {
     return distance_iterator(zip_code_tree.rend(), zip_code_tree, snarl_start_indexes);
-}
-
-
-std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
-    return out << std::to_string(type);
-}
-
-std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state) {
-    return out << std::to_string(state);
 }
 
 void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, 
@@ -3087,9 +3031,4 @@ std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state) {
     }
 }
 
-
-
 }
-
-
-
