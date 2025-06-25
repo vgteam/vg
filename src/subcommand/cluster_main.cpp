@@ -507,7 +507,7 @@ int main_cluster(int argc, char** argv) {
 
                 std::pair<size_t, size_t> dag_non_dag_count (0, 0);
                 for (const auto& zip_tree : zip_forest.trees) {
-                    pair<size_t, size_t> tree_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
+                    pair<size_t, size_t> tree_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                     dag_non_dag_count.first += tree_count.first;
                     dag_non_dag_count.second += tree_count.second;
                 }

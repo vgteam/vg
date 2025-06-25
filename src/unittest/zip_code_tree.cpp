@@ -205,7 +205,7 @@ namespace unittest {
             REQUIRE(seed_indexes.at(2).seed == 2);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -343,7 +343,7 @@ namespace unittest {
             }
             
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -460,7 +460,7 @@ namespace unittest {
                 
             SECTION( "Count dags" ) {
                 for (auto& zip_tree : zip_forest.trees) {
-                    pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                    pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                     REQUIRE(dag_non_dag_count.first == 0);
                     REQUIRE(dag_non_dag_count.second == 0);
                 }
@@ -535,7 +535,7 @@ namespace unittest {
 
             SECTION( "Count dags" ) {
                 for (auto& zip_tree : zip_forest.trees) {
-                    pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                    pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                     REQUIRE(dag_non_dag_count.first == 0);
                     REQUIRE(dag_non_dag_count.second == 0);
                 }
@@ -651,7 +651,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
             
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -789,7 +789,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -822,7 +822,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 17);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -857,7 +857,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 21);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -892,7 +892,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 25);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -926,7 +926,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_tree_size() == 29);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 2);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -1453,7 +1453,7 @@ namespace unittest {
             }
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 3);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -1574,7 +1574,7 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 5);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -1604,7 +1604,7 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 3);
                 REQUIRE(dag_non_dag_count.second == 0);
             }
@@ -1966,7 +1966,7 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 1);
             }
@@ -2026,7 +2026,7 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
             }
@@ -2090,7 +2090,7 @@ namespace unittest {
             assert(zip_tree.get_tree_size() == 45);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
             }
@@ -2124,7 +2124,7 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index, &seeds);
 
             SECTION( "Count dags" ) {
-                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count(seeds);
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
             }

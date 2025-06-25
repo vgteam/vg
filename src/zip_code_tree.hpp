@@ -586,10 +586,9 @@ public:
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
     /// Count the number of snarls involved in the tree
-    /// Returns a pair of <dag count, non-dag count>
+    /// Returns a pair of <dag count, cyclic count>
     /// Assumes that the tree has already been filled in
-    std::pair<size_t, size_t> dag_and_non_dag_snarl_count(const vector<Seed>& seeds, 
-                                                          const SnarlDistanceIndex& distance_index) const;
+    std::pair<size_t, size_t> dag_and_cyclic_snarl_count(const vector<Seed>& seeds) const;
 
 protected:
 
