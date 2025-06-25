@@ -393,17 +393,7 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         const unordered_map<size_t, size_t>& snarl_start_indexes;
         /// Stack for computing distances.
-        /// Not allocated unless we actually go to use it,
-        /// so rend() deosn't need to carry one.
-        std::unique_ptr<std::stack<size_t>> stack_data;
-
-        /// Accessor to lazily initialize a stack for the iterator.
-        inline std::stack<size_t>& stack() {
-            if (!stack_data) {
-                stack_data.reset(new std::stack<size_t>());
-            }
-            return *stack_data;
-        }
+        std::stack<size_t> stack_data;
 
         // Now we define a mini stack language so we can do a
         // not-really-a-pushdown-automaton to parse the distance strings.
@@ -496,9 +486,6 @@ public:
     /// Get a iterator starting from where a forward iterator is, up to a distance limit
     distance_iterator find_distances(const seed_iterator& from, bool right_to_left = true,
                                      size_t distance_limit = std::numeric_limits<size_t>::max()) const;
-    /// Get the reverse end iterator for looking back from seeds.
-    distance_iterator rend() const;
-
 
 public:
 
