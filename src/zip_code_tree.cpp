@@ -1668,6 +1668,7 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
                                                                         bool right_side) const {
     // Read snarl header
     bool is_cyclic = snarl_is_cyclic(snarl_id);
+    // SNARL_START, then CHAIN_COUNT, then distance matrix
     size_t dist_matrix_start = snarl_start_indexes.at(snarl_id) + 2;
     tree_item_t chain_count = zip_code_tree[dist_matrix_start - 1];
     if (chain_count.get_type() == ZipCodeTree::CHAIN_START) {
@@ -1682,9 +1683,11 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
     assert(chain_num <= num_chains || chain_num == std::numeric_limits<size_t>::max());
 #endif
 
+    // Distances in bottom-to-top order (i.e. last will be top)
     vector<size_t> distances;
 
     if (is_cyclic) {
+        // Which row corresponds to this chain side?
         size_t cur_row; 
         if (chain_num == 0) {
             // Chain 0 means the snarl start
@@ -1697,6 +1700,7 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
             cur_row = chain_num * 2 - (right_side ? 0 : 1);
         }
 
+        // Very bottom of the stack is the distance to a snarl bound
         if (right_side) {
             // Heading towards the snarl end
             distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, num_chains * 2 + 1));
@@ -1705,8 +1709,9 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
             distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, 0));
         }
 
-        // Cyclic snarl always stacks all lefts on top of then all rights 
-        // Due to "bouncing", c1_L is on top, and c1_R is on bottom
+        // Cyclic snarl always stacks all lefts on top, then all rights 
+        // We process left to right then "bounce" right to left
+        // c1_L is on top, and c1_R is on bottom, directly above the snarl bound
         for (size_t i = 1; i <= num_chains; i++) {
             // Right sides from c1 to cN
             distances.push_back(get_matrix_value(dist_matrix_start, true, cur_row, i * 2));
@@ -1787,13 +1792,25 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
               << " going " << (right_to_left ? "right to left" : "left to right")
               << " with running distance " << top() << std::endl;
 #endif
+    // Grab distances for this snarl
+    vector<size_t> distances = get_distances_from_chain(it->get_value(), chain_num, !right_to_left);
+    if (distances.empty()) {
+#ifdef debug_parse
+    std::cerr << "Tried to stack up distances for a root-level snarl; halting now." << std::endl;
+#endif
+        halt();
+        return false;
+    }
+
     // By default, after stacking up distances we need to find the first chain
     State final_state = S_FIND_CHAIN;
-    bool original_right_to_left = right_to_left;
+    // If we use S_FIND_DIST_MATRIX, we'll need to memorize the chain nestedness
     size_t chain_nestedness; 
+
     if (snarl_is_cyclic(it->get_value())) {
         // Memorize previous direction
         push(right_to_left ? 1 : 0);
+        // Put previous direction underneath the parent running distance
         swap();
         if (right_to_left) {
             // Cyclic snarl R->L needs to skip the chains to get
@@ -1810,21 +1827,10 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
         }
     }
 
-    vector<size_t> distances = get_distances_from_chain(it->get_value(), chain_num, !original_right_to_left);
-    if (distances.empty()) {
-#ifdef debug_parse
-    std::cerr << "Tried to stack up distances for a root-level snarl; halting now." << std::endl;
-#endif
-        halt();
-        return false;
-    }
-
-    // Add distances to chain's running distance
+    // Add distances to running distance
     for (const auto& distance : distances) {
         dup();
-        // Add in the edge value to make a running distance
-        // for the thing this edge is for.
-        // Account for if the edge is actually unreachable.
+        // Add in the edge value to make a running distance for child
 #ifdef debug_parse
     std::cerr << "\tTo current running parent distance " << top() << " add edge " 
               << (distance == std::numeric_limits<size_t>::max() ? "inf" : std::to_string(distance))
