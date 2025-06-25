@@ -837,12 +837,12 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_cyclic_snarl_count(const vector<S
     return std::make_pair(dag_count, cyclic_count);
 }
 
-bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) {
+bool ZipCodeTree::seed_is_reversed_at_depth(const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) {
     if (seed.zipcode.get_is_reversed_in_parent(depth)) {
         return true;
     } else if (depth > 0 && (seed.zipcode.get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL
                              || seed.zipcode.get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)) {
-        //If parent is an irregular snarl, check orientation of child in snarl
+        // If parent is an irregular snarl, check orientation of child in snarl
         net_handle_t snarl_handle = seed.zipcode.get_net_handle(depth-1, &distance_index);
         size_t rank = seed.zipcode.get_rank_in_snarl(depth);
         if (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false)
@@ -850,9 +850,9 @@ bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, con
             &&
             distance_index.distance_in_snarl(snarl_handle, 1, false, rank, true)
                     == std::numeric_limits<size_t>::max()) {
-            //If the distance from the snarl start to the child start is inf
-            //and the distance from the snarl end to the child end is inf
-            //then we assume that this child is "reversed" in the parent snarl
+            // If the distance from the snarl start to the child start is inf
+            // and the distance from the snarl end to the child end is inf
+            // then we assume that this child is "reversed" in the parent snarl
             return true;
         } else {
             return false;
@@ -862,19 +862,18 @@ bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, con
     }
 }
 
-
-
 bool ZipCodeTree::node_is_invalid(nid_t id, const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
     bool is_invalid = false;
     net_handle_t net = distance_index.get_node_net_handle(id);
+    // Go upwards in snarl tree to see if any level is invalid
     while (!distance_index.is_root(net)) {
         if (distance_index.is_looping_chain(net)) {
             is_invalid = true;
             break;
         } else if (distance_index.is_chain(distance_index.get_parent(net)) && 
                     !distance_index.is_trivial_chain(distance_index.get_parent(net))) {
-            //Check if this net_handle_t could be involved in
-            //a chain loop that is smaller than the distance limit
+            // Check if this net_handle_t could be involved in
+            // a chain loop that is smaller than the distance limit
             size_t forward_loop = distance_index.is_node(net) 
                                 ? distance_index.get_forward_loop_value(net)
                                 : distance_index.get_forward_loop_value(
