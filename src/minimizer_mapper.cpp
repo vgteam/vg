@@ -3523,7 +3523,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     
     if (this->track_provenance) {
         // Record how many we found, as new lines.
-        // THey are going to be numbered in score order, not read order. Probably...
+        // They are going to be numbered in score order, not read order. Probably...
         funnel.introduce(result.size());
     }
 
@@ -3939,7 +3939,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // they would have to be created in the read no matter where we say it came
     // from, and because adding more of them should lower the MAPQ cap, whereas
     // locating more of the minimizers that are present and letting them pass
-    // to the enxt stage should raise the cap.
+    // to the next stage should raise the cap.
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (this->track_provenance) {
             // Say we're working on it
