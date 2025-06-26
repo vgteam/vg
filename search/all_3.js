@@ -438,5 +438,6 @@ var searchData=
   ['cut_5fmapping_5foffset_1015',['cut_mapping_offset',['../namespacevg.html#a9e9091c8bf2f73d219522420a705dc1f',1,'vg::cut_mapping_offset(const Mapping &amp;m, size_t offset)'],['../namespacevg.html#a455dd0d543b21690c3e71e67ff45e57d',1,'vg::cut_mapping_offset(const mapping_t &amp;m, size_t offset)']]],
   ['cut_5fpath_1016',['cut_path',['../namespacevg.html#a0456e049dd685a689886372f4b0a354d',1,'vg::cut_path(const Path &amp;path, const Position &amp;pos)'],['../namespacevg.html#a1dbdbb650e0a076cd3890c2a74515260',1,'vg::cut_path(const Path &amp;path, size_t offset)']]],
   ['cycles_5fin_5fcactus_1017',['cycles_in_cactus',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a8ef2897eef1a33c4dd97306058f379e6',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
-  ['cyclic_5fsnarl_1018',['CYCLIC_SNARL',['../classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3a5fb7cef86123c58871519b0a317708d0',1,'vg::ZipCode']]]
+  ['cyclic_5fsnarl_1018',['CYCLIC_SNARL',['../classvg_1_1ZipCode.html#a3a7913620a6b9e7988e14c210c51e9c3a5fb7cef86123c58871519b0a317708d0',1,'vg::ZipCode']]],
+  ['cyclic_5fsnarl_5fsizes_1019',['cyclic_snarl_sizes',['../classvg_1_1ZipCodeTree.html#ac87b9dc125c6d76dbca8ea8e8c84c65d',1,'vg::ZipCodeTree']]]
 ];

@@ -150,6 +150,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a8650ce6bcf5e49fe2cdcda115907a6a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0651e6fb7447bfd47181226c264bd45d"><td class="memItemLeft" align="right" valign="top">std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree.html#a0651e6fb7447bfd47181226c264bd45d">dag_and_non_dag_snarl_count</a> (const vector&lt; <a class="el" href="classvg_1_1ZipCodeTree.html#a50817b343d4ad6368df659e16b9a7549">Seed</a> &gt; &amp;seeds, const SnarlDistanceIndex &amp;distance_index) const</td></tr>
 <tr class="separator:a0651e6fb7447bfd47181226c264bd45d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac87b9dc125c6d76dbca8ea8e8c84c65d"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeTree.html#ac87b9dc125c6d76dbca8ea8e8c84c65d">cyclic_snarl_sizes</a> (const vector&lt; <a class="el" href="classvg_1_1ZipCodeTree.html#a50817b343d4ad6368df659e16b9a7549">Seed</a> &gt; &amp;seeds, const SnarlDistanceIndex &amp;distance_index) const</td></tr>
+<tr class="separator:ac87b9dc125c6d76dbca8ea8e8c84c65d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
 Static Protected Member Functions</h2></td></tr>
@@ -268,6 +270,35 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get an iterator over indexes of seeds in the tree, left to right. </p>
+
+</div>
+</div>
+<a id="ac87b9dc125c6d76dbca8ea8e8c84c65d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac87b9dc125c6d76dbca8ea8e8c84c65d">&#9670;&nbsp;</a></span>cyclic_snarl_sizes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; size_t &gt; vg::ZipCodeTree::cyclic_snarl_sizes </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1ZipCodeTree.html#a50817b343d4ad6368df659e16b9a7549">Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Count the length of the zipcode tree for each cyclic snarl Returns a vector of the lengths of each cyclic snarl </p>
 
 </div>
 </div>

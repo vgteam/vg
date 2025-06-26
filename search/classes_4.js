@@ -1,16 +1,16 @@
 var searchData=
 [
-  ['edge_7066',['Edge',['../structvg_1_1Edge.html',1,'vg::Edge'],['../structvg_1_1algorithms_1_1Edge.html',1,'vg::algorithms::Edge']]],
-  ['edgepileup_7067',['EdgePileup',['../structvg_1_1EdgePileup.html',1,'vg']]],
-  ['edit_7068',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
-  ['edit_5ft_7069',['edit_t',['../classvg_1_1edit__t.html',1,'vg']]],
-  ['editedtranscriptpath_7070',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg']]],
-  ['endianness_7071',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
-  ['errormodel_7072',['ErrorModel',['../structvg_1_1WFAExtender_1_1ErrorModel.html',1,'vg::WFAExtender']]],
-  ['event_7073',['Event',['../structvg_1_1WFAExtender_1_1ErrorModel_1_1Event.html',1,'vg::WFAExtender::ErrorModel']]],
-  ['exhaustivetraversalfinder_7074',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
-  ['exon_7075',['Exon',['../structvg_1_1Exon.html',1,'vg']]],
-  ['expandingoverlaygraph_7076',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
-  ['explainer_7077',['Explainer',['../classvg_1_1Explainer.html',1,'vg']]],
-  ['extranodegraph_7078',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
+  ['edge_7067',['Edge',['../structvg_1_1Edge.html',1,'vg::Edge'],['../structvg_1_1algorithms_1_1Edge.html',1,'vg::algorithms::Edge']]],
+  ['edgepileup_7068',['EdgePileup',['../structvg_1_1EdgePileup.html',1,'vg']]],
+  ['edit_7069',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
+  ['edit_5ft_7070',['edit_t',['../classvg_1_1edit__t.html',1,'vg']]],
+  ['editedtranscriptpath_7071',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg']]],
+  ['endianness_7072',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
+  ['errormodel_7073',['ErrorModel',['../structvg_1_1WFAExtender_1_1ErrorModel.html',1,'vg::WFAExtender']]],
+  ['event_7074',['Event',['../structvg_1_1WFAExtender_1_1ErrorModel_1_1Event.html',1,'vg::WFAExtender::ErrorModel']]],
+  ['exhaustivetraversalfinder_7075',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
+  ['exon_7076',['Exon',['../structvg_1_1Exon.html',1,'vg']]],
+  ['expandingoverlaygraph_7077',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
+  ['explainer_7078',['Explainer',['../classvg_1_1Explainer.html',1,'vg']]],
+  ['extranodegraph_7079',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
 ];
