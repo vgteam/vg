@@ -93,7 +93,8 @@ void help_sim(char** argv) {
          << "    -r, --progress              show progress information" << endl
          << "output options:" << endl
          << "    -a, --align-out             write alignments in GAM-format" << endl
-         << "    -J, --json-out              write alignments in json" << endl
+         << "    -q, --fastq-out             write reads in FASTQ format" << endl
+         << "    -J, --json-out              write alignments in JSON-format GAM (implies --align-out)" << endl
          << "    --multi-position            annotate alignments with multiple reference positions" << endl
          << "simulation parameters:" << endl
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
@@ -145,6 +146,7 @@ int main_sim(int argc, char** argv) {
     bool forward_only = false;
     bool align_out = false;
     bool json_out = false;
+    bool fastq_out = false;
     bool multi_position_annotations = false;
     int fragment_length = 0;
     double fragment_std_dev = 0;
@@ -204,6 +206,7 @@ int main_sim(int argc, char** argv) {
             {"random-seed", required_argument, 0, 's'},
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
+            {"fastq-out", no_argument, 0, 'q'},
             {"json-out", no_argument, 0, 'J'},
             {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
@@ -221,7 +224,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:qJp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -340,10 +343,26 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'a':
+            if (align_out || fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+                exit(1);
+            }
             align_out = true;
             break;
 
+        case 'q':
+            if (align_out) {
+                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+                exit(1);
+            }
+            fastq_out = true;
+            break;
+
         case 'J':
+            if (align_out || fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+                exit(1);
+            }
             json_out = true;
             align_out = true;
             break;
@@ -690,6 +709,9 @@ int main_sim(int argc, char** argv) {
         if (json_out) {
             std::cerr << "--json-out" << std::endl;
         }
+        if (fastq_out) {
+            std::cerr << "--fastq-out" << std::endl;
+        }
         if (!fastq_name.empty()) {
             std::cerr << "--fastq " << fastq_name << std::endl;
             if (!fastq_2_name.empty()) {
@@ -803,9 +825,27 @@ int main_sim(int argc, char** argv) {
             // Print the sequences of the reads we have.
             #pragma omp critical
             {
+                if (fastq_out) {
+                    cout << "@" << r1->name() << endl;
+                }
                 cout << r1->sequence();
+                if (fastq_out) {
+                    cout << endl << "+" << endl;
+                    for (size_t i = 0; i < r1->sequence().size(); ++i) {
+                        cout << "I"; // assume all bases are perfect
+                    }
+                }
                 if (r2) {
-                    cout << "\t" << r2->sequence();
+                    if (fastq_out) {
+                        cout << endl << "@" << r2->name() << endl
+                             << r2->sequence() << endl
+                             << "+" << endl;
+                        for (size_t i = 0; i < r2->sequence().size(); ++i) {
+                            cout << "I"; // assume all bases are perfect
+                        }
+                    } else {
+                        cout << "\t" << r2->sequence();
+                    }
                 }
                 cout << endl;
             }
@@ -874,7 +914,7 @@ int main_sim(int argc, char** argv) {
             ngs_sampler->connect_to_position_file(path_pos_filename);
         }
         
-        // static scheduling could produce some degradation in speed, but i think it should make
+        // static scheduling could produce some degradation in speed, but I think it should make
         // the output deterministic (except for ordering)
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < num_reads; i++) {
