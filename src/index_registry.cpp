@@ -2098,7 +2098,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                 transcriptome.graph().max_node_id());
                 
                 // save the file
-                transcriptome.embed_transcript_paths(true, false);
                 transcriptome.write_graph(&outfile);
             }
             else {
