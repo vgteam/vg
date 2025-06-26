@@ -4093,10 +4093,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
 
     const size_t MAX_CORRECT_DISTANCE = 200;
    
-    // Organize the alignment's refpos entries by path
+    // Organize the alignment's refpos entries by path name.
+    // Since refpos annotations are all in base path names, these will be base path names.
     std::unordered_map<std::string, std::vector<const Position*>> refpos_by_path;
     // And keep track of the nodes that are on any of those paths near the
-    // refpos positions. We only cherck seeds on those nodes to see if they are
+    // refpos positions. We only check seeds on those nodes to see if they are
     // correct, because checking all seeds is too slow.
     std::unordered_set<nid_t> eligible_nodes;
     if (this->track_correctness && aln.refpos_size() != 0) {
@@ -4104,28 +4105,39 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             refpos_by_path[refpos.name()].push_back(&refpos); 
         }
         for (auto& kv : refpos_by_path) {
+            // There can't be any empty entries in the map.
+
             // Sort the reference positions by coordinate for easy scanning to find near matches.
             std::sort(kv.second.begin(), kv.second.end(), [&](const Position* a, const Position* b) {
                 return a->offset() < b->offset();
             });
-            
-            if (this->path_graph->has_path(kv.first) && !kv.second.empty()) {
-                // Find the path
-                path_handle_t path = this->path_graph->get_path_handle(kv.first);
-                
-                // Find the bounding offsets
-                size_t lowest_offset = kv.second.front()->offset();
-                size_t highest_offset = kv.second.back()->offset();
 
-                // Find the bounding steps on the path
-                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, lowest_offset);
-                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, highest_offset);
+            // Find the bounding offsets
+            size_t lowest_offset = kv.second.front()->offset();
+            size_t highest_offset = kv.second.back()->offset();
+            
+            // Look for all subpaths of that base path that we have in this base path region.
+            Region target_region {kv.first, (int64_t) lowest_offset, (int64_t) highest_offset};
+            for_each_overlapping_subpath(*this->path_graph, target_region, [&](const path_handle_t& path, size_t start_offset, size_t past_end_offset) {
+                if (past_end_offset <= start_offset) {
+                    // This range is empty somehow, so skip it.
+                    return true;
+                }
+
+#ifdef debug
+                std::cerr << "Path " << this->path_graph->get_path_name(path) << " overlaps " << target_region << " from " << start_offset << " to " << past_end_offset << " and has length " << this->path_graph->get_path_length(path) << std::endl;
+#endif
+
+                // Find the bounding steps on the subpath range
+                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, start_offset);
+                // If the range is nonempty, the past_end_offset is at least 1.
+                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, past_end_offset - 1);
                 
-                // It must be an actual path range we have or we can't do this
+                // It must be an actual path range because we were given it to iterate over
                 crash_unless(lowest_offset_step != this->path_graph->path_end(path));
                 crash_unless(highest_offset_step != this->path_graph->path_end(path));
 
-                // Advance one handle to be the past-end for the range. This might hit the path)end sentinel.
+                // Advance one handle to be the past-end for the range. This might hit the path_end sentinel.
                 step_handle_t end_step = this->path_graph->get_next_step(highest_offset_step);
 
                 for (step_handle_t here = lowest_offset_step; here != end_step; here = this->path_graph->get_next_step(here)) {
@@ -4162,7 +4174,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                     // And record the distance traveled
                     range_visited += this->path_graph->get_length(here_handle);
                 }
-            }
+                
+                // Continue with the next region of the base path that
+                // intersects the read's interval on it.
+                return true;
+            });
         }
     }
 
@@ -4181,14 +4197,17 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             if (aln.refpos_size() != 0) {
                 // It might be correct
                 for (auto& handle_and_positions : offsets) {
-                    // For every path we have positions on
-                    // See if we have any refposes on that path
-                    auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
+                    // For every subpath handle we have positions on
+                    // See if we have any refposes on the corresponding base path
+                    auto found = refpos_by_path.find(get_path_base_name(*this->path_graph, handle_and_positions.first));
                     if (found != refpos_by_path.end()) {
-                        // We do have reference positiions on this path.
+                        // We do have reference positions on this base path.
                         std::vector<const Position*>& refposes = found->second;
                         // And we have to check them against these mapped positions on the path.
-                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
+                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second;
+                        // Which are on a subpath that starts at this offset along the base path
+                        size_t subpath_offset = get_path_base_offset(*this->path_graph, handle_and_positions.first); 
+
                         // Sort the positions we mapped to by coordinate also
                         std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
                             return a.first < b.first;
@@ -4201,13 +4220,13 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                         auto mapped_it = mapped_positions.begin();
                         while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
                             // As long as they are both in their collections, compare them
-                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < MAX_CORRECT_DISTANCE) {
+                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) (mapped_it->first + subpath_offset)) < MAX_CORRECT_DISTANCE) {
                                 // If they are close enough, we have a match
                                 tag = Funnel::State::CORRECT;
                                 break;
                             }
                             // Otherwise, advance the one with the lower coordinate.
-                            if ((*ref_it)->offset() < mapped_it->first) {
+                            if ((*ref_it)->offset() < (mapped_it->first + subpath_offset)) {
                                 ++ref_it;
                             } else {
                                 ++mapped_it;
