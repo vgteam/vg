@@ -343,8 +343,8 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'a':
-            if (align_out || fastq_out) {
-                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+            if (fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
                 exit(1);
             }
             align_out = true;
@@ -352,15 +352,15 @@ int main_sim(int argc, char** argv) {
 
         case 'q':
             if (align_out) {
-                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
                 exit(1);
             }
             fastq_out = true;
             break;
 
         case 'J':
-            if (align_out || fastq_out) {
-                cerr << "[vg sim] error: only one output format (-a, -q, -J) can be selected." << endl;
+            if (fastq_out) {
+                cerr << "[vg sim] error: only one output format (-a/-J or -q) can be selected." << endl;
                 exit(1);
             }
             json_out = true;
