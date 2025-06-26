@@ -2083,11 +2083,16 @@ Functions</h2></td></tr>
 <tr class="separator:abcf3c5c3332d721a86740ef23fb9e6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8c98b9242341b733da17c5a7fbf42c39"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8c98b9242341b733da17c5a7fbf42c39">find_containing_subpath</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
 <tr class="separator:a8c98b9242341b733da17c5a7fbf42c39"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26257124adfe7590983b5a0f8ccfdc0f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a26257124adfe7590983b5a0f8ccfdc0f">for_each_overlapping_subpath</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t start_offset, size_t past_end_offset)&gt; &amp;iteratee)</td></tr>
+<tr class="separator:a26257124adfe7590983b5a0f8ccfdc0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9534c53c98412f2d43982fc0b809e7bd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9534c53c98412f2d43982fc0b809e7bd">for_each_subpath_of</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const string &amp;path_name, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)&gt; &amp;iteratee)</td></tr>
 <tr class="separator:a9534c53c98412f2d43982fc0b809e7bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94b1b2969f088d4fa3fdf8c73bac7f65">get_path_base_name</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
 <tr class="memdesc:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the base path name for this path (i.e. the path's name without any subrange).  <a href="namespacevg.html#a94b1b2969f088d4fa3fdf8c73bac7f65">More...</a><br /></td></tr>
 <tr class="separator:a94b1b2969f088d4fa3fdf8c73bac7f65"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0dcc785fc4f181e58d2fdf0202b8c4cc"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0dcc785fc4f181e58d2fdf0202b8c4cc">get_path_base_offset</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
+<tr class="memdesc:a0dcc785fc4f181e58d2fdf0202b8c4cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the offset along the base path for this path (0 if it's a full base path or a fragment starting at 0).  <a href="namespacevg.html#a0dcc785fc4f181e58d2fdf0202b8c4cc">More...</a><br /></td></tr>
+<tr class="separator:a0dcc785fc4f181e58d2fdf0202b8c4cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4b8b4c6f298818989d39189d631980a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b8b4c6f298818989d39189d631980a8">from_proto_edit</a> (const <a class="el" href="structvg_1_1Edit.html">Edit</a> &amp;proto_edit, <a class="el" href="classvg_1_1edit__t.html">edit_t</a> &amp;edit)</td></tr>
 <tr class="separator:a4b8b4c6f298818989d39189d631980a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84c5dd6c830450f9100b5e9c11522050"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84c5dd6c830450f9100b5e9c11522050">to_proto_edit</a> (const <a class="el" href="classvg_1_1edit__t.html">edit_t</a> &amp;edit, <a class="el" href="structvg_1_1Edit.html">Edit</a> &amp;proto_edit)</td></tr>
@@ -2225,7 +2230,11 @@ Functions</h2></td></tr>
 <tr class="separator:aa90e4fd2dbd76a94e26a3e8806f1c53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2de3a2f2b77abef4336df983356fc23"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af2de3a2f2b77abef4336df983356fc23">select_haplotypes</a> (const gbwtgraph::GBZ &amp;gbz, const <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, const <a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>, size_t &gt; &amp;kmer_counts, double coverage, <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html">Recombinator::Statistics</a> *statistics, std::vector&lt; <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html">Recombinator::LocalHaplotype</a> &gt; *local_haplotypes, const <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html">Recombinator::Parameters</a> &amp;parameters)</td></tr>
 <tr class="separator:af2de3a2f2b77abef4336df983356fc23"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae335adc615afcb48b71f64b0e5a4bf91"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae335adc615afcb48b71f64b0e5a4bf91">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region)</td></tr>
+<tr class="memdesc:ae335adc615afcb48b71f64b0e5a4bf91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write a region to a stream.  <a href="namespacevg.html#ae335adc615afcb48b71f64b0e5a4bf91">More...</a><br /></td></tr>
+<tr class="separator:ae335adc615afcb48b71f64b0e5a4bf91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
+<tr class="memdesc:a253257615743a1cfb948b749be7700e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end.  <a href="namespacevg.html#a253257615743a1cfb948b749be7700e2">More...</a><br /></td></tr>
 <tr class="separator:a253257615743a1cfb948b749be7700e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fd1e3436d98304996aaecece048cb45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8fd1e3436d98304996aaecece048cb45">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions, vector&lt; string &gt; *out_names)</td></tr>
 <tr class="separator:a8fd1e3436d98304996aaecece048cb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -10246,8 +10255,9 @@ template&lt;class RandomIt &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the subpath containing the given region (possibly a full base path) and return true, or return false if no such subpath can be found.</p>
-<p>If one or both region coordinates are -1, and a full path is found, fills them in from that path. </p>
+<p>Find the subpath containing the given region (possibly a full base path, or itself a part of a subpath) and return true, or return false if no such subpath can be found.</p>
+<p>Interprets the <a class="el" href="structvg_1_1Region.html">Region</a> as 0-based, end-inclusive.</p>
+<p>If one or both region coordinates are -1, and a path with the exact name is found, and there are no further subpaths of that path, fills them in from that path. </p>
 
 </div>
 </div>
@@ -10820,6 +10830,46 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Iterate over all the kmers in the graph, running lambda on each If the stop flag is included, stop execution if it ever evaluates to true </p>
+
+</div>
+</div>
+<a id="a26257124adfe7590983b5a0f8ccfdc0f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a26257124adfe7590983b5a0f8ccfdc0f">&#9670;&nbsp;</a></span>for_each_overlapping_subpath()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::for_each_overlapping_subpath </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Region.html">Region</a> &amp;&#160;</td>
+          <td class="paramname"><em>region</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t start_offset, size_t past_end_offset)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the subpaths overlapping the given <a class="el" href="structvg_1_1Region.html">Region</a> (possibly a full base path, or itself a part of a subpath) and iterate over them.</p>
+<p>Calls the callback with each relevant subpath (possibly the base path), and the 0-based start and past-end offsets along the subpath that intersect the provided <a class="el" href="structvg_1_1Region.html">Region</a>. Again, the offsets are in the space of the <em>subpath</em>; to get the offset of the subpath <em>relative to</em> the base path, use <a class="el" href="namespacevg.html#a0dcc785fc4f181e58d2fdf0202b8c4cc" title="Returns the offset along the base path for this path (0 if it&#39;s a full base path or a fragment starti...">get_path_base_offset()</a>.</p>
+<p>Iteratee returns false to stop.</p>
+<p>If one or both region coordinates are -1, and a path with the exact name is found, and there are no further subpaths of that path, fills them in from that path. Otherwise, interprets them as meaning to go all the way to the start/end of the base path. The <a class="el" href="structvg_1_1Region.html">Region</a> is modified after the callback calls are complete.</p>
+<p>Interprets the <a class="el" href="structvg_1_1Region.html">Region</a> as 0-based, end-inclusive.</p>
+<p>Returns true if we reached the end, and false if asked to stop. </p>
 
 </div>
 </div>
@@ -12494,6 +12544,36 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns the base path name for this path (i.e. the path's name without any subrange). </p>
+
+</div>
+</div>
+<a id="a0dcc785fc4f181e58d2fdf0202b8c4cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0dcc785fc4f181e58d2fdf0202b8c4cc">&#9670;&nbsp;</a></span>get_path_base_offset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::get_path_base_offset </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns the offset along the base path for this path (0 if it's a full base path or a fragment starting at 0). </p>
 
 </div>
 </div>
@@ -18596,7 +18676,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a35d8d71a9d6d51760cc7354910d029e9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a35d8d71a9d6d51760cc7354910d029e9">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[1/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a35d8d71a9d6d51760cc7354910d029e9">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[1/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18624,7 +18704,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a7cc9c4d4d792e1e7f38c2c6009207706"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7cc9c4d4d792e1e7f38c2c6009207706">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[2/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a7cc9c4d4d792e1e7f38c2c6009207706">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[2/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18653,7 +18733,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ac5fc02ee1a5713060cd5f4b33e2eaaab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac5fc02ee1a5713060cd5f4b33e2eaaab">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[3/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5fc02ee1a5713060cd5f4b33e2eaaab">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[3/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18683,7 +18763,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a0e459d4a7dda13edf5b79ea8996cfd82"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0e459d4a7dda13edf5b79ea8996cfd82">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[4/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e459d4a7dda13edf5b79ea8996cfd82">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[4/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18713,7 +18793,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="af0a4b11db620d43a7e20886d5563e5b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af0a4b11db620d43a7e20886d5563e5b8">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[5/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#af0a4b11db620d43a7e20886d5563e5b8">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[5/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18741,7 +18821,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[6/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[6/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18779,7 +18859,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ad1bdeb550c6f5fa632ad61454321e001"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad1bdeb550c6f5fa632ad61454321e001">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[7/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad1bdeb550c6f5fa632ad61454321e001">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[7/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18817,7 +18897,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ae0744fdee12e0f4136de643a91c15f77"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae0744fdee12e0f4136de643a91c15f77">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[8/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ae0744fdee12e0f4136de643a91c15f77">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[8/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18846,7 +18926,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ab38d6991537581f9ce3f4c549f966a33"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab38d6991537581f9ce3f4c549f966a33">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[9/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ab38d6991537581f9ce3f4c549f966a33">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[9/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18875,7 +18955,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[10/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[10/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18905,7 +18985,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a141fbf9c40f389909c5c46132ab6c615"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a141fbf9c40f389909c5c46132ab6c615">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[11/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a141fbf9c40f389909c5c46132ab6c615">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[11/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18934,7 +19014,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a3caa19999a88016c7aedf3fefb8ca69c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3caa19999a88016c7aedf3fefb8ca69c">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[12/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a3caa19999a88016c7aedf3fefb8ca69c">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[12/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18970,7 +19050,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a19349c6c73bac7da9651ee91c4272156"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19349c6c73bac7da9651ee91c4272156">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[13/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a19349c6c73bac7da9651ee91c4272156">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[13/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19007,8 +19087,38 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a id="ae335adc615afcb48b71f64b0e5a4bf91"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae335adc615afcb48b71f64b0e5a4bf91">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[14/20]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;&#160;</td>
+          <td class="paramname"><em>region</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Write a region to a stream. </p>
+
+</div>
+</div>
 <a id="a1fbb5dfd532a055d9e8251d2dcab3e58"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1fbb5dfd532a055d9e8251d2dcab3e58">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[14/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1fbb5dfd532a055d9e8251d2dcab3e58">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[15/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19038,7 +19148,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a848f547eaaa9c1ec84809d5ad3bd6871"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a848f547eaaa9c1ec84809d5ad3bd6871">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[15/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a848f547eaaa9c1ec84809d5ad3bd6871">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[16/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19066,7 +19176,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a796e339855648a7b8bdee41619eed23b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a796e339855648a7b8bdee41619eed23b">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[16/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a796e339855648a7b8bdee41619eed23b">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[17/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19096,7 +19206,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a047b1758c707866aceb6c39b2503d5c6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a047b1758c707866aceb6c39b2503d5c6">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[17/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a047b1758c707866aceb6c39b2503d5c6">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[18/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19126,7 +19236,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="afacdb481e4a38366ce65c39efcb5af49"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afacdb481e4a38366ce65c39efcb5af49">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[18/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#afacdb481e4a38366ce65c39efcb5af49">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[19/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19156,7 +19266,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a1e7a5fc9017560cc1b505641cc4ef6d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[19/19]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator&lt;&lt;() <span class="overload">[20/20]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -20313,6 +20423,8 @@ template&lt;typename Result &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end. </p>
 
 </div>
 </div>
