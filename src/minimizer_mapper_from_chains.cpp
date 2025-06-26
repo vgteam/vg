@@ -640,7 +640,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         {
             std::cerr << log_name() << "Zip code forest:";
-            zip_code_forest.print_self(&seeds, &minimizers);
+            zip_code_forest.print_self(&seeds);
         }
     }
 #endif

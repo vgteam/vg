@@ -1066,13 +1066,9 @@ class ZipCodeForest {
 };
 
 /// Print an item type to a stream
-inline std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
-    return out << std::to_string(type);
-}
-/// Pritn an iterator state to a stream
-inline std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state) {
-    return out << std::to_string(state);
-}
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
+/// Print an iterator state to a stream
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state);
 
 }
 

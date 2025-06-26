@@ -1149,8 +1149,8 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                                                      : !(*dest).is_reverse;
 
         // Walk through the tree starting from dest and check the distance
-        for (auto tree_itr_left = find_distances(dest, right_to_left); !tree_itr_left.done(); ++tree_itr_left) {
-            seed_result_t next_seed_result = *tree_itr_left;
+        for (auto dist_itr = find_distances(dest, right_to_left, distance_limit); !dist_itr.done(); ++dist_itr) {
+            seed_result_t next_seed_result = *dist_itr;
             // The seed we reached in our walk
             const Seed& next_seed = seeds->at(next_seed_result.seed);
             const bool next_is_reversed = next_seed_result.is_reverse;
@@ -1876,16 +1876,12 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
     std::cerr << "Tick for state " << current_state << " on symbol " << it->get_type() 
               << " at entry " << (rend - it + 1) << std::endl;
     std::cerr << "Stack: ";
-    if (stack_data) {
-        std::stack<size_t> temp_stack = stack_data;
-        while (!temp_stack.empty()) {
-            std::cerr << (temp_stack.top() == std::numeric_limits<size_t>::max() ? "inf" 
-                                                                                 : std::to_string(temp_stack.top())) 
-                      << " ";
-            temp_stack.pop();
-        }
-    } else {
-        std::cerr << "empty";
+    std::stack<size_t> temp_stack = stack_data;
+    while (!temp_stack.empty()) {
+        std::cerr << (temp_stack.top() == std::numeric_limits<size_t>::max() ? "inf" 
+                                                                                : std::to_string(temp_stack.top())) 
+                    << " ";
+        temp_stack.pop();
     }
     std::cerr << std::endl;
 #endif
@@ -2198,6 +2194,13 @@ auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
     return distance_iterator(zip_code_tree.rbegin() + from.remaining_tree(), 
                              from.zip_code_tree, from.snarl_start_indexes,
                              from.chain_numbers, right_to_left, distance_limit);
+}
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
+    return out << std::to_string(type);
+}
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::distance_iterator::State& state) {
+    return out << std::to_string(state);
 }
 
 void ZipCodeForest::sort_one_interval(forest_growing_state_t& forest_state, const interval_state_t& interval) const {
