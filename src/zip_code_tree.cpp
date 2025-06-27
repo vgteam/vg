@@ -274,12 +274,22 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, const size_t& depth,
                                        const size_t& seed_index, bool child_is_reversed, bool chain_is_reversed) {
     const Seed& current_seed = forest_state.seeds->at(seed_index);
+    bool current_is_reversed = (child_is_reversed != is_rev(current_seed.pos));
 
     // Would this seed be an exact duplicate of the previous one?
     tree_item_t prev_item = trees[forest_state.active_tree_index].zip_code_tree.back();
-    if (prev_item.get_type() == ZipCodeTree::SEED 
-        && current_seed.pos == forest_state.seeds->at(prev_item.get_value()).pos
-        && (child_is_reversed != is_rev(current_seed.pos)) == prev_item.get_is_reversed()) {
+    bool prev_is_duplicate = (prev_item.get_type() == ZipCodeTree::SEED 
+                              && forest_state.seeds->at(prev_item.get_value()).pos == current_seed.pos
+                              && prev_item.get_is_reversed() == current_is_reversed);
+    // Possibly the last item is the same position but reversed,
+    // and the seed before that is the duplicate
+    tree_item_t three_back_item = trees[forest_state.active_tree_index].zip_code_tree.size() >= 3 
+        ? trees[forest_state.active_tree_index].zip_code_tree[trees[forest_state.active_tree_index].zip_code_tree.size() - 3]
+        : tree_item_t(ZipCodeTree::CHAIN_COUNT, std::numeric_limits<size_t>::max()); // arbitrary non-seed
+    bool three_back_is_duplicate = (three_back_item.get_type() == ZipCodeTree::SEED 
+                                    && forest_state.seeds->at(three_back_item.get_value()).pos == current_seed.pos
+                                    && three_back_item.get_is_reversed() == current_is_reversed);
+    if (prev_is_duplicate || three_back_is_duplicate) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Skipping duplicate seed at " << current_seed.pos << endl;
 #endif

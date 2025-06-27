@@ -2278,6 +2278,26 @@ namespace unittest {
             // c1_right -> c1_right
             REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
         }
+        SECTION("Duplicate seed with reversed in between") {
+            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 0 2-11rev 0 2+0]}]
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(2, true, 11);
+            positions.emplace_back(2, false, 0);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (const auto& pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            zip_forest.validate_zip_forest(distance_index, &seeds);
+        }
     }
     TEST_CASE("zip tree handles complicated nested snarls", "[zip_tree]") {
         // Load an example graph
