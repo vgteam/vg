@@ -85,5 +85,5 @@ var searchData=
   ['group_5fsize_12635',['group_size',['../structvg_1_1Funnel_1_1Item.html#a23706e46f9ebd56acbea3c612358bb79',1,'vg::Funnel::Item']]],
   ['group_5ftag_12636',['group_tag',['../classvg_1_1io_1_1MessageEmitter.html#ad240e5c3ae379aa3257c498dd4c4e1bf',1,'vg::io::MessageEmitter']]],
   ['group_5fvo_12637',['group_vo',['../classvg_1_1io_1_1MessageIterator.html#ae569fd7dc6129edc5e5dac52b1a67f84',1,'vg::io::MessageIterator']]],
-  ['gz_5fsuffix_12638',['GZ_SUFFIX',['../rna__main_8cpp.html#a79e5666abc1e2270209776bd472798e7',1,'rna_main.cpp']]]
+  ['gz_5fsuffix_12638',['GZ_SUFFIX',['../namespacevg.html#a03513be677bdb1a882f0ede178236d27',1,'vg']]]
 ];

@@ -134,7 +134,7 @@ var searchData=
   ['ends_5fat_5fend_1489',['ends_at_end',['../classhandlegraph_1_1SnarlDecomposition.html#a5f13d153fedcd2e24575fb69672650cd',1,'handlegraph::SnarlDecomposition']]],
   ['ends_5fat_5fstart_1490',['ends_at_start',['../classhandlegraph_1_1SnarlDecomposition.html#a63e795bd9764b2b793472d46069cecab',1,'handlegraph::SnarlDecomposition']]],
   ['ends_5fat_5ftip_1491',['ends_at_tip',['../classhandlegraph_1_1SnarlDecomposition.html#ae397ce26e9c979cf64c18f56546e490c',1,'handlegraph::SnarlDecomposition']]],
-  ['ends_5fwith_1492',['ends_with',['../haplotypes__main_8cpp.html#a1ffaf31343dd95074c3237bf89b38a33',1,'haplotypes_main.cpp']]],
+  ['ends_5fwith_1492',['ends_with',['../namespacevg.html#a1463c17d6d29dc893b6e56bc8d7dd870',1,'vg']]],
   ['ensure_5fbreakpoints_1493',['ensure_breakpoints',['../namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9',1,'vg']]],
   ['ensure_5fedge_1494',['ensure_edge',['../classvg_1_1DiagramExplainer.html#a4e632e8785e76ea1b2e3e27ef9315465',1,'vg::DiagramExplainer']]],
   ['ensure_5fedit_5ftmpfiles_5fopen_1495',['ensure_edit_tmpfiles_open',['../classvg_1_1Packer.html#a3120b075177c3ca1916d20557b175733',1,'vg::Packer']]],
