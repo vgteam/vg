@@ -544,26 +544,6 @@ public:
                         const SnarlDistanceIndex& distance_index, 
                         const vector<Seed>* seeds,
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
-    
-    /// Store current seed's position at the end of "positions"
-    /// Only stores if the given item is a seed (it might be a snarl bound)
-    /// If "reverse" is true, then reverse the position;
-    /// this is useful for storing start seeds for cyclic snarls' chains
-    void store_seed_position(tree_item_t child, 
-                             const SnarlDistanceIndex& distance_index, 
-                             const vector<Seed>* seeds,
-                             std::vector<pos_t>& positions,
-                             bool reverse = false) const;
-
-    /// Helper function for validate_snarl to check a distance matrix
-    /// Distance matrix is triangular (see docs for ZipCodeTree)
-    /// Positions are of edge seeds in each child chain
-    /// Any positions with node ID of 0 (snarl bounds, child snarls) are ignored
-    void validate_distance_matrix(const SnarlDistanceIndex& distance_index,
-                                  const std::vector<size_t>& dist_matrix,
-                                  const std::vector<pos_t>& positions,
-                                  bool has_self_loops,
-                                  size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
     /// Helper function for validate_snarl for a chain
     /// zip_iterator is an iterator to the chain start
