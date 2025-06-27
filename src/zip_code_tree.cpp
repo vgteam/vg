@@ -1543,30 +1543,7 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
     zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
     chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
-#ifdef debug_parse
-    if (this->it != rend) {
-        std::cerr << "Able to do first initial tick." << std::endl;
-    }
-#endif
-    if (this->it == rend) {
-        // We are an end iterator. Nothing else to do.
-        return;
-    }
     tick();
-#ifdef debug_parse
-    if (this->it != rend) {
-        std::cerr << "Able to do another initial tick." << std::endl;
-    }
-#endif
-    // Skip to the first seed we actually want to yield, or to the end
-    ++(*this);
-    // As the end of the constructor, the iterator points to
-    // a seed that has been ticked and yielded, or is rend.
-#ifdef debug_parse
-    if (this->it == rend) {
-        std::cerr << "Tree iteration halted looking for first seed." << std::endl;
-    }
-#endif
 }
 
 auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
@@ -1892,10 +1869,11 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // Stack is empty and we must be at a seed to start at.
         if (it->get_type() == SEED) {
 #ifdef debug_parse
-    std::cerr << "Skip over seed " << it->get_value() << std::endl;
+    std::cerr << "Yield 0-length edge to starting seed " << it->get_value() << std::endl;
 #endif
             push(0);
             state(S_SCAN_CHAIN);
+            return true;
         } else {
             unimplemented_error(); 
         }
