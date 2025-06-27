@@ -3025,6 +3025,46 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
+    TEST_CASE("Cyclic snarl with two loops around") {
+        VG graph;
+
+        Node* n1 = graph.create_node("AAA");
+        Node* n2 = graph.create_node("C");
+        Node* n3 = graph.create_node("GAT");
+        Node* n4 = graph.create_node("AT");
+        Node* n5 = graph.create_node("CCC");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n2, n3);
+        Edge* e3 = graph.create_edge(n2, n3, false, true);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n4, true, false);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n4, n2);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+        SECTION("One seed in cyclic snarl") {
+            /// TODO: fill in correct ziptree
+            vector<pos_t> positions;
+            positions.emplace_back(4, false, 0);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+
+            for (const auto& pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, dist_index);
+            zip_forest.validate_zip_forest(dist_index, &seeds);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){
         for (int i = 0; i < 10; i++) {
             // For each random graph
@@ -3084,6 +3124,33 @@ namespace unittest {
             }
         }
     }
+    /*
+    TEST_CASE("Failed zip tree unit test", "[failed]") {
+        // Load failed random graph
+        HashGraph graph;
+        graph.deserialize("testGraph.hg");
+        // print with vg view -j testGraph.hg
 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        vector<pos_t> positions;
+        // add seeds as needed
+
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (const auto& pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_full_decoder();
+            seeds.push_back({pos, 0, zipcode});
+        }
+        VectorView<MinimizerMapper::Minimizer> minimizers;
+
+        ZipCodeForest zip_forest;
+        zip_forest.fill_in_forest(seeds, distance_index);
+        zip_forest.validate_zip_forest(distance_index, &seeds);
+    }
+    */
 }
 }
