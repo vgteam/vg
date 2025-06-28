@@ -536,6 +536,7 @@ void sort_gaf_lines(
             builder->insert(path, output.bidirectional_gbwt);
         }
     }
+    out.first->flush(); // Just in case, if we are for example writing to std::cout.
     out.second.reset();
 
     // Finish the GBWT construction, if necessary.
@@ -677,6 +678,7 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         in[i].first = nullptr;
         in[i].second.reset();
     }
+    out.first->flush(); // Just in case, if we are for example writing to std::cout.
     out.second.reset();
     finish_gbwt_construction(builder.get(), output);
 }
