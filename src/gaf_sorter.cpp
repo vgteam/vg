@@ -29,6 +29,10 @@ namespace vg {
 constexpr std::uint64_t GAFSorterRecord::MISSING_KEY;
 const std::string GAFSorterRecord::GBWT_OFFSET_TAG = "GB:i:";
 
+constexpr size_t GAFSorterRecord::STRAND_FIELD;
+constexpr size_t GAFSorterRecord::PATH_FIELD;
+constexpr size_t GAFSorterRecord::MANDATORY_FIELDS;
+
 constexpr size_t GAFSorterParameters::THREADS;
 constexpr size_t GAFSorterParameters::RECORDS_PER_FILE;
 constexpr size_t GAFSorterParameters::FILES_PER_MERGE;
@@ -155,15 +159,23 @@ void GAFSorterRecord::for_each_field(const std::function<bool(size_t, str_view)>
     }
 }
 
-gbwt::vector_type as_gbwt_path(const GAFSorterRecord& record, bool& ok) {
+gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
+    str_view strand, path;
+    this->for_each_field([&](size_t i, str_view value) -> bool {
+        if (i == STRAND_FIELD) {
+            strand = value;
+        } else if (i == PATH_FIELD) {
+            path = value;
+            return false; // Stop after the path.
+        }
+        return true; // Continue to the next field.
+    });
+
     gbwt::vector_type result;
-    str_view path = record.get_field(GAFSorterRecord::PATH_FIELD);
     if (path.size == 1 && path[0] == '*') {
         // Unaligned read.
         return result;
     }
-
-    // FIXME: Flip orientation if the path is reversed. This should not happen with vg output.
 
     size_t start = 0;
     while (start < path.size) {
@@ -174,34 +186,49 @@ gbwt::vector_type as_gbwt_path(const GAFSorterRecord& record, bool& ok) {
             is_reverse = false;
         } else {
             is_reverse = false;
-            ok = false;
-            std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            if (ok != nullptr) {
+                *ok = false;
+                std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            }
             return result;
         }
         start++;
         gbwt::size_type node_id = 0;
         auto res = std::from_chars(path.data + start, path.data + path.size, node_id);
         if (res.ec != std::errc() || node_id == 0) {
-            ok = false;
-            std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            if (ok != nullptr) {
+                *ok = false;
+                std::cerr << "error: [gaf_sorter] invalid path: " << path.to_string() << std::endl;
+            }
             return result;
         }
         result.push_back(gbwt::Node::encode(node_id, is_reverse));
         start = res.ptr - path.data;
     }
+
+    // Now check the orientation.
+    if (strand.size == 1 && strand[0] == '-') {
+        gbwt::reversePath(result);
+    }
+
     return result;
 }
 
 //------------------------------------------------------------------------------
 
 GAFSorterFile::GAFSorterFile() :
-    records(0),
+    bidirectional_gbwt(false), records(0),
     temporary(true), compressed(true), raw_gaf(false), removed(false), ok(true) {
     this->name = temp_file::create("gaf-sorter");
 }
 
-GAFSorterFile::GAFSorterFile(const std::string& name, const std::string& gbwt_file) :
-    name(name), gbwt_file(gbwt_file), records(0),
+GAFSorterFile::GAFSorterFile(const std::string& name) :
+    name(name), bidirectional_gbwt(false), records(0),
+    temporary(false), compressed(false), raw_gaf(true), removed(false), ok(true) {
+}
+
+GAFSorterFile::GAFSorterFile(const std::string& name, const std::string& gbwt_file, bool bidirectional_gbwt) :
+    name(name), gbwt_file(gbwt_file), bidirectional_gbwt(bidirectional_gbwt), records(0),
     temporary(false), compressed(false), raw_gaf(true), removed(false), ok(true) {
 }
 
@@ -350,7 +377,7 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
                         std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
                     }
                 }
-                GAFSorterFile out(output_file, params.gbwt_file);
+                GAFSorterFile out(output_file, params.gbwt_file, params.bidirectional_gbwt);
                 sort_gaf_lines(std::move(lines), params.key_type, params.stable, out);
                 ks_free(&s_buffer);
                 hts_close(input);
@@ -440,7 +467,7 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
                 std::cerr << "Building a GBWT index of the paths to " << params.gbwt_file << std::endl;
             }
         }
-        GAFSorterFile out(output_file, params.gbwt_file);
+        GAFSorterFile out(output_file, params.gbwt_file, params.bidirectional_gbwt);
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
         for (std::unique_ptr<GAFSorterFile>& file : files) {
             inputs->push_back(std::move(*file));
@@ -501,12 +528,12 @@ void sort_gaf_lines(
     for (GAFSorterRecord& record : records) {
         output.write(record, *out.first);
         if (builder != nullptr) {
-            gbwt::vector_type path = as_gbwt_path(record, output.ok);
+            gbwt::vector_type path = record.as_gbwt_path(&output.ok);
             if (!output.ok) {
                 // We already printed an error message.
                 return;
             }
-            builder->insert(path, true);
+            builder->insert(path, output.bidirectional_gbwt);
         }
     }
     out.second.reset();
@@ -593,12 +620,12 @@ void merge_gaf_records(std::unique_ptr<std::vector<GAFSorterFile>> inputs, GAFSo
         for (GAFSorterRecord& record : buffer) {
             output.write(record, *out.first);
             if (builder != nullptr) {
-                gbwt::vector_type path = as_gbwt_path(record, output.ok);
+                gbwt::vector_type path = record.as_gbwt_path(&output.ok);
                 if (!output.ok) {
                     // We already printed an error message.
                     return;
                 }
-                builder->insert(path, true);
+                builder->insert(path, output.bidirectional_gbwt);
             }
         }
         buffer.clear();

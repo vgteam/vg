@@ -23,6 +23,8 @@ namespace {
 
 struct GAFInfo {
     std::string line;
+    // We store the forward path, as GAFSorterRecord::as_gbwt_path() also returns it.
+    gbwt::vector_type forward_path;
     size_t id;
     std::uint32_t min_node, max_node;
     std::uint32_t first_node, gbwt_offset;
@@ -34,15 +36,20 @@ struct GAFInfo {
         first_node(std::numeric_limits<std::uint32_t>::max()), gbwt_offset(std::numeric_limits<std::uint32_t>::max()),
         first_is_reverse(false) {
 
-        // Name, query length, query start, query end, strand;
+        // Name, query length, query start, query end;
         std::string nd = std::to_string(nodes);
-        this->line = "read" + std::to_string(id) + "\t" + nd + "\t0\t" + nd + "\t+\t";
- 
-        // Path.
+        this->line = "read" + std::to_string(id) + "\t" + nd + "\t0\t" + nd;
+
+        // Strand.
         std::mt19937 rng(id);
+        bool is_reverse = rng() % 2;
+        this->line += (is_reverse ? "\t-\t" : "\t+\t");
+
+        // Path, in the orientation specified by is_reverse.
         for (size_t i = 0; i < nodes; i++) {
             std::uint32_t node = rng() % 1000 + 1;
             bool reverse = rng() % 2;
+            this->forward_path.push_back(gbwt::Node::encode(node, reverse));
             this->min_node = std::min(this->min_node, node);
             this->max_node = std::max(this->max_node, node);
             if (i == 0) {
@@ -53,6 +60,9 @@ struct GAFInfo {
                 this->first_is_reverse = reverse;
             }
             this->line += (reverse ? "<" : ">") + std::to_string(node);
+        }
+        if (is_reverse) {
+            gbwt::reversePath(this->forward_path);
         }
 
         // Path length, path start, path end, matches, alignment length, mapping quality.
@@ -134,28 +144,14 @@ GAFSorterFile generate_sorted_temp(size_t count, size_t path_length, double unal
     return output;
 }
 
-GAFSorterFile generate_sorted_gaf(size_t count, size_t path_length, double unaligned_probability, bool stable, const std::string& filename, const std::string& gbwt_file = "") {
+GAFSorterFile generate_sorted_gaf(
+    size_t count, size_t path_length, double unaligned_probability, bool stable,
+    const std::string& filename, const std::string& gbwt_file = "", bool bidirectional_gbwt = false
+) {
     auto lines = generate_gaf(count, path_length, unaligned_probability);
-    GAFSorterFile output(filename, gbwt_file);
+    GAFSorterFile output(filename, gbwt_file, bidirectional_gbwt);
     sort_gaf_lines(std::move(lines), GAFSorterRecord::key_node_interval, stable, output);
     return output;
-}
-
-gbwt::vector_type parse_path(const GAFSorterRecord& record) {
-    gbwt::vector_type path;
-    str_view field = record.get_field(GAFSorterRecord::PATH_FIELD);
-    size_t start = 0;
-    while (start < field.size) {
-        bool is_reverse = (field[start] == '<');
-        size_t end = start + 1;
-        while (end < field.size && field[end] != '<' && field[end] != '>') {
-            end++;
-        }
-        gbwt::size_type node_id = std::stoul(std::string(field.data + start + 1, field.data + end));
-        path.push_back(gbwt::Node::encode(node_id, is_reverse));
-        start = end;
-    }
-    return path;
 }
 
 void check_sorted(GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterRecord::key_type key_type, bool stable) {
@@ -173,8 +169,12 @@ void check_sorted(GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterReco
     gbwt::GBWT gbwt_index;
     if (!file.gbwt_file.empty()) {
         sdsl::simple_sds::load_from(gbwt_index, file.gbwt_file);
-        REQUIRE(gbwt_index.bidirectional());
-        REQUIRE(gbwt_index.sequences() == 2 * lines);
+        if (!gbwt_index.empty()) {
+            // An empty GBWT index is always bidirectional.
+            REQUIRE(gbwt_index.bidirectional() == file.bidirectional_gbwt);
+        }
+        gbwt::size_type expected_sequences = (file.bidirectional_gbwt ? lines * 2 : lines);
+        REQUIRE(gbwt_index.sequences() == expected_sequences);
     }
 
     size_t line_num = 0;
@@ -193,8 +193,9 @@ void check_sorted(GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterReco
             REQUIRE(prev_id < curr_id);
         }
         if (!file.gbwt_file.empty()) {
-            gbwt::vector_type extracted = gbwt_index.extract(gbwt::Path::encode(line_num, false));
-            gbwt::vector_type truth = parse_path(record);
+            gbwt::size_type seq_id = (file.bidirectional_gbwt ? gbwt::Path::encode(line_num, false) : line_num);
+            gbwt::vector_type extracted = gbwt_index.extract(seq_id);
+            gbwt::vector_type truth = record.as_gbwt_path();
             REQUIRE(extracted.size() == truth.size());
             for (size_t i = 0; i < extracted.size(); i++) {
                 REQUIRE(extracted[i] == truth[i]);
@@ -209,10 +210,14 @@ void check_sorted(GAFSorterFile& file, bool raw_gaf, size_t lines, GAFSorterReco
     REQUIRE(!in.first->get(c));
 }
 
-void merge_and_check(std::unique_ptr<std::vector<GAFSorterFile>> inputs, size_t buffer_size, size_t expected_records, GAFSorterRecord::key_type key_type, bool with_gbwt) {
+void merge_and_check(
+    std::unique_ptr<std::vector<GAFSorterFile>> inputs,
+    size_t buffer_size, size_t expected_records, GAFSorterRecord::key_type key_type,
+    bool with_gbwt, bool bidirectional_gbwt
+) {
     std::string filename = temp_file::create("gaf-sorter");
     std::string gbwt_file = (with_gbwt ? temp_file::create("gaf-sorter") : "");
-    GAFSorterFile output(filename, gbwt_file);
+    GAFSorterFile output(filename, gbwt_file, bidirectional_gbwt);
     merge_gaf_records(std::move(inputs), output, buffer_size);
     check_sorted(output, true, expected_records, key_type, false);
     temp_file::remove(filename);
@@ -237,7 +242,7 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
     temp_file::remove(input_file);
 
     // Check the output.
-    GAFSorterFile output(output_file, params.gbwt_file);
+    GAFSorterFile output(output_file, params.gbwt_file, params.bidirectional_gbwt);
     output.records = count; // This is a new file object, so we need to set the record count.
     check_sorted(output, true, count, params.key_type, false);
 
@@ -252,12 +257,13 @@ void integrated_test(size_t count, size_t path_length, double unaligned_probabil
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Records and keys", "[gaf_sorter]") {
+TEST_CASE("Records, paths, and keys", "[gaf_sorter]") {
     SECTION("node interval keys") {
         for (size_t id = 0; id < 10; id++) {
             GAFInfo info(id, 10, false);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_node_interval);
             REQUIRE(record.key == info.key(GAFSorterRecord::key_node_interval));
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 
@@ -266,6 +272,7 @@ TEST_CASE("Records and keys", "[gaf_sorter]") {
             GAFInfo info(id, 0, false);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_node_interval);
             REQUIRE(record.key == GAFSorterRecord::MISSING_KEY);
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 
@@ -274,6 +281,7 @@ TEST_CASE("Records and keys", "[gaf_sorter]") {
             GAFInfo info(id, 10, true);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_gbwt_pos);
             REQUIRE(record.key == info.key(GAFSorterRecord::key_gbwt_pos));
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 
@@ -282,6 +290,7 @@ TEST_CASE("Records and keys", "[gaf_sorter]") {
             GAFInfo info(id, 0, true);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_gbwt_pos);
             REQUIRE(record.key == GAFSorterRecord::MISSING_KEY);
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 
@@ -290,6 +299,7 @@ TEST_CASE("Records and keys", "[gaf_sorter]") {
             GAFInfo info(id, 10, false);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_gbwt_pos);
             REQUIRE(record.key == GAFSorterRecord::MISSING_KEY);
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 
@@ -298,6 +308,7 @@ TEST_CASE("Records and keys", "[gaf_sorter]") {
             GAFInfo info(id, 10, false);
             GAFSorterRecord record(info.value(), GAFSorterRecord::key_hash);
             REQUIRE(record.key == info.key(GAFSorterRecord::key_hash));
+            REQUIRE(record.as_gbwt_path() == info.forward_path);
         }
     }
 }
@@ -365,6 +376,16 @@ TEST_CASE("Sorting GAF records", "[gaf_sorter]") {
         temp_file::remove(gbwt_file);
     }
 
+    SECTION("raw GAF output with bidirectional GBWT") {
+        size_t n = 1000;
+        std::string filename = temp_file::create("gaf-sorter");
+        std::string gbwt_file = temp_file::create("gaf-sorter");
+        GAFSorterFile output = generate_sorted_gaf(n, 10, 0.05, false, filename, gbwt_file, true);
+        check_sorted(output, true, n, GAFSorterRecord::key_node_interval, false);
+        temp_file::remove(filename);
+        temp_file::remove(gbwt_file);
+    }
+
     SECTION("empty GAF output") {
         size_t n = 0;
         std::string filename = temp_file::create("gaf-sorter");
@@ -412,7 +433,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(n + i, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false, false);
     }
 
     SECTION("three files with GBWT") {
@@ -422,7 +443,17 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(n + i, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, false);
+    }
+
+    SECTION("three files with bidirectional GBWT") {
+        size_t n = 1000, expected_records = 0;
+        std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
+        for (size_t i = 0; i < 3; i++) {
+            inputs->push_back(generate_sorted_temp(n + i, 10, 0.05, false));
+            expected_records += inputs->back().records;
+        }
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, true);
     }
 
     SECTION("one file is empty") {
@@ -433,7 +464,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(count, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false, false);
     }
 
     SECTION("one file is empty with GBWT") {
@@ -444,7 +475,18 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(count, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, false);
+    }
+
+    SECTION("one file is empty with bidirectional GBWT") {
+        size_t n = 1000, expected_records = 0;
+        std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
+        for (size_t i = 0; i < 3; i++) {
+            size_t count = (i == 1 ? 0 : n + i);
+            inputs->push_back(generate_sorted_temp(count, 10, 0.05, false));
+            expected_records += inputs->back().records;
+        }
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, true);
     }
 
     SECTION("all files are empty") {
@@ -454,7 +496,7 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(0, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false, false);
     }
 
     SECTION("all files are empty with GBWT") {
@@ -464,19 +506,19 @@ TEST_CASE("Merging sorted files", "[gaf_sorter]") {
             inputs->push_back(generate_sorted_temp(0, 10, 0.05, false));
             expected_records += inputs->back().records;
         }
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, false);
     }
 
     SECTION("no input files") {
         size_t expected_records = 0;
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, false, false);
     }
 
     SECTION("no input files with GBWT") {
         size_t expected_records = 0;
         std::unique_ptr<std::vector<GAFSorterFile>> inputs(new std::vector<GAFSorterFile>());
-        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true);
+        merge_and_check(std::move(inputs), 100, expected_records, GAFSorterRecord::key_node_interval, true, false);
     }
 }
 
@@ -499,6 +541,16 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         temp_file::remove(params.gbwt_file);
     }
 
+    SECTION("one full batch with bidirectional GBWT") {
+        size_t n = 1000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
     SECTION("one partial batch") {
         size_t n = 500;
         GAFSorterParameters params;
@@ -511,6 +563,16 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         GAFSorterParameters params;
         params.records_per_file = 1000;
         params.gbwt_file = temp_file::create("gaf-sorter");
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
+    SECTION("one partial batch with bidirectional GBWT") {
+        size_t n = 500;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
         integrated_test(n, 10, 0.05, params);
         temp_file::remove(params.gbwt_file);
     }
@@ -533,6 +595,17 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         temp_file::remove(params.gbwt_file);
     }
 
+    SECTION("one merge with bidirectional GBWT") {
+        size_t n = 2000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.files_per_merge = 2;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
     SECTION("one merge + one batch") {
         size_t n = 3000;
         GAFSorterParameters params;
@@ -547,6 +620,17 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         params.records_per_file = 1000;
         params.files_per_merge = 2;
         params.gbwt_file = temp_file::create("gaf-sorter");
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
+    SECTION("one merge + one batch with bidirectional GBWT") {
+        size_t n = 3000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.files_per_merge = 2;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
         integrated_test(n, 10, 0.05, params);
         temp_file::remove(params.gbwt_file);
     }
@@ -569,6 +653,17 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         temp_file::remove(params.gbwt_file);
     }
 
+    SECTION("multiple levels of merges with bidirectional GBWT") {
+        size_t n = 10000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.files_per_merge = 2;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
     SECTION("multithreaded") {
         size_t n = 10000;
         GAFSorterParameters params;
@@ -585,6 +680,18 @@ TEST_CASE("GAF sorting", "[gaf_sorter]") {
         params.files_per_merge = 2;
         params.threads = 2;
         params.gbwt_file = temp_file::create("gaf-sorter");
+        integrated_test(n, 10, 0.05, params);
+        temp_file::remove(params.gbwt_file);
+    }
+
+    SECTION("multithreaded with bidirectional GBWT") {
+        size_t n = 10000;
+        GAFSorterParameters params;
+        params.records_per_file = 1000;
+        params.files_per_merge = 2;
+        params.threads = 2;
+        params.gbwt_file = temp_file::create("gaf-sorter");
+        params.bidirectional_gbwt = true;
         integrated_test(n, 10, 0.05, params);
         temp_file::remove(params.gbwt_file);
     }

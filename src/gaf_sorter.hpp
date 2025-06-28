@@ -22,6 +22,8 @@
 // #include <string_view>
 #include <vector>
 
+#include <gbwt/utils.h>
+
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -131,6 +133,14 @@ struct GAFSorterRecord {
     /// Stops if the function returns false.
     void for_each_field(const std::function<bool(size_t, str_view)>& lambda) const;
 
+    /// Returns the path as a GBWT path in forward orientation.
+    /// If an ok flag is given, sets it to false and prints an error message
+    /// if the path could not be parsed.
+    gbwt::vector_type as_gbwt_path(bool* ok = nullptr) const;
+
+    /// 0-based field number for the strand/orientation in a GAF line.
+    constexpr static size_t STRAND_FIELD = 4;
+
     /// 0-based field number for the path in a GAF line.
     constexpr static size_t PATH_FIELD = 5;
 
@@ -153,6 +163,9 @@ struct alignas(128) GAFSorterFile {
     /// File name for the GBWT index, if any.
     std::string gbwt_file;
 
+    /// Should the GBWT index be bidirectional?
+    bool bidirectional_gbwt;
+
     /// Number of records.
     size_t records;
 
@@ -174,8 +187,11 @@ struct alignas(128) GAFSorterFile {
     /// Default constructor that creates a compressed temporary file.
     GAFSorterFile();
 
-    /// Constructor that creates a raw GAF file with the given name and an optional GBWT file.
-    explicit GAFSorterFile(const std::string& name, const std::string& gbwt_file = "");
+    /// Constructor that creates a raw GAF file with the given name.
+    explicit GAFSorterFile(const std::string& name);
+
+    /// Constructor that creates a raw GAF file with the given name and a GBWT index that may be bidirectional.
+    GAFSorterFile(const std::string& name, const std::string& gbwt_file, bool bidirectional_gbwt);
 
     /// If the file is temporary, the destructor removes the file.
     ~GAFSorterFile();
@@ -259,6 +275,9 @@ struct GAFSorterParameters {
     /// GBWT output file, if any.
     std::string gbwt_file;
 
+    /// Make the GBWT bidirectional.
+    bool bidirectional_gbwt = false;
+
     /// Print progress information to stderr.
     bool progress = false;
 };
@@ -272,8 +291,9 @@ struct GAFSorterParameters {
  * Use "-" for reading stdin / writing to stdout.
  * Returns false and prints an error message on failure.
  *
- * If a GBWT file is specified in the parameters, a bidirectional GBWT index of the paths is built for the paths and written to the file.
- * The paths in the GBWT are in the same order as the records in the output file.
+ * If a GBWT file is specified in the parameters, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the parameters.
+ * Paths in the GBWT are in the same order as the records in the output file.
  * The GBWT index does not contain any metadata.
  * GBWT construction uses one additional thread.
  */
@@ -286,8 +306,9 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
  * The original lines are consumed.
  * Sets the ok flag in the output and prints an error message on failure.
  *
- * If a GBWT file is specified in the output, a bidirectional GBWT index of the paths is built for the paths and written to the file.
- * The paths in the GBWT are in the same order as the records in the output file.
+ * If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the output file.
+ * Paths in the GBWT are in the same order as the records in the output file.
  * The GBWT index does not contain any metadata.
  * GBWT construction uses one additional thread.
  *
@@ -304,8 +325,9 @@ void sort_gaf_lines(std::unique_ptr<std::vector<std::string>> lines, GAFSorterRe
  * Consumes the inputs and removes the files if they are temporary.
  * Sets the ok flag in the output and prints an error message on failure.
  *
- * If a GBWT file is specified in the output, a bidirectional GBWT index of the paths is built for the paths and written to the file.
- * The paths in the GBWT are in the same order as the records in the output file.
+ * If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file.
+ * The GBWT index can be unidirectional or bidirectional, depending on the output file.
+ * Paths in the GBWT are in the same order as the records in the output file.
  * The GBWT index does not contain any metadata.
  * GBWT construction uses one additional thread.
  *
