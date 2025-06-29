@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 55
+plan tests 56
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -177,6 +177,8 @@ cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' -e 's/.M5:[a-zA-Z0-9]*
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly fetches base path length from input file"
 
+is "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep 'GR:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with the graph-space alignment"
+
 rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.sub.vg j.sub.gcsa r.sub.gam r.sub.sam r.sub.sam
 
 vg surject -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
@@ -215,5 +217,5 @@ is "$(cat err.txt | grep 'cannot be interpreted' | wc -l)" "1" "Surjection of GA
 
 rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp tiny.vg err.txt
 
-is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf | grep -v "^@" | cut -f3-12 | sort | uniq | wc -l)" "1" "vg surject low compelxity pruning gets the same alignment regardless of read orientation"
+is "$(vg surject -p CHM13#0#chr8 -x surject/opposite_strands.gfa --prune-low-cplx --sam-output --gaf-input surject/opposite_strands.gaf | grep -v "^@" | cut -f3-12 | sort | uniq | wc -l)" 1 "vg surject low compelxity pruning gets the same alignment regardless of read orientation"
 

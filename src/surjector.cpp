@@ -70,42 +70,49 @@ using namespace std;
     }
 
     void Surjector::set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
-        // Scale up the matrix by the scale.
-        // We don't want to overflow the tiny score fields.
-        int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
-        int8_t max_in_score = std::numeric_limits<int8_t>::max() / dp_score_scale;
-        int8_t* scaled_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
-        crash_unless(scaled_matrix != nullptr);
-        for (int i = 0; i < 16; i++) {
-            if (score_matrix[i] > max_in_score || score_matrix[i] < min_in_score) {
-                free(scaled_matrix);
-                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
-            }
-            if (i / 4 == i % 4 && score_matrix[i] < 0) {
-                // There's a negative value on the diagonal. Something is wrong.
-                free(scaled_matrix);
-                throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is negative along scoring matrix diagonal");
-            }
-            scaled_matrix[i] = score_matrix[i] * dp_score_scale;
-        }
-        for (auto& score : {gap_open, gap_extend, full_length_bonus}) {
-            // Check each non-matrix score 
-            if (score > max_in_score || score < min_in_score) {
-                free(scaled_matrix);
-                throw std::invalid_argument("Score value " + std::to_string(score) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
-            }
-        }
-        if (gap_open * dp_score_scale > std::numeric_limits<int8_t>::max() - dp_gap_open_extra_cost) {
-            // We don't have room for the extra gap open penalty.
-            throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) + " is too large after scaling; reduce by at least " + std::to_string(std::max<int8_t>(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
-        }
+        if (dp_gap_open_extra_cost != 0) {
+            // We actually want to do DP with different scores.
 
-        // Apply the scores
-        dp_aligner = std::unique_ptr<Aligner>(new Aligner(scaled_matrix, gap_open * dp_score_scale + dp_gap_open_extra_cost, gap_extend * dp_score_scale,
-                                                          full_length_bonus * dp_score_scale, this->gc_content_estimate));
-        
-        // Get rid of the scaled matrix
-        free(scaled_matrix);
+            // Scale up the matrix by the scale.
+            // We don't want to overflow the tiny score fields.
+            int8_t min_in_score = std::numeric_limits<int8_t>::min() / dp_score_scale;
+            int8_t max_in_score = std::numeric_limits<int8_t>::max() / dp_score_scale;
+            int8_t* scaled_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+            crash_unless(scaled_matrix != nullptr);
+            for (int i = 0; i < 16; i++) {
+                if (score_matrix[i] > max_in_score || score_matrix[i] < min_in_score) {
+                    free(scaled_matrix);
+                    throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+                }
+                if (i / 4 == i % 4 && score_matrix[i] < 0) {
+                    // There's a negative value on the diagonal. Something is wrong.
+                    free(scaled_matrix);
+                    throw std::invalid_argument("Score value " + std::to_string(score_matrix[i]) + " is negative along scoring matrix diagonal");
+                }
+                scaled_matrix[i] = score_matrix[i] * dp_score_scale;
+            }
+            for (auto& score : {gap_open, gap_extend, full_length_bonus}) {
+                // Check each non-matrix score 
+                if (score > max_in_score || score < min_in_score) {
+                    free(scaled_matrix);
+                    throw std::invalid_argument("Score value " + std::to_string(score) + " is too large to scale; must be between" + std::to_string(min_in_score) + " and " + std::to_string(max_in_score));
+                }
+            }
+            if (gap_open * dp_score_scale > std::numeric_limits<int8_t>::max() - dp_gap_open_extra_cost) {
+                // We don't have room for the extra gap open penalty.
+                throw std::invalid_argument("Gap open score value " + std::to_string(gap_open) + " is too large after scaling; reduce by at least " + std::to_string(std::max<int8_t>(dp_gap_open_extra_cost / dp_score_scale, (int8_t)1)));
+            }
+
+            // Apply the scores
+            dp_aligner = std::unique_ptr<Aligner>(new Aligner(scaled_matrix, gap_open * dp_score_scale + dp_gap_open_extra_cost, gap_extend * dp_score_scale,
+                                                              full_length_bonus * dp_score_scale, this->gc_content_estimate));
+            
+            // Get rid of the scaled matrix
+            free(scaled_matrix);
+        } else {
+            // Don't have a separate DP aligner.
+            dp_aligner.reset();
+        }
         
     }
 
@@ -388,9 +395,15 @@ using namespace std;
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
                 transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*mp_alns_out, *source_mp_aln, false);
+                }
             }
             else {
                 alns_out->emplace_back(make_null_alignment(*source_aln));
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*alns_out, *source_aln, false);
+                }
             }
             return;
         }
@@ -476,6 +489,10 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     set_annotation(alns_out->back(), "all_scores", annotation_string);
                 }
+                
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*alns_out, *source_aln, path_strand.second);
+                }
             }
             else {
                 auto& surjection = mp_aln_surjections[path_strand];
@@ -496,6 +513,9 @@ using namespace std;
                 if (annotate_with_all_path_scores) {
                     mp_alns_out->back().set_annotation("all_scores", annotation_string);
                 }
+                if (annotate_with_graph_alignment) {
+                    annotate_graph_cigar(*mp_alns_out, *source_mp_aln, path_strand.second);
+                }
 #ifdef debug_anchored_surject
                 cerr << "outputting surjected mp aln: " << debug_string(mp_alns_out->back()) << endl;
 #endif
@@ -512,7 +532,6 @@ using namespace std;
             cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
 #endif
         }
-        
     }
 
     vector<vector<size_t>> Surjector::reverse_adjacencies(const vector<vector<size_t>>& adj) const {
@@ -3058,7 +3077,8 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
-            mp_aln_graph.align(source, *aln_graph, get_aligner(), dp_aligner.get(),
+            auto normal_aligner = get_aligner();
+            mp_aln_graph.align(source, *aln_graph, normal_aligner, dp_aligner ? dp_aligner.get() : normal_aligner,
                                false,                                    // anchors as matches
                                1,                                        // max alt alns
                                false,                                    // dynamic alt alns
@@ -4726,6 +4746,30 @@ using namespace std;
         return null;
     }
 
+    void Surjector::annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const {
+        auto cigar = graph_cs_cigar(source, *graph, rev_strand);
+        if (cigar.empty()) {
+            return;
+        }
+        for (auto& surjection : surjections) {
+            set_annotation(surjection, "graph_cigar", cigar);
+        }
+    }
+
+    void Surjector::annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const {
+        
+        Alignment opt;
+        optimal_alignment(source, opt, false);
+        
+        // TODO: repetitive with Alignment version
+        auto cigar = graph_cs_cigar(opt, *graph, rev_strand);
+        if (cigar.empty()) {
+            return;
+        }
+        for (auto& surjection : surjections) {
+            surjection.set_annotation("graph_cigar", cigar);
+        }
+    }
 
     template<>
     int32_t Surjector::get_score(const Alignment& aln) {

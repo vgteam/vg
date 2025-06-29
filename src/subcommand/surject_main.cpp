@@ -57,10 +57,12 @@ void help_surject(char** argv) {
          << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
+         << "  -E, --extra-gap-cost N   for dynamic programming, add this to the gap open cost of the 10x-scaled scoring parameters" << endl 
          << "  -N, --sample NAME        set this sample name for all reads" << endl
          << "  -R, --read-group NAME    set this read group for all reads" << endl
          << "  -f, --max-frag-len N     reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
          << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
+         << "  -H, --graph-aln          annotate SAM records with cs-style difference string of the pre-surjected graph alignment in GR tag" << endl
          << "  -C, --compression N      level for compression [0-9]" << endl
          << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
          << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl
@@ -132,10 +134,12 @@ int main_surject(int argc, char** argv) {
     // This needs to be nullable so that we can use the default for spliced if doing spliced mode.
     std::unique_ptr<double> max_graph_scale;
     bool qual_adj = false;
+    int8_t extra_gap_cost = 0;
     bool prune_anchors = false;
     int64_t max_slide = Surjector::DEFAULT_MAX_SLIDE;
     size_t max_anchors = std::numeric_limits<size_t>::max(); // As close to unlimited as makes no difference
     bool annotate_with_all_path_scores = false;
+    bool annotate_with_graph_alignment = false;
     bool multimap = false;
     bool validate = true;
     bool show_progress = false;
@@ -168,10 +172,12 @@ int main_surject(int argc, char** argv) {
             {"max-slide", required_argument, 0, 'I'},
             {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
+            {"extra-gap-cost", required_argument, 0, 'E'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"max-frag-len", required_argument, 0, 'f'},
             {"list-all-paths", no_argument, 0, 'L'},
+            {"graph-aln", no_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"no-validate", required_argument, 0, 'V'},
             {"watchdog-timeout", required_argument, 0, 'w'},
@@ -180,7 +186,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:ALMVw:r",
+        c = getopt_long (argc, argv, "hx:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LHMVw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -267,6 +273,10 @@ int main_surject(int argc, char** argv) {
             qual_adj = true;
             break;
 
+        case 'E':
+            extra_gap_cost = parse<int8_t>(optarg);
+            break;
+
         case 'N':
             sample_name = optarg;
             break;
@@ -301,6 +311,10 @@ int main_surject(int argc, char** argv) {
                 
         case 'L':
             annotate_with_all_path_scores = true;
+            break;
+            
+        case 'H':
+            annotate_with_graph_alignment = true;
             break;
 
         case 'h':
@@ -376,6 +390,13 @@ int main_surject(int argc, char** argv) {
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
+    if (extra_gap_cost != surjector.dp_gap_open_extra_cost) {
+        surjector.dp_gap_open_extra_cost = extra_gap_cost;
+        // Rebuild the scoring machinery for the parameter change
+        surjector.set_alignment_scores(default_score_matrix,
+                                       default_gap_open, default_gap_extension,
+                                       default_full_length_bonus); 
+    }
     surjector.prune_suspicious_anchors = prune_anchors;
     surjector.max_slide = max_slide;
     surjector.max_anchors = max_anchors;
@@ -389,6 +410,7 @@ int main_surject(int argc, char** argv) {
     }
     surjector.max_tail_length = max_tail_len;
     surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
+    surjector.annotate_with_graph_alignment = annotate_with_graph_alignment;
     if (max_graph_scale) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;

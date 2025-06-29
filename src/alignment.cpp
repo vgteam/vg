@@ -384,6 +384,113 @@ size_t fastq_paired_two_files_for_each(const string& file1, const string& file2,
 
 }
 
+void for_each_gaf_record_in_ranges(htsFile* gaf_fp, tbx_t* gaf_tbx, const vector<pair<vg::id_t, vg::id_t>>& ranges, const std::function<void(const std::string&)>& iteratee) {
+    // If we just query each range, we get duplicate reads when a read overlaps
+    // multiple ranges. We want to use an htslib multi-region iterator instead.
+    //
+    // According to
+    // <https://github.com/samtools/htslib/issues/785#issuecomment-433869384>,
+    // "If the target regions overlap, hts_itr_t visits the overlapping section
+    // twice, while hts_itr_multi_t removes this overlap.". And according to
+    // <https://github.com/samtools/htslib/issues/785#issuecomment-464135842>,
+    // "a read will only be output once even if it covers more than one
+    // region".
+    //
+    // But, htslib multi-region iterators don't support tabix files yet. See
+    // <https://github.com/samtools/htslib/issues/1913>. So we have to fake it
+    // with single-region iterators until that's fixed.
+    
+    // To hack around the duplicate entries from the query, we keep all the GAF
+    // records around as strings in memory.
+    std::unordered_set<std::string> seen_records;
+
+    // TODO: If this becomes a memory usage problem before htslib implements
+    // the multi-iterator, switch to keeping the records organized by their
+    // ending node ID in an ordered map of sets. Then we could throw out all
+    // earlier sets when we start a range that begins after their end point,
+    // and we can still check membership with a lookup on endpoint and then a
+    // lookup in the set. 
+
+    for (auto range : ranges) {
+        std::stringstream query_stream;
+        query_stream << "{node}:" << range.first << "-" << range.second;
+        std::string query_string(std::move(query_stream.str()));
+        hts_itr_t *itr = tbx_itr_querys(gaf_tbx, query_string.c_str());
+        if (!itr) {
+            // Can't visit this range. Nothing there?
+            // TODO: Is there an error to be handled here?
+            continue;
+        }
+        // We need a kstring_t to hold each result line from the tabix iterator.
+        kstring_t str;
+        ks_initialize(&str);
+        try {
+            while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
+                // The iterator will allocate/expand/overwrite the kstring_t
+                // storage, but we need to free it later.
+    
+                // Store the record as a C++ string.
+                std::string record_string(ks_str(&str));
+
+                // Parse the GAF record we got from the index
+                gafkluge::GafRecord record;
+                gafkluge::parse_gaf_record(record_string, record);
+
+                // We also have to account for how, even if a GAF record
+                // overlaps a tabix ID range, that just means it has a node ID
+                // before the range start and a node ID after the range end. It
+                // doesn't guarantee that those are ever the *same* ID; the GAF
+                // record might completely skip all the IDs in the range.
+                if (!gaf_record_intersects_range(record, range)) {
+                    // We don't actually intersect the range, so skip this record.
+                    continue;
+                }
+
+                auto found = seen_records.find(record_string);
+                if (found == seen_records.end()) {
+                    // This is a novel record.
+                    //
+                    // TODO: Handle GAF files that repeat the same record
+                    // multiple times, where we actually want to keep the
+                    // repeats.
+
+                    // Handle the record
+                    iteratee(record_string);
+
+                    // Mark it as handled and move it into the set.
+                    seen_records.emplace_hint(found, std::move(record_string));
+                }
+            }
+
+            // Make sure the iterator and kstring_t are cleaned up.
+            tbx_itr_destroy(itr);
+            // This is safe to do even if the kstring_t's buffer is not
+            // allocated.
+            ks_free(&str);
+        } catch(...) {
+            tbx_itr_destroy(itr);
+            ks_free(&str);
+            throw;
+        }
+    }
+}
+
+bool gaf_record_intersects_range(const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range) {
+    for (const gafkluge::GafStep& step : record.path) {
+        if (step.is_stable) {
+            // We can't parse the name field as a node ID, it's a path name.
+            throw std::runtime_error("Cannot parse GAF record with stable step on: " + step.name);
+        }
+        nid_t node_id = std::stol(step.name);
+        if (node_id >= range.first && node_id < range.second) {
+            // Found an intersection
+            return true;
+        }
+    }
+    // No intersection was ever found
+    return false;
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split_delims(header, "\n");
@@ -882,13 +989,18 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "SS", 'Z', all_scores.size() + 1, (uint8_t*) all_scores.c_str());
     }
     
+    if (has_annotation(alignment, "graph_cigar")) {
+        string graph_cigar = get_annotation<string>(alignment, "graph_cigar");
+        bam_aux_append(bam, "GR", 'Z', graph_cigar.size() + 1, (uint8_t*) graph_cigar.c_str());
+    }
+    
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
         // encode the alignments SAM tags
         auto parsed_tags = parse_sam_tags(get_annotation<string>(alignment, "tags"));
         for (const auto& tag : parsed_tags) {
             
-            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS") {
+            if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR") {
                 // we handle these tags separately
                 continue;
             }
@@ -1277,6 +1389,177 @@ void simplify_cigar(vector<pair<int, char>>& cigar) {
         }
     }
     cigar.resize(cigar.size() - removed);
+}
+
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand) {
+    vector<pair<int, char>> cigar;
+    const auto& path = aln.path();
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        const auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            char op;
+            int len;
+            if (edit.from_length() == edit.to_length()) {
+                if (!edit.sequence().empty()) {
+                    op = 'X';
+                }
+                else {
+                    op = '=';
+                }
+                len = edit.from_length();
+            }
+            else if (edit.from_length() != 0) {
+                op = 'D';
+                len = edit.from_length();
+            }
+            else {
+                if ((i == 0 && j == 0) ||
+                    (i + 1 == path.mapping_size() && j + 1 == mapping.edit_size())) {
+                    op = 'S';
+                }
+                else {
+                    op = 'I';
+                }
+                len = edit.to_length();
+            }
+            
+            if (!cigar.empty() && cigar.back().second == op) {
+                cigar.back().first += len;
+            }
+            else {
+                cigar.emplace_back(len, op);
+            }
+        }
+    }
+    
+    // TODO: use this for the I/D merging, but it's overkill for the
+    // adjacent operations
+    simplify_cigar(cigar);
+    
+    if (rev_strand) {
+        reverse(cigar.begin(), cigar.end());
+    }
+    
+    return cigar;
+}
+
+string graph_CS_cigar_internal(const Alignment& aln, const HandleGraph& graph, bool rev_strand, bool verbose_format) {
+    
+    // states that can be extended across edits (except null)
+    enum Operation {Null, Match, Insert, Delete};
+        
+    stringstream strm;
+    
+    const auto& path = aln.path();
+    const auto& seq = aln.sequence();
+    
+    Operation curr_op = Null;
+    size_t read_idx = rev_strand ? seq.size() : 0;
+    size_t match_len = 0;
+    int64_t incr = rev_strand ? -1 : 1;
+    for (int64_t i = rev_strand ? aln.path().mapping_size() - 1 : 0; i < aln.path().mapping_size() && i >= 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        const auto& pos = mapping.position();
+        handle_t handle = graph.get_handle(pos.node_id(), pos.is_reverse());
+        size_t offset = pos.offset();
+        if (rev_strand) {
+            offset += mapping_from_length(mapping);
+        }
+        for (int64_t j = rev_strand ? mapping.edit_size() - 1 : 0; j < mapping.edit_size() && j >= 0; j += incr) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() == edit.to_length()) {
+                // aligned base
+                if (edit.sequence().empty()) {
+                    if (curr_op != Match) {
+                        strm << (verbose_format ? '=' : ':');
+                        curr_op = Match;
+                    }
+                    if (verbose_format) {
+                        if (rev_strand) {
+                            strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                        }
+                        else {
+                            strm << seq.substr(read_idx, edit.to_length());
+                        }
+                    }
+                    else {
+                        match_len += edit.to_length();
+                    }
+                }
+                else {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    string graph_subseq = graph.get_subsequence(handle, offset - (rev_strand ? edit.from_length(): 0),
+                                                                edit.from_length());
+                    for (int64_t k = rev_strand ? edit.from_length() - 1 : 0; k < edit.from_length() && k >= 0; k += incr) {
+                        char gnt = graph_subseq[k];
+                        char rnt = seq[read_idx + k - (rev_strand ? edit.from_length() : 0)];
+                        if (rev_strand) {
+                            gnt = reverse_complement(gnt);
+                            rnt = reverse_complement(rnt);
+                        }
+                        strm << '*' << gnt;
+                        if (verbose_format) {
+                            strm << "->";
+                        }
+                        strm << rnt;
+                    }
+                    curr_op = Null;
+                }
+            }
+            else if (edit.from_length() != 0) {
+                // deletion
+                if (curr_op != Delete) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '-';
+                    curr_op = Delete;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(graph.get_subsequence(handle, offset - edit.from_length(), edit.from_length()));
+                }
+                else {
+                    strm << graph.get_subsequence(handle, offset, edit.from_length());
+                }
+            }
+            else if (edit.to_length() != 0) {
+                // insertion
+                if (curr_op != Insert) {
+                    if (match_len != 0) {
+                        strm << match_len;
+                        match_len = 0;
+                    }
+                    strm << '+';
+                    curr_op = Insert;
+                }
+                if (rev_strand) {
+                    strm << reverse_complement(seq.substr(read_idx - edit.to_length(), edit.to_length()));
+                }
+                else {
+                    strm << seq.substr(read_idx, edit.to_length());
+                }
+            }
+            read_idx += edit.to_length() * incr;
+            offset += edit.from_length() * incr;
+        }
+    }
+    if (match_len != 0) {
+        strm << match_len;
+        match_len = 0;
+    }
+    return strm.str();
+}
+
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, true);
+}
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand) {
+    return graph_CS_cigar_internal(aln, graph, rev_strand, false);
 }
 
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,

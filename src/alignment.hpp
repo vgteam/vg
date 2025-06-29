@@ -22,12 +22,16 @@ namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
+// htslib-based alignment read functions
+
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each(string& filename, function<void(Alignment&)> lambda,
                  const PathPositionHandleGraph* graph);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
+
+// FASTQ-input functions
 
 // parsing a FASTQ record, optionally intepreting the comment as SAM-style tags
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment, bool comment_as_tags);
@@ -66,6 +70,20 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
                                                            bool comment_as_tags = false,
                                                            uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
 
+// Functions to read indexed GAF.
+// TODO: move to libvgio?
+
+/// Find each distinct GAF record intersecting any of the given sorted node ID ranges.
+/// Presents the GAF record as a string, even though it is parsed internally.
+/// If you need the gfakluge::GafRecord, refactor this function instead of parsing it again.
+void for_each_gaf_record_in_ranges(htsFile* gaf_fp, tbx_t* gaf_tbx, const vector<pair<vg::id_t, vg::id_t>>& ranges, const std::function<void(const std::string&)>& iteratee);
+
+/// Return True if the given parsed GAF record has any node IDs that occur in the given ID range.
+/// Raises an exception if any GAF path entries aren't ID visits.
+bool gaf_record_intersects_range(const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range);
+
+// More htslib-based functions
+
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
                              const SequenceDictionary& sequence_dictionary,
@@ -88,6 +106,12 @@ Alignment bam_to_alignment(const bam1_t *b,
                            const PathPositionHandleGraph* graph);
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
+// the CIGAR string of the graph alignment
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand = false);
+// the CS-style (i.e. verbose) CIGAR difference string of the graph alignment
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand = false);
+// the cs-style (i.e. compact) CIGAR difference string of the graph alignment
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_stand = false);
 /**
  * Add a CIGAR operation to a vector representing the parsed CIGAR string.
  *

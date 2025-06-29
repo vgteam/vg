@@ -3216,6 +3216,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         
         // save the graph with the transcript paths added
+        transcriptome.embed_transcript_paths(true, making_hsts);
         transcriptome.write_graph(&tx_graph_outfile);
         tx_graph_names.push_back(tx_graph_name);
         
@@ -4898,6 +4899,9 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
             bool found_match = regex_search(line, tag_sub, ref_tag_regex);
             if (!found_match) {
                 // no ref sense tag
+                if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                    cerr << "[IndexRegistry]: GFA has no reference samples tag in the header" << endl;
+                }
                 continue;
             }
             string tag_value = tag_sub[1];
@@ -4919,6 +4923,10 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                 }
                 ref_samples.insert(submatch);
             }
+
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                cerr << "[IndexRegistry]: GFA has " << ref_samples.size() << " reference samples" << endl;
+            }
         }
         else {
             if (line_type == 'P') {
@@ -4929,11 +4937,25 @@ bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
                 
                 string path_name;
                 getline(strm, path_name, '\t');
-                
-                if (PathMetadata::parse_sense(path_name) == PathSense::HAPLOTYPE) {
-                    string sample = PathMetadata::parse_sample_name(path_name);
-                    if (sample != PathMetadata::NO_SAMPLE_NAME || !ref_samples.count(sample)) {
+
+                // A P-line path should be a haplotype if it looks like a
+                // reference path but its sample is not in the reference sample
+                // list. This reflects how the GFA parser actually interprets
+                // the GFA when we read it. A reference sample might still have
+                // fragmentary paths stored, with start offsets or something.
+                string sample = PathMetadata::parse_sample_name(path_name);
+                if (sample != PathMetadata::NO_SAMPLE_NAME) {
+                    // We have a sample so we may be a haplotype.
+                    if (!ref_samples.count(sample)) {
+                        // Anything with a non-reference sample is a haplotype
+                         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                            cerr << "[IndexRegistry]: GFA path " << path_name << " for non-reference sample " << sample << " is a haplotype." << endl;
+                        }
                         return true;
+                    }
+                } else {
+                    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                        cerr << "[IndexRegistry]: GFA path " << path_name << " has no sample and so cannot be a haplotype." << endl;
                     }
                 }
             }

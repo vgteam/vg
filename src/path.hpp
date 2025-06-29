@@ -389,12 +389,38 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
 // TODO: Move to libhandlegraph
 ////
 
-/// Find the subpath containing the given region (possibly a full base path)
-/// and return true, or return false if no such subpath can be found.
+/// Find the subpath containing the given region (possibly a full base path, or
+/// itself a part of a subpath) and return true, or return false if no such
+/// subpath can be found.
 ///
-/// If one or both region coordinates are -1, and a full path is found, fills
-/// them in from that path.
+/// Interprets the Region as 0-based, end-inclusive.
+///
+/// If one or both region coordinates are -1, and a path with the exact name is
+/// found, and there are no further subpaths of that path, fills them in from
+/// that path.
 bool find_containing_subpath(const PathPositionHandleGraph& graph, Region& region, path_handle_t& path);
+
+/// Find the subpaths overlapping the given Region (possibly a full base path,
+/// or itself a part of a subpath) and iterate over them.
+///
+/// Calls the callback with each relevant subpath (possibly the base path), and
+/// the 0-based start and past-end offsets along the subpath that intersect the
+/// provided Region. Again, the offsets are in the space of the *subpath*; to
+/// get the offset of the subpath *relative to* the base path, use
+/// get_path_base_offset().
+///
+/// Iteratee returns false to stop.
+///
+/// If one or both region coordinates are -1, and a path with the exact name is
+/// found, and there are no further subpaths of that path, fills them in from
+/// that path. Otherwise, interprets them as meaning to go all the way to the
+/// start/end of the base path. The Region is modified after the callback calls
+/// are complete.
+///
+/// Interprets the Region as 0-based, end-inclusive.
+///
+/// Returns true if we reached the end, and false if asked to stop.
+bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& region, const std::function<bool(const path_handle_t& path, size_t start_offset, size_t past_end_offset)>& iteratee);
 
 /// Run the given iteratee for each path that is either the path with the given
 /// name (if present), or a subrange of a path with the given name as the base
@@ -411,6 +437,9 @@ bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& pat
 
 /// Returns the base path name for this path (i.e. the path's name without any subrange).
 std::string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path);
+
+/// Returns the offset along the base path for this path (0 if it's a full base path or a fragment starting at 0).
+size_t get_path_base_offset(const PathPositionHandleGraph& graph, const path_handle_t& path);
 
 
 /*

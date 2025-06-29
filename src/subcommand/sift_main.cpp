@@ -30,26 +30,26 @@ void help_sift(char** argv){
         << "General Options: " << endl
         << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
         //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
-        << "    -p / --paired       Input reads are paired-end" << endl
-        << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
+        << "    -p / --paired       input reads are paired-end" << endl
+        << "    -R / --remap        remap (locally) any soft-clipped, split, or discordant read pairs." << endl
         << "    -o / --output <PREFIX>" << endl
         << "Paired-end options:" << endl
-        << "    -I / --insert-size <INSRTSZ>        Insert size mean. Flag reads where ((I - insrtsz) / W) > 2.95" << endl
-        << "    -W / --insert-size-sigma <SIGMA>    Standard deviation of insert size." << endl
-        << "    -O / --one-end-anchored             Flag reads where one read of the pair is mapped and the other is unmapped." << endl
-        << "    -C / --interchromosomal             Flag reads mapping to two distinct Paths" << endl
-        << "    -D / --discordant-orientation       Flag reads that do not have the expected --> <-- orientation." << endl
+        << "    -I / --insert-size <INSRTSZ>        insert size mean. Flag reads where ((I - insrtsz) / W) > 2.95" << endl
+        << "    -W / --insert-size-sigma <SIGMA>    standard deviation of insert size." << endl
+        << "    -O / --one-end-anchored             flag reads where one read of the pair is mapped and the other is unmapped." << endl
+        << "    -C / --interchromosomal             flag reads mapping to two distinct Paths" << endl
+        << "    -D / --discordant-orientation       flag reads that do not have the expected --> <-- orientation." << endl
         << "Single-end / individual read options:" << endl
-        << "    -c / --softclip <MAXCLIPLEN>        Flag reads with softclipped sections longer than MAXCLIPLEN" << endl
-        << "    -s / --split-read <SPLITLEN>        Flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
-        //<< "    -q / --quality <QUAL>               Flag reads with a single base quality below <QUAL>" << endl
-        //<< "    -d / --depth <DEPTH>                Flag reads which have a low-depth Pos+Edit combo." << endl
-        //<< "    -i / --percent-identity <PCTID>     Flag reads with percent identity to their primary path beliw <PCTID>" << endl
+        << "    -c / --softclip <MAXCLIPLEN>        flag reads with softclipped sections longer than MAXCLIPLEN" << endl
+        << "    -s / --split-read <SPLITLEN>        flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
+        //<< "    -q / --quality <QUAL>               flag reads with a single base quality below <QUAL>" << endl
+        //<< "    -d / --depth <DEPTH>                flag reads which have a low-depth Pos+Edit combo." << endl
+        //<< "    -i / --percent-identity <PCTID>     flag reads with percent identity to their primary path beliw <PCTID>" << endl
         //<< "    -a / --average" << endl
         //<< "    -w / --window <WINDOWLEN>" << endl
-        << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|-->  or ---->||<-- )" << endl
+        << "    -r / --reversing                    flag reads with sections that reverse within the read, as with small inversions ( --->|<-|-->  or ---->||<-- )" << endl
         << "Helpful helpers: " << endl
-        << "    -1 / --calc-insert                  Calculate and print the insert size mean / sd every 1000 reads." << endl
+        << "    -1 / --calc-insert                  calculate and print the insert size mean / sd every 1000 reads." << endl
         << endl;
 }
 
