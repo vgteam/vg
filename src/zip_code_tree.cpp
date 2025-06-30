@@ -20,6 +20,19 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
             if (item.get_is_reversed()) {
                 cerr << "rev";
             }
+            if (item.has_other_values()) {
+                cerr << "<" << item.get_value();
+                    if (item.get_is_reversed()) {
+                    cerr << "rev";
+                }
+                for (const auto& other_value : item.get_other_values()) {
+                    cerr << "/" << other_value.first;
+                    if (other_value.second) {
+                        cerr << "rev";
+                    }
+                }
+                cerr << ">";
+            }
         } else if (item.get_type() == DAG_SNARL_START) {
             cerr << "(";
         } else if (item.get_type() == DAG_SNARL_END) {
@@ -277,24 +290,34 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     bool current_is_reversed = (child_is_reversed != is_rev(current_seed.pos));
 
     // Would this seed be an exact duplicate of the previous one?
-    tree_item_t prev_item = trees[forest_state.active_tree_index].zip_code_tree.back();
+    tree_item_t& prev_item = trees[forest_state.active_tree_index].zip_code_tree.back();
     bool prev_is_duplicate = (prev_item.get_type() == ZipCodeTree::SEED 
                               && forest_state.seeds->at(prev_item.get_value()).pos == current_seed.pos
                               && prev_item.get_is_reversed() == current_is_reversed);
-    // Possibly the last item is the same position but reversed,
-    // and the seed before that is the duplicate
-    tree_item_t three_back_item = trees[forest_state.active_tree_index].zip_code_tree.size() >= 3 
-        ? trees[forest_state.active_tree_index].zip_code_tree[trees[forest_state.active_tree_index].zip_code_tree.size() - 3]
-        : tree_item_t(ZipCodeTree::CHAIN_COUNT, std::numeric_limits<size_t>::max()); // arbitrary non-seed
-    bool three_back_is_duplicate = (three_back_item.get_type() == ZipCodeTree::SEED 
-                                    && forest_state.seeds->at(three_back_item.get_value()).pos == current_seed.pos
-                                    && three_back_item.get_is_reversed() == current_is_reversed);
-    if (prev_is_duplicate || three_back_is_duplicate) {
+    if (prev_is_duplicate) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Skipping duplicate seed at " << current_seed.pos << endl;
 #endif
+        prev_item.add_extra_value(seed_index, current_is_reversed);
         return;
     }
+
+    // Possibly the last item is the same position but reversed,
+    // and the seed before that is the duplicate
+    if (trees[forest_state.active_tree_index].zip_code_tree.size() >= 3) {
+        tree_item_t& three_back_item = trees[forest_state.active_tree_index].zip_code_tree[
+            trees[forest_state.active_tree_index].zip_code_tree.size() - 3];
+        bool three_back_is_duplicate = (three_back_item.get_type() == ZipCodeTree::SEED 
+                                        && forest_state.seeds->at(three_back_item.get_value()).pos == current_seed.pos
+                                        && three_back_item.get_is_reversed() == current_is_reversed);
+        if (three_back_is_duplicate) {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Skipping duplicate seed at " << current_seed.pos << endl;
+#endif
+            three_back_item.add_extra_value(seed_index, current_is_reversed);
+            return;
+        }
+}
 
     // There will only be a relevant snarl ID if the chain is a child of a snarl
     auto snarl_id = depth >= 2 ? forest_state.sibling_indices_at_depth[depth-2][0].snarl_id 
@@ -472,7 +495,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #endif
         // If this was a node, just remember the seed
         trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
-            ZipCodeTree::SEED, seed_index, child_is_reversed != is_rev(current_seed.pos));
+            ZipCodeTree::SEED, seed_index, current_is_reversed);
     } else {
         open_snarl(forest_state, depth, current_seed.zipcode.get_code_type(depth) == ZipCode::CYCLIC_SNARL); 
 
@@ -1301,33 +1324,27 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                                         const vector<Seed>* seeds, size_t distance_limit) const {
-    print_self(seeds);
-    unordered_set<std::string> seed_pos;
-    for (const auto& seed : *seeds) {
-        // Convert seed positions to strings to make them hashable
-        seed_pos.insert(std::to_string(seed.pos));
-    }
-
+    vector<bool> has_seed(seeds->size(), false);
     for (const auto& tree : trees) {
         tree.validate_zip_tree(distance_index, seeds, distance_limit);
-
-        // Mark all seeds in this tree as used
-        for (const auto& item : tree.zip_code_tree) {
+        for (size_t i = 0 ; i < tree.zip_code_tree.size() ; i++) {
+            const tree_item_t& item = tree.zip_code_tree[i];
             if (item.get_type() == ZipCodeTree::SEED) {
-                std::string cur_pos = std::to_string(seeds->at(item.get_value()).pos);
-                if (seed_pos.find(cur_pos) != seed_pos.end()) {
-                    seed_pos.erase(cur_pos);
+                has_seed[item.get_value()] = true;
+                if (item.has_other_values()) {
+                    for (const auto& other_value : item.get_other_values()) {
+                        // Also consider other indices with the same seed pos
+                        has_seed[other_value.first] = true;
+                    }
                 }
             }
         }
     }
 
-    // If not all positions were seen, then we failed to store something
-    if (!seed_pos.empty()) {
-        for (const auto& cur_pos : seed_pos) {
-            cerr << "Missing seed " << cur_pos << endl;
-        }
-        assert(seed_pos.empty());
+    for (size_t i = 0 ; i < has_seed.size() ; i++) {
+        bool x = has_seed[i];
+        if (!x) { cerr << "Missing seed " << seeds->at(i).pos << endl;}
+        assert(x);
     }
 }
 

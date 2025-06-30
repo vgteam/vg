@@ -1016,7 +1016,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Chain in snarl in a separate bucket") {
-            // [3+0rev 1 1+2rev] and [2+3rev]
+            // [3+0rev 1 1+2rev] and [2+3rev<2rev/1rev>]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 2);
             positions.emplace_back(2, false, 3);
@@ -1139,7 +1139,7 @@ namespace unittest {
 
         SECTION("Two sides of nested snp unordered along read") {
             // 0: [[1+0 3 {1  inf  3  inf  inf  17  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
-            // 1: [5+5] 
+            // 1: [5+5<1/3>]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(5, false, 5);
@@ -2119,7 +2119,8 @@ namespace unittest {
             // [5+4rev 4 {3  inf  2  inf  inf  inf  inf  0  inf  inf  inf  inf
             //     inf  inf  inf  inf  inf  inf  inf  inf  inf  inf  8  inf  2
             //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf
-            //     [4+4rev 2 4+2rev 2 4+0rev][3+0 2 3+2 2 3+4][2+0 2 2+2 2 2+4]} 24 1+0rev]
+            //     [4+4rev<15rev/18rev> 2 4+2rev<14rev/17rev> 2 4+0rev<13rev/16rev>]
+            //     [3+0<10/7> 2 3+2<11/8> 2 3+4<12/9>][2+0<4/1> 2 2+2<5/2> 2 2+4<6/3>]}
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2176,7 +2177,8 @@ namespace unittest {
         //graph.to_dot(cerr);
 
         SECTION("Cyclic snarl with seeds on either side") {
-            // [3+0rev 0 {1  inf  9  inf  inf  9  inf  11  inf  0  inf [2+2rev 1 2+1rev 1 2+0rev]} 24 1+0rev]
+            // [3+0rev 0 {1  inf  9  inf  inf  9  inf  11  inf  0  inf 
+            //     [2+2rev<6rev/3rev> 1 2+1rev<5rev/2rev> 1 2+0rev<4rev/1rev>]} 24 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2276,7 +2278,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
         }
         SECTION("Duplicate seed with reversed in between") {
-            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 0 2-11rev]}]
+            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0<0/2> 0 2-11rev]}]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(2, true, 11);
@@ -2811,7 +2813,7 @@ namespace unittest {
 
         SECTION("Snps alone") {
             // [1+0 9 {1  inf  8  inf  inf  26  inf  9  inf  18  inf
-            //     [2+8 1 (2  0  0  inf  1  1  1 [3+0][4+0]) 0 5+0]} 0 7+0]
+            //     [2+8<4/1> 1 (2  0  0  inf  1  1  1 [3+0][4+0]) 0 5+0<6/3>]} 0 7+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 8);
