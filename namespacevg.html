@@ -1351,8 +1351,6 @@ Functions</h2></td></tr>
 <tr class="separator:a77c1cb6069f865239d0365b55649bc8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3caa19999a88016c7aedf3fefb8ca69c">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">Funnel::State</a> &amp;state)</td></tr>
 <tr class="separator:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac5404d4ee52ed6c0fd82c8170910301c"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac5404d4ee52ed6c0fd82c8170910301c">as_gbwt_path</a> (const <a class="el" href="structvg_1_1GAFSorterRecord.html">GAFSorterRecord</a> &amp;record, bool &amp;ok)</td></tr>
-<tr class="separator:ac5404d4ee52ed6c0fd82c8170910301c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01d75b9f4caceab73edc37f61c160f0c"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::GBWTBuilder &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01d75b9f4caceab73edc37f61c160f0c">create_gbwt_builder</a> (const <a class="el" href="structvg_1_1GAFSorterFile.html">GAFSorterFile</a> &amp;output)</td></tr>
 <tr class="separator:a01d75b9f4caceab73edc37f61c160f0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa7cec67d3c64a5a7dc89ff53d53ebc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa7cec67d3c64a5a7dc89ff53d53ebc8">finish_gbwt_construction</a> (gbwt::GBWTBuilder *builder, <a class="el" href="structvg_1_1GAFSorterFile.html">GAFSorterFile</a> &amp;output)</td></tr>
@@ -5272,34 +5270,6 @@ template&lt;typename Iter &gt; </div>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>vcf_filename</em></td><td>)</td>
           <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ac5404d4ee52ed6c0fd82c8170910301c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac5404d4ee52ed6c0fd82c8170910301c">&#9670;&nbsp;</a></span>as_gbwt_path()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">gbwt::vector_type vg::as_gbwt_path </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1GAFSorterRecord.html">GAFSorterRecord</a> &amp;&#160;</td>
-          <td class="paramname"><em>record</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool &amp;&#160;</td>
-          <td class="paramname"><em>ok</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -17477,7 +17447,7 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 </div><div class="memdoc">
 <p>Merges the given files into a single output file.</p>
 <p>The records in each input file are assumed to be sorted with <a class="el" href="namespacevg.html#a9e0b5ddbd1b0532655c9fe9088245f2d">sort_gaf_lines()</a>. Records are read and written in blocks of the given size. If the input files are in the same order as the corresponding batches in the initial sort, this is a stable merge. Consumes the inputs and removes the files if they are temporary. Sets the ok flag in the output and prints an error message on failure.</p>
-<p>If a GBWT file is specified in the output, a bidirectional GBWT index of the paths is built for the paths and written to the file. The paths in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread.</p>
+<p>If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file. The GBWT index can be unidirectional or bidirectional, depending on the output file. <a class="el" href="classvg_1_1Paths.html">Paths</a> in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread.</p>
 <p>This function is intended to be used with std::thread. </p>
 
 </div>
@@ -24560,7 +24530,7 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 <p>Sorts the given GAF file into the given output file.</p>
 <p>The initial round sorts the records into temporary files with params.records_per_file records each. Each successive round merges the temporary files into larger files until there is only one file left. Each merge job merges params.files_per_merge files. Use "-" for reading stdin / writing to stdout. Returns false and prints an error message on failure.</p>
-<p>If a GBWT file is specified in the parameters, a bidirectional GBWT index of the paths is built for the paths and written to the file. The paths in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread. </p>
+<p>If a GBWT file is specified in the parameters, a GBWT index of the paths is built for the paths and written to the file. The GBWT index can be unidirectional or bidirectional, depending on the parameters. <a class="el" href="classvg_1_1Paths.html">Paths</a> in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread. </p>
 
 </div>
 </div>
@@ -24603,7 +24573,7 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 <p>Sorts the given GAF lines into the given output file, with an option to use stable sorting.</p>
 <p>The lines are converted into <a class="el" href="structvg_1_1GAFSorterRecord.html">GAFSorterRecord</a> objects, with the given key type. The original lines are consumed. Sets the ok flag in the output and prints an error message on failure.</p>
-<p>If a GBWT file is specified in the output, a bidirectional GBWT index of the paths is built for the paths and written to the file. The paths in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread.</p>
+<p>If a GBWT file is specified in the output file, a GBWT index of the paths is built for the paths and written to the file. The GBWT index can be unidirectional or bidirectional, depending on the output file. <a class="el" href="classvg_1_1Paths.html">Paths</a> in the GBWT are in the same order as the records in the output file. The GBWT index does not contain any metadata. GBWT construction uses one additional thread.</p>
 <p>This function is intended to be used with std::thread. </p>
 
 </div>

@@ -121,6 +121,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aba524b5b1526c8081249b50b0bdae504"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac527343d93b0fa067800ffaea84993d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#ac527343d93b0fa067800ffaea84993d7">for_each_field</a> (const std::function&lt; bool(size_t, <a class="el" href="structvg_1_1str__view.html">str_view</a>)&gt; &amp;lambda) const</td></tr>
 <tr class="separator:ac527343d93b0fa067800ffaea84993d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50fcbc6ccca3da5fb04fb27f2f63a1c0"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a50fcbc6ccca3da5fb04fb27f2f63a1c0">as_gbwt_path</a> (bool *ok=nullptr) const</td></tr>
+<tr class="separator:a50fcbc6ccca3da5fb04fb27f2f63a1c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -141,12 +143,15 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:ae7cf5ead7652d874ee15b202e57952f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af86061efe647b873fc9c010fe82692e8"><td class="memItemLeft" align="right" valign="top">const static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#af86061efe647b873fc9c010fe82692e8">GBWT_OFFSET_TAG</a> = &quot;GB:i:&quot;</td></tr>
 <tr class="separator:af86061efe647b873fc9c010fe82692e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac4e9fd052f1e20162901776c0b09d815"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#ac4e9fd052f1e20162901776c0b09d815">PATH_FIELD</a> = 5</td></tr>
-<tr class="memdesc:ac4e9fd052f1e20162901776c0b09d815"><td class="mdescLeft">&#160;</td><td class="mdescRight">0-based field number for the path in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#ac4e9fd052f1e20162901776c0b09d815">More...</a><br /></td></tr>
-<tr class="separator:ac4e9fd052f1e20162901776c0b09d815"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad40e189130890afe6213cd514b9495b0"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#ad40e189130890afe6213cd514b9495b0">MANDATORY_FIELDS</a> = 12</td></tr>
-<tr class="memdesc:ad40e189130890afe6213cd514b9495b0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of mandatory fields in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#ad40e189130890afe6213cd514b9495b0">More...</a><br /></td></tr>
-<tr class="separator:ad40e189130890afe6213cd514b9495b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaea1e3c5491f49a3876258159b1ba234"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#aaea1e3c5491f49a3876258159b1ba234">STRAND_FIELD</a> = 4</td></tr>
+<tr class="memdesc:aaea1e3c5491f49a3876258159b1ba234"><td class="mdescLeft">&#160;</td><td class="mdescRight">0-based field number for the strand/orientation in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#aaea1e3c5491f49a3876258159b1ba234">More...</a><br /></td></tr>
+<tr class="separator:aaea1e3c5491f49a3876258159b1ba234"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a17ca91b64e154fd5f674d60d6a1a79e2"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a17ca91b64e154fd5f674d60d6a1a79e2">PATH_FIELD</a> = 5</td></tr>
+<tr class="memdesc:a17ca91b64e154fd5f674d60d6a1a79e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">0-based field number for the path in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#a17ca91b64e154fd5f674d60d6a1a79e2">More...</a><br /></td></tr>
+<tr class="separator:a17ca91b64e154fd5f674d60d6a1a79e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a63fe516ed568a109bc6e5737dea731c4"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterRecord.html#a63fe516ed568a109bc6e5737dea731c4">MANDATORY_FIELDS</a> = 12</td></tr>
+<tr class="memdesc:a63fe516ed568a109bc6e5737dea731c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of mandatory fields in a GAF line.  <a href="structvg_1_1GAFSorterRecord.html#a63fe516ed568a109bc6e5737dea731c4">More...</a><br /></td></tr>
+<tr class="separator:a63fe516ed568a109bc6e5737dea731c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A record corresponding to a single line (alignment) in a GAF file. The record contains an integer key and the original line. Various types of keys can be derived from the value, but the line is not parsed beyond that. </p>
@@ -242,6 +247,25 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a50fcbc6ccca3da5fb04fb27f2f63a1c0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50fcbc6ccca3da5fb04fb27f2f63a1c0">&#9670;&nbsp;</a></span>as_gbwt_path()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::vector_type vg::GAFSorterRecord::as_gbwt_path </td>
+          <td>(</td>
+          <td class="paramtype">bool *&#160;</td>
+          <td class="paramname"><em>ok</em> = <code>nullptr</code></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the path as a GBWT path in forward orientation. If an ok flag is given, sets it to false and prints an error message if the path could not be parsed. </p>
+
+</div>
+</div>
 <a id="afd73eeeca68f2fa75909f4f837626fcb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afd73eeeca68f2fa75909f4f837626fcb">&#9670;&nbsp;</a></span>deserialize()</h2>
 
@@ -509,8 +533,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad40e189130890afe6213cd514b9495b0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad40e189130890afe6213cd514b9495b0">&#9670;&nbsp;</a></span>MANDATORY_FIELDS</h2>
+<a id="a63fe516ed568a109bc6e5737dea731c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a63fe516ed568a109bc6e5737dea731c4">&#9670;&nbsp;</a></span>MANDATORY_FIELDS</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -519,7 +543,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr static size_t vg::GAFSorterRecord::MANDATORY_FIELDS = 12</td>
+          <td class="memname">constexpr size_t vg::GAFSorterRecord::MANDATORY_FIELDS = 12</td>
         </tr>
       </table>
   </td>
@@ -557,8 +581,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ac4e9fd052f1e20162901776c0b09d815"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac4e9fd052f1e20162901776c0b09d815">&#9670;&nbsp;</a></span>PATH_FIELD</h2>
+<a id="a17ca91b64e154fd5f674d60d6a1a79e2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a17ca91b64e154fd5f674d60d6a1a79e2">&#9670;&nbsp;</a></span>PATH_FIELD</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -567,7 +591,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr static size_t vg::GAFSorterRecord::PATH_FIELD = 5</td>
+          <td class="memname">constexpr size_t vg::GAFSorterRecord::PATH_FIELD = 5</td>
         </tr>
       </table>
   </td>
@@ -578,6 +602,30 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>0-based field number for the path in a GAF line. </p>
+
+</div>
+</div>
+<a id="aaea1e3c5491f49a3876258159b1ba234"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaea1e3c5491f49a3876258159b1ba234">&#9670;&nbsp;</a></span>STRAND_FIELD</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::GAFSorterRecord::STRAND_FIELD = 4</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>0-based field number for the strand/orientation in a GAF line. </p>
 
 </div>
 </div>
