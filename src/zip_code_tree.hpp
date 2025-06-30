@@ -521,6 +521,26 @@ public:
     void validate_boundaries(const SnarlDistanceIndex& distance_index, 
                              const vector<Seed>* seeds,
                              size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+
+    /// Store current seed's position at the end of "positions"
+    /// Only stores if the given item is a seed (it might be a snarl bound)
+    /// If "reverse" is true, then reverse the position;
+    /// this is useful for storing start seeds for cyclic snarls' chains
+    void store_seed_position(tree_item_t child, 
+                             const SnarlDistanceIndex& distance_index, 
+                             const vector<Seed>* seeds,
+                             std::vector<pos_t>& positions,
+                             bool reverse = false) const;
+
+    /// Helper function for validate_snarl to check a distance matrix
+    /// Distance matrix is triangular (see docs for ZipCodeTree)
+    /// Positions are of edge seeds in each child chain
+    /// Any positions with node ID of 0 (snarl bounds, child snarls) are ignored
+    void validate_distance_matrix(const SnarlDistanceIndex& distance_index,
+                                  const std::vector<size_t>& dist_matrix,
+                                  const std::vector<pos_t>& positions,
+                                  bool has_self_loops,
+                                  size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     
     /// Helper function for validate_zip_tree() to check for a well-formed order
     /// 1. Do seeds have logical orientations relative to each other?
@@ -764,16 +784,28 @@ class ZipCodeForest {
     /// use those seeds to calculate all distances
     struct seed_info_t {
         /// The seed at the edge of the chain (first/last)
-        const Seed& seed;
+        pos_t seed_pos;
+        /// Length of the seed's node
+        size_t node_length;
+        /// The seed's non-reversed zipcode
+        const ZipCode& zipcode;
         /// Its offset from the edge (i.e. chain.distances.first/second)
         size_t flank_offset;
         /// Whether to use the right/left side of the seed
         bool right_side;
+        /// Rank of the seed's chain in the snarl
+        size_t rank;
 
-        // Pass the seed's index (which is looked up from forest_state.seeds)
-        // and then the raw values for flank_offset and right_side
-        seed_info_t(size_t i, size_t f, bool s, const forest_growing_state_t forest_state) : 
-            seed(forest_state.seeds->at(i)), flank_offset(f), right_side(s) {}
+        // Pass the seed's index (which is looked up from forest_state.seeds),
+        // whether its position should be reversed, and then raw values for
+        // the flank offset and which side to use
+        // In addition, snarl depth & forest_state are used to look up seed info
+        seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
+                    const size_t& depth, const forest_growing_state_t forest_state);
+
+        inline pos_t reverse_seed() const {
+            return reverse(seed_pos, node_length);
+        }
     };
 
     /// For children of snarls, we need to remember the siblings and start bound

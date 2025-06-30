@@ -19,6 +19,13 @@ using namespace bdsg;
 //Minimum distance taking a pos instead of id/orientation/offset
 size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
                         bool unoriented_distance = false, const HandleGraph* graph=nullptr); 
+//Minimum distance but if the positions are the same, a true self-loop distance
+//is calculated (i.e. it doesn't default to 0, and may be infinite)
+//This is assumed to always be directed
+//The length of one node may be passed for a minor speed improvement
+size_t minimum_distance_self_nonzero(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
+                                     size_t pos2_length = std::numeric_limits<size_t>::max(),
+                                     const HandleGraph* graph=nullptr); 
 //Maximum distance taking a pos instead of id/orientation/offset
 size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2); 
 

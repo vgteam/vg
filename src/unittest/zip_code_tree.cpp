@@ -88,7 +88,6 @@ namespace unittest {
             REQUIRE(reverse_views[{0, false}][0].distance == 0);
             REQUIRE(reverse_views[{0, false}][0].is_reverse == false);
         }
-
         SECTION("Two seeds") {
             // [1+0 1 1+1]
             vector<pos_t> positions;
@@ -170,7 +169,6 @@ namespace unittest {
             REQUIRE(reverse_views[{1, false}][1].distance == 1);
             REQUIRE(reverse_views[{1, false}][1].is_reverse == false);
         }
-
         SECTION("Three seeds") {
             // [1+0 1 1+1 1 1+2]
             vector<pos_t> positions;
@@ -1140,7 +1138,7 @@ namespace unittest {
         //graph.to_dot(cerr);
 
         SECTION("Two sides of nested snp unordered along read") {
-            // 0: [1+0 3 {1  inf  3  inf  inf  inf  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
+            // 0: [[1+0 3 {1  inf  3  inf  inf  17  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
             // 1: [5+5] 
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -1235,7 +1233,6 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 1);
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
-
     }
     TEST_CASE("zip tree bubble nested in cyclic snarl", "[zip_tree]") {
         VG graph;
@@ -2121,8 +2118,8 @@ namespace unittest {
         SECTION("Cyclic snarl with seeds on either side") {
             // [5+4rev 4 {3  inf  2  inf  inf  inf  inf  0  inf  inf  inf  inf
             //     inf  inf  inf  inf  inf  inf  inf  inf  inf  inf  8  inf  2
-            //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf [4+4rev 2 4+2rev 2 4+0rev]
-            //     [3+0 2 3+2 2 3+4][2+0 2 2+2 2 2+4]} 24 1+0rev]
+            //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf
+            //     [4+4rev 2 4+2rev 2 4+0rev][3+0 2 3+2 2 3+4][2+0 2 2+2 2 2+4]} 24 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -2279,7 +2276,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
         }
         SECTION("Duplicate seed with reversed in between") {
-            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 0 2-11rev 0 2+0]}]
+            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 0 2-11rev]}]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(2, true, 11);
@@ -2930,9 +2927,9 @@ namespace unittest {
         graph.serialize(out);
 
         SECTION("Cross unreachable chain") {
-            // [{1  inf  1  inf  inf  inf  inf  0  inf  3  inf [{1  inf  0  inf 
-            //     inf  inf  inf  15  inf  9  inf [3+0 1 (1  0  0  inf [4+0])
-            //     1 5+1 inf 7+0 1 (1  0  0  9 [8+0]) 0 9+0]}]}]
+            // [{1  inf  1  inf  inf  inf  inf  0  inf  3  inf
+            //    [{1  inf  0  inf  inf  inf  inf  15  inf  9  inf
+            //    [3+0 1 (1  0  0  inf [4+0]) 1 5+1 inf 7+0 1 (1  0  0  9 [8+0]) 0 9+0]}]}]
             vector<pos_t> positions;
             positions.emplace_back(n3->id(), false, 0);
             positions.emplace_back(n4->id(), false, 0);
@@ -3047,7 +3044,8 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         SECTION("One seed in inversion") {
-            /// TODO: fill in correct ziptree
+            // [{1  inf  7  3  1  6  9  6  2  8  inf
+            //     [{1  inf  0  3  3  6  9  3  0  3  inf [3+0]}]}]
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
 
@@ -3065,7 +3063,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds);
         }
         SECTION("One seed outside inversion") {
-            /// TODO: fill in correct ziptree
+            // [{1  inf  7  9  4  6  3  6  2  11  inf [4+0rev]}]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
 
@@ -3083,7 +3081,8 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds);
         }
         SECTION("One seed inside and one seed outside inversion") {
-            /// TODO: fill in correct ziptree
+            // [{1  inf  7  9  1  6  9  6  2  8  inf [4+0rev 0
+            //     {1  inf  0  3  3  6  9  3  0  3  inf [3+0]}]}]
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
             positions.emplace_back(4, false, 0);
@@ -3102,7 +3101,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds);
         }
         SECTION("One seed on either side of inversion") {
-            /// TODO: fill in correct ziptree
+            // [{1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 4 2+0rev]}]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(4, false, 0);
@@ -3121,7 +3120,8 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds);
         }
         SECTION("One seed on each node") {
-            /// TODO: fill in correct ziptree
+            // [1+0 3 {1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 0
+            //     {1  inf  0  3  3  6  9  3  0  3  inf [3+0]} 1 2+0rev]} 0 5+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
