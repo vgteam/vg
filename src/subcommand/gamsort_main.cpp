@@ -49,6 +49,7 @@ void help_gamsort(char **argv)
     std::cerr << "    -m, --merge-width N     number of files to merge at once (default: " << GAFSorterParameters::FILES_PER_MERGE << ")" << std::endl;
     std::cerr << "    -S, --stable            use stable sorting" << std::endl;
     std::cerr << "    -g, --gbwt-output FILE  write a GBWT index of the paths to FILE" << std::endl;
+    std::cerr << "    -b, --bidirectional     make the GBWT index bidirectional" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -84,11 +85,12 @@ int main_gamsort(int argc, char **argv)
             { "merge-width", required_argument, 0, 'm' },
             { "stable", no_argument, 0, 'S' },
             { "gbwt-output", required_argument, 0, 'g' },
+            { "bidirectional", no_argument, 0, 'b' },
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:bh", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -136,6 +138,9 @@ int main_gamsort(int argc, char **argv)
             break;
         case 'g':
             gaf_params.gbwt_file = optarg;
+            break;
+        case 'b':
+            gaf_params.bidirectional_gbwt = true;
             break;
 
         case 'h':
