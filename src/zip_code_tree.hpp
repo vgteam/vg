@@ -257,11 +257,15 @@ public:
         /// The index of the seed in the seeds vector
         size_t seed;
         /// Is the seed traversed backwards in the tree?
-        bool is_reverse;
+        bool is_reversed;
+
+        /// Raw value constructor
+        oriented_seed_t(size_t seed_index, bool is_reversed)
+            : seed(seed_index), is_reversed(is_reversed) {}
         
         /// Compare to other instances. TODO: Use default when we get C++20. 
         inline bool operator==(const oriented_seed_t& other) const {
-            return seed == other.seed && is_reverse == other.is_reverse;
+            return seed == other.seed && is_reversed == other.is_reversed;
         }
 
         /// Compare to other instances. TODO: Use default when we get C++20. 
@@ -276,6 +280,10 @@ public:
     struct seed_result_t : public oriented_seed_t {
         /// The distance to the seed from some reference position
         size_t distance;
+
+        /// Raw value constructor
+        seed_result_t(size_t distance, size_t seed_index, bool is_reversed)
+            : oriented_seed_t{seed_index, is_reversed}, distance(distance) {}
 
         /// Compare to other instances. TODO: Use default when we get C++20. 
         inline bool operator==(const seed_result_t& other) const {
@@ -322,7 +330,18 @@ public:
         inline bool operator!=(const seed_iterator& other) const { return !(*this == other); }
         
         /// Get the index and orientation of the seed we are currently at.
-        oriented_seed_t operator*() const { return {it->get_value(), it->get_is_reversed()}; }
+        /// Also return all other seeds on the same position
+        vector<oriented_seed_t> operator*() const { 
+            vector<oriented_seed_t> seeds;
+            seeds.emplace_back(it->get_value(), it->get_is_reversed());
+            // Check if we have other values
+            if (it->has_other_values()) {
+                for (const auto& other_value : it->get_other_values()) {
+                    seeds.emplace_back(other_value.first, other_value.second);
+                }
+            }
+            return seeds;
+        }
 
         /// Get the number of tree storage slots left in the iterator.
         /// We need this to make reverse iterators from forward ones.
@@ -381,7 +400,7 @@ public:
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
         /// Automatically handles orientation depending on right_to_left
-        seed_result_t operator*() const;
+        vector<seed_result_t> operator*() const;
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
@@ -1120,7 +1139,7 @@ template <> struct hash<vg::ZipCodeTree::oriented_seed_t>
     size_t operator()(const vg::ZipCodeTree::oriented_seed_t& item) const
     {
         // Hash it just as we would a pair.
-        return hash<pair<size_t, bool>>()(make_pair(item.seed, item.is_reverse));
+        return hash<pair<size_t, bool>>()(make_pair(item.seed, item.is_reversed));
     }
 };
 
@@ -1131,7 +1150,7 @@ template <> struct hash<vg::ZipCodeTree::seed_result_t>
     size_t operator()(const vg::ZipCodeTree::seed_result_t& item) const
     {
         // Hash it just as we would a tuple.
-        return hash<tuple<size_t, bool, size_t>>()(make_tuple(item.seed, item.is_reverse, item.distance));
+        return hash<tuple<size_t, bool, size_t>>()(make_tuple(item.seed, item.is_reversed, item.distance));
     }
 };
 

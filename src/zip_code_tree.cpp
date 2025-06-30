@@ -1200,18 +1200,22 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
         // seed -> (tree_distance, index_distance)
         unordered_map<oriented_seed_t, pair<size_t, size_t>> failing_seeds;
 
-        // The seed that the iterator points to
-        const Seed& start_seed = seeds->at((*dest).seed);
+        // The first seed that the iterator points to
+        // While there might be multiple, they all have the same position
+        // so verifying distances for one of them is enough
+        const Seed& start_seed = seeds->at((*dest).front().seed);
         // Which direction do we traverse the seed?
-        const bool start_is_reversed = right_to_left ? (*dest).is_reverse
-                                                     : !(*dest).is_reverse;
+        const bool start_is_reversed = right_to_left ? (*dest).front().is_reversed
+                                                     : !(*dest).front().is_reversed;
 
         // Walk through the tree starting from dest and check the distance
         for (auto dist_itr = find_distances(dest, right_to_left, distance_limit); !dist_itr.done(); ++dist_itr) {
-            seed_result_t next_seed_result = *dist_itr;
+            // While there might be multiple seeds at this position,
+            // we only need to check the first one
+            seed_result_t next_seed_result = (*dist_itr).front();
             // The seed we reached in our walk
             const Seed& next_seed = seeds->at(next_seed_result.seed);
-            const bool next_is_reversed = next_seed_result.is_reverse;
+            const bool next_is_reversed = next_seed_result.is_reversed;
             size_t tree_distance = next_seed_result.distance;
 
             // Pull metadata about these seeds
@@ -1231,11 +1235,11 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                 id(next_pos), is_rev(next_pos), offset(next_pos),
                 id(start_pos), is_rev(start_pos), offset(start_pos), false);
 
-            if (index_distance != std::numeric_limits<size_t>::max() && (*dest).is_reverse == right_to_left) {
+            if (index_distance != std::numeric_limits<size_t>::max() && (*dest).front().is_reversed == right_to_left) {
                 // If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
-            if (index_distance != std::numeric_limits<size_t>::max() && next_seed_result.is_reverse) {
+            if (index_distance != std::numeric_limits<size_t>::max() && next_seed_result.is_reversed) {
                 // If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
             }
@@ -1269,7 +1273,7 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
 
                 pos_t start_pos = start_seed.pos;
                 pos_t next_pos = seeds->at(failure.first.seed).pos;
-                bool next_is_reversed = failure.first.is_reverse;
+                bool next_is_reversed = failure.first.is_reversed;
                 size_t tree_distance = failure.second.first;
                 size_t index_distance = failure.second.second;
 
@@ -1622,7 +1626,7 @@ auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
     return *this;
 }
 
-auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
+auto ZipCodeTree::distance_iterator::operator*() const -> vector<seed_result_t> {
     // We are always at a seed, so show that seed
 #ifdef check_parse
     crash_unless(it != rend);
@@ -1630,18 +1634,17 @@ auto ZipCodeTree::distance_iterator::operator*() const -> seed_result_t {
     crash_unless(!stack_data.empty());
 #endif
     // We know the running distance to this seed will be at the top of the stack
-    seed_result_t to_return;
-    to_return.seed = it->get_value();
-
-#ifdef debug_parse
-    cerr << (right_to_left ? "Right to left" : "Left to right") << " distance to seed " 
-         << to_return.seed << " is " << stack_data.top() << endl;
-#endif
-    // If we traverse this seed backwards, then its reversedness flips
-    to_return.is_reverse = right_to_left ? it->get_is_reversed()
-                                         : !it->get_is_reversed();
     // If we're at the exact same position, the distance must be 0
-    to_return.distance = (it == origin && right_to_left == original_right_to_left) ? 0 : stack_data.top();
+    size_t distance = (it == origin && right_to_left == original_right_to_left) ? 0 : stack_data.top();
+    vector<seed_result_t> to_return;
+    to_return.emplace_back(distance, it->get_value(), right_to_left ? it->get_is_reversed()
+                                                                    : !it->get_is_reversed());
+    if (it->has_other_values()) {
+        // If this seed has other values, add them too
+        for (const auto& other_value : it->get_other_values()) {
+            to_return.emplace_back(distance, other_value.first, other_value.second);
+        }
+    }
     return to_return;
 }
 
