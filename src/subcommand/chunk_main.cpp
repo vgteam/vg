@@ -229,7 +229,7 @@ int main_chunk(int argc, char** argv) {
             out_chunk_prefix = optarg;
             break;
 
-        case'c':
+        case 'c':
             context_steps = parse<int>(optarg);
             break;
 
