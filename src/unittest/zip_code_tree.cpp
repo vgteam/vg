@@ -87,11 +87,7 @@ namespace unittest {
             REQUIRE(reverse_views.size() == 1);
             // The only seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{0, false}].size() == 1);
-            REQUIRE(reverse_views[{0, false}][0].seed == 0);
-            REQUIRE(reverse_views[{0, false}][0].distance == 0);
-            REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{0, false}].empty());
         }
         SECTION("Two seeds") {
             // [1+0 1 1+1]
@@ -163,22 +159,14 @@ namespace unittest {
             REQUIRE(reverse_views.size() == 2);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{0, false}].size() == 1);
-            REQUIRE(reverse_views[{0, false}][0].seed == 0);
-            REQUIRE(reverse_views[{0, false}][0].distance == 0);
-            REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{0, false}].empty());
             
             REQUIRE(reverse_views.count({1, false}));
-            REQUIRE(reverse_views[{1, false}].size() == 2);
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{1, false}][0].seed == 1);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}].size() == 1);
             // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][1].seed == 0);
-            REQUIRE(reverse_views[{1, false}][1].distance == 1);
-            REQUIRE(reverse_views[{1, false}][1].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}][0].seed == 0);
+            REQUIRE(reverse_views[{1, false}][0].distance == 1);
+            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
         }
         SECTION("Three seeds") {
             // [1+0 1 1+1 1 1+2]
@@ -266,36 +254,24 @@ namespace unittest {
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{0, false}].size() == 1);
-            REQUIRE(reverse_views[{0, false}][0].seed == 0);
-            REQUIRE(reverse_views[{0, false}][0].distance == 0);
-            REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{0, false}].empty());
             
             REQUIRE(reverse_views.count({1, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{1, false}].size() == 2);
-            REQUIRE(reverse_views[{1, false}][0].seed == 1);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}].size() == 1);
             // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][1].seed == 0);
-            REQUIRE(reverse_views[{1, false}][1].distance == 1);
-            REQUIRE(reverse_views[{1, false}][1].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}][0].seed == 0);
+            REQUIRE(reverse_views[{1, false}][0].distance == 1);
+            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
             
             REQUIRE(reverse_views.count({2, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{2, false}].size() == 3);
-            REQUIRE(reverse_views[{2, false}][0].seed == 2);
-            REQUIRE(reverse_views[{2, false}][0].distance == 0);
-            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{2, false}].size() == 2);
             // The third seed can see both previous seeds, in reverse order
-            REQUIRE(reverse_views[{2, false}][1].seed == 1);
-            REQUIRE(reverse_views[{2, false}][1].distance == 1);
+            REQUIRE(reverse_views[{2, false}][0].seed == 1);
+            REQUIRE(reverse_views[{2, false}][0].distance == 1);
+            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{2, false}][1].seed == 0);
+            REQUIRE(reverse_views[{2, false}][1].distance == 2);
             REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
-            REQUIRE(reverse_views[{2, false}][2].seed == 0);
-            REQUIRE(reverse_views[{2, false}][2].distance == 2);
-            REQUIRE(reverse_views[{2, false}][2].is_reversed == false);
         }
     }
     TEST_CASE("zip tree two node chain", "[zip_tree]") {
@@ -419,36 +395,24 @@ namespace unittest {
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{0, false}].size() == 1);
-            REQUIRE(reverse_views[{0, false}][0].seed == 0);
-            REQUIRE(reverse_views[{0, false}][0].distance == 0);
-            REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{0, false}].empty());
 
             REQUIRE(reverse_views.count({1, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{1, false}].size() == 2);
-            REQUIRE(reverse_views[{1, false}][0].seed == 1);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}].size() == 1);
             // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][1].seed == 0);
-            REQUIRE(reverse_views[{1, false}][1].distance == 1);
-            REQUIRE(reverse_views[{1, false}][1].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}][0].seed == 0);
+            REQUIRE(reverse_views[{1, false}][0].distance == 1);
+            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
             
             REQUIRE(reverse_views.count({2, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{2, false}].size() == 3);
-            REQUIRE(reverse_views[{2, false}][0].seed == 2);
-            REQUIRE(reverse_views[{2, false}][0].distance == 0);
-            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{2, false}].size() == 2);
             // The third seed can see both previous seeds, in reverse order, at distances 4 and 5.
-            REQUIRE(reverse_views[{2, false}][1].seed == 1);
-            REQUIRE(reverse_views[{2, false}][1].distance == 4);
+            REQUIRE(reverse_views[{2, false}][0].seed == 1);
+            REQUIRE(reverse_views[{2, false}][0].distance == 4);
+            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{2, false}][1].seed == 0);
+            REQUIRE(reverse_views[{2, false}][1].distance == 5);
             REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
-            REQUIRE(reverse_views[{2, false}][2].seed == 0);
-            REQUIRE(reverse_views[{2, false}][2].distance == 5);
-            REQUIRE(reverse_views[{2, false}][2].is_reversed == false);
         }
 
         SECTION("Two buckets") {
@@ -542,18 +506,9 @@ namespace unittest {
             REQUIRE(reverse_views.size() == 2);
             // Neither seed can see any other seeds
             REQUIRE(reverse_views.count({0, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{0, false}].size() == 1);
-            REQUIRE(reverse_views[{0, false}][0].seed == 0);
-            REQUIRE(reverse_views[{0, false}][0].distance == 0);
-            REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
-
+            REQUIRE(reverse_views[{0, false}].empty());
             REQUIRE(reverse_views.count({1, false}));
-            // Automatic 0-distance edge to self
-            REQUIRE(reverse_views[{1, false}].size() == 1);
-            REQUIRE(reverse_views[{1, false}][0].seed == 1);
-            REQUIRE(reverse_views[{1, false}][0].distance == 0);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            REQUIRE(reverse_views[{1, false}].empty());
         }
         SECTION("Four seeds") {
             // [3+0 5 4+2] and [1+0 5 2+2]
@@ -747,36 +702,24 @@ namespace unittest {
             if (seed_indexes.at(0).is_reversed) {
                 // The first seed can't see any other seeds
                 REQUIRE(reverse_views.count({2, true}));
-                // Automatic 0-distance edge to self
-                REQUIRE(reverse_views[{2, true}].size() == 1);
-                REQUIRE(reverse_views[{2, true}][0].seed == 2);
-                REQUIRE(reverse_views[{2, true}][0].distance == 0);
-                REQUIRE(reverse_views[{2, true}][0].is_reversed == true);
+                REQUIRE(reverse_views[{2, true}].empty());
 
                 REQUIRE(reverse_views.count({1, true}));
-                // Automatic 0-distance edge to self
-                REQUIRE(reverse_views[{1, true}].size() == 2);
-                REQUIRE(reverse_views[{1, true}][0].seed == 1);
-                REQUIRE(reverse_views[{1, true}][0].distance == 0);
-                REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+                REQUIRE(reverse_views[{1, true}].size() == 1);
                 // The second seed can see the first seed at distance 6
-                REQUIRE(reverse_views[{1, true}][1].seed == 2);
-                REQUIRE(reverse_views[{1, true}][1].distance == 6);
-                REQUIRE(reverse_views[{1, true}][1].is_reversed == true);
+                REQUIRE(reverse_views[{1, true}][0].seed == 2);
+                REQUIRE(reverse_views[{1, true}][0].distance == 6);
+                REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
 
                 REQUIRE(reverse_views.count({0, true}));
-                // Automatic 0-distance edge to self
-                REQUIRE(reverse_views[{0, true}].size() == 3);
-                REQUIRE(reverse_views[{0, true}][0].seed == 0);
-                REQUIRE(reverse_views[{0, true}][0].distance == 0);
-                REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                REQUIRE(reverse_views[{0, true}].size() == 2);
                 // The third seed can't see both the others at distances 3 and 9
-                REQUIRE(reverse_views[{0, true}][1].seed == 1);
-                REQUIRE(reverse_views[{0, true}][1].distance == 3);
+                REQUIRE(reverse_views[{0, true}][0].seed == 1);
+                REQUIRE(reverse_views[{0, true}][0].distance == 3);
+                REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                REQUIRE(reverse_views[{0, true}][1].seed == 2);
+                REQUIRE(reverse_views[{0, true}][1].distance == 9);
                 REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
-                REQUIRE(reverse_views[{0, true}][2].seed == 2);
-                REQUIRE(reverse_views[{0, true}][2].distance == 9);
-                REQUIRE(reverse_views[{0, true}][2].is_reversed == true);
             } else {
                 cerr << "Not testing reverse views since I didn't bother writing it" << endl;
             }

@@ -420,7 +420,7 @@ public:
         vector<tree_item_t>::const_reverse_iterator it;
         /// Where the rend is where we have to stop
         vector<tree_item_t>::const_reverse_iterator rend;
-        /// Where we started from (to remember when we've looped around)
+        /// Where we started from
         const vector<tree_item_t>::const_reverse_iterator origin;
         /// Within each parent snarl, which chain are we in?
         std::stack<size_t> chain_numbers;
@@ -428,7 +428,7 @@ public:
         size_t distance_limit;
         /// Whether we are looking right to left (true) or left to right (false)
         bool right_to_left;
-        /// Original direction to remember when we're at the original position
+        /// Original direction
         const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;

@@ -1225,9 +1225,7 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                                               : next_seed.pos;
 
             // Calculate orientated distance next_pos -> start_pos
-            size_t index_distance = distance_index.minimum_distance(
-                id(next_pos), is_rev(next_pos), offset(next_pos),
-                id(start_pos), is_rev(start_pos), offset(start_pos), false);
+            size_t index_distance = minimum_distance_self_nonzero(distance_index, next_pos, start_pos);
 
             if (index_distance != std::numeric_limits<size_t>::max() && (*dest).front().is_reversed == right_to_left) {
                 // If the seed we ended at got reversed, then add 1
@@ -1588,7 +1586,30 @@ ZipCodeTree::distance_iterator::distance_iterator(vector<tree_item_t>::const_rev
     zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
     chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
+#ifdef debug_parse
+    if (this->it != rend) {
+        std::cerr << "Able to do first initial tick." << std::endl;
+    }
+#endif
+    if (this->it == rend) {
+        // We are an end iterator. Nothing else to do.
+        return;
+    }
     tick();
+#ifdef debug_parse
+    if (this->it != rend) {
+        std::cerr << "Able to do another initial tick." << std::endl;
+    }
+#endif
+    // Skip to the first seed we actually want to yield, or to the end
+    ++(*this);
+    // As the end of the constructor, the iterator points to
+    // a seed that has been ticked and yielded, or is rend.
+#ifdef debug_parse
+    if (this->it == rend) {
+        std::cerr << "Tree iteration halted looking for first seed." << std::endl;
+    }
+#endif
 }
 
 auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
@@ -1629,7 +1650,7 @@ auto ZipCodeTree::distance_iterator::operator*() const -> vector<seed_result_t> 
 #endif
     // We know the running distance to this seed will be at the top of the stack
     // If we're at the exact same position, the distance must be 0
-    size_t distance = (it == origin && right_to_left == original_right_to_left) ? 0 : stack_data.top();
+    size_t distance = stack_data.top();
     bool is_reversed = right_to_left ? it->get_is_reversed()
                                      : !it->get_is_reversed();
     vector<seed_result_t> to_return;
@@ -1914,11 +1935,10 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
         // Stack is empty and we must be at a seed to start at.
         if (it->get_type() == SEED) {
 #ifdef debug_parse
-    std::cerr << "Yield 0-length edge to starting seed " << it->get_value() << std::endl;
+    std::cerr << "Skip over seed " << it->get_value() << std::endl;
 #endif
             push(0);
             state(S_SCAN_CHAIN);
-            return true;
         } else {
             unimplemented_error(); 
         }
