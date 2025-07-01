@@ -1038,7 +1038,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Chain in snarl in a separate bucket") {
-            // [3+0rev 1 1+2rev] and [2+3rev<2rev/1rev>]
+            // [3+0rev 1 1+2rev] and [2+3rev<2/1>]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 2);
             positions.emplace_back(2, false, 3);
@@ -2141,7 +2141,7 @@ namespace unittest {
             // [5+4rev 4 {3  inf  2  inf  inf  inf  inf  0  inf  inf  inf  inf
             //     inf  inf  inf  inf  inf  inf  inf  inf  inf  inf  8  inf  2
             //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf
-            //     [4+4rev<15rev/18rev> 2 4+2rev<14rev/17rev> 2 4+0rev<13rev/16rev>]
+            //     [4+4rev<15/18> 2 4+2rev<14/17> 2 4+0rev<13/16>]
             //     [3+0<10/7> 2 3+2<11/8> 2 3+4<12/9>][2+0<4/1> 2 2+2<5/2> 2 2+4<6/3>]}
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -2200,7 +2200,7 @@ namespace unittest {
 
         SECTION("Cyclic snarl with seeds on either side") {
             // [3+0rev 0 {1  inf  9  inf  inf  9  inf  11  inf  0  inf 
-            //     [2+2rev<6rev/3rev> 1 2+1rev<5rev/2rev> 1 2+0rev<4rev/1rev>]} 24 1+0rev]
+            //     [2+2rev<6/3> 1 2+1rev<5/2> 1 2+0rev<4/1>]} 24 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);

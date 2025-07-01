@@ -22,14 +22,8 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
             }
             if (item.has_other_values()) {
                 cerr << "<" << item.get_value();
-                    if (item.get_is_reversed()) {
-                    cerr << "rev";
-                }
                 for (const auto& other_value : item.get_other_values()) {
-                    cerr << "/" << other_value.first;
-                    if (other_value.second) {
-                        cerr << "rev";
-                    }
+                    cerr << "/" << other_value;
                 }
                 cerr << ">";
             }
@@ -298,7 +292,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Skipping duplicate seed at " << current_seed.pos << endl;
 #endif
-        prev_item.add_extra_value(seed_index, current_is_reversed);
+        prev_item.add_extra_value(seed_index);
         return;
     }
 
@@ -314,7 +308,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Skipping duplicate seed at " << current_seed.pos << endl;
 #endif
-            three_back_item.add_extra_value(seed_index, current_is_reversed);
+            three_back_item.add_extra_value(seed_index);
             return;
         }
 }
@@ -1338,7 +1332,7 @@ void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index
                 if (item.has_other_values()) {
                     for (const auto& other_value : item.get_other_values()) {
                         // Also consider other indices with the same seed pos
-                        has_seed[other_value.first] = true;
+                        has_seed[other_value] = true;
                     }
                 }
             }
@@ -1636,13 +1630,14 @@ auto ZipCodeTree::distance_iterator::operator*() const -> vector<seed_result_t> 
     // We know the running distance to this seed will be at the top of the stack
     // If we're at the exact same position, the distance must be 0
     size_t distance = (it == origin && right_to_left == original_right_to_left) ? 0 : stack_data.top();
+    bool is_reversed = right_to_left ? it->get_is_reversed()
+                                     : !it->get_is_reversed();
     vector<seed_result_t> to_return;
-    to_return.emplace_back(distance, it->get_value(), right_to_left ? it->get_is_reversed()
-                                                                    : !it->get_is_reversed());
+    to_return.emplace_back(distance, it->get_value(), is_reversed);
     if (it->has_other_values()) {
         // If this seed has other values, add them too
         for (const auto& other_value : it->get_other_values()) {
-            to_return.emplace_back(distance, other_value.first, other_value.second);
+            to_return.emplace_back(distance, other_value, is_reversed);
         }
     }
     return to_return;

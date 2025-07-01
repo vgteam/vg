@@ -165,7 +165,7 @@ class ZipCodeTree {
 
         /// Other values/reversedness (for seeds on the same position)
         /// Not allocated unless necessary
-        vector<pair<size_t, bool>>* other_values = nullptr;
+        vector<size_t>* other_values = nullptr;
 
         public:
 
@@ -200,15 +200,15 @@ class ZipCodeTree {
         bool has_other_values() const { return other_values != nullptr; }
         /// Add an extra value to the other_values vector
         /// If other_values is not allocated, it will be allocated
-        void add_extra_value(size_t extra_value, bool extra_is_reversed) {
+        void add_extra_value(size_t extra_value) {
             if (!other_values) {
-                other_values = new vector<pair<size_t, bool>>();
+                other_values = new vector<size_t>();
             }
-            other_values->emplace_back(extra_value, extra_is_reversed);
+            other_values->emplace_back(extra_value);
         }
         /// Get a constant reference to other_values
         /// Throws if other_values is not allocated
-        const vector<pair<size_t, bool>>& get_other_values() const {
+        const vector<size_t>& get_other_values() const {
             if (!other_values) {
                 throw runtime_error("No other values for this tree item");
             }
@@ -337,7 +337,7 @@ public:
             // Check if we have other values
             if (it->has_other_values()) {
                 for (const auto& other_value : it->get_other_values()) {
-                    seeds.emplace_back(other_value.first, other_value.second);
+                    seeds.emplace_back(other_value, it->get_is_reversed());
                 }
             }
             return seeds;
