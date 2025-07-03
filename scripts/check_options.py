@@ -104,21 +104,53 @@ def extract_getopt_string(text: str) -> set:
 
 def extract_switch_optarg(text: str) -> dict:
     """
-    Returns a dict of short_opt -> uses_optarg (True/False)
+    Returns a dict of short_opt -> uses_optarg (True/False), accounting for fallthroughs.
     """
     switch_block = re.search(r'switch\s*\(\s*c\s*\)\s*{(.+?)}', text, re.DOTALL)
     if not switch_block:
         return {}
+
     body = switch_block.group(1)
-    cases = re.split(r'case\s+', body)[1:]
+    lines = body.splitlines()
+
     optarg_usage = {}
-    for case in cases:
-        lines = case.strip().splitlines()
-        if not lines:
+    current_cases = []
+    block_lines = []
+
+    def process_block(cases, block):
+        block_text = "\n".join(block)
+        uses_optarg = 'optarg' in block_text
+        for case in cases:
+            optarg_usage[case] = uses_optarg
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect new case
+        case_match = re.match(r'case\s+([A-Za-z0-9_\'"]+)\s*:', stripped)
+        if case_match:
+            stripped = stripped.split('//')[0].strip()  # Remove comments
+            case_value = case_match.group(1)
+            if case_value.startswith("'") and case_value.endswith("'"):
+                case_key = case_value.strip("'")
+            else:
+                case_key = case_value  # All-caps variable
+            current_cases.append(case_key)
             continue
-        key = lines[0].strip().strip(':')
-        uses_optarg = any('optarg' in l for l in lines)
-        optarg_usage[key] = uses_optarg
+
+        # If it's not a new case, it belongs to the current block
+        block_lines.append(stripped)
+
+        # On break/return, flush the current case group
+        if stripped == 'break;' or stripped.startswith('return'):
+            process_block(current_cases, block_lines)
+            current_cases = []
+            block_lines = []
+
+    # Handle trailing block without break (not common but valid)
+    if current_cases or block_lines:
+        process_block(current_cases, block_lines)
+
     return optarg_usage
 
 def check_file(filepath: str) -> list:
