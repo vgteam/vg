@@ -59,7 +59,7 @@ def extract_long_options(text: str) -> dict:
             continue
         line = line.strip()
         if line.startswith('{') and not line.startswith('{0'):
-            parts = line.strip('{} \t,\n').split(',')
+            parts = line.split('//')[0].strip('{} \t,\n').split(',')
             if len(parts) >= 4:
                 long_name = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
@@ -148,7 +148,6 @@ def check_file(filepath: str) -> list:
         if long_short:
             used = switch_opts.get(long_short)
             if used is not None and used != long_arg:
-                print(f'check 3 {long_opt}')
                 problems.append(long_opt)
 
     return problems
