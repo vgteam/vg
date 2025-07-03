@@ -51,7 +51,8 @@ def extract_long_options(text: str) -> dict:
     options = {}
     inside = False
     for line in text.splitlines():
-        if 'struct option long_options' in line:
+        if ('struct option long_options' in line
+            or 'std::vector<struct option> long_options' in line):
             inside = True
         elif inside and '};' in line:
             inside = False
@@ -77,9 +78,19 @@ def extract_getopt_string(text: str) -> set:
     Returns a set of short options, with ':' indicating required arguments
     """
     match = re.search(r'getopt_long\s*\([^,]+,[^,]+,\s*"([^"]+)"', text)
+    if match:
+        opts = match.group(1)
+
+    # Second try to catch vg giraffe's weirdness
+    if not match:
+        match = re.search(r'std::string short_options = "[^"]+"', text)
+    if match:
+        opts = match.group(0)
+
+    # Give up
     if not match:
         return set()
-    opts = match.group(1)
+    
     result = set()
     i = 0
     while i < len(opts):
