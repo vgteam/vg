@@ -140,16 +140,16 @@ int main_chunk(int argc, char** argv) {
             {"gam-and-graph", no_argument, 0, 'g'},
             {"in-gaf", no_argument, 0, 'F'},
             {"path", required_argument, 0, 'p'},
-            {"path-names", required_argument, 0, 'P'},
+            {"path-list", required_argument, 0, 'P'},
             {"chunk-size", required_argument, 0, 's'},
             {"overlap", required_argument, 0, 'o'},
             {"input-bed", required_argument, 0, 'e'},
             {"snarls", required_argument, 0, 'S'},
             {"output-bed", required_argument, 0, 'E'},
             {"prefix", required_argument, 0, 'b'},
-            {"context", required_argument, 0, 'c'},
-            {"id-ranges", no_argument, 0, 'r'},
-            {"id-range", no_argument, 0, 'R'},
+            {"context-steps", required_argument, 0, 'c'},
+            {"node-range", required_argument, 0, 'r'},
+            {"node-ranges", required_argument, 0, 'R'},
             {"trace", no_argument, 0, 'T'},
             {"no-embedded-haplotypes", no_argument, 0, OPT_NO_EMBEDDED_HAPLOTYPES},
             {"fully-contained", no_argument, 0, 'f'},
@@ -229,7 +229,7 @@ int main_chunk(int argc, char** argv) {
             out_chunk_prefix = optarg;
             break;
 
-        case'c':
+        case 'c':
             context_steps = parse<int>(optarg);
             break;
 
