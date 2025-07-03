@@ -15,8 +15,8 @@ def extract_help_options(text: str) -> dict:
     Returns a dict mapping long option names to tuples: (short_opt or None, takes_argument: bool)
     """
     help_opts = {}
-    help_pattern = re.compile(r'(?:^|[^\S\r\n])(-\w),?\s+(--[a-zA-Z0-9\-]+)(?:\s+[A-Z_]+)?')
-    long_only_pattern = re.compile(r'(?:^|[^\S\r\n])(?!-)(--[a-zA-Z0-9\-]+)(?:\s+[A-Z_]+)?')
+    help_pattern = re.compile(r'(?:^|[^\S\r\n])(-\w),?\s+(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
+    long_only_pattern = re.compile(r'(?:^|[^\S\r\n])(?!-)(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
     
     inside_help = False
     for line in text.splitlines():
@@ -31,14 +31,14 @@ def extract_help_options(text: str) -> dict:
         if match:
             short_opt = match.group(1)[1]
             long_opt = match.group(2)[2:]
-            takes_arg = bool(re.search(rf'{re.escape(match.group(2))}\s+[A-Z_]+', line))
+            takes_arg = bool(re.search(rf'{re.escape(match.group(2))}\s[A-Z_]+', line))
             help_opts[long_opt] = (short_opt, takes_arg)
             continue
 
         match = long_only_pattern.search(line)
         if match:
             long_opt = match.group(1)[2:]
-            takes_arg = bool(re.search(rf'{re.escape(match.group(1))}\s+[A-Z_]+', line))
+            takes_arg = bool(re.search(rf'{re.escape(match.group(1))}\s[A-Z_]+', line))
             help_opts[long_opt] = (None, takes_arg)
 
     return help_opts
@@ -161,4 +161,4 @@ if __name__ == "__main__":
         fpath = os.path.join(subcommand_dir, fname)
         problems = check_file(fpath)
         if problems:
-            print(f"{fname}: problematic options: {', '.join(sorted(problems))}")
+            print(f"{fname}: {', '.join(sorted(problems))}")
