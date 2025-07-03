@@ -15,8 +15,8 @@ def extract_help_options(text: str) -> dict:
     Returns a dict mapping long option names to tuples: (short_opt or None, takes_argument: bool)
     """
     help_opts = {}
-    help_pattern = re.compile(r'(?:^|[^\S\r\n])(-\w),?\s+(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
-    long_only_pattern = re.compile(r'(?:^|[^\S\r\n])(?!-)(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
+    help_pattern = re.compile(r'<< "\s+(?:^|[^\S\r\n])(-\w),?\s+(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
+    long_only_pattern = re.compile(r'<< "\s+(?:^|[^\S\r\n])(?!-)(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
     
     inside_help = False
     for line in text.splitlines():
