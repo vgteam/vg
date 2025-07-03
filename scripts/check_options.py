@@ -81,9 +81,9 @@ def extract_getopt_string(text: str) -> set:
     if match:
         opts = match.group(1)
 
-    # Second try to catch vg giraffe's weirdness
+    # Second try to catch vg giraffe/augment weirdness
     if not match:
-        match = re.search(r'std::string short_options = "[^"]+"', text)
+        match = re.search(r'short_options = "[^"]+"', text)
     if match:
         opts = match.group(0)
 
