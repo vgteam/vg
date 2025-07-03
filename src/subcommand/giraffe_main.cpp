@@ -701,7 +701,7 @@ std::string sample_haplotypes(
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
     cerr
     << "usage:" << endl
-    << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
+    << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
     << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
     << endl
     << "Fast haplotype-aware read mapper." << endl
