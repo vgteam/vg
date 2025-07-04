@@ -67,7 +67,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         A dictionary mapping long option names to OptionInfo
     """
 
-    help_opts = {}
+    help_opts = dict()
     # Match the line's prefix, which is `<< "    `
     prefix = r'<< "\s+'
     # Match a shortform option: `-<short`
@@ -152,7 +152,8 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
         A dictionary mapping long option names to OptionInfo
     """
 
-    options = {}
+    options = dict()
+    all_shortforms = set()
     inside_longopts = False
 
     for line in text.splitlines():
@@ -182,6 +183,10 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                 except ValueError:
                     # Otherwise, it is a character or string
                     shortform = shortform.strip("'")
+                
+                # Skip duplicate shortforms (aliases)
+                if shortform in all_shortforms:
+                    continue
 
                 # Ignore placeholder line with all zeros
                 if long_name == '0':
@@ -189,6 +194,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
 
                 takes_arg = (arg_type == 'required_argument')
                 options[long_name] = OptionInfo(takes_arg, shortform)
+                all_shortforms.add(shortform)
     return options
 
 def extract_getopt_string(text: str) -> Dict[str, bool]:
