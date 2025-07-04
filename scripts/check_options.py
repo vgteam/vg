@@ -13,6 +13,13 @@ import re
 def extract_help_options(text: str) -> dict:
     """Extract options from help_<command>()
     
+    Looks within lines the helptext function,
+    starting with a line with `void help_<command>(`
+    and ending with the outermost closing curly brace `}`.
+    (i.e. nested curly braces are handled correctly)
+
+    Ignores lines with comments.
+
     Looks for `<< "    -<short>, --<long> <arg>  <desc>`
     (well actually it ignores the description)
     The shortform option is optional, as is the argument.
@@ -97,27 +104,55 @@ def extract_help_options(text: str) -> dict:
     return help_opts
 
 def extract_long_options(text: str) -> dict:
+    """Extract options from long_options[].
+
+    Looks within the long_options[] array,
+    starting with a line with `struct option long_options`
+    or `std::vector<struct option> long_options`
+    and ending with `};`. (i.e. assuming no nested curly braces)
+
+    Ignores lines with comments.
+
+    Looks for: `{"longform", arg_type, 0, shortform}`
+    Ignores all-zeros, which tends to end long_options[].
+    Smart enough to ignore comments at the end of a line.
+
+    Parameters
+    ----------
+    text : str
+        The text of the file to search for long_options.
+
+    Returns
+    -------
+    dict
+        A dictionary mapping long option names to tuples:
+        (short_opt (char, int, or ALL_CAPS), takes_argument: bool)
     """
-    Extract options from long_options[] definition.
-    Returns a dict mapping long option names to tuples: (short_opt (char or ALL_CAPS) or None, takes_argument: bool)
-    """
+
     options = {}
-    inside = False
+    inside_longopts = False
+
     for line in text.splitlines():
+        # Found start of long_options[]
         if ('struct option long_options' in line
             or 'std::vector<struct option> long_options' in line):
-            inside = True
-        elif inside and '};' in line:
-            inside = False
-        if not inside:
+            inside_longopts = True
+        # End of long_options[]
+        elif inside_longopts and '};' in line:
+            break
+
+        if not inside_longopts:
             continue
-        line = line.strip()
-        if line.startswith('{') and not line.startswith('{0'):
-            parts = line.split('//')[0].strip('{} \t,\n').split(',')
-            if len(parts) >= 4:
+
+        stripped = line.strip()
+        if stripped.startswith('{') and not stripped.startswith('{0'):
+            parts = stripped.split('//')[0].strip('{} \t,\n').split(',')
+
+            if len(parts) == 4:
                 long_name = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
                 shortform = parts[3].strip()
+
                 try:
                     # Keep shortform as a number if it is one
                     shortform = int(shortform)
@@ -125,11 +160,12 @@ def extract_long_options(text: str) -> dict:
                     # Otherwise, it is a character or string
                     shortform = shortform.strip("'")
 
+                # Ignore placeholder line with all zeros
                 if long_name == '0':
                     continue
+
                 takes_arg = (arg_type == 'required_argument')
-                short_opt = None if shortform == '0' else shortform
-                options[long_name] = (short_opt, takes_arg)
+                options[long_name] = (shortform, takes_arg)
     return options
 
 def extract_getopt_string(text: str) -> set:
