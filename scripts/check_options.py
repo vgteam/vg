@@ -168,32 +168,51 @@ def check_file(filepath: str) -> list:
 
     all_longopts = set(help_opts) | set(long_opts)
 
-    problems = []
-
     for long_opt in all_longopts:
         help_short, help_arg = help_opts.get(long_opt, (None, None))
         long_short, long_arg = long_opts.get(long_opt, (None, None))
 
-        # Check 1: help vs long_options[]
-        if ((help_short, help_arg) != (None, None) 
-            and (help_short, help_arg) != (long_short, long_arg)):
-            problems.append(long_opt)
+        # Check 1: long_options[] don't use raw numbers
+        if isinstance(long_short, int):
+            print(f"{filepath}: --{long_opt} has a raw number ({long_short}) "
+                  "in long_options[]; use a character or ALL_CAPS variable instead")
             continue
 
-        # Check 2: long_options[] vs getopt string
-        if long_short and long_short.islower():
+        # Check 2: help vs long_options[]
+        if ((help_short, help_arg) != (None, None) 
+            and (help_arg != long_arg if help_short is None else
+                 (help_short, help_arg) != (long_short, long_arg))):
+            print(f"{filepath}: --{long_opt} has mismatch between helptext "
+                  f"(short: -{help_short}, arg: {help_arg}) and long_options[] "
+                  f"(-{long_short}, arg: {long_arg})")
+            continue
+
+        # Check 3: long_options[] vs getopt string
+        if long_short and len(long_short) == 1:
             short_entry = f'{long_short}:' if long_arg else long_short
             if short_entry not in getopt_opts:
-                problems.append(long_opt)
+                print(f"{filepath}: --{long_opt}'s -{long_short} should be in "
+                      f"getopt string as '{short_entry}'")
                 continue
 
-        # Check 3: long_options[] vs switch(optarg)
+            if not long_arg and f'{long_short}:' in getopt_opts:
+                print(f"{filepath}: --{long_opt}'s -{long_short} shouldn't have "
+                      f"a : after it in getopt string")
+                continue
+
+        # Check 4: long_options[] vs switch(optarg)
         if long_short:
             used = switch_opts.get(long_short)
-            if used is not None and used != long_arg:
-                problems.append(long_opt)
 
-    return problems
+            if used is None:
+                print(f"{filepath}: --{long_opt}'s -{long_short} is "
+                      "not used in the switch block")
+                continue
+
+            if used != long_arg:
+                print(f"{filepath}: --{long_opt}'s -{long_short} "
+                      f"should {'not ' if not long_arg else ''}use optarg")
+                continue
     
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
@@ -202,5 +221,3 @@ if __name__ == "__main__":
             continue
         fpath = os.path.join(subcommand_dir, fname)
         problems = check_file(fpath)
-        if problems:
-            print(f"{fname}: {', '.join(sorted(problems))}")
