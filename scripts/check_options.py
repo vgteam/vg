@@ -318,7 +318,7 @@ def extract_switch_optarg(text: str) -> dict:
 
     return optarg_usage
 
-def check_file(filepath: str) -> list:
+def check_file(filepath: str):
     """
     Check consistency of options in a single _main.cpp file.
     Returns list of problematic long options.
@@ -379,13 +379,15 @@ def check_file(filepath: str) -> list:
                 print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                       f"should be in getopt string")
                 continue
+        
+            cur_getopt = getopt_opts.pop(cur_long.shortform)
             
-            if getopt_opts[cur_long.shortform] is None:
+            if cur_getopt is None:
                 print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                       "appears multiple times in getopt string")
                 continue
 
-            if cur_long.takes_argument != getopt_opts[cur_long.shortform]:
+            if cur_long.takes_argument != cur_getopt:
                 print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                       f"{should_str} have a : after it in getopt string")
                 continue
@@ -400,6 +402,13 @@ def check_file(filepath: str) -> list:
             print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
             continue
+    
+    # getopt is allowed to have ? as a help alias
+    # without that being in long_options[]
+    getopt_opts.pop('?')
+    if getopt_opts:
+        print(f"{filepath}: getopt string has options not in long_options[]: "
+              f"{', '.join(getopt_opts)}")
 
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
