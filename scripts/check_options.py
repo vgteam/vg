@@ -113,16 +113,12 @@ def extract_switch_optarg(text: str) -> dict:
     """
     Returns a dict of short_opt -> uses_optarg (True/False), accounting for fallthroughs.
     """
-    switch_block = re.search(r'switch\s*\(\s*c\s*\)\s*{(.+?)}', text, re.DOTALL)
-    if not switch_block:
-        return {}
-
-    body = switch_block.group(1)
-    lines = body.splitlines()
 
     optarg_usage = {}
     current_cases = []
     block_lines = []
+    inside_switch = False
+    curly_brace_nesting = 0
 
     def process_block(cases, block):
         block_text = "\n".join(block)
@@ -130,11 +126,24 @@ def extract_switch_optarg(text: str) -> dict:
         for case in cases:
             optarg_usage[case] = uses_optarg
 
-    for line in lines:
+    for line in text.splitlines():
         stripped = line.strip()
 
+        # Are we inside the switch statement?
+        if re.search(r'switch\s*\(\s*c\s*\)', text):
+            inside_switch = True
+        elif inside_switch and line.strip() == '}' and curly_brace_nesting == 0:
+            inside_switch = False
+
+        if not inside_switch or line.strip().startswith('//'):
+            continue
+        if '{' in stripped:
+            curly_brace_nesting += 1
+        if '}' in stripped:
+            curly_brace_nesting -= 1
+
         # Detect new case
-        case_match = re.match(r'case\s+([A-Za-z0-9_\'"]+)\s*:', stripped)
+        case_match = re.match(r'case\s+(.+)\s*:', stripped)
         if case_match:
             stripped = stripped.split('//')[0].strip()  # Remove comments
             case_value = case_match.group(1)
