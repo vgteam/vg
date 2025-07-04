@@ -9,8 +9,33 @@ It has since been developed by @faithokamoto.
 """
 import os
 import re
+from typing import Dict, Optional
+from dataclasses import dataclass
 
-def extract_help_options(text: str) -> dict:
+@dataclass
+class OptionInfo:
+    """Information about a command line option."""
+
+    takes_argument: bool = None
+    """Whether the option takes an argument."""
+    shortform: Optional[str | int] = None
+    """Short option name, or None if not present."""
+
+    def is_unset(self) -> bool:
+        """Check if this option is unset."""
+        return self.takes_argument is None and self.shortform is None
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, OptionInfo):
+            return False
+        # If either shortform is unset, only compare takes_argument
+        if self.shortform is None or other.shortform is None:
+            return self.takes_argument == other.takes_argument
+        else:
+            return (self.takes_argument == other.takes_argument
+                    and self.shortform == other.shortform)
+
+def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     """Extract options from help_<command>()
     
     Looks within lines the helptext function,
@@ -38,9 +63,8 @@ def extract_help_options(text: str) -> dict:
     
     Returns
     -------
-    dict
-        A dictionary mapping long option names to tuples:
-        (short_opt or None, takes_argument: bool)
+    Dict[str, OptionInfo]
+        A dictionary mapping long option names to OptionInfo
     """
 
     help_opts = {}
@@ -88,22 +112,22 @@ def extract_help_options(text: str) -> dict:
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
         if match:
-            short_opt = match.group(1)[1]
-            long_opt = match.group(2)[2:]
+            shortform = match.group(1)[1]
+            longform = match.group(2)[2:]
             takes_arg = match.group(3) is not None
-            help_opts[long_opt] = (short_opt, takes_arg)
+            help_opts[longform] = OptionInfo(takes_arg, shortform)
             continue
 
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
-            long_opt = match.group(1)[2:]
+            longform = match.group(1)[2:]
             takes_arg = match.group(2) is not None
-            help_opts[long_opt] = (None, takes_arg)
+            help_opts[longform] = OptionInfo(takes_arg)
 
     return help_opts
 
-def extract_long_options(text: str) -> dict:
+def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     """Extract options from long_options[].
 
     Looks within the long_options[] array,
@@ -124,9 +148,8 @@ def extract_long_options(text: str) -> dict:
 
     Returns
     -------
-    dict
-        A dictionary mapping long option names to tuples:
-        (short_opt (char, int, or ALL_CAPS), takes_argument: bool)
+    Dict[str, OptionInfo]
+        A dictionary mapping long option names to OptionInfo
     """
 
     options = {}
@@ -165,10 +188,10 @@ def extract_long_options(text: str) -> dict:
                     continue
 
                 takes_arg = (arg_type == 'required_argument')
-                options[long_name] = (shortform, takes_arg)
+                options[long_name] = OptionInfo(takes_arg, shortform)
     return options
 
-def extract_getopt_string(text: str) -> set:
+def extract_getopt_string(text: str) -> Dict[str, bool]:
     """Extract short options from getopt_long() string.
 
     Looks for the line with `getopt_long()` or `short_options =`.
@@ -184,42 +207,43 @@ def extract_getopt_string(text: str) -> set:
 
     Returns
     -------
-    set
-        The string broken up into short options, with : retained
+    Dict[str, bool]
+        A dictionary mapping shortform names to
+        whether they take an argument.
     """
 
     # Grab third argument of getopt_long()
     match = re.search(r'getopt_long\s*\([^,]+,[^,]+,\s*"([^"]+)"', text)
     if match:
-        opts = match.group(1)
+        opts_str = match.group(1)
 
     # Second try to catch vg giraffe/augment weirdness
     if not match:
         match = re.search(r'short_options = "[^"]+"', text)
-    if match:
-        opts = match.group(0)
+        if match:
+            opts_str = match.group(0)
 
     # Give up
     if not match:
-        return set()
+        return dict()
     
-    result = set()
+    options = dict()
     i = 0
-    while i < len(opts):
+    while i < len(opts_str):
         # Add shortform with its `:`
-        if i+1 < len(opts) and opts[i+1] == ':':
-            result.add(f'{opts[i]}:')
+        if i+1 < len(opts_str) and opts_str[i+1] == ':':
+            options[opts_str[i]] = True
             # Skip `:`
             i += 2
         # This shortform option has no `:`
         else:
-            result.add(opts[i])
+            options[opts_str[i]] = False
             i += 1
-    return result
+    return options
 
 def extract_switch_optarg(text: str) -> dict:
     """
-    Returns a dict of short_opt -> uses_optarg (True/False), accounting for fallthroughs.
+    Returns a dict of shortform -> uses_optarg (True/False), accounting for fallthroughs.
     """
 
     optarg_usage = {}
@@ -290,54 +314,59 @@ def check_file(filepath: str) -> list:
     getopt_opts = extract_getopt_string(text)
     switch_opts = extract_switch_optarg(text)
 
-    all_longopts = set(help_opts) | set(long_opts)
+    all_longform = set(help_opts) | set(long_opts)
 
-    for long_opt in all_longopts:
-        help_short, help_arg = help_opts.get(long_opt, (None, None))
-        long_short, long_arg = long_opts.get(long_opt, (None, None))
+    for longform in all_longform:
+        cur_help = help_opts.get(longform, OptionInfo())
+
+        # Check 1: all options must appear in long_options[] with shortform
+        if longform not in long_opts:
+            print(f"{filepath}: --{longform} is not in long_options[]")
+            continue
+        elif long_opts[longform].shortform is None:
+            print(f"{filepath}: --{longform} is in long_options[] but has no "
+                  "shortform")
+            continue
+
+        cur_long = long_opts[longform]
+        should_str = 'should' if cur_long.takes_argument else "shouldn't"
 
         # Check 1: long_options[] don't use raw numbers
-        if isinstance(long_short, int):
-            print(f"{filepath}: --{long_opt} has a raw number ({long_short}) "
-                  "in long_options[]; use a character or ALL_CAPS variable instead")
+        if isinstance(cur_long.shortform, int):
+            print(f"{filepath}: --{longform} has an int ({cur_long.shortform}) "
+                  "in long_options[]; use a char or ALL_CAPS variable instead")
             continue
 
         # Check 2: help vs long_options[]
-        if ((help_short, help_arg) != (None, None) 
-            and (help_arg != long_arg if help_short is None else
-                 (help_short, help_arg) != (long_short, long_arg))):
-            print(f"{filepath}: --{long_opt} has mismatch between helptext "
-                  f"(short: -{help_short}, arg: {help_arg}) and long_options[] "
-                  f"(-{long_short}, arg: {long_arg})")
+        if not cur_help.is_unset() and cur_help != cur_long:
+            print(f"{filepath}: --{longform} has mismatch between helptext "
+                  f"{cur_help} and long_options[] {cur_long}")
             continue
 
         # Check 3: long_options[] vs getopt string
-        if long_short and len(long_short) == 1:
-            short_entry = f'{long_short}:' if long_arg else long_short
-            if short_entry not in getopt_opts:
-                print(f"{filepath}: --{long_opt}'s -{long_short} should be in "
-                      f"getopt string as '{short_entry}'")
+        # This check only runs for single-char shortforms
+        if len(cur_long.shortform) == 1:
+            if cur_long.shortform not in getopt_opts:
+                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
+                      f"should be in getopt string")
                 continue
 
-            if not long_arg and f'{long_short}:' in getopt_opts:
-                print(f"{filepath}: --{long_opt}'s -{long_short} shouldn't have "
-                      f"a : after it in getopt string")
+            if cur_long.takes_argument != getopt_opts[cur_long.shortform]:
+                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
+                      f"{should_str} have a : after it in getopt string")
                 continue
 
-        # Check 4: long_options[] vs switch(optarg)
-        if long_short:
-            used = switch_opts.get(long_short)
+        # Check 4: long_options[] vs switch(optarg
+        if cur_long.shortform not in switch_opts:
+            print(f"{filepath}: --{longform}'s -{cur_long.shortform} is "
+                    "not used in the switch block")
+            continue
 
-            if used is None:
-                print(f"{filepath}: --{long_opt}'s -{long_short} is "
-                      "not used in the switch block")
-                continue
+        if cur_long.takes_argument != switch_opts[cur_long.shortform]:
+            print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
+                    f"{should_str} use optarg")
+            continue
 
-            if used != long_arg:
-                print(f"{filepath}: --{long_opt}'s -{long_short} "
-                      f"should {'not ' if not long_arg else ''}use optarg")
-                continue
-    
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
     for fname in os.listdir(subcommand_dir):
