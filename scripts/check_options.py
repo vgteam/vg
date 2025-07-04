@@ -333,6 +333,17 @@ def check_file(filepath: str) -> list:
 
     all_longform = set(help_opts) | set(long_opts)
 
+    # Confirm that the help options are present
+    for help_alias in ['?', 'h']:
+        if help_alias not in getopt_opts:
+            print(f"{filepath}: help alias -{help_alias} is missing from "
+                  "getopt string")
+            return
+        if help_alias in long_opts and long_opts[help_alias].takes_argument:
+            print(f"{filepath}: help alias -{help_alias} should not take an "
+                  "argument")
+            return
+
     # Check longform options between the four sources
     for longform in all_longform:
         cur_help = help_opts.get(longform, OptionInfo())
