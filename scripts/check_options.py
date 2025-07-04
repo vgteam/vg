@@ -364,11 +364,9 @@ def check_file(filepath: str):
         if help_alias not in getopt_opts:
             print(f"{filepath}: help alias -{help_alias} is missing from "
                   "getopt string")
-            return
-        if getopt_opts[help_alias]:
+        elif getopt_opts[help_alias]:
             print(f"{filepath}: help alias -{help_alias} should not take an "
                   "argument")
-            return
 
     # Check longform options between the four sources
     for longform in all_longform:
@@ -431,7 +429,8 @@ def check_file(filepath: str):
     
     # getopt is allowed to have ? as a help alias
     # without that being in long_options[]
-    getopt_opts.pop('?')
+    if '?' in getopt_opts:
+        getopt_opts.pop('?')
     if getopt_opts:
         print(f"{filepath}: getopt string has options not in long_options[]: "
               f"{', '.join(getopt_opts)}")
