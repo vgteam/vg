@@ -253,8 +253,28 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
     return options
 
 def extract_switch_optarg(text: str) -> dict:
-    """
-    Returns a dict of shortform -> uses_optarg (True/False), accounting for fallthroughs.
+    """Compile optarg usage within switch(c) block.
+
+    Looks within the switch block handling options,
+    starting with a line with `switch(c)` (plus optional spaces)
+    and ending with the outermost closing curly brace `}`.
+    (i.e. nested curly braces are handled correctly)
+
+    Ignores lines with comments. Handles fallthroughs,
+    breaking cases on either a return or a `break;`.
+
+    Looks for whether each case uses `optarg` or not.
+
+    Parameters
+    ----------
+    text : str
+        The text of the file to search for long_options.
+
+    Returns
+    -------
+    Dict[str, bool]
+        A dictionary mapping shortform names to
+        whether they use optarg (i.e. take an argument).
     """
 
     optarg_usage = {}
