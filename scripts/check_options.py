@@ -4,41 +4,94 @@ Reads the options within the helptext (help_<command>() function),
 the long_options[] array, the getopt_long() string, and the switch(c)
 block, and checks that they are consistent with each other.
 
-Mostly written by ChatGPT with small tweaks by @faithokamoto
+The base of this script was written by ChatGPT.
+It has since been developed by @faithokamoto.
 """
 import os
 import re
 
 def extract_help_options(text: str) -> dict:
-    """
-    Extract options from the help_<command>() function.
-    Returns a dict mapping long option names to tuples: (short_opt or None, takes_argument: bool)
-    """
-    help_opts = {}
-    help_pattern = re.compile(r'<< "\s+(?:^|[^\S\r\n])(-\w),?\s+(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
-    long_only_pattern = re.compile(r'<< "\s+(?:^|[^\S\r\n])(?!-)(--[a-zA-Z0-9\-]+)(?:\s[A-Z_]+)?')
+    """Extract options from help_<command>()
     
+    Looks for `<< "    -<short>, --<long> <arg>  <desc>`
+    (well actually it ignores the description)
+    The shortform option is optional, as is the argument.
+
+    If the shortform option is present, it must be followed by
+    a comma and a single space before the longform option.
+    
+    If the argument is present, it is expected to be in all-caps,
+    have nothing surrounding it (e.g. no <>), and be exactly
+    one space after the long option.
+
+    Parameters
+    ----------
+    text : str
+        The text of the file to search for help options.
+    
+    Returns
+    -------
+    dict
+        A dictionary mapping long option names to tuples:
+        (short_opt or None, takes_argument: bool)
+    """
+
+    help_opts = {}
+    # Match the line's prefix, which is `<< "    `
+    prefix = r'<< "\s+'
+    # Match a shortform option: `-<short`
+    shortform_patten = r'-.'
+    # Match a longform option: `--<long>`
+    longform_patten = r'--[a-zA-Z0-9\-]+'
+    # Match an optional argument in all-caps
+    arg_pattern = r'[A-Z_]+'
+
+    help_pattern = re.compile(
+        rf'{prefix}({shortform_patten}),\s({longform_patten})\s({arg_pattern})?'
+        )
+    # Same pattern but without the shortform option
+    long_only_pattern = re.compile(
+        rf'{prefix}({longform_patten})\s({arg_pattern})?'
+        )
+
     inside_help = False
+    curly_brace_nesting = 0
+
     for line in text.splitlines():
-        if re.search(r'void\s+help_\w+\s*\(', line):
+        stripped = line.strip()
+        # Are we inside the helptext printing function?
+        if re.search(r'void\shelp_\w+\s*\(', line):
             inside_help = True
-        elif inside_help and '}' in line:
+            curly_brace_nesting = 0
+            continue
+        # End at end of outermost curly braces
+        elif inside_help and stripped == '}' and curly_brace_nesting == 0:
             inside_help = False
-        if not inside_help or line.strip().startswith('//'):
+
+        # Ignore comments and lines outside the helptext
+        if not inside_help or stripped.startswith('//'):
             continue
 
-        match = help_pattern.search(line)
+        # Keep track of curly brace nesting
+        if '{' in stripped:
+            curly_brace_nesting += 1
+        if '}' in stripped:
+            curly_brace_nesting -= 1
+
+        # Parse out sections of full pattern
+        match = help_pattern.search(stripped)
         if match:
             short_opt = match.group(1)[1]
             long_opt = match.group(2)[2:]
-            takes_arg = bool(re.search(rf'{re.escape(match.group(2))}\s[A-Z_]+', line))
+            takes_arg = match.group(3) is not None
             help_opts[long_opt] = (short_opt, takes_arg)
             continue
 
-        match = long_only_pattern.search(line)
+        # Parse out sections of long-only pattern
+        match = long_only_pattern.search(stripped)
         if match:
             long_opt = match.group(1)[2:]
-            takes_arg = bool(re.search(rf'{re.escape(match.group(1))}\s[A-Z_]+', line))
+            takes_arg = match.group(2) is not None
             help_opts[long_opt] = (None, takes_arg)
 
     return help_opts
