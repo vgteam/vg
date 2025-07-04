@@ -66,7 +66,7 @@ def extract_help_options(text: str) -> dict:
             continue
         # End at end of outermost curly braces
         elif inside_help and stripped == '}' and curly_brace_nesting == 0:
-            inside_help = False
+            break
 
         # Ignore comments and lines outside the helptext
         if not inside_help or stripped.startswith('//'):
