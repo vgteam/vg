@@ -64,7 +64,14 @@ def extract_long_options(text: str) -> dict:
             if len(parts) >= 4:
                 long_name = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
-                shortform = parts[3].strip().strip("'")
+                shortform = parts[3].strip()
+                try:
+                    # Keep shortform as a number if it is one
+                    shortform = int(shortform)
+                except ValueError:
+                    # Otherwise, it is a character or string
+                    shortform = shortform.strip("'")
+
                 if long_name == '0':
                     continue
                 takes_arg = (arg_type == 'required_argument')
