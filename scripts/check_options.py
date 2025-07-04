@@ -199,6 +199,8 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
     For the latter, take the string assigned.
 
     Shortform options followed by : take an argument.
+    If an option appears multiple times, it is assigned None
+    as a marker value.
 
     Parameters
     ----------
@@ -219,9 +221,9 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
 
     # Second try to catch vg giraffe/augment weirdness
     if not match:
-        match = re.search(r'short_options = "[^"]+"', text)
+        match = re.search(r'short_options = "([^"]+)"', text)
         if match:
-            opts_str = match.group(0)
+            opts_str = match.group(1)
 
     # Give up
     if not match:
@@ -231,13 +233,16 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
     i = 0
     while i < len(opts_str):
         shortform = opts_str[i]
+        next_is_colon = (i+1 < len(opts_str) and opts_str[i+1] == ':')
+
+        # Is this a duplicate?
         if shortform in options:
-            print(f"Duplicate shortform option: {shortform} in {opts_str}")
-            i += 1
+            options[shortform] = None
+            i += 2 if next_is_colon else 1
             continue
-        
+
         # Add shortform with its `:`
-        if i+1 < len(opts_str) and opts_str[i+1] == ':':
+        if next_is_colon:
             options[shortform] = True
             # Skip `:`
             i += 2
@@ -328,6 +333,7 @@ def check_file(filepath: str) -> list:
 
     all_longform = set(help_opts) | set(long_opts)
 
+    # Check longform options between the four sources
     for longform in all_longform:
         cur_help = help_opts.get(longform, OptionInfo())
 
@@ -361,6 +367,11 @@ def check_file(filepath: str) -> list:
             if cur_long.shortform not in getopt_opts:
                 print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                       f"should be in getopt string")
+                continue
+            
+            if getopt_opts[cur_long.shortform] is None:
+                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
+                      "appears multiple times in getopt string")
                 continue
 
             if cur_long.takes_argument != getopt_opts[cur_long.shortform]:
