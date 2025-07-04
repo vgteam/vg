@@ -169,10 +169,26 @@ def extract_long_options(text: str) -> dict:
     return options
 
 def extract_getopt_string(text: str) -> set:
+    """Extract short options from getopt_long() string.
+
+    Looks for the line with `getopt_long()` or `short_options =`.
+    For the former, take the third argument.
+    For the latter, take the string assigned.
+
+    Shortform options followed by : take an argument.
+
+    Parameters
+    ----------
+    text : str
+        The text of the file to search for long_options.
+
+    Returns
+    -------
+    set
+        The string broken up into short options, with : retained
     """
-    Extract short options from the getopt_long() string (e.g. "hx:rt:")
-    Returns a set of short options, with ':' indicating required arguments
-    """
+
+    # Grab third argument of getopt_long()
     match = re.search(r'getopt_long\s*\([^,]+,[^,]+,\s*"([^"]+)"', text)
     if match:
         opts = match.group(1)
@@ -190,9 +206,12 @@ def extract_getopt_string(text: str) -> set:
     result = set()
     i = 0
     while i < len(opts):
+        # Add shortform with its `:`
         if i+1 < len(opts) and opts[i+1] == ':':
             result.add(f'{opts[i]}:')
+            # Skip `:`
             i += 2
+        # This shortform option has no `:`
         else:
             result.add(opts[i])
             i += 1
