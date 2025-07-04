@@ -230,14 +230,20 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
     options = dict()
     i = 0
     while i < len(opts_str):
+        shortform = opts_str[i]
+        if shortform in options:
+            print(f"Duplicate shortform option: {shortform} in {opts_str}")
+            i += 1
+            continue
+        
         # Add shortform with its `:`
         if i+1 < len(opts_str) and opts_str[i+1] == ':':
-            options[opts_str[i]] = True
+            options[shortform] = True
             # Skip `:`
             i += 2
         # This shortform option has no `:`
         else:
-            options[opts_str[i]] = False
+            options[shortform] = False
             i += 1
     return options
 
