@@ -248,15 +248,9 @@ def extract_switch_optarg(text: str) -> dict:
 
     optarg_usage = {}
     current_cases = []
-    block_lines = []
+    has_optarg = False
     inside_switch = False
     curly_brace_nesting = 0
-
-    def process_block(cases, block):
-        block_text = "\n".join(block)
-        uses_optarg = 'optarg' in block_text
-        for case in cases:
-            optarg_usage[case] = uses_optarg
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -277,6 +271,14 @@ def extract_switch_optarg(text: str) -> dict:
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
         if case_match:
+            # Flush old cases to avoid optarg
+            # being present after fallthrough
+            if has_optarg:
+                for case in current_cases:
+                    optarg_usage[case] = True
+                has_optarg = False
+                current_cases = []
+            
             stripped = stripped.split('//')[0].strip()  # Remove comments
             case_value = case_match.group(1)
             if case_value.startswith("'") and case_value.endswith("'"):
@@ -287,17 +289,21 @@ def extract_switch_optarg(text: str) -> dict:
             continue
 
         # If it's not a new case, it belongs to the current block
-        block_lines.append(stripped)
+        has_optarg = has_optarg or 'optarg' in stripped
 
         # On break/return, flush the current case group
         if stripped == 'break;' or stripped.startswith('return'):
-            process_block(current_cases, block_lines)
+            for case in current_cases:
+                optarg_usage[case] = has_optarg
             current_cases = []
-            block_lines = []
+            has_optarg = False
 
     # Handle trailing block without break (not common but valid)
-    if current_cases or block_lines:
-        process_block(current_cases, block_lines)
+    if current_cases:
+        for case in current_cases:
+                optarg_usage[case] = has_optarg
+        current_cases = []
+        has_optarg = False
 
     return optarg_usage
 
