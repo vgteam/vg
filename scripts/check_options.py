@@ -339,7 +339,7 @@ def check_file(filepath: str):
             print(f"{filepath}: help alias -{help_alias} is missing from "
                   "getopt string")
             return
-        if help_alias in long_opts and long_opts[help_alias].takes_argument:
+        if getopt_opts[help_alias]:
             print(f"{filepath}: help alias -{help_alias} should not take an "
                   "argument")
             return
