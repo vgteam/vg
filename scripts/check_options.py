@@ -93,7 +93,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Are we inside the helptext printing function?
         if re.search(r'void\shelp_\w+\s*\(', line):
             inside_help = True
-            curly_brace_nesting = 0
+            curly_brace_nesting = -1
             continue
         # End at end of outermost curly braces
         elif inside_help and stripped == '}' and curly_brace_nesting == 0:
@@ -288,13 +288,24 @@ def extract_switch_optarg(text: str) -> dict:
     has_optarg = False
     inside_switch = False
 
+    def set_optarg_usage(cases: list[str], usage: Optional[bool]):
+        """Set optarg usage for a list of cases."""
+        for case in cases:
+            optarg_usage[case] = usage
+
+        # Reset the current cases and optarg usage
+        nonlocal has_optarg 
+        has_optarg = False
+        nonlocal current_cases
+        current_cases = []
+
     for line in text.splitlines():
         stripped = line.strip()
 
         # Are we inside the switch statement?
         if re.search(r'switch\s*\(\s*c\s*\)', line):
             inside_switch = True
-            curly_brace_nesting = 0 if '{' in stripped else -1
+            curly_brace_nesting = -1
         elif inside_switch and line.strip() == '}' and curly_brace_nesting == 0:
             break
 
@@ -311,10 +322,7 @@ def extract_switch_optarg(text: str) -> dict:
             # Flush old cases to avoid optarg
             # being present after fallthrough
             if has_optarg:
-                for case in current_cases:
-                    optarg_usage[case] = True
-                has_optarg = False
-                current_cases = []
+                set_optarg_usage(current_cases, True)
             
             stripped = stripped.split('//')[0].strip()  # Remove comments
             case_value = case_match.group(1)
@@ -328,19 +336,19 @@ def extract_switch_optarg(text: str) -> dict:
         # If it's not a new case, it belongs to the current block
         has_optarg = has_optarg or 'optarg' in stripped
 
-        # On break/return, flush the current case group
-        if stripped == 'break;' or stripped.startswith('return'):
-            for case in current_cases:
-                optarg_usage[case] = has_optarg
-            current_cases = []
-            has_optarg = False
+        # On crash/deprecation, flush the current case group
+        if (('return' in stripped or 'exit(' in stripped 
+             or 'deprecated' in stripped) and curly_brace_nesting == 0):
+            # None is a marker for a crash
+            set_optarg_usage(current_cases, None)
+
+        # On break, flush the current case group
+        if stripped == 'break;' and curly_brace_nesting == 0:
+            set_optarg_usage(current_cases, has_optarg)
 
     # Handle trailing block without break (not common but valid)
     if current_cases:
-        for case in current_cases:
-                optarg_usage[case] = has_optarg
-        current_cases = []
-        has_optarg = False
+        set_optarg_usage(current_cases, has_optarg)
 
     return optarg_usage
 
@@ -371,9 +379,13 @@ def check_file(filepath: str):
         if help_alias not in switch_opts:
             print(f"{filepath}: help alias -{help_alias} is missing from "
                   "switch block")
-        elif switch_opts[help_alias]:
-            print(f"{filepath}: help alias -{help_alias} should not use "
-                  "optarg in switch block")
+        elif switch_opts[help_alias] is not None:
+            print(f"{filepath}: help alias -{help_alias} should crash in "
+                  "switch block")
+        
+        # Change help alias to be non-argument instead of crash
+        # in order to match long_options[]
+        switch_opts[help_alias] = False
 
     # Check longform options between the four sources
     for longform in all_longform:
@@ -424,7 +436,7 @@ def check_file(filepath: str):
                       f"{should_str} have a : after it in getopt string")
                 continue
 
-        # Check 4: long_options[] vs switch(optarg
+        # Check 4: long_options[] vs switch
         if cur_long.shortform not in switch_opts:
             print(f"{filepath}: --{longform}'s -{cur_long.shortform} is "
                     "not used in the switch block")
@@ -433,7 +445,7 @@ def check_file(filepath: str):
         # Mark that this shortform has been used in the switch block
         cur_switch = switch_opts.pop(cur_long.shortform)
 
-        if cur_long.takes_argument != cur_switch:
+        if cur_switch is not None and cur_long.takes_argument != cur_switch:
             print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
             continue
