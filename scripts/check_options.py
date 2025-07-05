@@ -437,8 +437,10 @@ def check_file(filepath: str):
 
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
+    # Some subcommand files have a different format
+    ignore_files = {'test_main.cpp', 'help_main.cpp'}
     for fname in os.listdir(subcommand_dir):
-        if not fname.endswith('_main.cpp'):
+        if not fname.endswith('_main.cpp') or fname in ignore_files:
             continue
         fpath = os.path.join(subcommand_dir, fname)
         problems = check_file(fpath)
