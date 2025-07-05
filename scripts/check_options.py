@@ -287,16 +287,16 @@ def extract_switch_optarg(text: str) -> dict:
     current_cases = []
     has_optarg = False
     inside_switch = False
-    curly_brace_nesting = 0
 
     for line in text.splitlines():
         stripped = line.strip()
 
         # Are we inside the switch statement?
-        if re.search(r'switch\s*\(\s*c\s*\)', text):
+        if re.search(r'switch\s*\(\s*c\s*\)', line):
             inside_switch = True
+            curly_brace_nesting = 0 if '{' in stripped else -1
         elif inside_switch and line.strip() == '}' and curly_brace_nesting == 0:
-            inside_switch = False
+            break
 
         if not inside_switch or line.strip().startswith('//'):
             continue
