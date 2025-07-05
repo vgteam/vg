@@ -15,6 +15,8 @@ If it still doesn't make sense, ping me.
 
 ## Checks
 
+### File as a whole
+
 Checks performed on the *file as a whole*.
 
 1. The help options (-h, -?) must be present in the getopt string
@@ -24,8 +26,16 @@ Checks performed on the *file as a whole*.
 3. All options in the getopt string must be in long_options[].
 4. All options in the switch block must be in long_options[].
 
-Checks performed on each longform option (pulled from
-the helptext and long_options[]):
+While long_options[], the getopt string, and the switch block
+must have the same option set, the helptext is allowed to be
+missing some options (e.g. deprecated/developer-only options).
+
+Also -? should appear only in the getopt string and the switch block,
+and not in long_options[] or the helptext.
+
+### Each option separately
+
+Longform options are pulled from the helptext and long_options[]
 
 1. All longform options must be in long_options[]
 2. The long_options[] entry must be either `no_argument`
