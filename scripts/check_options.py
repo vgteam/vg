@@ -1,12 +1,84 @@
 """Check that command line options are correctly registered.
 
+## Summary
+
 Reads the options within the helptext (help_<command>() function),
 the long_options[] array, the getopt_long() string, and the switch(c)
 block, and checks that they are consistent with each other.
 
+There are a lot of rules; this script has *strong* opinions about how
+options should appear, though I've been flexible about valid
+variations. If something looks off, a detailed message will be
+printed to stdout. If that message doesn't make sense, something
+might've been ignored due to a wrong format, so check "Format".
+If it still doesn't make sense, ping me.
+
+## Checks
+
+Checks performed on the *file as a whole*.
+
+1. The help options (-h, -?) must be present in the getopt string
+   and the switch block, and must not take an argument. In the
+   switch block, they must crash.
+2. The default case in the switch block must crash.
+3. All options in the getopt string must be in long_options[].
+4. All options in the switch block must be in long_options[].
+
+Checks performed on each longform option (pulled from
+the helptext and long_options[]):
+
+1. All longform options must be in long_options[]
+2. The long_options[] entry must be either `no_argument`
+   or `required_argument`.
+3. The long_options[] entry must not have a numeric shortform.
+4. The long_options[] entry must match the helptext entry, both
+    in whether it takes an argument and in its shortform.
+5. If the longform option has a single-character shortform,
+   (i.e. not an ALL_CAPS variable name), it must be in the
+   getopt string, which must correctly indicate whether it
+   takes an argument via using a trailing colon.
+6. The long_options[] entry must match the switch block entry,
+   in whether it takes an argument.
+
+Note that only the first of these which fails will be printed,
+so if you see a message about a missing long_options[] entry,
+you may have to do multiple runs/fixes to see all the problems.
+
+## Format
+
+- helptext: within the `help_<command>()` function,
+  options must be printed with `<< "    -<short>, --<long> <arg>  <desc>`
+  (the description is ignored, and the shortform and argument are optional).
+  THe longform option must be composed of alphanumeric characters
+  and hyphens, and the argument must be in all-caps.
+
+- long_options[]: within the `long_options[]` array,
+  must be an array of `{"longform", arg_type, 0, shortform}`
+  where `arg_type` is either `no_argument` or `required_argument`.
+  The longform option must be a string, and the shortform
+  must be a single character or an ALL_CAPS variable name.
+
+- getopt_long() string: within the short option string,
+  a string of single-character shortform options.
+  If and only if a shortform option takes an argument,
+  it must be followed by a colon.
+
+- switch(c) block: within the switch block handling options,
+  each case must be of the form `case <shortform>:` or `default:`.
+  The shortform must be a single character or an ALL_CAPS variable name.
+  If the case takes an argument, it must use `optarg`.
+  If a case crashes or is otherwise deprecated, it may or may not
+  use `optarg`; I'm flexible about that.
+  Fallthroughs are handled.
+
+For all checks, commented-out lines are ignored.
+
+## Attribution
+
 The base of this script was written by ChatGPT.
 It has since been developed by @faithokamoto.
 """
+
 import os
 import re
 from typing import Dict, Optional
@@ -152,6 +224,13 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     Ignores all-zeros, which tends to end long_options[].
     Smart enough to ignore comments at the end of a line.
 
+    The argument type is either `no_argument` (False)
+    or `required_argument` (True). If the argument type is neither,
+    it is set to None, marking an unknown argument type.
+
+    Note that the shortform can be a number, which is
+    preserved as an integer, or an all-caps variable name.
+
     Parameters
     ----------
     text : str
@@ -203,7 +282,14 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                 if long_name == '0':
                     continue
 
-                takes_arg = (arg_type == 'required_argument')
+                if arg_type == 'no_argument':
+                    takes_arg = False
+                elif arg_type == 'required_argument':
+                    takes_arg = True
+                else:
+                    # Marker for an unknown argument type
+                    takes_arg = None
+
                 options[long_name] = OptionInfo(takes_arg, shortform)
                 all_shortforms.add(shortform)
     return options
@@ -281,6 +367,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     breaking cases on either a crash or a `break;`.
 
     Looks for whether each case uses `optarg` or not.
+    Crashes/deprecation are marked with None.
 
     Parameters
     ----------
@@ -431,28 +518,30 @@ def check_file(filepath: str):
         if longform not in long_opts:
             print(f"{filepath}: --{longform} is not in long_options[]")
             continue
-        elif long_opts[longform].shortform is None:
-            print(f"{filepath}: --{longform} is in long_options[] but has no "
-                  "shortform")
-            continue
 
         # Get the long_options[] entry, which is treated as truth
         cur_long = long_opts[longform]
         should_str = 'should' if cur_long.takes_argument else "shouldn't"
 
-        # Check 2: long_options[] don't use raw numbers
+        # Check 2: long_options uses only no_argument or required_argument
+        if cur_long.takes_argument is None:
+            print(f"{filepath}: --{longform} has an unknown argument type "
+                  "in long_options[]; use no_argument or required_argument")
+            continue
+
+        # Check 3: long_options[] don't use raw numbers
         if isinstance(cur_long.shortform, int):
             print(f"{filepath}: --{longform} has an int ({cur_long.shortform}) "
                   "in long_options[]; use a char or ALL_CAPS variable instead")
             continue
 
-        # Check 3: help vs long_options[]
+        # Check 4: help vs long_options[]
         if not cur_help.is_unset() and cur_help != cur_long:
             print(f"{filepath}: --{longform} has mismatch between helptext "
                   f"{cur_help} and long_options[] {cur_long}")
             continue
 
-        # Check 4: long_options[] vs getopt string
+        # Check 5: long_options[] vs getopt string
         # This check only runs for single-char shortforms
         if len(cur_long.shortform) == 1:
             if cur_long.shortform not in getopt_opts:
@@ -473,7 +562,7 @@ def check_file(filepath: str):
                       f"{should_str} have a : after it in getopt string")
                 continue
 
-        # Check 4: long_options[] vs switch
+        # Check 6: long_options[] vs switch
         if cur_long.shortform not in switch_opts:
             if 'giraffe_main' in filepath and longform in GIRAFFE_EXCEPTIONS:
                 # Giraffe exceptions are allowed to not have a switch
