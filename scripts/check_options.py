@@ -367,6 +367,13 @@ def check_file(filepath: str):
         elif getopt_opts[help_alias]:
             print(f"{filepath}: help alias -{help_alias} should not take an "
                   "argument")
+        
+        if help_alias not in switch_opts:
+            print(f"{filepath}: help alias -{help_alias} is missing from "
+                  "switch block")
+        elif switch_opts[help_alias]:
+            print(f"{filepath}: help alias -{help_alias} should not use "
+                  "optarg in switch block")
 
     # Check longform options between the four sources
     for longform in all_longform:
@@ -404,6 +411,7 @@ def check_file(filepath: str):
                       f"should be in getopt string")
                 continue
         
+            # Mark that this shortform has been used in getopts
             cur_getopt = getopt_opts.pop(cur_long.shortform)
             
             if cur_getopt is None:
@@ -422,7 +430,10 @@ def check_file(filepath: str):
                     "not used in the switch block")
             continue
 
-        if cur_long.takes_argument != switch_opts[cur_long.shortform]:
+        # Mark that this shortform has been used in the switch block
+        cur_switch = switch_opts.pop(cur_long.shortform)
+
+        if cur_long.takes_argument != cur_switch:
             print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
             continue
@@ -434,6 +445,12 @@ def check_file(filepath: str):
     if getopt_opts:
         print(f"{filepath}: getopt string has options not in long_options[]: "
               f"{', '.join(getopt_opts)}")
+    
+    if '?' in switch_opts:
+        switch_opts.pop('?')
+    if switch_opts:
+        print(f"{filepath}: switch block has options not in long_options[]: "
+              f"{', '.join(switch_opts)}")
 
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
