@@ -12,7 +12,11 @@ import re
 from typing import Dict, Optional
 from dataclasses import dataclass
 
+SUBCOMMAND_DIR = 'src/subcommand'
+# Some subcommand files have a different format
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
+# Some giraffe arguments are processed outside of the switch block
+# (at least I think so? I'm not entirely sure)
 GIRAFFE_EXCEPTIONS = {'max-multimaps', 'batch-size'}
 
 @dataclass
@@ -261,7 +265,7 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
             i += 1
     return options
 
-def extract_switch_optarg(text: str) -> dict:
+def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     """Compile optarg usage within switch(c) block.
 
     Looks within the switch block handling options,
@@ -281,15 +285,17 @@ def extract_switch_optarg(text: str) -> dict:
 
     Returns
     -------
-    Dict[str, bool]
+    Dict[str, Optional[bool]]
         A dictionary mapping shortform names to
         whether they use optarg (i.e. take an argument).
+        If the case crashes, it is set to None.
     """
 
     optarg_usage = {}
+    inside_switch = False
+    # Current cases being processed
     current_cases = []
     has_optarg = False
-    inside_switch = False
 
     def set_optarg_usage(cases: list[str], usage: Optional[bool]):
         """Set optarg usage for a list of cases."""
@@ -327,12 +333,16 @@ def extract_switch_optarg(text: str) -> dict:
             if has_optarg:
                 set_optarg_usage(current_cases, True)
             
-            stripped = stripped.split('//')[0].strip()  # Remove comments
+            # Remove comments
+            stripped = stripped.split('//')[0].strip() 
             case_value = case_match.group(1)
+
             if case_value.startswith("'") and case_value.endswith("'"):
+                # Single-character variable
                 case_key = case_value.strip("'")
             else:
-                case_key = case_value  # All-caps variable
+                # All-caps variable
+                case_key = case_value
             current_cases.append(case_key)
             continue
 
@@ -356,13 +366,22 @@ def extract_switch_optarg(text: str) -> dict:
     return optarg_usage
 
 def check_file(filepath: str):
+    """Run all consistency checks on a single file.
+    
+    Any problems are printed to stdout.
+    See file docstring for details.
+
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
     """
-    Check consistency of options in a single _main.cpp file.
-    Returns list of problematic long options.
-    """
+
+    # Save file contents
     with open(filepath) as f:
         text = f.read()
 
+    # Process whole file four times to look up four option sets
     help_opts = extract_help_options(text)
     long_opts = extract_long_options(text)
     getopt_opts = extract_getopt_string(text)
@@ -403,22 +422,23 @@ def check_file(filepath: str):
                   "shortform")
             continue
 
+        # Get the long_options[] entry, which is treated as truth
         cur_long = long_opts[longform]
         should_str = 'should' if cur_long.takes_argument else "shouldn't"
 
-        # Check 1: long_options[] don't use raw numbers
+        # Check 2: long_options[] don't use raw numbers
         if isinstance(cur_long.shortform, int):
             print(f"{filepath}: --{longform} has an int ({cur_long.shortform}) "
                   "in long_options[]; use a char or ALL_CAPS variable instead")
             continue
 
-        # Check 2: help vs long_options[]
+        # Check 3: help vs long_options[]
         if not cur_help.is_unset() and cur_help != cur_long:
             print(f"{filepath}: --{longform} has mismatch between helptext "
                   f"{cur_help} and long_options[] {cur_long}")
             continue
 
-        # Check 3: long_options[] vs getopt string
+        # Check 4: long_options[] vs getopt string
         # This check only runs for single-char shortforms
         if len(cur_long.shortform) == 1:
             if cur_long.shortform not in getopt_opts:
@@ -464,6 +484,7 @@ def check_file(filepath: str):
         print(f"{filepath}: getopt string has options not in long_options[]: "
               f"{', '.join(getopt_opts)}")
     
+    # Similarly for switch block
     if '?' in switch_opts:
         switch_opts.pop('?')
     if switch_opts:
@@ -471,11 +492,7 @@ def check_file(filepath: str):
               f"{', '.join(switch_opts)}")
 
 if __name__ == "__main__":
-    subcommand_dir = 'src/subcommand'
-    # Some subcommand files have a different format
-    ignore_files = SKIP_FILES
-    for fname in os.listdir(subcommand_dir):
-        if not fname.endswith('_main.cpp') or fname in ignore_files:
+    for fname in os.listdir(SUBCOMMAND_DIR):
+        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
             continue
-        fpath = os.path.join(subcommand_dir, fname)
-        problems = check_file(fpath)
+        problems = check_file(os.path.join(SUBCOMMAND_DIR, fname))
