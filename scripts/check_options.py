@@ -12,6 +12,9 @@ import re
 from typing import Dict, Optional
 from dataclasses import dataclass
 
+SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
+GIRAFFE_EXCEPTIONS = {'max-multimaps', 'batch-size'}
+
 @dataclass
 class OptionInfo:
     """Information about a command line option."""
@@ -438,6 +441,9 @@ def check_file(filepath: str):
 
         # Check 4: long_options[] vs switch
         if cur_long.shortform not in switch_opts:
+            if 'giraffe_main' in filepath and longform in GIRAFFE_EXCEPTIONS:
+                # Giraffe exceptions are allowed to not have a switch
+                continue
             print(f"{filepath}: --{longform}'s -{cur_long.shortform} is "
                     "not used in the switch block")
             continue
@@ -467,7 +473,7 @@ def check_file(filepath: str):
 if __name__ == "__main__":
     subcommand_dir = 'src/subcommand'
     # Some subcommand files have a different format
-    ignore_files = {'test_main.cpp', 'help_main.cpp'}
+    ignore_files = SKIP_FILES
     for fname in os.listdir(subcommand_dir):
         if not fname.endswith('_main.cpp') or fname in ignore_files:
             continue
