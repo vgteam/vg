@@ -13,11 +13,15 @@ from typing import Dict, Optional
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
-# Some subcommand files have a different format
+"""Where to search for subcommand files."""
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
+"""Files to skip in the consistency check."""
 # Some giraffe arguments are processed outside of the switch block
 # (at least I think so? I'm not entirely sure)
 GIRAFFE_EXCEPTIONS = {'max-multimaps', 'batch-size'}
+"""Options for giraffe_main.cpp that are not in the switch block."""
+CRASHES = {'exit', 'return', 'deprecated', 'abort', 'throw'}
+"""Keywords that indicate a crash/deprecation in the switch block."""
 
 @dataclass
 class OptionInfo:
@@ -274,7 +278,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     (i.e. nested curly braces are handled correctly)
 
     Ignores lines with comments. Handles fallthroughs,
-    breaking cases on either a return or a `break;`.
+    breaking cases on either a crash or a `break;`.
 
     Looks for whether each case uses `optarg` or not.
 
@@ -327,7 +331,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
 
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
-        if case_match:
+        if case_match or stripped == 'default:':
             # Flush old cases to avoid optarg
             # being present after fallthrough
             if has_optarg:
@@ -335,7 +339,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
             
             # Remove comments
             stripped = stripped.split('//')[0].strip() 
-            case_value = case_match.group(1)
+            case_value = case_match.group(1) if case_match else 'default'
 
             if case_value.startswith("'") and case_value.endswith("'"):
                 # Single-character variable
@@ -350,8 +354,8 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         has_optarg = has_optarg or 'optarg' in stripped
 
         # On crash/deprecation, flush the current case group
-        if (('return' in stripped or 'exit(' in stripped 
-             or 'deprecated' in stripped) and curly_brace_nesting == 0):
+        if (any(keyword in stripped for keyword in CRASHES)
+            and curly_brace_nesting == 0):
             # None is a marker for a crash
             set_optarg_usage(current_cases, None)
 
@@ -389,7 +393,7 @@ def check_file(filepath: str):
 
     all_longform = set(help_opts) | set(long_opts)
 
-    # Confirm that the help options are present
+    # Overall check 1: are help options present?
     for help_alias in ['?', 'h']:
         if help_alias not in getopt_opts:
             print(f"{filepath}: help alias -{help_alias} is missing from "
@@ -408,6 +412,16 @@ def check_file(filepath: str):
         # Change help alias to be non-argument instead of crash
         # in order to match long_options[]
         switch_opts[help_alias] = False
+    
+    # Overall check 2: does the default case crash?
+    if 'default' not in switch_opts:
+        print(f"{filepath}: switch block is missing a default case")
+    else:
+        if switch_opts['default'] is not None:
+            print(f"{filepath}: switch block's default case should crash")
+        
+        # Get rid of default once it's checked; will appear nowhere else
+        switch_opts.pop('default')
 
     # Check longform options between the four sources
     for longform in all_longform:
@@ -476,19 +490,19 @@ def check_file(filepath: str):
                     f"{should_str} use optarg")
             continue
     
-    # getopt is allowed to have ? as a help alias
+    # Overall check 3: getopt is allowed to have ?
     # without that being in long_options[]
     if '?' in getopt_opts:
         getopt_opts.pop('?')
     if getopt_opts:
-        print(f"{filepath}: getopt string has options not in long_options[]: "
+        print(f"{filepath}: getopt string has option(s) not in long_options[]: "
               f"{', '.join(getopt_opts)}")
     
-    # Similarly for switch block
+    # Overall check 4: similarly for switch block
     if '?' in switch_opts:
         switch_opts.pop('?')
     if switch_opts:
-        print(f"{filepath}: switch block has options not in long_options[]: "
+        print(f"{filepath}: switch block has option(s) not in long_options[]: "
               f"{', '.join(switch_opts)}")
 
 if __name__ == "__main__":
