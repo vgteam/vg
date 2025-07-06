@@ -17,6 +17,16 @@ If it still doesn't make sense, ping me.
 
 ### File as a whole
 
+The file is processed four times in an attempt to extract
+the four option sets: helptext, long_options[], getopt_long() string,
+and switch(c) block. If any of these processes run into completely
+unusable formatting, such as some cases of duplicate options that
+simply can't be stored in my data structures, a ValueError is raised
+and printed to stdout. No other checks are performed.
+
+If you get one of these errors, then, you might have to
+fix multiple things in the file before the script can run well.
+
 Checks performed on the *file as a whole*.
 
 1. The help options (-h, -?) must be present in the getopt string
@@ -82,11 +92,10 @@ you may have to do multiple runs/fixes to see all the problems.
   use `optarg`; I'm flexible about that. Fallthroughs are handled.
 
 For all checks, commented-out lines are ignored.
+(Though multiline comments aren't handled correctly.)
 
 ## TODO
 
-- Raise exceptions about completely out-of-bounds stuff, such as
-  duplicate longform options
 - Check that all helptext lines are no more than 80 characters
 - Check that all helptext lines are indented with 2 spaces
 - Check that all helptext descriptions are separated from the
@@ -168,7 +177,12 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     Returns
     -------
     Dict[str, OptionInfo]
-        A dictionary mapping long option names to OptionInfo
+        A dictionary mapping long option names to OptionInfo.
+    
+    Raises
+    ------
+    ValueError
+        Gross formatting issues, such as duplicate longform options.
     """
 
     help_opts = dict()
@@ -191,6 +205,15 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
     inside_help = False
     curly_brace_nesting = 0
+
+    def save_option(shortform: Optional[str | int], 
+                    longform: str, takes_arg: bool) -> None:
+        """Helper function to save an option."""
+        if longform not in help_opts:
+            help_opts[longform] = OptionInfo(takes_arg, shortform)
+        else:
+            raise ValueError(f"Duplicate longform option '{longform}' found in "
+                                "helptext")
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -216,18 +239,14 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
         if match:
-            shortform = match.group(1)[1]
-            longform = match.group(2)[2:]
-            takes_arg = match.group(3) is not None
-            help_opts[longform] = OptionInfo(takes_arg, shortform)
+            save_option(match.group(1)[1], match.group(2)[2:],
+                        match.group(3) is not None)
             continue
 
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
-            longform = match.group(1)[2:]
-            takes_arg = match.group(2) is not None
-            help_opts[longform] = OptionInfo(takes_arg)
+            save_option(None, match.group(1)[2:], match.group(2) is not None)
 
     return help_opts
 
@@ -262,7 +281,12 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     Returns
     -------
     Dict[str, OptionInfo]
-        A dictionary mapping long option names to OptionInfo
+        A dictionary mapping long option names to OptionInfo.
+    
+    Raises
+    ------
+    ValueError
+        Gross formatting issues, such as duplicate longform options.
     """
 
     options = dict()
@@ -286,9 +310,13 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
             parts = stripped.split('//')[0].strip('{} \t,\n').split(',')
 
             if len(parts) == 4:
-                long_name = parts[0].strip().strip('"')
+                longform = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
                 shortform = parts[3].strip()
+
+                if longform in options:
+                    raise ValueError(f"Duplicate longform option '{longform}' "
+                                     "found in long_options[]")
 
                 try:
                     # Keep shortform as a number if it is one
@@ -302,7 +330,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                     continue
 
                 # Ignore placeholder line with all zeros
-                if long_name == '0':
+                if longform == '0':
                     continue
 
                 if arg_type == 'no_argument':
@@ -313,7 +341,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                     # Marker for an unknown argument type
                     takes_arg = None
 
-                options[long_name] = OptionInfo(takes_arg, shortform)
+                options[longform] = OptionInfo(takes_arg, shortform)
                 all_shortforms.add(shortform)
     return options
 
@@ -403,9 +431,15 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         A dictionary mapping shortform names to
         whether they use optarg (i.e. take an argument).
         If the case crashes, it is set to None.
+
+    Raises
+    ------
+    ValueError
+        Gross formatting issues, such as duplicate longform options.
     """
 
-    optarg_usage = {}
+    optarg_usage = dict()
+    shortforms = set()
     inside_switch = False
     # Current cases being processed
     current_cases = []
@@ -414,6 +448,10 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     def set_optarg_usage(cases: list[str], usage: Optional[bool]):
         """Set optarg usage for a list of cases."""
         for case in cases:
+            if case in shortforms:
+                raise ValueError(f"Duplicate shortform option '{case}' found "
+                                 "in switch block")
+            shortforms.add(case)
             optarg_usage[case] = usage
 
         # Reset the current cases and optarg usage
@@ -479,7 +517,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
 
     return optarg_usage
 
-def check_file(filepath: str):
+def check_file(filepath: str) -> None:
     """Run all consistency checks on a single file.
     
     Any problems are printed to stdout.
@@ -496,10 +534,14 @@ def check_file(filepath: str):
         text = f.read()
 
     # Process whole file four times to look up four option sets
-    help_opts = extract_help_options(text)
-    long_opts = extract_long_options(text)
-    getopt_opts = extract_getopt_string(text)
-    switch_opts = extract_switch_optarg(text)
+    try:
+        help_opts = extract_help_options(text)
+        long_opts = extract_long_options(text)
+        getopt_opts = extract_getopt_string(text)
+        switch_opts = extract_switch_optarg(text)
+    except ValueError as e:
+        print(f"{filepath}: {e}")
+        return
 
     all_longform = set(help_opts) | set(long_opts)
 

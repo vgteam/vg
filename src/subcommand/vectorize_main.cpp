@@ -101,28 +101,37 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
-
- /*           case '?':
-            case 'h':
-                help_vectorize(argv);
-                return 1;
-            case 'x':
-                xg_name = optarg;
-                break;
-            case 'a':
-                a_hot = true;
-                break;
-            case 'w':
-                output_wabbit = true;
-                break; */
             case 'l':
                 aln_label = optarg;
                 break;
             case 'r':
                 read_file = optarg;
                 break;
-                /*
-
+            case '?':
+            case 'h':
+                help_vectorize(argv);
+                return 1;
+            case 'x':
+                xg_name = optarg;
+                break;
+            case 'g':
+                gcsa_name = optarg;
+                break;
+            case 'm':
+                mem_sketch = true;
+                break;
+            case 'p':
+                mem_positions = true;
+                break;
+            case 'H':
+                mem_hit_max = parse<int>(optarg);
+                break;
+            case 'a':
+                a_hot = true;
+                break;
+            case 'w':
+                output_wabbit = true;
+                break;
             case 'i':
                 use_identity_hot = true;
                 break;
@@ -133,50 +142,11 @@ int main_vectorize(int argc, char** argv){
                 annotate = true;
                 format = true;
                 break;
+            case 'M':
+                wabbit_mapping_file = optarg;
+                break;
             default:
                 abort();
-*/
-
-        case '?':
-        case 'h':
-            help_vectorize(argv);
-            return 1;
-        case 'x':
-            xg_name = optarg;
-            break;
-        case 'g':
-            gcsa_name = optarg;
-            break;
-        case 'm':
-            mem_sketch = true;
-            break;
-        case 'p':
-            mem_positions = true;
-            break;
-        case 'H':
-            mem_hit_max = parse<int>(optarg);
-            break;
-        case 'a':
-            a_hot = true;
-            break;
-        case 'w':
-            output_wabbit = true;
-            break;
-        case 'i':
-            use_identity_hot = true;
-            break;
-        case 'f':
-            format = true;
-            break;
-        case 'A':
-            annotate = true;
-            format = true;
-            break;
-        case 'M':
-            wabbit_mapping_file = optarg;
-            break;
-        default:
-            abort();
         }
     }
 

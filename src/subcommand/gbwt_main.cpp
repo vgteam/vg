@@ -288,7 +288,6 @@ void help_gbwt(char** argv) {
     std::cerr << "        --path-fields X     parse metadata as haplotypes, mapping regex submatches to these fields instead of using vg-parser-compatible rules" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
-    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -I, --gg-in FILE        load GBWTGraph from FILE and GBWT from input (one input arg) " << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
