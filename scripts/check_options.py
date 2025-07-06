@@ -67,7 +67,7 @@ you may have to do multiple runs/fixes to see all the problems.
 ## Format
 
 - helptext: within the `help_<command>()` function,
-  options must be printed with `<< "    -<short>, --<long> <arg>  <desc>`
+  options must be printed with `"  -<short>, --<long> <arg>  <desc>"`
   (the description is ignored, and the shortform and argument are optional).
   The longform option must be composed of alphanumeric characters
   and hyphens, and the argument must be in all-caps.
@@ -97,10 +97,14 @@ For all checks, commented-out lines are ignored.
 ## TODO
 
 - Check that all helptext lines are no more than 80 characters
-- Check that all helptext lines are indented with 2 spaces
-- Check that all helptext descriptions are separated from the
-  option name or argument by at least 2 spaces
 - Check that all helptext descriptions start at the same column
+- Check that the second line of getopt_long()'s arguments matches up
+- Check that the order of options in the helptext
+  matches the order in long_options[] and getopt_long() string
+- Require "usage" line in helptext
+- Require "options" line in helptext
+- Check that long option names all line up
+- Require helptext to have a "help" option
 
 ## Attribution
 
@@ -118,6 +122,8 @@ SUBCOMMAND_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
 """Files to skip in the consistency check."""
+ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
+"""annotate_main.cpp lets these appear twice in helptext."""
 # Some giraffe arguments are processed outside of the switch block
 # (at least I think so? I'm not entirely sure)
 GIRAFFE_EXCEPTIONS = {'max-multimaps', 'batch-size'}
@@ -158,8 +164,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
     Ignores lines with comments.
 
-    Looks for `<< "    -<short>, --<long> <arg>  <desc>`
-    (well actually it ignores the description)
+    Looks for `"  -<short>, --<long> <arg>  <desc>"`
     The shortform option is optional, as is the argument.
 
     If the shortform option is present, it must be followed by
@@ -186,21 +191,27 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     """
 
     help_opts = dict()
-    # Match the line's prefix, which is `<< "    `
-    prefix = r'<< "\s+'
+    # Match the line's prefix, which should be two spaces
+    prefix = r'\s+'
     # Match a shortform option: `-<short`
-    shortform_patten = r'-[^\w]'
+    shortform_patten = r'-[\w]'
     # Match a longform option: `--<long>`
     longform_patten = r'--[a-zA-Z0-9\-]+'
-    # Match an optional argument in all-caps
-    arg_pattern = r'[A-Z_,]+'
+    # Match an optional argument in all-caps, with a preceeding space
+    arg_pattern = r'\s[A-Z_\-=:.,;\[\]]+'
+    # Match the rest of the description
+    desc_pattern = r'\s+.+'
+
+    # Certain exceptions can only be used in annotate_main.cpp
+    is_annotate = 'help_annotate' in text
 
     help_pattern = re.compile(
-        rf'{prefix}({shortform_patten}),\s({longform_patten})\s({arg_pattern})?'
+        rf'"({prefix})({shortform_patten}),\s({longform_patten})'
+        rf'({arg_pattern})?({desc_pattern})"'
         )
     # Same pattern but without the shortform option
     long_only_pattern = re.compile(
-        rf'{prefix}({longform_patten})\s({arg_pattern})?'
+        rf'"({prefix})({longform_patten})({arg_pattern})?({desc_pattern})"'
         )
 
     inside_help = False
@@ -211,7 +222,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         """Helper function to save an option."""
         if longform not in help_opts:
             help_opts[longform] = OptionInfo(takes_arg, shortform)
-        else:
+        elif not (is_annotate and longform in ANNOTATE_EXCEPTIONS):
             raise ValueError(f"Duplicate longform option '{longform}' found in "
                                 "helptext")
 
@@ -239,14 +250,27 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
         if match:
-            save_option(match.group(1)[1], match.group(2)[2:],
-                        match.group(3) is not None)
+            if len(match.group(1)) != 2:
+                raise ValueError(f"Help option line '{stripped}' "
+                                 "does not start with two spaces")
+            if not match.group(5).startswith('  '):
+                raise ValueError(f"Help option line '{stripped}' "
+                                 "has less than two spaces between option "
+                                 "and description")
+            save_option(match.group(2)[1], match.group(3)[2:],
+                        match.group(4) is not None)
             continue
 
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
-            save_option(None, match.group(1)[2:], match.group(2) is not None)
+            # long-only pattern allowed to have extra spaces at the start
+            # as that might be to line up all the longforms
+            if not match.group(4).startswith('  '):
+                raise ValueError(f"Help option line '{stripped}' "
+                                 "has less than two spaces between option "
+                                 "and description")
+            save_option(None, match.group(2)[2:], match.group(3) is not None)
 
     return help_opts
 
