@@ -63,7 +63,7 @@ int main_translate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:o:l:",
+        c = getopt_long (argc, argv, "h?p:m:P:a:o:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.

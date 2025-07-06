@@ -50,7 +50,7 @@ void help_view(char** argv) {
 
          << "    -t, --turtle               output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -T, --turtle-in            input turtle format." << endl
-         << "    -r, --rdf_base_uri         set base uri for the RDF output" << endl
+         << "    -r, --rdf-base-uri URI     set base uri for the RDF output" << endl
 
          << "    -a, --align-in             input GAM format, or JSON version of GAM format" << endl
          << "    -A, --aln-graph GAM        add alignments from GAM to the graph" << endl
@@ -190,7 +190,7 @@ int main_view(int argc, char** argv) {
                 {"ultra-label", no_argument, 0, 'Y'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
-                {"loci", no_argument, 0, 'Q'},
+                {"loci", required_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
                 {"distance-in", no_argument, 0, 'B'},
                 {"snarl-in", no_argument, 0, 'R'},
@@ -203,11 +203,12 @@ int main_view(int argc, char** argv) {
                 {"multipath-in", no_argument, 0, 'K'},
                 {"ascii-labels", no_argument, 0, 'e'},
                 {"threads", required_argument, 0, '7'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SuCZYmqQ:zXBREDx:kKe7:",
+        c = getopt_long (argc, argv, "dgFjJh?vVpaGbifA:s:wnlLIMcTtr:SuCZYmqQ:zXBREDx:kKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */

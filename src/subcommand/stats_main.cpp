@@ -67,7 +67,7 @@ void help_stats(char** argv) {
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
          << "        --snarl-contents  print out a table of <snarl, depth, parent, contained node ids>" << endl
-         << "        --snarl-sample    print out reference coordinates on given sample" << endl
+         << "        --snarl-sample NAME  print out reference coordinates on given sample" << endl
          << "    -C, --chains          print statistics for each chain" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
@@ -117,8 +117,8 @@ int main_stats(int argc, char** argv) {
     string distance_index_filename;
 
     // Long options with no corresponding short options.
-    constexpr int OPT_SNARL_CONTENTS = 1000;
-    constexpr int OPT_SNARL_SAMPLE = 1001;
+    #define OPT_SNARL_CONTENTS 1000
+    #define OPT_SNARL_SAMPLE 1001
     constexpr int64_t snarl_search_context = 100;
 
     int c;
@@ -135,6 +135,7 @@ int main_stats(int argc, char** argv) {
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
             {"nondeterm", no_argument, 0, 'e'},
+            {"show-siblings", no_argument, 0, 'S'},
             {"help", no_argument, 0, 'h'},
             {"components", no_argument, 0, 'c'},
             {"to-head", no_argument, 0, 'd'},
@@ -144,7 +145,7 @@ int main_stats(int argc, char** argv) {
             {"is-acyclic", no_argument, 0, 'A'},
             {"node-id-range", no_argument, 0, 'r'},
             {"verbose", no_argument, 0, 'v'},
-            {"overlap", no_argument, 0, 'o'},
+            {"overlap", required_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
             {"snarl-contents", no_argument, 0, OPT_SNARL_CONTENTS},
@@ -159,7 +160,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vPAro:ORCFDb:p:",
+        c = getopt_long (argc, argv, "h?zlLsHTeScdtn:NEa:vPAro:ORCFDb:p:",
                 long_options, &option_index);
 
         // Detect the end of the options.

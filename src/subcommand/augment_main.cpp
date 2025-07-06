@@ -148,7 +148,7 @@ int main_augment(int argc, char** argv) {
         {"edges-only", no_argument, 0, 'E'},
         {"gaf", no_argument, 0, 'F'},
         {"help", no_argument, 0, 'h'},
-        {"progress", required_argument, 0, 'p'},
+        {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
         // Loci Options
@@ -156,7 +156,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:EF";
+    static const char* short_options = "a:Z:A:iCSBh?pvt:l:L:sm:c:q:Q:N:EF";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser

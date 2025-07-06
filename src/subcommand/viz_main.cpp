@@ -57,13 +57,13 @@ int main_viz(int argc, char** argv) {
             {"height", required_argument, 0, 'Y'},
             {"out", required_argument, 0, 'o'},
             {"scale", required_argument, 0, 's'},
-            {"hide-cnv", no_argument, 0, 'C'},
+            {"show-cnv", no_argument, 0, 'C'},
             {"hide-dna", no_argument, 0, 'D'},
             {"hide-paths", no_argument, 0, 'P'},
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:CDP",
+        c = getopt_long (argc, argv, "h?x:i:n:o:X:Y:s:CDP",
                 long_options, &option_index);
 
         // Detect the end of the options.

@@ -178,15 +178,15 @@ int main_surject(int argc, char** argv) {
             {"max-frag-len", required_argument, 0, 'f'},
             {"list-all-paths", no_argument, 0, 'L'},
             {"graph-aln", no_argument, 0, 'H'},
-            {"compress", required_argument, 0, 'C'},
-            {"no-validate", required_argument, 0, 'V'},
+            {"compression", required_argument, 0, 'C'},
+            {"no-validate", no_argument, 0, 'V'},
             {"watchdog-timeout", required_argument, 0, 'w'},
             {"progress", no_argument, 0, 'r'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LHMVw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.

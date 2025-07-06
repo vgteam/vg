@@ -90,7 +90,7 @@ int main_gamsort(int argc, char **argv)
             { 0, 0, 0, 0 }
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:bh", long_options, &option_index);
+        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:bh?", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

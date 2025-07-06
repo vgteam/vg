@@ -119,10 +119,10 @@ int main_find(int argc, char** argv) {
     int subgraph_k = 0;
     string gbwt_name;
 
-    constexpr int OPT_MAPPING = 1000;
-    constexpr int OPT_CONNECTING_START = 1001;
-    constexpr int OPT_CONNECTING_END = 1002;
-    constexpr int OPT_CONNECTING_RANGE = 1003;
+    #define OPT_MAPPING 1000
+    #define OPT_CONNECTING_START 1001
+    #define OPT_CONNECTING_END 1002
+    #define OPT_CONNECTING_RANGE 1003
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -165,11 +165,12 @@ int main_find(int argc, char** argv) {
                 {"list-paths", no_argument, 0, 'I'},
                 {"subgraph-k", required_argument, 0, 'K'},
                 {"gbwt", required_argument, 0, 'H'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "x:n:e:s:o:hc:LS:p:P:r:l:F:mg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
+        c = getopt_long (argc, argv, "x:n:e:s:o:h?c:LS:p:P:r:l:F:mg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
                          long_options, &option_index);
 
         // Detect the end of the options.

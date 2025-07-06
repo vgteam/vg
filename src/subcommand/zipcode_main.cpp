@@ -77,7 +77,7 @@ int main_zipcode(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:d:c:t:",
+        c = getopt_long (argc, argv, "h?x:g:m:d:c:t:",
                          long_options, &option_index);
 
 

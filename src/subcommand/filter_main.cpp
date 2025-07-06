@@ -66,7 +66,7 @@ void help_filter(char** argv) {
          << "    -c, --correctly-mapped     keep only reads that are marked as correctly-mapped" << endl
          << "    -l, --first-alignment      keep only the first alignment for each read. Must be run with 1 thread" << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
-         << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
+         << "    -B, --batch-size N         work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
          << "    -t, --threads N            number of threads [1]" << endl
          << "        --progress             show progress" << endl;
 }
@@ -151,8 +151,8 @@ int main_filter(int argc, char** argv) {
                 {"min-primary", required_argument, 0, 'r'},
                 {"max-length", required_argument, 0, 'L'},
                 {"rescore", no_argument, 0, 'O'},
-                {"frac-score", required_argument, 0, 'f'},
-                {"substitutions", required_argument, 0, 'u'},
+                {"frac-score", no_argument, 0, 'f'},
+                {"substitutions", no_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -176,11 +176,12 @@ int main_filter(int argc, char** argv) {
                 {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
                 {"progress", no_argument, 0, OPT_PROGRESS},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Od:fauo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Ofuo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -269,6 +270,7 @@ int main_filter(int argc, char** argv) {
             break;            
         case 'S':
             drop_split = true;
+            break;
         case 'x':
             xg_name = optarg;
             break;

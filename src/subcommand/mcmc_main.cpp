@@ -34,7 +34,7 @@ void help_mcmc(char** argv) {
     << "  -i, --iteration-number INT        tells us the number of iterations to run mcmc_genotyper with" <<endl
     << "  -r, --seed INT                    the seed we will use for the random number generator " << endl
     << "  -s, --sample NAME                 sample name [default=SAMPLE]" << endl
-    << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
+    << "  -p, --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
     << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
     << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl
     << "  -v, --vcf-out FILE                write VCF output to this file" << endl
@@ -82,7 +82,7 @@ int main_mcmc(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:p:o:l:r:v:b:g:",
+        c = getopt_long (argc, argv, "h?i:s:p:o:l:r:v:b:g:",
                          long_options, &option_index);
 
 

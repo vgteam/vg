@@ -57,7 +57,7 @@ void help_index(char** argv) {
          << "vg in-place indexing options:" << endl
          << "    --index-sorted-vg         input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
-         << "    -j  --dist-name FILE      use this file to store a snarl-based distance index" << endl
+         << "    -j, --dist-name FILE      use this file to store a snarl-based distance index" << endl
          << "        --snarl-limit N       don't store snarl distances for snarls with more than N nodes (default 10000)" << endl
          << "                              if N is 0 then don't store distances, only the snarl tree" << endl
          << "        --no-nested-distance  only store distances along the top-level chain" << endl;
@@ -116,10 +116,10 @@ int main_index(int argc, char** argv) {
             {"temp-dir", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
+            {"help",  no_argument, 0, 'h'},
 
             // XG
             {"xg-name", required_argument, 0, 'x'},
-            {"thread-db", required_argument, 0, 'F'},
             {"xg-alts", no_argument, 0, 'L'},
 
             // GBWT. These have been removed and will return an error.
@@ -164,8 +164,8 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h?",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

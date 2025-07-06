@@ -32,7 +32,7 @@ void help_gamcompare(char** argv) {
          << "    -I, --ignore T             ignore the given truth contig name (may repeat)" << endl
          << "    -o, --output-gam FILE      output GAM annotated with correctness to FILE instead of standard output" << endl
          << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R to standard output" << endl
-         << "    -a, --aligner              aligner name for TSV output [\"vg\"]" << endl
+         << "    -a, --aligner STR          aligner name for TSV output [\"vg\"]" << endl
          << "    -s, --score-alignment      get a correctness score of the alignment (higher is better)" << endl
          << "    -t, --threads N            number of threads to use" << endl;
 }
@@ -125,7 +125,7 @@ int main_gamcompare(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:r:I:n:o:Ta:st:",
+        c = getopt_long (argc, argv, "h?d:r:I:n:o:Ta:st:",
                          long_options, &option_index);
 
         // Detect the end of the options.

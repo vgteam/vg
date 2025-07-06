@@ -36,13 +36,13 @@ void help_construct(char** argv) {
          << "    -S, --handle-sv        include structural variants in construction of graph." << endl
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
-         << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "    -f, --flat-alts        don't chop up alternate alleles from input VCF" << endl
          << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
          << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
          << "    -N, --in-memory        construct the entire graph in memory before outputting it." <<endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
-         << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
+         << "    -F, --msa-format STR   format of the MSA file (options: fasta, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
          << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
@@ -102,6 +102,7 @@ int main_construct(int argc, char** argv) {
                 {"parse-max", required_argument, 0, 'l'},
                 {"no-trim-indels", no_argument, 0, 'i'},
                 {"in-memory", no_argument, 0, 'N'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 

@@ -27,11 +27,11 @@ void help_circularize(char** argv){
         << "Makes specific paths or nodes in a graph circular." << endl
         << endl
         << "options:" << endl
-        << "    -p  --path  <PATHNAME>  circularize the path by connecting its head/tail node." << endl
-        << "    -P, --pathfile <PATHSFILE> circularize all paths in the provided file." << endl
-        << "    -a, --head  <node_id>   circularize a head and tail node (must provide a tail)." << endl
-        << "    -z, --tail  <tail_id>   circularize a head and tail node (must provide a head)." << endl
-        << "    -d  --describe          list all the paths in the graph."   << endl
+        << "    -p, --path NAME         circularize the path by connecting its head/tail node." << endl
+        << "    -P, --pathfile FILE     circularize all paths in the provided file." << endl
+        << "    -a, --head ID           circularize a head and tail node (must provide a tail)." << endl
+        << "    -z, --tail ID           circularize a head and tail node (must provide a head)." << endl
+        << "    -d, --describe          list all the paths in the graph."   << endl
         << endl;
     exit(1);
 }
@@ -54,17 +54,18 @@ int main_circularize(int argc, char** argv){
     while (true){
         static struct option long_options[] =
         {
+            {"help", no_argument, 0, 'h'},
             {"path", required_argument, 0, 'p'},
             {"pathfile", required_argument, 0, 'P'},
             {"head", required_argument, 0, 'a'},
             {"tail", required_argument, 0, 'z'},
-            {"describe", required_argument, 0, 'd'},
+            {"describe", no_argument, 0, 'd'},
             {0,0,0,0}
         };
 
 
     int option_index = 0;
-    c = getopt_long (argc, argv, "hdp:P:a:z:",
+    c = getopt_long (argc, argv, "h?dp:P:a:z:",
             long_options, &option_index);
     if (c == -1){
         break;

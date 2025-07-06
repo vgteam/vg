@@ -183,7 +183,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:e:s:M:Pruvx:g:m:apt:dh", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:e:s:M:Pruvxg:m:apt:dh?", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)

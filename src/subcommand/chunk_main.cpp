@@ -83,7 +83,7 @@ void help_chunk(char** argv) {
          << "    --no-embedded-haplotypes don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
          << "    -u, --cut-alignments     cut alignments to be fully contained within the chunk" << endl
-         << "    -O, --output-fmt         specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
+         << "    -O, --output-fmt STR     specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -166,7 +166,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tfut:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "h?x:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tfut:n:l:m:CMO:",
                 long_options, &option_index);
 
 

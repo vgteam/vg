@@ -129,7 +129,7 @@ int main_cluster(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:fg:G:B:m:ld:p:c:C:a:SF:U:b:D:z:Zt:",
+        c = getopt_long (argc, argv, "h?x:fg:G:B:m:ld:p:c:C:a:SF:U:b:D:z:Zt:",
                          long_options, &option_index);
 
 

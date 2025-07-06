@@ -59,7 +59,7 @@ you may have to do multiple runs/fixes to see all the problems.
 - helptext: within the `help_<command>()` function,
   options must be printed with `<< "    -<short>, --<long> <arg>  <desc>`
   (the description is ignored, and the shortform and argument are optional).
-  THe longform option must be composed of alphanumeric characters
+  The longform option must be composed of alphanumeric characters
   and hyphens, and the argument must be in all-caps.
 
 - long_options[]: within the `long_options[]` array,
@@ -67,6 +67,7 @@ you may have to do multiple runs/fixes to see all the problems.
   where `arg_type` is either `no_argument` or `required_argument`.
   The longform option must be a string, and the shortform
   must be a single character or an ALL_CAPS variable name.
+  Shortforms may repeat, and the first longform is retained.
 
 - getopt_long() string: within the short option string,
   a string of single-character shortform options.
@@ -78,15 +79,25 @@ you may have to do multiple runs/fixes to see all the problems.
   The shortform must be a single character or an ALL_CAPS variable name.
   If the case takes an argument, it must use `optarg`.
   If a case crashes or is otherwise deprecated, it may or may not
-  use `optarg`; I'm flexible about that.
-  Fallthroughs are handled.
+  use `optarg`; I'm flexible about that. Fallthroughs are handled.
 
 For all checks, commented-out lines are ignored.
+
+## TODO
+
+- Raise exceptions about completely out-of-bounds stuff, such as
+  duplicate longform options
+- Check that all helptext lines are no more than 80 characters
+- Check that all helptext lines are indented with 2 spaces
+- Check that all helptext descriptions are separated from the
+  option name or argument by at least 2 spaces
+- Check that all helptext descriptions start at the same column
 
 ## Attribution
 
 The base of this script was written by ChatGPT.
 It has since been developed by @faithokamoto.
+Some GitHub Copilot autocompletions were used.
 """
 
 import os
@@ -164,11 +175,11 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     # Match the line's prefix, which is `<< "    `
     prefix = r'<< "\s+'
     # Match a shortform option: `-<short`
-    shortform_patten = r'-.'
+    shortform_patten = r'-[^\w]'
     # Match a longform option: `--<long>`
     longform_patten = r'--[a-zA-Z0-9\-]+'
     # Match an optional argument in all-caps
-    arg_pattern = r'[A-Z_]+'
+    arg_pattern = r'[A-Z_,]+'
 
     help_pattern = re.compile(
         rf'{prefix}({shortform_patten}),\s({longform_patten})\s({arg_pattern})?'
@@ -240,6 +251,8 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
 
     Note that the shortform can be a number, which is
     preserved as an integer, or an all-caps variable name.
+
+    Shortforms may repeat, and the first longform is retained.
 
     Parameters
     ----------

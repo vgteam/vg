@@ -220,6 +220,8 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
     #define OPT_DROP_SUBGRAPH 1038
     #define OPT_REF_NAME 1039
+    #define OPT_LINEAR_PATH 1040
+    #define OPT_LINEAR_INDEX 1041
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -393,12 +395,13 @@ int main_mpmap(int argc, char** argv) {
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"dist-name", required_argument, 0, 'd'},
-            {"linear-index", required_argument, 0, 1},
-            {"linear-path", required_argument, 0, 2},
+            {"linear-index", required_argument, 0, OPT_LINEAR_PATH},
+            {"linear-path", required_argument, 0, OPT_LINEAR_INDEX},
             {"fastq", required_argument, 0, 'f'},
             {"gam-input", required_argument, 0, 'G'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"suppress-progress", no_argument, 0, 'p'},
             {"interleaved", no_argument, 0, 'i'},
             {"comments-as-tags", no_argument, 0, 'C'},
             {"same-strand", no_argument, 0, 'T'},
@@ -435,8 +438,8 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
             {"stripped-match", no_argument, 0, OPT_STRIPPED_MATCH},
-            {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
-            {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
+            {"strip-length", required_argument, 0, OPT_STRIP_LENGTH},
+            {"strip-count", required_argument, 0, OPT_STRIP_COUNT},
             {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
             {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
             {"filter-factor", required_argument, 0, OPT_SHORT_MEM_FILTER_FACTOR},
@@ -477,7 +480,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vXu:b:I:D:BP:Q:UpM:r:W:K:F:c:CR:En:l:e:q:z:w:o:y:L:mAt:a",
+        c = getopt_long (argc, argv, "h?x:g:H:d:f:G:N:R:iS:s:vXu:b:I:D:BP:Q:UpM:r:W:K:F:c:CTEn:l:e:q:z:w:o:y:L:mAt:a",
                          long_options, &option_index);
 
 
@@ -538,11 +541,11 @@ int main_mpmap(int argc, char** argv) {
                 get_rescue_graph_from_paths = true;;
                 break;
                 
-            case 1: // --linear-index
+            case OPT_LINEAR_INDEX: // --linear-index
                 sublinearLS_name = optarg;
                 break;
             
-            case 2: // --linear-path
+            case OPT_LINEAR_PATH: // --linear-path
                 sublinearLS_ref_path = optarg;
                 break;
                 

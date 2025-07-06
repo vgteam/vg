@@ -83,7 +83,7 @@ int main_align(int argc, char** argv) {
             /* These options set a flag. */
             //{"verbose", no_argument,       &verbose_flag, 1},
             {"sequence", required_argument, 0, 's'},
-            {"seq-name", no_argument, 0, 'Q'},
+            {"seq-name", required_argument, 0, 'Q'},
             {"json", no_argument, 0, 'j'},
             {"match", required_argument, 0, 'm'},
             {"mismatch", required_argument, 0, 'M'},
@@ -97,12 +97,13 @@ int main_align(int argc, char** argv) {
             {"pinned", no_argument, 0, 'p'},
             {"pin-left", no_argument, 0, 'L'},
             {"between", required_argument, 0, 'w'},
+            {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pLw:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "s:jh?Q:m:M:g:e:Dr:bT:pLw:",
+                         long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)

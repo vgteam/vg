@@ -65,8 +65,8 @@ void help_minimizer(char** argv) {
     std::cerr << "The transformation can be avoided by providing a GBWTGraph or a GBZ graph." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
-    std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
+    std::cerr << "    -d, --distance-index FILE annotate the hits with positions in this distance index" << std::endl;
+    std::cerr << "    -o, --output-name FILE  store the index in a file" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
     std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::short_read_minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
@@ -83,11 +83,11 @@ void help_minimizer(char** argv) {
     std::cerr << "        --hash-table N      use 2^N-cell hash tables for kmer counting (default: guess)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -z, --zipcode-name X    store the distances that are too big to file X" << std::endl;
+    std::cerr << "    -z, --zipcode-name FILE store the distances that are too big in afile" << std::endl;
     std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
-    std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
+    std::cerr << "    -l, --load-index FILE   load the index from a file and insert the new kmers into it" << std::endl;
     std::cerr << "                            (overrides minimizer / weighted minimizer options)" << std::endl;
-    std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (required with a non-GBZ graph)" << std::endl;
+    std::cerr << "    -g, --gbwt-name FILE    use the GBWT index in a file (required with a non-GBZ graph)" << std::endl;
     std::cerr << "    -p, --progress          show progress information" << std::endl;
     std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
     std::cerr << "                            (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
@@ -111,12 +111,12 @@ int main_minimizer(int argc, char** argv) {
     int threads = get_default_threads();
     bool require_distance_index = true;
 
-    constexpr int OPT_THRESHOLD = 1001;
-    constexpr int OPT_ITERATIONS = 1002;
-    constexpr int OPT_FAST_COUNTING = 1003;
-    constexpr int OPT_SAVE_MEMORY = 1004;
-    constexpr int OPT_HASH_TABLE = 1005;
-    constexpr int OPT_NO_DIST = 1100;
+    #define OPT_THRESHOLD 1001
+    #define OPT_ITERATIONS 1002
+    #define OPT_FAST_COUNTING 1003
+    #define OPT_SAVE_MEMORY 1004
+    #define OPT_HASH_TABLE 1005
+    #define OPT_NO_DIST 1100
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -138,17 +138,18 @@ int main_minimizer(int argc, char** argv) {
             { "fast-counting", no_argument, 0, OPT_FAST_COUNTING },
             { "save-memory", no_argument, 0, OPT_SAVE_MEMORY },
             { "hash-table", required_argument, 0, OPT_HASH_TABLE },
-            { "zipcode-index", required_argument, 0, 'z' },
+            { "zipcode-name", required_argument, 0, 'z' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' }, // deprecated
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "no-dist", no_argument, 0, OPT_NO_DIST },
+            { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:d:o:i:k:w:bcs:Wz:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:d:o:i:k:w:bcs:Wz:l:Gpt:h?", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)

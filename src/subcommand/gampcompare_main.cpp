@@ -56,13 +56,13 @@ int main_gampcompare(int argc, char** argv) {
             {"range", required_argument, 0, 'r'},
             {"gam", no_argument, 0, 'G'},
             {"aligner", required_argument, 0, 'a'},
-            {"distance", required_argument, 0, 'd'},
+            {"distance", no_argument, 0, 'd'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hr:a:t:Gd",
+        c = getopt_long (argc, argv, "h?r:a:t:Gd",
                          long_options, &option_index);
 
         // Detect the end of the options.

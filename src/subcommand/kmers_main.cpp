@@ -82,7 +82,7 @@ int main_kmers(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:t:pgBH:T:e:Fh",
+        c = getopt_long (argc, argv, "k:t:pgBH:T:e:Fh?",
                 long_options, &option_index);
 
         // Detect the end of the options.

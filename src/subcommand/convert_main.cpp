@@ -118,7 +118,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:b:HvxapxfP:Q:BT:WG:F:t:",
+        c = getopt_long (argc, argv, "h?gr:b:HvxapfP:Q:BT:WG:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.

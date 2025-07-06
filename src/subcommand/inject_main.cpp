@@ -63,7 +63,7 @@ int main_inject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:ro:t:",
+        c = getopt_long (argc, argv, "h?x:iro:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.

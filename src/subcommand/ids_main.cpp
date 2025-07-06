@@ -70,7 +70,7 @@ int main_ids(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hci:d:jm:s",
+        c = getopt_long (argc, argv, "h?ci:d:jm:s",
                 long_options, &option_index);
 
         // Detect the end of the options.

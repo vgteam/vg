@@ -61,7 +61,7 @@ void help_msga(char** argv) {
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [32]" << endl
          << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
-         << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
+         << "    --max-gap-length INT    maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
         //<< "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -75,7 +75,6 @@ void help_msga(char** argv) {
          << "generic parameters:" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
-         << "    -S, --align-progress    show a progress bar for each banded alignment" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
@@ -89,13 +88,19 @@ int main_msga(int argc, char** argv) {
     cerr << "!!!" << endl;
     cerr << "WARNING" << endl;
     cerr << "!!!" << endl;
-    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, but it is no longer state-of-the-art or even actively maintained. VG team members have developed improved graph construction algorithms in Cactus and PGGB, and several other tools have been developed by other groups." << endl << endl;
+    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, "
+         << "but it is no longer state-of-the-art or even actively maintained. "
+         << "VG team members have developed improved graph construction algorithms in Cactus and PGGB, "
+         << "and several other tools have been developed by other groups." << endl << endl;
     
     
     if (argc == 2) {
         help_msga(argv);
         return 1;
     }
+
+    #define OPT_MAX_GAP_LENGTH  1000
+    #define OPT_XDROP_ALIGNMENT  1001
 
     vector<string> fasta_files;
     set<string> seq_names;
@@ -173,15 +178,15 @@ int main_msga(int argc, char** argv) {
                 {"band-multi", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"context-depth", required_argument, 0, 'c'},
                 {"min-ident", required_argument, 0, 'P'},
-                {"min-banded-mq", required_argument, 0, 'F'},
+                {"min-band-mq", required_argument, 0, 'F'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"min-mem", required_argument, 0, 'k'},
                 {"max-mem", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'c'},
+                {"context-depth", required_argument, 0, 'c'},
                 {"mem-chance", required_argument, 0, 'e'},
                 {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
@@ -200,13 +205,13 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"bigger-first", no_argument, 0, 'a'},
                 {"no-patch-aln", no_argument, 0, '8'},
-                {"max-gap-length", required_argument, 0, 1},
-                {"xdrop-alignment", no_argument, 0, 2},
+                {"max-gap-length", required_argument, 0, OPT_MAX_GAP_LENGTH},
+                {"xdrop-alignment", no_argument, 0, OPT_XDROP_ALIGNMENT},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:J:B:a8R:T:",
+        c = getopt_long (argc, argv, "h?f:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:o:y:ZW:z:k:L:e:r:u:l:C:F:J:B:a8R:T:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -385,9 +390,9 @@ int main_msga(int argc, char** argv) {
             patch_alignments = false;
             break;
 
-        case 1:
+        case OPT_MAX_GAP_LENGTH:
             max_gap_length = atoi(optarg);     // fall through
-        case 2:
+        case OPT_XDROP_ALIGNMENT:
             xdrop_alignment = true;
             break;
 

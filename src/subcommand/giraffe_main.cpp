@@ -714,7 +714,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
-    << "  -t, --threads INT             number of mapping threads to use" << endl
+    << "  -t, --threads N               number of mapping threads to use" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (";
     for (auto p = presets.begin(); p != presets.end(); ++p) {
         // Announce each preset name, slash-separated
@@ -1172,6 +1172,7 @@ int main_giraffe(int argc, char** argv) {
         {"read-group", required_argument, 0, 'R'},
         {"output-format", required_argument, 0, 'o'},
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+        {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"prune-low-cplx", no_argument, 0, 'P'},
         {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
@@ -1186,13 +1187,14 @@ int main_giraffe(int argc, char** argv) {
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
+        {"batch-size", required_argument, 0, 'B'},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
         {"threads", required_argument, 0, 't'},
     };
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:B:";
     parser->make_short_options(short_options);
 
     if (argc == 2) {

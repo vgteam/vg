@@ -133,6 +133,7 @@ int main_paths(int argc, char** argv) {
         static struct option long_options[] =
 
         {
+            {"help", no_argument, 0, 'h'},
             {"vg", required_argument, 0, 'v'},
             {"xg", required_argument, 0, 'x'},
             {"gbwt", required_argument, 0, 'g'},
@@ -156,16 +157,17 @@ int main_paths(int argc, char** argv) {
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
             {"overlay", no_argument, 0, 'o'},
+            {"threads", required_argument, 0, 't'},
 
             // Hidden options for backward compatibility.
-            {"threads", no_argument, 0, 'T'},
+            {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -286,7 +288,7 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'T':
-            std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
+            std::cerr << "warning: [vg paths] option -T/--threads-old is obsolete; use -t/--threads" << std::endl;
             break;
 
         case 'q':

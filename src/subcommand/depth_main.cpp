@@ -81,7 +81,7 @@ int main_depth(int argc, char** argv) {
             {"bin-size", required_argument, 0, 'b'},
             {"count-dels", no_argument, 0, 'd'},
             {"gam", required_argument, 0, 'g'},
-            {"gaf", no_argument, 0, 'a'},
+            {"gaf", required_argument, 0, 'a'},
             {"max-nodes", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
             {"min-mapq", required_argument, 0, 'Q'},
@@ -93,7 +93,7 @@ int main_depth(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:P:b:dg:a:n:s:m:ct:",
+        c = getopt_long (argc, argv, "h?k:p:P:b:dg:a:n:s:Q:m:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.

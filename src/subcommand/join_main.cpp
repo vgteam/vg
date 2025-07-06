@@ -42,7 +42,7 @@ int main_join(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h",
+        c = getopt_long (argc, argv, "h?",
                 long_options, &option_index);
 
         // Detect the end of the options.

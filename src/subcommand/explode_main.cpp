@@ -47,7 +47,7 @@ int main_explode(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:",
+        c = getopt_long (argc, argv, "h?t:",
                 long_options, &option_index);
 
 

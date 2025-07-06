@@ -31,15 +31,15 @@ void help_clip(char** argv) {
        << "snarl selection and clipping options:" << endl
        << "    -n, --min-nodes N         clip out snarls with > N nodes" << endl
        << "    -e, --min-edges N         clip out snarls with > N edges" << endl
-       << "    -B, --min-bases N         clip out snarls with > N bases" << endl     
+       << "    -i, --min-bases N         clip out snarls with > N bases" << endl     
        << "    -N, --min-nodes-shallow N clip out snarls with > N nodes not including nested snarls" << endl
        << "    -E, --min-edges-shallow N clip out snarls with > N edges not including nested snarls" << endl
        << "    -a, --min-avg-degree N    clip out snarls with average degree > N" << endl
-       << "    -l, --min-reflen N        ignore snarls whose reference traversal spans less than N bp" << endl     
-       << "    -L, --min-reflen-prop F   ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
-       << "    -A, --max-reflen N        ignore snarls whose reference traversal spans fewer than N bp" << endl
-       << "    -g  --net-edges           only clip net-edges inside snarls" << endl
-       << "    -G  --top-net_edges       only clip net-edges inside top-level snarls" << endl
+       << "    -A, --min-reflen N        ignore snarls whose reference traversal spans less than N bp" << endl     
+       << "    -l, --max-reflen-prop F   ignore snarls whose reference traversal spans more than proportion F (0<=F<=1) of the whole reference path" << endl
+       << "    -L, --max-reflen N        ignore snarls whose reference traversal spans more than N bp" << endl
+       << "    -g, --net-edges           only clip net-edges inside snarls" << endl
+       << "    -G, --top-net-edges       only clip net-edges inside top-level snarls" << endl
        << "big deletion edge clipping options:" << endl
        << "    -D, --max-deletion-edge N clip out all edges whose endpoints have distance > N on a reference path" << endl
        << "    -c, --context N           search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
@@ -108,19 +108,19 @@ int main_clip(int argc, char** argv) {
             {"min-reflen", required_argument, 0, 'A'},
             {"net-edges", no_argument, 0, 'g'},
             {"top-net-edges", no_argument, 0, 'G'},            
-            {"max-deletion", required_argument, 0, 'D'},
+            {"max-deletion-edge", required_argument, 0, 'D'},
             {"context", required_argument, 0, 'c'},
             {"path-prefix", required_argument, 0, 'P'},
             {"snarls", required_argument, 0, 'r'},
             {"min-fragment-len", required_argument, 0, 'm'},
             {"output-bed", no_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
-            {"verbose", required_argument, 0, 'v'},
+            {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "h?b:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
                 long_options, &option_index);
 
         // Detect the end of the options.

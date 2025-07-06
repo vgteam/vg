@@ -76,7 +76,7 @@ int main_mask(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:gs:", long_options, &option_index);
+        c = getopt_long (argc, argv, "h?b:gs:", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

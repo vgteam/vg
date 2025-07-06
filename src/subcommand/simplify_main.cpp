@@ -27,8 +27,8 @@ void help_simplify(char** argv) {
          << "    -a, --algorithm NAME   simplify using the given algorithm (small, rare; default: small)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
          << "    -p, --progress         show progress" << endl
-         << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
-         << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
+         << "    -b, --bed-in FILE      read in the given BED file in the cordinates of the original paths" << endl
+         << "    -B, --bed-out FILE     output transformed features in the coordinates of the new paths" << endl
          << "path snarl simplifier options:" << endl
          << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
          << "small snarl simplifier options:" << endl       

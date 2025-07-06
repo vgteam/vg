@@ -98,6 +98,7 @@ int main_deconstruct(int argc, char** argv){
                 {"translation", required_argument, 0, 'T'},
                 {"gbz-translation", no_argument, 0, 'O'},                
                 {"path-traversals", no_argument, 0, 'e'},
+                {"ploidy", required_argument, 0, 'd'},
                 {"context-jaccard", required_argument, 0, 'c'},
                 {"untangle-travs", no_argument, 0, 'u'},
                 {"all-snarls", no_argument, 0, 'a'},
@@ -106,14 +107,14 @@ int main_deconstruct(int argc, char** argv){
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
-                {"start-allele", no_argument, 0, 'R'},
+                {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -149,7 +150,6 @@ int main_deconstruct(int argc, char** argv){
         case 'd':
             cerr << "Warning [vg deconstruct]: -d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
-            break;            
         case 'c':
             context_jaccard_window = parse<int>(optarg);
             break;

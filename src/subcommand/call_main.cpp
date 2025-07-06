@@ -153,7 +153,7 @@ int main_call(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
-            {"min-trav-len", required_argument, 0, 'M'},
+            {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"nested", no_argument, 0, 'n'},
             {"chains", no_argument, 0, 'I'},            
@@ -165,7 +165,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nIt:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.

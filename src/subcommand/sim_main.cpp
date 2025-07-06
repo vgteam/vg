@@ -109,7 +109,7 @@ void help_sim(char** argv) {
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
          << "    --max-tries N               attempt sampling operations up to N times before giving up [100]" << endl
-         << "    -t, --threads               number of compute threads (only when using FASTQ with -F) [1]" << endl
+         << "    -t, --threads N             number of compute threads (only when using FASTQ with -F) [1]" << endl
          << "simulate from paths:" << endl
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
@@ -219,13 +219,13 @@ int main_sim(int argc, char** argv) {
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {"threads", required_argument, 0, 't'},
-            {"path-usage", required_argument, 0, 'E'},
+            {"path-pos-file", required_argument, 0, 'E'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:qJp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?rl:n:s:e:i:fax:qJp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

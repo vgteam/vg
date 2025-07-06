@@ -55,7 +55,7 @@ void help_map(char** argv) {
          << "    -S, --unpaired-cost INT       penalty for an unpaired read pair [17]" << endl
          << "    --no-patch-aln                do not patch banded alignments by locally aligning unaligned regions" << endl
          << "    --xdrop-alignment             use X-drop heuristic (much faster for long-read alignment)" << endl
-         << "    --max-gap-length              maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
+         << "    --max-gap-length INT          maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "scoring:" << endl
          << "    -q, --match INT               use this match score [1]" << endl
          << "    -z, --mismatch INT            use this mismatch penalty [4]" << endl
@@ -115,6 +115,8 @@ int main_map(int argc, char** argv) {
     #define OPT_REF_PATHS 1003
     #define OPT_REF_NAME 1004
     #define OPT_COMMENTS_AS_TAGS 1005
+    #define OPT_MAX_GAP_LENGTH 1006
+    #define OPT_XDROP_ALIGNMENT 1007
     string matrix_file_name;
     string seq;
     string qual;
@@ -177,7 +179,6 @@ int main_map(int argc, char** argv) {
     bool fragment_orientation = false;
     bool fragment_direction = true;
     float chance_match = 5e-4;
-    bool use_fast_reseed = true;
     float drop_chain = 0.45;
     float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
@@ -235,7 +236,6 @@ int main_map(int argc, char** argv) {
                 {"max-mem", required_argument, 0, 'Y'},
                 {"reseed-x", required_argument, 0, 'r'},
                 {"min-chain", required_argument, 0, 'W'},
-                {"fast-reseed", no_argument, 0, '6'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
@@ -270,16 +270,17 @@ int main_map(int argc, char** argv) {
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
-                {"max-gap-length", required_argument, 0, 1},
-                {"xdrop-alignment", no_argument, 0, 2},
+                {"max-gap-length", required_argument, 0, OPT_MAX_GAP_LENGTH},
+                {"xdrop-alignment", no_argument, 0, OPT_XDROP_ALIGNMENT},
                 {"gaf", no_argument, 0, '%'},
                 {"log-time", no_argument, 0, '^'},
                 {"comments-as-tags", no_argument, 0, OPT_COMMENTS_AS_TAGS},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%^",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:XUpF:m:7:v5:824:3:9:0:%^h?",
                          long_options, &option_index);
 
 
@@ -592,9 +593,9 @@ int main_map(int argc, char** argv) {
             fragment_model_update = parse<int>(optarg);
             break;
 
-        case 1:
+        case OPT_MAX_GAP_LENGTH:
             max_gap_length = atoi(optarg);     // fall through
-        case 2:
+        case OPT_XDROP_ALIGNMENT:
             xdrop_alignment = true;
             break;
 
@@ -828,7 +829,7 @@ int main_map(int argc, char** argv) {
                  << ", mem_reseed_length = " << m->mem_reseed_length
                  << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
-        m->fast_reseed = use_fast_reseed;
+        m->fast_reseed = true; // This used to be an option, but no more
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
         if (matrix_stream.is_open()) {

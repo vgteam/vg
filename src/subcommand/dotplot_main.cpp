@@ -47,11 +47,12 @@ int main_dotplot(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"xg", required_argument, 0, 'x'},
+            {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:",
+        c = getopt_long (argc, argv, "h?x:",
                 long_options, &option_index);
 
         // Detect the end of the options.

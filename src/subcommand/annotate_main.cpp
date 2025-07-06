@@ -38,7 +38,7 @@ void help_annotate(char** argv) {
          << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
          << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
          << "    -P, --progress         show progress" << endl
-         << "    -t, --threads          use the specified number of threads" << endl;
+         << "    -t, --threads N        use the specified number of threads" << endl;
 }
 
 /// Find the region of the Mapping's node used by the Mapping, in forward strand space, as start to past_end.
@@ -112,7 +112,7 @@ int main_annotate(int argc, char** argv) {
         {
             {"gam", required_argument, 0, 'a'},
             {"positions", no_argument, 0, 'p'},
-            {"multi-positions", no_argument, 0, 'm'},
+            {"multi-position", no_argument, 0, 'm'},
             {"search-limit", required_argument, 0, 'l'},
             {"xg-name", required_argument, 0, 'x'},
             {"bed-name", required_argument, 0, 'b'},
@@ -123,12 +123,12 @@ int main_annotate(int argc, char** argv) {
             {"novelty", no_argument, 0, 'n'},
             {"progress", no_argument, 0, 'P'},
             {"threads", required_argument, 0, 't'},
-            {"help", required_argument, 0, 'h'},
+            {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pml:b:f:gFs:nt:Ph",
+        c = getopt_long (argc, argv, "x:a:pml:b:f:gFs:nt:Ph?",
                 long_options, &option_index);
 
         // Detect the end of the options.

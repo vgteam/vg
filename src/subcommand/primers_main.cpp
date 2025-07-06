@@ -93,20 +93,20 @@ int main_primers(int argc, char** argv) {
           {"help",                no_argument,       0, 'h'},
           {"xg-path",             required_argument, 0, 'x'},
           {"dist-index",          required_argument, 0, 'd'},
-          {"ri-path",             required_argument, 0, 'r'},
-          {"gbz-path",            required_argument, 0, 'g'},
+          {"r-index",             required_argument, 0, 'r'},
+          {"gbz",                 required_argument, 0, 'g'},
           {"minimizers",          required_argument, 0, 'M'},
           {"zipcodes",            required_argument, 0, 'Z'},
           {"variation-threshold", required_argument, 0, 'v'},
           {"tolerance",           required_argument, 0, 'l'},
           {"minimum-size",        required_argument, 0, 'n'},
           {"maximum-size",        required_argument, 0, 'm'},
-          {"all-primers",         required_argument, 0, 'a'},
+          {"all-primers",         no_argument,       0, 'a'},
           {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:r:g:M:Z:v:l:n:m:a", long_options, &option_index);
+        c = getopt_long (argc, argv, "h?x:d:r:g:M:Z:v:l:n:m:a", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1) break;

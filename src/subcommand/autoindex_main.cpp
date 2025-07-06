@@ -187,7 +187,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:a:P:R:f:M:T:t:dV:h",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:a:P:R:f:M:T:t:dV:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -313,6 +313,7 @@ int main_autoindex(int argc, char** argv) {
             case OPT_GCSA_SIZE_LIMIT:
                 IndexingParameters::gcsa_size_limit = parse<int64_t>(optarg);
                 break;
+            case '?':
             case 'h':
                 help_autoindex(argv);
                 return 0;

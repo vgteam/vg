@@ -57,12 +57,13 @@ int main_trace(int argc, char** argv) {
             {"start-node", required_argument, 0, 'n'},
             {"extend-distance", required_argument, 0, 'd'},
             {"json", no_argument, 0, 'j'},
+            {"help", no_argument, 0, 'h'},
             //{"backwards", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
     int option_index = 0;
-    c = getopt_long (argc, argv, "x:G:a:n:d:jh",
+    c = getopt_long (argc, argv, "x:G:a:n:d:jh?",
                      long_options, &option_index);
 
     /* Detect the end of the options. */

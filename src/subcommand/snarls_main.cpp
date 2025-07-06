@@ -43,8 +43,8 @@ void help_snarl(char** argv) {
          << "    -T, --include-trivial      report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls          return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
          << "    -v, --vcf FILE             use vcf-based instead of exhaustive traversal finder with -r" << endl
-         << "    -f  --fasta FILE           reference in FASTA format (required for SVs by -v)" << endl
-         << "    -i  --ins-fasta FILE       insertion sequences in FASTA format (required for SVs by -v)" << endl
+         << "    -f, --fasta FILE           reference in FASTA format (required for SVs by -v)" << endl
+         << "    -i, --ins-fasta FILE       insertion sequences in FASTA format (required for SVs by -v)" << endl
          << "    -t, --threads N            number of threads to use [all available]" << endl;
 }
 
@@ -90,8 +90,9 @@ int main_snarl(int argc, char** argv) {
                 {"vcf", required_argument, 0, 'v'},
                 {"fasta", required_argument, 0, 'f'},
                 {"ins-fasta", required_argument, 0, 'i'},
-                {"path-traversals", no_argument, 0, 'e'},                
+                {"path-traversals", no_argument, 0, 'e'},
                 {"threads", required_argument, 0, 't'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 

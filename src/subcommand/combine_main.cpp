@@ -61,7 +61,7 @@ int main_combine(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hpc",
+        c = getopt_long (argc, argv, "h?pc",
                 long_options, &option_index);
 
         // Detect the end of the options.

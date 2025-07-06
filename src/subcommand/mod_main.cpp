@@ -97,7 +97,6 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool remove_non_path = false;
     bool remove_path = false;
-    bool compact_ranks = false;
     vector<nid_t> root_nodes;
     int32_t context_steps;
     bool remove_null = false;
@@ -127,7 +126,6 @@ int main_mod(int argc, char** argv) {
             {"include-loci", required_argument, 0, 'q'},
             {"include-gt", required_argument, 0, 'Q'},
             {"compact-ids", no_argument, 0, 'c'},
-            {"compact-ranks", no_argument, 0, 'C'},
             {"keep-path", required_argument, 0, 'k'},
             {"remove-orphans", no_argument, 0, 'o'},
             {"prune-complex", no_argument, 0, 'p'},
@@ -150,7 +148,7 @@ int main_mod(int argc, char** argv) {
             {"subgraph", required_argument, 0, 'g'},
             {"context", required_argument, 0, 'x'},
             {"remove-null", no_argument, 0, 'R'},
-            {"dagify-steps", required_argument, 0, 'd'},
+            {"dagify-step", required_argument, 0, 'd'},
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
             {"break-cycles", no_argument, 0, 'b'},
@@ -168,7 +166,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunz:NAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:I",
+        c = getopt_long (argc, argv, "h?k:oi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
                 long_options, &option_index);
 
 

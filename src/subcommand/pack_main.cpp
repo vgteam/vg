@@ -68,7 +68,7 @@ int main_pack(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg", required_argument,0, 'x'},
             {"packs-out", required_argument,0, 'o'},
-            {"count-in", required_argument, 0, 'i'},
+            {"packs-in", required_argument, 0, 'i'},
             {"gam", required_argument, 0, 'g'},
             {"gaf", required_argument, 0, 'a'},
             {"as-table", no_argument, 0, 'd'},
@@ -86,7 +86,7 @@ int main_pack(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:a:dDut:eb:n:N:Q:c:s:",
+        c = getopt_long (argc, argv, "h?x:o:i:g:a:dDut:eb:n:N:Q:c:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
