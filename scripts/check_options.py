@@ -97,7 +97,6 @@ For all checks, commented-out lines are ignored.
 ## TODO
 
 - Check that all helptext lines are no more than 80 characters
-- Check that all helptext descriptions start at the same column
 - Check that the second line of getopt_long()'s arguments matches up
 - Check that the order of options in the helptext
   matches the order in long_options[] and getopt_long() string
@@ -227,16 +226,19 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
     inside_help = False
     curly_brace_nesting = 0
+    description_start = None
 
     def save_option(match: re.Match[str], has_shortform: bool) -> None:
         """Helper function to save an option."""
         errors = []
+        nonlocal description_start
 
         prefix = match.group(1)
         shortform = match.group(2)[1:] if has_shortform else None
         longform = match.group(3 if has_shortform else 2)[2:]
         takes_arg = match.group(4 if has_shortform else 3) is not None
-        description = match.group(5 if has_shortform else 4)
+        description_num = 5 if has_shortform else 4
+        description = match.group(description_num)
 
         if len(prefix) != (6 if shortform is None else 2):
                 errors.append(f"Help option line '{stripped}' "
@@ -248,6 +250,14 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             and not is_giraffe):
             errors.append(f"Help option -h does not have the expected "
                             f"description '{HELP_DESC}'")
+        
+        text_offset = re.match(r'\s+(.+)', description).start(1)
+        text_start = match.start(description_num) + text_offset
+        if description_start is None:
+            description_start = text_start
+        elif description_start != text_start:
+            errors.append(f"Help option line '{stripped}' does not "
+                          "line up with the previous option's description")
             
         if longform not in help_opts:
             help_opts[longform] = OptionInfo(takes_arg, shortform, errors)
