@@ -102,7 +102,6 @@ For all checks, commented-out lines are ignored.
 - Check that the order of options in the helptext
   matches the order in long_options[] and getopt_long() string
 - Require "usage" line in helptext
-- Require "options" line in helptext
 - Require helptext to have a "help" option
 
 ## Attribution
@@ -175,6 +174,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     have nothing surrounding it (e.g. no <>), and be exactly
     one space after the long option.
 
+    Helptext lines should have all the options line up properly.
+
     Parameters
     ----------
     text : str
@@ -192,6 +193,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     """
 
     help_opts = dict()
+    has_usage = False
+
     # Match the line's prefix, which should be two spaces
     prefix = r'\s+'
     # Match a shortform option: `-<short`
@@ -242,6 +245,11 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         if not inside_help or stripped.startswith('//'):
             continue
 
+        if '"usage:' in stripped:
+            if has_usage:
+                raise ValueError("Multiple 'usage:' lines found in helptext")
+            has_usage = True
+
         # Keep track of curly brace nesting
         if '{' in stripped:
             curly_brace_nesting += 1
@@ -275,6 +283,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             save_option(None, match.group(2)[2:],
                         match.group(3) is not None, errors)
 
+    if not has_usage:
+        raise ValueError("Helptext is missing a 'usage:' line")
     return help_opts
 
 def extract_long_options(text: str) -> Dict[str, OptionInfo]:
@@ -695,6 +705,6 @@ def check_file(filepath: str) -> None:
 
 if __name__ == "__main__":
     for fname in os.listdir(SUBCOMMAND_DIR):
-        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
+        if not fname.endswith('convert_main.cpp') or fname in SKIP_FILES:
             continue
         problems = check_file(os.path.join(SUBCOMMAND_DIR, fname))
