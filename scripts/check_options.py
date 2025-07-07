@@ -103,7 +103,6 @@ For all checks, commented-out lines are ignored.
   matches the order in long_options[] and getopt_long() string
 - Require "usage" line in helptext
 - Require "options" line in helptext
-- Check that long option names all line up
 - Require helptext to have a "help" option
 
 ## Attribution
@@ -115,7 +114,7 @@ Some GitHub Copilot autocompletions were used.
 
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
@@ -139,6 +138,8 @@ class OptionInfo:
     """Whether the option takes an argument."""
     shortform: Optional[str | int] = None
     """Short option name, or None if not present."""
+    errors: List[str] = None
+    """Some special errors to print about this option."""
 
     def is_unset(self) -> bool:
         """Check if this option is unset."""
@@ -218,13 +219,13 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     curly_brace_nesting = 0
 
     def save_option(shortform: Optional[str | int], 
-                    longform: str, takes_arg: bool) -> None:
+                    longform: str, takes_arg: bool, errors: List[str]) -> None:
         """Helper function to save an option."""
         if longform not in help_opts:
-            help_opts[longform] = OptionInfo(takes_arg, shortform)
+            help_opts[longform] = OptionInfo(takes_arg, shortform, errors)
         elif not (is_annotate and longform in ANNOTATE_EXCEPTIONS):
             raise ValueError(f"Duplicate longform option '{longform}' found in "
-                                "helptext")
+                             "helptext")
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -250,26 +251,29 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
         if match:
+            errors = []
             if len(match.group(1)) != 2:
-                raise ValueError(f"Help option line '{stripped}' "
-                                 "does not start with two spaces")
+                errors.append(f"Help option line '{stripped}' "
+                              "does not start with two spaces")
             if not match.group(5).startswith('  '):
-                raise ValueError(f"Help option line '{stripped}' has less than "
-                                 "two spaces between option and description")
+                errors.append(f"Help option line '{stripped}' has less than "
+                              "two spaces between option and description")
             save_option(match.group(2)[1], match.group(3)[2:],
-                        match.group(4) is not None)
+                        match.group(4) is not None, errors)
             continue
 
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
+            errors = []
             if len(match.group(1)) != 6:
-                raise ValueError(f"Longform option {match.group(2)} "
-                                 "does not line up with the others")
+                errors.append(f"Longform option {match.group(2)} "
+                              "does not line up with the others")
             if not match.group(4).startswith('  '):
-                raise ValueError(f"Help option line '{stripped}' has less than "
-                                 "two spaces between option and description")
-            save_option(None, match.group(2)[2:], match.group(3) is not None)
+                errors.append(f"Help option line '{stripped}' has less than "
+                              "two spaces between option and description")
+            save_option(None, match.group(2)[2:],
+                        match.group(3) is not None, errors)
 
     return help_opts
 
@@ -600,7 +604,14 @@ def check_file(filepath: str) -> None:
 
     # Check longform options between the four sources
     for longform in all_longform:
-        cur_help = help_opts.get(longform, OptionInfo())
+        # Look up the longform option in the helptext, if it is there
+        if longform in help_opts:
+            cur_help = help_opts[longform]
+            for cur_error in cur_help.errors:
+                print(f"{filepath} has error in helptext for --{longform}: "
+                      f"{cur_error}")
+        else:
+            cur_help = OptionInfo()
 
         # Check 1: all options must appear in long_options[] with shortform
         if longform not in long_opts:
