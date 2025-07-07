@@ -254,9 +254,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
                 raise ValueError(f"Help option line '{stripped}' "
                                  "does not start with two spaces")
             if not match.group(5).startswith('  '):
-                raise ValueError(f"Help option line '{stripped}' "
-                                 "has less than two spaces between option "
-                                 "and description")
+                raise ValueError(f"Help option line '{stripped}' has less than "
+                                 "two spaces between option and description")
             save_option(match.group(2)[1], match.group(3)[2:],
                         match.group(4) is not None)
             continue
@@ -264,12 +263,12 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
-            # long-only pattern allowed to have extra spaces at the start
-            # as that might be to line up all the longforms
+            if len(match.group(1)) != 6:
+                raise ValueError(f"Longform option {match.group(2)} "
+                                 "does not line up with the others")
             if not match.group(4).startswith('  '):
-                raise ValueError(f"Help option line '{stripped}' "
-                                 "has less than two spaces between option "
-                                 "and description")
+                raise ValueError(f"Help option line '{stripped}' has less than "
+                                 "two spaces between option and description")
             save_option(None, match.group(2)[2:], match.group(3) is not None)
 
     return help_opts
