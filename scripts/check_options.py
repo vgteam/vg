@@ -230,7 +230,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     for line in text.splitlines():
         stripped = line.strip()
         # Are we inside the helptext printing function?
-        if re.search(r'void\shelp_\w+\s*\(', line):
+        if re.search(r'void\shelp_\w+\s*\(char\*\* argv\) \{', stripped):
             inside_help = True
             curly_brace_nesting = -1
             continue
