@@ -228,9 +228,27 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     inside_help = False
     curly_brace_nesting = 0
 
-    def save_option(shortform: Optional[str | int], 
-                    longform: str, takes_arg: bool, errors: List[str]) -> None:
+    def save_option(match: re.Match[str], has_shortform: bool) -> None:
         """Helper function to save an option."""
+        errors = []
+
+        prefix = match.group(1)
+        shortform = match.group(2)[1:] if has_shortform else None
+        longform = match.group(3 if has_shortform else 2)[2:]
+        takes_arg = match.group(4 if has_shortform else 3) is not None
+        description = match.group(5 if has_shortform else 4)
+
+        if len(prefix) != (6 if shortform is None else 2):
+                errors.append(f"Help option line '{stripped}' "
+                              "does not start with two spaces")
+        if not description.startswith('  '):
+            errors.append(f"Help option line '{stripped}' has less than "
+                            "two spaces between option and description")
+        if (shortform == '-h' and description.strip() != HELP_DESC
+            and not is_giraffe):
+            errors.append(f"Help option -h does not have the expected "
+                            f"description '{HELP_DESC}'")
+            
         if longform not in help_opts:
             help_opts[longform] = OptionInfo(takes_arg, shortform, errors)
         elif not (is_annotate and longform in ANNOTATE_EXCEPTIONS):
@@ -265,33 +283,13 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
         if match:
-            errors = []
-            if len(match.group(1)) != 2:
-                errors.append(f"Help option line '{stripped}' "
-                              "does not start with two spaces")
-            if not match.group(5).startswith('  '):
-                errors.append(f"Help option line '{stripped}' has less than "
-                              "two spaces between option and description")
-            if (match.group(2) == '-h' and match.group(5).strip() != HELP_DESC
-                and not is_giraffe):
-                errors.append(f"Help option -h does not have the expected "
-                              f"description '{HELP_DESC}'")
-            save_option(match.group(2)[1], match.group(3)[2:],
-                        match.group(4) is not None, errors)
+            save_option(match, True)
             continue
 
         # Parse out sections of long-only pattern
         match = long_only_pattern.search(stripped)
         if match:
-            errors = []
-            if len(match.group(1)) != 6:
-                errors.append(f"Longform option {match.group(2)} "
-                              "does not line up with the others")
-            if not match.group(4).startswith('  '):
-                errors.append(f"Help option line '{stripped}' has less than "
-                              "two spaces between option and description")
-            save_option(None, match.group(2)[2:],
-                        match.group(3) is not None, errors)
+            save_option(match, False)
 
     if not has_usage:
         raise ValueError("Helptext is missing a 'usage:' line")
