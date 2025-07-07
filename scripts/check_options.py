@@ -101,8 +101,6 @@ For all checks, commented-out lines are ignored.
 - Check that the second line of getopt_long()'s arguments matches up
 - Check that the order of options in the helptext
   matches the order in long_options[] and getopt_long() string
-- Require "usage" line in helptext
-- Require helptext to have a "help" option
 
 ## Attribution
 
@@ -120,6 +118,10 @@ SUBCOMMAND_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
 SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
 """Files to skip in the consistency check."""
+HELPTEXT_FUNCTION = r'void\shelp_\w+\s*\(char\*\* argv.*\) \{'
+"""Regex to match the start of a helptext function."""
+HELP_DESC = 'print this help message to stderr and exit'
+"""Expected description for the --help option."""
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
 # Some giraffe arguments are processed outside of the switch block
@@ -192,6 +194,9 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         Gross formatting issues, such as duplicate longform options.
     """
 
+    if not re.search(HELPTEXT_FUNCTION, text):
+        raise ValueError("Helptext function not found in file")
+
     help_opts = dict()
     has_usage = False
 
@@ -208,6 +213,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
     # Certain exceptions can only be used in annotate_main.cpp
     is_annotate = 'help_annotate' in text
+    # giraffe_main.cpp has a different --help description
+    is_giraffe = 'help_giraffe' in text
 
     help_pattern = re.compile(
         rf'"({prefix})({shortform_patten}),\s({longform_patten})'
@@ -233,10 +240,9 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     for line in text.splitlines():
         stripped = line.strip()
         # Are we inside the helptext printing function?
-        if re.search(r'void\shelp_\w+\s*\(char\*\* argv\) \{', stripped):
+        if re.search(HELPTEXT_FUNCTION, stripped):
             inside_help = True
             curly_brace_nesting = -1
-            continue
         # End at end of outermost curly braces
         elif inside_help and stripped == '}' and curly_brace_nesting == 0:
             break
@@ -266,6 +272,10 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             if not match.group(5).startswith('  '):
                 errors.append(f"Help option line '{stripped}' has less than "
                               "two spaces between option and description")
+            if (match.group(2) == '-h' and match.group(5).strip() != HELP_DESC
+                and not is_giraffe):
+                errors.append(f"Help option -h does not have the expected "
+                              f"description '{HELP_DESC}'")
             save_option(match.group(2)[1], match.group(3)[2:],
                         match.group(4) is not None, errors)
             continue
@@ -602,6 +612,13 @@ def check_file(filepath: str) -> None:
         # in order to match long_options[]
         switch_opts[help_alias] = False
     
+    if 'help' not in help_opts:
+        print(f"{filepath}: help option --help is missing from helptext")
+    elif help_opts['help'].takes_argument:
+        print(f"{filepath}: help option --help should not take an argument")
+    elif help_opts['help'].shortform != 'h':
+        print(f"{filepath}: help option --help should have shortform -h")
+    
     # Overall check 2: does the default case crash?
     if 'default' not in switch_opts:
         print(f"{filepath}: switch block is missing a default case")
@@ -705,6 +722,6 @@ def check_file(filepath: str) -> None:
 
 if __name__ == "__main__":
     for fname in os.listdir(SUBCOMMAND_DIR):
-        if not fname.endswith('convert_main.cpp') or fname in SKIP_FILES:
+        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
             continue
         problems = check_file(os.path.join(SUBCOMMAND_DIR, fname))
