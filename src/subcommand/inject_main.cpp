@@ -28,11 +28,12 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject -x graph.xg [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)" << endl
-         << "    -i, --add-identity       add the 'identity' statistic (\% of matching base pairs) to output GAM" << endl
-         << "    -r, --rescore            re-score alignments" << endl
-         << "    -o, --output-format NAME output the alignments in NAME format (gam / gaf / json) [gam]" << endl
-         << "    -t, --threads N          number of threads to use" << endl;
+         << "  -x, --xg-name FILE        use this graph or xg index (required, non-XG okay)" << endl
+         << "  -i, --add-identity        calculate & add 'identity' statistic to output GAM" << endl
+         << "  -r, --rescore             re-score alignments" << endl
+         << "  -o, --output-format NAME  output alignment format {gam / gaf / json} [gam]" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl;
 }
 
 int main_inject(int argc, char** argv) {

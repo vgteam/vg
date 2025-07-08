@@ -31,21 +31,27 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -A, --algorithm NAME       compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
-         << "    -p, --pathnames            output variant paths as SnarlTraversals to STDOUT" << endl
-         << "    -r, --traversals FILE      output SnarlTraversals for ultrabubbles." << endl
-         << "    -e, --path-traversals      only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
-         << "    -l, --leaf-only            restrict traversals to leaf ultrabubbles." << endl
-         << "    -o, --top-level            restrict traversals to top level ultrabubbles" << endl
-         << "    -a, --any-snarl-type       compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
-         << "    -m, --max-nodes N          only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
-         << "    -n, --named-coordinates    produce snarl and traversal outputs in named-segment (GFA) space" << endl
-         << "    -T, --include-trivial      report snarls that consist of a single edge" << endl
-         << "    -s, --sort-snarls          return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
-         << "    -v, --vcf FILE             use vcf-based instead of exhaustive traversal finder with -r" << endl
-         << "    -f, --fasta FILE           reference in FASTA format (required for SVs by -v)" << endl
-         << "    -i, --ins-fasta FILE       insertion sequences in FASTA format (required for SVs by -v)" << endl
-         << "    -t, --threads N            number of threads to use [all available]" << endl;
+         << "  -A, --algorithm NAME      snarl algorithm {cactus/integrated} [integrated]" << endl
+         << "  -p, --pathnames           output variant paths as SnarlTraversals to stdout" << endl
+         << "  -r, --traversals FILE     output SnarlTraversals for ultrabubbles" << endl
+         << "  -e, --path-traversals     only consider traversals that correspond to paths in" << endl
+         << "                            the graph (-m ignored)" << endl
+         << "  -l, --leaf-only           restrict traversals to leaf ultrabubbles" << endl
+         << "  -o, --top-level           restrict traversals to top level ultrabubbles" << endl
+         << "  -a, --any-snarl-type      compute traversals for any snarl type" << endl
+         << "                            (not limiting to ultrabubbles)" << endl
+         << "  -m, --max-nodes N         only compute traversals for snarls with <= N nodes" << endl
+         << "                            (with degree > 1) [10]" << endl
+         << "  -n, --named-coordinates   produce all outputs in named-segment (GFA) space" << endl
+         << "  -T, --include-trivial     report snarls that consist of a single edge" << endl
+         << "  -s, --sort-snarls         return snarls in sorted order by node ID" << endl
+         << "                            (for topologically ordered graphs)" << endl
+         << "  -v, --vcf FILE            for -r, use VCF-based traversal finder instead of" << endl
+         << "                            exhaustive traversal finder with -r" << endl
+         << "  -f, --fasta FILE          reference as FASTA (required for SVs by -v)" << endl
+         << "  -i, --ins-fasta FILE      insertions as FASTA (required for SVs by -v)" << endl
+         << "  -t, --threads N           number of threads to use [all available]" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -202,7 +208,8 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, but the graph does not come with a named coordinate space." << endl;
+            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, "
+                 << "but the graph does not come with a named coordinate space." << endl;
             return 1;
         }
     }

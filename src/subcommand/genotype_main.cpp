@@ -17,25 +17,27 @@ void help_genotype(char** argv) {
          << "Compute genotypes from a graph and a collection of reads" << endl
          << endl
          << "options:" << endl
-         << "    -j, --json              output in JSON" << endl
-         << "    -v, --vcf               output in VCF" << endl
-         << "    -V, --recall-vcf FILE   recall variants in a specific VCF file." << endl
-         << "    -F, --fasta FILE" << endl
-         << "    -I, --insertions FILE" << endl
-         << "    -r, --ref PATH          use the given path name as the reference path" << endl
-         << "    -c, --contig NAME       use the given name as the VCF contig name" << endl
-         << "    -s, --sample NAME       name the sample in the VCF with the given name" << endl
-         << "    -o, --offset INT        offset variant positions by this amount" << endl
-         << "    -l, --length INT        override total sequence length" << endl
-         << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
-         << "    -Q, --ignore-mapq       do not use mapping qualities" << endl
-         << "    -A, --no-indel-realign  disable indel realignment" << endl
-         << "    -d, --het-prior-denom DOUBLE  denominator for prior probability of heterozygousness" << endl
-         << "    -P, --min-per-strand INT      min unique reads per strand for a called allele to accept a call" << endl
-         << "    -E, --no-embed          don't embed gam edits into graph" << endl
-         << "    -T, --traversal STR     traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
-         << "    -p, --progress          show progress" << endl
-         << "    -t, --threads N         number of threads to use" << endl;
+         << "  -j, --json                   output in JSON" << endl
+         << "  -v, --vcf                    output in VCF" << endl
+         << "  -V, --recall-vcf FILE        recall variants in a specific VCF file." << endl
+         << "  -F, --fasta FILE             use this linear reference" << endl
+         << "  -I, --insertions FILE        use reference insertions in this FASTA file" << endl
+         << "  -r, --ref PATH               use the given path name as the reference path" << endl
+         << "  -c, --contig NAME            use the given name as the VCF contig name" << endl
+         << "  -s, --sample NAME            name the sample in the VCF with the given name" << endl
+         << "  -o, --offset INT             offset variant positions by this amount" << endl
+         << "  -l, --length INT             override total sequence length" << endl
+         << "  -a, --augmented FILE         dump augmented graph to FILE" << endl
+         << "  -Q, --ignore-mapq            do not use mapping qualities" << endl
+         << "  -A, --no-indel-realign       disable indel realignment" << endl
+         << "  -d, --het-prior-denom FLOAT  denominator for prior prob of heterozygousness" << endl
+         << "  -P, --min-per-strand INT     min unique reads per strand for a called allele" << endl
+         << "  -E, --no-embed               don't embed gam edits into graph" << endl
+         << "  -T, --traversal STR          traversal finder to use [adaptive]" << endl 
+         << "                               {reads, exhaustive, representative, adaptive}" << endl
+         << "  -p, --progress               show progress" << endl
+         << "  -t, --threads N              number of threads to use" << endl
+         << "  -h, --help                   print this help message to stderr and exit" << endl;
 }
 
 int main_genotype(int argc, char** argv) {

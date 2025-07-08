@@ -16,17 +16,22 @@ void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-path FILE                 use this xg graph (required)" << endl
-         << "    -d, --dist-index FILE              use this distance index (required)" << endl
-         << "    -r, --r-index FILE                 use this r index (required)" << endl
-         << "    -g, --gbz FILE                     use this gbz file (required)" << endl
-         << "    -M, --minimizers FILE              use this minimizer file for mapping the template sequence, if necessary" << endl
-         << "    -Z, --zipcodes FILE                use this zipcode file for mapping the template sequence, if necessary" << endl
-         << "    -v, --variation-threshold DOUBLE   output primers that work for at least this percentage of haplotypes (default: 0.8)" << endl
-         << "    -l, --tolerance INT                allow this much difference between minimum and maximum sizes compared to the linear product size (default: 10)" << endl
-         << "    -n, --minimum-size INT             minimum product size allowed (has precedence over --tolerance)" << endl
-         << "    -m, --maximum-size INT             maximum product size allowed (has precedence over --tolerance)" << endl
-         << "    -a, --all-primers                  output all primers" << endl;
+         << "  -x, --xg-path FILE               use this xg graph (required)" << endl
+         << "  -d, --dist-index FILE            use this distance index (required)" << endl
+         << "  -r, --r-index FILE               use this r index (required)" << endl
+         << "  -g, --gbz FILE                   use this gbz file (required)" << endl
+         << "  -M, --minimizers FILE            use this minimizer file for mapping" << endl
+         << "                                   the template sequence, if necessary" << endl
+         << "  -Z, --zipcodes FILE              use this zipcode file for mapping" << endl
+         << "                                   the template sequence, if necessary" << endl
+         << "  -v, --variation-threshold FLOAT  output primers that work for at least" << endl
+         << "                                   this share of haplotypes [0.8]" << endl
+         << "  -l, --tolerance INT              allow INT difference between min & max sizes" << endl
+         << "                                   compared to the linear product size [10]" << endl
+         << "  -n, --minimum-size INT           minimum product size allowed (overrides -l)" << endl
+         << "  -m, --maximum-size INT           maximum product size allowed (overrides -l)" << endl
+         << "  -a, --all-primers                output all primers" << endl
+         << "  -h, --help                       print this help message to stderr and exit" << endl;
 }
 
 size_t difference(const size_t& a, const size_t& b) {
@@ -218,7 +223,8 @@ int main_primers(int argc, char** argv) {
     MinimizerMapper minimizer_mapper (gbwt_graph, *minimizer_index, &distance_index, &zipcodes);
     if (!min_path.empty()) {
         //Set parameters
-        //TODO: I'm not actually sure about this because the sequence is long but it should match a path exactly so it should get the whole alignment at gapless extension
+        //TODO: I'm not actually sure about this because the sequence is long
+        //but it should match a path exactly so it should get the whole alignment at gapless extension
         minimizer_mapper.align_from_chains = true;
         giraffe_mapper = &minimizer_mapper;
     }

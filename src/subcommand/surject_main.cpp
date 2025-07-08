@@ -37,36 +37,53 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE       use this graph or xg index (required)" << endl
-         << "  -t, --threads N          number of threads to use" << endl
-         << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
-         << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
-         << "  -n, --into-ref NAME      surject into this reference assembly" << endl 
-         << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
-         << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
-         << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
-         << "  -m, --gamp-input         input file is GAMP instead of GAM" << endl
-         << "  -c, --cram-output        write CRAM to stdout" << endl
-         << "  -b, --bam-output         write BAM to stdout" << endl
-         << "  -s, --sam-output         write SAM to stdout" << endl
-         << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
-         << "  -T, --max-tail-len N     only align up to N bases of read tails (default: 10000)" << endl
-         << "  -g, --max-graph-scale X  make reads unmapped if alignment target subgraph size exceeds read length by a factor of X (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
-         << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
-         << "  -I, --max-slide N        look for offset duplicates of anchors up to N bp away when pruning (default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
-         << "  -a, --max-anchors N      use no more than N anchors per target path (default: unlimited)" << endl
-         << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
-         << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
-         << "  -E, --extra-gap-cost N   for dynamic programming, add this to the gap open cost of the 10x-scaled scoring parameters" << endl 
-         << "  -N, --sample NAME        set this sample name for all reads" << endl
-         << "  -R, --read-group NAME    set this read group for all reads" << endl
-         << "  -f, --max-frag-len N     reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
-         << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
-         << "  -H, --graph-aln          annotate SAM records with cs-style difference string of the pre-surjected graph alignment in GR tag" << endl
-         << "  -C, --compression N      level for compression [0-9]" << endl
-         << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
-         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl
-         << "  -r, --progress           show progress" << endl;
+         << "  -x, --xg-name FILE        use this graph or xg index (required)" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
+         << "                            default: reference, then non-alt generic" << endl
+         << "  -F, --into-paths FILE     surject into path names listed in" << endl
+         << "                            HTSlib sequence dictionary or path list FILE" << endl
+         << "  -n, --into-ref NAME       surject into this reference assembly" << endl 
+         << "  -i, --interleaved         GAM is interleaved paired-ended, so pair reads" << endl
+         << "                            when outputting HTS formats" << endl
+         << "  -M, --multimap            include secondary alignments to all" << endl
+         << "                            overlapping paths instead of just primary" << endl
+         << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
+         << "  -m, --gamp-input          input file is GAMP instead of GAM" << endl
+         << "  -c, --cram-output         write CRAM to stdout" << endl
+         << "  -b, --bam-output          write BAM to stdout" << endl
+         << "  -s, --sam-output          write SAM to stdout" << endl
+         << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
+         << "                            (rather than global) alignments" << endl
+         << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
+         << "  -g, --max-graph-scale X   make reads unmapped if alignment target subgraph" << endl
+         << "                            size exceeds read length by a factor of X " << endl
+                                         << "(default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
+                                         << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
+         << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
+         << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl
+         << "                            away when pruning "
+                                     << "(default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
+         << "  -a, --max-anchors N       use <= N anchors per target path [unlimited]" << endl
+         << "  -S, --spliced             interpret long deletions against paths" << endl
+         << "                            as spliced alignments" << endl
+         << "  -A, --qual-adj            adjust scoring for base qualities, if available" << endl
+         << "  -E, --extra-gap-cost N    for dynamic programming, add N to the gap open cost" << endl
+         << "                            of the 10x-scaled scoring parameters" << endl 
+         << "  -N, --sample NAME         set this sample name for all reads" << endl
+         << "  -R, --read-group NAME     set this read group for all reads" << endl
+         << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
+         << "                            marked properly paired in SAM/BAM/CRAM" << endl
+         << "  -L, --list-all-paths      annotate SAM records with a list of all attempted" << endl
+         << "                            re-alignments to paths in SS tag" << endl
+         << "  -H, --graph-aln           annotate SAM records with cs-style difference string" << endl
+         << "                            of the pre-surjected graph alignment in GR tag" << endl
+         << "  -C, --compression N       level for compression [0-9]" << endl
+         << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
+         << "                            against the provided graph" << endl
+         << "  -w, --watchdog-timeout N  warn when reads take more than N seconds to surject" << endl
+         << "  -r, --progress            show progress" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl;
 }
 
 /// If the given alignment doesn't make sense against the given graph (i.e.
@@ -77,7 +94,8 @@ static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGrap
     if (!validity) {
         #pragma omp critical (cerr)
         {
-            std::cerr << "error:[vg surject] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "error:[vg surject] Alignment " << aln.name() << " cannot be interpreted against this graph: "
+                      << validity.message << std::endl;
             std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
         }
         exit(1);
@@ -96,7 +114,9 @@ static void ensure_alignment_is_for_graph(const MultipathAlignment& aln, const H
                 // Something is wrong with this alignment.
                 #pragma omp critical (cerr)
                 {
-                    std::cerr << "error:[vg surject] MultipathAlignment " << aln.name() << " cannot be interpreted against this graph: node " << node_id << " does not exist!" << std::endl;
+                    std::cerr << "error:[vg surject] MultipathAlignment " << aln.name() 
+                              << " cannot be interpreted against this graph: node "
+                              << node_id << " does not exist!" << std::endl;
                     std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
                 }
                 exit(1);
@@ -187,7 +207,7 @@ int main_surject(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:iGmcbsN:R:f:C:t:SPI:a:AE:LHMVw:r",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -438,7 +458,11 @@ int main_surject(int argc, char** argv) {
             if (src.has_path() && src.sequence().empty()) {
 #pragma omp critical
                 {
-                    cerr << "error:[surject] Read " << src.name() << " is aligned but does not have a sequence and therefore cannot be surjected. Was it derived from a GAF without a base-level alignment? Or a GAF with a CIGAR string in the 'cg' tag (which does not provide enough information to reconstruct the sequence)?" << endl;
+                    cerr << "error:[surject] Read " << src.name() << " is aligned but "
+                         << "does not have a sequence and therefore cannot be surjected. "
+                         << "Was it derived from a GAF without a base-level alignment? "
+                         << "Or a GAF with a CIGAR string in the 'cg' tag "
+                         << "(which does not provide enough information to reconstruct the sequence)?" << endl;
                     exit(1);
                 }
             }
@@ -531,7 +555,8 @@ int main_surject(int argc, char** argv) {
                             auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
                             if (it != strand_idx2.end()) {
                                 // the alignments are paired on this strand
-                                alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[it->second]), max_frag_len);
+                                alignment_emitter->emit_pair(std::move(surjected1[i]), 
+                                                            std::move(surjected2[it->second]), max_frag_len);
                             }
                             else {
                                 // this strand's surjection is unpaired
@@ -631,7 +656,8 @@ int main_surject(int argc, char** argv) {
                 
                 // GAMP input is paired, and for HTS output reads need to know their pair partners' mapping locations.
                 // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
-                vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src1, MultipathAlignment& src2) {
+                vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, 
+                    [&](MultipathAlignment& src1, MultipathAlignment& src2) {
                     try {
                         set_crash_context(src1.name() + ", " + src2.name());
                         size_t thread_num = omp_get_thread_num();
@@ -741,10 +767,12 @@ int main_surject(int argc, char** argv) {
                             // FIXME: these aren't required to be on the same path...
                             positions.emplace_back();
                             surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
-                                                                     get<2>(positions.front().first), get<1>(positions.front().first),
+                                                                     get<2>(positions.front().first),
+                                                                     get<1>(positions.front().first),
                                                                      subpath_global, spliced),
                                                    surjector.surject(mp_src2, paths, get<0>(positions.front().second),
-                                                                     get<2>(positions.front().second), get<1>(positions.front().second),
+                                                                     get<2>(positions.front().second),
+                                                                     get<1>(positions.front().second),
                                                                      subpath_global, spliced));
                         }
                                             

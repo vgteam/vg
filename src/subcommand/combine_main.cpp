@@ -27,14 +27,18 @@ using namespace vg::subcommand;
 void help_combine(char** argv) {
     cerr << "usage: " << argv[0] << " combine [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Combines one or more graphs into a single file, regardless of input format." << endl
-         << "Node IDs will be modified as needed to resolve conflicts (in same manner as vg ids -j)." << endl
+         << "Node IDs will be modified as needed to resolve conflicts (same as vg ids -j)." << endl
          << endl
          << "Options:" << endl
-         << "    -c, --cat-proto       merge graphs by converting each to Protobuf (if not already) and catting the results."
-         << "                          node IDs not modified [DEPRECATED]" << endl
-         << "    -p, --connect-paths   add edges necessary to connect paths with the same name present in different graphs." << endl
-         << "                          ex: If path x is present in graphs N-1 and N, then an edge connecting the last node of x in N-1 " << endl
-         << "                          and the first node of x in N will be added." << endl;
+         << "  -c, --cat-proto       merge by converting each to Protobuf (if not already)" << endl
+         << "                        and catting the results." << endl
+         << "                        node IDs not modified [DEPRECATED]" << endl
+         << "  -p, --connect-paths   add edges necessary to connect paths with the same name" << endl
+         << "                        which are present in different graphs." << endl
+         << "                        ex: If path x is present in graphs N-1 and N, then" << endl
+         << "                        an edge connecting the last node of x in N-1 " << endl
+         << "                        and the first node of x in N will be added." << endl
+         << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
 static int cat_proto_graphs(int argc, char** argv);
@@ -62,7 +66,7 @@ int main_combine(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?pc",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -89,7 +93,8 @@ int main_combine(int argc, char** argv) {
 
     if (cat_proto) {
         if (connect_paths) 
-        cerr << "warning [vg combine]: --cat-proto/-c option is deprecated and will be removed in a future version of vg." << endl;
+        cerr << "warning [vg combine]: --cat-proto/-c option is deprecated "
+             << "and will be removed in a future version of vg." << endl;
         return cat_proto_graphs(argc, argv);
     }
     
@@ -117,7 +122,9 @@ int main_combine(int argc, char** argv) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
                     if (first_graph->has_path(path_name)) {
-                        cerr << "error [vg combine]: Paths with name \"" << path_name << "\" found in multiple input graphs. If they are consecutive subpath ranges, they can be connected by using the -p option." << endl;
+                        cerr << "error [vg combine]: Paths with name \"" << path_name
+                             << "\" found in multiple input graphs. If they are consecutive subpath ranges, "
+                             << "they can be connected by using the -p option." << endl;
                         exit(1);
                     }
                 });

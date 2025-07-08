@@ -31,49 +31,56 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
-         << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
-         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
-         << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
-         << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
-         << "                            and edges that do not introduce new paths are removed and neighboring" << endl
-         << "                            nodes are merged)" << endl
-         << "    -U, --until-normal N    iterate normalization until convergence, or at most N times" << endl
-         << "    -z, --nomerge-pre STR   do not let normalize (-n, -U) zip up any pair of nodes that both belong to path with prefix STR" << endl
-         << "    -E, --unreverse-edges   flip doubly-reversing edges so that they are represented on the" << endl
-         << "                            forward strand of the graph" << endl
-         << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
-         << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
-         << "                            edges from old to new copies to convert the graph into a DAG" << endl
-         << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
-         << "                            edges from old to new copies to convert the graph into a DAG" << endl
-         << "                            until the shortest path through each SCC is N bases long" << endl
-         << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
-         << "    -f, --unfold N          represent inversions accessible up to N from the forward" << endl
-         << "                            component of the graph" << endl
-         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
-         << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
-         << "    -A, --remove-path       keep only nodes and edges which are not part of any path" << endl
-         << "    -k, --keep-path NAME    keep only nodes and edges in the path (may repeat)" << endl
-         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
-         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
-         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
-         << "    -p, --prune-complex     remove nodes that are reached by paths of --length which" << endl
-         << "                            cross more than --edge-max edges" << endl
-         << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
-         << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
-         << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
-         << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
-         << "                            replace the pair with a single node that is the concatenation of their labels" << endl
-         << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
-         << "    -M, --max-degree N      unlink nodes that have edge degree greater than N" << endl
-         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-         << "                            ('###' starts and '$$$' ends) of --length, for debugging" << endl
-         << "    -y, --destroy-node ID   remove node with given id" << endl
-         << "    -a, --cactus            convert to cactus graph representation" << endl
-         << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
-         << "    -G, --sample-graph FILE subset an augmented graph to a sample graph using a Locus file" << endl
-         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
+         << "  -c, --compact-ids        should we sort and compact the ID space? (default no)" << endl
+         << "  -b, --break-cycles       break graph cycles with approximate topological sort" << endl
+         << "  -n, --normalize          normalize graph so edges are always non-redundant" << endl
+         << "                           (nodes have unique starting and ending bases relative" << endl
+         << "                           to neighbors, edges that do not introduce new paths" << endl
+         << "                           are removed, and neighboring nodes are merged)" << endl
+         << "  -U, --until-normal N     iterate normalization at most N times" << endl
+         << "  -z, --nomerge-pre STR    do not let normalize (-n/-U) zip up any pair of nodes" << endl
+         << "                           that both belong to path with prefix STR" << endl
+         << "  -E, --unreverse-edges    flip doubly-reversing edges so that they are" << endl
+         << "                           represented on the forward strand of the graph" << endl
+         << "  -s, --simplify           remove redundancy from the graph" << endl
+         << "                           that will not change its path space" << endl
+         << "  -d, --dagify-step N      copy strongly connected components of graph N times," << endl
+         << "                           forwording edges from old to new copies" << endl 
+         << "                           to convert the graph into a DAG" << endl
+         << "  -w, --dagify-to N        copy strongly connected components of the graph," << endl
+         << "                           forwarding edges from old to new copies" << endl 
+         << "                           to convert the graph into a DAG" << endl
+         << "                           until shortest path through each SCC is N bases long" << endl
+         << "  -L, --dagify-len-max N   stop a dagification step if the unrolling component" << endl
+         << "                           has this much sequence" << endl
+         << "  -f, --unfold N           represent inversions accessible up to N from" << endl
+         << "                           the forward component of the graph" << endl
+         << "  -O, --orient-forward     orient the nodes in the graph forward" << endl
+         << "  -N, --remove-non-path    keep only nodes and edges which are part of paths" << endl
+         << "  -A, --remove-path        keep only nodes and edges which aren't part of a path" << endl
+         << "  -k, --keep-path NAME     keep only nodes and edges in the path (may repeat)" << endl
+         << "  -R, --remove-null        remove nodes with no sequence, forwarding their edges" << endl
+         << "  -g, --subgraph ID        gets the subgraph rooted at node ID (may repeat)" << endl
+         << "  -x, --context N          steps the subgraph out by N steps [1]" << endl
+         << "  -p, --prune-complex      remove nodes that are reached by paths of --length" << endl
+         << "                           which cross more than --edge-max edges" << endl
+         << "  -S, --prune-subgraphs    remove subgraphs which are shorter than --length" << endl
+         << "  -l, --length N           for pruning complex regions and short subgraphs" << endl
+         << "  -X, --chop N             chop nodes in the graph so they are <=N bp long" << endl
+         << "  -u, --unchop             where two nodes are only connected to each other and" << endl
+         << "                           by only one edge, replace the pair with a single node" << endl
+         << "                           that is the concatenation of their labels" << endl
+         << "  -e, --edge-max N         consider paths which make edge choices at <= N points" << endl
+         << "  -M, --max-degree N       unlink nodes that have edge degree greater than N" << endl
+         << "  -m, --markers            join all head and tails nodes to marker nodes" << endl
+         << "                           (### starts and $$$ ends) of --length, for debugging" << endl
+         << "  -y, --destroy-node ID    remove node with given id" << endl
+         << "  -a, --cactus             convert to cactus graph representation" << endl
+         << "  -v, --sample-vcf FILE    for a graph with allele paths," << endl
+         << "                           compute the sample graph from the given VCF" << endl
+         << "  -G, --sample-graph FILE  subset augmented graph to sample graph via Locus file" << endl
+         << "  -t, --threads N          for parallel tasks, use this many threads" << endl
+         << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -167,7 +174,7 @@ int main_mod(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?k:oi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
-                long_options, &option_index);
+                         long_options, &option_index);
 
 
         // Detect the end of the options.

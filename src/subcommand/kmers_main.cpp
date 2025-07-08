@@ -26,17 +26,17 @@ void help_kmers(char** argv) {
          << "Generates kmers from both strands of the graph(s). Output is: kmer id pos" << endl
          << endl
          << "general options:" << endl
-         << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -p, --progress        show progress" << endl
+         << "  -k, --kmer-size N     print kmers of size N in the graph" << endl
+         << "  -t, --threads N       number of threads to use" << endl
+         << "  -p, --progress        show progress" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
-         << "                          kmer, starting position, previous characters," << endl
-         << "                          successive characters, successive positions." << endl
-         << "    -B, --gcsa-binary     write the GCSA graph in binary format (implies -g)" << endl
-         << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
-         << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
-         << "" << endl;
+         << "  -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
+         << "                        kmer, starting position, previous characters," << endl
+         << "                        successive characters, successive positions." << endl
+         << "  -B, --gcsa-binary     write the GCSA graph in binary format (implies -g)" << endl
+         << "  -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
+         << "  -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
+         << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
 int main_kmers(int argc, char** argv) {
@@ -83,7 +83,7 @@ int main_kmers(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "k:t:pgBH:T:e:Fh?",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

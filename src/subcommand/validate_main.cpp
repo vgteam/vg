@@ -25,11 +25,12 @@ void help_validate(char** argv) {
          << "Validate the graph." << endl
          << endl
          << "options:" << endl
-         << "    default: check all aspects of the graph, if options are specified do only those" << endl
-         << "    -o, --orphans    verify that all nodes have edges" << endl
-         << "    -a, --gam FILE   verify that edits in the alignment fit on nodes in the graph" << endl
-         << "    -A, --gam-only   do not verify the graph itself, only the alignment" << endl
-         << "    -c, --check-seq  check that the edits in the alignment correctly report matches" << endl;
+         << "default: check all aspects of the graph; if options are specified do only those" << endl
+         << "  -o, --orphans    verify that all nodes have edges" << endl
+         << "  -a, --gam FILE   verify that edits in the alignment fit on nodes in the graph" << endl
+         << "  -A, --gam-only   do not verify the graph itself, only the alignment" << endl
+         << "  -c, --check-seq  check that the edits in alignment correctly report matches" << endl
+         << "  -h, --help       print this help message to stderr and exit" << endl;
 }
 
 int main_validate(int argc, char** argv) {
@@ -59,7 +60,7 @@ int main_validate(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?oa:Ac",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -116,12 +117,18 @@ int main_validate(int argc, char** argv) {
                                 // If a node is too short, report the whole mapping again.
                                 cerr << ":" << std::endl << pb2json(aln.path().mapping(validity.bad_mapping_index));
                             }
-                            if (validity.problem == AlignmentValidity::READ_TOO_SHORT || validity.problem == AlignmentValidity::BAD_EDIT || validity.problem == AlignmentValidity::SEQ_DOES_NOT_MATCH) {
-                                // If there's something wrong with an edit or the read, report the edit and the position in the read
-                                if (validity.bad_mapping_index < aln.path().mapping_size() && validity.bad_edit_index < aln.path().mapping(validity.bad_mapping_index).edit_size()) {
-                                    cerr << ":" << std::endl << pb2json(aln.path().mapping(validity.bad_mapping_index).edit(validity.bad_edit_index));
+                            if (validity.problem == AlignmentValidity::READ_TOO_SHORT ||
+                                validity.problem == AlignmentValidity::BAD_EDIT ||
+                                validity.problem == AlignmentValidity::SEQ_DOES_NOT_MATCH) {
+                                // If there's something wrong with an edit or the read,
+                                // report the edit and the position in the read
+                                if (validity.bad_mapping_index < aln.path().mapping_size() &&
+                                    validity.bad_edit_index < aln.path().mapping(validity.bad_mapping_index).edit_size()) {
+                                    cerr << ":" << std::endl << pb2json(aln.path().mapping(
+                                        validity.bad_mapping_index).edit(validity.bad_edit_index));
                                 }
-                                cerr << ": at mapping " << validity.bad_mapping_index << " edit " << validity.bad_edit_index << " vs. read base " << validity.bad_read_position;
+                                cerr << ": at mapping " << validity.bad_mapping_index << " edit " 
+                                     << validity.bad_edit_index << " vs. read base " << validity.bad_read_position;
                             }
                             cerr << endl;
                             valid_aln = false;

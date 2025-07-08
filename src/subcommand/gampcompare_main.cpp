@@ -26,11 +26,12 @@ void help_gampcompare(char** argv) {
     cerr << "usage: " << argv[0] << " gampcompare [options] alngraph.xg aln.gamp truth.gam > output.tsv" << endl
          << endl
          << "options:" << endl
-         << "    -G, --gam                alignments are in GAM format rather than GAMP" << endl
-         << "    -r, --range N            distance within which to consider reads correct [100]" << endl
-         << "    -a, --aligner STR        aligner name for TSV output [\"vg\"]" << endl
-         << "    -d, --distance           report minimum distance along a path rather than correctness" << endl
-         << "    -t, --threads N          number of threads to use [1]" << endl;
+         << "  -G, --gam          alignments are in GAM format rather than GAMP" << endl
+         << "  -r, --range N      distance within which to consider reads correct [100]" << endl
+         << "  -a, --aligner STR  aligner name for TSV output [\"vg\"]" << endl
+         << "  -d, --distance     report minimum distance along path rather than correctness" << endl
+         << "  -t, --threads N    number of threads to use [1]" << endl
+         << "  -h, --help         print this help message to stderr and exit" << endl;
 }
 
 int main_gampcompare(int argc, char** argv) {
@@ -183,7 +184,8 @@ int main_gampcompare(int argc, char** argv) {
             else {
                 cout << (get<0>(result) <= range);
             }
-            cout << '\t' << get<1>(result) << '\t' << get<2>(result) << '\t' << get<3>(result) << '\t' << aligner_name << '\t' << get<4>(result) << endl;
+            cout << '\t' << get<1>(result) << '\t' << get<2>(result) << '\t' << get<3>(result) << '\t' 
+                 << aligner_name << '\t' << get<4>(result) << endl;
         }
         buffer.clear();
     };
@@ -238,7 +240,8 @@ int main_gampcompare(int argc, char** argv) {
         
         // put the result on the IO buffer
         auto& buffer = buffers[omp_get_thread_num()];
-        buffer.emplace_back(abs_dist, proto_mp_aln.subpath_size() > 0, proto_mp_aln.mapping_quality(), group_mapq, move(*proto_mp_aln.mutable_name()));
+        buffer.emplace_back(abs_dist, proto_mp_aln.subpath_size() > 0, proto_mp_aln.mapping_quality(), 
+                            group_mapq, move(*proto_mp_aln.mutable_name()));
         if (buffer.size() > buffer_size) {
 #pragma omp critical
             flush_buffer(buffer);

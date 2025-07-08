@@ -24,25 +24,30 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_vectorize(char** argv){
+void help_vectorize(char** argv) {
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
-
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
-         << "  -x, --xg FILE       an xg index or graph of interest" << endl
-         << "  -g, --gcsa FILE     a gcsa2 index to use if generating MEM sketches" << endl
-         << "  -l, --aln-label LABEL   rename every alignment to LABEL when outputting alignment name." << endl
-         << "  -f, --format        tab-delimit output so it can be used in R." << endl
-         << "  -A, --annotate      create a header with each node/edge's name and a column with alignment names." << endl
-         << "  -a, --a-hot         instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
-         << "  -w, --wabbit        output a format that's friendly to vowpal wabbit" << endl
-         << "  -M, --wabbit-mapping FILE  output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
-         << "  -m, --mem-sketch    generate a MEM sketch of a given read based on the GCSA" << endl
-         << "  -p, --mem-positions add the positions to the MEM sketch of a given read based on the GCSA" << endl
-         << "  -H, --mem-hit-max N ignore MEMs with this many hits when extracting poisitions" << endl
-         << "  -i, --identity-hot  output a score vector based on percent identity and coverage" << endl
-         << endl;
+         << "  -x, --xg FILE              an xg index or graph of interest" << endl
+         << "  -g, --gcsa FILE            a GCSA2 index to use if generating MEM sketches" << endl
+         << "  -l, --aln-label LABEL      output all alignments with name LABEL" << endl
+         << "  -f, --format               tab-delimit output so it can be used in R." << endl
+         << "  -A, --annotate             create a header with each node/edge's name" << endl
+         << "                             and a column with alignment names." << endl
+         << "  -a, --a-hot                instead of a 1-hot, output a vector of {0|1|2}" << endl
+         << "                             for covered, reference, or alt." << endl
+         << "  -w, --wabbit               output a format that's friendly to vowpal wabbit" << endl
+         << "  -M, --wabbit-mapping FILE  output the mappings used for vowpal wabbit classes" << endl
+         << "                             (default: print to stderr)" << endl
+         << "  -m, --mem-sketch           generate a MEM sketch of a given read based on GCSA" << endl
+         << "  -p, --mem-positions        add the positions to the MEM sketch of a given read" << endl
+         << "                             based on the GCSA" << endl
+         << "  -H, --mem-hit-max N        ignore MEMs with more than this many hits when" << endl
+         << "                             extracting poisitions" << endl
+         << "  -i, --identity-hot         output a score vector for each alignment based on" << endl
+         << "                             percent identity and coverage" << endl
+         << "  -h, --help                 print this help message to stderr and exit" << endl;
 }
 
 int main_vectorize(int argc, char** argv){
@@ -93,7 +98,7 @@ int main_vectorize(int argc, char** argv){
         };
         int option_index = 0;
         c = getopt_long (argc, argv, "Aaih?wM:fmpx:g:l:H:r:",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -200,7 +205,8 @@ int main_vectorize(int argc, char** argv){
     }
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, 
+                                         mem_positions, format, a_hot, max_mem_length](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {

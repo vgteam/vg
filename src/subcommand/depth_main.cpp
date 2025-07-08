@@ -28,24 +28,28 @@ using namespace vg::subcommand;
 void help_depth(char** argv) {
     cerr << "usage: " << argv[0] << " depth [options] <graph>" << endl
          << "options:" << endl
-         << "  packed coverage depth (print 1-based positional depths along path):" << endl
-         << "    -k, --pack FILE        supports created from vg pack for given input graph" << endl
-         << "    -d, --count-dels       count deletion edges within the bin as covering reference positions" << endl
-         << "  GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
-         << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
-         << "    -a, --gaf FILE         read alignments from this GAF file (could be '-' for stdin)" << endl
-         << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
-         << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
-         << "    -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
-         << "  path coverage depth (print 1-based positional depths along path):" << endl
-         << "     activate by specifiying -p without -k" << endl
-         << "    -c, --count-cycles     count each time a path steps on a position (by default paths are only counted once)" << endl
-         << "  common options:" << endl
-         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
-         << "    -P, --paths-by STR     select the paths with the given name prefix" << endl        
-         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
-         << "    -m, --min-coverage N   ignore nodes with less than N coverage depth [1]" << endl
-         << "    -t, --threads N        number of threads to use [all available]" << endl;
+         << "packed coverage depth (print 1-based positional depths along path):" << endl
+         << "  -k, --pack FILE        supports created from vg pack for given input graph" << endl
+         << "  -d, --count-dels       count deletion edges within the bin" << endl
+         << "                         as covering reference positions" << endl
+         << "GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
+         << "  -g, --gam FILE         read alignments from this GAM file ('-' for stdin)" << endl
+         << "  -a, --gaf FILE         read alignments from this GAF file ('-' for stdin)" << endl
+         << "  -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
+         << "  -s, --random-seed N    random seed for sampling nodes to consider" << endl
+         << "  -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
+         << "path coverage depth (print 1-based positional depths along path):" << endl
+         << "   activate by specifiying -p without -k" << endl
+         << "  -c, --count-cycles     count each time a path steps on a position" << endl
+         << "                         (by default paths are only counted once)" << endl
+         << "common options:" << endl
+         << "  -p, --ref-path NAME    reference path to call on (may repeat; defaults all)" << endl
+         << "  -P, --paths-by STR     select the paths with the given name prefix" << endl        
+         << "  -b, --bin-size N       bin size (in bases) [1]" << endl
+         << "                         2 extra columns printed when N>1: bin-end-pos & stddev" << endl
+         << "  -m, --min-coverage N   ignore nodes with less than N coverage depth [1]" << endl
+         << "  -t, --threads N        number of threads to use [all available]" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_depth(int argc, char** argv) {
@@ -94,7 +98,7 @@ int main_depth(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?k:p:P:b:dg:a:n:s:Q:m:ct:",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

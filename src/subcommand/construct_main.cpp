@@ -22,33 +22,38 @@ void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
          << "construct from a reference and variant calls:" << endl
-         << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
-         << "    -v, --vcf FILE         input VCF (may repeat)" << endl
-         << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
-         << "    -a, --alt-paths        save paths for alts of variants by SHA1 hash" << endl
-         << "    -A, --alt-paths-plain  save paths for alts of variants by variant ID if possible, otherwise SHA1" << endl
-         << "                           (IDs must be unique across all input VCFs)" << endl
-         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
-         << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
-         << "                           sequence name could be inadvertently parsed as a region)" << endl
-         << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
-         << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -S, --handle-sv        include structural variants in construction of graph." << endl
-         << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
-         << "                           (referred to in VCF) to add to graph." << endl
-         << "    -f, --flat-alts        don't chop up alternate alleles from input VCF" << endl
-         << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
-         << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
-         << "    -N, --in-memory        construct the entire graph in memory before outputting it." <<endl
+         << "  -r, --reference FILE   input FASTA reference (may repeat)" << endl
+         << "  -v, --vcf FILE         input VCF (may repeat)" << endl
+         << "  -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs" << endl
+         << "                         (may repeat)" << endl
+         << "  -a, --alt-paths        save paths for alts of variants by SHA1 hash" << endl
+         << "  -A, --alt-paths-plain  save paths for alts of variants by variant ID" << endl
+         << "                         if possible, otherwise SHA1" << endl
+         << "                         (IDs must be unique across all input VCFs)" << endl
+         << "  -R, --region REGION    specify a VCF contig name or 1-based inclusive region" << endl
+         << "                         (may repeat, if on different contigs)" << endl
+         << "  -C, --region-is-chrom  don't attempt to parse the regions (use when reference" << endl
+         << "                         sequence name could be parsed as a region)" << endl
+         << "  -z, --region-size N    variants per region to parallelize [1024]" << endl
+         << "  -t, --threads N        use N threads to construct graph [numCPUs]" << endl
+         << "  -S, --handle-sv        include structural variants in construction of graph." << endl
+         << "  -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
+         << "                         (referred to in VCF) to add to graph." << endl
+         << "  -f, --flat-alts        don't chop up alternate alleles from input VCF" << endl
+         << "  -l, --parse-max N      don't chop up alternate alleles from input VCF" << endl
+         << "                         longer than N [100]" << endl
+         << "  -i, --no-trim-indels   don't remove the 1bp ref base from indel alt alleles" << endl
+         << "  -N, --in-memory        construct entire graph in memory before outputting it" <<endl
          << "construct from a multiple sequence alignment:" << endl
-         << "    -M, --msa FILE         input multiple sequence alignment" << endl
-         << "    -F, --msa-format STR   format of the MSA file (options: fasta, clustal; default fasta)" << endl
-         << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
+         << "  -M, --msa FILE         input multiple sequence alignment" << endl
+         << "  -F, --msa-format STR   format of the MSA file {fasta, clustal} [fasta]" << endl
+         << "  -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
-         << "                           nodes greater than this threshold will be divided" << endl
-         << "                           note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
-         << "    -p, --progress         show progress" << endl;
+         << "  -m, --node-max N       limit maximum allowable node sequence size [32]" << endl
+         << "                         nodes greater than this threshold will be divided" << endl
+         << "                         note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
+         << "  -p, --progress         show progress" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 
 }
 
@@ -310,7 +315,8 @@ int main_construct(int argc, char** argv) {
             auto callback = [&](Graph& big_chunk) {
                 // Sort the nodes by ID so that the serialized chunks come out in sorted order
                 // TODO: We still interleave chunks from different threads working on different contigs
-                std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
+                std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), 
+                [](const Node& a, const Node& b) -> bool {
                     // Return true if a comes before b
                     return a.id() < b.id();
                 });

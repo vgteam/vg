@@ -23,22 +23,28 @@ using namespace vg::subcommand;
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
-         << "    -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
-         << "    -b, --bed-name FILE    a BED file to convert to GAM. May repeat." << endl
-         << "    -f, --gff-name FILE    a GFF3 file to convert to GAM. May repeat." << endl
-         << "    -g, --ggff             output at GGFF subgraph annotation file instead of GAM (requires -s)" << endl
-         << "    -F, --gaf-output       output in GAF format rather than GAM" << endl
-         << "    -s, --snarls FILE      file containing snarls to expand GFF intervals into" << endl
+         << "  -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
+         << "  -b, --bed-name FILE    BED file to convert to GAM (may repeat)" << endl
+         << "  -f, --gff-name FILE    GFF3 file to convert to GAM (may repeat)" << endl
+         << "  -g, --ggff             output GGFF subgraph annotation file" << endl
+         << "                         instead of GAM (requires -s)" << endl
+         << "  -F, --gaf-output       output in GAF format rather than GAM" << endl
+         << "  -s, --snarls FILE      snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl
-         << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
-         << "    -x, --xg-name FILE     xg index of the graph against which the Alignments are aligned (required)" << endl
-         << "    -p, --positions        annotate alignments with reference positions" << endl
-         << "    -m, --multi-position   annotate alignments with multiple reference positions" << endl
-         << "    -l, --search-limit N   when annotating with positions, search this far for paths, or -1 to not search (default: 0 (auto from read length))" << endl
-         << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
-         << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
-         << "    -P, --progress         show progress" << endl
-         << "    -t, --threads N        use the specified number of threads" << endl;
+         << "  -a, --gam FILE         alignments to annotate (required)" << endl
+         << "  -x, --xg-name FILE     xg index of the graph against which the" << endl
+         << "                         alignments are aligned (required)" << endl
+         << "  -p, --positions        annotate alignments with reference positions" << endl
+         << "  -m, --multi-position   annotate alignments with multiple reference positions" << endl
+         << "  -l, --search-limit N   when annotating with -p, search this far for paths, or" << endl
+         << "                         -1 to not search [0 (auto from read length)]" << endl
+         << "  -b, --bed-name FILE    annotate alignments with overlapping region names" << endl
+         << "                         from this BED (may repeat)" << endl
+         << "  -n, --novelty          output TSV table with header" << endl
+         << "                         describing how much of each Alignment is novel" << endl
+         << "  -P, --progress         show progress" << endl
+         << "  -t, --threads N        use the specified number of threads" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 /// Find the region of the Mapping's node used by the Mapping, in forward strand space, as start to past_end.
@@ -129,7 +135,7 @@ int main_annotate(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "x:a:pml:b:f:gFs:nt:Ph?",
-                long_options, &option_index);
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -334,7 +340,8 @@ int main_annotate(int argc, char** argv) {
             }
             
             get_input_file(gam_name, [&](istream& in) {
-                vg::Progressive::with_progress(show_progress, "Read reads", [&](const std::function<void(size_t, size_t)>& progress) {
+                vg::Progressive::with_progress(show_progress, "Read reads", 
+                    [&](const std::function<void(size_t, size_t)>& progress) {
                     vg::io::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
                         // For each read
                         
@@ -360,10 +367,12 @@ int main_annotate(int argc, char** argv) {
                                 auto node_id = mapping.position().node_id();
                                 auto features = features_on_node.find(node_id);
                                 if (features != features_on_node.end()) {
-                                    // Some things occur on this node. Find the overlaps with the part of the node touched by this read.
+                                    // Some things occur on this node.
+                                    // Find the overlaps with the part of the node touched by this read.
                                     auto overlapping = find_overlapping(features->second, mapping_to_range(xg_index, mapping));
                                     // Save them all to the set (to remove duplicates)
-                                    copy(overlapping.begin(), overlapping.end(), inserter(touched_features, touched_features.begin()));
+                                    copy(overlapping.begin(), overlapping.end(), 
+                                         inserter(touched_features, touched_features.begin()));
                                 }
                             }
                             

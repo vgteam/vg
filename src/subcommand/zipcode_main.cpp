@@ -39,10 +39,11 @@ void help_zipcode(char** argv) {
     << "usage: " << argv[0] << " test zipcodes on minimizers from reads [options] input.gam > output.gam" << endl
     << endl
     << "basic options:" << endl
+    << "  -h, --help                    print this help message to stderr and exit" << endl
     << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -d, --dist-name FILE          use this distance index (required)" << endl
-    << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
+    << "  -c, --hit-cap INT             ignore minimizers with >INT locations [10]" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -127,7 +128,8 @@ int main_zipcode(int argc, char** argv) {
             {
                 int num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg zipcode] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg zipcode] Thread count (-t) set to " << num_threads 
+                         << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);

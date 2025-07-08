@@ -18,11 +18,11 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_version(char** argv){
+void help_version(char** argv) {
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
          << "  -s, --slug           print only the one-line, whitespace-free version string" << endl
-         << "  -h, --help           print this help" << endl
+         << "  -h, --help           print this help message to stderr and exit" << endl
          << endl;
 }
 

@@ -97,36 +97,39 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
 }
 
 void help_autoindex(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " autoindex [options]" << endl
-    << "options:" << endl
-    << "  output:" << endl
-    << "    -p, --prefix PREFIX    prefix to use for all output (default: index)" << endl
-    << "    -w, --workflow NAME    workflow to produce indexes for, can be provided multiple" << endl
-    << "                           times. options: map, mpmap, rpvg, giraffe, sr-giraffe, lr-giraffe (default: map)" << endl
-    << "  input data:" << endl
-    << "    -r, --ref-fasta FILE   FASTA file containing the reference sequence (may repeat)" << endl
-    << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
-    << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
-    << "    -g, --gfa FILE         GFA file to make a graph from" << endl
-    << "    -G, --gbz FILE         GBZ file to make indexes from" << endl
-    << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
-    << "    -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations of a named haplotype (may repeat)" << endl
-    << "  configuration:" << endl
-    << "    -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph (default: " << IndexingParameters::gff_feature_name << ")" << endl
-    << "    -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for transcript ID (default: " << IndexingParameters::gff_transcript_tag << ")" << endl
-    << "  logging and computation:" << endl
-    << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
-    << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
-    << "                           (default: 1/2 of available)" << endl
+    cerr << "usage: " << argv[0] << " autoindex [options]" << endl
+         << "output:" << endl
+         << "  -p, --prefix PREFIX    prefix to use for all output [index]" << endl
+         << "  -w, --workflow NAME    workflow to produce indexes for (may repeat) [map]" << endl
+         << "                         {map, mpmap, rpvg, giraffe, sr-giraffe, lr-giraffe}" << endl
+         << "input data:" << endl
+         << "  -r, --ref-fasta FILE   FASTA file with the reference sequence (may repeat)" << endl
+         << "  -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
+         << "  -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
+         << "  -g, --gfa FILE         GFA file to make a graph from" << endl
+         << "  -G, --gbz FILE         GBZ file to make indexes from" << endl
+         << "  -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
+         << "  -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations " << endl
+         << "                         of a named haplotype (may repeat)" << endl
+         << "configuration:" << endl
+         << "  -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph "
+                                      << "[" << IndexingParameters::gff_feature_name << "]" << endl
+         << "  -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for ID "
+                                      << "[" << IndexingParameters::gff_transcript_tag << "]" << endl
+         << "logging and computation:" << endl
+         << "  -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
+         << "  -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
+         << "                         [1/2 of available]" << endl
 // TODO: hiding this now that we have rewinding options, since detailed args aren't really in the spirit of this subcommand
-//    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
-//    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
-//    << "    --gcsa-size-limit NUM  limit on size of GCSA2 temporary files on disk in bytes" << endl
-    << "    -t, --threads NUM      number of threads (default: all available)" << endl
-    << "    -V, --verbosity NUM    log to stderr (0 = none, 1 = basic, 2 = debug; default " << (int) IndexingParameters::verbosity << ")" << endl
-    //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
-    << "    -h, --help             print this help message to stderr and exit" << endl;
+//    << "  --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
+//    << "                              increased for graphs with long haplotypes "
+//                                   << "[" << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << "]" << endl
+//    << "  --gcsa-size-limit NUM limit on size of GCSA2 temporary files on disk in bytes" << endl
+         << "  -t, --threads NUM      number of threads [all available]" << endl
+         << "  -V, --verbosity NUM    log to stderr {0 = none, 1 = basic, 2 = debug}"
+         <<                           "[" << (int) IndexingParameters::verbosity << "]" << endl
+       //<< "  -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_autoindex(int argc, char** argv) {
@@ -315,9 +318,8 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case '?':
             case 'h':
-                help_autoindex(argv);
-                return 0;
             default:
+                help_autoindex(argv);
                 return 1;
         }
     }
@@ -414,5 +416,6 @@ int main_autoindex(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_autoindex("autoindex", "mapping tool-oriented index construction from interchange formats", PIPELINE, 1, main_autoindex);
+static Subcommand vg_autoindex("autoindex", "mapping tool-oriented index construction from interchange formats", 
+                               PIPELINE, 1, main_autoindex);
 

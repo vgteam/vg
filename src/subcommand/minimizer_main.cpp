@@ -60,38 +60,49 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress);
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer [options] -d graph.dist -o graph.min graph" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index of the threads in the GBWT" << std::endl;
-    std::cerr << "index. The graph can be any HandleGraph, which will be transformed into a GBWTGraph." << std::endl;
+    std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index of the threads in the" << std::endl;
+    std::cerr << "GBWT. The graph can be any HandleGraph, which will be made into a GBWTGraph." << std::endl;
     std::cerr << "The transformation can be avoided by providing a GBWTGraph or a GBZ graph." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -d, --distance-index FILE annotate the hits with positions in this distance index" << std::endl;
-    std::cerr << "    -o, --output-name FILE  store the index in a file" << std::endl;
+    std::cerr << "  -d, --distance-index FILE  annotate hits with positions in this distance index" << std::endl;
+    std::cerr << "  -o, --output-name FILE     store the index in a file" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::short_read_minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::short_read_minimizer_w << ")" << std::endl;
-    std::cerr << "    -c, --closed-syncmers   index closed syncmers instead of minimizers" << std::endl;
-    std::cerr << "    -s, --smer-length N     use smers of length N in closed syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
+    std::cerr << "  -k, --kmer-length N        length of the kmers in the index "
+                                           << "[" << IndexingParameters::short_read_minimizer_k 
+                                           << "] (max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH 
+                                           << ")" << std::endl;
+    std::cerr << "  -w, --window-length N      choose minimizer from a window of N kmers "
+                                           << "[" << IndexingParameters::short_read_minimizer_w << "]" << std::endl;
+    std::cerr << "  -c, --closed-syncmers      index closed syncmers instead of minimizers" << std::endl;
+    std::cerr << "  -s, --smer-length N        use smers of length N in closed syncmers "
+                                           << "[" << IndexingParameters::minimizer_s << "]" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Weighted minimizers:" << std::endl;
-    std::cerr << "    -W, --weighted          use weighted minimizers" << std::endl;
-    std::cerr << "        --threshold N       downweight kmers with more than N hits (default " << DEFAULT_THRESHOLD << ")" << std::endl;
-    std::cerr << "        --iterations N      downweight frequent kmers by N iterations (default " << DEFAULT_ITERATIONS << ")" << std::endl;
-    std::cerr << "        --fast-counting     use the fast kmer counting algorithm (default)" << std::endl;
-    std::cerr << "        --save-memory       use the space-efficient kmer counting algorithm" << std::endl;
-    std::cerr << "        --hash-table N      use 2^N-cell hash tables for kmer counting (default: guess)" << std::endl;
+    std::cerr << "  -W, --weighted             use weighted minimizers" << std::endl;
+    std::cerr << "      --threshold N          downweight kmers with more than N hits "
+                                           << "[" << DEFAULT_THRESHOLD << "]" << std::endl;
+    std::cerr << "      --iterations N         downweight frequent kmers by N iterations "
+                                           << "[" << DEFAULT_ITERATIONS << "]" << std::endl;
+    std::cerr << "      --fast-counting        use the fast kmer counting algorithm (default)" << std::endl;
+    std::cerr << "      --save-memory          use the space-efficient kmer counting algorithm" << std::endl;
+    std::cerr << "      --hash-table N         use 2^N-cell hash tables for kmer counting" << std::endl;
+    std::cerr << "                             (default: guess)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -z, --zipcode-name FILE store the distances that are too big in afile" << std::endl;
-    std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
-    std::cerr << "    -l, --load-index FILE   load the index from a file and insert the new kmers into it" << std::endl;
-    std::cerr << "                            (overrides minimizer / weighted minimizer options)" << std::endl;
-    std::cerr << "    -g, --gbwt-name FILE    use the GBWT index in a file (required with a non-GBZ graph)" << std::endl;
-    std::cerr << "    -p, --progress          show progress information" << std::endl;
-    std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
-    std::cerr << "                            (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
-    std::cerr << "        --no-dist           build the index without distance index annotations (not recommended)" << std::endl;
+    std::cerr << "  -z, --zipcode-name FILE    store the distances that are too big in afile" << std::endl;
+    std::cerr << "                             if no -z, some distances may be discarded" << std::endl;
+    std::cerr << "  -l, --load-index FILE      load this index and insert the new kmers into it" << std::endl;
+    std::cerr << "                             (overrides minimizer / weighted minimizer options)" << std::endl;
+    std::cerr << "  -g, --gbwt-name FILE       use this GBWT index (required with a non-GBZ graph)" << std::endl;
+    std::cerr << "  -p, --progress             show progress information" << std::endl;
+    std::cerr << "  -t, --threads N            use N threads for index construction "
+                                           << "[" << get_default_threads() << "]" << std::endl;
+    std::cerr << "                             (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
+    std::cerr << "      --no-dist              build the index without distance index annotations" << std::endl;
+    std::cerr << "                             (not recommended)" << std::endl;
+    std::cerr << "  -h, --help                 print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -507,4 +518,5 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
 //------------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index", vg::subcommand::TOOLKIT, main_minimizer);
+static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index",
+                                               vg::subcommand::TOOLKIT, main_minimizer);

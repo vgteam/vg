@@ -23,15 +23,16 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_sort(char** argv){
+void help_sort(char** argv) {
     cerr << "usage: " << argv[0] << " sort [options] > sorted.vg " << endl
          << "options: " << endl
-         << "    -a, --algorithm NAME   sort by the given algorithm (eades, max-flow, id, or topo; default id)" << endl
-         << "    -g, --gfa              input in GFA format" << endl
-         << "    -r, --ref NAME         reference name, for eades and max-flow algorithms; makes -a default to max-flow" << endl
-         << "    -w, --without-grooming no grooming mode for eades" << endl
-         << "    -I, --index-to FILE    produce an index of an id-sorted vg file to the given filename" << endl
-         << endl;
+         << "  -a, --algorithm NAME    sort algorithm {eades, max-flow, id, or topo} [id]" << endl
+         << "  -g, --gfa               input in GFA format" << endl
+         << "  -r, --ref NAME          reference name, for eades and max-flow algorithms;" << endl
+         << "                          makes -a default to max-flow" << endl
+         << "  -w, --without-grooming  no grooming mode for eades" << endl
+         << "  -I, --index-to FILE     save index of an ID-sorted vg file to the given file" << endl
+         << "  -h, --help              print this help message to stderr and exit" << endl;
 }
 
 int main_sort(int argc, char *argv[]) {

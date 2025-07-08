@@ -33,7 +33,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0, bool components = false);
+static string chunk_name(const string& out_chunk_prefix, int i, const Region& region,
+                         string ext, int gi = 0, bool components = false);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
 static void check_read(const Alignment& aln, const HandleGraph* graph);
@@ -43,49 +44,67 @@ void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
          << "Splits a graph and/or alignment into smaller chunks" << endl
          << endl
-         << "Graph chunks are saved to .vg files, read chunks are saved to .gam files, and haplotype annotations are " << endl
-         << "saved to .annotate.txt files, of the form <BASENAME>-<i>-<region name or \"ids\">-<start>-<length>.<ext>." << endl
+         << "Graph chunks are saved to .vg files, read chunks are saved to .gam files," << endl
+         << "and haplotype annotations are saved to .annotate.txt files, of the form" << endl
+         << "<BASENAME>-<i>-<region name or \"ids\">-<start>-<length>.<ext>." << endl
          << "The BASENAME is specified with -b and defaults to \"./chunks\"." << endl
-         << "For a single-range chunk (-p or -r), the graph data is sent to standard output instead of a file." << endl
+         << endl
+         << "For a single-range chunk (-p or -r), the graph data is sent to" << endl
+         << "standard output instead of a file." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
-         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction (for -T)" << endl
-         << "    -a, --aln-name FILE      chunk this alignment file instead of the graph (multiple allowed)" << endl
-         << "    -g, --aln-and-graph      when used in combination with -a, both alignments and graph will be chunked" << endl 
-         << "    -F, --in-gaf             input alignment is a sorted bgzipped GAF (by default, expects GAM)" << endl 
+         << "  -x, --xg-name FILE            use this graph or xg index to chunk subgraphs" << endl
+         << "  -G, --gbwt-name FILE          use this GBWT haplotype index" << endl
+         << "                                for haplotype extraction (for -T)" << endl
+         << "  -a, --aln-name FILE           chunk alignments instead of graph (may repeat)" << endl
+         << "  -g, --aln-and-graph           when used in combination with -a," << endl
+         << "                                both alignments and graph will be chunked" << endl 
+         << "  -F, --in-gaf                  -a alignment is a sorted bgzipped GAF, not GAM" << endl 
          << "path chunking:" << endl
-         << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive, multiple allowed)\n"
-         << "                             path range TARGET=path[:pos1[-pos2]] to standard output" << endl
-         << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format" << endl
-         << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
-         << "    -e, --input-bed FILE     write chunks for all (0-based end-exclusive) bed regions" << endl
-         << "    -S, --snarls FILE        write given path-range(s) and all snarls fully contained in them, as alternative to -c" << endl
+         << "  -p, --path TARGET             write the chunk in the specified path range" << endl
+         << "                                (0-based inclusive, multiple allowed)" << endl
+         << "                                TARGET=path[:pos1[-pos2]] to standard output" << endl
+         << "  -P, --path-list FILE          for all paths in line separated file, " << endl
+         << "                                write chunks for each as in -p" << endl
+         << "  -e, --input-bed FILE          write chunks for (0-based end-exclusive) regions" << endl
+         << "  -S, --snarls FILE             write given path-range(s) and all snarls " << endl
+         << "                                fully contained in them, as alternative to -c" << endl
          << "id range chunking:" << endl
-         << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
-         << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
-         << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
+         << "  -r, --node-range N:M          write the chunk for this node range to stdout" << endl
+         << "  -R, --node-ranges FILE        write the chunk for each node range in" << endl
+         << "                                (newline or whitespace separated) file" << endl
+         << "  -n, --n-chunks N              generate N id-range chunks, determined via xg" << endl
          << "simple alignment chunking:" << endl
-         << "    -m, --aln-split-size N   split alignments (specified with -a, sort/index not required) up into chunks with at most N reads each" << endl
+         << "  -m, --aln-split-size N        split alignments (-a, sort/index not required)" << endl
+         << "                                up into chunks with at most N reads each" << endl
          << "component chunking:" << endl
-         << "    -C, --components         create a chunk for each connected component.  if a targets given with (-p, -P, -r, -R), limit to components containing them" << endl
-         << "    -M, --path-components    create a chunk for each path in the graph's connected component" << endl
+         << "  -C, --components              create a chunk for each connected component." << endl
+         << "                                If targets given with (-p, -P, -r, -R)," << endl
+         << "                                limit to components containing them" << endl
+         << "  -M, --path-components         create a chunk for each path" << endl
+         << "                                in the graph's connected component" << endl
          << "general:" << endl
-         << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions." << endl
-         << "    -o, --overlap N          overlap between chunks when using -s [0]" << endl        
-         << "    -E, --output-bed FILE    write all created chunks to a bed file" << endl
-         << "    -b, --prefix BASENAME    write output chunk files with the given base name. Files for chunk i will" << endl
-         << "                             be named: <BASENAME>-<i>-<name>-<start>-<length>.<ext> [./chunk]" << endl
-         << "    -c, --context-steps N    expand the context of the chunk this many node steps [1]" << endl
-         << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
-         << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
-         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
-         << "    --no-embedded-haplotypes don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
-         << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -u, --cut-alignments     cut alignments to be fully contained within the chunk" << endl
-         << "    -O, --output-fmt STR     specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
-         << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
-         << "    -h, --help" << endl;
+         << "  -s, --chunk-size N            create chunks spanning N bases" << endl
+         << "                                (or nodes with -r/-R) for all input regions." << endl
+         << "  -o, --overlap N               overlap between chunks when using -s [0]" << endl        
+         << "  -E, --output-bed FILE         write all created chunks to a bed file" << endl
+         << "  -b, --prefix BASENAME         write output chunk files [./chunk]" << endl
+         << "                                Files for chunk i will be named" << endl
+         << "                                <BASENAME>-<i>-<name>-<start>-<length>.<ext> " << endl
+         << "  -c, --context-steps N         expand the context of the chunk N node steps [1]" << endl
+         << "  -l, --context-length N        expand the context of the chunk by N bp [0]" << endl
+         << "  -T, --trace                   trace haplotype threads in chunks" << endl
+         << "                                (and only expand forward from input coordinates)" << endl
+         << "                                Produces .annotate.txt file" << endl
+         << "                                with haplotype frequencies for each chunk." << endl
+         << "      --no-embedded-haplotypes  don't load haplotypes from the graph. It is" << endl
+         << "                                possible to -T without any haplotypes available." << endl
+         << "  -f, --fully-contained         only return GAM alignments that are" << endl
+         << "                                fully contained within chunk" << endl
+         << "  -u, --cut-alignments          cut alignments to be fully within the chunk" << endl
+         << "  -O, --output-fmt STR          output format {vg, pg, hg, gfa} [pg (vg for -T)]" << endl
+         << "  -t, --threads N               for parallel tasks, use this many threads [1]" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl;
 }
 
 int main_chunk(int argc, char** argv) {
@@ -167,7 +186,7 @@ int main_chunk(int argc, char** argv) {
 
         int option_index = 0;
         c = getopt_long (argc, argv, "h?x:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tfut:n:l:m:CMO:",
-                long_options, &option_index);
+                         long_options, &option_index);
 
 
         // Detect the end of the options.
@@ -310,9 +329,9 @@ int main_chunk(int argc, char** argv) {
     }
 
     // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
-    if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
-        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (aln_split_size == 0 ? 0 : 1)  +
-        (path_components ? 1 : 0) > 1) {
+    if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) +
+        (in_bed_file.empty() ? 0 : 1) + (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) +
+        (aln_split_size == 0 ? 0 : 1) + (path_components ? 1 : 0) > 1) {
         cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions" << endl;
         return 1;
     }
@@ -364,7 +383,8 @@ int main_chunk(int argc, char** argv) {
         
     }
     else if (output_format == "vg") {
-        cerr << "warning[vg chunk]: the vg-protobuf format is DEPRECATED. you probably want to use PackedGraph (pg) instead" << endl;
+        cerr << "warning[vg chunk]: the vg-protobuf format is DEPRECATED. "
+             << "you probably want to use PackedGraph (pg) instead" << endl;
     }    
     string output_ext = output_format == "gfa" ? ".gfa"  : ".vg";
 
@@ -421,7 +441,8 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::ReferencePathOverlayHelper overlay_helper;
 
-    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && aln_split_size == 0) || (id_range && chunk_aln) || components) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && aln_split_size == 0) 
+        || (id_range && chunk_aln) || components) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] graph or xg index (-x) required" << endl;
             return 1;
@@ -516,7 +537,7 @@ int main_chunk(int argc, char** argv) {
                     });
                 } catch (...) {
                     cerr << "error:[vg chunk] unable to load GAM index file: " << gam_file << ".gai" << endl
-                         << "                 note: a GAM index is required when *not* chunking by components with -C or -M" << endl;
+                         << "                 note: .gai is required when *not* chunking by components with -C or -M" << endl;
                     exit(1);
                 }
             }
@@ -704,7 +725,9 @@ int main_chunk(int argc, char** argv) {
     // now ready to get our chunk on
     if (aln_split_size != 0) {
         if(aln_is_gaf){
-            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split. A workaround would be to split the GAF file using split -l/-n which can split text files into chunks." << endl;
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split. "
+                 << "A workaround would be to split the GAF file using split -l/-n "
+                 << "which can split text files into chunks." << endl;
             return 1;
         }
         for (size_t gi = 0; gi < aln_files.size(); ++gi) {
@@ -824,7 +847,8 @@ int main_chunk(int argc, char** argv) {
                 size_t trace_end_coordinate = output_regions[i].end;
 
                 subrange_t candidate_subrange = graph->get_subrange(path_handle);
-                if (graph->get_path_name(path_handle) != output_regions[i].seq && candidate_subrange != PathMetadata::NO_SUBRANGE) {
+                if (graph->get_path_name(path_handle) != output_regions[i].seq 
+                    && candidate_subrange != PathMetadata::NO_SUBRANGE) {
                     // We need to use offsets along the subpath and not the base path.
                     // But don't rewrite the original region.
                     trace_start_coordinate -= candidate_subrange.first;
@@ -921,7 +945,8 @@ int main_chunk(int argc, char** argv) {
                             exit(1);
                         }
 
-                        for_each_gaf_record_in_ranges(gaf_fp.get(), gaf_tbx.get(), region_id_ranges, [&](const std::string& record_string) {
+                        for_each_gaf_record_in_ranges(gaf_fp.get(), gaf_tbx.get(), region_id_ranges, 
+                        [&](const std::string& record_string) {
                             // For each unique matching GAF record's unparsed string
 
                             // TODO: implement enforcing full containment
@@ -955,7 +980,8 @@ int main_chunk(int argc, char** argv) {
                                 // Cut down to just things in any range belonging to this region.
                                 vector<Alignment> pieces = alignment_pieces_within(aln, [&](nid_t id) -> bool {
                                     // Return true if this ID is in any of the sorted ID ranges for the region.
-                                    // TODO: Would a set be better enough to be worth making here? It might have a lot of entries.
+                                    // TODO: Would a set be better enough to be worth making here?
+                                    // It might have a lot of entries.
                                     return vg::algorithms::is_in_sorted_id_ranges(id, region_id_ranges);
                                 });
                                 for (auto& aln : pieces) {
@@ -1023,7 +1049,9 @@ int main_chunk(int argc, char** argv) {
     // write out component gams
     if (chunk_aln && components) {
         if(aln_is_gaf){
-            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by chunked by component. A workaround is to query one chromosome-component as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'." << endl;
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files "
+                 << "can by chunked by component. A workaround is to query one chromosome-component "
+                 << "as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'." << endl;
             return 1;
         }
 
@@ -1208,7 +1236,8 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                 }
                 
                 if (batch_in_progress->size() == batch_size || count % chunk_size == 0 || !gam_iterator.has_current()) {
-                    // We've hit the batch size, or we've hit the last read that fits in this chunk, or we've hit the end of the input.
+                    // We've hit the batch size, or we've hit the last read that fits in this chunk,
+                    // or we've hit the end of the input.
                     // Launch a task to deal with this batch
                     #pragma omp task firstprivate(batch_in_progress)
                     {
@@ -1219,7 +1248,8 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                         auto& emitter_ptr = emitters[thread];
                         if (!emitter_ptr) {
                             // Make it exist if it doesn't yet. Make sure to compress and to pass along the buffer size.
-                            emitter_ptr.reset(new vg::io::MessageEmitter(gam_multiplexer->get_thread_stream(thread), true, gam_buffer_size));
+                            emitter_ptr.reset(new vg::io::MessageEmitter(gam_multiplexer->get_thread_stream(thread), 
+                                                                         true, gam_buffer_size));
                         }
                     
                         for (auto& message : *batch_in_progress) {
@@ -1283,7 +1313,8 @@ static void check_read(const Alignment& aln, const HandleGraph* graph) {
     if (!validity) {
         #pragma omp critical (cerr)
         {
-            std::cerr << "error:[vg chunk] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "error:[vg chunk] Alignment " << aln.name() << " cannot be interpreted against this graph: " 
+                      << validity.message << std::endl;
             std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
         }
         exit(1);

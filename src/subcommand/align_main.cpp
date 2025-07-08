@@ -31,21 +31,24 @@ using namespace vg::subcommand;
 void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
          << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -Q, --seq-name STR    name the sequence using this value" << endl
-         << "    -j, --json            output alignments in JSON format (default GAM)" << endl
-         << "    -m, --match N         use this match score (default: 1)" << endl
-         << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
-         << "    --score-matrix FILE   read a 5x5 integer substitution scoring matrix from a file" << endl
-         << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
-         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
-         << "    -b, --banded-global   use the banded global alignment algorithm" << endl
-         << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
-         << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
-         << "    -w, --between POS,POS align the sequence between the two positions, specified as node ID, + or -, offset" << endl
-         << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
-         << "    -D, --debug           print out score matrices and other debugging info" << endl;
+         << "  -s, --sequence STR       align STR to the graph using partial order alignment" << endl
+         << "  -Q, --seq-name STR       name the sequence using this value" << endl
+         << "  -j, --json               output alignments in JSON format (default GAM)" << endl
+         << "  -m, --match N            use this match score [1]" << endl
+         << "  -M, --mismatch N         use this mismatch penalty [4]" << endl
+         << "      --score-matrix FILE  use this 5x5 integer substitution scoring matrix" << endl
+         << "  -g, --gap-open N         use this gap open penalty [6]" << endl
+         << "  -e, --gap-extend N       use this gap extension penalty [1]" << endl
+         << "  -T, --full-l-bonus N     use this bonus for full length alignments [5]" << endl
+         << "  -b, --banded-global      use the banded global alignment algorithm" << endl
+         << "  -p, --pinned             pin the (local) alignment traceback to" << endl
+         << "                           the optimal edge of the graph" << endl
+         << "  -L, --pin-left           pin first instead of last bases of the graph/sequence" << endl
+         << "  -w, --between POS,POS    align the sequence between the two positions," << endl
+         << "                           specified as node ID, + or -, offset" << endl
+         << "  -r, --reference STR      don't use a graph: run SSW alignment between -s / -r" << endl
+         << "  -D, --debug              print out score matrices and other debugging info" << endl
+         << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
 int main_align(int argc, char** argv) {
@@ -271,7 +274,8 @@ int main_align(int argc, char** argv) {
             // Pick some plausible extraction parameters.
             size_t max_path_length = seq.size() * 2;
             size_t max_gap_length = seq.size() / 2;
-            MinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, max_path_length, max_gap_length, graph.get(), &aligner, alignment, seq_name.empty() ? nullptr : &seq_name);
+            MinimizerMapper::align_sequence_between_consistently(left_anchor, right_anchor, max_path_length, 
+                max_gap_length, graph.get(), &aligner, alignment, seq_name.empty() ? nullptr : &seq_name);
 
         } else {
             // Align directly to the full provided graph.

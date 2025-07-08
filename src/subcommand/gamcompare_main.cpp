@@ -26,15 +26,18 @@ void help_gamcompare(char** argv) {
     cerr << "usage: " << argv[0] << " gamcompare aln.gam truth.gam >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -d, --distance-index FILE  use distances from this distance index instead of path position annotations" << endl
-         << "    -r, --range N              distance within which to consider reads correct" << endl
-         << "    -n, --rename Q=T           interpret the given query contig name as the given truth contig (may repeat)" << endl
-         << "    -I, --ignore T             ignore the given truth contig name (may repeat)" << endl
-         << "    -o, --output-gam FILE      output GAM annotated with correctness to FILE instead of standard output" << endl
-         << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R to standard output" << endl
-         << "    -a, --aligner STR          aligner name for TSV output [\"vg\"]" << endl
-         << "    -s, --score-alignment      get a correctness score of the alignment (higher is better)" << endl
-         << "    -t, --threads N            number of threads to use" << endl;
+         << "  -d, --distance-index FILE  use distances from this distance index" << endl
+         << "                             instead of path position annotations" << endl
+         << "  -r, --range N              distance within which to consider reads correct" << endl
+         << "  -n, --rename Q=T           treat query contig Q as truth contig T (may repeat)" << endl
+         << "  -I, --ignore T             ignore the given truth contig name (may repeat)" << endl
+         << "  -o, --output-gam FILE      output GAM to FILE instead of standard output" << endl
+         << "  -T, --tsv                  output TSV (correct, mq, aligner, read)" << endl
+         << "                             compatible with plot-qq.R to standard output" << endl
+         << "  -a, --aligner STR          aligner name for TSV output [\"vg\"]" << endl
+         << "  -s, --score-alignment      get alignment correctness score (higher is better)" << endl
+         << "  -t, --threads N            number of threads to use" << endl
+         << "  -h, --help                 print this help message to stderr and exit" << endl;
 }
 
 // A gapless alignment between a read and a single node.
