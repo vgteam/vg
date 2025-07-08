@@ -295,7 +295,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         printed_line = re.search(quoted_pattern, stripped)
         if printed_line:
             printed_len = printed_line.end(1) - printed_line.start(1)
-            if printed_len > 81:
+            if printed_len > 80:
                 raise ValueError(f"Helptext line `{stripped}` is {printed_len}"
                                  ">80 characters long")
             if r"\n" in printed_line.group(1):
