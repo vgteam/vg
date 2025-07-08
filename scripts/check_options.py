@@ -96,11 +96,8 @@ For all checks, commented-out lines are ignored.
 
 ## TODO
 
-- Have all "multiple allowed"/"may repeat" be "may repeat"
 - Check that the order of options in the helptext
   matches the order in long_options[] and getopt_long() string
-- Standard description for --threads
-- Disallow "\n" strings in helptext
 
 ## Attribution
 
