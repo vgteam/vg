@@ -416,7 +416,7 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
-# Control varialbe for address sanitizer
+# Control variable for address sanitizer
 # Like valgrind but fast!
 # You can `make clean && make jemalloc=off asan=on` to build with it.
 asan = off
