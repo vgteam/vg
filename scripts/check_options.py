@@ -96,10 +96,11 @@ For all checks, commented-out lines are ignored.
 
 ## TODO
 
-- Check that all helptext lines are no more than 80 characters
-- Check that the second line of getopt_long()'s arguments matches up
+- Have all "multiple allowed"/"may repeat" be "may repeat"
 - Check that the order of options in the helptext
   matches the order in long_options[] and getopt_long() string
+- Standard description for --threads
+- Disallow "\n" strings in helptext
 
 ## Attribution
 
@@ -209,6 +210,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     arg_pattern = r'\s[A-Z_\-=:.,;\[\]]+'
     # Match the rest of the description
     desc_pattern = r'\s+.+'
+    # Match what is printed
+    quoted_pattern = r'"(.+?)"'
 
     # Certain exceptions can only be used in annotate_main.cpp
     is_annotate = 'help_annotate' in text
@@ -251,7 +254,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             errors.append(f"Help option -h does not have the expected "
                             f"description '{HELP_DESC}'")
         
-        text_offset = re.match(r'\s+(.+)', description).start(1)
+        text_offset = re.match(r'\s+(.+)', description).start(1) - match.start()
         text_start = match.start(description_num) + text_offset
         if description_start is None:
             description_start = text_start
@@ -279,16 +282,25 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         if not inside_help or stripped.startswith('//'):
             continue
 
-        if '"usage:' in stripped:
-            if has_usage:
-                raise ValueError("Multiple 'usage:' lines found in helptext")
-            has_usage = True
-
         # Keep track of curly brace nesting
         if '{' in stripped:
             curly_brace_nesting += 1
         if '}' in stripped:
             curly_brace_nesting -= 1
+
+        if '"usage:' in stripped:
+            if has_usage:
+                raise ValueError("Multiple 'usage:' lines found in helptext")
+            has_usage = True
+            # Don't check usage lines for length
+            continue
+
+        printed_line = re.search(quoted_pattern, stripped)
+        if printed_line:
+            printed_len = printed_line.end(1) - printed_line.start(1)
+            if printed_len > 81:
+                raise ValueError(f"Helptext line `{stripped}` is {printed_len}"
+                                 ">80 characters long")
 
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
