@@ -251,10 +251,14 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             errors.append(f"Help option -h does not have the expected "
                             f"description '{HELP_DESC}'")
         
+        # Count of blank spaces between option and description
         text_offset = re.match(r'\s+(.+)', description).start(1) - match.start()
+        # Column within printed text which starts thr description
         text_start = match.start(description_num) + text_offset
+        # Use first line's text_start as the description start
         if description_start is None:
             description_start = text_start
+        # All other lines must match
         elif description_start != text_start:
             errors.append(f"Help option line '{stripped}' does not "
                           "line up with the previous option's description")
