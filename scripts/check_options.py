@@ -94,11 +94,6 @@ you may have to do multiple runs/fixes to see all the problems.
 For all checks, commented-out lines are ignored.
 (Though multiline comments aren't handled correctly.)
 
-## TODO
-
-- Check that the order of options in the helptext
-  matches the order in long_options[] and getopt_long() string
-
 ## Attribution
 
 The base of this script was written by ChatGPT.
