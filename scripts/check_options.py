@@ -301,6 +301,9 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             if printed_len > 81:
                 raise ValueError(f"Helptext line `{stripped}` is {printed_len}"
                                  ">80 characters long")
+            if r"\n" in printed_line.group(1):
+                raise ValueError(f"Helptext line `{stripped}` has a newline "
+                                 "character, which is not allowed; use endl")
 
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
