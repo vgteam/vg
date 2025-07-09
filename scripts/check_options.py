@@ -33,8 +33,9 @@ Checks performed on the *file as a whole*.
 
 1. The help options (-h, -?) must be present in the helptext,
    getopt string, and the switch block, and must not take an
-   argument. In the switch block, they must crash.
-2. The default case in the switch block must crash.
+   argument. In the switch block, they must exit/return/abort.
+   (It has at least one of the keywords in `NON_WORK_WORDS`)
+2. The default case in the switch block must exit/return/abort.
 3. All options in the getopt string must be in long_options[].
 4. All options in the switch block must be in long_options[].
 
@@ -94,8 +95,8 @@ you may have to do multiple runs/fixes to see all the problems.
   each case must be of the form `case <shortform>:` or `default:`.
   The shortform must be a single character or an ALL_CAPS variable name.
   If the case takes an argument, it must use `optarg`.
-  If a case crashes or is otherwise deprecated, it may or may not
-  use `optarg`; I'm flexible about that. Fallthroughs are handled.
+  If it *intentionally* doesn't work (e.g. is deprecated, calls `exit`)
+  it may or may not use `optarg`. Fallthroughs are handled.
 
 For all checks, commented-out lines are ignored.
 (Though multiline comments aren't handled correctly.)
@@ -123,8 +124,8 @@ HELP_DESC = 'print this help message to stderr and exit'
 """Expected description for the --help option."""
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
-CRASHES = {'exit', 'return', 'deprecated', 'abort', 'throw'}
-"""Keywords that indicate a crash/deprecation in the switch block."""
+NON_WORK_WORDS = {'exit', 'return', 'deprecated', 'abort', 'throw'}
+"""Keywords that indicate something is meant to not work in the switch block."""
 
 @dataclass
 class OptionInfo:
@@ -494,10 +495,11 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     (i.e. nested curly braces are handled correctly)
 
     Ignores lines with single-line comments. Handles fallthroughs,
-    breaking cases on either a crash or a `break;`.
+    breaking cases on either a `break;` or a keyword (see
+    `NON_WORK_WORDS`) which is meant to not work.
 
     Looks for whether each case uses `optarg` or not.
-    Crashes/deprecation are marked with None.
+    Things that don't work are marked with None.
 
     Parameters
     ----------
@@ -509,7 +511,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     Dict[str, Optional[bool]]
         A dictionary mapping shortform names to
         whether they use optarg (i.e. take an argument).
-        If the case crashes, it is set to None.
+        If the case doesn't work, it is set to None.
 
     Raises
     ------
@@ -583,10 +585,10 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         # If it's not a new case, it belongs to the current block
         has_optarg = has_optarg or 'optarg' in stripped
 
-        # On crash/deprecation, flush the current case group
-        if (any(keyword in stripped for keyword in CRASHES)
+        # On intentional non-working cases, flush the current case group
+        if (any(keyword in stripped for keyword in NON_WORK_WORDS)
             and curly_brace_nesting == 0):
-            # None is a marker for a crash
+            # None is a marker for not working
             set_optarg_usage(current_cases, None)
 
         # On break, flush the current case group
@@ -660,10 +662,10 @@ def check_file(filepath: str) -> bool:
             problem(f"help alias -{help_alias} is missing from "
                     "switch block")
         elif switch_opts[help_alias] is not None:
-            problem(f"help alias -{help_alias} should crash in "
+            problem(f"help alias -{help_alias} should exit/return/abort "
                     "switch block")
         
-        # Change help alias to be non-argument instead of crash
+        # Change help alias to be non-argument
         # in order to match long_options[]
         switch_opts[help_alias] = False
     
@@ -674,12 +676,12 @@ def check_file(filepath: str) -> bool:
     elif help_opts['help'].shortform != 'h':
         problem("help option --help should have shortform -h")
     
-    # Overall check 2: does the default case crash?
+    # Overall check 2: does the default case fail to work?
     if 'default' not in switch_opts:
         problem("switch block is missing a default case")
     else:
         if switch_opts['default'] is not None:
-            problem("switch block's default case should crash")
+            problem("switch block's default case should exit/return/abort")
         
         # Get rid of default once it's checked; will appear nowhere else
         switch_opts.pop('default')
