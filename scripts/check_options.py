@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check that command line options are correctly registered.
 
 ## Summary
@@ -107,6 +108,7 @@ Some GitHub Copilot autocompletions were used.
 
 import os
 import re
+import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
@@ -587,7 +589,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
 
     return optarg_usage
 
-def check_file(filepath: str) -> None:
+def check_file(filepath: str) -> bool:
     """Run all consistency checks on a single file.
     
     Any problems are printed to stdout.
@@ -597,7 +599,27 @@ def check_file(filepath: str) -> None:
     ----------
     filepath : str
         The path to the file to check.
+
+    Returns
+    -------
+    bool
+        True if the file is OK, and False if it
+        contains problems.
     """
+
+    is_ok = True
+    def problem(description: str) -> None:
+        """
+        Log a problem and remember that there was one.
+
+        Parameters
+        ----------
+        description : str
+            The description of the problem to diplay.
+        """
+        nonlocal is_ok
+        is_ok = False
+        print(f"{filepath}: {description}")
 
     # Save file contents
     with open(filepath) as f:
@@ -610,44 +632,44 @@ def check_file(filepath: str) -> None:
         getopt_opts = extract_getopt_string(text)
         switch_opts = extract_switch_optarg(text)
     except ValueError as e:
-        print(f"{filepath}: {e}")
-        return
+        problem(f"{e}")
+        return is_ok
 
     all_longform = set(help_opts) | set(long_opts)
 
     # Overall check 1: are help options present?
     for help_alias in ['?', 'h']:
         if help_alias not in getopt_opts:
-            print(f"{filepath}: help alias -{help_alias} is missing from "
-                  "getopt string")
+            problem(f"help alias -{help_alias} is missing from "
+                    "getopt string")
         elif getopt_opts[help_alias]:
-            print(f"{filepath}: help alias -{help_alias} should not take an "
-                  "argument")
+            problem(f"help alias -{help_alias} should not take an "
+                    "argument")
         
         if help_alias not in switch_opts:
-            print(f"{filepath}: help alias -{help_alias} is missing from "
-                  "switch block")
+            problem(f"help alias -{help_alias} is missing from "
+                    "switch block")
         elif switch_opts[help_alias] is not None:
-            print(f"{filepath}: help alias -{help_alias} should crash in "
-                  "switch block")
+            problem(f"help alias -{help_alias} should crash in "
+                    "switch block")
         
         # Change help alias to be non-argument instead of crash
         # in order to match long_options[]
         switch_opts[help_alias] = False
     
     if 'help' not in help_opts:
-        print(f"{filepath}: help option --help is missing from helptext")
+        problem("help option --help is missing from helptext")
     elif help_opts['help'].takes_argument:
-        print(f"{filepath}: help option --help should not take an argument")
+        problem("help option --help should not take an argument")
     elif help_opts['help'].shortform != 'h':
-        print(f"{filepath}: help option --help should have shortform -h")
+        problem("help option --help should have shortform -h")
     
     # Overall check 2: does the default case crash?
     if 'default' not in switch_opts:
-        print(f"{filepath}: switch block is missing a default case")
+        problem("switch block is missing a default case")
     else:
         if switch_opts['default'] is not None:
-            print(f"{filepath}: switch block's default case should crash")
+            problem("switch block's default case should crash")
         
         # Get rid of default once it's checked; will appear nowhere else
         switch_opts.pop('default')
@@ -665,7 +687,7 @@ def check_file(filepath: str) -> None:
 
         # Check 1: all options must appear in long_options[] with shortform
         if longform not in long_opts:
-            print(f"{filepath}: --{longform} is not in long_options[]")
+            problem(f"--{longform} is not in long_options[]")
             continue
 
         # Get the long_options[] entry, which is treated as truth
@@ -674,41 +696,41 @@ def check_file(filepath: str) -> None:
 
         # Check 2: long_options uses only no_argument or required_argument
         if cur_long.takes_argument is None:
-            print(f"{filepath}: --{longform} has an unknown argument type "
-                  "in long_options[]; use no_argument or required_argument")
+            problem(f"--{longform} has an unknown argument type "
+                    "in long_options[]; use no_argument or required_argument")
             continue
 
         # Check 3: long_options[] don't use raw numbers
         if isinstance(cur_long.shortform, int):
-            print(f"{filepath}: --{longform} has an int ({cur_long.shortform}) "
-                  "in long_options[]; use a char or ALL_CAPS variable instead")
+            problem(f"--{longform} has an int ({cur_long.shortform}) "
+                    "in long_options[]; use a char or ALL_CAPS variable instead")
             continue
 
         # Check 4: help vs long_options[]
         if not cur_help.is_unset() and cur_help != cur_long:
-            print(f"{filepath}: --{longform} has mismatch between helptext "
-                  f"{cur_help} and long_options[] {cur_long}")
+            problem(f"--{longform} has mismatch between helptext "
+                    f"{cur_help} and long_options[] {cur_long}")
             continue
 
         # Check 5: long_options[] vs getopt string
         # This check only runs for single-char shortforms
         if len(cur_long.shortform) == 1:
             if cur_long.shortform not in getopt_opts:
-                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
-                      f"should be in getopt string")
+                problem(f"--{longform}'s -{cur_long.shortform} "
+                        f"should be in getopt string")
                 continue
         
             # Mark that this shortform has been used in getopts
             cur_getopt = getopt_opts.pop(cur_long.shortform)
             
             if cur_getopt is None:
-                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
-                      "appears multiple times in getopt string")
+                problem(f"--{longform}'s -{cur_long.shortform} "
+                        "appears multiple times in getopt string")
                 continue
 
             if cur_long.takes_argument != cur_getopt:
-                print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
-                      f"{should_str} have a : after it in getopt string")
+                problem(f"--{longform}'s -{cur_long.shortform} "
+                        f"{should_str} have a : after it in getopt string")
                 continue
 
         # Check 6: long_options[] vs switch
@@ -716,7 +738,7 @@ def check_file(filepath: str) -> None:
             if 'giraffe_main' in filepath and longform in GIRAFFE_EXCEPTIONS:
                 # Giraffe exceptions are allowed to not have a switch
                 continue
-            print(f"{filepath}: --{longform}'s -{cur_long.shortform} is "
+            problem(f"--{longform}'s -{cur_long.shortform} is "
                     "not used in the switch block")
             continue
 
@@ -724,7 +746,7 @@ def check_file(filepath: str) -> None:
         cur_switch = switch_opts.pop(cur_long.shortform)
 
         if cur_switch is not None and cur_long.takes_argument != cur_switch:
-            print(f"{filepath}: --{longform}'s -{cur_long.shortform} "
+            problem(f"--{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
             continue
     
@@ -733,18 +755,22 @@ def check_file(filepath: str) -> None:
     if '?' in getopt_opts:
         getopt_opts.pop('?')
     if getopt_opts:
-        print(f"{filepath}: getopt string has option(s) not in long_options[]: "
-              f"{', '.join(getopt_opts)}")
+        problem("getopt string has option(s) not in long_options[]: "
+                f"{', '.join(getopt_opts)}")
     
     # Overall check 4: similarly for switch block
     if '?' in switch_opts:
         switch_opts.pop('?')
     if switch_opts:
-        print(f"{filepath}: switch block has option(s) not in long_options[]: "
-              f"{', '.join(switch_opts)}")
+        problem("switch block has option(s) not in long_options[]: "
+                f"{', '.join(switch_opts)}")
+
+    return is_ok
 
 if __name__ == "__main__":
+    is_ok = True
     for fname in os.listdir(SUBCOMMAND_DIR):
         if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
             continue
-        problems = check_file(os.path.join(SUBCOMMAND_DIR, fname))
+        is_ok = check_file(os.path.join(SUBCOMMAND_DIR, fname)) and is_ok
+    sys.exit(0 if is_ok else 1)
