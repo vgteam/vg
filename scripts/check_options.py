@@ -144,7 +144,7 @@ class OptionInfo:
         """Check if this option is unset."""
         return self.takes_argument is None and self.shortform is None
     
-    def __eq__(self, other) -> bool:
+    def is_compatible(self, other) -> bool:
         if not isinstance(other, OptionInfo):
             return False
         # If either shortform is unset, only compare takes_argument
@@ -717,7 +717,7 @@ def check_file(filepath: str) -> bool:
             continue
 
         # Check 4: help vs long_options[]
-        if not cur_help.is_unset() and cur_help != cur_long:
+        if not cur_help.is_unset() and not cur_help.is_compatible(cur_long):
             problem(f"--{longform} has mismatch between helptext "
                     f"{cur_help} and long_options[] {cur_long}")
             continue
