@@ -109,7 +109,7 @@ Some GitHub Copilot autocompletions were used.
 import os
 import re
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
@@ -135,7 +135,7 @@ class OptionInfo:
 
     takes_argument: bool = None
     """Whether the option takes an argument."""
-    shortform: Optional[str | int] = None
+    shortform: Optional[Union[str, int]] = None
     """Short option name, or None if not present."""
     errors: List[str] = None
     """Some special errors to print about this option."""
