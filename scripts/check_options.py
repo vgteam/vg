@@ -77,7 +77,11 @@ you may have to do multiple runs/fixes to see all the problems.
   In addition, there must be a "usage:" line somewhere.
   
   Option helptext is not allowed to be over 80 characters long,
-  and all descriptions must line up properly.
+  and all descriptions must line up properly. If there are more
+  than 80 characters between the `"`s, but that's because you
+  have some long default value, just stick that bit on a new line
+  of code without changing the printed text. Check out
+  `filter_main.cpp`'s `--batch-size` for an example.
 
 - long_options[]: within the `long_options[]` array,
   must be an array of `{"longform", arg_type, 0, shortform}`
