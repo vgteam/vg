@@ -42,7 +42,7 @@ void help_map(char** argv) {
          << "                                   candidate chains of seeds [1]" << endl
          << "  -E, --approx-mq-cap INT          weight MQ by suffix tree based estimate" << endl
          << "                                   when estimate less than FLOAT [0]" << endl
-         << "      --id-mq-weight N             scale mapping quality by the alignment score" << endl
+         << "  -7, --id-mq-weight N             scale mapping quality by the alignment score" << endl
          << "                                   identity to this power [2]" << endl
          << "  -W, --min-chain INT              discard a chain if seeded bases are" << endl
          << "                                   shorter than INT [0]" << endl
@@ -69,13 +69,13 @@ void help_map(char** argv) {
          << "                                   use -I without update" << endl
          << "  -p, --print-frag-model           suppress alignment output and print the" << endl
          << "                                   fragment model on stdout as per -I format" << endl
-         << "      --frag-calc INT              update the fragment model" << endl
+         << "  -4, --frag-calc INT              update the fragment model" << endl
          << "                                   every INT perfect pairs [10]" << endl
-         << "      --fragment-x FLOAT           calculate max fragment size as" << endl
+         << "  -3, --fragment-x FLOAT           calculate max fragment size as" << endl
          << "                                   frag_mean+frag_sd*FLOAT [10]" << endl
-         << "      --mate-rescues INT           attempt up to INT mate rescues per pair [64]" << endl
+         << "  -0, --mate-rescues INT           attempt up to INT mate rescues per pair [64]" << endl
          << "  -S, --unpaired-cost INT          penalty for an unpaired read pair [17]" << endl
-         << "      --no-patch-aln               do not patch banded alignments by" << endl 
+         << "  -8, --no-patch-aln               do not patch banded alignments by" << endl 
          << "                                   locally aligning unaligned regions" << endl
          << "      --xdrop-alignment            use X-drop heuristic" << endl
          << "                                   (much faster for long-read alignment)" << endl
@@ -89,7 +89,7 @@ void help_map(char** argv) {
          << "  -o, --gap-open INT               use this gap open penalty [6]" << endl
          << "  -y, --gap-extend INT             use this gap extension penalty [1]" << endl
          << "  -L, --full-l-bonus INT           the full-length alignment bonus [5]" << endl
-         << "      --drop-full-l-bonus          remove the full length bonus from the score" << endl
+         << "  -2, --drop-full-l-bonus          remove the full length bonus from the score" << endl
          << "                                   before sorting and MQ calculation" << endl
          << "  -a, --hap-exp FLOAT              the exponent for haplotype consistency" << endl
          << "                                   likelihood in alignment score [1]" << endl
@@ -126,12 +126,12 @@ void help_map(char** argv) {
          << "  -j, --output-json                output JSON rather than an alignment stream" << endl
          << "                                   (helpful for debugging)" << endl
          << "  -%, --gaf                        output alignments in GAF format" << endl
-         << "      --surject-to TYPE            surject the output into the graph's paths," << endl
+         << "  -5, --surject-to TYPE            surject the output into the graph's paths," << endl
          << "                                   writing TYPE {bam, sam, cram}" << endl
          << "      --ref-paths FILE             ordered list of paths in graph, one per line" << endl
          << "                                   or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME              reference assembly in graph for HTSlib output" << endl
-         << "      --buffer-size INT            buffer this many alignments together" << endl
+         << "  -9, --buffer-size INT            buffer this many alignments together" << endl
          << "                                   before outputting in GAM [512]" << endl
          << "  -X, --compare                    realign -G GAM input, writing alignment with" << endl
          << "                                   \"correct\" field set to overlap with input" << endl
@@ -143,7 +143,7 @@ void help_map(char** argv) {
          << "  -Q, --mq-max INT                 cap the mapping quality at INT [60]" << endl
          << "      --exclude-unaligned          exclude reads with no alignment" << endl
          << "  -D, --debug                      print debugging information to stderr" << endl
-         << "      --log-time                   print runtime to stderr" << endl
+         << "  -^, --log-time                   print runtime to stderr" << endl
          << "  -h, --help                       print this help message to stderr and exit" << endl;
 
 }

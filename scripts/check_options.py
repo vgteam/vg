@@ -51,16 +51,19 @@ and not in long_options[] or the helptext.
 Longform options are pulled from the helptext and long_options[]
 
 1. All longform options must be in long_options[]
-2. The long_options[] entry must be either `no_argument`
+2. The shortform option must be in the getopt string
+   (if not an ALL_CAPS variable name), and the switch block.
+3. The long_options[] entry must be either `no_argument`
    or `required_argument`.
-3. The long_options[] entry must not be a bare non-char int.
-4. The long_options[] entry must match the helptext entry, both
-    in whether it takes an argument and in its shortform.
-5. If the longform option has a single-character shortform,
+4. The long_options[] entry must not be a bare non-char int.
+5. The long_options[] entry must match the helptext entry, both
+    in whether it takes an argument and in its shortform, if the
+    latter is a single character (not ALL_CAPS variable name).
+6. If the longform option has a single-character shortform,
    (i.e. not an ALL_CAPS variable name), it must be in the
    getopt string, which must correctly indicate whether it
    takes an argument via using a trailing colon.
-6. The long_options[] entry must match the switch block entry,
+7. The long_options[] entry must match the switch block entry,
    in whether it takes an argument.
 
 Note that only the first of these which fails will be printed,
@@ -155,10 +158,27 @@ class OptionInfo:
         return self.takes_argument is None and self.shortform is None
     
     def is_compatible(self, other) -> bool:
+        """Check if two OptionInfo objects are compatible.
+        
+        Whether they take an argument must match.
+        The `other` is assumed to have a shortform, and
+        if that shortform is a char (i.e. not an ALL_CAPS variable),
+        then it must match the shortform of this object.
+
+        Raises
+        ------
+        ValueError
+            If `other` has a None shortform, which is not allowed.
+        """
+
         if not isinstance(other, OptionInfo):
             return False
-        # If either shortform is unset, only compare takes_argument
-        if self.shortform is None or other.shortform is None:
+        if other.shortform is None:
+            raise ValueError("`other` OptionInfo cannot have None shortform; "
+                             "please guarantee that it has a shortform")
+        if self.shortform is None and len(other.shortform) != 1:
+            # If own shortform is unset and other's shortform is long
+            # probably due to being all-caps, only compare takes_argument
             return self.takes_argument == other.takes_argument
         else:
             return (self.takes_argument == other.takes_argument
@@ -714,37 +734,44 @@ def check_file(filepath: str) -> bool:
         # Get the long_options[] entry, which is treated as truth
         cur_long = long_opts[longform]
         should_str = 'should' if cur_long.takes_argument else "shouldn't"
+        
+        # Check 2: this option appears in the getopt string & switch block
+        if len(cur_long.shortform) == 1 :
+            if cur_long.shortform not in getopt_opts:
+                problem(f"--{longform}'s -{cur_long.shortform} "
+                        f"should be in getopt string")
+                continue
+            else:
+                cur_getopt = getopt_opts.pop(cur_long.shortform)
+        if cur_long.shortform not in switch_opts:
+            problem(f"--{longform}'s -{cur_long.shortform} is "
+                    "not used in the switch block")
+            continue
+        else:
+            cur_switch = switch_opts.pop(cur_long.shortform)
 
-        # Check 2: long_options uses only no_argument or required_argument
+        # Check 3: long_options uses only no_argument or required_argument
         if cur_long.takes_argument is None:
             problem(f"--{longform} has an unknown argument type "
                     "in long_options[]; use no_argument or required_argument")
             continue
 
-        # Check 3: long_options[] doesn't use non-char integers
+        # Check 4: long_options[] doesn't use non-char integers
         # (that's the only kind of error that will be in cur_long.errors)
         if cur_long.errors:
             for e in cur_long.errors:
                 problem(f"{e}")
             continue
 
-        # Check 4: help vs long_options[]
+        # Check 5: help vs long_options[]
         if not cur_help.is_unset() and not cur_help.is_compatible(cur_long):
             problem(f"--{longform} has mismatch between helptext "
                     f"{cur_help} and long_options[] {cur_long}")
             continue
 
-        # Check 5: long_options[] vs getopt string
+        # Check 6: long_options[] vs getopt string
         # This check only runs for single-char shortforms
         if len(cur_long.shortform) == 1:
-            if cur_long.shortform not in getopt_opts:
-                problem(f"--{longform}'s -{cur_long.shortform} "
-                        f"should be in getopt string")
-                continue
-        
-            # Mark that this shortform has been used in getopts
-            cur_getopt = getopt_opts.pop(cur_long.shortform)
-            
             if cur_getopt is None:
                 problem(f"--{longform}'s -{cur_long.shortform} "
                         "appears multiple times in getopt string")
@@ -755,15 +782,7 @@ def check_file(filepath: str) -> bool:
                         f"{should_str} have a : after it in getopt string")
                 continue
 
-        # Check 6: long_options[] vs switch
-        if cur_long.shortform not in switch_opts:
-            problem(f"--{longform}'s -{cur_long.shortform} is "
-                    "not used in the switch block")
-            continue
-
-        # Mark that this shortform has been used in the switch block
-        cur_switch = switch_opts.pop(cur_long.shortform)
-
+        # Check 7: long_options[] vs switch
         if cur_switch is not None and cur_long.takes_argument != cur_switch:
             problem(f"--{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
@@ -789,7 +808,7 @@ def check_file(filepath: str) -> bool:
 if __name__ == "__main__":
     is_ok = True
     for fname in os.listdir(SUBCOMMAND_DIR):
-        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
+        if not fname.endswith('map_main.cpp') or fname in SKIP_FILES:
             continue
         is_ok = check_file(os.path.join(SUBCOMMAND_DIR, fname)) and is_ok
     sys.exit(0 if is_ok else 1)
