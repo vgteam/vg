@@ -187,6 +187,24 @@ class OptionInfo:
             return (self.takes_argument == other.takes_argument
                     and self.shortform == other.shortform)
 
+    def __str__(self) -> str:
+        """String representation of this OptionInfo."""
+        if self.is_unset():
+            return "no info"
+        if self.shortform is None:
+            shortform_str = "no shortform"
+        else:
+            # If shortform is a single character, print it
+            # Otherwise, print it as a string
+            if len(self.shortform) == 1:
+                shortform_str = f"shortform -{self.shortform}"
+            else:
+                shortform_str = f'shortform "{self.shortform}"'
+
+        return (shortform_str + ", "
+                + ("does not take" if not self.takes_argument else "takes")
+                + " an argument")
+
 def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     """Extract options from help_<command>()
     
@@ -788,7 +806,7 @@ def check_file(filepath: str) -> bool:
         # Check 4: help vs long_options[]
         if not cur_help.is_unset() and not cur_help.is_compatible(cur_long):
             problem(f"--{longform} has mismatch between helptext "
-                    f"{cur_help} and long_options[] {cur_long}")
+                    f"({cur_help}) and long_options[] ({cur_long})")
             continue
 
         # Check 5: long_options[] vs getopt string
