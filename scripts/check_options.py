@@ -254,7 +254,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         
         # Count of blank spaces between option and description
         text_offset = re.match(r'\s+(.+)', description).start(1) - match.start()
-        # Column within printed text which starts thr description
+        # Column within printed text which starts the description
         text_start = match.start(description_num) + text_offset
         # Use first line's text_start as the description start
         if description_start is None:
