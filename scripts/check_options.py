@@ -517,7 +517,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     current_cases = []
     has_optarg = False
 
-    def set_optarg_usage(cases: list[str], usage: Optional[bool]):
+    def set_optarg_usage(cases: List[str], usage: Optional[bool]):
         """Set optarg usage for a list of cases."""
         for case in cases:
             if case in shortforms:
