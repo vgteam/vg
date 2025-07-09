@@ -113,7 +113,7 @@ void help_sim(char** argv) {
          << "simulate from paths:" << endl
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
-         << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
+         << "    -m, --sample-name NAME      simulate from this sample (may repeat)" << endl
          << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
          << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
          << "                                from if no samples are used. Unmatched contigs get ploidy 2." << endl
@@ -436,11 +436,8 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: --gbwt-name requires --sample-name or --tx-expr-file" << endl;
         return 1;
     }
-    if (!sample_names.empty() && gbwt_name.empty()) {
-        cerr << "[vg sim] error: --sample-name must be used with --gbwt-name" << endl;
-        return 1;
-    }
     if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
+        // TODO: This message doesn't really make sense.
         cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, combination with --haplo-tx-file is not implemented" << endl;
         return 1;
     }
@@ -519,13 +516,31 @@ int main_sim(int argc, char** argv) {
     // We may add some paths to our graph. If so, we need to ignore them when
     // annotating with path positions, because they will be useless.
     unordered_set<string> inserted_path_names;
-    
+   
+    // We need to track the contigs that have generic sense paths in the graph,
+    // but don't have any paths with that name as the locus in any selected
+    // sample. If ploidy rules are used, we will simulate from them as well, at
+    // those ploidies.
+    std::unordered_set<std::string> unvisited_contigs;
+    if (!sample_names.empty() && !ploidy_rules.empty()) {
+        // We need to track the contigs that have not had any threads in any sample.
+        
+        // We actually want to visit them, so we have to find them
+        if (progress) {
+            std::cerr << "Inventorying contigs" << std::endl;
+        }
+        // We assume the generic paths in the graph are contigs ("chr1", "chr2", etc.)
+        path_handle_graph->for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& handle) {
+            // For each path in the graph
+            auto name = path_handle_graph->get_path_name(handle);
+            if (!Paths::is_alt(name)) {
+                unvisited_contigs.insert(name);
+            }
+        });
+    }
+
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
-        
-        // We need to track the contigs that have not had any threads in any sample
-        std::unordered_set<std::string> unvisited_contigs;
-        
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
@@ -540,28 +555,9 @@ int main_sim(int argc, char** argv) {
         
         if (!sample_names.empty()) {
             // we're consulting the provided sample names to determine which threads to include
-            
-            // We need to track the contigs that have not had any threads in any sample
-            if (!ploidy_rules.empty()) {
-                // We actually want to visit them, so we have to find them
-                if (progress) {
-                    std::cerr << "Inventorying contigs" << std::endl;
-                }
-                path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
-                    // For each path in the graph
-                    auto name = path_handle_graph->get_path_name(handle);
-                    if (!Paths::is_alt(name)) {
-                        // TODO: We assume that if it isn't an alt path it represents a contig!
-                        // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
-                        unvisited_contigs.insert(name);
-                    }
-                });
-            }
-            
             if (progress) {
                 std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
             }
-            
             for (std::string& sample_name : sample_names) {
                 gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
                 if (id >= gbwt_index->metadata.samples()) {
@@ -632,17 +628,73 @@ int main_sim(int argc, char** argv) {
         if (progress) {
             std::cerr << "Inserted " << inserted_path_names.size() << " paths" << std::endl;
         }
-        if (!unvisited_contigs.empty()) {
-            // There are unvisited contigs we want to sample from too
-            for (auto& name : unvisited_contigs) {
-                // Sample from each
-                path_names.push_back(name);
-                // With the rule-determined ploidy
-                path_ploidies.push_back(consult_ploidy_rules(name));
+    } else {
+        // We're not using a separate GBWT, so when asked to simulate from a
+        // sample, pull that sample from the base graph.
+        if (!sample_names.empty()) {
+            // we're consulting the provided sample names to determine which threads to include
+            
+            // Make a query set of sample names
+            std::unordered_set<std::string> sample_name_set(sample_names.begin(), sample_names.end());
+
+            if (sample_name_set.size() != sample_names.size()) {
+                // Do a quick check for duplicates since we've bothered to make the set.
+                std::cerr << "[vg sim] error: Of the " << sample_names.size() << " samples, there are only "
+                          << sample_name_set.size() << " distinct values. Remove the duplicate entries." << std::endl;
+                return 1;
             }
+
             if (progress) {
-                std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
+                std::cerr << "Finding matching paths for " << sample_name_set.size() << " samples" << std::endl;
             }
+
+            // Also keep a set of sample names actually seen
+            std::unordered_set<std::string> seen_sample_names;
+            // And a count of sample-based paths we picked
+            size_t sample_path_count = 0;
+            path_handle_graph->for_each_path_matching(nullptr, &sample_name_set, nullptr, [&](const path_handle_t path) {
+                // Remember we saw this sample
+                seen_sample_names.insert(path_handle_graph->get_sample_name(path));
+                
+                if (!unvisited_contigs.empty()) {
+                    // Remember we visited this path's contig, if it has a full-contig generic path lying around.
+                    unvisited_contigs.erase(path_handle_graph->get_locus_name(path));
+                }
+
+                // Remember to simulate from this path by name with ploidy 1.
+                path_names.push_back(path_handle_graph->get_path_name(path));
+                path_ploidies.push_back(1.0);
+                ++sample_path_count;
+            });
+
+            if (seen_sample_names.size() != sample_name_set.size()) {
+                // TODO: Use std::set_difference in C++17.
+                std::cerr << "[vg sim] error: Some samples requested are not in the graph:";
+                for (auto& s : sample_name_set) {
+                    if (!seen_sample_names.count(s)) {
+                        std::cerr << " " << s;
+                    }
+                }
+                std::cerr << std::endl;
+                return 1;
+            }
+
+            if (progress) {
+                std::cerr << "Using " << sample_path_count << " sample paths" << std::endl;
+            }
+        }
+    }
+
+    if (!unvisited_contigs.empty()) {
+        // There are unvisited contigs we want to sample from too
+        for (auto& name : unvisited_contigs) {
+            // Sample from each
+            path_names.push_back(name);
+            // With the rule-determined ploidy
+            path_ploidies.push_back(consult_ploidy_rules(name));
+        }
+        if (progress) {
+            std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
         }
     }
     
@@ -677,7 +729,12 @@ int main_sim(int argc, char** argv) {
     }
     
     bdsg::ReferencePathVectorizableOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
+    // Work out the list of path names we definitely need position queries on,
+    // even if they aren't reference sense.
+    // Just put all the target path names in there, since it can't hurt.
+    std::unordered_set<std::string> extra_path_names(path_names.begin(), path_names.end());
+    // Apply the overlay to ensure position lookups are efficient.
+    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get(), extra_path_names));
     
     // We want to store the inserted paths as a set of handles, which are
     // easier to hash than strings for lookup.
