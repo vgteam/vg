@@ -138,7 +138,7 @@ class OptionInfo:
     shortform: Optional[str] = None
     """Short option name, or None if not present."""
     errors: List[str] = None
-    """Some special errors to print about this option."""
+    """Extra things to complain about at the end."""
 
     def is_unset(self) -> bool:
         """Check if this option is unset."""
