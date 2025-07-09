@@ -29,9 +29,9 @@ fix multiple things in the file before the script can run well.
 
 Checks performed on the *file as a whole*.
 
-1. The help options (-h, -?) must be present in the getopt string
-   and the switch block, and must not take an argument. In the
-   switch block, they must crash.
+1. The help options (-h, -?) must be present in the helptext,
+   getopt string, and the switch block, and must not take an
+   argument. In the switch block, they must crash.
 2. The default case in the switch block must crash.
 3. All options in the getopt string must be in long_options[].
 4. All options in the switch block must be in long_options[].
@@ -71,6 +71,10 @@ you may have to do multiple runs/fixes to see all the problems.
   (the description is ignored, and the shortform and argument are optional).
   The longform option must be composed of alphanumeric characters
   and hyphens, and the argument must be in all-caps.
+  In addition, there must be a "usage:" line somewhere.
+  
+  Option helptext is not allowed to be over 80 characters long,
+  and all descriptions must line up properly.
 
 - long_options[]: within the `long_options[]` array,
   must be an array of `{"longform", arg_type, 0, shortform}`
