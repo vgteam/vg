@@ -790,9 +790,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                (implies --track-provenance)" << endl
              << "      --track-position          coarsely track linear reference positions of" << endl
              << "                                good intermediate alignment candidates" << endl
-             << "                                (implies --track-provenance)" << endl
-             << "  -B, --batch-size INT          number of reads or pairs per batch" << endl
-             << "                                to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl;
+             << "                                (implies --track-provenance)" << endl;
 
         auto helps = parser.get_help();
         print_table(helps, cerr);
@@ -1182,7 +1180,6 @@ int main_giraffe(int argc, char** argv) {
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
         {"comments-as-tags", no_argument, 0, OPT_COMMENTS_AS_TAGS},
-        {"max-multimaps", required_argument, 0, 'M'},
         {"sample", required_argument, 0, 'N'},
         {"read-group", required_argument, 0, 'R'},
         {"output-format", required_argument, 0, 'o'},
@@ -1202,14 +1199,13 @@ int main_giraffe(int argc, char** argv) {
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"track-position", no_argument, 0, OPT_TRACK_POSITION},
-        {"batch-size", required_argument, 0, 'B'},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
         {"threads", required_argument, 0, 't'},
     };
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:B:";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:";
     parser->make_short_options(short_options);
 
     if (argc == 2) {

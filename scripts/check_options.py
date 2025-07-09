@@ -123,10 +123,6 @@ HELP_DESC = 'print this help message to stderr and exit'
 """Expected description for the --help option."""
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
-# Some giraffe arguments are processed outside of the switch block
-# (at least I think so? I'm not entirely sure)
-GIRAFFE_EXCEPTIONS = {'max-multimaps', 'batch-size'}
-"""Options for giraffe_main.cpp that are not in the switch block."""
 CRASHES = {'exit', 'return', 'deprecated', 'abort', 'throw'}
 """Keywords that indicate a crash/deprecation in the switch block."""
 
@@ -746,9 +742,6 @@ def check_file(filepath: str) -> bool:
 
         # Check 6: long_options[] vs switch
         if cur_long.shortform not in switch_opts:
-            if 'giraffe_main' in filepath and longform in GIRAFFE_EXCEPTIONS:
-                # Giraffe exceptions are allowed to not have a switch
-                continue
             problem(f"--{longform}'s -{cur_long.shortform} is "
                     "not used in the switch block")
             continue
