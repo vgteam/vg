@@ -27,16 +27,16 @@
 #include <bdsg/hash_graph.hpp>
 #include <xg.hpp>
 
-//constexpr int record_read_run_times
+//#define record_read_run_times
 
 #ifdef record_read_run_times
-constexpr int READ_TIME_FILE "_read_times.tsv"
+#define READ_TIME_FILE "_read_times.tsv"
 #include <ctime>
 #include <iostream>
 #endif
 
 #ifdef mpmap_instrument_mem_statistics
-constexpr int MEM_STATS_FILE "_mem_statistics.tsv"
+#define MEM_STATS_FILE "_mem_statistics.tsv"
 #endif
 
 using namespace std;
