@@ -229,7 +229,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     curly_brace_nesting = 0
     description_start = None
 
-    def save_option(match: re.Match[str], has_shortform: bool) -> None:
+    def save_option(match: re.Match, has_shortform: bool) -> None:
         """Helper function to save an option."""
         errors = []
         nonlocal description_start
