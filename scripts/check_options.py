@@ -272,8 +272,9 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             raise ValueError(f"Duplicate longform option '{longform}' found in "
                              "helptext")
 
-    for line in text.splitlines():
-        stripped = line.strip()
+    lines = text.splitlines()
+    for i in range(len(lines)):
+        stripped = lines[i].strip()
         # Are we inside the helptext printing function?
         if re.search(HELPTEXT_FUNCTION, stripped):
             inside_help = True
@@ -305,11 +306,11 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
         if printed_line:
             printed_len = printed_line.end(1) - printed_line.start(1)
             if printed_len > 80:
-                raise ValueError(f"Helptext line `{stripped}` is {printed_len}"
-                                 ">80 characters long")
+                raise ValueError(f"line {i+1} has helptext string `{stripped}` "
+                                 f"which is {printed_len}>80 characters long")
             if r"\n" in printed_line.group(1):
-                raise ValueError(f"Helptext line `{stripped}` has a newline "
-                                 "character, which is not allowed; use endl")
+                raise ValueError(f"line {i+1} has helptext string `{stripped}` "
+                                 "with a newline character; use endl instead")
 
         # Parse out sections of full pattern
         match = help_pattern.search(stripped)
