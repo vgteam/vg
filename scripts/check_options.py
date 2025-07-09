@@ -12,7 +12,8 @@ options should appear, though I've been flexible about valid
 variations. If something looks off, a detailed message will be
 printed to stdout. If that message doesn't make sense, something
 might've been ignored due to a wrong format, so check "Format".
-If it still doesn't make sense, ping me.
+If it still doesn't make sense, ping @faithokamoto
+(if I'm still here) and/or open an issue on GitHub.
 
 ## Checks
 
