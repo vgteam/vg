@@ -157,14 +157,14 @@ int main_map(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_SCORE_MATRIX 1000
-    #define OPT_RECOMBINATION_PENALTY 1001
-    #define OPT_EXCLUDE_UNALIGNED 1002
-    #define OPT_REF_PATHS 1003
-    #define OPT_REF_NAME 1004
-    #define OPT_COMMENTS_AS_TAGS 1005
-    #define OPT_MAX_GAP_LENGTH 1006
-    #define OPT_XDROP_ALIGNMENT 1007
+    constexpr int OPT_SCORE_MATRIX = 1000;
+    constexpr int OPT_RECOMBINATION_PENALTY = 1001;
+    constexpr int OPT_EXCLUDE_UNALIGNED = 1002;
+    constexpr int OPT_REF_PATHS = 1003;
+    constexpr int OPT_REF_NAME = 1004;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1005;
+    constexpr int OPT_MAX_GAP_LENGTH = 1006;
+    constexpr int OPT_XDROP_ALIGNMENT = 1007;
     string matrix_file_name;
     string seq;
     string qual;

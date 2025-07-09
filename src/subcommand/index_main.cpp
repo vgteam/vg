@@ -77,10 +77,10 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_BUILD_VGI_INDEX  1000
-    #define OPT_RENAME_VARIANTS  1001
-    #define OPT_DISTANCE_SNARL_LIMIT 1002
-    #define OPT_DISTANCE_NESTING 1003
+    constexpr int OPT_BUILD_VGI_INDEX = 1000;
+    constexpr int OPT_RENAME_VARIANTS = 1001;
+    constexpr int OPT_DISTANCE_SNARL_LIMIT = 1002;
+    constexpr int OPT_DISTANCE_NESTING = 1003;
 
     // Which indexes to build.
     bool build_xg = false, build_gcsa = false, build_dist = false;

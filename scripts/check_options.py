@@ -55,15 +55,14 @@ Longform options are pulled from the helptext and long_options[]
    (if not an ALL_CAPS variable name), and the switch block.
 3. The long_options[] entry must be either `no_argument`
    or `required_argument`.
-4. The long_options[] entry must not be a bare non-char int.
-5. The long_options[] entry must match the helptext entry, both
+4. The long_options[] entry must match the helptext entry, both
     in whether it takes an argument and in its shortform, if the
     latter is a single character (not ALL_CAPS variable name).
-6. If the longform option has a single-character shortform,
+5. If the longform option has a single-character shortform,
    (i.e. not an ALL_CAPS variable name), it must be in the
    getopt string, which must correctly indicate whether it
    takes an argument via using a trailing colon.
-7. The long_options[] entry must match the switch block entry,
+6. The long_options[] entry must match the switch block entry,
    in whether it takes an argument.
 
 Note that only the first of these which fails will be printed,
@@ -90,8 +89,12 @@ you may have to do multiple runs/fixes to see all the problems.
   must be an array of `{"longform", arg_type, 0, shortform}`
   where `arg_type` is either `no_argument` or `required_argument`.
   The longform option must be a string, and the shortform
-  must be a single character or an ALL_CAPS variable name.
+  must be a single character (NOT a bare non-quoted integer)
+  or an ALL_CAPS variable name. Note that ALL_CAPS variables
+  must be before the long_options[] array as constexpr ints.
+
   Shortforms may repeat, and the first longform is retained.
+  This is to allow longform aliases.
 
 - getopt_long() string: within the short option string,
   a string of single-character shortform options.
@@ -375,6 +378,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
 
     Note that the shortform can be a number, which is
     preserved as an integer, or an all-caps variable name.
+    All-caps variable name must be defined as constexpr ints.
 
     Shortforms may repeat, and the first longform is retained.
 
@@ -397,6 +401,11 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     options = dict()
     all_shortforms = set()
     inside_longopts = False
+    
+    # Track constexpr int definitions
+    const_pattern = re.compile(r'constexpr int ([A-Z_]+)\s+=\s+(\d+);')
+    all_caps_names = set()
+    all_caps_values = set()
 
     for line in text.splitlines():
         # Found start of long_options[]
@@ -406,6 +415,15 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
         # End of long_options[]
         elif inside_longopts and '};' in line:
             break
+        
+        match = const_pattern.search(line)
+        if match:
+            # This is now a legal all-caps variable name
+            all_caps_names.add(match.group(1))
+            cur_value = match.group(2)
+            if cur_value in all_caps_values:
+                raise ValueError(f"Duplicate constexpr int value '{cur_value}'")
+            all_caps_values.add(cur_value)
 
         if not inside_longopts:
             continue
@@ -433,6 +451,10 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                 except ValueError:
                     # Otherwise, it is a character or string
                     shortform = shortform.strip("'")
+                    if len(shortform) > 1 and not shortform in all_caps_names:
+                        errors.append(f"--{longform} has non-char shortform "
+                                      f"'{shortform}' in long_options[] "
+                                      " which isn't a constexpr int")
                 
                 # Skip duplicate shortforms (aliases)
                 if shortform in all_shortforms:
@@ -756,20 +778,20 @@ def check_file(filepath: str) -> bool:
                     "in long_options[]; use no_argument or required_argument")
             continue
 
-        # Check 4: long_options[] doesn't use non-char integers
-        # (that's the only kind of error that will be in cur_long.errors)
+        # Any other errors associated with this long_options entry,
+        # before we compare it to the other sections?
         if cur_long.errors:
             for e in cur_long.errors:
                 problem(f"{e}")
             continue
 
-        # Check 5: help vs long_options[]
+        # Check 4: help vs long_options[]
         if not cur_help.is_unset() and not cur_help.is_compatible(cur_long):
             problem(f"--{longform} has mismatch between helptext "
                     f"{cur_help} and long_options[] {cur_long}")
             continue
 
-        # Check 6: long_options[] vs getopt string
+        # Check 5: long_options[] vs getopt string
         # This check only runs for single-char shortforms
         if len(cur_long.shortform) == 1:
             if cur_getopt is None:
@@ -782,7 +804,7 @@ def check_file(filepath: str) -> bool:
                         f"{should_str} have a : after it in getopt string")
                 continue
 
-        # Check 7: long_options[] vs switch
+        # Check 6: long_options[] vs switch
         if cur_switch is not None and cur_long.takes_argument != cur_switch:
             problem(f"--{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
@@ -808,7 +830,7 @@ def check_file(filepath: str) -> bool:
 if __name__ == "__main__":
     is_ok = True
     for fname in os.listdir(SUBCOMMAND_DIR):
-        if not fname.endswith('map_main.cpp') or fname in SKIP_FILES:
+        if not fname.endswith('_main.cpp') or fname in SKIP_FILES:
             continue
         is_ok = check_file(os.path.join(SUBCOMMAND_DIR, fname)) and is_ok
     sys.exit(0 if is_ok else 1)

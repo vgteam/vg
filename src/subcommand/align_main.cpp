@@ -61,7 +61,7 @@ int main_align(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_SCORE_MATRIX 1000
+    constexpr int OPT_SCORE_MATRIX = 1000;
     string matrix_file_name;
     bool print_cigar = false;
     bool output_json = false;

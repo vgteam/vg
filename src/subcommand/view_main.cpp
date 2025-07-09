@@ -151,8 +151,8 @@ int main_view(int argc, char** argv) {
     bool ascii_labels = false;
     omp_set_num_threads(1); // default to 1 thread
     
-    #define OPT_FIRST 1000
-    #define OPT_VERBOSE 1001
+    constexpr int OPT_FIRST = 1000;
+    constexpr int OPT_VERBOSE = 1001;
 
     int c;
     optind = 2; // force optind past "view" argument

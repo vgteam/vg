@@ -27,16 +27,16 @@
 #include <bdsg/hash_graph.hpp>
 #include <xg.hpp>
 
-//#define record_read_run_times
+//constexpr int record_read_run_times
 
 #ifdef record_read_run_times
-#define READ_TIME_FILE "_read_times.tsv"
+constexpr int READ_TIME_FILE "_read_times.tsv"
 #include <ctime>
 #include <iostream>
 #endif
 
 #ifdef mpmap_instrument_mem_statistics
-#define MEM_STATS_FILE "_mem_statistics.tsv"
+constexpr int MEM_STATS_FILE "_mem_statistics.tsv"
 #endif
 
 using namespace std;
@@ -217,47 +217,47 @@ int main_mpmap(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
-    #define OPT_PRUNE_EXP 1000
-    #define OPT_RECOMBINATION_PENALTY 1001
-    #define OPT_ALWAYS_CHECK_POPULATION 1002
-    #define OPT_FORCE_HAPLOTYPE_COUNT 1004
-    #define OPT_SUPPRESS_TAIL_ANCHORS 1005
-    #define OPT_TOP_TRACEBACKS 1006
-    #define OPT_MIN_DIST_CLUSTER 1007
-    #define OPT_APPROX_EXP 1008
-    #define OPT_MAX_PATHS 1009
-    #define OPT_GREEDY_MIN_DIST 1010
-    #define OPT_COMPONENT_MIN_DIST 1011
-    #define OPT_BAND_PADDING_MULTIPLIER 1012
-    #define OPT_HARD_HIT_MAX_MULTIPLIER 1013
-    #define OPT_MAX_RESCUE_ATTEMPTS 1014
-    #define OPT_STRIP_LENGTH 1015
-    #define OPT_STRIP_COUNT 1016
-    #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
-    #define OPT_SECONDARY_MAX_DIFF 1018
-    #define OPT_NO_CLUSTER 1019
-    #define OPT_NO_GREEDY_MEM_RESTARTS 1020
-    #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
-    #define OPT_SHORT_MEM_FILTER_FACTOR 1022
-    #define OPT_NO_OUTPUT 1023
-    #define OPT_STRIPPED_MATCH 1024
-    #define OPT_FAN_OUT_QUAL 1025
-    #define OPT_MAX_FANS_OUT 1026
-    #define OPT_FAN_OUT_DIFF 1027
-    #define OPT_PATH_RESCUE_GRAPH 1028
-    #define OPT_MAX_RESCUE_P_VALUE 1029
-    #define OPT_ALT_PATHS 1030
-    #define OPT_SUPPRESS_SUPPRESSION 1031
-    #define OPT_SNARL_MAX_CUT 1032
-    #define OPT_SPLICE_ODDS 1033
-    #define OPT_REPORT_ALLELIC_MAPQ 1034
-    #define OPT_RESEED_LENGTH 1035
-    #define OPT_MAX_MOTIF_PAIRS 1036
-    #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
-    #define OPT_DROP_SUBGRAPH 1038
-    #define OPT_REF_NAME 1039
-    #define OPT_LINEAR_PATH 1040
-    #define OPT_LINEAR_INDEX 1041
+    constexpr int OPT_PRUNE_EXP = 1000;
+    constexpr int OPT_RECOMBINATION_PENALTY = 1001;
+    constexpr int OPT_ALWAYS_CHECK_POPULATION = 1002;
+    constexpr int OPT_FORCE_HAPLOTYPE_COUNT = 1004;
+    constexpr int OPT_SUPPRESS_TAIL_ANCHORS = 1005;
+    constexpr int OPT_TOP_TRACEBACKS = 1006;
+    constexpr int OPT_MIN_DIST_CLUSTER = 1007;
+    constexpr int OPT_APPROX_EXP = 1008;
+    constexpr int OPT_MAX_PATHS = 1009;
+    constexpr int OPT_GREEDY_MIN_DIST = 1010;
+    constexpr int OPT_COMPONENT_MIN_DIST = 1011;
+    constexpr int OPT_BAND_PADDING_MULTIPLIER = 1012;
+    constexpr int OPT_HARD_HIT_MAX_MULTIPLIER = 1013;
+    constexpr int OPT_MAX_RESCUE_ATTEMPTS = 1014;
+    constexpr int OPT_STRIP_LENGTH = 1015;
+    constexpr int OPT_STRIP_COUNT = 1016;
+    constexpr int OPT_SECONDARY_RESCUE_ATTEMPTS = 1017;
+    constexpr int OPT_SECONDARY_MAX_DIFF = 1018;
+    constexpr int OPT_NO_CLUSTER = 1019;
+    constexpr int OPT_NO_GREEDY_MEM_RESTARTS = 1020;
+    constexpr int OPT_GREEDY_MEM_RESTART_MAX_LCP = 1021;
+    constexpr int OPT_SHORT_MEM_FILTER_FACTOR = 1022;
+    constexpr int OPT_NO_OUTPUT = 1023;
+    constexpr int OPT_STRIPPED_MATCH = 1024;
+    constexpr int OPT_FAN_OUT_QUAL = 1025;
+    constexpr int OPT_MAX_FANS_OUT = 1026;
+    constexpr int OPT_FAN_OUT_DIFF = 1027;
+    constexpr int OPT_PATH_RESCUE_GRAPH = 1028;
+    constexpr int OPT_MAX_RESCUE_P_VALUE = 1029;
+    constexpr int OPT_ALT_PATHS = 1030;
+    constexpr int OPT_SUPPRESS_SUPPRESSION = 1031;
+    constexpr int OPT_SNARL_MAX_CUT = 1032;
+    constexpr int OPT_SPLICE_ODDS = 1033;
+    constexpr int OPT_REPORT_ALLELIC_MAPQ = 1034;
+    constexpr int OPT_RESEED_LENGTH = 1035;
+    constexpr int OPT_MAX_MOTIF_PAIRS = 1036;
+    constexpr int OPT_SUPPRESS_MISMAPPING_DETECTION = 1037;
+    constexpr int OPT_DROP_SUBGRAPH = 1038;
+    constexpr int OPT_REF_NAME = 1039;
+    constexpr int OPT_LINEAR_PATH = 1040;
+    constexpr int OPT_LINEAR_INDEX = 1041;
     string matrix_file_name;
     string graph_name;
     string gcsa_name;

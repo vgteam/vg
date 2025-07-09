@@ -145,8 +145,8 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_MULTI_POSITION 1000
-    #define OPT_MAX_TRIES 1001
+    constexpr int OPT_MULTI_POSITION = 1000;
+    constexpr int OPT_MAX_TRIES = 1001;
 
     string xg_name;
     int num_reads = 1;

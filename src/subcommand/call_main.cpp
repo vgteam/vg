@@ -140,7 +140,7 @@ int main_call(int argc, char** argv) {
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
-    const int OPT_PROGRESS = 1000;
+    constexpr int OPT_PROGRESS = 1000;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {

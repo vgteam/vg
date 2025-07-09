@@ -122,12 +122,12 @@ int main_minimizer(int argc, char** argv) {
     int threads = get_default_threads();
     bool require_distance_index = true;
 
-    #define OPT_THRESHOLD 1001
-    #define OPT_ITERATIONS 1002
-    #define OPT_FAST_COUNTING 1003
-    #define OPT_SAVE_MEMORY 1004
-    #define OPT_HASH_TABLE 1005
-    #define OPT_NO_DIST 1100
+    constexpr int OPT_THRESHOLD = 1001;
+    constexpr int OPT_ITERATIONS = 1002;
+    constexpr int OPT_FAST_COUNTING = 1003;
+    constexpr int OPT_SAVE_MEMORY = 1004;
+    constexpr int OPT_HASH_TABLE = 1005;
+    constexpr int OPT_NO_DIST = 1100;
 
     int c;
     optind = 2; // force optind past command positional argument

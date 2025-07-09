@@ -63,7 +63,7 @@ void help_msga(char** argv) {
          << "  -B, --band-multi INT      consider INT alignments of each band" << endl
          << "                            in banded alignment (overrides -u for bands) [16]" << endl
          << "  -M, --max-multimaps INT   consider INT extra alignments for whole sequence [1]" << endl
-         << "      --no-patch-aln        do not patch banded alignments" << endl
+         << "  -8, --no-patch-aln        do not patch banded alignments" << endl
          << "                            by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
          << "  -q, --match INT           use this match score [1]" << endl
@@ -114,8 +114,8 @@ int main_msga(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_MAX_GAP_LENGTH  1000
-    #define OPT_XDROP_ALIGNMENT  1001
+    constexpr int OPT_MAX_GAP_LENGTH = 1000;
+    constexpr int OPT_XDROP_ALIGNMENT = 1001;
 
     vector<string> fasta_files;
     set<string> seq_names;

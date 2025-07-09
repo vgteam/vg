@@ -118,8 +118,8 @@ int main_stats(int argc, char** argv) {
     string distance_index_filename;
 
     // Long options with no corresponding short options.
-    #define OPT_SNARL_CONTENTS 1000
-    #define OPT_SNARL_SAMPLE 1001
+    constexpr int OPT_SNARL_CONTENTS = 1000;
+    constexpr int OPT_SNARL_SAMPLE = 1001;
     constexpr int64_t snarl_search_context = 100;
 
     int c;

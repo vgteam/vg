@@ -131,10 +131,10 @@ int main_find(int argc, char** argv) {
     int subgraph_k = 0;
     string gbwt_name;
 
-    #define OPT_MAPPING 1000
-    #define OPT_CONNECTING_START 1001
-    #define OPT_CONNECTING_END 1002
-    #define OPT_CONNECTING_RANGE 1003
+    constexpr int OPT_MAPPING = 1000;
+    constexpr int OPT_CONNECTING_START = 1001;
+    constexpr int OPT_CONNECTING_END = 1002;
+    constexpr int OPT_CONNECTING_RANGE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument

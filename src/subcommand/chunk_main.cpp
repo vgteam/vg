@@ -143,7 +143,7 @@ int main_chunk(int argc, char** argv) {
     bool path_components = false;
     string snarl_filename;
     
-    #define OPT_NO_EMBEDDED_HAPLOTYPES 1000
+    constexpr int OPT_NO_EMBEDDED_HAPLOTYPES = 1000;
     
     int c;
     optind = 2; // force optind past command positional argument

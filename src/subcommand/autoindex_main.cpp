@@ -139,11 +139,11 @@ int main_autoindex(int argc, char** argv) {
         return 1;
     }
     
-#define OPT_KEEP_INTERMEDIATE 1000
-#define OPT_FORCE_UNPHASED 1001
-#define OPT_FORCE_PHASED 1002
-#define OPT_GBWT_BUFFER_SIZE 1003
-#define OPT_GCSA_SIZE_LIMIT 1004
+    constexpr int OPT_KEEP_INTERMEDIATE =  1000;
+    constexpr int OPT_FORCE_UNPHASED = 1001;
+    constexpr int OPT_FORCE_PHASED = 1002;
+    constexpr int OPT_GBWT_BUFFER_SIZE = 1003;
+    constexpr int OPT_GCSA_SIZE_LIMIT = 1004;
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
