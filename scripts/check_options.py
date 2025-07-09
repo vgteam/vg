@@ -201,7 +201,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     # Match the line's prefix, which should be two spaces
     prefix = r'\s+'
     # Match a shortform option: `-<short`
-    shortform_patten = r'-[\w]'
+    shortform_patten = r'-[^\s]'
     # Match a longform option: `--<long>`
     longform_patten = r'--[a-zA-Z0-9\-]+'
     # Match an optional argument in all-caps, with a preceeding space
