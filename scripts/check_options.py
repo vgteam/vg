@@ -101,6 +101,10 @@ you may have to do multiple runs/fixes to see all the problems.
 For all checks, commented-out lines are ignored.
 (Though multiline comments aren't handled correctly.)
 
+In addition, the logic to figure out when we're inside of a block
+marked by {} assumes that there is only one curly brace of each
+type maximum per line. }} might compile but this script will complain.
+
 ## Attribution
 
 The base of this script was written by ChatGPT.
