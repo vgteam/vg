@@ -128,7 +128,11 @@ CRASHES = {'exit', 'return', 'deprecated', 'abort', 'throw'}
 
 @dataclass
 class OptionInfo:
-    """Information about a command line option."""
+    """Information about a command line option.
+    
+    Doesn't store a longform option because it expects
+    to be a value in a {longform: OptionInfo} dictionary.
+    """
 
     takes_argument: bool = None
     """Whether the option takes an argument."""
