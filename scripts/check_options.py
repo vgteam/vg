@@ -162,7 +162,7 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     and ending with the outermost closing curly brace `}`.
     (i.e. nested curly braces are handled correctly)
 
-    Ignores lines with comments.
+    Ignores lines with single-line comments.
 
     Looks for `"  -<short>, --<long> <arg>  <desc>"`
     The shortform option is optional, as is the argument.
@@ -281,6 +281,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
             break
 
         # Ignore comments and lines outside the helptext
+        # Multiline comments are not handled correctly,
+        # but they shouldn't be here anyway.
         if not inside_help or stripped.startswith('//'):
             continue
 
@@ -490,7 +492,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     and ending with the outermost closing curly brace `}`.
     (i.e. nested curly braces are handled correctly)
 
-    Ignores lines with comments. Handles fallthroughs,
+    Ignores lines with single-line comments. Handles fallthroughs,
     breaking cases on either a crash or a `break;`.
 
     Looks for whether each case uses `optarg` or not.
@@ -546,6 +548,9 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         elif inside_switch and line.strip() == '}' and curly_brace_nesting == 0:
             break
 
+        # Ignore comments and lines outside the switch
+        # Multiline comments are not handled correctly,
+        # but they shouldn't be here anyway.
         if not inside_switch or line.strip().startswith('//'):
             continue
         if '{' in stripped:
@@ -561,7 +566,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
             if has_optarg:
                 set_optarg_usage(current_cases, True)
             
-            # Remove comments
+            # Remove end-of-line comments
             stripped = stripped.split('//')[0].strip() 
             case_value = case_match.group(1) if case_match else 'default'
 
