@@ -51,7 +51,7 @@ Longform options are pulled from the helptext and long_options[]
 1. All longform options must be in long_options[]
 2. The long_options[] entry must be either `no_argument`
    or `required_argument`.
-3. The long_options[] entry must not have a numeric shortform.
+3. The long_options[] entry must not be a bare non-char int.
 4. The long_options[] entry must match the helptext entry, both
     in whether it takes an argument and in its shortform.
 5. If the longform option has a single-character shortform,
@@ -135,7 +135,7 @@ class OptionInfo:
 
     takes_argument: bool = None
     """Whether the option takes an argument."""
-    shortform: Optional[Union[str, int]] = None
+    shortform: Optional[str] = None
     """Short option name, or None if not present."""
     errors: List[str] = None
     """Some special errors to print about this option."""
@@ -385,14 +385,18 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                 longform = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
                 shortform = parts[3].strip()
+                errors = []
 
                 if longform in options:
                     raise ValueError(f"Duplicate longform option '{longform}' "
                                      "found in long_options[]")
 
                 try:
-                    # Keep shortform as a number if it is one
+                    # Check if shortform is a number
                     shortform = int(shortform)
+                    errors.append(f"--{longform} has int shortform {shortform} "
+                                  "in long_options[]; use a char or ALL_CAPS "
+                                  "variable instead")
                 except ValueError:
                     # Otherwise, it is a character or string
                     shortform = shortform.strip("'")
@@ -413,7 +417,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
                     # Marker for an unknown argument type
                     takes_arg = None
 
-                options[longform] = OptionInfo(takes_arg, shortform)
+                options[longform] = OptionInfo(takes_arg, shortform, errors)
                 all_shortforms.add(shortform)
     return options
 
@@ -700,10 +704,11 @@ def check_file(filepath: str) -> bool:
                     "in long_options[]; use no_argument or required_argument")
             continue
 
-        # Check 3: long_options[] don't use raw numbers
-        if isinstance(cur_long.shortform, int):
-            problem(f"--{longform} has an int ({cur_long.shortform}) "
-                    "in long_options[]; use a char or ALL_CAPS variable instead")
+        # Check 3: long_options[] doesn't use non-char integers
+        # (that's the only kind of error that will be in cur_long.errors)
+        if cur_long.errors:
+            for e in cur_long.errors:
+                problem(f"{e}")
             continue
 
         # Check 4: help vs long_options[]
