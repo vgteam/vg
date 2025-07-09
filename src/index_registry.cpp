@@ -429,10 +429,23 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
     return graph;
 }
 
-// execute a function in another process and return true if successful
+// Execute a function in another process and return it's exit code.
 // REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
+// If it is not possible to safely fork a new process, warns and executes the
+// function in the current process.
 int execute_in_fork(const function<void(void)>& exec) {
-    
+   
+#if _OPENMP < 201811L
+    // We can't stop OpenMP, so we can't actually fork, so we can't actually do our smart retry.
+    cerr << "warning:[IndexRegistry] vg was built with an OpenMP library lower than 5.0, which is too old to safely support forking."
+         << "We will not be able to automatically retry with a simpler graph if a resource limit is hit." << endl;
+
+    // Just run the work in-process
+    exec();
+    return 0;
+#else
+    // OpenMP 5 provides a way to shut down OpenMP, so we can safely fork.
+
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
     omp_pause_resource_all(omp_pause_soft);
@@ -451,7 +464,7 @@ int execute_in_fork(const function<void(void)>& exec) {
         
         exec();
                 
-        // end the child process successfullycode
+        // end the child process successfully
         exit(0);
     } else {
         // This is the parent
@@ -480,6 +493,7 @@ int execute_in_fork(const function<void(void)>& exec) {
     assert(WIFEXITED(child_stat));
     
     return WEXITSTATUS(child_stat);
+#endif
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -3644,11 +3658,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             throw RewindPlanException(msg, pruned_graphs);
         }
         
-        // it seems to only keep the lowest 8 bits of the exit code? this is hack-y, but it gives us the correct
-        // code to compare to...
-        int size_code = execute_in_fork([](){ exit(gcsa::EXIT_SIZE_LIMIT_EXCEEDED); });
+        // it seems to only keep the lowest 8 bits of the exit code, so only use the lowest 8 bits.
+        int size_code = 0xFF & gcsa::EXIT_SIZE_LIMIT_EXCEEDED;
         
-        int code = execute_in_fork([&]() {
+        int code = 0xFF & execute_in_fork([&]() {
 #ifdef debug_index_registry_recipes
             cerr << "making GCSA2 at " << gcsa_output_name << " and " << lcp_output_name << " after writing de Bruijn graph files to:" << endl;
             for (auto dbg_name : dbg_names) {
