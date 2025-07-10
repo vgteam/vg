@@ -1063,7 +1063,6 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd tabixpp && rm -f tabix.o libtabixpp.a
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
-	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
