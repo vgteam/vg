@@ -5,8 +5,10 @@
  */
 
 #include "nearest_offsets_in_paths.hpp"
+#include "../crash.hpp"
 
 //#define debug
+//#define debug_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -57,7 +59,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
             if (path_filter && !(*path_filter)(path_handle)) {
                 // We are to ignore this path
 #ifdef debug
-                cerr << "handle is on ignored path " << graph->get_name(path_handle) << endl;
+                cerr << "handle is on ignored path " << graph->get_path_name(path_handle) << endl;
 #endif
                 continue;
             }
@@ -119,7 +121,7 @@ map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandl
     auto offsets = nearest_offsets_in_paths(graph, pos, -1);
     map<string, vector<pair<size_t, bool>>> named_offsets;
     for (pair<const path_handle_t, vector<pair<size_t, bool>>>& offset : offsets) {
-        named_offsets[graph->get_path_name(offset.first)] = move(offset.second);
+        named_offsets[graph->get_path_name(offset.first)] = std::move(offset.second);
     }
     return named_offsets;
 }
