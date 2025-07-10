@@ -29,15 +29,16 @@ using namespace vg::subcommand;
 
 void help_ids(char** argv) {
     cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
-        << "options:" << endl
-        << "    -c, --compact        minimize the space of integers used by the ids" << endl
-        << "    -i, --increment N    increase ids by N" << endl
-        << "    -d, --decrement N    decrease ids by N" << endl
-        << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
-        << "                         by iterating through the supplied graphs and incrementing" << endl
-        << "                         their ids to be non-conflicting (modifies original files)" << endl
-        << "    -m, --mapping FILE   create an empty node mapping for vg prune" << endl
-        << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
+         << "options:" << endl
+         << "  -c, --compact        minimize the space of integers used by the ids" << endl
+         << "  -i, --increment N    increase ids by N" << endl
+         << "  -d, --decrement N    decrease ids by N" << endl
+         << "  -j, --join           make a joint ID space for all supplied graphs" << endl
+         << "                       by iterating through the supplied graphs and incrementing" << endl
+         << "                       their ids to be non-conflicting (modifies original files)" << endl
+         << "  -m, --mapping FILE   create an empty node mapping for vg prune" << endl
+         << "  -s, --sort           assign new node IDs in generalized topological sort order" << endl
+         << "  -h, --help           print this help message to stderr and exit" << endl;
 }
 
 int main_ids(int argc, char** argv) {
@@ -70,8 +71,8 @@ int main_ids(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hci:d:jm:s",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?ci:d:jm:s",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

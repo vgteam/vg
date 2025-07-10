@@ -20,14 +20,15 @@ void help_trace(char** argv) {
          << "Trace and extract haplotypes from an index" << endl
          << endl
          << "options:" << endl
-         << "    -x, --index FILE           use this xg index or graph" << endl
-         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of any in the graph" << endl
-         << "    -n, --start-node INT       start at this node" << endl
+         << "  -x, --index FILE            use this xg index or graph" << endl
+         << "  -G, --gbwt-name FILE        use GBWT haplotype index instead of any in graph" << endl
+         << "  -n, --start-node INT        start at this node ID" << endl
         //TODO: implement backwards iteration over graph
-        // << "    -b, --backwards            iterate backwards over graph" << endl
-         << "    -d, --extend-distance INT  extend search this many nodes [default=50]" << endl
-         << "    -a, --annotation-path FILE output file for haplotype frequency annotations" << endl
-         << "    -j, --json                 output subgraph in json instead of protobuf" << endl;
+        // << "  -b, --backwards             iterate backwards over graph" << endl
+         << "  -d, --extend-distance INT   extend search this many nodes [50]" << endl
+         << "  -a, --annotation-path FILE  output file for haplotype frequency annotations" << endl
+         << "  -j, --json                  output subgraph in json instead of protobuf" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl;
 }
 
 int main_trace(int argc, char** argv) {
@@ -57,12 +58,13 @@ int main_trace(int argc, char** argv) {
             {"start-node", required_argument, 0, 'n'},
             {"extend-distance", required_argument, 0, 'd'},
             {"json", no_argument, 0, 'j'},
+            {"help", no_argument, 0, 'h'},
             //{"backwards", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
     int option_index = 0;
-    c = getopt_long (argc, argv, "x:G:a:n:d:jh",
+    c = getopt_long (argc, argv, "x:G:a:n:d:jh?",
                      long_options, &option_index);
 
     /* Detect the end of the options. */

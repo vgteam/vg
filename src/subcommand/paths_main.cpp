@@ -30,37 +30,43 @@ using namespace vg::subcommand;
 
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
-         << "options:" << endl
-         << "  input:" << endl
-         << "    -x, --xg FILE            use the paths and haplotypes in this graph FILE. Supports GBZ haplotypes." <<endl
-         << "                             (also accepts -v, --vg)" << endl
-         << "    -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
-         << "                             (graph also required for most output options; -g takes priority over -x)" << endl
-         << "  output graph (.vg format)" << endl
-         << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
-         << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
-         << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
-         << "    -n, --normalize-paths    output a graph where all equivalent paths in a site a merged (using selected paths to snap to if possible)" << endl 
-         << "  output path data:" << endl
-         << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
-         << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
-         << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
-         << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
-         << "    -M, --metadata           print a table of path names and their metadata" << endl
-         << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
-         << "    -F, --extract-fasta      print the paths in FASTA format" << endl
-         << "    -c, --coverage           print the coverage stats for selected paths (not including cylces)" << endl
-         << "  path selection:" << endl
-         << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
-         << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
-         << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
-         << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
-         << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
-         << "    -R, --reference-paths    select the reference paths" << endl
-         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl
-         << "  configuration:" << endl
-         << "    -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
-         << "    -t, --threads N          number of threads to use [all available]. applies only to snarl finding within -n" << endl;
+         << "  -h, --help               print this help message to stderr and exit" << endl
+         << "input:" << endl
+         << "  -x, --xg FILE            use the paths and haplotypes in this graph FILE." << endl
+         << "                           Supports GBZ haplotypes. (also accepts -v, --vg)" << endl
+         << "  -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
+         << "                           (graph also required for most output options;" << endl
+         << "                           -g takes priority over -x)" << endl
+         << "output graph (.vg format)" << endl
+         << "  -V, --extract-vg         output a path-only graph covering the selected paths" << endl
+         << "  -d, --drop-paths         output a graph with the selected paths removed" << endl
+         << "  -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "  -n, --normalize-paths    output a graph where equivalent paths in a site are" << endl
+         << "                           merged (using selected paths to snap to if possible)" << endl 
+         << "output path data:" << endl
+         << "  -X, --extract-gam        print (as GAM alignments) stored paths in the graph" << endl
+         << "  -A, --extract-gaf        print (as GAF alignments) stored paths in the graph" << endl
+         << "  -L, --list               print (one per line) path (or thread) names" << endl
+         << "  -E, --lengths            print a list of path names (as with -L)" << endl
+         << "                           but paired with their lengths" << endl
+         << "  -M, --metadata           print a table of path names and their metadata" << endl
+         << "  -C, --cyclicity          print a list of path names (as with -L)" << endl
+         << "                           but paired with flag denoting the cyclicity" << endl
+         << "  -F, --extract-fasta      print the paths in FASTA format" << endl
+         << "  -c, --coverage           print the coverage stats for selected paths" << endl
+         << "                           (not including cycles)" << endl
+         << "path selection:" << endl
+         << "  -p, --paths-file FILE    select paths named in a file (one per line)" << endl
+         << "  -Q, --paths-by STR       select paths with the given name prefix" << endl
+         << "  -S, --sample STR         select haplotypes or reference paths for this sample" << endl
+         << "  -a, --variant-paths      select variant paths added by 'vg construct -a'" << endl
+         << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
+         << "  -R, --reference-paths    select reference paths" << endl
+         << "  -H, --haplotype-paths    select haplotype paths paths" << endl
+         << "configuration:" << endl
+         << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
+         << "  -t, --threads N          number of threads to use [all available]" << endl
+         << "                           applies only to snarl finding within -n" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -133,6 +139,7 @@ int main_paths(int argc, char** argv) {
         static struct option long_options[] =
 
         {
+            {"help", no_argument, 0, 'h'},
             {"vg", required_argument, 0, 'v'},
             {"xg", required_argument, 0, 'x'},
             {"gbwt", required_argument, 0, 'g'},
@@ -156,16 +163,17 @@ int main_paths(int argc, char** argv) {
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
             {"overlay", no_argument, 0, 'o'},
+            {"threads", required_argument, 0, 't'},
 
             // Hidden options for backward compatibility.
-            {"threads", no_argument, 0, 'T'},
+            {"threads-old", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -286,7 +294,7 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'T':
-            std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
+            std::cerr << "warning: [vg paths] option -T/--threads-old is obsolete; use -t/--threads" << std::endl;
             break;
 
         case 'q':
@@ -338,9 +346,11 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta || list_lengths);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths
+                           || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
-            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -n, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] a graph is needed for extracting threads in "
+                      << "-X, -A, -V, -d, -r, -n, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && !graph_file.empty()) {
@@ -351,7 +361,8 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) "
+                  << "must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -367,7 +378,8 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] dropping, retaining or normalizing paths only works on embedded graph paths, not GBWT threads" << std::endl;
+        std::cerr << "error: [vg paths] dropping, retaining or normalizing paths "
+                  << "only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (coverage && !gbwt_file.empty()) {
@@ -763,13 +775,17 @@ int main_paths(int argc, char** argv) {
                         // Dump fields for all the metadata
                         cout << "\t" << SENSE_TO_STRING.at(graph->get_sense(path_handle));
                         auto sample = graph->get_sample_name(path_handle);
-                        cout << "\t" << (sample == PathMetadata::NO_SAMPLE_NAME ? "NO_SAMPLE_NAME" : sample);
+                        cout << "\t" << (sample == PathMetadata::NO_SAMPLE_NAME ? "NO_SAMPLE_NAME"
+                                                                                : sample);
                         auto haplotype = graph->get_haplotype(path_handle);
-                        cout << "\t" << (haplotype == PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE" : std::to_string(haplotype));
+                        cout << "\t" << (haplotype == PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE"
+                                                                                 : std::to_string(haplotype));
                         auto locus = graph->get_locus_name(path_handle);
-                        cout << "\t" << (locus == PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
+                        cout << "\t" << (locus == PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME"
+                                                                              : locus);
                         auto phase_block = graph->get_phase_block(path_handle);
-                        cout << "\t" << (phase_block == PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" : std::to_string(phase_block));
+                        cout << "\t" << (phase_block == PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" 
+                                                                                     : std::to_string(phase_block));
                         auto subrange = graph->get_subrange(path_handle);
                         cout << "\t";
                         if (subrange == PathMetadata::NO_SUBRANGE) {

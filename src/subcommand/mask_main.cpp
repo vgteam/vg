@@ -26,7 +26,8 @@ vector<tuple<string, size_t, size_t>> parse_bed(istream& in){
     string token_buffer;
     while (getline(in, line_buffer)) {
         
-        if (line_buffer.empty() || line_buffer.front() == '#' || line_buffer.substr(0, 5) == "track" || line_buffer.substr(0, 7) == "browser") {
+        if (line_buffer.empty() || line_buffer.front() == '#'
+            || line_buffer.substr(0, 5) == "track" || line_buffer.substr(0, 7) == "browser") {
             // header line
             continue;
         }
@@ -46,15 +47,15 @@ vector<tuple<string, size_t, size_t>> parse_bed(istream& in){
 }
 
 void help_mask(char** argv) {
-  cerr << "usage: " << argv[0] << " [options] <graph>" << endl
-       << "Mask out specified regions of a graph with N's" << endl
-       << endl
-       << "input options: " << endl
-       << "    -b, --bed FILE       BED regions corresponding to path intervals of the graph to target (required)" << endl
-       << "    -g, --gbz-input      input graph is in GBZ format" << endl
-       << "    -s, --snarls FILE    snarls from vg snarls (computed directly if not provided)" << endl
-    
-       << endl;
+    cerr << "usage: " << argv[0] << " [options] <graph>" << endl
+         << "Mask out specified regions of a graph with N's" << endl
+         << endl
+         << "input options: " << endl
+         << "  -b, --bed FILE       BED regions corresponding to path intervals" << endl
+         << "                       of the graph to target (required)" << endl
+         << "  -g, --gbz-input      input graph is in GBZ format" << endl
+         << "  -s, --snarls FILE    snarls from vg snarls (computed directly if not provided)" << endl
+         << "  -h, --help           print this help message to stderr and exit" << endl;
 }    
 
 int main_mask(int argc, char** argv) {
@@ -76,7 +77,7 @@ int main_mask(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:gs:", long_options, &option_index);
+        c = getopt_long (argc, argv, "h?b:gs:", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -88,7 +89,7 @@ int main_mask(int argc, char** argv) {
             case '?':
             case 'h':
                 help_mask(argv);
-                return 0;
+                return 1;
             case 'b':
                 bed_filepath = optarg;
                 break;

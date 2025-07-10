@@ -1,5 +1,6 @@
 /**
- * \file mcmc_main.cpp: GFA (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
+ * \file mcmc_main.cpp: GFA (Graph Alignment Format) Fast Emitter:
+ * a new mapper that will be *extremely* fast once we actually write it
  */
 
 #include <omp.h>
@@ -26,20 +27,21 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_mcmc(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl
-    << "Finds haplotypes based on reads using MCMC methods" << endl
-    << endl
-    << "basic options:" << endl
-    << "  -i, --iteration-number INT        tells us the number of iterations to run mcmc_genotyper with" <<endl
-    << "  -r, --seed INT                    the seed we will use for the random number generator " << endl
-    << "  -s, --sample NAME                 sample name [default=SAMPLE]" << endl
-    << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
-    << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
-    << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl
-    << "  -v, --vcf-out FILE                write VCF output to this file" << endl
-    << "  -b, --burn-in INT                 number of iterations to run original sample proposal only" <<endl
-    << "  -g, --gamma-freq INT              the frequency (every n iterations) for which to re-make the gamma set (starts after burn-in)" <<endl;
+    cerr << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl
+         << "Finds haplotypes based on reads using MCMC methods" << endl
+         << endl
+         << "basic options:" << endl
+         << "  -i, --iteration-number INT  run mcmc_genotyper with INT iterations" << endl
+         << "  -r, --seed INT              seed for the random number generator" << endl
+         << "  -s, --sample NAME           sample name [SAMPLE]" << endl
+         << "  -p, --ref-path NAME         reference path to call on (may repeat) [all]"<< endl
+         << "  -o, --ref-offset N          offset in reference path (may repeat; 1 per path)" << endl
+         << "  -l, --ref-length N          override reference length for output VCF contig" << endl
+         << "  -v, --vcf-out FILE          write VCF output to this file" << endl
+         << "  -b, --burn-in INT           run original sample proposal for INT interations" << endl
+         << "  -g, --gamma-freq INT        the frequency (every n iterations) for which to" << endl
+         << "                              re-make the gamma set (starts after burn-in)" << endl
+         << "  -h, --help                  print this help message to stderr and exit" << endl;
 }
 
 int main_mcmc(int argc, char** argv) {
@@ -82,7 +84,7 @@ int main_mcmc(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:p:o:l:r:v:b:g:",
+        c = getopt_long (argc, argv, "h?i:s:p:o:l:r:v:b:g:",
                          long_options, &option_index);
 
 
