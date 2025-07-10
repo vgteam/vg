@@ -17,40 +17,52 @@ using namespace vg::subcommand;
 using namespace vg::io;
 
 void help_clip(char** argv) {
-  cerr << "usage: " << argv[0] << " [options] <graph>" << endl
-       << "Chop out variation within path intervals of a vg graph" << endl
-       << endl
-       << "input options: " << endl
-       << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         snarls from vg snarls (recomputed if unspecified and -n,-e,-N,-E,-a,-l,-L, or -D used)." << endl
-       << "depth clipping options: " << endl
-       << "    -d, --depth N             clip out nodes and edges with path depth below N (note you can use snarl selection and bed options to target subregions)" << endl
-       << "stub clipping options:" << endl
-       << "    -s, --stubs               clip out all stubs (nodes with degree-0 sides that aren't on reference)" << endl
-       << "    -S, --stubbify-paths      clip out all edges necessary to ensure selected reference paths have exactly two stubs" << endl
-       << "snarl selection and clipping options:" << endl
-       << "    -n, --min-nodes N         clip out snarls with > N nodes" << endl
-       << "    -e, --min-edges N         clip out snarls with > N edges" << endl
-       << "    -B, --min-bases N         clip out snarls with > N bases" << endl     
-       << "    -N, --min-nodes-shallow N clip out snarls with > N nodes not including nested snarls" << endl
-       << "    -E, --min-edges-shallow N clip out snarls with > N edges not including nested snarls" << endl
-       << "    -a, --min-avg-degree N    clip out snarls with average degree > N" << endl
-       << "    -l, --min-reflen N        ignore snarls whose reference traversal spans less than N bp" << endl     
-       << "    -L, --min-reflen-prop F   ignore snarls whose reference traversal spans less than proportion F (0<=F<=1) of the whole reference path" << endl
-       << "    -A, --max-reflen N        ignore snarls whose reference traversal spans fewer than N bp" << endl
-       << "    -g  --net-edges           only clip net-edges inside snarls" << endl
-       << "    -G  --top-net_edges       only clip net-edges inside top-level snarls" << endl
-       << "big deletion edge clipping options:" << endl
-       << "    -D, --max-deletion-edge N clip out all edges whose endpoints have distance > N on a reference path" << endl
-       << "    -c, --context N           search up to at most N steps from reference paths for candidate deletion edges [1]" << endl
-       << "general options: " << endl
-       << "    -P, --path-prefix STRING  do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
-       << "    -m, --min-fragment-len N  don't write novel path fragment if it is less than N bp long" << endl
-       << "    -B, --output-bed          write BED-style file of affected intervals instead of clipped graph. " << endl
-       << "                              columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
-       << "    -t, --threads N           number of threads to use [default: all available]" << endl
-       << "    -v, --verbose             print some logging messages" << endl
-       << endl;
+    cerr << "usage: " << argv[0] << " [options] <graph>" << endl
+         << "Chop out variation within path intervals of a vg graph" << endl
+         << endl
+         << "input options: " << endl
+         << "  -b, --bed FILE             BED regions for path intervals of graph to target" << endl
+         << "  -r, --snarls FILE          snarls from vg snarls (recomputed if unspecified" << endl
+         << "                             and -n, -e, -N, -E, -a, -l, -L, or -D used)" << endl
+         << "depth clipping options: " << endl
+         << "  -d, --depth N              clip out nodes and edges with path depth below N" << endl
+         << "                             use snarl selection/BED options to target regions" << endl
+         << "stub clipping options:" << endl
+         << "  -s, --stubs                clip out all stubs, i.e. nodes with degree-0 sides" << endl
+         << "                             that aren't on reference" << endl
+         << "  -S, --stubbify-paths       clip out all edges neccessary so that selected" << endl
+         << "                             reference paths have exactly two stubs" << endl
+         << "snarl selection and clipping options:" << endl
+         << "  -n, --min-nodes N          clip out snarls with >N nodes" << endl
+         << "  -e, --min-edges N          clip out snarls with >N edges" << endl
+         << "  -i, --min-bases N          clip out snarls with >N bases" << endl     
+         << "  -N, --min-nodes-shallow N  clip out snarls with >N nodes," << endl
+         << "                             ignoring nested snarls" << endl
+         << "  -E, --min-edges-shallow N  clip out snarls with >N edges," << endl
+         << "                             ignoring nested snarls" << endl
+         << "  -a, --min-avg-degree N     clip out snarls with average degree > N" << endl
+         << "  -A, --min-reflen N         ignore snarls with reference traversal span < N bp" << endl     
+         << "  -l, --max-reflen-prop F    ignore snarls with reference traversal span > F" << endl
+         << "                             (0<=F<=1) of the whole reference path" << endl
+         << "  -L, --max-reflen N         ignore snarls with reference traversal span > N bp" << endl
+         << "  -g, --net-edges            only clip net-edges inside snarls" << endl
+         << "  -G, --top-net-edges        only clip net-edges inside top-level snarls" << endl
+         << "big deletion edge clipping options:" << endl
+         << "  -D, --max-deletion-edge N  clip out all edges whose endpoints have" << endl
+         << "                             distance > N on a reference path" << endl
+         << "  -c, --context N            search up to at most N steps from reference paths" << endl
+         << "                             for candidate deletion edges [1]" << endl
+         << "general options: " << endl
+         << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
+         << "                             (specify such references with -P or -b; may repeat)" << endl
+         << "  -m, --min-fragment-len N   don't write novel path fragment if < N bp long" << endl
+         << "  -B, --output-bed           write BED-style file of intervals," << endl
+         << "                             instead of clipped grap. columns 4-9 are:" << endl
+         << "                             snarl node-count edge-count shallow-node-count" << endl
+         << "                             shallow-edge-count avg-degree" << endl
+         << "  -t, --threads N            number of threads to use [all available]" << endl
+         << "  -v, --verbose              print some logging messages" << endl
+         << "  -h, --help                 print this help message to stderr and exit" << endl;
 }    
 
 int main_clip(int argc, char** argv) {
@@ -108,20 +120,20 @@ int main_clip(int argc, char** argv) {
             {"min-reflen", required_argument, 0, 'A'},
             {"net-edges", no_argument, 0, 'g'},
             {"top-net-edges", no_argument, 0, 'G'},            
-            {"max-deletion", required_argument, 0, 'D'},
+            {"max-deletion-edge", required_argument, 0, 'D'},
             {"context", required_argument, 0, 'c'},
             {"path-prefix", required_argument, 0, 'P'},
             {"snarls", required_argument, 0, 'r'},
             {"min-fragment-len", required_argument, 0, 'm'},
             {"output-bed", no_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
-            {"verbose", required_argument, 0, 'v'},
+            {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?b:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -133,7 +145,7 @@ int main_clip(int argc, char** argv) {
         case '?':
         case 'h':
             help_clip(argv);
-            return 0;
+            return 1;
         case 'b':
             bed_path = optarg;
             break;
@@ -230,7 +242,8 @@ int main_clip(int argc, char** argv) {
     }
 
     if ((max_deletion >= 0 || stub_clipping || stubbify_reference) && (snarl_option || out_bed)) {
-        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) cannot be used with -D, -s or -S" << endl;
+        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) "
+             << "cannot be used with -D, -s or -S" << endl;
         return 1;
     }
 
@@ -333,10 +346,12 @@ int main_clip(int argc, char** argv) {
             }
             if (bed_regions_in_graph.size() != bed_regions.size()) {
                 if (verbose) {
-                    cerr << "[vg clip]: Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) << " BED regions whose sequence names do not correspond to paths in the graph" << endl;
+                    cerr << "[vg clip]: Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) 
+                         << " BED regions whose sequence names do not correspond to paths in the graph" << endl;
                 }
                 if (bed_regions_in_graph.empty()) {
-                    cerr << "warning:[vg-clip] No BED region found that lies on path in graph (use vg paths -Lv to list paths that are in the graph)" << endl;
+                    cerr << "warning:[vg-clip] No BED region found that lies on path in graph "
+                         << "(use vg paths -Lv to list paths that are in the graph)" << endl;
                 }
             }
             swap(bed_regions, bed_regions_in_graph);
@@ -370,10 +385,11 @@ int main_clip(int argc, char** argv) {
             clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
         } else {
             // do the contained snarls
-            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len,
-                                                     min_nodes, min_edges, min_bases, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen, max_reflen_prop, max_reflen,
-                                                     only_net_edges || only_top_net_edges, only_top_net_edges,
-                                                     out_bed, verbose);
+            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, 
+                                                     min_depth, min_fragment_len, min_nodes, min_edges, min_bases,
+                                                     min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen,
+                                                     max_reflen_prop, max_reflen, only_net_edges || only_top_net_edges,
+                                                     only_top_net_edges, out_bed, verbose);
         }
         
     } else if (max_deletion >= 0) {
@@ -398,8 +414,9 @@ int main_clip(int argc, char** argv) {
     }else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              min_nodes, min_edges, min_bases, min_nodes_shallow, min_edges_shallow, min_avg_degree, min_reflen,
-                              max_reflen_prop, max_reflen, only_net_edges || only_top_net_edges, only_top_net_edges, out_bed, verbose);
+                              min_nodes, min_edges, min_bases, min_nodes_shallow, min_edges_shallow,
+                              min_avg_degree, min_reflen, max_reflen_prop, max_reflen,
+                              only_net_edges || only_top_net_edges, only_top_net_edges, out_bed, verbose);
     }
 
     // write the graph

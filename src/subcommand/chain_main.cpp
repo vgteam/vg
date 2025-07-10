@@ -29,7 +29,8 @@ using namespace vg::subcommand;
 void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
-         << "    -p, --progress                                 show progress" << endl;
+         << "  -p, --progress       show progress" << endl
+         << "  -h, --help           print this help message to stderr and exit" << endl;
 }
 
 int main_chain(int argc, char** argv) {
@@ -123,7 +124,8 @@ int main_chain(int argc, char** argv) {
                         assert(sequence != nullptr);
                         graph.create_handle(sequence, vg::parse<nid_t>(node_id));
                     } else {
-                        std::cerr << "warning:[vg chain] Unreadable node object at index " << i << ": " << json_error.text << std::endl;
+                        std::cerr << "warning:[vg chain] Unreadable node object at index " << i << ": "
+                                  << json_error.text << std::endl;
                     }
                 } else {
                     std::cerr << "warning:[vg chain] No node object at index " << i << std::endl;
@@ -145,7 +147,8 @@ int main_chain(int argc, char** argv) {
                     const char* to_id = nullptr;
                     int to_end = 0;
                     
-                    if (json_unpack_ex(edge_json, &json_error, 0, "{s:s, s?b, s:s, s?b}", "from", &from_id, "from_start", &from_start, "to", &to_id, "to_end", &to_end) == 0) {
+                    if (json_unpack_ex(edge_json, &json_error, 0, "{s:s, s?b, s:s, s?b}", "from", &from_id,
+                                       "from_start", &from_start, "to", &to_id, "to_end", &to_end) == 0) {
                         // This record is well-formed, so make the edge
                         assert(from_id != nullptr);
                         assert(to_id != nullptr);
@@ -153,7 +156,8 @@ int main_chain(int argc, char** argv) {
                         handle_t to_handle = graph.get_handle(vg::parse<nid_t>(to_id), to_end);
                         graph.create_edge(from_handle, to_handle);
                     } else {
-                        std::cerr << "warning:[vg chain] Unreadable edge object at index " << i << ": " << json_error.text << std::endl;
+                        std::cerr << "warning:[vg chain] Unreadable edge object at index " << i << ": "
+                                  << json_error.text << std::endl;
                     }
                 } else {
                     std::cerr << "warning:[vg chain] No edge object at index " << i << std::endl;
@@ -217,9 +221,11 @@ int main_chain(int argc, char** argv) {
                                    "read_exclusion_start", &read_exclusion_start, 
                                    "read_exclusion_end", &read_exclusion_end) == 0 &&
                     json_unpack_ex(graph_start, &json_error, 0, "{s:s, s?s, s?b}",
-                                   "node_id", &graph_start_id, "offset", &graph_start_offset, "is_reverse", &graph_start_is_reverse) == 0 &&
+                                   "node_id", &graph_start_id, "offset", &graph_start_offset, 
+                                   "is_reverse", &graph_start_is_reverse) == 0 &&
                     json_unpack_ex(graph_end, &json_error, 0, "{s:s, s?s, s?b}",
-                                   "node_id", &graph_end_id, "offset", &graph_end_offset, "is_reverse", &graph_end_is_reverse) == 0) {
+                                   "node_id", &graph_end_id, "offset", &graph_end_offset, 
+                                   "is_reverse", &graph_end_is_reverse) == 0) {
                     
                     // We have an item record.
                     assert(read_start != nullptr);
@@ -241,9 +247,11 @@ int main_chain(int argc, char** argv) {
                     size_t margin_right = vg::parse<size_t>(read_exclusion_start) - (start + length);
                     
                     // Pack up into an item
-                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
+                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, 
+                                       vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
                 } else {
-                    std::cerr << "warning:[vg chain] Unreadable item object at index " << i << ": " << json_error.text << std::endl;
+                    std::cerr << "warning:[vg chain] Unreadable item object at index " 
+                              << i << ": " << json_error.text << std::endl;
                 }
             } else {
                 std::cerr << "warning:[vg chain] No item object at index " << i << std::endl;
@@ -266,7 +274,8 @@ int main_chain(int argc, char** argv) {
 #endif
 
     // Do the chaining. We assume items is already sorted right.
-    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.gap_open, scorer.gap_extension);
+    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(
+        items, distance_index, graph, scorer.gap_open, scorer.gap_extension);
     
     std::cout << "Best chain gets score " << score_and_chain.first << std::endl;
     

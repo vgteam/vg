@@ -17,22 +17,25 @@ using namespace vg::subcommand;
 void help_pack(char** argv) {
     cerr << "usage: " << argv[0] << " pack [options]" << endl
          << "options:" << endl
-         << "    -x, --xg FILE          use this basis graph (any format accepted, does not have to be xg)" << endl
-         << "    -o, --packs-out FILE   write compressed coverage packs to this output file" << endl
-         << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
-         << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
-         << "    -a, --gaf FILE         read alignments from this GAF file (could be '-' for stdin)" << endl
-         << "    -d, --as-table         write table on stdout representing packs" << endl
-         << "    -D, --as-edge-table    write table on stdout representing edge coverage" << endl
-         << "    -u, --as-qual-table    write table on stdout representing average node mapqs" << endl
-         << "    -e, --with-edits       record and write edits rather than only recording graph-matching coverage" << endl
-         << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
-         << "    -n, --node ID          write table for only specified node(s)" << endl
-         << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
-         << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
-         << "    -c, --expected-cov N   expected coverage.  used only for memory tuning [default : 128]" << endl
-         << "    -s, --trim-ends N      ignore the first and last N bases of each read" << endl 
-         << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
+         << "  -x, --xg FILE          use this basis graph (does not have to be xg format)" << endl
+         << "  -o, --packs-out FILE   write compressed coverage packs to this output file" << endl
+         << "  -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
+         << "  -g, --gam FILE         read alignments from this GAM file ('-' for stdin)" << endl
+         << "  -a, --gaf FILE         read alignments from this GAF file ('-' for stdin)" << endl
+         << "  -d, --as-table         write table on stdout representing packs" << endl
+         << "  -D, --as-edge-table    write table on stdout representing edge coverage" << endl
+         << "  -u, --as-qual-table    write table on stdout representing average node mapqs" << endl
+         << "  -e, --with-edits       record and write edits" << endl
+         << "                         rather than only recording graph-matching coverage" << endl
+         << "  -b, --bin-size N       number of sequence bases per CSA bin [inf]" << endl
+         << "  -n, --node ID          write table for only specified node(s)" << endl
+         << "  -N, --node-list FILE   white space or line delimited list of nodes to collect" << endl
+         << "  -Q, --min-mapq N       ignore reads with MAPQ < N" << endl
+         << "                         and positions with base quality < N [0]" << endl
+         << "  -c, --expected-cov N   expected coverage.  used only for memory tuning [128]" << endl
+         << "  -s, --trim-ends N      ignore the first and last N bases of each read" << endl 
+         << "  -t, --threads N        use N threads [numCPUs]" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 
@@ -68,7 +71,7 @@ int main_pack(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg", required_argument,0, 'x'},
             {"packs-out", required_argument,0, 'o'},
-            {"count-in", required_argument, 0, 'i'},
+            {"packs-in", required_argument, 0, 'i'},
             {"gam", required_argument, 0, 'g'},
             {"gaf", required_argument, 0, 'a'},
             {"as-table", no_argument, 0, 'd'},
@@ -86,8 +89,8 @@ int main_pack(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:a:dDut:eb:n:N:Q:c:s:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?x:o:i:g:a:dDut:eb:n:N:Q:c:s:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

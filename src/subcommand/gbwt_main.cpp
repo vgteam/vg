@@ -246,96 +246,122 @@ int main_gbwt(int argc, char** argv) {
 void help_gbwt(char** argv) {
     std::cerr << "usage: " << argv[0] << " gbwt [options] [args]" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Manipulate GBWTs. Input GBWTs are loaded from input args or built in earlier steps." << std::endl;
+    std::cerr << "Manipulate GBWTs. Input GBWTs are loaded from input args" << std::endl;
+    std::cerr << "or built in earlier steps. See wiki page \"VG GBWT Subcommand\"." << std::endl;
     std::cerr << "The input graph is provided with one of -x, -G, or -Z" << std::endl;
     std::cerr << std::endl;
     std::cerr << "General options:" << std::endl;
-    std::cerr << "    -x, --xg-name FILE      read the graph from FILE" << std::endl;
-    std::cerr << "    -o, --output FILE       write output GBWT to FILE" << std::endl;
-    std::cerr << "    -d, --temp-dir DIR      use directory DIR for temporary files" << std::endl;
-    std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
+    std::cerr << "  -h, --help              print this help message to stderr and exit" << std::endl;
+    std::cerr << "  -x, --xg-name FILE      read the graph from FILE" << std::endl;
+    std::cerr << "  -o, --output FILE       write output GBWT to FILE" << std::endl;
+    std::cerr << "  -d, --temp-dir DIR      use directory DIR for temporary files" << std::endl;
+    std::cerr << "  -p, --progress          show progress and statistics" << std::endl;
     std::cerr << std::endl;
     std::cerr << "GBWT construction parameters (for steps 1 and 4):" << std::endl;
-    std::cerr << "        --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
-    std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
+    std::cerr << "      --buffer-size N     construction buffer size in millions of nodes"
+                                        <<  "[" << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << "]" << std::endl;
+    std::cerr << "      --id-interval N     store path IDs at 1/N positions "
+                                        << "[" << gbwt::DynamicGBWT::SAMPLE_INTERVAL << "]" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Multithreading:" << std::endl;
-    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v, -G, -A, -l, -P; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
-    std::cerr << "        --num-threads N     use N parallel search threads (for -b and -r; default " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << "      --num-jobs N        use at most N parallel build jobs" << std::endl;
+    std::cerr << "                          (for -v, -G, -A, -l, -P) " 
+                                        << "[" << GBWTConfig::default_build_jobs() << "]" << std::endl;
+    std::cerr << "      --num-threads N     use N parallel search threads" << std::endl;
+    std::cerr << "                          (for -b and -r) [" << omp_get_max_threads() << "]" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
-    std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
-    std::cerr << "                            (inputs must be over different contigs; requires -x, implies -f)" << std::endl;
-    std::cerr << "                            (does not store graph contigs in the GBWT)" << std::endl;
-    std::cerr << "        --preset X          use preset X (available: 1000gp)" << std::endl;
-    std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using first-fit heuristic" << std::endl;
-    std::cerr << "        --parse-only        store the VCF parses without building GBWTs" << std::endl;
-    std::cerr << "                            (use -o for the file name prefix; skips subsequent steps)" << std::endl;
-    std::cerr << "        --ignore-missing    do not warn when variants are missing from the graph" << std::endl;
-    std::cerr << "        --actual-phasing    do not interpret unphased homozygous genotypes as phased" << std::endl;
-    std::cerr << "        --force-phasing     replace unphased genotypes with randomly phased ones" << std::endl;
-    std::cerr << "        --discard-overlaps  skip overlapping alternate alleles if the overlap cannot be resolved" << std::endl;
-    std::cerr << "                            instead of creating a phase break" << std::endl;
-    std::cerr << "        --batch-size N      index the haplotypes in batches of N samples (default 200)" << std::endl; // FIXME source for the default
-    std::cerr << "        --sample-range X-Y  index samples X to Y (inclusive, 0-based)" << std::endl;
-    std::cerr << "        --rename V=P        VCF contig V matches path P in the graph (may repeat)" << std::endl;
-    std::cerr << "        --vcf-variants      variants in the graph use VCF contig names instead of path names" << std::endl;
-    std::cerr << "        --vcf-region C:X-Y  restrict VCF contig C to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
-    std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
-    std::cerr << "    -G, --gfa-input         index the walks or paths in the GFA file (one input arg)" << std::endl;
-    std::cerr << "        --max-node N        chop long segments into nodes of at most N bp (default " << gbwtgraph::MAX_NODE_LENGTH << ", use 0 to disable)" << std::endl;
-    std::cerr << "        --path-regex X      parse metadata as haplotypes from path names using regex X instead of vg-parser-compatible rules" << std::endl;
-    std::cerr << "        --path-fields X     parse metadata as haplotypes, mapping regex submatches to these fields instead of using vg-parser-compatible rules" << std::endl;
-    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
-    std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
-    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
-    std::cerr << "    -I, --gg-in FILE        load GBWTGraph from FILE and GBWT from input (one input arg) " << std::endl;
-    std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
-    std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
-    std::cerr << "        --gam-format        the input files are in GAM format instead of GAF format" << std::endl;
+    std::cerr << "  -v, --vcf-input         index the haplotypes in the VCF files specified in" << std::endl;
+    std::cerr << "                          input args in parallel (requires -x, implies -f);" << std::endl;
+    std::cerr << "                          (inputs must be over different contigs," << std::endl;
+    std::cerr << "                          does not store graph contigs in the GBWT)" << std::endl;
+    std::cerr << "      --preset X          use preset X (available: 1000gp)" << std::endl;
+    std::cerr << "      --inputs-as-jobs    create one build job for each input" << std::endl;
+    std::cerr << "                          instead of using first-fit heuristic" << std::endl;
+    std::cerr << "      --parse-only        store the VCF parses without building GBWTs" << std::endl;
+    std::cerr << "                          (use -o for file name prefix; skips later steps)" << std::endl;
+    std::cerr << "      --ignore-missing    don't warn when variants are missing from the graph" << std::endl;
+    std::cerr << "      --actual-phasing    don't treat unphased homozygous genotypes as phased" << std::endl;
+    std::cerr << "      --force-phasing     replace unphased genotypes with randomly phased ones" << std::endl;
+    std::cerr << "      --discard-overlaps  skip overlapping alternate alleles if the overlap" << std::endl;
+    std::cerr << "                          cannot be resolved instead of creating a phase break" << std::endl;
+    // FIXME source for the default
+    std::cerr << "      --batch-size N      index the haplotypes in batches of N samples [200]" << std::endl; 
+    std::cerr << "      --sample-range X-Y  index samples X to Y (inclusive, 0-based)" << std::endl;
+    std::cerr << "      --rename V=P        VCF contig V matches path P in the graph (may repeat)" << std::endl;
+    std::cerr << "      --vcf-variants      variants in graph use VCF contig names, not path names" << std::endl;
+    std::cerr << "      --vcf-region C:X-Y  restrict VCF contig C to coordinates X to Y" << std::endl;
+    std::cerr << "                          (inclusive, 1-based; may repeat)" << std::endl;
+    std::cerr << "      --exclude-sample X  do not index the sample with name X" << std::endl;
+    std::cerr << "                          (faster than -R; may repeat)" << std::endl;
+    std::cerr << "  -G, --gfa-input         index walks or paths in the GFA file (one input arg)" << std::endl;
+    std::cerr << "      --max-node N        chop long segments into nodes of at most N bp" << std::endl;
+    std::cerr << "                          (use 0 to disable) [" << gbwtgraph::MAX_NODE_LENGTH << "]" << std::endl;
+    std::cerr << "      --path-regex X      parse metadata as haplotypes from path names" << std::endl;
+    std::cerr << "                          using regex X instead of vg-parser-compatible rules" << std::endl;
+    std::cerr << "      --path-fields X     parse metadata as haplotypes, mapping regex submatches" << std::endl;
+    std::cerr << "                          to these fields instead of vg-parser-compatible rules" << std::endl;
+    std::cerr << "      --translation FILE  write the segment to node translation table to FILE" << std::endl;
+    std::cerr << "  -Z, --gbz-input         extract GBWT & GBWTGraph from GBZ from (one) input arg" << std::endl;
+    std::cerr << "  -I, --gg-in FILE        load GBWTGraph from FILE and GBWT from (one) input arg" << std::endl;
+    std::cerr << "  -E, --index-paths       index the embedded non-alt paths in the graph" << std::endl;
+    std::cerr << "                          (requires -x, no input args)" << std::endl;
+    std::cerr << "  -A, --alignment-input   index the alignments in the GAF files specified" << std::endl;
+    std::cerr << "                          in input args (requires -x)" << std::endl;
+    std::cerr << "      --gam-format        input files are in GAM format instead of GAF format" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 2: Merge multiple input GBWTs (requires -o):" << std::endl;
-    std::cerr << "    -m, --merge             use the insertion algorithm" << std::endl;
-    std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
-    std::cerr << "    -b, --parallel          use the parallel algorithm" << std::endl;
-    std::cerr << "        --chunk-size N      search in chunks of N sequences (default " << gbwt::MergeParameters::CHUNK_SIZE << ")" << std::endl;
-    std::cerr << "        --pos-buffer N      use N MiB position buffers for each search thread (default " << gbwt::MergeParameters::POS_BUFFER_SIZE << ")" << std::endl;
-    std::cerr << "        --thread-buffer N   use N MiB thread buffers for each search thread (default " << gbwt::MergeParameters::THREAD_BUFFER_SIZE << ")" << std::endl;
-    std::cerr << "        --merge-buffers N   merge 2^N thread buffers into one file per merge job (default " << gbwt::MergeParameters::MERGE_BUFFERS << ")" << std::endl;
-    std::cerr << "        --merge-jobs N      run N parallel merge jobs (default " << GBWTConfig::default_merge_jobs() << ")" << std::endl;
+    std::cerr << "  -m, --merge             use the insertion algorithm" << std::endl;
+    std::cerr << "  -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
+    std::cerr << "  -b, --parallel          use the parallel algorithm" << std::endl;
+    std::cerr << "      --chunk-size N      search in chunks of N sequences "
+                                        << "[" << gbwt::MergeParameters::CHUNK_SIZE << "]" << std::endl;
+    std::cerr << "      --pos-buffer N      use N MiB position buffers for each search thread "
+                                        << "[" << gbwt::MergeParameters::POS_BUFFER_SIZE << "]" << std::endl;
+    std::cerr << "      --thread-buffer N   use N MiB thread buffers for each search thread "
+                                        << "[" << gbwt::MergeParameters::THREAD_BUFFER_SIZE << "]" << std::endl;
+    std::cerr << "      --merge-buffers N   merge 2^N thread buffers into one file per merge "
+                                        << "[" << gbwt::MergeParameters::MERGE_BUFFERS << "]" << std::endl;
+    std::cerr << "      --merge-jobs N      run N parallel merge jobs "
+                                        << "[" << GBWTConfig::default_merge_jobs() << "]" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 3: Alter GBWT (requires -o and one input GBWT):" << std::endl;
-    std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
-    std::cerr << "        --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
-    std::cerr << "        --set-reference X   set sample X as the reference (may repeat)" << std::endl;
+    std::cerr << "  -R, --remove-sample X   remove sample X from the index (may repeat)" << std::endl;
+    std::cerr << "      --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
+    std::cerr << "      --set-reference X   set sample X as the reference (may repeat)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 4: Path cover GBWT construction (requires an input graph, -o, and one of { -a, -l, -P }):" << std::endl;
-    std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
-    std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
-    std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
-    std::cerr << "    -n, --num-paths N       find N paths per component (default " << GBWTConfig::default_num_paths_local() << " for -l, " << GBWTConfig::default_num_paths() << " otherwise)" << std::endl;
-    std::cerr << "    -k, --context-length N  use N-node contexts (default " << GBWTConfig::default_context_length() << ")" << std::endl;
-    std::cerr << "        --pass-paths        include named graph paths in local haplotype or greedy path cover GBWT" << std::endl;
+    std::cerr << "Step 4: Path cover GBWT construction " << std::endl;
+    std::cerr << "(requires an input graph, -o, and one of { -a, -l, -P }):" << std::endl;
+    std::cerr << "  -a, --augment-gbwt      add path cover of missing components (one input GBWT)" << std::endl;
+    std::cerr << "  -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
+    std::cerr << "  -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
+    std::cerr << "  -n, --num-paths N       find N paths per component"
+                                         << "[" << GBWTConfig::default_num_paths_local() << " for -l, " 
+                                         << GBWTConfig::default_num_paths() << " otherwise]" << std::endl;
+    std::cerr << "  -k, --context-length N  use N-node contexts [" << GBWTConfig::default_context_length() << "]" << std::endl;
+    std::cerr << "      --pass-paths        include named graph paths in local haplotype" << std::endl;
+    std::cerr << "                          or greedy path cover GBWT" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
-    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
-    std::cerr << "        --gbz-format        serialize both GBWT and GBWTGraph in GBZ format (makes -o unnecessary)" << std::endl;
+    std::cerr << "  -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
+    std::cerr << "      --gbz-format        serialize both GBWT and GBWTGraph in GBZ format" << std::endl;
+    std::cerr << "                          (makes -o unnecessary)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
-    std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
+    std::cerr << "  -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 7: Metadata (one input GBWT):" << std::endl;
-    std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
-    std::cerr << "    -C, --contigs           print the number of contigs" << std::endl;
-    std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
-    std::cerr << "    -S, --samples           print the number of samples" << std::endl;
-    std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
-    std::cerr << "    -T, --path-names        list path names" << std::endl;
-    std::cerr << "        --tags              list GBWT tags" << std::endl;
+    std::cerr << "  -M, --metadata          print basic metadata" << std::endl;
+    std::cerr << "  -C, --contigs           print the number of contigs" << std::endl;
+    std::cerr << "  -H, --haplotypes        print the number of haplotypes" << std::endl;
+    std::cerr << "  -S, --samples           print the number of samples" << std::endl;
+    std::cerr << "  -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
+    std::cerr << "  -T, --path-names        list path names" << std::endl;
+    std::cerr << "      --tags              list GBWT tags" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 8: Paths (one input GBWT):" << std::endl;
-    std::cerr << "    -c, --count-paths       print the number of paths" << std::endl;
-    std::cerr << "    -e, --extract FILE      extract paths in SDSL format to FILE" << std::endl;
+    std::cerr << "  -c, --count-paths       print the number of paths" << std::endl;
+    std::cerr << "  -e, --extract FILE      extract paths in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -371,11 +397,13 @@ void no_multiple_cover_types(const GBWTConfig& config) {
     }
 }
 
-void check_tag_validity(const std::string& key, const std::string& value, const std::unordered_set<char>& prohibited, const std::string& description) {
+void check_tag_validity(const std::string& key, const std::string& value, 
+                        const std::unordered_set<char>& prohibited, const std::string& description) {
     for (auto& letter : value) {
         if (prohibited.count(letter)) {
             // This letter isn't allowed.
-            std::cerr << "error: [vg gbwt] tag \"" << key << "\" contains prohibited character \"" << letter << "\". It needs to be " << description << " and may not contain any of:";
+            std::cerr << "error: [vg gbwt] tag \"" << key << "\" contains prohibited character \"" << letter 
+                      << "\". It needs to be " << description << " and may not contain any of:";
             for (auto& c : prohibited) {
                 std::cerr << " '" << c << "'";
             }
@@ -432,7 +460,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
     // Values are description and list of prohibited characters.
     const std::map<std::string, std::pair<std::string, std::unordered_set<char>>> KNOWN_TAGS = {
-        {gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}}
+        {gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, 
+            {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}}
     };
 
     static struct option long_options[] =
@@ -781,7 +810,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                     // Tag is either known, or is unknown but there's a known tag to compare it with.
                     if (tag_name != tag_record->first) {
                         // This is an unknown tag, but we have an idea what it should be.
-                        std::cerr << "warning: [vg gbwt] tag \"" << tag_name << "\" is not a tag with a meaning recognized by vg; maybe you meant \"" << tag_record->first << "\" which would be " << tag_description << std::endl;
+                        std::cerr << "warning: [vg gbwt] tag \"" << tag_name 
+                                  << "\" is not a tag with a meaning recognized by vg; maybe you meant \""
+                                  << tag_record->first << "\" which would be " << tag_description << std::endl;
                     } else {
                         // This is a known tag, so validate it.
                         check_tag_validity(tag_name, tag_value, tag_prohibited_characters, tag_description);
@@ -934,13 +965,15 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 void validate_gbwt_config(GBWTConfig& config) {
     // We can either write GBWT in SDSL format to a separate file or with GBWTGraph in GBZ format.
     // However, `--parse-only` uses `gbwt_output` for other purposes.
-    bool has_gbwt_output = !config.gbwt_output.empty() || (config.gbz_format && !config.graph_output.empty() && !config.parse_only);
+    bool has_gbwt_output = (!config.gbwt_output.empty() 
+                         || (config.gbz_format && !config.graph_output.empty() && !config.parse_only));
 
     // We have one input GBWT after steps 1-4.
     bool one_input_gbwt = config.input_filenames.size() == 1 || config.produces_one_gbwt;
 
     // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
-    bool has_graph_input = !config.graph_name.empty() || config.build == GBWTConfig::build_gfa || config.build == GBWTConfig::build_gbz || config.build == GBWTConfig::build_gbwtgraph;
+    bool has_graph_input = (!config.graph_name.empty() || config.build == GBWTConfig::build_gfa 
+                          || config.build == GBWTConfig::build_gbz || config.build == GBWTConfig::build_gbwtgraph);
 
     if (config.build == GBWTConfig::build_gbz) {
         // If we "build" a GBWT by loading it from a GBZ, we just need to make
@@ -1035,7 +1068,8 @@ void validate_gbwt_config(GBWTConfig& config) {
     }
 
     if (config.path_cover != GBWTConfig::path_cover_none) {
-        if (!has_gbwt_output || (config.graph_name.empty() && config.build != GBWTConfig::build_gbz && config.build != GBWTConfig::build_gbwtgraph)) {
+        if (!has_gbwt_output || (config.graph_name.empty() && config.build != GBWTConfig::build_gbz 
+                                 && config.build != GBWTConfig::build_gbwtgraph)) {
             // Path cover options needs a graph. We can use the provided graph or the GBZ/GBWTGraph
             // we took as an input. In the latter case, we know that the corresponding GBWT has not
             // been modified and the graph is hence safe to use.
@@ -1046,7 +1080,8 @@ void validate_gbwt_config(GBWTConfig& config) {
             std::cerr << "error: [vg gbwt] greedy path cover does not use input GBWTs" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if ((config.path_cover == GBWTConfig::path_cover_local || config.path_cover == GBWTConfig::path_cover_augment) && !(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none)) {
+        if ((config.path_cover == GBWTConfig::path_cover_local || config.path_cover == GBWTConfig::path_cover_augment)
+            && !(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none)) {
             std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
@@ -1055,7 +1090,8 @@ void validate_gbwt_config(GBWTConfig& config) {
             std::exit(EXIT_FAILURE);
         }
         if (config.context_length < gbwtgraph::PATH_COVER_MIN_K) {
-            std::cerr << "error: [vg gbwt] context length must be at least " << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
+            std::cerr << "error: [vg gbwt] context length must be at least "
+                      << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -1233,7 +1269,8 @@ std::vector<job_type> determine_jobs(std::unique_ptr<PathHandleGraph>& graph, co
                 continue;
             }
             if (path_found_in[j] < config.input_filenames.size()) {
-                std::cerr << "error: [vg gbwt] contig " << contig_name << " found in files " << config.input_filenames[path_found_in[j]] << " and " << filename << std::endl;
+                std::cerr << "error: [vg gbwt] contig " << contig_name << " found in files " 
+                          << config.input_filenames[path_found_in[j]] << " and " << filename << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             paths_by_file[i].insert(paths[j]);
@@ -1287,7 +1324,8 @@ std::vector<job_type> determine_jobs(std::unique_ptr<PathHandleGraph>& graph, co
     return result;
 }
 
-void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, std::vector<std::string>& filenames, size_t i, bool show_progress) {
+void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts,
+                 std::vector<std::string>& filenames, size_t i, bool show_progress) {
     if (filenames.size() == 1) {
         gbwts.use(*index);
     } else {
@@ -1309,7 +1347,8 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         std::cerr << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
-    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz && config.build != GBWTConfig::build_gbwtgraph) {
+    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz 
+        && config.build != GBWTConfig::build_gbwtgraph) {
         graphs.get_graph(config);
     }
 
@@ -1325,7 +1364,8 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         }
         std::vector<std::vector<std::string>> vcf_parses(jobs.size());
         if (config.show_progress) {
-            std::cerr << "Parsing " << jobs.size() << " VCF files using up to " << config.build_jobs << " parallel jobs" << std::endl;
+            std::cerr << "Parsing " << jobs.size() << " VCF files using up to " 
+                      << config.build_jobs << " parallel jobs" << std::endl;
         }
         #pragma omp parallel for schedule(dynamic, 1)
         for (size_t i = 0; i < jobs.size(); i++) {
@@ -1340,13 +1380,15 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                     std::cerr << " }" << std::endl;
                 }
             }
-            vcf_parses[i] = config.haplotype_indexer.parse_vcf(jobs[i].filename, *(graphs.path_graph), jobs[i].paths, job_name);
+            vcf_parses[i] = config.haplotype_indexer.parse_vcf(
+                jobs[i].filename, *(graphs.path_graph), jobs[i].paths, job_name);
         }
         graphs.clear(); // Delete the graph to save memory.
         if (!config.parse_only) {
             std::vector<std::string> gbwt_files(vcf_parses.size(), "");
             if (config.show_progress) {
-                std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to " << config.build_jobs << " parallel jobs" << std::endl;
+                std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to " 
+                          << config.build_jobs << " parallel jobs" << std::endl;
             }
             #pragma omp parallel for schedule(dynamic, 1)
             for (size_t i = 0; i < vcf_parses.size(); i++) {
@@ -1390,7 +1432,8 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> temp =
-            config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"), config.build_jobs);
+            config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, 
+                                                (config.gam_format ? "GAM" : "GAF"), config.build_jobs);
         gbwts.use(*temp);
     }
 
@@ -1412,7 +1455,8 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
         } else if (config.merge == GBWTConfig::merge_parallel) {
             algo_name = "parallel";
         }
-        std::cerr << "Merging " << config.input_filenames.size() << " input GBWTs (" << algo_name << " algorithm)" << std::endl;
+        std::cerr << "Merging " << config.input_filenames.size() << " input GBWTs (" 
+                  << algo_name << " algorithm)" << std::endl;
     }
 
     if (config.merge == GBWTConfig::merge_fast) {
@@ -1432,11 +1476,13 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
             gbwt::GBWT next;
             load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
-                std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] << " into a substantially smaller index" << std::endl;
+                std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] 
+                          << " into a substantially smaller index" << std::endl;
                 std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
             }
             if (config.show_progress) {
-                std::cerr << "Inserting " << next.sequences() << " sequences of total length " << next.size() << std::endl;
+                std::cerr << "Inserting " << next.sequences() << " sequences of total length " 
+                          << next.size() << std::endl;
             }
             gbwts.dynamic.merge(next);
         }
@@ -1448,7 +1494,8 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
             gbwt::DynamicGBWT next;
             load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
-                std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] << " into a substantially smaller index" << std::endl;
+                std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] 
+                          << " into a substantially smaller index" << std::endl;
                 std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
             }
             if (config.show_progress) {
@@ -1474,7 +1521,8 @@ void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     }
 
     gbwts.use_dynamic();
-    if (!(gbwts.dynamic.hasMetadata() && gbwts.dynamic.metadata.hasPathNames() && gbwts.dynamic.metadata.hasSampleNames())) {
+    if (!(gbwts.dynamic.hasMetadata() && gbwts.dynamic.metadata.hasPathNames() 
+          && gbwts.dynamic.metadata.hasSampleNames())) {
         std::cerr << "error: [vg gbwt] the index does not contain metadata with path and sample names" << std::endl;
         std::exit(EXIT_FAILURE);
     }
@@ -1541,7 +1589,8 @@ void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
-        std::cerr << "Finding a " << config.num_paths << "-path cover with context length " << config.context_length << std::endl;
+        std::cerr << "Finding a " << config.num_paths << "-path cover with context length " 
+                  << config.context_length << std::endl;
     }
 
     // Select the appropriate graph.
@@ -1606,7 +1655,8 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         if (config.show_progress) {
             std::cerr << "Starting the construction" << std::endl;
         }
-        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), vg::algorithms::find_translation(graphs.path_graph.get()));
+        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), 
+                                     vg::algorithms::find_translation(graphs.path_graph.get()));
     }
     if (config.gbz_format) {
         save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);

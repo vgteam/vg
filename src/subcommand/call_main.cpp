@@ -27,48 +27,67 @@ using namespace vg::subcommand;
 
 /// Helper to ensure that a PathHandleGraph has the VectorizableHandleGraph and PathPositionHandleGraph interfaces.
 typedef bdsg::PairOverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph,
-                                VectorizableHandleGraph, bdsg::PathPositionVectorizableOverlay, PathPositionHandleGraph> ReferencePathVectorizableOverlayHelper;
+                                VectorizableHandleGraph, bdsg::PathPositionVectorizableOverlay, PathPositionHandleGraph> 
+                                ReferencePathVectorizableOverlayHelper;
 
 void help_call(char** argv) {
-  cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
-       << "Call variants or genotype known variants" << endl
-       << endl
-       << "support calling options:" << endl
-       << "    -k, --pack FILE          supports created from vg pack for given input graph" << endl
-       << "    -m, --min-support M,N    minimum allele support (M) and minimum site support (N) for call [default = 2,4]" << endl
-       << "    -e, --baseline-error X,Y baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
-       << "    -B, --bias-mode          use old ratio-based genotyping algorithm as opposed to probablistic model" << endl
-       << "    -b, --het-bias M,N       homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
-       << "GAF options:" << endl
-       << "    -G, --gaf               output GAF genotypes instead of VCF" << endl
-       << "    -T, --traversals        output all candidate traversals in GAF without doing any genotyping" << endl
-       << "    -M, --trav-padding N    extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
-       << "general options:" << endl
-       << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
-       << "    -a, --genotype-snarls   genotype every snarl, including reference calls (use to compare multiple samples)" << endl
-       << "    -A, --all-snarls        genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
-       << "    -c, --min-length N      genotype only snarls with at least one traversal of length >= N" << endl
-       << "    -C, --max-length N      genotype only snarls where all traversals have length <= N" << endl
-       << "    -f, --ref-fasta FILE    reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
-       << "    -i, --ins-fasta FILE    insertions fasta (required if VCF contains symbolic insertions)" << endl
-       << "    -s, --sample NAME       sample name [default=SAMPLE]" << endl
-       << "    -r, --snarls FILE       snarls (from vg snarls) to avoid recomputing." << endl
-       << "    -g, --gbwt FILE         only call genotypes that are present in given GBWT index." << endl
-       << "    -z, --gbz               only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
-       << "    -N, --translation FILE  node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
-       << "    -O, --gbz-translation   use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
-       << "    -p, --ref-path NAME     reference path to call on (multipile allowed. defaults to all paths)" << endl
-       << "    -S, --ref-sample NAME   call on all paths with given sample name (cannot be used with -p)" << endl
-       << "    -o, --ref-offset N      offset in reference path (multiple allowed, 1 per path)" << endl
-       << "    -l, --ref-length N      override length of reference in the contig field of output VCF" << endl
-       << "    -d, --ploidy N          ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
-       << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
-       << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
-       << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
-       << "    -n, --nested            activate nested calling mode (experimental)" << endl
-       << "    -I, --chains            call chains instead of snarls (experimental)" << endl
-       << "        --progress          show progress" << endl
-       << "    -t, --threads N         number of threads to use" << endl;
+    cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
+         << "Call variants or genotype known variants" << endl
+         << endl
+         << "support calling options:" << endl
+         << "  -k, --pack FILE           supports created from vg pack for given input graph" << endl
+         << "  -m, --min-support M,N     min allele (M) and site (N) support to call [2,4]" << endl
+         << "  -e, --baseline-error X,Y  baseline error rates for Poisson model for small (X)" << endl
+         << "                            and large (Y) variants [0.005,0.01]" << endl
+         << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
+         << "                            as opposed to probablistic model" << endl
+         << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
+         << "                            more support than the next best allele [6,6]" << endl
+         << "GAF options:" << endl
+         << "  -G, --gaf                 output GAF genotypes instead of VCF" << endl
+         << "  -T, --traversals          output all candidate traversals in GAF" << endl
+         << "                            without doing any genotyping" << endl
+         << "  -M, --trav-padding N      extend each flank of traversals (from -T) with" << endl
+         << "                            reference path by N bases if possible" << endl
+         << "general options:" << endl
+         << "  -v, --vcf FILE            VCF file to genotype (must have been used" << endl
+         << "                            to construct input graph with -a)" << endl
+         << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
+         << "                            (use to compare multiple samples)" << endl
+         << "  -A, --all-snarls          genotype all snarls, including nested child snarls" << endl
+         << "                            (like deconstruct -a)" << endl
+         << "  -c, --min-length N        genotype only snarls with" << endl
+         << "                            at least one traversal of length >= N" << endl
+         << "  -C, --max-length N        genotype only snarls where" << endl 
+         << "                            all traversals have length <= N" << endl
+         << "  -f, --ref-fasta FILE      reference FASTA" << endl
+         << "                            (required if VCF has symbolic deletions/inversions)" << endl
+         << "  -i, --ins-fasta FILE      insertions (required if VCF has symbolic insertions)" << endl
+         << "  -s, --sample NAME         sample name [SAMPLE]" << endl
+         << "  -r, --snarls FILE         snarls (from vg snarls) to avoid recomputing." << endl
+         << "  -g, --gbwt FILE           only call genotypes present in given GBWT index" << endl
+         << "  -z, --gbz                 only call genotypes present in GBZ index" << endl
+         << "                            (applies only if input graph is GBZ)" << endl
+         << "  -N, --translation FILE    node ID translation (from vg gbwt --translation)" << endl
+         << "                            to apply to snarl names in output" << endl
+         << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
+         << "                            apply snarl names to snarl names/AT fields in output" << endl
+         << "  -p, --ref-path NAME       reference path to call on (may repeat; default all)" << endl
+         << "  -S, --ref-sample NAME     call on all paths with this sample" << endl
+         << "                            (cannot use with -p)" << endl
+         << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
+         << "  -l, --ref-length N        override reference length for output VCF contig" << endl
+         << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
+         << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
+         << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
+         << "                            not visited by the selected samples, or to all" << endl
+         << "                            contigs simulated from if no samples are used." << endl
+         << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
+         << "  -n, --nested              activate nested calling mode (experimental)" << endl
+         << "  -I, --chains              call chains instead of snarls (experimental)" << endl
+         << "      --progress            show progress" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl;
 }    
 
 int main_call(int argc, char** argv) {
@@ -121,7 +140,7 @@ int main_call(int argc, char** argv) {
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
-    const int OPT_PROGRESS = 1000;
+    constexpr int OPT_PROGRESS = 1000;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -153,7 +172,7 @@ int main_call(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
-            {"min-trav-len", required_argument, 0, 'M'},
+            {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"nested", no_argument, 0, 'n'},
             {"chains", no_argument, 0, 'I'},            
@@ -165,7 +184,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nIt:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -290,7 +309,8 @@ int main_call(int argc, char** argv) {
         {
             int num_threads = parse<int>(optarg);
             if (num_threads <= 0) {
-                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads 
+                     << ", must set to a positive integer." << endl;
                 exit(1);
             }
             omp_set_num_threads(num_threads);
@@ -348,7 +368,8 @@ int main_call(int argc, char** argv) {
         baseline_error_small = parse<double>(error_toks[0]);
         baseline_error_large = parse<double>(error_toks[1]);
         if (baseline_error_small > baseline_error_large) {
-            cerr << "warning [vg call]: with baseline error -e X,Y option, small variant error (X) normally less than large (Y)" << endl;
+            cerr << "warning [vg call]: with baseline error -e X,Y option, "
+                 << "small variant error (X) normally less than large (Y)" << endl;
         }
     } else if (error_toks.size() != 0) {
         cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
@@ -365,7 +386,8 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
-    if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
+    if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
+        && (legacy || !vcf_filename.empty() || nested)) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
     }
@@ -391,7 +413,8 @@ int main_call(int argc, char** argv) {
             if (show_progress) cerr << "[vg call]: Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
         } else {
-            cerr << "[vg call]: You can restrict the search to GBZ haplotypes, often to the benefict of speed and accuracy, with the -z option" << endl;
+            cerr << "[vg call]: You can restrict the search to GBZ haplotypes, "
+                 << "often to the benefict of speed and accuracy, with the -z option" << endl;
         }
     } else if (get<1>(input)) {
         path_handle_graph = std::move(get<1>(input));
@@ -422,7 +445,8 @@ int main_call(int argc, char** argv) {
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            cerr << "Warning [vg call]: Using translation from -N overrides that in input GBZ (you probably don't want to use -N)" << endl;
+            cerr << "Warning [vg call]: Using translation from -N overrides that in input GBZ"
+                 << "(you probably don't want to use -N)" << endl;
         }        
         ifstream translation_file(translation_file_name.c_str());
         if (!translation_file) {
@@ -581,7 +605,8 @@ int main_call(int argc, char** argv) {
                 }
             });
 
-        // if we have reference lengths, great!  this will be the only way to get a correct header in the presence of supbpaths
+        // if we have reference lengths, great!
+        // this will be the only way to get a correct header in the presence of supbpaths
         if (!ref_path_lengths.empty()) {
             assert(ref_path_lengths.size() == ref_paths.size());
             for (size_t i = 0; i < ref_paths.size(); ++i) {
