@@ -205,27 +205,27 @@ int main_autoindex(int argc, char** argv) {
             case 'w':
                 if (optarg == string("map")) {
                     for (auto& target : VGIndexes::get_default_map_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("mpmap")) {
                     for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("giraffe") || optarg == string("sr-giraffe")) {
                     for (auto& target : VGIndexes::get_default_short_giraffe_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("lr-giraffe")) {
                     for (auto& target : VGIndexes::get_default_long_giraffe_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("rpvg")) {
                     for (auto& target : VGIndexes::get_default_rpvg_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else {

@@ -136,7 +136,7 @@ int main_gampcompare(int argc, char** argv) {
     function<void(Alignment&)> record_truth = [&true_positions](Alignment& aln) {
         auto val = alignment_refpos_to_path_offsets(aln);
 #pragma omp critical (truth_table)
-        true_positions[move(*aln.mutable_name())] = move(val);
+        true_positions[std::move(*aln.mutable_name())] = std::move(val);
     };
     
     if (truth_file_name == "-") {
@@ -241,7 +241,7 @@ int main_gampcompare(int argc, char** argv) {
         // put the result on the IO buffer
         auto& buffer = buffers[omp_get_thread_num()];
         buffer.emplace_back(abs_dist, proto_mp_aln.subpath_size() > 0, proto_mp_aln.mapping_quality(), 
-                            group_mapq, move(*proto_mp_aln.mutable_name()));
+                            group_mapq, std::move(*proto_mp_aln.mutable_name()));
         if (buffer.size() > buffer_size) {
 #pragma omp critical
             flush_buffer(buffer);

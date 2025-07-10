@@ -42,7 +42,7 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 8) {
@@ -69,7 +69,7 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 5) {

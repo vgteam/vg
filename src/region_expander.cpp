@@ -154,7 +154,7 @@ namespace vg {
                 reversed_map[make_pair(record.first.first, !record.first.second)] = make_pair(node_length - record.second.second,
                                                                                               node_length - record.second.first);
             }
-            return_val = move(reversed_map);
+            return_val = std::move(reversed_map);
         }
         
         return return_val;

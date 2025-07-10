@@ -59,7 +59,7 @@ void trace_haplotypes_and_paths(const PathHandleGraph& source, const gbwt::GBWT&
     Path p = path_from_thread_t(haplotypes[i].first, source);
     p.set_name("thread_" + to_string(i));
     out_thread_frequencies[p.name()] = haplotypes[i].second.size();
-    *(out_graph.add_path()) = move(p);
+    *(out_graph.add_path()) = std::move(p);
   }
 }
 
@@ -83,7 +83,7 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
   for(int i = 0; i < haplotype_list.size(); i++) {
     Path p = path_from_thread_t(haplotype_list[i].first, source);
     p.set_name(to_string(i));
-    *(g.add_path()) = move(p);
+    *(g.add_path()) = std::move(p);
   }
   return g;
 }
