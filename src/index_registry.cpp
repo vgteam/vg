@@ -429,13 +429,49 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
     return graph;
 }
 
-// Execute a function in another process and return it's exit code.
-// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
-// If it is not possible to safely fork a new process, warns and executes the
-// function in the current process.
-int execute_in_fork(const function<void(void)>& exec) {
-   
-#if _OPENMP < 201811L
+// We need a different definition of execut_in_fork depending on if
+// omp_pause_resource_all(omp_pause_soft) can work. It will always work on
+// _OPENMP >= 201811L, but even as of GCC 15, GCC doesn't advertise support for
+// that level because it doesn't have *complete* OpenMP 5 support.
+
+// C++ doesn't really want you to speak the name of a type that doesn't exist
+// in really any context, if it's not depending on a template argument somehow.
+// So we rely on a differing interpretation of a type name by hiding a
+// different type with the same name behind our target type, if it exists.
+// See <https://stackoverflow.com/a/26876264>
+
+namespace {
+    // This is a dummy type we can name and check if we got.
+    struct not_the_real_one;
+    // This is what the name lookup will find if the type we're looking for
+    // isn't declared.
+    using omp_pause_resource_t = not_the_real_one;
+}
+
+namespace lookup_doing_namespace {
+    // We define a function here that will return the type we're interested in.
+    //
+    // If it's defined, it returns one of it.
+    //
+    // If it's not defined, it picks up the type from the anonymous namespace
+    // above and gets declared as returning that.
+    template<typename Unused = void>
+    ::omp_pause_resource_t lookup_doing_function();
+}
+
+/// This is true if omp_pause_resource_t is a defined type, and false otherwise.
+constexpr bool have_omp_pause_resource_t = !std::is_same<decltype(lookup_doing_namespace::lookup_doing_function()), not_the_real_one>::value;
+
+// We *must* use a template parameter T *inside* the template parameters of the
+// enable_if (or at least in the same type as it), because if we just e.g. try
+// to return std::enable_if<false, int> as our return type, we get a great
+// "'enable_if' cannot be used to disable this declaration" error from Clang,
+// even if there's a T being deduced elsewhere in the signature. We also *must*
+// have some parameter deduction happening or SFINAE won't happen.
+
+/// Fallback in-process implementation for when the required bits of OpenMP are not available.
+template<typename T = const function<void(void)>&>
+int execute_in_fork(typename std::enable_if<!have_omp_pause_resource_t, T>::type exec) {
     // We can't stop OpenMP, so we can't actually fork, so we can't actually do our smart retry.
     cerr << "warning:[IndexRegistry] vg was built with an OpenMP library lower than 5.0, which is too old to safely support forking."
          << "We will not be able to automatically retry with a simpler graph if a resource limit is hit." << endl;
@@ -443,8 +479,17 @@ int execute_in_fork(const function<void(void)>& exec) {
     // Just run the work in-process
     exec();
     return 0;
-#else
-    // OpenMP 5 provides a way to shut down OpenMP, so we can safely fork.
+}
+
+/// Execute a function in another process and return it's exit code.
+/// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
+/// If it is not possible to safely fork a new process, warns and executes the
+/// function in the current process.
+template<typename T = const function<void(void)>&>
+int execute_in_fork(typename std::enable_if<have_omp_pause_resource_t, T>::type exec) {
+    // If have_omp_pause_resource_t exists, its value omp_pause_soft and the
+    // omp_pause_resource_all() function it can be passed to really should as
+    // well.
 
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
@@ -493,7 +538,6 @@ int execute_in_fork(const function<void(void)>& exec) {
     assert(WIFEXITED(child_stat));
     
     return WEXITSTATUS(child_stat);
-#endif
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
