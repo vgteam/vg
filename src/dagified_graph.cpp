@@ -211,7 +211,7 @@ using namespace std;
 #endif
                 
                 // initialize the DP structures for the next iteration
-                distances = move(next_distances);
+                distances = std::move(next_distances);
             }
             
             // now we know that the copy count needs to be, so we can record the information we need

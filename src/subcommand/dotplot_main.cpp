@@ -27,8 +27,8 @@ using namespace vg::subcommand;
 void help_dotplot(char** argv) {
     cerr << "usage: " << argv[0] << " dotplot [options]" << endl
          << "options:" << endl
-         << "  input:" << endl
-         << "    -x, --xg FILE         use the graph or the XG index FILE" << endl;
+         << "  -x, --xg FILE         use the graph or the XG index FILE" << endl
+         << "  -h, --help            print this help message to stderr and exit" << endl;
     //<< "  output:" << endl;
 }
 
@@ -47,12 +47,13 @@ int main_dotplot(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"xg", required_argument, 0, 'x'},
+            {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?x:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

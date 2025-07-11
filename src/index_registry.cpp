@@ -836,7 +836,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 contig_to_group[contig] = contig_groups.size();
             }
-            contig_groups.emplace_back(move(it->second));
+            contig_groups.emplace_back(std::move(it->second));
         }
         
 #ifdef debug_index_registry_recipes
@@ -924,7 +924,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 buckets.emplace_back();
                 auto& new_bucket = buckets.back();
                 for (auto& contig : bucket) {
-                    new_bucket.emplace_back(move(contig), seq_files[contig]);
+                    new_bucket.emplace_back(std::move(contig), seq_files[contig]);
                 }
             }
         }
@@ -2102,7 +2102,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 
                 // give away ownership of the graph to the Transcriptome
-                Transcriptome transcriptome(move(graph));
+                Transcriptome transcriptome(std::move(graph));
                 transcriptome.error_on_missing_path = !broadcasting_txs;
                 transcriptome.feature_type = IndexingParameters::gff_feature_name;
                 transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
@@ -2990,7 +2990,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 });
             }
             
-            Transcriptome transcriptome(move(graph));
+            Transcriptome transcriptome(std::move(graph));
             transcriptome.error_on_missing_path = !broadcasting_txs;
             transcriptome.feature_type = IndexingParameters::gff_feature_name;
             transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
@@ -3169,7 +3169,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
                 
         // hand over the graph
-        Transcriptome transcriptome(move(tx_graph));
+        Transcriptome transcriptome(std::move(tx_graph));
         transcriptome.error_on_missing_path = true;
         transcriptome.feature_type = IndexingParameters::gff_feature_name;
         transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
@@ -4429,7 +4429,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
     // execute the plan
     while (!steps_remaining.empty()) {
         // get the next step
-        auto step = move(steps_remaining.front());
+        auto step = std::move(steps_remaining.front());
         steps_remaining.pop_front();
         steps_completed.push_back(step);
         
@@ -5729,7 +5729,7 @@ vector<pair<IndexName, vector<IndexName>>> AliasGraph::non_intermediate_aliases(
         }
         
         if (!non_inmdt_aliasors.empty()) {
-            aliases.emplace_back(head, move(non_inmdt_aliasors));
+            aliases.emplace_back(head, std::move(non_inmdt_aliasors));
         }
     }
 #ifdef debug_index_registry

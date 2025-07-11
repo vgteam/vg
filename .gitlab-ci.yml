@@ -164,13 +164,15 @@ build-job:
     - PLATFORMS=linux/amd64
     - THREADS=8
     - DOCKER_TAG=ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}
+    # Before the build, make sure linting passes to fail fast.
+    - make lint
     - make version
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
     # And Quay can't use mode=max registry caching to cache the intermediate targets with the final image, just inline caching.
     # So we have to do the Complicated Cache Shuffle.
-    - echo " Build base image from branch and mainline base caches to local cache"
+    - echo "Build base image from branch and mainline base caches to local cache"
     - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-base --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-base --cache-from type=local,src=${HOME}/docker-cache/base --cache-to type=local,dest=${HOME}/docker-cache/base --platform="${PLATFORMS}" --build-arg THREADS=${THREADS} --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile .
     - echo "Push base image from local cache to registry cache for branch."
     - docker buildx build --cache-from type=local,src=${HOME}/docker-cache/base --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=${THREADS} --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile --push .

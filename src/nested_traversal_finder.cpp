@@ -343,7 +343,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_right(const Visit& 
             visit.set_backward(!visit.backward());
         }
         // Stick it in the new set
-        to_return.emplace(move(length_and_path));
+        to_return.emplace(std::move(length_and_path));
     }
     
     return to_return;
