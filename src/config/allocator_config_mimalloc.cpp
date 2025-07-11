@@ -16,11 +16,11 @@ void AllocatorConfig::configure() {
 }
 
 void AllocatorConfig::set_profiling(bool should_profile) {
-    // mimalloc doesn't have builton profiling, so do nothing.
+    // mimalloc doesn't have builtin profiling, so do nothing.
 }
 
 void AllocatorConfig::snapshot() {
-    // mimalloc doesn't have builton profiling, so do nothing.
+    // mimalloc doesn't have builtin profiling, so do nothing.
 }
 
 }
