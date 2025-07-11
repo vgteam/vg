@@ -429,10 +429,26 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
     return graph;
 }
 
-// execute a function in another process and return true if successful
-// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
+// We need a different definition of execut_in_fork depending on if
+// omp_pause_resource_all(omp_pause_soft) can work. It will always work on
+// _OPENMP >= 201811L, but even as of GCC 15, GCC doesn't advertise support for
+// that level because it doesn't have *complete* OpenMP 5 support.
+// 
+// There seems to be absolutely no way to sniff for a global enum type, or a
+// global function that can only be called with an enum type that might not
+// exist. You can't forward-declare an enum unless the enum definition
+// cooperates by specifying a storage type, and you can't create something at
+// lower name resolution priority than the global namespace. So you can't use
+// <https://devblogs.microsoft.com/oldnewthing/20190708-00/?p=102664>. Somehow
+// <https://stackoverflow.com/a/26876264> thinks we can do it, but is wrong.
+
+/// Execute a function in another process and return it's exit code.
+/// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
+/// If it is not possible to safely fork a new process, warns and executes the
+/// function in the current process.
 int execute_in_fork(const function<void(void)>& exec) {
-    
+// According to Godbolt, Clang 9 and GCC 9 are the releases that acquire the necessary parts of OpenMP.
+#if (_OPENMP >= 201811) || (defined(__clang_major__) && __clang_major__ >= 9) || (!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 9)
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
     omp_pause_resource_all(omp_pause_soft);
@@ -451,7 +467,7 @@ int execute_in_fork(const function<void(void)>& exec) {
         
         exec();
                 
-        // end the child process successfullycode
+        // end the child process successfully
         exit(0);
     } else {
         // This is the parent
@@ -480,6 +496,15 @@ int execute_in_fork(const function<void(void)>& exec) {
     assert(WIFEXITED(child_stat));
     
     return WEXITSTATUS(child_stat);
+#else
+    // We can't stop OpenMP, so we can't actually fork, so we can't actually do our smart retry.
+    cerr << "warning:[IndexRegistry] vg was built with an OpenMP which is too old to safely support forking."
+         << "We will not be able to automatically retry with a simpler graph if a resource limit is hit." << endl;
+
+    // Just run the work in-process
+    exec();
+    return 0;
+#endif
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -3644,11 +3669,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             throw RewindPlanException(msg, pruned_graphs);
         }
         
-        // it seems to only keep the lowest 8 bits of the exit code? this is hack-y, but it gives us the correct
-        // code to compare to...
-        int size_code = execute_in_fork([](){ exit(gcsa::EXIT_SIZE_LIMIT_EXCEEDED); });
+        // it seems to only keep the lowest 8 bits of the exit code, so only use the lowest 8 bits.
+        int size_code = 0xFF & gcsa::EXIT_SIZE_LIMIT_EXCEEDED;
         
-        int code = execute_in_fork([&]() {
+        int code = 0xFF & execute_in_fork([&]() {
 #ifdef debug_index_registry_recipes
             cerr << "making GCSA2 at " << gcsa_output_name << " and " << lcp_output_name << " after writing de Bruijn graph files to:" << endl;
             for (auto dbg_name : dbg_names) {

@@ -14,7 +14,7 @@ vcf2tsv:
 	cd ../deps/vcflib && $(MAKE) bin/vcf2tsv
 
 fastahack:
-	cd ../deps/fastahack && $(MAKE)
+	cd ../deps/vcflib/contrib/fastahack && $(MAKE)
 
 $(vg):
 	cd .. && $(MAKE) bin/vg

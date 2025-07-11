@@ -1,9 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
 	url = https://github.com/vcflib/vcflib.git
-[submodule "fastahack"]
-	path = deps/fastahack
-	url = https://github.com/vgteam/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/vgteam/gssw.git
