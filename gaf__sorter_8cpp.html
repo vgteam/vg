@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -74,7 +75,6 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="gaf__sorter_8hpp.html">gaf_sorter.hpp</a>&quot;</code><br />
-<code>#include &lt;charconv&gt;</code><br />
 <code>#include &lt;chrono&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;fstream&gt;</code><br />
@@ -86,6 +86,11 @@ $(function() {
 <code>#include &lt;htslib/hts.h&gt;</code><br />
 <code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structfrom__chars__result.html">from_chars_result</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -93,6 +98,9 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a6d5176b75ac9dc60dbfd0d2837d5433b"><td class="memTemplParams" colspan="2">template&lt;typename IntVal &gt; </td></tr>
+<tr class="memitem:a6d5176b75ac9dc60dbfd0d2837d5433b"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="structfrom__chars__result.html">from_chars_result</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="gaf__sorter_8cpp.html#a6d5176b75ac9dc60dbfd0d2837d5433b">from_chars</a> (const char *begin, const char *end, IntVal &amp;dest)</td></tr>
+<tr class="separator:a6d5176b75ac9dc60dbfd0d2837d5433b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01d75b9f4caceab73edc37f61c160f0c"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::GBWTBuilder &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01d75b9f4caceab73edc37f61c160f0c">vg::create_gbwt_builder</a> (const GAFSorterFile &amp;output)</td></tr>
 <tr class="separator:a01d75b9f4caceab73edc37f61c160f0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa7cec67d3c64a5a7dc89ff53d53ebc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa7cec67d3c64a5a7dc89ff53d53ebc8">vg::finish_gbwt_construction</a> (gbwt::GBWTBuilder *builder, GAFSorterFile &amp;output)</td></tr>
@@ -104,6 +112,43 @@ Functions</h2></td></tr>
 <tr class="memitem:a9520c91672568d2ede1f67571582db34"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9520c91672568d2ede1f67571582db34">vg::merge_gaf_records</a> (std::unique_ptr&lt; std::vector&lt; GAFSorterFile &gt;&gt; inputs, GAFSorterFile &amp;output, size_t buffer_size)</td></tr>
 <tr class="separator:a9520c91672568d2ede1f67571582db34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<h2 class="groupheader">Function Documentation</h2>
+<a id="a6d5176b75ac9dc60dbfd0d2837d5433b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d5176b75ac9dc60dbfd0d2837d5433b">&#9670;&nbsp;</a></span>from_chars()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename IntVal &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structfrom__chars__result.html">from_chars_result</a> from_chars </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">IntVal &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
