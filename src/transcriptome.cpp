@@ -220,7 +220,7 @@ handle_t CompletedTranscriptPath::get_first_node_handle(const HandleGraph & grap
     return path.front();
 }
 
-Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) : _graph(move(graph_in)) {
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) : _graph(std::move(graph_in)) {
     
     if (!_graph) {
         cerr << "\tERROR: Could not load graph." << endl;
@@ -356,12 +356,12 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
     if (use_haplotype_paths) {
 
         // Construct edited reference transcript paths using haplotype GBWT paths.
-        edited_transcript_paths = move(construct_reference_transcript_paths_gbwt(transcripts, *haplotype_index));
+        edited_transcript_paths = std::move(construct_reference_transcript_paths_gbwt(transcripts, *haplotype_index));
 
     } else {
 
         // Construct edited reference transcript paths using embedded graph paths.
-        edited_transcript_paths = move(construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay));
+        edited_transcript_paths = std::move(construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay));
     } 
 
     if (show_progress) { cerr << "\tConstructed " << edited_transcript_paths.size() << " reference transcript paths" << endl; };
@@ -747,7 +747,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
         if (excluded_transcripts.find(transcript.first) == excluded_transcripts.end()) {
 
-            transcripts->emplace_back(move(transcript.second));
+            transcripts->emplace_back(std::move(transcript.second));
         }
     }
 
@@ -1490,7 +1490,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                         } 
 
                         assert(incomplete_transcript_paths_it->first.path.mapping_size() > 0);
-                        thread_edited_transcript_paths.emplace_back(move(incomplete_transcript_paths_it->first));
+                        thread_edited_transcript_paths.emplace_back(std::move(incomplete_transcript_paths_it->first));
 
                         incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
 
@@ -1565,7 +1565,7 @@ void Transcriptome::project_haplotype_transcripts(const vector<Transcript> & tra
 
     for (auto & transcript_path: completed_transcript_paths) {
 
-        _transcript_paths.emplace_back(move(transcript_path));
+        _transcript_paths.emplace_back(std::move(transcript_path));
     }
 }
 
@@ -2365,7 +2365,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
         for (auto & transcript_path: updated_transcript_paths) {
 
-            _transcript_paths.emplace_back(move(transcript_path));
+            _transcript_paths.emplace_back(std::move(transcript_path));
         }
     }
 
@@ -2494,7 +2494,7 @@ void Transcriptome::update_transcript_paths(const spp::sparse_hash_map<handle_t,
                 }
             }
 
-            _transcript_paths.at(i).path = move(new_transcript_path);
+            _transcript_paths.at(i).path = std::move(new_transcript_path);
         }
     }
 }

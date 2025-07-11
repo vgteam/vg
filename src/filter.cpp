@@ -708,7 +708,7 @@ namespace vg{
                     return inverse ? aln : Alignment();
                 }
                 
-                prev_node_paths = move(curr_node_paths);
+                prev_node_paths = std::move(curr_node_paths);
             }
         }
         return inverse ? Alignment() : aln;

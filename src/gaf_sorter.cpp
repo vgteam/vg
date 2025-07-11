@@ -1,6 +1,5 @@
 #include "gaf_sorter.hpp"
 
-#include <charconv>
 #include <chrono>
 #include <deque>
 #include <fstream>
@@ -19,6 +18,45 @@
 
 // For building a GBWT index of the paths.
 #include <gbwt/dynamic_gbwt.h>
+
+#if  __cplusplus >= 201703L
+
+// On C++17, we have std::from_chars
+#include <charconv>
+using std::from_chars;
+
+#else
+
+// Before C++17, we polyfill it.
+// Some compilers might still expose <charconv>, but we don't try and use it.
+struct from_chars_result {
+    const char* ptr;
+    std::errc ec;
+};
+
+template<typename IntVal>
+from_chars_result from_chars(const char* begin, const char* end, IntVal& dest) {
+    static_assert(std::is_integral<IntVal>::value, "Polyfill can only parse integers");
+    static_assert(std::is_unsigned<IntVal>::value, "Polyfill can only parse usigned integers");
+    const char* here = begin;
+    IntVal result = 0;
+    while (here != end && *here >= '0' && *here <= '9') {
+        // Collect all the digits
+        result *= (IntVal)10;
+        result += (IntVal)(*here - '0');
+        ++here;
+    }
+    if (here == begin) {
+        // No number present.
+        return {here, std::errc::invalid_argument};
+    }
+    // Otherwise we parsed something.
+    dest = result;
+    return {here, std::errc()};
+}
+
+#endif
+
 
 namespace vg {
 
@@ -48,7 +86,7 @@ void GAFSorterRecord::set_key(key_type type) {
         size_t start = 1;
         while (start < path.size) {
             std::uint32_t id = 0;
-            auto result = std::from_chars(path.data + start, path.data + path.size, id);
+            auto result = from_chars(path.data + start, path.data + path.size, id);
             if (result.ec != std::errc()) {
                 this->key = MISSING_KEY;
                 return;
@@ -68,7 +106,7 @@ void GAFSorterRecord::set_key(key_type type) {
         std::uint32_t offset = std::numeric_limits<std::uint32_t>::max();
         this->for_each_field([&](size_t i, str_view value) -> bool {
             if (i == PATH_FIELD && value.size > 1) {
-                auto result = std::from_chars(value.data + 1, value.data + value.size, node_id);
+                auto result = from_chars(value.data + 1, value.data + value.size, node_id);
                 if (result.ec != std::errc()) {
                     return false;
                 }
@@ -76,7 +114,7 @@ void GAFSorterRecord::set_key(key_type type) {
             } else if (i >= MANDATORY_FIELDS) {
                 size_t tag_size = GBWT_OFFSET_TAG.size();
                 if (value.size > tag_size && value.substr(0, tag_size) == GBWT_OFFSET_TAG) {
-                    auto result = std::from_chars(value.data + tag_size, value.data + value.size, offset);
+                    auto result = from_chars(value.data + tag_size, value.data + value.size, offset);
                     return false;
                 }
             }
@@ -194,7 +232,7 @@ gbwt::vector_type GAFSorterRecord::as_gbwt_path(bool* ok) const {
         }
         start++;
         gbwt::size_type node_id = 0;
-        auto res = std::from_chars(path.data + start, path.data + path.size, node_id);
+        auto res = from_chars(path.data + start, path.data + path.size, node_id);
         if (res.ec != std::errc() || node_id == 0) {
             if (ok != nullptr) {
                 *ok = false;

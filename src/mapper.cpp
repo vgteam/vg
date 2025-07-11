@@ -374,7 +374,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         auto match_end = stack.back().match_end;
         auto range = stack.back().prev_range;
         auto fanout_char = stack.back().fanout_char;
-        auto fanout_breaks = move(stack.back().fanout_breaks);
+        auto fanout_breaks = std::move(stack.back().fanout_breaks);
         auto prev_iter_jumped_lcp = stack.back().prev_iter_jumped_lcp;
         stack.pop_back();
         
@@ -559,7 +559,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             ++res_removed_so_far;
         }
         else if (res_removed_so_far) {
-            search_results[j - res_removed_so_far] = move(search_results[j]);
+            search_results[j - res_removed_so_far] = std::move(search_results[j]);
         }
     }
     
@@ -617,7 +617,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 cerr << "\t" << (b.first - seq_begin) << ": " << *b.first << " -> " << b.second << endl;
             }
 #endif
-            mem_fanout_breaks->emplace_back(move(get<3>(search_result)));
+            mem_fanout_breaks->emplace_back(std::move(get<3>(search_result)));
         }
         else if (!get<3>(search_result).empty()) {
 #ifdef debug_mapper
@@ -710,11 +710,11 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             vector<pair<int, vector<size_t>>> containment_graph(1);
             containment_graph.reserve(mems.size() + sub_mems.size());
             for (auto& sub_mem_and_parents : sub_mems) {
-                mems.emplace_back(move(sub_mem_and_parents.first));
+                mems.emplace_back(std::move(sub_mem_and_parents.first));
                 if (mem_fanout_breaks) {
                     mem_fanout_breaks->emplace_back();
                 }
-                containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+                containment_graph.emplace_back(0, std::move(sub_mem_and_parents.second));
             }
             
             // try to remove redundant sub-MEMs
@@ -770,9 +770,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
         else if (num_removed_so_far) {
             // move the non-removed MEM past the removed ones
-            mems[i - num_removed_so_far] = move(mems[i]);
+            mems[i - num_removed_so_far] = std::move(mems[i]);
             if (mem_fanout_breaks) {
-                (*mem_fanout_breaks)[i - num_removed_so_far] = move((*mem_fanout_breaks)[i]);
+                (*mem_fanout_breaks)[i - num_removed_so_far] = std::move((*mem_fanout_breaks)[i]);
             }
         }
     }
@@ -1230,8 +1230,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     
                     for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems) {
                         // move the MEM to the return vector and the parents to the containment graph
-                        mems.emplace_back(move(sub_mem_and_parents.first));
-                        sub_mem_containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+                        mems.emplace_back(std::move(sub_mem_and_parents.first));
+                        sub_mem_containment_graph.emplace_back(0, std::move(sub_mem_and_parents.second));
                         
                         // set the minimum sub-MEM length to the maximum of its parents' minimum lengths
                         for (size_t j : sub_mem_containment_graph.back().second) {
@@ -2514,7 +2514,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         bdsg::HashGraph dagified;
         unordered_map<id_t,id_t> dagify_trans = handlealgs::dagify(&align_graph, &dagified, target_length);
         // replace the original with the dagified ones
-        align_graph = move(dagified);
+        align_graph = std::move(dagified);
         node_trans = overlay_node_translations(dagify_trans, node_trans);
     }
 

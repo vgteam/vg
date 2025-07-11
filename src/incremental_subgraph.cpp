@@ -114,7 +114,7 @@ handle_t IncrementalSubgraph::extend() {
     get<0>(extracted_record) = get<1>(nearest);
     
     // add the edges
-    get<1>(extracted_record) = move(*get<3>(nearest));
+    get<1>(extracted_record) = std::move(*get<3>(nearest));
     for (size_t prev : get<1>(extracted_record)) {
         get<2>(extracted[prev]).push_back(extracted.size() - 1);
     }

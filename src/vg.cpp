@@ -5938,7 +5938,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         for (auto node_id : component) {
             comp.insert(node_id);
         }
-        strong_components.emplace(move(comp));
+        strong_components.emplace(std::move(comp));
     }
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not

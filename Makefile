@@ -73,7 +73,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -343,7 +343,6 @@ GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FASTAHACK_DIR:=deps/fastahack
 FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
@@ -375,7 +374,6 @@ ATOMIC_QUEUE_DIR=deps/atomic_queue
 DEP_OBJ =
 DEP_OBJ += $(OBJ_DIR)/progress_bar.o
 DEP_OBJ += $(OBJ_DIR)/sha1.o
-DEP_OBJ += $(OBJ_DIR)/Fasta.o
 DEP_SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(DEP_OBJ))
 
 # These are libraries that we need to build before we link vg.
@@ -416,7 +414,7 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
-# Control varialbe for address sanitizer
+# Control variable for address sanitizer
 # Like valgrind but fast!
 # You can `make clean && make jemalloc=off asan=on` to build with it.
 asan = off
@@ -476,7 +474,7 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build version
+.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man .pre-build version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -528,7 +526,10 @@ get-deps:
 # And we have submodule deps to build
 deps: $(DEPS)
 
-test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
+lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
+	scripts/check_options.py 1>&2
+
+test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
 	cd test && prove -v t
 	# Hide the compiler configuration from the doc tests, so that the ones that
 	# build code can't pick up libraries out of the vg build itself.
@@ -635,17 +636,9 @@ $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
 
 $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRESS_BAR_DIR)/*.hpp
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
+	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 $(SHARED_OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRESS_BAR_DIR)/*.hpp
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $<
-
-$(INC_DIR)/Fasta.h:  $(FASTAHACK_DIR)/Fasta.h
-	+cd $(FASTAHACK_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
-
-$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h 
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
-$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
+	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $<
 
 # We have this target to clean up the old Protobuf we used to have.
 # We can remove it after we no longer care about building properly on a dirty
@@ -717,7 +710,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 	+echo "Cflags: -I$(CWD)/$(INC_DIR)" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 	+echo "Libs: -L$(CWD)/$(LIB_DIR) -ltabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 
-# Build vcflib. Build the library and any needed binarise. Install the library
+# Build vcflib. Build the library and any needed binaries. Install the library
 # and headers but not binaries or man pages. We need to build as RelWithDebInfo
 # to avoid vcflib using its own
 # -march=native, which would conflict with the -march that comes in through
@@ -725,9 +718,9 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # let CMake find Mac OpenMP. We need to use /usr first for CMake search or
 # Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only
 # fully installed in /usr.
-$(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
+$(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build . --target vcflib vcf2tsv
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build . --target vcflib vcf2tsv wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -735,13 +728,15 @@ $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR
 	+cp $(VCFLIB_DIR)/contrib/multichoose/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
+	+cp $(VCFLIB_DIR)/build/contrib/WFA2-lib/libwfa2.a $(LIB_DIR)
 
 # vcflib binaries are all automatically built. We need this one.
 $(BIN_DIR)/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
 	+cp $(VCFLIB_DIR)/build/vcf2tsv $(BIN_DIR)
 
-$(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
-	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
+# We need the fastahack binary for testing
+$(VCFLIB_DIR)/contrib/fastahack/fastahack: $(VCFLIB_DIR)/contrib/fastahack/*.c $(VCFLIB_DIR)/contrib/fastahack/*.h $(VCFLIB_DIR)/contrib/fastahack/*.cpp
+	+cd $(VCFLIB_DIR)/contrib/fastahack && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
@@ -761,7 +756,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
 
-$(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
+$(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
 
 #$(INC_DIR)/Variant.h
@@ -1071,7 +1066,6 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd tabixpp && rm -f tabix.o libtabixpp.a
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
-	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean

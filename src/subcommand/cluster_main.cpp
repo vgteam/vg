@@ -40,32 +40,36 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_cluster(char** argv) {
-    cerr
-    << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl
-    << "Find and cluster mapping seeds." << endl
-    << endl
-    << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
-    << "  -f, --gbz-format              input graph is in GBZ format (contains both a graph and haplotypes)" << endl
-    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
-    << "  -G, --gbwt-name FILE          use this gbwt" << endl
-    << "  -B, --gbwtgraph-name FILE     use this gbwtgraph" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -l, --long-reads              minimizer index is for long reads" << endl
-    << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
-    << "  -p, --prefix PREFIX           prefix to find indexes at" << endl
-    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore minimizers with more than this many locations [500]" << endl
-    << "  -a, --hits-above INT          output sequences of minimizers with at least INT hits [inf]" << endl
-    << "  -S, --sequences-only          only output -s sequences of minimizers, no clustering/ziptree (overrides -Z)" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
-    << "  -U, --max-min INT             use at most INT minimizers, 0 for no limit [500]" << endl
-    << "  -b, --num-bp-per-min INT      use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
-    << "  -D, --downsample-min INT      downsample minimizers with windows of length read length/INT, 0 for no downsampling [0]" << endl
-    << "  -z, --zip-codes FILE          file containing extra zip codes not stored in the minimizers" << endl
-    << "  -Z, --zip-tree                create a zipcode tree instead of clustering" << endl
-    << "computational parameters:" << endl 
-    << "  -t, --threads INT             number of compute threads to use" << endl;
+    cerr << "usage: " << argv[0] << " cluster [options] input.gam > output.gam" << endl
+         << "Find and cluster mapping seeds." << endl
+         << endl
+         << "basic options:" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl
+         << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
+         << "  -f, --gbz-format              input graph is GBZ format (has graph & GBWT)" << endl
+         << "  -g, --gcsa-name FILE          use FILE & FILE.lcp GCSA2/LCP index pair" << endl
+         << "  -G, --gbwt-name FILE          use this GBWT" << endl
+         << "  -B, --gbwtgraph-name FILE     use this GBWTGraph" << endl
+         << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+         << "  -l, --long-reads              minimizer index is for long reads" << endl
+         << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+         << "  -p, --prefix PREFIX           prefix to find indexes at" << endl
+         << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
+         << "  -C, --hard-hit-cap INT        ignore minimizers with more than INT hits [500]" << endl
+         << "  -a, --hits-above INT          output minimizers with at least INT hits [inf]" << endl
+         << "  -S, --sequences-only          only output -s sequences of minimizers," << endl
+         << "                                no clustering/ziptree (overrides -Z)" << endl
+         << "  -F, --score-fraction FLOAT    select minimizers between -c/-C until" << endl
+         << "                                score is FLOAT of total [0.9]" << endl
+         << "  -U, --max-min INT             use at most INT minimizers, 0 for no limit [500]" << endl
+         << "  -b, --num-bp-per-min INT      use maximum of number minimizers calculated by" << endl
+         << "                                READ_LENGTH / INT and --max-min [1000]" << endl
+         << "  -D, --downsample-min INT      downsample minimizers with windows of length" << endl
+         << "                                read length/INT, 0 for no downsampling [0]" << endl
+         << "  -z, --zip-codes FILE          file containing ip codes not in the minimizers" << endl
+         << "  -Z, --zip-tree                create a zipcode tree instead of clustering" << endl
+         << "computational parameters:" << endl 
+         << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
 int main_cluster(int argc, char** argv) {
@@ -129,7 +133,7 @@ int main_cluster(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:fg:G:B:m:ld:p:c:C:a:SF:U:b:D:z:Zt:",
+        c = getopt_long (argc, argv, "h?x:fg:G:B:m:ld:p:c:C:a:SF:U:b:D:z:Zt:",
                          long_options, &option_index);
 
 
@@ -284,7 +288,8 @@ int main_cluster(int argc, char** argv) {
             {
                 int num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg cluster] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg cluster] Thread count (-t) set to " << num_threads 
+                         << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);
@@ -671,7 +676,8 @@ int main_cluster(int argc, char** argv) {
                     }
             
                     // Put the most covering cluster's index first
-                    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
+                    std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), 
+                    [&](const size_t& a, const size_t& b) -> bool {
                         // Return true if a must come before b, and false otherwise
                         return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
                     });

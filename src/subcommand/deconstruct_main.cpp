@@ -34,29 +34,40 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_deconstruct(char** argv){
+void help_deconstruct(char** argv) {
     cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <GRAPH>" << endl
-         << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
+         << "Output VCF records for Snarls present in a graph (relative to a reference path)." << endl
          << "options: " << endl
-         << "    -p, --path NAME          a reference path to deconstruct against (multiple allowed)." << endl
-         << "    -P, --path-prefix NAME   all paths [excluding GBWT threads / non-reference GBZ paths] beginning with NAME used as reference (multiple allowed)." << endl
-         << "                             other non-ref paths not considered as samples. " << endl
-         << "    -r, --snarls FILE        snarls file (from vg snarls) to avoid recomputing." << endl
-         << "    -g, --gbwt FILE          consider alt traversals that correspond to GBWT haplotypes in FILE (not needed for GBZ graph input)." << endl
-         << "    -T, --translation FILE   node ID translation (as created by vg gbwt --translation) to apply to snarl names and AT fields in output" << endl
-         << "    -O, --gbz-translation    use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
-         << "    -a, --all-snarls         process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
-         << "    -c, --context-jaccard N  set context mapping size used to disambiguate alleles at sites with multiple reference traversals (default: 10000)." << endl
-         << "    -u, --untangle-travs     use context mapping to determine the reference-relative positions of each step in allele traversals (AP INFO field)." << endl
-         << "    -K, --keep-conflicted    retain conflicted genotypes in output." << endl
-         << "    -S, --strict-conflicts   drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
-         << "    -C, --contig-only-ref    only use the CONTIG name (and not SAMPLE#CONTIG#HAPLOTYPE etc) for the reference if possible (ie there is only one reference sample)." << endl
-         << "    -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0) [experimental]" << endl
-         << "    -n, --nested             write a nested VCF, including special tags. [experimental]" << endl
-         << "    -R, --star-allele        use *-alleles to denote alleles that span but do not cross the site. Only works with -n" << endl
-         << "    -t, --threads N          use N threads" << endl
-         << "    -v, --verbose            print some status messages" << endl
-         << endl;
+         << "  -p, --path NAME          a reference path to deconstruct against (may repeat)." << endl
+         << "  -P, --path-prefix NAME   all paths [minus GBWT threads / non-ref GBZ paths]" << endl
+         << "                           beginning with NAME used as reference (may repeat)." << endl
+         << "                           other non-ref paths not considered as samples. " << endl
+         << "  -r, --snarls FILE        snarls file (from vg snarls) to avoid recomputing." << endl
+         << "  -g, --gbwt FILE          consider alt traversals for GBWT haplotypes in FILE" << endl
+         << "                           (not needed for GBZ graph input)." << endl
+         << "  -T, --translation FILE   node ID translation (from vg gbwt --translation)" << endl
+         << "                           to apply to snarl names and AT fields in output" << endl
+         << "  -O, --gbz-translation    use the ID translation from the input GBZ to apply" << endl
+         << "                           snarl names to snarl names and AT fields in output" << endl
+         << "  -a, --all-snarls         process all snarls, including nested snarls" << endl
+         << "                           (by default only top-level snarls reported)." << endl
+         << "  -c, --context-jaccard N  set context mapping size used to disambiguate alleles" << endl
+         << "                           at sites with multiple reference traversals [10000]" << endl
+         << "  -u, --untangle-travs     use context mapping fpr reference-relative positions" << endl
+         << "                           of each step in allele traversals (AP INFO field)." << endl
+         << "  -K, --keep-conflicted    retain conflicted genotypes in output." << endl
+         << "  -S, --strict-conflicts   drop genotypes when we have more than one haplotype" << endl
+         << "                           for any given phase (set by default for GBWT input)." << endl
+         << "  -C, --contig-only-ref    only use CONTIG name (not SAMPLE#CONTIG#HAPLOTYPE)" << endl
+         << "                           for reference if possible (i.e. only one ref sample)" << endl
+         << "  -L, --cluster F          cluster traversals whose (handle) Jaccard coefficient" << endl
+         << "                           is >= F together [1.0; experimental]" << endl
+         << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
+         << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
+         << "                           but do not cross the site. Only works with -n" << endl
+         << "  -t, --threads N          use N threads" << endl
+         << "  -v, --verbose            print some status messages" << endl
+         << "  -h, --help               print this help message to stderr and exit" << endl;
 }
 
 int main_deconstruct(int argc, char** argv){
@@ -98,6 +109,7 @@ int main_deconstruct(int argc, char** argv){
                 {"translation", required_argument, 0, 'T'},
                 {"gbz-translation", no_argument, 0, 'O'},                
                 {"path-traversals", no_argument, 0, 'e'},
+                {"ploidy", required_argument, 0, 'd'},
                 {"context-jaccard", required_argument, 0, 'c'},
                 {"untangle-travs", no_argument, 0, 'u'},
                 {"all-snarls", no_argument, 0, 'a'},
@@ -106,14 +118,14 @@ int main_deconstruct(int argc, char** argv){
                 {"contig-only-ref", no_argument, 0, 'C'},
                 {"cluster", required_argument, 0, 'L'},
                 {"nested", no_argument, 0, 'n'},
-                {"start-allele", no_argument, 0, 'R'},
+                {"star-allele", no_argument, 0, 'R'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
+        c = getopt_long (argc, argv, "h?p:P:H:r:g:T:OeKSCd:c:uaL:nRt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -149,7 +161,6 @@ int main_deconstruct(int argc, char** argv){
         case 'd':
             cerr << "Warning [vg deconstruct]: -d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
-            break;            
         case 'c':
             context_jaccard_window = parse<int>(optarg);
             break;
@@ -311,7 +322,8 @@ int main_deconstruct(int argc, char** argv){
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ (you probably don't want to use -T)" << endl;
+            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ "
+                 << "(you probably don't want to use -T)" << endl;
         }
         ifstream translation_file(translation_file_name.c_str());
         if (!translation_file) {
