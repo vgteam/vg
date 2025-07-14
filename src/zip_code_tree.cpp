@@ -818,7 +818,6 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
                                         const size_t& depth, bool snarl_is_reversed) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tadd distances for snarl at depth " << depth << endl;
-    trees[forest_state.active_tree_index].print_self(forest_state.seeds);
 #endif
     vector<seed_info_t> edge_seeds = get_edge_seeds(forest_state, depth);
 
@@ -1478,7 +1477,6 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
                 // to_pos points "out", but we need to come "in" to it
                 to_pos = reverse(to_pos, distance_index.minimum_length(to_handle));
                 
-                // Shift from_pos forward to avoid automatic self-distance of 0
                 true_distance = minimum_distance_self_nonzero(distance_index, from_pos, to_pos);
             } else {
                 // Inter-chain connection; go up from seeds to chains
@@ -2876,7 +2874,6 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
         trees.erase(trees.begin() + forest_state.active_tree_index);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
-    print_self(&seeds);
     validate_zip_forest(distance_index, &seeds, distance_limit);
     assert(forest_state.open_chains.empty());
     assert(forest_state.open_intervals.empty());
