@@ -26,7 +26,8 @@ using namespace vg::subcommand;
 void help_benchmark(char** argv) {
     cerr << "usage: " << argv[0] << " benchmark [options] >report.tsv" << endl
          << "options:" << endl
-         << "    -p, --progress         show progress" << endl;
+         << "  -p, --progress         show progress" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_benchmark(int argc, char** argv) {

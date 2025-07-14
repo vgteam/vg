@@ -28,27 +28,33 @@ constexpr static size_t GAM_MAX_THREADS = 4;
 // Because intermediate merges are independent, we can use more threads.
 // The final single-threaded merge can use 5 bgzip threads.
 
-void help_gamsort(char **argv)
-{
+void help_gamsort(char** argv) {
     std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] input > output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Sort a GAM/GAF file, or index a sorted GAM file." << std::endl;
     std::cerr << std::endl;
     std::cerr << "General options:" << std::endl;
-    std::cerr << "    -p, --progress          show progress" << std::endl;
-    std::cerr << "    -s, --shuffle           shuffle reads by hash" << std::endl;
-    std::cerr << "    -t, --threads N         use N worker threads (default: " << GAM_MAX_THREADS << " for GAM, " << GAFSorterParameters::THREADS << " for GAF)" << std::endl;
+    std::cerr << "  -p, --progress          show progress" << std::endl;
+    std::cerr << "  -s, --shuffle           shuffle reads by hash" << std::endl;
+    std::cerr << "  -t, --threads N         use N worker threads "
+                                        << "[" << GAM_MAX_THREADS << " for GAM, " 
+                                        << GAFSorterParameters::THREADS << " for GAF]" << std::endl;
     std::cerr << std::endl;
     std::cerr << "GAM sorting options:" << std::endl;
-    std::cerr << "    -i, --index FILE        produce an index of the sorted GAM file" << std::endl;
-    std::cerr << "    -d, --dumb-sort         use naive sorting algorithm (no tmp files, faster for small GAMs)" << std::endl;
+    std::cerr << "  -i, --index FILE        produce an index of the sorted GAM file" << std::endl;
+    std::cerr << "  -d, --dumb-sort         use naive sorting algorithm" << std::endl;
+    std::cerr << "                          (no tmp files, faster for small GAMs)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "GAF sorting options:" << std::endl;
-    std::cerr << "    -G, --gaf-input         input is a GAF file" << std::endl;
-    std::cerr << "    -c, --chunk-size N      number of reads per chunk (default: " << GAFSorterParameters::RECORDS_PER_FILE << ")" << std::endl;
-    std::cerr << "    -m, --merge-width N     number of files to merge at once (default: " << GAFSorterParameters::FILES_PER_MERGE << ")" << std::endl;
-    std::cerr << "    -S, --stable            use stable sorting" << std::endl;
-    std::cerr << "    -g, --gbwt-output FILE  write a GBWT index of the paths to FILE" << std::endl;
+    std::cerr << "  -G, --gaf-input         input is a GAF file" << std::endl;
+    std::cerr << "  -c, --chunk-size N      number of reads per chunk "
+                                        << "[" << GAFSorterParameters::RECORDS_PER_FILE << "]" << std::endl;
+    std::cerr << "  -m, --merge-width N     number of files to merge at once "
+                                        << "[" << GAFSorterParameters::FILES_PER_MERGE << "]" << std::endl;
+    std::cerr << "  -S, --stable            use stable sorting" << std::endl;
+    std::cerr << "  -g, --gbwt-output FILE  write a GBWT index of the paths to FILE" << std::endl;
+    std::cerr << "  -b, --bidirectional     make the GBWT index bidirectional" << std::endl;
+    std::cerr << "  -h, --help              print this help message to stderr and exit" << endl;
     std::cerr << std::endl;
 }
 
@@ -84,11 +90,12 @@ int main_gamsort(int argc, char **argv)
             { "merge-width", required_argument, 0, 'm' },
             { "stable", no_argument, 0, 'S' },
             { "gbwt-output", required_argument, 0, 'g' },
+            { "bidirectional", no_argument, 0, 'b' },
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "pst:i:dGc:m:Sg:bh?", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -136,6 +143,9 @@ int main_gamsort(int argc, char **argv)
             break;
         case 'g':
             gaf_params.gbwt_file = optarg;
+            break;
+        case 'b':
+            gaf_params.bidirectional_gbwt = true;
             break;
 
         case 'h':

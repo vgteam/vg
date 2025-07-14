@@ -488,8 +488,8 @@ void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& val
                 unique_ptr<TreeNode> new_child(new TreeNode());
                 new_child->prefix = prefix_parts.first;
                 children[lead_bit]->prefix = prefix_parts.second;
-                new_child->children[prefix_parts.second.peek()] = move(children[lead_bit]);
-                children[lead_bit] = move(new_child);
+                new_child->children[prefix_parts.second.peek()] = std::move(children[lead_bit]);
+                children[lead_bit] = std::move(new_child);
                 
 #ifdef debug
                 cerr << "Added new node " << children[lead_bit].get() << " with shared prefix " << children[lead_bit]->prefix

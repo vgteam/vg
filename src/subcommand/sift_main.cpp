@@ -24,33 +24,36 @@ using namespace vg::subcommand;
 //Max path len should be TODO s > avg_p_len + 3*sigma
 //and there should be min path len, essentially discordant path lengths
 
-void help_sift(char** argv){
-    cerr << "Usage: " << argv[0] << " sift [options] <alignments.gam>" << endl
-        << "Sift through a GAM and select / remove reads with particular properties." << endl
-        << "General Options: " << endl
-        << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
-        //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
-        << "    -p / --paired       input reads are paired-end" << endl
-        << "    -R / --remap        remap (locally) any soft-clipped, split, or discordant read pairs." << endl
-        << "    -o / --output <PREFIX>" << endl
-        << "Paired-end options:" << endl
-        << "    -I / --insert-size <INSRTSZ>        insert size mean. Flag reads where ((I - insrtsz) / W) > 2.95" << endl
-        << "    -W / --insert-size-sigma <SIGMA>    standard deviation of insert size." << endl
-        << "    -O / --one-end-anchored             flag reads where one read of the pair is mapped and the other is unmapped." << endl
-        << "    -C / --interchromosomal             flag reads mapping to two distinct Paths" << endl
-        << "    -D / --discordant-orientation       flag reads that do not have the expected --> <-- orientation." << endl
-        << "Single-end / individual read options:" << endl
-        << "    -c / --softclip <MAXCLIPLEN>        flag reads with softclipped sections longer than MAXCLIPLEN" << endl
-        << "    -s / --split-read <SPLITLEN>        flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
-        //<< "    -q / --quality <QUAL>               flag reads with a single base quality below <QUAL>" << endl
-        //<< "    -d / --depth <DEPTH>                flag reads which have a low-depth Pos+Edit combo." << endl
-        //<< "    -i / --percent-identity <PCTID>     flag reads with percent identity to their primary path beliw <PCTID>" << endl
-        //<< "    -a / --average" << endl
-        //<< "    -w / --window <WINDOWLEN>" << endl
-        << "    -r / --reversing                    flag reads with sections that reverse within the read, as with small inversions ( --->|<-|-->  or ---->||<-- )" << endl
-        << "Helpful helpers: " << endl
-        << "    -1 / --calc-insert                  calculate and print the insert size mean / sd every 1000 reads." << endl
-        << endl;
+void help_sift(char** argv) {
+    cerr << "usage: " << argv[0] << " sift [options] <alignments.gam>" << endl
+         << "Sift through a GAM and select / remove reads with particular properties." << endl
+         << "General Options: " << endl
+         << "  -t, --threads N                number of OMP threads for parallel algorithms" << endl
+         << "  -p, --paired                   input reads are paired-end" << endl
+         << "  -R, --remap                    remap (locally) any soft-clipped, split, or" << endl
+         << "                                 discordant read pairs" << endl
+         << "Paired-end options:" << endl
+         << "  -I, --insert-size FLOAT        insert size mean. Flag reads where" << endl
+         << "                                 ((I - insrtsz) / W) > 2.95" << endl
+         << "  -W, --insert-size-sigma FLOAT  standard deviation of insert size" << endl
+         << "  -O, --one-end-anchored         flag reads where one read of the pair is mapped" << endl
+         << "                                 and the other is unmapped" << endl
+         << "  -C, --interchromosomal         flag reads mapping to two distinct Paths" << endl
+         << "  -D, --discordant-orientation   flag reads that do not have the" << endl
+         << "                                 expected --> <-- orientation" << endl
+         << "Single-end / individual read options:" << endl
+         << "  -c, --softclip INT             flag reads with softclips longer than INT" << endl
+         << "  -s, --split-read               flag reads with softclips mapping independently" << endl
+         << "                                 of the anchored portion (requires -x, -g)" << endl
+       //<< "  -q, --quality FLOAT            flag reads with a single base quality < QUAL" << endl
+       //<< "  -d, --depth FLOAT              flag reads with a low-depth Pos+Edit combo" << endl
+         << "  -r, --reversing                flag reads with sections that reverse within" << endl
+         << "                                 the read, as with small inversions" << endl
+         << "                                 ( --->|<-|-->  or ---->||<-- )" << endl
+         << "Helpful helpers: " << endl
+         << "  -1, --calc-insert              calculate and print the insert size" << endl
+         << "                                 mean / sd every 1000 reads." << endl
+         << "  -h, --help                     print this help message to stderr and exit" << endl;
 }
 
 
@@ -94,7 +97,6 @@ int main_sift(int argc, char** argv){
     int softclip_max = 15;
     int max_path_length = 200;
 
-    int split_read_limit = 15;
     double depth = -1;
 
 
@@ -112,12 +114,28 @@ int main_sift(int argc, char** argv){
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"do-unmapped", no_argument, 0, 'u'},
+            {"graph", required_argument, 0, 'G'},
+            {"threads", required_argument, 0, 't'},
+            {"paired", no_argument, 0, 'p'},
+            {"remap", no_argument, 0, 'R'},
+            {"insert-size", required_argument, 0, 'I'},
+            {"insert-size-sigma", required_argument, 0, 'W'},
+            {"one-end-anchored", no_argument, 0, 'O'},
+            {"interchromosomal", no_argument, 0, 'C'},
+            {"discordant-orientation", no_argument, 0, 'D'},
+            {"softclip", required_argument, 0, 'c'},
+            {"split-read", no_argument, 0, 's'},
+            {"quality", required_argument, 0, 'q'},
+            {"depth", required_argument, 0, 'd'},
+            {"reversing", no_argument, 0, 'r'},
+            {"calc-insert", no_argument, 0, '1'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hut:vgG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?ut:G:pRI:W:OCDc:sq:d:r1",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -147,7 +165,6 @@ int main_sift(int argc, char** argv){
                 break;
             case 's':
                 do_split_read = true;
-                split_read_limit = parse<int>(optarg);
                 if (softclip_max < 0){
                     softclip_max = 15;
                     ff.set_soft_clip_limit(15);

@@ -38,29 +38,36 @@ void help_index(char** argv) {
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
          << "already be in a joint ID space." << endl
          << "general options:" << endl
-         << "    -b, --temp-dir DIR        use DIR for temporary files" << endl
-         << "    -t, --threads N           number of threads to use" << endl
-         << "    -p, --progress            show progress" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl
+         << "  -b, --temp-dir DIR        use DIR for temporary files" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -p, --progress            show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE        use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
-         << "    -L, --xg-alts             include alt paths in xg" << endl
+         << "  -x, --xg-name FILE        use this file to store a succinct, queryable version" << endl
+         << "                            of graph(s), or read for GCSA or distance indexing" << endl
+         << "  -L, --xg-alts             include alt paths in xg" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out FILE       output a GCSA2 index to the given file" << endl
-         //<< "    -i, --dbg-in FILE         use kmers from FILE instead of input VG (may repeat)" << endl
-         << "    -f, --mapping FILE        use this node mapping in GCSA2 construction" << endl
-         << "    -k, --kmer-size N         index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
-         << "    -X, --doubling-steps N    use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
-         << "    -Z, --size-limit N        limit temporary disk space usage to N gigabytes (default " << gcsa::ConstructionParameters::SIZE_LIMIT << ")" << endl
-         << "    -V, --verify-index        validate the GCSA2 index using the input kmers (important for testing)" << endl
+         << "  -g, --gcsa-out FILE       output a GCSA2 index to the given file" << endl
+       //<< "  -i, --dbg-in FILE         use kmers from FILE instead of input VG (may repeat)" << endl
+         << "  -f, --mapping FILE        use this node mapping in GCSA2 construction" << endl
+         << "  -k, --kmer-size N         index kmers of size N in the graph [" << gcsa::Key::MAX_LENGTH << "]" << endl
+         << "  -X, --doubling-steps N    use N doubling steps for GCSA2 construction "
+                                     << "[" << gcsa::ConstructionParameters::DOUBLING_STEPS << "]" << endl
+         << "  -Z, --size-limit N        limit temp disk space usage to N GB "
+                                     << "[" << gcsa::ConstructionParameters::SIZE_LIMIT << "]" << endl
+         << "  -V, --verify-index        validate the GCSA2 index using the input kmers" << endl
+         << "                            (important for testing)" << endl
          << "gam indexing options:" << endl
-         << "    -l, --index-sorted-gam    input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
+         << "  -l, --index-sorted-gam    input is sorted .gam format alignments," << endl
+         << "                            store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
          << "vg in-place indexing options:" << endl
-         << "    --index-sorted-vg         input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
+         << "      --index-sorted-vg     input is ID-sorted .vg format graph chunks" << endl
+         << "                            store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
-         << "    -j  --dist-name FILE      use this file to store a snarl-based distance index" << endl
-         << "        --snarl-limit N       don't store snarl distances for snarls with more than N nodes (default 10000)" << endl
-         << "                              if N is 0 then don't store distances, only the snarl tree" << endl
-         << "        --no-nested-distance  only store distances along the top-level chain" << endl;
+         << "  -j, --dist-name FILE      use this file to store a snarl-based distance index" << endl
+         << "      --snarl-limit N       don't store distances for snarls > N nodes [10000]" << endl
+         << "                            if 0 then don't store distances, only the snarl tree" << endl
+         << "      --no-nested-distance  only store distances along the top-level chain" << endl;
 }
 
 int main_index(int argc, char** argv) {
@@ -70,10 +77,10 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_BUILD_VGI_INDEX  1000
-    #define OPT_RENAME_VARIANTS  1001
-    #define OPT_DISTANCE_SNARL_LIMIT 1002
-    #define OPT_DISTANCE_NESTING 1003
+    constexpr int OPT_BUILD_VGI_INDEX = 1000;
+    constexpr int OPT_RENAME_VARIANTS = 1001;
+    constexpr int OPT_DISTANCE_SNARL_LIMIT = 1002;
+    constexpr int OPT_DISTANCE_NESTING = 1003;
 
     // Which indexes to build.
     bool build_xg = false, build_gcsa = false, build_dist = false;
@@ -116,10 +123,10 @@ int main_index(int argc, char** argv) {
             {"temp-dir", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
+            {"help",  no_argument, 0, 'h'},
 
             // XG
             {"xg-name", required_argument, 0, 'x'},
-            {"thread-db", required_argument, 0, 'F'},
             {"xg-alts", no_argument, 0, 'L'},
 
             // GBWT. These have been removed and will return an error.
@@ -164,8 +171,8 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h?",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

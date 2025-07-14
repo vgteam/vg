@@ -1914,7 +1914,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(id_t nod
         for (auto& item : path) {
             converted.push_back(item);
         }
-        (ref_reverse ? left_reverse : left_forward).emplace_back(move(converted));
+        (ref_reverse ? left_reverse : left_forward).emplace_back(std::move(converted));
     }
     
     for (auto& annotatedPath : rightPaths) {
@@ -1929,7 +1929,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(id_t nod
         for (auto& item : path) {
             converted.push_back(item);
         }
-        (ref_reverse ? right_reverse : right_forward).emplace_back(move(converted));
+        (ref_reverse ? right_reverse : right_forward).emplace_back(std::move(converted));
     }
     
     // We need to look in different combinations of lists.
@@ -2305,7 +2305,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
         
         // Dequeue a frame to extend.
         // Make sure to move out of the list to avoid a useless copy.
-        frame_t frame(move(toExtend.front()));
+        frame_t frame(std::move(toExtend.front()));
         toExtend.pop_front();
         stillToExtend--;
         

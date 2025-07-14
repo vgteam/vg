@@ -226,6 +226,19 @@ bool starts_with(const std::string& value, const std::string& prefix) {
 #endif
 }
 
+bool ends_with(const std::string& value, const std::string& suffix) {
+#if __cplusplus > 201703L
+    // C++20 provides this
+    return value.ends_with(suffix);
+#else
+    // Before then, C++ is terrible and we have to do it ourselves.
+    if (value.size() < suffix.size()) {
+        return false;
+    }
+    return value.substr(value.length() - suffix.length()) == suffix;
+#endif
+}
+
 const std::string sha1sum(const std::string& data) {
     SHA1 checksum;
     checksum.update(data);

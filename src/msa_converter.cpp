@@ -197,7 +197,7 @@ using namespace std;
                     size_t name_num = ++seq_name_count[seq_name].second;
                     stringstream sstrm;
                     sstrm << seq_name << "." << name_num;
-                    alignment[sstrm.str()] = move(alignment[seq_name]);
+                    alignment[sstrm.str()] = std::move(alignment[seq_name]);
                     alignment.erase(seq_name);
                 }
             }
