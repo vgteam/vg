@@ -337,6 +337,9 @@ int main_paths(int argc, char** argv) {
             path_senses.insert(PathSense::GENERIC);
         }
     } else {
+        if (!gbwt_file.empty()) {
+            std::cerr << "warning: [vg paths] path sense selection is not done by GBWT" << std::endl;
+        }
         // We asked for path senses specifically
         selection_criteria++;
     }
