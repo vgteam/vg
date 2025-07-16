@@ -174,7 +174,7 @@ int main_index(int argc, char** argv) {
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
-            {"upweight-node", no_argument, 0, 'w'},
+            {"upweight-node", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
