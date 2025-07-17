@@ -26,12 +26,13 @@ using namespace vg::subcommand;
 void help_concat(char** argv) {
     cerr << "usage: " << argv[0] << " concat [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Concatenates graphs in order by adding edges from the tail nodes of the" << endl
-         << "predecessor to the head nodes of the following graph.  If node ID spaces overlap "
+         << "predecessor to the head nodes of the following graph.  If node ID spaces overlap" << endl
          << "between graphs, they will be resolved (as in vg ids -j)" << endl
          << endl
          << "Options:" << endl
-         << "    -p, --only-join-paths         only add edges necessary to join up appended paths (as opposed between all heads/tails)" << endl
-         << endl;
+         << "  -p, --only-join-paths  only add edges necessary to join up appended paths" << endl
+         << "                         (as opposed between all heads/tails)" << endl
+         << "  -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_concat(int argc, char** argv) {
@@ -54,8 +55,8 @@ int main_concat(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?p",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

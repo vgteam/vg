@@ -25,12 +25,13 @@ void help_translate(char** argv) {
          << "Translate alignments or paths using the translation map." << endl
          << endl
          << "options:" << endl
-         << "    -p, --paths FILE      project the input paths into the from-graph" << endl
-         << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
-         << "    -l, --loci FILE       project the input locus descriptions into the from-graph" << endl
-         << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
-         << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl
-         << "    -o, --overlay FILE    overlay this translation on top of the one we are given" << endl;
+         << "  -p, --paths FILE      project the input paths into the from-graph" << endl
+         << "  -a, --alns FILE       project the input alignments into the from-graph" << endl
+         << "  -l, --loci FILE       project the input locus descriptions into the from-graph" << endl
+         << "  -m, --mapping JSON    print the from-mapping corresponding to a JSON mapping" << endl
+         << "  -P, --position JSON   print the from-position corresponding to a JSON position" << endl
+         << "  -o, --overlay FILE    overlay this translation on top of the one we are given" << endl
+         << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
 int main_translate(int argc, char** argv) {
@@ -63,8 +64,8 @@ int main_translate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:o:l:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?p:m:P:a:o:l:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

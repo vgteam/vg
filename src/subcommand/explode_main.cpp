@@ -19,12 +19,12 @@ using namespace vg::subcommand;
 
 void help_explode(char** argv) {
     cerr << "usage: " << argv[0] << " explode [options] source.vg part_dir" << endl
-         << "Breaks a graph into connected components in their own files in the given directory" << endl
+         << "Breaks connected components of graph into" << endl
+         << "their own files in the given directory" << endl
          << endl
          << "options:" << endl
-         << "general:" << endl
-         << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
-         << "    -h, --help" << endl;
+         << "  -t, --threads N      for multithreaded tasks, use this many threads [1]" << endl
+         << "  -h, --help           print this help message to stderr and exit" << endl;
 }
 
 int main_explode(int argc, char** argv) {
@@ -47,8 +47,8 @@ int main_explode(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?t:",
+                         long_options, &option_index);
 
 
         // Detect the end of the options.
@@ -71,7 +71,8 @@ int main_explode(int argc, char** argv) {
         }
     }
 
-    cerr << "vg explode is deprecated.  Please use \"vg chunk -C source.vg -b part_dir/component\" for same* functionality as \"vg explode source.vg part_dir\"" << endl
+    cerr << "vg explode is deprecated.  Please use \"vg chunk -C source.vg -b part_dir/component\" "
+         << "for the same* functionality as \"vg explode source.vg part_dir\"" << endl
          << " * (unlike explode, the output directory must already exist when running chunk, though)" << endl;
     return 1;
 

@@ -38,29 +38,38 @@ void help_index(char** argv) {
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
          << "already be in a joint ID space." << endl
          << "general options:" << endl
-         << "    -b, --temp-dir DIR        use DIR for temporary files" << endl
-         << "    -t, --threads N           number of threads to use" << endl
-         << "    -p, --progress            show progress" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl
+         << "  -b, --temp-dir DIR        use DIR for temporary files" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -p, --progress            show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE        use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
-         << "    -L, --xg-alts             include alt paths in xg" << endl
+         << "  -x, --xg-name FILE        use this file to store a succinct, queryable version" << endl
+         << "                            of graph(s), or read for GCSA or distance indexing" << endl
+         << "  -L, --xg-alts             include alt paths in xg" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out FILE       output a GCSA2 index to the given file" << endl
-         //<< "    -i, --dbg-in FILE         use kmers from FILE instead of input VG (may repeat)" << endl
-         << "    -f, --mapping FILE        use this node mapping in GCSA2 construction" << endl
-         << "    -k, --kmer-size N         index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
-         << "    -X, --doubling-steps N    use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
-         << "    -Z, --size-limit N        limit temporary disk space usage to N gigabytes (default " << gcsa::ConstructionParameters::SIZE_LIMIT << ")" << endl
-         << "    -V, --verify-index        validate the GCSA2 index using the input kmers (important for testing)" << endl
+         << "  -g, --gcsa-out FILE       output a GCSA2 index to the given file" << endl
+       //<< "  -i, --dbg-in FILE         use kmers from FILE instead of input VG (may repeat)" << endl
+         << "  -f, --mapping FILE        use this node mapping in GCSA2 construction" << endl
+         << "  -k, --kmer-size N         index kmers of size N in the graph [" << gcsa::Key::MAX_LENGTH << "]" << endl
+         << "  -X, --doubling-steps N    use N doubling steps for GCSA2 construction "
+                                     << "[" << gcsa::ConstructionParameters::DOUBLING_STEPS << "]" << endl
+         << "  -Z, --size-limit N        limit temp disk space usage to N GB "
+                                     << "[" << gcsa::ConstructionParameters::SIZE_LIMIT << "]" << endl
+         << "  -V, --verify-index        validate the GCSA2 index using the input kmers" << endl
+         << "                            (important for testing)" << endl
          << "gam indexing options:" << endl
-         << "    -l, --index-sorted-gam    input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
+         << "  -l, --index-sorted-gam    input is sorted .gam format alignments," << endl
+         << "                            store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
          << "vg in-place indexing options:" << endl
-         << "    --index-sorted-vg         input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
+         << "      --index-sorted-vg     input is ID-sorted .vg format graph chunks" << endl
+         << "                            store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
-         << "    -j  --dist-name FILE      use this file to store a snarl-based distance index" << endl
-         << "        --snarl-limit N       don't store snarl distances for snarls with more than N nodes (default 10000)" << endl
-         << "                              if N is 0 then don't store distances, only the snarl tree" << endl
-         << "        --no-nested-distance  only store distances along the top-level chain" << endl;
+         << "  -j, --dist-name FILE      use this file to store a snarl-based distance index" << endl
+         << "      --snarl-limit N       don't store distances for snarls > N nodes [10000]" << endl
+         << "                            if 0 then don't store distances, only the snarl tree" << endl
+         << "      --no-nested-distance  only store distances along the top-level chain" << endl
+         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
+         << "                            of a top-level chain (may repeat)" << endl;
 }
 
 int main_index(int argc, char** argv) {
@@ -70,10 +79,10 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_BUILD_VGI_INDEX  1000
-    #define OPT_RENAME_VARIANTS  1001
-    #define OPT_DISTANCE_SNARL_LIMIT 1002
-    #define OPT_DISTANCE_NESTING 1003
+    constexpr int OPT_BUILD_VGI_INDEX = 1000;
+    constexpr int OPT_RENAME_VARIANTS = 1001;
+    constexpr int OPT_DISTANCE_SNARL_LIMIT = 1002;
+    constexpr int OPT_DISTANCE_NESTING = 1003;
 
     // Which indexes to build.
     bool build_xg = false, build_gcsa = false, build_dist = false;
@@ -104,8 +113,13 @@ int main_index(int argc, char** argv) {
 
     //Distance index
     size_t snarl_limit = 50000;
-
     bool only_top_level_chain_distances = false;
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    // We will put this amount of extra weight on upweighted nodes. It should
+    // be longer than the maximum plausible distracting path or spurious bridge
+    // edge cycle, but small enough that several of it fit in a size_t.
+    // TODO: Expose to command line.
+    constexpr size_t EXTRA_WEIGHT = 10000000000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -116,10 +130,10 @@ int main_index(int argc, char** argv) {
             {"temp-dir", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
+            {"help",  no_argument, 0, 'h'},
 
             // XG
             {"xg-name", required_argument, 0, 'x'},
-            {"thread-db", required_argument, 0, 'F'},
             {"xg-alts", no_argument, 0, 'L'},
 
             // GBWT. These have been removed and will return an error.
@@ -160,12 +174,13 @@ int main_index(int argc, char** argv) {
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
+            {"upweight-node", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:w:h?",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -258,9 +273,13 @@ int main_index(int argc, char** argv) {
         case OPT_DISTANCE_SNARL_LIMIT:
             snarl_limit = parse<int>(optarg);
             break;
-
         case OPT_DISTANCE_NESTING:
             only_top_level_chain_distances = true;
+            break;
+        case 'w':
+            // We use += so you can repeat a node and make it even more
+            // heavier.
+            extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
             break;
 
         case 'h':
@@ -308,6 +327,11 @@ int main_index(int argc, char** argv) {
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
         cerr << "error: [vg index] GCSA2 cannot index with kmer size greater than " << gcsa::Key::MAX_LENGTH << endl;
+        return 1;
+    }
+
+    if (!build_dist && !extra_node_weight.empty()) {
+        cerr << "error: [vg index] cannot up-weight nodes for snarl finding if not building distance index" << endl;
         return 1;
     }
     
@@ -535,7 +559,7 @@ int main_index(int argc, char** argv) {
                 
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
-                IntegratedSnarlFinder snarl_finder(*xg.get());
+                IntegratedSnarlFinder snarl_finder(*xg.get(), extra_node_weight);
                 // Create the SnarlDistanceIndex
                 SnarlDistanceIndex distance_index;
 
@@ -552,7 +576,7 @@ int main_index(int argc, char** argv) {
                     auto& gbz = get<0>(options);
                     
                     // Create the SnarlDistanceIndex
-                    IntegratedSnarlFinder snarl_finder(gbz->graph);
+                    IntegratedSnarlFinder snarl_finder(gbz->graph, extra_node_weight);
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
@@ -564,7 +588,7 @@ int main_index(int argc, char** argv) {
                     auto& graph = get<1>(options);
                     
                     // Create the SnarlDistanceIndex
-                    IntegratedSnarlFinder snarl_finder(*graph.get());
+                    IntegratedSnarlFinder snarl_finder(*graph.get(), extra_node_weight);
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;

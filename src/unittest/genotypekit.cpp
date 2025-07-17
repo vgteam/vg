@@ -762,7 +762,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at on
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     graph.merge(chunk);
 
-    // Make a CactusSnarlFinder
+    // Make an IntegratedSnarlFinder
     unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
 
     // There should be a snarl along the body and a snarl for the cycle at the tip.
@@ -984,6 +984,59 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer"
     REQUIRE(sites[1]->start().node_id() == 3);
     REQUIRE(sites[1]->start().backward() == false);
     REQUIRE(sites[1]->end().node_id() == 2);
+    REQUIRE(sites[1]->end().backward() == false);
+}
+
+TEST_CASE("IntegratedSnarlFinder prefers to root at a chain with an up-weighted node", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "GAT"},
+            {"id": 3, "sequence": "TAACA"},
+            {"id": 4, "sequence": "ACA"}
+        ], "edge": [
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 2},
+            {"from": 2, "to": 1},
+            {"from": 1, "to": 4}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder that adds 10 bp to node 4's apparent length
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph, {{4, 10}}));
+    
+    auto manager = finder->find_snarls();
+    
+    // There should be 2 total snarls.
+    REQUIRE(manager.num_snarls() == 2);
+    
+    auto sites = manager.top_level_snarls();
+    
+    // Both should be top-level, with connectivity in the root snarl
+    REQUIRE(sites.size() == 2);
+    
+    // The cycle snarl should be set up so the bridge path snarl is outside it.
+    REQUIRE(sites[0]->start().node_id() == 2);
+    REQUIRE(sites[0]->start().backward() == true);
+    REQUIRE(sites[0]->end().node_id() == 3);
+    REQUIRE(sites[0]->end().backward() == true);
+    
+    // The bridge chain snarl should have the right bounds
+    REQUIRE(sites[1]->start().node_id() == 1);
+    REQUIRE(sites[1]->start().backward() == false);
+    REQUIRE(sites[1]->end().node_id() == 4);
     REQUIRE(sites[1]->end().backward() == false);
 }
 

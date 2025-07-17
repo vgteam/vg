@@ -188,7 +188,7 @@ static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype samplin
 
 void help_haplotypes(char** argv, bool developer_options) {
     std::string usage = "    " + std::string(argv[0]) + " " + std::string(argv[1]) + " [options] ";
-    std::cerr << "Usage:" << std::endl;
+    std::cerr << "usage:" << std::endl;
     std::cerr << usage << "-k kmers.kff -g output.gbz graph.gbz" << std::endl;
     std::cerr << usage << "-H output.hapl graph.gbz" << std::endl;
     std::cerr << usage << "-i graph.hapl -k kmers.kff -g output.gbz graph.gbz" << std::endl;
@@ -200,44 +200,57 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Haplotype sampling based on kmer counts." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Output files:" << std::endl;
-    std::cerr << "    -g, --gbz-output X        write the output GBZ to X" << std::endl;
-    std::cerr << "    -H, --haplotype-output X  write haplotype information to X" << std::endl;
+    std::cerr << "  -g, --gbz-output FILE        write the output GBZ to file (requires -k)" << std::endl;
+    std::cerr << "  -H, --haplotype-output FILE  write haplotype information to file" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Input files:" << std::endl;
-    std::cerr << "    -d, --distance-index X    use this distance index (default: <basename>.dist)" << std::endl;
-    std::cerr << "    -r, --r-index X           use this r-index (default: <basename>.ri)" << std::endl;
-    std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate)" << std::endl;
-    std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
+    std::cerr << "  -d, --distance-index FILE    use this distance index [<basename>.dist]" << std::endl;
+    std::cerr << "  -r, --r-index FILE           use this r-index [<basename>.ri]" << std::endl;
+    std::cerr << "  -i, --haplotype-input FILE   use this .hapl file (default: generate)" << std::endl;
+    std::cerr << "  -k, --kmer-input FILE        use kmer counts from this KFF file" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for generating haplotype information:" << std::endl;
-    std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_defaults::k() << ")" << std::endl;
-    std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_defaults::w() << ")" << std::endl;
-    std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_defaults::subchain_length() << ")" << std::endl;
-    std::cerr << "        --linear-structure    extend subchains to avoid haplotypes visiting them multiple times" << std::endl;
+    std::cerr << "      --kmer-length N          kmer length for building minimizer index"
+                                             << "[" << haplotypes_defaults::k() << "]" << std::endl;
+    std::cerr << "      --window-length N        window length for building minimizer index "
+                                             << "[" << haplotypes_defaults::w() << "]" << std::endl;
+    std::cerr << "      --subchain-length N      target length (in bp) for subchains "
+                                             << "[" << haplotypes_defaults::subchain_length() << "]" << std::endl;
+    std::cerr << "      --linear-structure       extend subchains to avoid haplotypes" << std::endl;
+    std::cerr << "                               visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
-    std::cerr << "        --preset X            use preset X (default, haploid, diploid)" << std::endl;
-    std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
-    std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_defaults::n() << ")" << std::endl;
-    std::cerr << "                              sample from N candidates (with --diploid-sampling; default: " << haplotypes_defaults::candidates() << ")" << std::endl;
-    std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_defaults::discount() << ")" << std::endl;
-    std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_defaults::adjustment() << ")" << std::endl;
-    std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_defaults::absent()  << ")" << std::endl;
-    std::cerr << "        --haploid-scoring     use a scoring model without heterozygous kmers" << std::endl;
-    std::cerr << "        --diploid-sampling    choose the best pair from the sampled haplotypes" << std::endl;
-    std::cerr << "        --extra-fragments     in diploid sampling, select all candidates in bad subchains" << std::endl;
-    std::cerr << "        --badness F           threshold for the badness of a subchain (default: " << haplotypes_defaults::badness() << ")" << std::endl;
-    std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
-    std::cerr << "        --set-reference X     use sample X as a reference sample (may repeat)" << std::endl;
+    std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
+    std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
+    std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
+    std::cerr << "                               with --diploid-sampling, use N candidates "
+                                             << "[" << haplotypes_defaults::candidates() << "]" << std::endl;
+    std::cerr << "      --present-discount F     discount scores for present kmers by factor F" << std::endl;
+    std::cerr << "                               [" << haplotypes_defaults::discount() << "]" << std::endl;
+    std::cerr << "      --het-adjustment F       adjust scores for heterozygous kmers by F "
+                                             << "[" << haplotypes_defaults::adjustment() << "]" << std::endl;
+    std::cerr << "      --absent-score F         score absent kmers -F/+F "
+                                             << "[" << haplotypes_defaults::absent()  << "]" << std::endl;
+    std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
+    std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
+    std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
+    std::cerr << "                               in --diploid-sampling" << std::endl;
+    std::cerr << "      --badness F              threshold for badness of a subchain "
+                                             << "[" << haplotypes_defaults::badness() << "]" << std::endl;
+    std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
+    std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
-    std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_defaults::threads() << " on this system)" << std::endl;
+    std::cerr << "  -v, --verbosity N            verbosity level [0]" << std::endl;
+    std::cerr << "                               {0 = silent, 1 = basic, 2 = detailed, 3 = debug}" << std::endl;
+    std::cerr << "  -t, --threads N              approximate number of threads "
+                                             << "[" << haplotypes_defaults::threads() << " on this system]" << std::endl;
+    std::cerr << "  -h, --help                   print this help message to stderr and exit" << std::endl;
     std::cerr << std::endl;
     if (developer_options) {
         std::cerr << "Developer options:" << std::endl;
-        std::cerr << "        --validate            validate the generated information (may be slow)" << std::endl;
-        std::cerr << "        --statistics X        output subchain statistics over reference sample X" << std::endl;
+        std::cerr << "      --validate               validate the generated information (may be slow)" << std::endl;
+        std::cerr << "      --statistics NAME        output subchain statistics over reference sample" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -292,6 +305,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
         { "statistics", required_argument, 0, OPT_STATISTICS },
+        { "help", no_argument, 0, 'h' },
         { 0, 0, 0, 0 }
     };
 
@@ -301,7 +315,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     bool num_haplotypes_set = false;
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:H:d:r:i:k:v:t:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:H:d:r:i:k:v:t:h?", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)

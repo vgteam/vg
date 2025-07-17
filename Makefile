@@ -73,7 +73,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_
 # These need to come before library search paths from LDFLAGS or we won't
 # prefer linking vg-installed dependencies over system ones.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -lwfa2 -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -335,7 +335,7 @@ UNITTEST_EXE = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_BIN_DIR)/%,$(wild
 
 RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
-LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
+MIMALLOC_DIR:=deps/mimalloc
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
@@ -343,7 +343,6 @@ GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
 KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
-FASTAHACK_DIR:=deps/fastahack
 FERMI_DIR:=deps/fermi-lite
 VCFLIB_DIR:=deps/vcflib
 TABIXPP_DIR:=deps/tabixpp
@@ -375,7 +374,6 @@ ATOMIC_QUEUE_DIR=deps/atomic_queue
 DEP_OBJ =
 DEP_OBJ += $(OBJ_DIR)/progress_bar.o
 DEP_OBJ += $(OBJ_DIR)/sha1.o
-DEP_OBJ += $(OBJ_DIR)/Fasta.o
 DEP_SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(DEP_OBJ))
 
 # These are libraries that we need to build before we link vg.
@@ -416,7 +414,7 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
-# Control varialbe for address sanitizer
+# Control variable for address sanitizer
 # Like valgrind but fast!
 # You can `make clean && make jemalloc=off asan=on` to build with it.
 asan = off
@@ -424,35 +422,76 @@ ifeq ($(asan),on)
 	CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
 
-# Control variable for allocator
+# Control variable for mimalloc allocator
+# On the command line, you can `make mimalloc=on` if you want mimalloc.
+mimalloc = off
+
+# Control variable for jemalloc allocator
 # On the command line, you can `make jemalloc=off` if you definitely don't want jemalloc.
 # Or you can `make jemalloc=debug` to use a version that tries to find memory errors.
 jemalloc = on
+ifeq ($(mimalloc),on)
+	jemalloc = off
+endif
 ifeq ($(shell uname -s),Darwin)
 	jemalloc = off
 endif
 
+# Sometimes I say jemalloc=yes and then make a face when that doesn't work. Put
+# a stop to this.
+ifneq ($(asan),on)
+	ifneq ($(asan),off)
+		unused := $(error "Error: asan must be on or off, not $(asan)")
+	endif
+endif
+ifneq ($(mimalloc),on)
+	ifneq ($(mimalloc),off)
+		unused := $(error "Error: mimalloc must be on or off, not $(mimalloc)")
+	endif
+endif
+ifneq ($(jemalloc),on)
+	ifneq ($(jemalloc),off)
+		ifneq ($(jemalloc),debug)
+			unused := $(error "Error: jemalloc must be on, off, or debug, not $(jemalloc)")
+		endif
+	endif
+endif
+ifeq ($(mimalloc),on)
+	ifneq ($(jemalloc),off)
+		unused := $(error "Error: mimalloc and jemalloc cannot be used together")
+	endif
+endif
+
+
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
 LINK_DEPS =
+# Only depend on these files for the final linking stage, but link them in
+# before all other files.
+PRE_LINK_DEPS =
 
-ifeq ($(jemalloc),on)
-    # Use jemalloc at link time
+ifeq ($(mimalloc),on)
+	# Use mimalloc at link time
+	PRE_LINK_DEPS += $(LIB_DIR)/mimalloc.o
+	# Use the config object for mimalloc
+	CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_mimalloc.o
+else ifeq ($(jemalloc),on)
+	# Use jemalloc at link time
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-    # We have to use it statically or we can't get at its secret symbols.
+	# We have to use it statically or we can't get at its secret symbols.
 	LD_EXE_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
 	# Use the config object for jemalloc
-    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o
+	CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o
 else ifeq ($(jemalloc),debug)
-    # Use jemalloc at link time
+	# Use jemalloc at link time
 	LINK_DEPS += $(LIB_DIR)/libjemalloc_debug.a $(LIB_DIR)/libjemalloc_debug_pic.a
-    # We have to use it statically or we can't get at its secret symbols.
+	# We have to use it statically or we can't get at its secret symbols.
 	LD_EXE_LIB_FLAGS += $(LIB_DIR)/libjemalloc_debug.a
 	# Use the config object for jemalloc
-    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o
+	CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc_debug.o
 else
 	# Use the config object for the normal allocator
-    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_system.o
+	CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_system.o
 endif
 
 # common dependencies to build before all vg src files
@@ -476,12 +515,12 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-.PHONY: clean clean-tests get-deps deps test set-path objs static static-docker docs man .pre-build version
+.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man .pre-build version
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 LIBVG_SHARED_DEPS = $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(DEPS)
-EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
+EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 
 # We have a target we can build to do everything but link the library and executable
 objs: $(LIBVG_DEPS) $(EXE_DEPS)
@@ -501,11 +540,11 @@ $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPO
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(PRE_LINK_DEPS) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -528,7 +567,10 @@ get-deps:
 # And we have submodule deps to build
 deps: $(DEPS)
 
-test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
+lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
+	scripts/check_options.py 1>&2
+
+test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(VCFLIB_DIR)/contrib/fastahack/fastahack $(BIN_DIR)/rapper
 	cd test && prove -v t
 	# Hide the compiler configuration from the doc tests, so that the ones that
 	# build code can't pick up libraries out of the vg build itself.
@@ -567,12 +609,15 @@ endif
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
 	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LIB_DIR)/libvg.a $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
+$(LIB_DIR)/mimalloc.o: $(MIMALLOC_DIR)/src/*.c $(MIMALLOC_DIR)/src/*/*.c $(MIMALLOC_DIR)/src/*/*/*.c $(MIMALLOC_DIR)/include/*.h $(MIMALLOC_DIR)/include/*/*.h $(MIMALLOC_DIR)/CMakeLists.txt
+	+rm -f $(LIB_DIR)/mimalloc.o && rm -Rf $(INC_DIR)/mimalloc $(INC_DIR)/mimalloc*.h && cd $(MIMALLOC_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" ..  && $(MAKE) $(FILTER) &&  cp -r ../include/* $(CWD)/$(INC_DIR)/ && cp mimalloc.o $(CWD)/$(LIB_DIR)/
+
 # TODO: The normal and debug jemalloc builds can't safely be run at the same time.
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
-	+rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	+rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r include/* $(CWD)/$(INC_DIR)/ && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/
 
 $(LIB_DIR)/libjemalloc_debug.a: $(JEMALLOC_DIR)/src/*.c
-	+rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable-fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a && cp -r include/* $(CWD)/$(INC_DIR)/
+	+rm -f $(LIB_DIR)/libjemalloc*.* && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --enable-prof --disable-libdl --enable-debug --enable-fill --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r include/* $(CWD)/$(INC_DIR)/ && cp lib/libjemalloc.a $(CWD)/$(LIB_DIR)/libjemalloc_debug.a
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
@@ -635,17 +680,9 @@ $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
 
 $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRESS_BAR_DIR)/*.hpp
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
+	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 $(SHARED_OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/progress_bar.cpp $(PROGRESS_BAR_DIR)/*.hpp
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $<
-
-$(INC_DIR)/Fasta.h:  $(FASTAHACK_DIR)/Fasta.h
-	+cd $(FASTAHACK_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
-
-$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h 
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $< $(FILTER)
-$(SHARED_OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/Fasta.cpp $(INC_DIR)/Fasta.h
-	+$(CXX) -I$(FASTAHACK_DIR) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $< $(FILTER)
+	+$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -fPIC -c -o $@ $<
 
 # We have this target to clean up the old Protobuf we used to have.
 # We can remove it after we no longer care about building properly on a dirty
@@ -717,7 +754,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 	+echo "Cflags: -I$(CWD)/$(INC_DIR)" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 	+echo "Libs: -L$(CWD)/$(LIB_DIR) -ltabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 
-# Build vcflib. Build the library and any needed binarise. Install the library
+# Build vcflib. Build the library and any needed binaries. Install the library
 # and headers but not binaries or man pages. We need to build as RelWithDebInfo
 # to avoid vcflib using its own
 # -march=native, which would conflict with the -march that comes in through
@@ -725,9 +762,9 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # let CMake find Mac OpenMP. We need to use /usr first for CMake search or
 # Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only
 # fully installed in /usr.
-$(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
+$(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build . --target vcflib vcf2tsv
+	+cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build . --target vcflib vcf2tsv wfa2_static
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
@@ -735,13 +772,15 @@ $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR
 	+cp $(VCFLIB_DIR)/contrib/multichoose/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/src/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/build/libvcflib.a $(LIB_DIR)
+	+cp $(VCFLIB_DIR)/build/contrib/WFA2-lib/libwfa2.a $(LIB_DIR)
 
 # vcflib binaries are all automatically built. We need this one.
 $(BIN_DIR)/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
 	+cp $(VCFLIB_DIR)/build/vcf2tsv $(BIN_DIR)
 
-$(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
-	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
+# We need the fastahack binary for testing
+$(VCFLIB_DIR)/contrib/fastahack/fastahack: $(VCFLIB_DIR)/contrib/fastahack/*.c $(VCFLIB_DIR)/contrib/fastahack/*.h $(VCFLIB_DIR)/contrib/fastahack/*.cpp
+	+cd $(VCFLIB_DIR)/contrib/fastahack && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
@@ -761,7 +800,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
 
-$(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
+$(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
 
 #$(INC_DIR)/Variant.h
@@ -960,6 +999,9 @@ $(UNITTEST_SUPPORT_OBJ): $(UNITTEST_SUPPORT_OBJ_DIR)/%.o : $(UNITTEST_SUPPORT_SR
 	@touch $@
 	
 # Config objects get individual rules
+$(CONFIG_OBJ_DIR)/allocator_config_mimalloc.o: $(CONFIG_SRC_DIR)/allocator_config_mimalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_mimalloc.d $(DEPS) $(LIB_DIR)/mimalloc.o
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
 $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS) $(LIB_DIR)/libjemalloc.a
 	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
@@ -1071,7 +1113,6 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd tabixpp && rm -f tabix.o libtabixpp.a
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
-	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
@@ -1084,6 +1125,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
+	cd $(DEP_DIR) && cd mimalloc && rm -Rf build CMakeCache.txt CMakeFiles
 	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean || true
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	cd $(DEP_DIR) && cd libhandlegraph && rm -Rf build CMakeCache.txt CMakeFiles

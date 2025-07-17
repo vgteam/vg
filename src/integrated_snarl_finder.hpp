@@ -45,6 +45,12 @@ private:
      * identified by a "head" handle.
      */
     class MergedAdjacencyGraph;
+
+    /**
+     * Stores extra weight to add to the effective length of graph nodes when
+     * rooting the snarl decomposition.
+     */
+    const std::unordered_map<nid_t, size_t> extra_node_weight;
     
     /**
      * Find all the snarls, given the Cactus graph, the bridge forest, the
@@ -59,12 +65,21 @@ private:
         unordered_map<handle_t, handle_t>& next_along_cycle,
         const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
         const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const;
-    
+
 public:
     /**
      * Make a new IntegratedSnarlFinder to find snarls in the given graph.
+     *
+     * Can optionally take a mapping of extra weight to assign to particular
+     * graph nodes, to control how the snarl tree is rooted. The snarl tree is
+     * rooted along the bridge edge path or cycle with the most fixes bases, so
+     * up-weighting nodes makes the rooting process prefer paths or cycles that
+     * include those nodes as fixed nodes, for rooting the snarl tree and
+     * defining top-level chains.
+     *
+     * The mapping is assumed to be small and cheap to copy.
      */
-    IntegratedSnarlFinder(const HandleGraph& graph);
+    IntegratedSnarlFinder(const HandleGraph& graph, const std::unordered_map<nid_t, size_t>& extra_node_weight = {});
     
     /**
      * Find all the snarls of weakly connected components in parallel.
