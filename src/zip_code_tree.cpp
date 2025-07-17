@@ -1479,7 +1479,7 @@ void ZipCodeTree::validate_distance_matrix(const SnarlDistanceIndex& distance_in
             to_handle = distance_index.get_node_net_handle(id(to_pos), is_rev(to_pos));
             from_handle = distance_index.get_node_net_handle(id(from_pos), is_rev(from_pos));
 
-            if (has_self_loops && (i + 1) / 2 == (j + 1) / 2) {
+            if (has_self_loops) {
                 // to_pos points "out", but we need to come "in" to it
                 to_pos = reverse(to_pos, distance_index.minimum_length(to_handle));
                 
