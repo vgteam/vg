@@ -3110,6 +3110,52 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds);
         }
     }
+    TEST_CASE("ziptree with duplications sharing a start point", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("AA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("CGC");
+        Node* n4 = graph.create_node("GT");
+        Node* n5 = graph.create_node("AA");
+        Node* n6 = graph.create_node("ACAC");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n2, n3);
+        Edge* e3 = graph.create_edge(n3, n4);
+        Edge* e4 = graph.create_edge(n4, n5);
+        Edge* e5 = graph.create_edge(n5, n6);
+        // Backtracks to n2
+        Edge* e6 = graph.create_edge(n4, n2);
+        Edge* e7 = graph.create_edge(n5, n2);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed on each node") {
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (const auto& pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({pos, 0, zipcode});
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index);
+            zip_forest.validate_zip_forest(distance_index, &seeds);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){
         for (int i = 0; i < 10; i++) {
             // For each random graph
