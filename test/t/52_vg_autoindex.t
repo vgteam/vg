@@ -20,7 +20,11 @@ is $(echo $?) 0 "basic autoindexing results can be used by vg map"
 old_xg_creation_time=`ls -lh auto.xg | cut -d ' ' -f8`
 vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased --no-guessing
 cur_xg_creation_time=`ls -lh auto.xg | cut -d ' ' -f8`
-is "$old_xg_creation_time" "$cur_xg_creation_time" "autoindexing with --no-guessing does not overwrite existing files"
+same_time="no"
+if [ "$old_xg_creation_time" == "$cur_xg_creation_time" ]; then
+    same_time="yes"
+fi
+is "$same_time" "no" "autoindexing with --no-guessing overwrites existing files"
 
 rm auto.*
 
