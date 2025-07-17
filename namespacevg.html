@@ -2206,6 +2206,8 @@ Functions</h2></td></tr>
 <tr class="separator:a4d9b75e74f770318a088011e478c5400"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76469b7556e38a779309eeaf9e92ba75"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a76469b7556e38a779309eeaf9e92ba75">load_subchain_kmers_present</a> (<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Haplotypes::Subchain</a> &amp;subchain, std::istream &amp;in)</td></tr>
 <tr class="separator:a76469b7556e38a779309eeaf9e92ba75"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab33d743e67caa3abfd062bf97b4844c8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab33d743e67caa3abfd062bf97b4844c8">follow_chain</a> (const SnarlDistanceIndex &amp;distance_index, const gbwtgraph::GBZ &amp;gbz, size_t chain_id, <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> curr)</td></tr>
+<tr class="separator:ab33d743e67caa3abfd062bf97b4844c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a05fed404373c2006ba352799e18e3483"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">HaplotypePartitioner::sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a05fed404373c2006ba352799e18e3483">get_sequence_visits</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handle, const gbwt::FastLocate &amp;r_index)</td></tr>
 <tr class="separator:a05fed404373c2006ba352799e18e3483"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a539ab949f08a0528b6a2268bc6a73886"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">HaplotypePartitioner::sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a539ab949f08a0528b6a2268bc6a73886">match_visits</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end, const std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">HaplotypePartitioner::sequence_type</a> &gt; &amp;from_visits, const std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">HaplotypePartitioner::sequence_type</a> &gt; &amp;to_visits, const <a class="el" href="classvg_1_1HaplotypePartitioner.html">HaplotypePartitioner</a> &amp;partitioner)</td></tr>
@@ -10685,6 +10687,46 @@ template&lt;class RandomIt &gt; </div>
           <td></td>
           <td class="paramtype">const std::function&lt; size_t(int64_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>node_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab33d743e67caa3abfd062bf97b4844c8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab33d743e67caa3abfd062bf97b4844c8">&#9670;&nbsp;</a></span>follow_chain()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> vg::follow_chain </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>chain_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td>
+          <td class="paramname"><em>curr</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
