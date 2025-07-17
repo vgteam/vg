@@ -2553,7 +2553,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("Node first") {
-            // [(1  0  0  3 [2+0 576460752303423471 10+0])], [5+0], and [6+4]
+            // [(1  0  0  3 [2+0 inf 10+0])], [5+0], and [6+4]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(5, false, 0);

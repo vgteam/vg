@@ -376,8 +376,10 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         if (is_trivial_chain || current_type == ZipCode::ROOT_NODE || 
             forest_state.sibling_indices_at_depth[chain_depth][0].chain_component 
               == current_seed.zipcode.get_chain_component(depth)) {
-            // In same chain component, so can find distance from last thing
-            distance_between = std::max(current_offset, previous_offset) - std::min(current_offset, previous_offset);
+            if (previous_offset != std::numeric_limits<size_t>::max()) {
+                // In same & reachable chain component, so can find distance from last thing
+                distance_between = std::max(current_offset, previous_offset) - std::min(current_offset, previous_offset);
+            }
         }
 
         if (chain_depth == 0 && distance_between > forest_state.distance_limit) {
@@ -1319,6 +1321,10 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index,
 
 void ZipCodeForest::validate_zip_forest(const SnarlDistanceIndex& distance_index, 
                                         const vector<Seed>* seeds, size_t distance_limit) const {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Validating zip code forest with distance limit " << distance_limit << endl;
+    print_self(seeds);
+#endif
     vector<bool> has_seed(seeds->size(), false);
     for (const auto& tree : trees) {
         tree.validate_zip_tree(distance_index, seeds, distance_limit);
