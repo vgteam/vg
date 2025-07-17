@@ -17,6 +17,11 @@ is $(ls auto.gcsa* | wc -l) 2 "autoindexing makes a GCSA2/LCP pair for vg map"
 vg sim -x auto.xg -n 20 -a -l 10 | vg map -d auto -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic autoindexing results can be used by vg map"
 
+old_xg_creation_time=`ls -lh auto.xg | cut -d ' ' -f8`
+vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased --no-guessing
+cur_xg_creation_time=`ls -lh auto.xg | cut -d ' ' -f8`
+is "$old_xg_creation_time" "$cur_xg_creation_time" "autoindexing with --no-guessing does not overwrite existing files"
+
 rm auto.*
 
 vg autoindex -p auto -w map -r small/x.fa -v small/x.vcf.gz -r small/y.fa -v small/y.vcf.gz 
