@@ -70,6 +70,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
+<a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1IntegratedSnarlFinder-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::IntegratedSnarlFinder Class Reference</div>  </div>
@@ -95,8 +96,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a888085d87664c7e58ad4f988091c62f5"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a888085d87664c7e58ad4f988091c62f5">IntegratedSnarlFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a377e8778235836602280747eb5813f58">graph</a>)</td></tr>
-<tr class="separator:a888085d87664c7e58ad4f988091c62f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19c40e8d1cf1dae5e55aa64f80f3c29c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a19c40e8d1cf1dae5e55aa64f80f3c29c">IntegratedSnarlFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a377e8778235836602280747eb5813f58">graph</a>, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;<a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a6cf4795aa64b79cc13a22fbcb77b8ce1">extra_node_weight</a>={})</td></tr>
+<tr class="separator:a19c40e8d1cf1dae5e55aa64f80f3c29c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a42a292777287dc89cdb9e58bbe5c50b8"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a42a292777287dc89cdb9e58bbe5c50b8">find_snarls_parallel</a> ()</td></tr>
 <tr class="separator:a42a292777287dc89cdb9e58bbe5c50b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31a75674d1cc7d5f2b6a028161c6038f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a31a75674d1cc7d5f2b6a028161c6038f">traverse_decomposition</a> (const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;begin_chain, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;end_chain, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;begin_snarl, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;end_snarl) const</td></tr>
@@ -117,6 +118,11 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ab843403935c08e4d1764b693a897c16c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#ab843403935c08e4d1764b693a897c16c">traverse_computed_decomposition</a> (<a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> &amp;cactus, const <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> &amp;forest, vector&lt; pair&lt; size_t, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt;&gt; &amp;longest_paths, unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;towards_deepest_leaf, vector&lt; pair&lt; size_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;longest_cycles, unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;next_along_cycle, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;begin_chain, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;end_chain, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;begin_snarl, const function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;end_snarl) const</td></tr>
 <tr class="separator:ab843403935c08e4d1764b693a897c16c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
+Private Attributes</h2></td></tr>
+<tr class="memitem:a6cf4795aa64b79cc13a22fbcb77b8ce1"><td class="memItemLeft" align="right" valign="top">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder.html#a6cf4795aa64b79cc13a22fbcb77b8ce1">extra_node_weight</a></td></tr>
+<tr class="separator:a6cf4795aa64b79cc13a22fbcb77b8ce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1HandleGraphSnarlFinder"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1HandleGraphSnarlFinder')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">vg::HandleGraphSnarlFinder</a></td></tr>
@@ -131,8 +137,8 @@ Additional Inherited Members</h2></td></tr>
 <p>Does not produce any unary snarls. May leave edges in the root snarl, at the ends of top-level chains.</p>
 <p>Does not (yet) use paths for rooting. Roots the decomposition at the simple cycle or bridge tree path with the most bases of fixed sequence. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a888085d87664c7e58ad4f988091c62f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a888085d87664c7e58ad4f988091c62f5">&#9670;&nbsp;</a></span>IntegratedSnarlFinder()</h2>
+<a id="a19c40e8d1cf1dae5e55aa64f80f3c29c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a19c40e8d1cf1dae5e55aa64f80f3c29c">&#9670;&nbsp;</a></span>IntegratedSnarlFinder()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -141,12 +147,24 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">vg::IntegratedSnarlFinder::IntegratedSnarlFinder </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extra_node_weight</em> = <code>{}</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Make a new <a class="el" href="classvg_1_1IntegratedSnarlFinder.html">IntegratedSnarlFinder</a> to find snarls in the given graph. </p>
+<p>Make a new <a class="el" href="classvg_1_1IntegratedSnarlFinder.html">IntegratedSnarlFinder</a> to find snarls in the given graph.</p>
+<p>Can optionally take a mapping of extra weight to assign to particular graph nodes, to control how the snarl tree is rooted. The snarl tree is rooted along the bridge edge path or cycle with the most fixes bases, so up-weighting nodes makes the rooting process prefer paths or cycles that include those nodes as fixed nodes, for rooting the snarl tree and defining top-level chains.</p>
+<p>The mapping is assumed to be small and cheap to copy. </p>
 
 </div>
 </div>
@@ -317,6 +335,30 @@ Additional Inherited Members</h2></td></tr>
 <p>Start handles are inward facing and end handles are outward facing. Snarls must be oriented forward in their chains. </p>
 
 <p>Implements <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a9cba8688e5dd28b23ed3529af122f308">vg::HandleGraphSnarlFinder</a>.</p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="a6cf4795aa64b79cc13a22fbcb77b8ce1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6cf4795aa64b79cc13a22fbcb77b8ce1">&#9670;&nbsp;</a></span>extra_node_weight</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::unordered_map&lt;<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t&gt; vg::IntegratedSnarlFinder::extra_node_weight</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Stores extra weight to add to the effective length of graph nodes when rooting the snarl decomposition. </p>
 
 </div>
 </div>

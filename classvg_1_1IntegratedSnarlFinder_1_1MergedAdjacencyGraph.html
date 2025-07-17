@@ -78,9 +78,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:aa09eaec5fd36cfe50b4313a38ba01fe1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#aa09eaec5fd36cfe50b4313a38ba01fe1">MergedAdjacencyGraph</a> (const <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">RankedHandleGraph</a> *<a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a932e7e9593e73f7a76a8f1756f4fb1f8">graph</a>)</td></tr>
-<tr class="memdesc:aa09eaec5fd36cfe50b4313a38ba01fe1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make a <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> representing the graph of adjacency components of the given RankedHandleGraph.  <a href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#aa09eaec5fd36cfe50b4313a38ba01fe1">More...</a><br /></td></tr>
-<tr class="separator:aa09eaec5fd36cfe50b4313a38ba01fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a2c4690ee439293d467ef453ca55bed"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a4a2c4690ee439293d467ef453ca55bed">MergedAdjacencyGraph</a> (const <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">RankedHandleGraph</a> *<a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a932e7e9593e73f7a76a8f1756f4fb1f8">graph</a>, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;<a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a9dd63bb4670dba4a8b32f835d6c2dd00">extra_node_weight</a>)</td></tr>
+<tr class="separator:a4a2c4690ee439293d467ef453ca55bed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8d7ea6f475144c3779568d9d552c1c7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#ab8d7ea6f475144c3779568d9d552c1c7">MergedAdjacencyGraph</a> (const <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> &amp;other)</td></tr>
 <tr class="memdesc:ab8d7ea6f475144c3779568d9d552c1c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copy a <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> by re-doing all the merges. Uses its own internal vectorization.  <a href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#ab8d7ea6f475144c3779568d9d552c1c7">More...</a><br /></td></tr>
 <tr class="separator:ab8d7ea6f475144c3779568d9d552c1c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -115,6 +114,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a7d285e6a4baec754e89edd5338589f3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84a5d20d03e165edd89bdddf7ccfa25f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a84a5d20d03e165edd89bdddf7ccfa25f">uf_handle</a> (size_t rank) const</td></tr>
 <tr class="separator:a84a5d20d03e165edd89bdddf7ccfa25f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20fed5af722cac3c6751f9b98b9c63a6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a20fed5af722cac3c6751f9b98b9c63a6">get_weighted_length</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:a20fed5af722cac3c6751f9b98b9c63a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -122,10 +123,12 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a932e7e9593e73f7a76a8f1756f4fb1f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6bcd65e92edd9e1bf925a9e4a8c7cc01"><td class="memItemLeft" align="right" valign="top">structures::UnionFind&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a6bcd65e92edd9e1bf925a9e4a8c7cc01">union_find</a></td></tr>
 <tr class="separator:a6bcd65e92edd9e1bf925a9e4a8c7cc01"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9dd63bb4670dba4a8b32f835d6c2dd00"><td class="memItemLeft" align="right" valign="top">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a9dd63bb4670dba4a8b32f835d6c2dd00">extra_node_weight</a></td></tr>
+<tr class="separator:a9dd63bb4670dba4a8b32f835d6c2dd00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="aa09eaec5fd36cfe50b4313a38ba01fe1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa09eaec5fd36cfe50b4313a38ba01fe1">&#9670;&nbsp;</a></span>MergedAdjacencyGraph() <span class="overload">[1/2]</span></h2>
+<a id="a4a2c4690ee439293d467ef453ca55bed"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a2c4690ee439293d467ef453ca55bed">&#9670;&nbsp;</a></span>MergedAdjacencyGraph() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -134,13 +137,22 @@ Protected Attributes</h2></td></tr>
           <td class="memname">vg::IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">RankedHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extra_node_weight</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Make a <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> representing the graph of adjacency components of the given RankedHandleGraph. </p>
+<p>Make a <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> representing the graph of adjacency components of the given RankedHandleGraph, assigning the givn extra weight to nodes in addition to their lengths. The extra node weight data must outlive the <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html">MergedAdjacencyGraph</a> and any copies. </p>
 
 </div>
 </div>
@@ -337,6 +349,33 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a20fed5af722cac3c6751f9b98b9c63a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a20fed5af722cac3c6751f9b98b9c63a6">&#9670;&nbsp;</a></span>get_weighted_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::IntegratedSnarlFinder::MergedAdjacencyGraph::get_weighted_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the length of a node in the handle graph, subject to any adjustments. </p>
+
+</div>
+</div>
 <a id="a98105712f44db6c5fadc3b9bd64f97f0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a98105712f44db6c5fadc3b9bd64f97f0">&#9670;&nbsp;</a></span>longest_paths_in_forest()</h2>
 
@@ -463,6 +502,29 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a9dd63bb4670dba4a8b32f835d6c2dd00"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9dd63bb4670dba4a8b32f835d6c2dd00">&#9670;&nbsp;</a></span>extra_node_weight</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::unordered_map&lt;<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t&gt;&amp; vg::IntegratedSnarlFinder::MergedAdjacencyGraph::extra_node_weight</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p><a class="el" href="structvg_1_1Mapping.html">Mapping</a> full of extra weight to assign to nodes, in addition to their actual length in bases, to control snarl tree rooting. Refers into the parent <a class="el" href="classvg_1_1IntegratedSnarlFinder.html">IntegratedSnarlFinder</a>. </p>
+
+</div>
+</div>
 <a id="a932e7e9593e73f7a76a8f1756f4fb1f8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a932e7e9593e73f7a76a8f1756f4fb1f8">&#9670;&nbsp;</a></span>graph</h2>
 
