@@ -740,14 +740,16 @@ size_t ZipCodeTree::get_offset_to_seed(size_t& i, bool right_to_left) const {
         size_t offset = 0;
 
         if (right_to_left) {
-            // Last chain's right to snarl end is 2nd to last in dist matrix
             // How many rows in distance matrix?
             size_t row_count = is_cyclic_snarl ? (chain_count + 1) * 2
-                                               : chain_count;
+                                               : chain_count + 1;
             // nth triangular number
             size_t dist_matrix_size = row_count * (row_count + 1) / 2;
+            // Last chain's right to snarl end is last in DAG dist matrix
+            // or 2nd-to-last in cyclic dist matrix
             // +1for CHAIN_COUNT is cancelled out by -1 for 2nd-to-last
-            offset += zip_code_tree[snarl_start + dist_matrix_size].get_value();
+            size_t i_offset = is_cyclic_snarl ? 0 : 1;
+            offset += zip_code_tree[snarl_start + dist_matrix_size + i_offset].get_value();
 
             // Skip snarl end & chain end
             i -= 2;
@@ -842,6 +844,7 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                 edge_dist = minimum_distance_self_nonzero(*forest_state.distance_index,
                     edge_seeds[from_i].seed_pos, to_pos, edge_seeds[to_i].node_length);
                 // Subtract distance from inner seed to edge of inner snarl
+                edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[from_i].nested_snarl_offset);
                 edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[to_i].nested_snarl_offset);
             } else {
                 // Inter-chain distance; assume we pass through chain bounds
@@ -868,6 +871,7 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
                                         const size_t& depth, bool snarl_is_reversed) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tadd distances for snarl at depth " << depth << endl;
+    print_self(forest_state.seeds);
 #endif
     vector<seed_info_t> edge_seeds = get_edge_seeds(forest_state, depth);
 

@@ -3295,7 +3295,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("One seed inside insertion") {
-            // TODO: ziptree
+            // [{1  inf  1  inf  inf  4  inf  4  inf  3  inf [(1  0  0  2 [4+0])]}]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
 
@@ -3312,8 +3312,29 @@ namespace unittest {
             zip_forest.fill_in_forest(seeds, distance_index);
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
+        SECTION("One seed in insertion and one right outside") {
+            // [{1  inf  0  inf  inf  3  inf  4  inf  3  inf
+            //     [2+0 1 (1  2  0  0 [4-0rev])]}]
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(4, true, 0);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (const auto& pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({pos, 0, zipcode});
+            }
+            VectorView<MinimizerMapper::Minimizer> minimizers;
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index);
+            zip_forest.validate_zip_forest(distance_index, &seeds);
+        }
         SECTION("One seed in insertion and two right outside") {
-            // TODO: ziptree
+            // [{1  inf  1  inf  inf  2  inf  4  inf  1  inf
+            //     [(1  2  0  0 [4-0rev]) 0 3+0 2 3+2]}]
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
             positions.emplace_back(3, false, 2);
@@ -3333,7 +3354,8 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
         SECTION("One seed on each node") {
-            // TODO: ziptree
+            // [1+0 2 {1  inf  0  inf  inf  3  inf  4  inf  3  inf
+            //     [2+0 1 (1  0  0  2 [4+0]) 0 3+0]} 0 5+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
