@@ -2944,6 +2944,16 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
+    /*
+    This test case will "pass" if you run it, but the forest will be weird
+    because the snarl finder gets very confused by the looping chain,
+    so the snarl/chain decomposition is quite odd.
+
+         3             <-- the graph looks like this, but the distance index
+        / \                thinks that 1/5 are in an irregular snarl,
+       2 - 4               with 2 outside; then it makes an irregular snarl
+      /     \              with 3 inside and 4 outside in a separate section.
+    1 ------- 5
     TEST_CASE("Looping chain zipcode tree", "[zip_tree]") {
         // chain 2rev->2rev
         VG graph;
@@ -2989,6 +2999,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(dist_index, &seeds, 100);
         }
     }
+    */
     TEST_CASE("ziptree with inversion inside of duplication", "[zip_tree]") {
         VG graph;
 
