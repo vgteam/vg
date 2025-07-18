@@ -842,7 +842,7 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                 edge_dist = minimum_distance_self_nonzero(*forest_state.distance_index,
                     edge_seeds[from_i].seed_pos, to_pos, edge_seeds[to_i].node_length);
                 // Subtract distance from inner seed to edge of inner snarl
-                edge_dist -= edge_seeds[to_i].nested_snarl_offset;
+                edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[to_i].nested_snarl_offset);
             } else {
                 // Inter-chain distance; assume we pass through chain bounds
                 chain_flank_dist = SnarlDistanceIndex::sum(edge_seeds[from_i].flank_offset, 
