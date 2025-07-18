@@ -222,6 +222,17 @@ class ZipCodeTree {
     /// Access the value at [index] in the zip_code_tree
     inline tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
+    /// Helper for add_distance_matrix()
+    /// Essentially re-calculates chain.distances.first/second for seeds
+    /// which are inside nested snarls
+    ///
+    /// If the seed is in a nested snarl, this is the distance to snarl edge
+    /// Otherwise it is 0
+    /// Moves i along to find the seed, and returns the offset
+    /// If right_to_left is true, then search leftward for the last seed
+    /// Otherwise, search rightward for the first seed
+    size_t get_offset_to_seed(size_t& i, bool right_to_left) const;
+
 protected:
     /// The actual tree structure
     vector<tree_item_t> zip_code_tree;
@@ -836,12 +847,16 @@ class ZipCodeForest {
         bool right_side;
         /// Rank of the seed's chain in the snarl
         size_t rank;
+        /// If this seed is in a nested snarl, and we're calculating
+        /// using minimum_distance, then we might need to subtract the
+        /// offset from inner seed to inner snarl edge
+        size_t nested_snarl_offset = 0;
 
         // Pass the seed's index (which is looked up from forest_state.seeds),
-        // whether its position should be reversed, and then raw values for
-        // the flank offset and which side to use
+        // whether its position should be reversed, and then a few raw values
         // In addition, snarl depth & forest_state are used to look up seed info
         seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
+                    size_t nested_snarl_offset,
                     const size_t& depth, const forest_growing_state_t forest_state);
 
         inline pos_t reverse_seed() const {
