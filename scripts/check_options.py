@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Check that command line options are correctly registered.
 
+Run with scripts/check_options.py
+
 ## Summary
 
 Reads the options within the helptext (help_<command>() function),
