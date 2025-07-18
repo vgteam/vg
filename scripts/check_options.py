@@ -191,6 +191,7 @@ class OptionInfo:
         """String representation of this OptionInfo."""
         if self.is_unset():
             return "no info"
+        
         if self.shortform is None:
             shortform_str = "no shortform"
         else:
@@ -201,9 +202,14 @@ class OptionInfo:
             else:
                 shortform_str = f'shortform "{self.shortform}"'
 
-        return (shortform_str + ", "
+        if self.errors is None or not self.errors:
+            error_string = "no errors"
+        else:
+            error_string = "; ".join(self.errors)
+
+        return (f"{shortform_str}, "
                 + ("does not take" if not self.takes_argument else "takes")
-                + " an argument")
+                + f" an argument; errors: {error_string}")
 
 def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     """Extract options from help_<command>()
