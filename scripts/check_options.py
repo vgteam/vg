@@ -257,8 +257,10 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
     # Match the line's prefix, which should be two spaces
     prefix = r'\s+'
-    # Match a shortform option: `-<short`
+    # Match a shortform option: `-<short>`
     shortform_patten = r'-[^\s]'
+    # Match the space between the forms: `, `
+    between_forms_pattern = r',*\s+'
     # Match a longform option: `--<long>`
     longform_patten = r'--[a-zA-Z0-9\-]+'
     # Match an optional argument in all-caps, with a preceeding space
@@ -274,8 +276,8 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
     is_giraffe = 'help_giraffe' in text
 
     help_pattern = re.compile(
-        rf'"({prefix})({shortform_patten}),\s({longform_patten})'
-        rf'({arg_pattern})?({desc_pattern})"'
+        rf'"({prefix})({shortform_patten})({between_forms_pattern})'
+        rf'({longform_patten})({arg_pattern})?({desc_pattern})"'
         )
     # Same pattern but without the shortform option
     long_only_pattern = re.compile(
@@ -293,21 +295,31 @@ def extract_help_options(text: str) -> Dict[str, OptionInfo]:
 
         prefix = match.group(1)
         shortform = match.group(2)[1:] if has_shortform else None
-        longform = match.group(3 if has_shortform else 2)[2:]
-        takes_arg = match.group(4 if has_shortform else 3) is not None
-        description_num = 5 if has_shortform else 4
+        between = match.group(3) if has_shortform else None
+        longform = match.group(4 if has_shortform else 2)[2:]
+        takes_arg = match.group(5 if has_shortform else 3) is not None
+        description_num = 6 if has_shortform else 4
         description = match.group(description_num)
 
         if len(prefix) != (6 if shortform is None else 2):
-                errors.append(f"Help option line '{stripped}' "
-                              "does not start with two spaces")
+                errors.append("Shortforms must have a two-space indent; "
+                              "longforms must have a six-space indent")
+        if between is not None:
+            if between[0] != ',':
+                errors.append(f"There must be a comma between "
+                              "shortform and longform")
+                spaces = len(between)
+            else:
+                spaces = len(between) - 1 # Ignore comma
+            if spaces != 1:
+                errors.append(f"There must be one space after the comma "
+                              "between shortform and longform")
         if not description.startswith('  '):
-            errors.append(f"Help option line '{stripped}' has less than "
-                            "two spaces between option and description")
-        if (shortform == '-h' and description.strip() != HELP_DESC
+            errors.append(f"There must be at least two spaces between"
+                          "option and description")
+        if (longform == 'help' and description.strip() != HELP_DESC
             and not is_giraffe):
-            errors.append(f"Help option -h does not have the expected "
-                            f"description '{HELP_DESC}'")
+            errors.append(f"--help must have the description '{HELP_DESC}'")
         
         # Count of blank spaces between option and description
         text_offset = re.match(r'\s+(.+)', description).start(1) - match.start()
