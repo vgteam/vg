@@ -3377,7 +3377,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
-    TEST_CASE("ziptree with reversion outside multi-chain cyclic snarl", "[zip_tree]") {
+    TEST_CASE("ziptree with wacky cyclic snarl stuff", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("AA");
@@ -3405,7 +3405,9 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("One seed on each node") {
-            // todo: ziptree
+            // [2+0rev 0 {2  inf  2  inf  inf  inf  inf  inf  inf  inf  inf  inf
+            //     inf  inf  2  inf  0  inf  inf  inf  0  inf [1+0rev][6+0rev]}
+            //     4 5+0rev 0 (2  3  2  inf  2  0  0 [3+0rev][4+0rev])]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
