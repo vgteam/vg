@@ -2361,10 +2361,10 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 1);
         }
         SECTION("Splice out chain") {
-            // TODO: ziptree
+            // ([1+6]) and [1+3]
             vector<pos_t> positions;
-            positions.emplace_back(1, false, 0);
-            positions.emplace_back(1, false, 7);
+            positions.emplace_back(1, false, 3);
+            positions.emplace_back(1, false, 6);
             
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (const auto& pos : positions) {
@@ -2375,8 +2375,8 @@ namespace unittest {
             }
 
             ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 5);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 5);
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
     }
