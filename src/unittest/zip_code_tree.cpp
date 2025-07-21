@@ -16,6 +16,40 @@
 
 namespace vg {
 namespace unittest {
+    ZipCodeForest make_and_validate_forest(const vector<pos_t>& positions, const SnarlDistanceIndex& distance_index,
+                                           size_t distance_limit = std::numeric_limits<size_t>::max()) {
+        // Convert these into Seed type
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (const auto& pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            zipcode.fill_in_full_decoder();
+            seeds.push_back({pos, 0, zipcode});
+        }
+
+        // Next, make a ZipCodeForest for the graph/seeds, and validate it
+        ZipCodeForest zip_forest;
+        zip_forest.fill_in_forest(seeds, distance_index, distance_limit);
+        zip_forest.validate_zip_forest(distance_index, &seeds, distance_limit);
+
+        return zip_forest;
+    }
+    unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> get_reverse_views(
+        const ZipCodeForest& zip_forest) {
+        // For each seed, what seeds and distances do we see in reverse from it?
+        unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> reverse_views;
+        // Follow the the usual iteration process
+        for (const auto& zip_tree : zip_forest.trees) {
+            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
+                auto dest = (*seed_itr).front();
+                reverse_views[dest] = vector<ZipCodeTree::seed_result_t>();
+                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
+                    reverse_views[dest].push_back((*dist_itr).front());
+                }
+            }
+        }
+        return reverse_views;
+    }
     TEST_CASE("zip tree one node", "[zip_tree]" ) {
         VG graph;
 
@@ -35,21 +69,8 @@ namespace unittest {
             // Define the seed positions at the top of the section
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
-            
-            // Convert these into Seed type
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                // Must fill in the zipcode for the seed
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            // Next, make a ZipCodeForest for the graph/seeds, and validate it
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            // Run make_and_validate_forest()
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
 
             // Finally, run any other spot checks as desired
             REQUIRE(zip_forest.trees.size() == 1);
@@ -75,15 +96,7 @@ namespace unittest {
             REQUIRE(seed_indexes.at(0).seed == 0);
 
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            // Follow the the usual iteration process
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
-                reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 1);
             // The only seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
@@ -95,17 +108,7 @@ namespace unittest {
             positions.emplace_back(1, false, 0);
             positions.emplace_back(1, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
 
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -148,14 +151,7 @@ namespace unittest {
             REQUIRE(seed_indexes.at(1).seed == 1);
 
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
-                reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 2);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
@@ -175,17 +171,7 @@ namespace unittest {
             positions.emplace_back(1, false, 1);
             positions.emplace_back(1, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
 
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -243,14 +229,7 @@ namespace unittest {
             }
 
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
-                reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
@@ -295,17 +274,7 @@ namespace unittest {
             positions.emplace_back(1, false, 1);
             positions.emplace_back(2, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -384,14 +353,7 @@ namespace unittest {
             }
 
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
-                reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 3);
             // The first seed can't see any other seeds
             REQUIRE(reverse_views.count({0, false}));
@@ -414,7 +376,6 @@ namespace unittest {
             REQUIRE(reverse_views[{2, false}][1].distance == 5);
             REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
         }
-
         SECTION("Two buckets") {
             // [1+2 1 2+0] and [2+6]
             vector<pos_t> positions;
@@ -423,17 +384,7 @@ namespace unittest {
             // New tree with distance limit 4
             positions.emplace_back(2, false, 6);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 4);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 4);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
         }
     }
@@ -460,17 +411,7 @@ namespace unittest {
             positions.emplace_back(1, false, 0);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 2);
             for (auto& zip_tree : zip_forest.trees) {
                 REQUIRE(zip_tree.get_tree_size() == 3);
@@ -493,16 +434,7 @@ namespace unittest {
                 }
             }
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            for (auto& zip_tree : zip_forest.trees) {
-                for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                    auto dest = (*seed_itr).front();
-                    reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                    for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                        reverse_views[dest].push_back((*dist_itr).front());
-                    }
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 2);
             // Neither seed can see any other seeds
             REQUIRE(reverse_views.count({0, false}));
@@ -518,17 +450,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(4, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 2);
 
             for (auto& zip_tree : zip_forest.trees) {
@@ -567,17 +489,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(4, false, 5);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 4);
         }
     }
@@ -613,17 +525,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -690,14 +592,7 @@ namespace unittest {
             }
 
             // For each seed, what seeds and distances do we see in reverse from it?
-            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
-                reverse_views[dest] = std::vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
-                }
-            }
+            auto reverse_views = get_reverse_views(zip_forest);
             REQUIRE(reverse_views.size() == 3);
             if (seed_indexes.at(0).is_reversed) {
                 // The first seed can't see any other seeds
@@ -731,17 +626,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];;
 
@@ -800,17 +685,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -832,17 +707,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -864,17 +729,7 @@ namespace unittest {
             positions.emplace_back(5, false, 1);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -894,17 +749,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(5, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
@@ -923,17 +768,7 @@ namespace unittest {
             positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 4);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 4);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("Only snarls in two buckets") {
@@ -944,17 +779,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("Snarls and nodes in three buckets") {
@@ -967,17 +792,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 1);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 1);
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Chain in snarl in a separate bucket") {
@@ -988,17 +803,7 @@ namespace unittest {
             positions.emplace_back(2, false, 3);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("Chain in snarl in a separate bucket another connected to end (or maybe start)") {
@@ -1010,17 +815,7 @@ namespace unittest {
             positions.emplace_back(2, false, 3);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
     }
@@ -1061,18 +856,8 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 4);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 4);
         }
     }
     TEST_CASE("zip tree bubble in cyclic snarl", "[zip_tree]") {
@@ -1112,17 +897,7 @@ namespace unittest {
             positions.emplace_back(5, false, 5);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 4);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 4);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
         }
     }
     TEST_CASE("zip tree bubble nested in inversion", "[zip_tree]") {
@@ -1160,18 +935,8 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(5, false, 4);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
         SECTION("Traverse nested chain backwards but the orientation of the chain is backwards in the snarl tree") {
             // [1+0 5 1+5 7 {1  inf  3  inf  0  inf  inf  7  3  0  inf
@@ -1185,18 +950,8 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(5, false, 4);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
     TEST_CASE("zip tree bubble nested in cyclic snarl", "[zip_tree]") {
@@ -1234,18 +989,8 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(5, false, 4);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
     TEST_CASE("zip tree snarl with inversion", "[zip_tree]") {
@@ -1280,18 +1025,8 @@ namespace unittest {
             positions.emplace_back(3, true, 1);
             positions.emplace_back(5, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
 
             bool chain_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()));
             if (chain_is_reversed) {
@@ -1368,17 +1103,7 @@ namespace unittest {
             positions.emplace_back(8, false, 0);
             positions.emplace_back(8, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -1425,17 +1150,7 @@ namespace unittest {
             positions.emplace_back(8, false, 0);
             positions.emplace_back(8, true, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 3);
         }
     }
@@ -1510,17 +1225,7 @@ namespace unittest {
             positions.emplace_back(15, false, 2);
             positions.emplace_back(16, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -1541,17 +1246,7 @@ namespace unittest {
             positions.emplace_back(13, false, 2);
             positions.emplace_back(15, false, 2);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             SECTION("Count dags") {
@@ -1568,17 +1263,7 @@ namespace unittest {
             positions.emplace_back(13, false, 2);
             positions.emplace_back(16, false, 5);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 4);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 4);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Remove empty snarls") {
@@ -1591,17 +1276,7 @@ namespace unittest {
             positions.emplace_back(7, false, 1);
             positions.emplace_back(4, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Chain connected on one end") {
@@ -1615,17 +1290,7 @@ namespace unittest {
             positions.emplace_back(7, false, 1);
             positions.emplace_back(4, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("Chain connected on the other end") {
@@ -1639,17 +1304,7 @@ namespace unittest {
             positions.emplace_back(7, false, 1);
             positions.emplace_back(4, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("One chain removed from a snarl") {
@@ -1663,17 +1318,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(11, false, 1);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 3);
         }
     }
@@ -1758,17 +1403,7 @@ namespace unittest {
             positions.emplace_back(16, false, 0);
             positions.emplace_back(20, false, 0);  
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
 
         }
@@ -1787,17 +1422,7 @@ namespace unittest {
             positions.emplace_back(12, false, 0);
             positions.emplace_back(21, false, 0);  
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 4);
         }
         SECTION("One slice from the start of a chain, connected to the end") {
@@ -1811,17 +1436,7 @@ namespace unittest {
             positions.emplace_back(13, false, 0);
             positions.emplace_back(21, false, 0);    
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
         }
         SECTION("One slice from the end of a chain, connected to the start") {
@@ -1837,17 +1452,7 @@ namespace unittest {
             positions.emplace_back(20, false, 0);    
             positions.emplace_back(21, false, 0);    
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
             REQUIRE(zip_forest.trees.size() == 2);
         }
     }
@@ -1887,17 +1492,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             SECTION("Count dags") {
@@ -1943,17 +1538,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             SECTION("Count dags") {
@@ -2002,17 +1587,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -2036,18 +1611,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (size_t i = 0 ; i < positions.size() ; i++) {
-                pos_t pos = positions[i];
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, i, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
 
@@ -2110,18 +1674,8 @@ namespace unittest {
             positions.emplace_back(4, false, 4);
             positions.emplace_back(5, false, 4);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
     TEST_CASE("zip tree duplication", "[zip_tree]") {
@@ -2154,18 +1708,8 @@ namespace unittest {
             positions.emplace_back(2, false, 2);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
     TEST_CASE("zip tree self loops", "[zip_tree]") {
@@ -2195,18 +1739,8 @@ namespace unittest {
             positions.emplace_back(2, false, 0);
             positions.emplace_back(2, true, 11);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
         SECTION("Cyclic snarl with seeds on either side") {
             // [4+0rev 0 {1  inf  0  0  22  22  20  24  0  22  inf 
@@ -2221,18 +1755,8 @@ namespace unittest {
             positions.emplace_back(2, true, 9);
             positions.emplace_back(4, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
 
             // Check self-loop distances
             // c1_left -> c1_left
@@ -2249,18 +1773,8 @@ namespace unittest {
             positions.emplace_back(2, true, 11);
             positions.emplace_back(2, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
         }
     }
     TEST_CASE("zip tree handles complicated nested snarls", "[zip_tree]") {
@@ -2293,9 +1807,6 @@ namespace unittest {
                                    {"from":"1","to":"6"},
                                    {"from":"10","to":"2"}]})", &graph);
 
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
@@ -2307,17 +1818,7 @@ namespace unittest {
             positions.emplace_back(5, false, 1);
             positions.emplace_back(10, false, 1);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
         }
     }
@@ -2347,17 +1848,7 @@ namespace unittest {
             positions.emplace_back(3, true, 0);
             positions.emplace_back(4, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
         }
         SECTION("Splice out chain") {
@@ -2366,17 +1857,7 @@ namespace unittest {
             positions.emplace_back(1, false, 3);
             positions.emplace_back(1, false, 6);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 2);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 2);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
         }
     }
@@ -2412,17 +1893,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(7, false, 17);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 61);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 61);
+            make_and_validate_forest(positions, distance_index, 61);
         }
     }
     TEST_CASE("Components of root", "[zip_tree]") {
@@ -2465,17 +1936,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 5);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 5);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 5);
             REQUIRE(zip_forest.trees.size() == 5);
         }
     }
@@ -2521,17 +1982,7 @@ namespace unittest {
             positions.emplace_back(5, true,  0);
             positions.emplace_back(6, true,  0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("Remove snarl and then a chain slice", "[zip_tree]") {
@@ -2579,17 +2030,7 @@ namespace unittest {
             positions.emplace_back(6, false, 4);
             positions.emplace_back(10, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
         SECTION("Snarl first") {
             // [(1  3  0  3 [(1  0  3  3 [3+0]) 10 10+0])], [6+4]
@@ -2598,17 +2039,7 @@ namespace unittest {
             positions.emplace_back(6, false, 4);
             positions.emplace_back(10, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
     }
     TEST_CASE("Remove a child of the top-level chain", "[zip_tree]") {
@@ -2638,17 +2069,7 @@ namespace unittest {
             positions.emplace_back(3, false, 3);
             positions.emplace_back(4, false, 7);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
         SECTION("Remove second child of snarl") {
             // [3+8] and [4+5]
@@ -2656,17 +2077,7 @@ namespace unittest {
             positions.emplace_back(3, false, 8);
             positions.emplace_back(4, false, 5);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
     }
     TEST_CASE("Remove a child of the top-level snarl", "[zip_tree]") {
@@ -2698,17 +2109,7 @@ namespace unittest {
             positions.emplace_back(3, false, 5);
             positions.emplace_back(4, false, 5);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
         SECTION("Remove second child of snarl") {
             // ([3+8]) and [4+5]
@@ -2716,17 +2117,7 @@ namespace unittest {
             positions.emplace_back(3, false, 8);
             positions.emplace_back(4, false, 5);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
         SECTION("Remove first child of snarl") {
             // ([4+0]) and [3+5]
@@ -2734,35 +2125,14 @@ namespace unittest {
             positions.emplace_back(3, false, 5);
             positions.emplace_back(4, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
         SECTION("Remove one chain") {
             // [4+4]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 4);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 3);
-            REQUIRE(zip_forest.trees.size()==1);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 3);
+            make_and_validate_forest(positions, distance_index, 3);
         }
     }
     TEST_CASE("Snp nested in looping snarl", "[zip_tree]") {
@@ -2808,17 +2178,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(7, false, 0);
             
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index, 100);
-            zip_forest.validate_zip_forest(distance_index, &seeds, 100);
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 100);
         }
     }
     TEST_CASE("zipcode tree simple chain with multiple connected components", "[zip_tree]") {
@@ -2843,8 +2203,8 @@ namespace unittest {
         Edge* e8 = graph.create_edge(n6, n7);
 
         IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex dist_index;
-        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         
         //graph.to_dot(cerr);
 
@@ -2856,17 +2216,7 @@ namespace unittest {
             positions.emplace_back(4, false, 3);
             positions.emplace_back(8, false, 3);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index, 100);
-            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+            make_and_validate_forest(positions, distance_index, 100);
         }
     }
     TEST_CASE("zipcode tree multicomponent chain nested in irregular snarl", "[zip_tree]" ) {
@@ -2904,8 +2254,8 @@ namespace unittest {
         Edge* e16 = graph.create_edge(n12, n13);
 
         IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex dist_index;
-        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         
         //graph.to_dot(cerr);
 
@@ -2924,17 +2274,7 @@ namespace unittest {
             positions.emplace_back(n8->id(), false, 0);
             positions.emplace_back(n9->id(), false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index, 100);
-            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+            make_and_validate_forest(positions, distance_index, 100);
         }
         SECTION("Cross unreachable chain including snarl that is not start-end reachable") {
             // 0: [{1  inf  1  inf  inf  inf  inf  0  inf  3  inf
@@ -2950,17 +2290,7 @@ namespace unittest {
             positions.emplace_back(n8->id(), false, 0);
             positions.emplace_back(n9->id(), false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index, 100);
-            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+            make_and_validate_forest(positions, distance_index, 100);
         }
     }
     /*
@@ -3004,18 +2334,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index, 100);
-            zip_forest.validate_zip_forest(dist_index, &seeds, 100);
+            make_and_validate_forest(positions, distance_index, 100);
         }
     }
     */
@@ -3037,8 +2356,8 @@ namespace unittest {
         Edge* e7 = graph.create_edge(n4, n2);
 
         IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex dist_index;
-        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION("One seed in inversion") {
             // [{1  inf  7  3  1  6  9  6  2  8  inf
@@ -3046,36 +2365,14 @@ namespace unittest {
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index);
-            zip_forest.validate_zip_forest(dist_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed outside inversion") {
             // [{1  inf  7  9  4  6  3  6  2  11  inf [4+0rev]}]
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index);
-            zip_forest.validate_zip_forest(dist_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed inside and one seed outside inversion") {
             // [{1  inf  7  9  1  6  9  6  2  8  inf [4+0rev 0
@@ -3086,16 +2383,7 @@ namespace unittest {
 
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
 
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index);
-            zip_forest.validate_zip_forest(dist_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on either side of inversion") {
             // [{1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 4 2+0rev]}]
@@ -3105,16 +2393,7 @@ namespace unittest {
 
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
 
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index);
-            zip_forest.validate_zip_forest(dist_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on each node") {
             // [1+0 3 {1  inf  7  9  0  2  7  6  2  7  inf [4+0rev 0
@@ -3128,16 +2407,7 @@ namespace unittest {
 
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
 
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(dist_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, dist_index);
-            zip_forest.validate_zip_forest(dist_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("ziptree with duplications sharing a start point", "[zip_tree]") {
@@ -3174,18 +2444,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("ziptree with properly nested duplications", "[zip_tree]") {
@@ -3214,18 +2473,7 @@ namespace unittest {
             vector<pos_t> positions;
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed in each duplication") {
             // [{1  inf  0  inf  inf  2  inf  6  inf  2  inf
@@ -3234,18 +2482,7 @@ namespace unittest {
             positions.emplace_back(2, false, 0);
             positions.emplace_back(3, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on either side of inner duplication") {
             // [{1  inf  0  inf  inf  2  inf  6  inf  2  inf [2+0 4 4+0]}]
@@ -3253,18 +2490,7 @@ namespace unittest {
             positions.emplace_back(2, false, 0);
             positions.emplace_back(4, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on each node") {
             // [1+0 2 {1  inf  0  inf  inf  2  inf  6  inf  2  inf [2+0 1
@@ -3276,18 +2502,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("ziptree with duplication around an insertion", "[zip_tree]") {
@@ -3318,18 +2533,7 @@ namespace unittest {
             vector<pos_t> positions;
             positions.emplace_back(4, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed in insertion and one right outside") {
             // [{1  inf  0  inf  inf  3  inf  4  inf  3  inf
@@ -3338,18 +2542,7 @@ namespace unittest {
             positions.emplace_back(2, false, 0);
             positions.emplace_back(4, true, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed in insertion and two right outside") {
             // [{1  inf  1  inf  inf  2  inf  4  inf  1  inf
@@ -3359,18 +2552,7 @@ namespace unittest {
             positions.emplace_back(3, false, 2);
             positions.emplace_back(4, true, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
         SECTION("One seed on each node") {
             // [1+0 2 {1  inf  0  inf  inf  3  inf  4  inf  3  inf
@@ -3382,18 +2564,7 @@ namespace unittest {
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("ziptree with wacky cyclic snarl stuff", "[zip_tree]") {
@@ -3435,18 +2606,7 @@ namespace unittest {
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
 
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            for (const auto& pos : positions) {
-                ZipCode zipcode;
-                zipcode.fill_in_zipcode(distance_index, pos);
-                zipcode.fill_in_full_decoder();
-                seeds.push_back({pos, 0, zipcode});
-            }
-            VectorView<MinimizerMapper::Minimizer> minimizers;
-
-            ZipCodeForest zip_forest;
-            zip_forest.fill_in_forest(seeds, distance_index);
-            zip_forest.validate_zip_forest(distance_index, &seeds);
+            make_and_validate_forest(positions, distance_index);
         }
     }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
@@ -3478,7 +2638,7 @@ namespace unittest {
 
             // Check k random sets of seeds
             for (size_t k = 0; k < 10 ; k++) {
-                vector<SnarlDistanceIndexClusterer::Seed> seeds;
+                vector<pos_t> positions;
 
                 uniform_int_distribution<int> randPosCount(3, 70);
                 for (int j = 0; j < randPosCount(generator); j++) {
@@ -3489,21 +2649,13 @@ namespace unittest {
 
                     offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
 
-                    pos_t pos = make_pos_t(nodeID1,
+                    positions.emplace_back(nodeID1,
                                            uniform_int_distribution<int>(0,1)(generator) == 0,
-                                           offset1 );
-
-                    ZipCode zipcode;
-                    zipcode.fill_in_zipcode(distance_index, pos);
-                    zipcode.fill_in_full_decoder();
-
-                    seeds.push_back({pos, (size_t)j, zipcode});
+                                           offset1);
                 }
                 size_t limit = distance_limit(generator);
 
-                ZipCodeForest zip_forest;
-                zip_forest.fill_in_forest(seeds, distance_index, limit);
-                zip_forest.validate_zip_forest(distance_index, &seeds, limit);
+                ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, limit);
                 REQUIRE(true); // Just to count
             }
         }
@@ -3522,18 +2674,7 @@ namespace unittest {
         vector<pos_t> positions;
         // add seeds as needed
 
-        vector<SnarlDistanceIndexClusterer::Seed> seeds;
-        for (const auto& pos : positions) {
-            ZipCode zipcode;
-            zipcode.fill_in_zipcode(distance_index, pos);
-            zipcode.fill_in_full_decoder();
-            seeds.push_back({pos, 0, zipcode});
-        }
-        VectorView<MinimizerMapper::Minimizer> minimizers;
-
-        ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, distance_index);
-        zip_forest.validate_zip_forest(distance_index, &seeds);
+        make_and_validate_forest(positions, distance_index);
     }
     */
 }
