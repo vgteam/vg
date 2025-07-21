@@ -2360,6 +2360,25 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, &seeds);
             REQUIRE(zip_forest.trees.size() == 1);
         }
+        SECTION("Splice out chain") {
+            // TODO: ziptree
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(1, false, 7);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (const auto& pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                zipcode.fill_in_full_decoder();
+                seeds.push_back({pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 5);
+            zip_forest.validate_zip_forest(distance_index, &seeds, 5);
+            REQUIRE(zip_forest.trees.size() == 2);
+        }
     }
     TEST_CASE("One nested dag snarl", "[zip_tree]") {
         VG graph;
