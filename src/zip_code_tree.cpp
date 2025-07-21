@@ -314,7 +314,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 }
 
     // There will only be a relevant snarl ID if the chain is a child of a snarl
-    auto snarl_id = depth >= 2 ? forest_state.sibling_indices_at_depth[depth-2][0].snarl_id 
+    auto snarl_id = depth >= 1 ? forest_state.sibling_indices_at_depth[depth-1][0].snarl_id 
                                : std::numeric_limits<size_t>::max();
     ZipCode::code_type_t current_type = current_seed.zipcode.get_code_type(depth);
 
@@ -423,6 +423,9 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 bool moved_full_chain = move_slice(forest_state, chain_depth);
                 // Current chain slice was also too far away from prior thing
                 if (moved_full_chain) {
+                    // Since the full chain was moved, the back is a bound
+                    // We can safely copy its ID
+                    snarl_id = trees[forest_state.active_tree_index].zip_code_tree.back().get_value();
                     // Add back the start of the chain
                     trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
                         ZipCodeTree::CHAIN_START, snarl_id);
@@ -1025,6 +1028,8 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
                 validate_snarl(cur_snarl_start, distance_index, seeds, distance_limit);
             }
 
+            // Snarls are not allowed to have inf IDs
+            assert(item.get_value() != std::numeric_limits<size_t>::max());
             tree_stack.push(item);
         } else if (item.get_type() == CHAIN_START) {
             if (tree_stack.empty()) {
