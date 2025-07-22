@@ -12,7 +12,7 @@
 #include <structures/min_max_heap.hpp>
 
 //#define debug_chaining
-//#define debug_transition
+#define debug_transition
 
 namespace vg {
 namespace algorithms {
@@ -259,9 +259,9 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 
 #ifdef debug_transition
     for (const auto& cur_anchor : dest_anchors) {
-        auto dest_seed = dcur_anchor.first;
+        auto dest_seed = cur_anchor.first;
         std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos 
-                  << (dest_seed.is_reverse ? "rev" : "") << " is anchor #" << cur_anchor.second << std::endl;
+                  << (dest_seed.is_reversed ? "rev" : "") << " is anchor #" << cur_anchor.second << std::endl;
     }
 #endif
 
@@ -271,9 +271,9 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     vector<ZipCodeTree::seed_result_t> source_seeds = *source;
 
 #ifdef debug_transition
-    std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos 
-              << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance 
-              << "/" << max_graph_lookback_bases;
+    std::cerr << "\tSource seed S" << source_seeds[0].seed << " " << seeds[source_seeds[0].seed].pos 
+              << (source_seeds[0].is_reversed ? "rev" : "")
+              << " at distance " << source_seeds[0].distance << "/" << max_graph_lookback_bases;
 #endif
                     for (const auto& cur_dest : dest_anchors) {
                         for (const auto& cur_source : source_seeds) {
