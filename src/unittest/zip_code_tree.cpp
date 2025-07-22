@@ -2655,7 +2655,7 @@ namespace unittest {
                 }
                 size_t limit = distance_limit(generator);
 
-                ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, limit);
+                make_and_validate_forest(positions, distance_index, limit);
                 REQUIRE(true); // Just to count
             }
         }
