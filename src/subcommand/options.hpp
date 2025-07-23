@@ -498,35 +498,42 @@ struct BaseArgSpec : public TickChainLink {
     virtual void query(BaseValuation& entry) const = 0;
     /// Apply the value to the right field of the given object.
     virtual void apply(Receiver& receiver) const = 0;
-     /// Print value to the given stream after the given separator.
-    virtual void print_value(ostream& out, const char* sep = "") const = 0;
+    /// Print value to the given stream after the given separator.
+    /// Returns true if any output was produced.
+    virtual bool print_value(ostream& out, const char* sep = "") const = 0;
     /// Print value metavar placeholder to the given stream after the given separator.
     virtual void print_metavar(ostream& out, const char* sep = "") const = 0;
     /// Print default value to the given stream, if appropriate.
     virtual void print_default(ostream& out) const = 0;
     /// Print option and value to the given stream, without newlines, using the given prefix and format.
     /// If slug is set, only print if variable, use short option if available and don't include spaces.
-    virtual void print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
+    /// Returns true if any output was produced.
+    virtual bool print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
         if (format == OptionFormat::SLUG && this->is_static()) {
             // We never change, so exclude from the slug
-            return;
+            return false;
         }
         out << before;
+        bool to_return = !(strlen(before) == 0);
         if (format == OptionFormat::JSON) {
             out << "\"";
+            to_return = true;
         }
         if (format == OptionFormat::SLUG && this->short_option != '\0') {
             out << "-" << this->short_option;
+            to_return = true;
         } else {
             out << (format == OptionFormat::JSON ? "" : "--") << this->option;
         }
         if (format == OptionFormat::JSON) {
             out << "\":";
         }
-        this->print_value(out, format == OptionFormat::CLI ? " " : "");
+        to_return |= this->print_value(out, format == OptionFormat::CLI ? " " : "");
         if (format == OptionFormat::CLI) {
             out << endl;
+            to_return = true;
         }
+        return to_return;
     }
     /// Get the getopt structure for this option. Option must outlive it and not move.
     virtual struct option get_option_struct() const = 0;
@@ -669,7 +676,7 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
     virtual void print_metavar(ostream& out, const char* sep = "") const {
         out << sep << get_metavar<T>();
     }
-    virtual void print_value(ostream& out, const char* sep = "") const {
+    virtual bool print_value(ostream& out, const char* sep = "") const {
         out << sep;
         if (std::is_integral<T>::value) {
             // Looks like a char, so print it as a number.
@@ -678,6 +685,7 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
         } else {
             out << value;
         }
+        return true;
     }
     virtual void print_default(ostream& out) const {
         out << " [";
@@ -739,13 +747,14 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
     virtual void print_metavar(ostream& out, const char* sep = "") const {
         // Don't do anything
     }
-    virtual void print_value(ostream& out, const char* sep = "") const {
+    virtual bool print_value(ostream& out, const char* sep = "") const {
         // Don't do anything
+        return false;
     }
     virtual void print_default(ostream& out) const {
         // Don't do anything
     }
-    virtual void print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
+    virtual bool print(ostream& out, const char* before = "", OptionFormat format = OptionFormat::CLI) const {
         // Override print to just print the flag when used
         if (this->value != this->default_value) {
             if (format == OptionFormat::JSON) {
@@ -764,7 +773,9 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
             if (format == OptionFormat::CLI) {
                 out << endl;
             }
+            return true;
         }
+        return false;
     }
     virtual struct option get_option_struct() const {
         return {this->option.c_str(), no_argument, 0, this->option_id};
@@ -794,8 +805,9 @@ struct BaseOptionGroup : public TickChainLink {
     /// that option. If so, return true.
     virtual bool query(BaseValuation& entry) const = 0;
     
-    /// Print all options set, in the given format.
-    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const = 0;
+    /// Print all options set, in the given format. Returns true if any output
+    /// was produced.
+    virtual bool print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const = 0;
     
     /// Get help, in the form of pairs of options and descriptions.
     /// Headings are descriptions without options.
@@ -973,26 +985,30 @@ struct OptionGroup : public BaseOptionGroup {
     }
     
     /// Print all options set
-    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const {
+    virtual bool print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const {
+        bool to_return = false;
         if (format == OptionFormat::SLUG) {
             for (auto& arg : args) {
                 // Print unseparated short options
                 if (!arg->is_static()) {
-                    arg->print(out, "", format);
+                    to_return |= arg->print(out, "", format);
                 }
             }
         } else if (format == OptionFormat::JSON) {
             bool first = true;
             for (auto& arg : args) {
-                arg->print(out, first ? "" : ",", format);
-                first = false;
+                bool printed_anything = arg->print(out, first ? "" : ",", format);
+                // If this produces no output, stay in first mode.
+                first &= !printed_anything;
+                to_return |= printed_anything;
             }
         } else {
             for (auto& arg : args) {
                 // Print long options, one per line
-                arg->print(out, "", format);
+                to_return |= arg->print(out, "", format);
             }
         }
+        return to_return;
     }
     
     /// Apply all flags to the receiver
@@ -1063,7 +1079,8 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Heading we will appear under in the help.
     std::string heading;
-    /// Holds the argument definitions and parsing destinations. Because they are chained up they can't move.
+    /// Holds the argument definitions and parsing destinations. Because they
+    /// are chained up and point to each other, they can't move.
     std::vector<std::unique_ptr<BaseArgSpec<Receiver>>> args;
     /// Map from option ID to option index
     std::unordered_map<int, size_t> id_to_index;
@@ -1140,7 +1157,7 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     
     virtual bool query(BaseValuation& entry) const;
     
-    virtual void print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const;
+    virtual bool print_options(ostream& out, OptionFormat format = OptionFormat::CLI) const;
     
     virtual std::vector<std::pair<std::string, std::string>> get_help() const;
     

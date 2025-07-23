@@ -12,6 +12,7 @@
 #include "banded_global_aligner.hpp"
 #include "vg/io/json2pb.h"
 #include "bdsg/hash_graph.hpp"
+#include "../algorithms/pad_band.hpp"
 
 using namespace google::protobuf;
 using namespace vg::io;
@@ -1629,6 +1630,43 @@ namespace vg {
                 // scores behave as expected
                 REQUIRE(aln_reduced.score() > aln_full.score());
             }
+        }
+
+        TEST_CASE( "Banded global aligner produces correct alignment for big indel on tiny graph",
+                  "[alignment][multialignment][banded][mapping][surject]" ) {
+            
+            
+            // Use a graph with empty nodes like we use in surjection.
+            bdsg::HashGraph graph;
+            handle_t h1 = graph.create_handle("", 11);
+            handle_t h2 = graph.create_handle("GT", 12);
+            handle_t h3 = graph.create_handle("G", 13);
+            handle_t h4 = graph.create_handle("", 14);
+
+            graph.create_edge(h1, h2);
+            graph.create_edge(h2, h3);
+            graph.create_edge(h3, h4);
+            
+            // Use the high score regime we use for surjection
+            TestAligner aligner_source;
+            aligner_source.set_alignment_scores(10, 40, 61, 10, 50);
+            const Aligner& aligner = *aligner_source.get_regular_aligner();
+            
+            
+            string read = string("GTGTGTGTGTG");
+            Alignment aln;
+            aln.set_sequence(read);
+            
+            int max_multi_alns = 1;
+            int band_padding = 1;
+            bool permissive_banding = true;
+            vector<Alignment> multi_alns;
+            
+            aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
+                                              vg::algorithms::pad_band_min_random_walk(1.0, 2000, 16)(aln, graph), permissive_banding);
+            
+            // We should have 3 matches, 1 gap open, and 7 gap extends
+            REQUIRE(aln.score() == 3 * 10 + 1 * -61 + 7 * -10);
         }
         
         TEST_CASE( "Banded global aligner produces correct alternate alignments in different traceback scenarios",

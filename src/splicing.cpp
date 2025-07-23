@@ -1330,7 +1330,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         auto trace = trace_path(left_mp_aln, splice_segment.path(), j, k, l, m, false, splice_junction_idx);
         if (trace.first > left_path_trace) {
             left_path_trace = trace.first;
-            left_mp_aln_trace = move(trace.second);
+            left_mp_aln_trace = std::move(trace.second);
         }
         else if (trace.first == left_path_trace) {
             for (auto& mp_aln_trace : trace.second) {
@@ -1346,7 +1346,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         auto trace = trace_path(right_mp_aln, splice_segment.path(), j, k, l, m, true, splice_junction_idx);
         if (trace.first < right_path_trace) {
             right_path_trace = trace.first;
-            right_mp_aln_trace = move(trace.second);
+            right_mp_aln_trace = std::move(trace.second);
         }
         else if (trace.first == right_path_trace) {
             for (auto& mp_aln_trace : trace.second) {
@@ -1452,7 +1452,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         }
         
         if (left_removed_so_far[i]) {
-            *left_mp_aln.mutable_subpath(i - left_removed_so_far[i]) = move(*left_mp_aln.mutable_subpath(i));
+            *left_mp_aln.mutable_subpath(i - left_removed_so_far[i]) = std::move(*left_mp_aln.mutable_subpath(i));
         }
         left_removed_so_far[i + 1] = left_removed_so_far[i];
     }
@@ -1523,7 +1523,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         
         auto subpath = left_mp_aln.add_subpath();
         subpath->set_score(splice_segment_halves.first.second);
-        *subpath->mutable_path() = move(splice_segment_halves.first.first);
+        *subpath->mutable_path() = std::move(splice_segment_halves.first.first);
     }
     
     if (have_right_linker) {
@@ -1545,7 +1545,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         
         auto subpath = left_mp_aln.add_subpath();
         subpath->set_score(splice_segment_halves.second.second);
-        *subpath->mutable_path() = move(splice_segment_halves.second.first);
+        *subpath->mutable_path() = std::move(splice_segment_halves.second.first);
     }
     
 #ifdef debug_fusing
@@ -1644,7 +1644,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             }
         }
         
-        *left_mp_aln.add_subpath() = move(*right_mp_aln.mutable_subpath(i));
+        *left_mp_aln.add_subpath() = std::move(*right_mp_aln.mutable_subpath(i));
         right_removed_so_far[i + 1] = right_removed_so_far[i];
     }
     // fix up the edges on the transferred subpaths from the right alignment
@@ -1699,7 +1699,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #endif
     
     // pass the left (where we collected everything) out without copying
-    return move(left_mp_aln);
+    return std::move(left_mp_aln);
 }
 
 

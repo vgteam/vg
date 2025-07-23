@@ -647,9 +647,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Turn N/N subs into matches and score the alignments without end bonuses.
         align_ns(left_subgraph, aln_left);
-        aln_left.set_score(aligner.score_contiguous_alignment(aln_left, true));
+        aln_left.set_score(aligner.score_contiguous_alignment(aln_left, false, false));
         align_ns(right_subgraph, aln_right);
-        aln_right.set_score(aligner.score_contiguous_alignment(aln_right, true));
+        aln_right.set_score(aligner.score_contiguous_alignment(aln_right, false, false));
         
         
 #ifdef debug
@@ -698,7 +698,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_contiguous_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, false, false));
 
 #ifdef debug                
                 if (aligned_in_band) {
@@ -812,7 +812,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_contiguous_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, false, false));
                 
 #ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)

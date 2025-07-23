@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 8
+plan tests 15
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -34,12 +34,28 @@ rm -f x.sorted.gam x.sorted.2.gam x.shuffled.gam min_ids.gamsorted.txt min_ids.s
 # GAF. Correctness is tested in unit tests, so we just check that the commands work.
 vg convert -G x.gam x.xg > x.gaf
 sort x.gaf > x.gaf.lexicographic
+rm -f x.gbwt
 
 vg gamsort -G x.gaf > x.sorted.gaf
 is "$?" "0" "GAFs can be sorted"
+is "$(ls x.gbwt 2> /dev/null)" "" "GBWT index is not created by default"
 sort x.sorted.gaf > x.sorted.gaf.lexicographic
 cmp x.gaf.lexicographic x.sorted.gaf.lexicographic
 is "$?" "0" "Sorting a GAF preserves read data"
+
+vg gamsort -G x.gaf -g x.gbwt > x.sorted.gaf
+is "$?" "0" "GAFs can be sorted while creating a GBWT index"
+is "$(ls x.gbwt 2> /dev/null)" "x.gbwt" "GBWT index can be created"
+sort x.sorted.gaf > x.sorted.gaf.lexicographic
+cmp x.gaf.lexicographic x.sorted.gaf.lexicographic
+is "$?" "0" "Sorting a GAF preserves read data with GBWT index"
+
+vg gamsort -G x.gaf -g x.gbwt --bidirectional > x.sorted.gaf
+is "$?" "0" "GAFs can be sorted while creating a bidirectional GBWT index"
+is "$(ls x.gbwt 2> /dev/null)" "x.gbwt" "Bidirectional GBWT index can be created"
+sort x.sorted.gaf > x.sorted.gaf.lexicographic
+cmp x.gaf.lexicographic x.sorted.gaf.lexicographic
+is "$?" "0" "Sorting a GAF preserves read data with bidirectional GBWT index"
 
 vg gamsort -G --shuffle x.gaf > x.shuffled.gaf
 is "$?" "0" "GAFs can be shuffled"
@@ -48,6 +64,7 @@ cmp x.gaf.lexicographic x.shuffled.gaf.lexicographic
 is "$?" "0" "Shuffling a GAF preserves read data"
 
 rm -f x.gaf x.gaf.lexicographic x.sorted.gaf x.sorted.gaf.lexicographic x.shuffled.gaf x.shuffled.gaf.lexicographic
+rm -f x.gbwt
 
 
 # Cleanup

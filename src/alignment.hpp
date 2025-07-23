@@ -16,10 +16,13 @@
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 #include <vg/io/alignment_emitter.hpp>
+#include "hts_alignment_emitter.hpp"
 
 namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
+
+// htslib-based alignment read functions
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
@@ -27,6 +30,8 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda,
                  const PathPositionHandleGraph* graph);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
+
+// FASTQ-input functions
 
 // parsing a FASTQ record, optionally intepreting the comment as SAM-style tags
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment, bool comment_as_tags);
@@ -65,12 +70,23 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
                                                            bool comment_as_tags = false,
                                                            uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
 
+// Functions to read indexed GAF.
+// TODO: move to libvgio?
+
+/// Find each distinct GAF record intersecting any of the given sorted node ID ranges.
+/// Presents the GAF record as a string, even though it is parsed internally.
+/// If you need the gfakluge::GafRecord, refactor this function instead of parsing it again.
+void for_each_gaf_record_in_ranges(htsFile* gaf_fp, tbx_t* gaf_tbx, const vector<pair<vg::id_t, vg::id_t>>& ranges, const std::function<void(const std::string&)>& iteratee);
+
+/// Return True if the given parsed GAF record has any node IDs that occur in the given ID range.
+/// Raises an exception if any GAF path entries aren't ID visits.
+bool gaf_record_intersects_range(const gafkluge::GafRecord& record, const std::pair<nid_t, nid_t>& range);
+
+// More htslib-based functions
+
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
-                             const map<string, int64_t>& path_length,
-                             const map<string, string>& rg_sample);
-bam_hdr_t* hts_string_header(string& header,
-                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const SequenceDictionary& sequence_dictionary,
                              const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
@@ -90,6 +106,12 @@ Alignment bam_to_alignment(const bam1_t *b,
                            const PathPositionHandleGraph* graph);
 Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
+// the CIGAR string of the graph alignment
+vector<pair<int, char>> graph_cigar(const Alignment& aln, bool rev_strand = false);
+// the CS-style (i.e. verbose) CIGAR difference string of the graph alignment
+string graph_CS_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_strand = false);
+// the cs-style (i.e. compact) CIGAR difference string of the graph alignment
+string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_stand = false);
 /**
  * Add a CIGAR operation to a vector representing the parsed CIGAR string.
  *
@@ -246,17 +268,22 @@ Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
 vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2);
+/// Get an Alignment corresponding to the middle len bases of the given alignment
 Alignment alignment_middle(const Alignment& aln, int len);
-// generate a digest of the alignmnet
+/// Cut the Alignment into contiguous pieces visiting nodes in the given node set, defined by a membership predicate.
+/// Will pass the original Alignment through if it is fully contained.
+/// Cut pieces will not have score or annotations set, but will keep mapping quality.
+std::vector<Alignment> alignment_pieces_within(const Alignment& aln, const std::function<bool(nid_t)>& node_in_set);
+// generate a digest of the alignment
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
 // ends of their nodes. Offsets will be updated to count unused bases from node
 // start when considering the node in its new orientation.
-Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
-void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
-vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(nid_t)>& node_length);
+void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(nid_t)>& node_length);
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length);
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
@@ -272,6 +299,9 @@ string signature(const Alignment& aln);
 pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
 string middle_signature(const Alignment& aln, int len);
 pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
+// Return whether the path is a perfect match (i.e. contains no non-match edits)
+// and has no soft clips (e.g. like in vg stats -a)
+bool is_perfect(const Alignment& alignment);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);

@@ -51,21 +51,21 @@ namespace vg {
                 continue;
             }
             else if (buffer != ".") {
-                record.sequence_id = move(buffer);
+                record.sequence_id = std::move(buffer);
             }
             buffer.clear();
             
             // parse data source
             getline(in, buffer, '\t');
             if (buffer != ".") {
-                record.source = move(buffer);
+                record.source = std::move(buffer);
             }
             buffer.clear();
             
             // parse type of annotation
             getline(in, buffer, '\t');
             if (buffer != ".") {
-                record.type = move(buffer);
+                record.type = std::move(buffer);
             }
             buffer.clear();
             
@@ -107,7 +107,7 @@ namespace vg {
             // parse annotations (but leave as an unparsed string)
             getline(in, buffer, '\n');
             if (buffer != ".") {
-                record.attributes = move(buffer);
+                record.attributes = std::move(buffer);
             }
             
             // execute the iteratee

@@ -19,14 +19,14 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 
     //Now add the root-level snarl or chain
     if (distance_index.is_root_snarl(current_handle)) {
-        //FIrst thing is a snarl, so add the snarl's connected component number
+        //First thing is a snarl, so add the snarl's connected component number
         zipcode.add_value(0);
 #ifdef DEBUG_ZIPCODE
         cerr << "Adding code for top-level snarl " << distance_index.net_handle_as_string(current_handle) << endl;
 #endif
         zipcode.add_value(distance_index.get_connected_component_number(current_handle));
     } else {
-        //FIrst thing is a chain so add its connected component number and remove the chain from the stack
+        //First thing is a chain so add its connected component number and remove the chain from the stack
         zipcode.add_value(1);
 
         //If the root-level structure is actually a chain, then save the connected component number and take out
@@ -1339,7 +1339,7 @@ size_t ZipCode::minimum_distance_between(ZipCode& zip1, const pos_t& pos1,
             cerr << "Distances to parent irregular snarl: " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 #endif
         } else if (parent_type == REGULAR_SNARL) {
-            //If its a regular snarl, then the distances to the ends are either 0 or inf
+            //If it's a regular snarl, then the distances to the ends are either 0 or inf
             //For a regular snarl, the snarl stores if the child was reversed, rather than the child
             if (zip.get_is_reversed_in_parent(child_depth)) {
                 distance_start_left = std::numeric_limits<size_t>::max();
@@ -1503,7 +1503,7 @@ cerr << "Finding distances to ancestors of first position" << endl;
     for (int i = zip1.decoder_length()-2 ; i > 0 && i > lowest_common_ancestor_depth ; i--) {
         //the parent snarl tree node is at index i
         //The distances are currently to the ends of the current node
-        //FInd the distances to the ends of the parent
+        //Find the distances to the ends of the parent
         update_distances_to_ends_of_parent(zip1, i+1, distance_to_start1, distance_to_end1);
     }
 #ifdef DEBUG_ZIPCODE
@@ -1513,7 +1513,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
     for (int i = zip2.decoder_length()-2 ; i > 0 && i > lowest_common_ancestor_depth ; i--) {
         //the parent snarl tree node is at index i
         //The distances are currently to the ends of the current node
-        //FInd the distances to the ends of the parent
+        //Find the distances to the ends of the parent
 
         update_distances_to_ends_of_parent(zip2, i+1, distance_to_start2, distance_to_end2);
     }

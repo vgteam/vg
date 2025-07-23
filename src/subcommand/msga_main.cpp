@@ -25,58 +25,72 @@ void help_msga(char** argv) {
          << endl
          << "options:" << endl
          << "inputs:" << endl
-         << "    -f, --from FILE         use sequences in (fasta) FILE" << endl
-         << "    -n, --name NAME         include this sequence" << endl
-         << "                             (If any --name is specified, use only" << endl
-         << "                              specified sequences from FASTA files.)" << endl
-         << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
-         << "    -s, --seq SEQUENCE      literally include this sequence" << endl
-         << "    -g, --graph FILE        include this graph" << endl
-         << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
-         << "    -R, --position-bed FILE BED file mapping sequence names (col 4) to positions on reference path (cols 1-3)" << endl
-         << "    -T, --context STEPS     expand context around BED regions (-R) by this many steps [50]" << endl
+         << "  -f, --from FILE           use sequences in (fasta) FILE" << endl
+         << "  -n, --name NAME           include this sequence (may repeat;" << endl
+         << "                            if any --name is specified, use only" << endl
+         << "                            specified sequences from FASTA files.)" << endl
+         << "  -b, --base NAME           use this sequence as the graph basis" << endl
+         << "                            if graph is empty" << endl
+         << "  -s, --seq SEQUENCE        literally include this sequence" << endl
+         << "  -g, --graph FILE          include this graph" << endl
+         << "  -a, --fasta-order         build the graph in the order the sequences are seen" << endl
+         << "                            in the FASTA (default: bigger first)" << endl
+         << "  -R, --position-bed FILE   BED file mapping sequence names (col 4) to positions" << endl
+         << "                            on reference path (cols 1-3)" << endl
+         << "  -T, --context INT         expand context around -R regions by INT steps [50]" << endl
          << "alignment:" << endl
-         << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
-         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [2048]" << endl
-         << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
-         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [1]" << endl
-         << "    -u, --try-up-to INT     attempt to trace back up to this number of chains of bands (assuming we will band) [4]" << endl
-         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.45]" << endl
-         << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
-         << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
-         << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -w, --band-width INT    band/chunk width for long read alignment [128]" << endl
-         << "    -O, --band-overlap INT  band overlap for long read alignment [{-w}*3/4]" << endl
-         << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment (overrides -u for bands) [16]" << endl
-         << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
-         << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
+         << "  -k, --min-mem INT         minimum MEM length (if 0 estimate via -e) [0]" << endl
+         << "  -e, --mem-chance FLOAT    this fraction of -k length hits are by chance [5e-4]" << endl
+         << "  -c, --hit-max N           ignore MEMs who have >N hits in our index" << endl
+         << "                            (0 for no limit) [2048]" << endl
+         << "  -Y, --max-mem INT         ignore mems longer than this length (unset if 0) [0]" << endl
+         << "  -r, --reseed-x FLOAT      look for internal seeds inside a seed" << endl
+         << "                            longer than {-W} * FLOAT [1.5]" << endl
+         << "  -l, --try-at-least INT    attempt to align up to the INT best" << endl
+         << "                            candidate chains of seeds [1]" << endl
+         << "  -u, --try-up-to INT       attempt to trace back up to INT chains of bands" << endl
+         << "                            (assuming we will band) [4]" << endl
+         << "  -W, --min-chain INT       discard a chain if seeded bases shorter than INT [0]" << endl
+         << "  -C, --drop-chain FLOAT    drop chains shorter than FLOAT fraction of" << endl
+         << "                            the longest overlapping chain [0.45]" << endl
+         << "  -P, --min-ident FLOAT     accept alignment only if identity is >= FLOAT [0]" << endl
+         << "  -F, --min-band-mq INT     require mapping quality for each band >= INT [0]" << endl
+         << "  -H, --max-target-x N      skip cluster subgraphs length >N*read_length [100]" << endl
+         << "  -w, --band-width INT      band/chunk width for long read alignment [128]" << endl
+         << "  -O, --band-overlap INT    band overlap for long read alignment [{-w}*3/4]" << endl
+         << "  -J, --band-jump INT       the maximum number of bands of insertion" << endl
+         << "                            we consider in the alignment chain model [128]" << endl
+         << "  -B, --band-multi INT      consider INT alignments of each band" << endl
+         << "                            in banded alignment (overrides -u for bands) [16]" << endl
+         << "  -M, --max-multimaps INT   consider INT extra alignments for whole sequence [1]" << endl
+         << "  -8, --no-patch-aln        do not patch banded alignments" << endl
+         << "                            by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
-         << "    -q, --match INT         use this match score [1]" << endl
-         << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
-         << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
-         << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
-         << "    -L, --full-l-bonus INT  the full-length alignment bonus [32]" << endl
-         << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
-         << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
+         << "  -q, --match INT           use this match score [1]" << endl
+         << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
+         << "  -o, --gap-open INT        use this gap open penalty [6]" << endl
+         << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
+         << "  -L, --full-l-bonus INT    the full-length alignment bonus [32]" << endl
+         << "      --xdrop-alignment     use X-drop heuristic" << endl
+         << "                            (much faster for long-read alignment)" << endl
+         << "      --max-gap-length INT  max gap length allowed in each contiguous alignment" << endl
+         << "                            (for X-drop alignment) [40]" << endl
          << "index generation:" << endl
-         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
-        //<< "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [3]" << endl
-         << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
-         << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
-         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes [2]" << endl
+         << "  -K, --idx-kmer-size N     use N-mers for building the GCSA indexes [16]" << endl
+         << "  -E, --idx-edge-max N      reduce complexity of GCSA graph using N edge max [3]" << endl
+         << "  -Q, --idx-prune-subs N    prune subgraphs shorter than length N" << endl
+         << "                            from input graph to GCSA (default: off)" << endl
+         << "  -m, --node-max N          chop nodes over length N [2*--idx-kmer-size]" << endl
+         << "  -X, --idx-doublings N     use N doublings when building the GCSA indexes [2]" << endl
          << "graph normalization:" << endl
-         << "    -N, --normalize         normalize the graph after assembly" << endl
-         << "    -Z, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
+         << "  -N, --normalize           normalize the graph after assembly" << endl
+         << "  -Z, --circularize         the input sequences are from circular genomes," << endl
+         << "                            circularize them after inclusion" << endl
          << "generic parameters:" << endl
-         << "    -D, --debug             print debugging information about construction to stderr" << endl
-         << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
-         << "    -S, --align-progress    show a progress bar for each banded alignment" << endl
-         << "    -t, --threads N         number of threads to use" << endl
+         << "  -D, --debug               print debugging info about construction to stderr" << endl
+         << "  -A, --debug-align         print debugging info about alignment to stderr" << endl
+         << "  -t, --threads N           number of threads to use" << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences. Uses the MEM mapping algorithm." << endl
@@ -89,13 +103,19 @@ int main_msga(int argc, char** argv) {
     cerr << "!!!" << endl;
     cerr << "WARNING" << endl;
     cerr << "!!!" << endl;
-    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, but it is no longer state-of-the-art or even actively maintained. VG team members have developed improved graph construction algorithms in Cactus and PGGB, and several other tools have been developed by other groups." << endl << endl;
+    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, "
+         << "but it is no longer state-of-the-art or even actively maintained. "
+         << "VG team members have developed improved graph construction algorithms in Cactus and PGGB, "
+         << "and several other tools have been developed by other groups." << endl << endl;
     
     
     if (argc == 2) {
         help_msga(argv);
         return 1;
     }
+
+    constexpr int OPT_MAX_GAP_LENGTH = 1000;
+    constexpr int OPT_XDROP_ALIGNMENT = 1001;
 
     vector<string> fasta_files;
     set<string> seq_names;
@@ -173,15 +193,15 @@ int main_msga(int argc, char** argv) {
                 {"band-multi", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"context-depth", required_argument, 0, 'c'},
                 {"min-ident", required_argument, 0, 'P'},
-                {"min-banded-mq", required_argument, 0, 'F'},
+                {"min-band-mq", required_argument, 0, 'F'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"min-mem", required_argument, 0, 'k'},
                 {"max-mem", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'c'},
+                {"context-depth", required_argument, 0, 'c'},
                 {"mem-chance", required_argument, 0, 'e'},
                 {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
@@ -200,13 +220,13 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"bigger-first", no_argument, 0, 'a'},
                 {"no-patch-aln", no_argument, 0, '8'},
-                {"max-gap-length", required_argument, 0, 1},
-                {"xdrop-alignment", no_argument, 0, 2},
+                {"max-gap-length", required_argument, 0, OPT_MAX_GAP_LENGTH},
+                {"xdrop-alignment", no_argument, 0, OPT_XDROP_ALIGNMENT},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:J:B:a8R:T:",
+        c = getopt_long (argc, argv, "h?f:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:o:y:ZW:z:k:L:e:r:u:l:C:F:J:B:a8R:T:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -385,9 +405,9 @@ int main_msga(int argc, char** argv) {
             patch_alignments = false;
             break;
 
-        case 1:
+        case OPT_MAX_GAP_LENGTH:
             max_gap_length = atoi(optarg);     // fall through
-        case 2:
+        case OPT_XDROP_ALIGNMENT:
             xdrop_alignment = true;
             break;
 
@@ -724,7 +744,8 @@ int main_msga(int argc, char** argv) {
             if (aln.path().mapping_size()) {
                 auto aln_seq = vg::algorithms::path_string(*graph, aln.path());
                 if (aln_seq != seq) {
-                    cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
+                    cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment "
+                         << "(alignment seq != input seq)" << endl;
                     cerr << "expected " << seq << endl;
                     cerr << "got      " << aln_seq << endl;
                     ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");

@@ -149,7 +149,7 @@ vector<vector<handle_t>> DeletionAligner::traceback(const vector<handle_t>& orde
 #endif
             vector<pair<size_t, size_t>> deflections = curr_deflections;
             deflections.emplace_back(from, to);
-            heap.emplace(dist, move(deflections));
+            heap.emplace(dist, std::move(deflections));
             if (heap.size() + traces.size() > max_tracebacks) {
 #ifdef debug_deletion_aligner
                 cerr << "ejecting traceback with dist " << heap.max().first << endl;

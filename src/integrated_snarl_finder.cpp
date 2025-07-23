@@ -34,6 +34,14 @@ protected:
     /// massaging and aren't const.
     /// TODO: this makes read operations not thread safe!
     mutable structures::UnionFind union_find;
+
+    /// Mapping full of extra weight to assign to nodes, in addition to their
+    /// actual length in bases, to control snarl tree rooting.
+    /// Refers into the parent IntegratedSnarlFinder.
+    const std::unordered_map<nid_t, size_t>& extra_node_weight;
+
+
+
     
     /// Get the rank corresponding to the given handle, in the union-find.
     /// Our ranks are 0-based.
@@ -42,10 +50,17 @@ protected:
     /// Get the handle with the given rank in union-find space.
     /// Our ranks are 0-based.
     handle_t uf_handle(size_t rank) const;
+
+    /// Get the length of a node in the handle graph, subject to any
+    /// adjustments.
+    size_t get_weighted_length(const handle_t& handle) const;
     
 public:
-    /// Make a MergedAdjacencyGraph representing the graph of adjacency components of the given RankedHandleGraph.
-    MergedAdjacencyGraph(const RankedHandleGraph* graph);
+    /// Make a MergedAdjacencyGraph representing the graph of adjacency
+    /// components of the given RankedHandleGraph, assigning the givn extra
+    /// weight to nodes in addition to their lengths. The extra node weight
+    /// data must outlive the MergedAdjacencyGraph and any copies.
+    MergedAdjacencyGraph(const RankedHandleGraph* graph, const std::unordered_map<nid_t, size_t>& extra_node_weight);
     
     /// Copy a MergedAdjacencyGraph by re-doing all the merges. Uses its own internal vectorization.
     MergedAdjacencyGraph(const MergedAdjacencyGraph& other);
@@ -140,8 +155,19 @@ handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_handle(size_t rank) con
     return graph->rank_to_handle(rank + 1);
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const RankedHandleGraph* graph) : graph(graph),
-    union_find(graph->get_node_count() * 2, true) {
+size_t IntegratedSnarlFinder::MergedAdjacencyGraph::get_weighted_length(const handle_t& handle) const {
+    // Check for any extra weight on the node
+    auto found = extra_node_weight.find(graph->get_id(handle));
+    // And add it in to the node length if it present
+    return graph->get_length(handle) + (found != extra_node_weight.end() ? found->second : 0);
+}
+
+IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(
+    const RankedHandleGraph* graph,
+    const std::unordered_map<nid_t, size_t>& extra_node_weight
+) : graph(graph),
+    union_find(graph->get_node_count() * 2, true),
+    extra_node_weight(extra_node_weight) {
     
     // TODO: we want the adjacency components that are just single edges
     // between two handles (i.e. trivial snarls) to be implicit, so we don't
@@ -165,7 +191,7 @@ IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const RankedHa
     });
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const MergedAdjacencyGraph& other) : MergedAdjacencyGraph(other.graph) {
+IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const MergedAdjacencyGraph& other) : MergedAdjacencyGraph(other.graph, other.extra_node_weight) {
     other.for_each_membership([&](handle_t head, handle_t member) {
         // For anything in a component, other than its head, do the merge with the head.
         merge(head, member);
@@ -375,7 +401,7 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
                             // Walk and measure the cycle. But don't count the
                             // frame we arrived at because its incoming edge
                             // isn't actually on the cycle.
-                            size_t cycle_length_bp = graph->get_length(edge_into);
+                            size_t cycle_length_bp = get_weighted_length(edge_into);
                             handle_t prev_edge = edge_into;
                             for (size_t i = connected_it->second + 1; i < stack.size(); i++) {
                                 // For each edge along the cycle...
@@ -385,7 +411,7 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
 #endif
                                 
                                 // Measure it
-                                cycle_length_bp += graph->get_length(stack[i].here);
+                                cycle_length_bp += get_weighted_length(stack[i].here);
                                 // Record the cycle membership
                                 next_edge[prev_edge] = stack[i].here;
                                 // Advance
@@ -688,7 +714,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                         auto& parent_record = records[parent_head];
                         
                         // The length of the path to a leaf will involve the edge from the parent to here.
-                        record.leaf_path_length = graph->get_length(frame.here);
+                        record.leaf_path_length = get_weighted_length(frame.here);
                         
 #ifdef debug
                         cerr << "\t\tLength of path to deepest leaf is " << record.leaf_path_length << " bp" << endl;
@@ -945,7 +971,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                 // But we know all its children are done.
                                 
                                 // The length of the path to a leaf will involve the edge from the parent to the child
-                                child_record.leaf_path_length = graph->get_length(parent_child_edge);
+                                child_record.leaf_path_length = get_weighted_length(parent_child_edge);
                                 
                                 if (deepest_child_edge_it != deepest_child_edge.end()) {
                                     // And if we have a child to go on with, we add the length of that path
@@ -994,7 +1020,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                             for (auto& item : path) {
                                 cerr << "\t\t\t\tPath visits: "
                                     << graph->get_id(item) << (graph->get_is_reverse(item) ? "-" : "+")
-                                    << " length " << graph->get_length(item) << endl;
+                                    << " length " << get_weighted_length(item) << endl;
                             }
 #endif
 
@@ -1057,7 +1083,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
 
 
 
-IntegratedSnarlFinder::IntegratedSnarlFinder(const HandleGraph& graph) : HandleGraphSnarlFinder(&graph) {
+IntegratedSnarlFinder::IntegratedSnarlFinder(const HandleGraph& graph, const std::unordered_map<nid_t, size_t>& extra_node_weight) : HandleGraphSnarlFinder(&graph), extra_node_weight(extra_node_weight) {
     // Nothing to do!
 }
 
@@ -1079,7 +1105,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #endif
     
     // We need a union-find over the adjacency components of the graph, in which we will build the cactus graph.
-    MergedAdjacencyGraph cactus(ranked_graph);
+    MergedAdjacencyGraph cactus(ranked_graph, extra_node_weight);
     
 #ifdef debug
     cerr << "Base adjacency components:" << endl;

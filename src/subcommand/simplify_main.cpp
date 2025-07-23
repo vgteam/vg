@@ -24,22 +24,29 @@ using namespace vg::subcommand;
 void help_simplify(char** argv) {
     cerr << "usage: " << argv[0] << " simplify [options] old.vg >new.vg" << endl
          << "general options:" << endl
-         << "    -a, --algorithm NAME   simplify using the given algorithm (small, rare; default: small)" << endl
-         << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -p, --progress         show progress" << endl
-         << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
-         << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
+         << "  -h, --help              print this help message to stderr and exit" << endl
+         << "  -a, --algorithm NAME    simplification algorithm (small, rare) [small]" << endl
+         << "  -t, --threads N         use N threads to construct graph [numCPUs]" << endl
+         << "  -p, --progress          show progress" << endl
+         << "  -b, --bed-in FILE       BED file with the cordinates of the original paths" << endl
+         << "  -B, --bed-out FILE      output transformed features with new path coordinates" << endl
          << "path snarl simplifier options:" << endl
-         << "    -P, --path-prefix S    [NECESSARY TO SCALE PAST TINY GRAPHS] all paths whose names begins with S selected as reference paths (default: all reference-sense paths)" << endl
+         << "  -P, --path-prefix STR   [NECESSARY TO SCALE PAST TINY GRAPHS]" << endl
+         << "                          all paths with this prefix selected as reference paths" << endl
+         << "                          (default: all reference-sense paths)" << endl
          << "small snarl simplifier options:" << endl       
-         << "    -m, --min-size N       remove leaf sites with fewer than N bases (with -P, uses max allele length) involved (default: 10)" << endl
-         << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
-         << "    -L, --cluster F        cluster traversals whose (handle) Jaccard coefficient is >= F together (default: 1.0)" << endl
-         << "    -k, --keep-paths       non-reference (as specified with -P) paths are removed by default. use this flag to keep them (but note that the resulting graph will be more complex and possibly more difficult to load)" << endl
+         << "  -m, --min-size N        remove leaf sites with fewer than N bases" << endl
+         << "                          (with -P, uses max allele length) involved [10]" << endl
+         << "  -i, --max-iterations N  perform up to N iterations of simplification [10]" << endl
+         << "  -L, --cluster F         cluster traversals whose (handle) Jaccard coefficient" << endl
+         << "                          is >= F together [1.0]" << endl
+         << "  -k, --keep-paths        non-reference (-P) paths are removed by default." << endl
+         << "                          use this flag to keep them (the resulting graph will" << endl
+         << "                          be more complex and possibly more difficult to load)" << endl
          << "rare variant simplifier options:" << endl
-         << "    -v, --vcf FILE         use the given VCF file to determine variant frequency (required)" << endl
-         << "    -f, --min-freq FLOAT   remove variants with total alt frequency under FLOAT (default: 0)" << endl
-         << "    -c, --min-count N      remove variants with total alt occurrence count under N (default: 0)" << endl;
+         << "  -v, --vcf FILE          use this VCF to determine variant frequency (required)" << endl
+         << "  -f, --min-freq FLOAT    remove variants with total alt frequency <FLOAT [0]" << endl
+         << "  -c, --min-count N       remove variants with total alt occurrence count <N [0]" << endl;
 }
 
 int main_simplify(int argc, char** argv) {

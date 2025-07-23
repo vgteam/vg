@@ -1,5 +1,5 @@
 /**
- * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast short-read-to-haplotypes mapper
+ * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast read-to-haplotypes mapper
  */
 
 #include <omp.h>
@@ -699,23 +699,22 @@ std::string sample_haplotypes(
 //----------------------------------------------------------------------------
 
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
-    cerr
-    << "usage:" << endl
-    << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
-    << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
-    << endl
-    << "Fast haplotype-aware short read mapper." << endl
-    << endl;
+    cerr << "usage:" << endl
+         << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
+         << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
+         << endl
+         << "Fast haplotype-aware read mapper." << endl
+         << endl;
 
-    cerr
-    << "basic options:" << endl
-    << "  -Z, --gbz-name FILE           map to this GBZ graph" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
-    << "  -d, --dist-name FILE          cluster using this distance index" << endl
-    << "  -p, --progress                show progress" << endl
-    << "  -t, --threads INT             number of mapping threads to use" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (";
+    cerr << "basic options:" << endl
+         << "  -Z, --gbz-name FILE           map to this GBZ graph" << endl
+         << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+         << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
+         << "  -d, --dist-name FILE          cluster using this distance index" << endl
+         << "  -p, --progress                show progress" << endl
+         << "  -t, --threads N               number of mapping threads to use" << endl
+         << "  -b, --parameter-preset NAME   set computational parameters [default]" << endl
+         << "                                (";
     for (auto p = presets.begin(); p != presets.end(); ++p) {
         // Announce each preset name, slash-separated
         cerr << p->first;
@@ -726,57 +725,72 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
             cerr << " / ";
         }
     }
-    cerr << ") [default]" << endl
-    << "  -h, --help                    print full help with all available options" << endl;
+    cerr << ")" << endl
+         << "  -h, --help                    print full help with all available options" << endl;
 
-    cerr
-    << "input options:" << endl
-    << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
-    << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
-    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
-    << "  --comments-as-tags            intepret comments in name lines as SAM-style tags and annotate alignments with them" << endl;
+    cerr << "input options:" << endl
+         << "  -G, --gam-in FILE             read and realign these GAM-format reads" << endl
+         << "  -f, --fastq-in FILE           read and align these FASTQ/FASTA-format reads" << endl
+         << "                                (two are allowed, one for each mate)" << endl
+         << "  -i, --interleaved             GAM/FASTQ/FASTA input is interleaved pairs," << endl
+         << "                                for paired-end alignment" << endl
+         << "      --comments-as-tags        treat comments in name lines as SAM-style tags" << endl
+         << "                                and annotate alignments with them" << endl;
 
-    cerr
-    << "haplotype sampling:" << endl
-    << "  --haplotype-name FILE         sample from haplotype information in FILE" << endl
-    << "  --kff-name FILE               sample according to kmer counts in FILE" << endl
-    << "  --index-basename STR          name prefix for generated graph/index files (default: from graph name)" << endl
-    << "  --set-reference STR           include this sample as a reference in the personalized graph (may repeat)" << endl;
+    cerr << "haplotype sampling:" << endl
+         << "      --haplotype-name FILE     sample from haplotype information in FILE" << endl
+         << "      --kff-name FILE           sample according to kmer counts in FILE" << endl
+         << "      --index-basename STR      name prefix for generated graph/index files" << endl
+         << "                                (default: from graph name)" << endl
+         << "      --set-reference STR       include this sample as a reference" << endl
+         << "                                in the personalized graph (may repeat)" << endl;
 
-    cerr
-    << "alternate graphs:" << endl
-    << "  -x, --xg-name FILE            map to this graph (if no -Z / -g), or use this graph for HTSLib output" << endl
-    << "  -g, --graph-name FILE         map to this GBWTGraph (if no -Z)" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index (when mapping to -x / -g)" << endl;
+    cerr << "alternate graphs:" << endl
+         << "  -x, --xg-name FILE            map to this graph (if no -Z / -g)," << endl
+         << "                                or use this graph for HTSLib output" << endl
+         << "  -g, --graph-name FILE         map to this GBWTGraph (if no -Z)" << endl
+         << "  -H, --gbwt-name FILE          use this GBWT index (when mapping to -x / -g)" << endl;
 
-    cerr
-    << "output options:" << endl
-    << "  -N, --sample NAME             add this sample name" << endl
-    << "  -R, --read-group NAME         add this read group" << endl
-    << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
-    << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
-    << "  --ref-name NAME               name of reference assembly in the graph to use for HTSlib output" << endl
-    << "  --named-coordinates           produce GAM/GAF outputs in named-segment (GFA) space" << endl;
+    cerr << "output options:" << endl
+         << "  -N, --sample NAME             add this sample name" << endl
+         << "  -R, --read-group NAME         add this read group" << endl
+         << "  -o, --output-format NAME      output the alignments in NAME format [gam]" << endl
+         << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
+         << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
+         << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
+         << "      --ref-name NAME           name of reference in the graph for HTSlib output" << endl
+         << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
     if (full_help) {
-        cerr
-        << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
-        << "  -n, --discard                 discard all output alignments (for profiling)" << endl
-        << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
-        << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
-        << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl;
+        cerr << "  -P, --prune-low-cplx          prune short and low complexity anchors" << endl
+             << "                                during linear format realignment" << endl
+             << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
+             << "                                in the GR tag as a cs-style difference string" << endl
+             << "  -n, --discard                 discard all output alignments (for profiling)" << endl
+             << "      --output-basename NAME    write output to a GAM file with the given prefix" << endl
+             << "                                for each setting combination" << endl
+             << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
+             << "      --show-work               log how the mapper comes to its conclusions" << endl
+             << "                                about mapping locations (use one read at a time)" << endl;
     }
 
     if (full_help) {
-        cerr
-        << "Giraffe parameters:" << endl
-        << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-        << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
-        << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-        << "  --set-refpos                  set refpos field on reads to reference path positions they visit" << endl
-        << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
-        << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
-        << "  --track-position              coarsely track linear reference positions of good intermediate alignment candidates (implies --track-provenance)" << endl
-        << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl;
+        cerr << "Giraffe parameters:" << endl
+             << "  -A, --rescue-algorithm NAME   use this rescue algorithm [dozeu]" << endl
+             << "                                {none / dozeu / gssw}" << endl
+             << "      --fragment-mean FLOAT     force fragment length distribution to have this" << endl
+             << "                                mean (requires --fragment-stdev)" << endl
+             << "      --fragment-stdev FLOAT    force fragment length distribution to have this" << endl
+             << "                                standard deviation (requires --fragment-mean)" << endl
+             << "      --set-refpos              set refpos field on reads" << endl
+             << "                                to reference path positions they visit" << endl
+             << "      --track-provenance        track how internal intermediate alignment" << endl
+             << "                                candidates were arrived at" << endl
+             << "      --track-correctness       track if internal intermediate alignment" << endl
+             << "                                candidates are correct" << endl
+             << "                                (implies --track-provenance)" << endl
+             << "      --track-position          coarsely track linear reference positions of" << endl
+             << "                                good intermediate alignment candidates" << endl
+             << "                                (implies --track-provenance)" << endl;
 
         auto helps = parser.get_help();
         print_table(helps, cerr);
@@ -807,11 +821,13 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_REF_NAME = 1009;
     constexpr int OPT_SHOW_WORK = 1010;
     constexpr int OPT_NAMED_COORDINATES = 1011;
+    constexpr int OPT_ADD_GRAPH_ALIGNMENT = 1012;
+    constexpr int OPT_COMMENTS_AS_TAGS = 1113;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
-    constexpr int OPT_COMMENTS_AS_TAGS = 1104;
+
 
     // initialize parameters with their default options
     
@@ -893,6 +909,9 @@ int main_giraffe(int argc, char** argv) {
     std::unordered_set<std::string> reference_assembly_names;
     // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
+    
+    // When surjecting, should we annotate the reads with the graph alignment?
+    bool add_graph_alignment = false;
     
     // For GAM format, should we report in named-segment space instead of node ID space?
     bool named_coordinates = false;
@@ -1161,12 +1180,13 @@ int main_giraffe(int argc, char** argv) {
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
         {"comments-as-tags", no_argument, 0, OPT_COMMENTS_AS_TAGS},
-        {"max-multimaps", required_argument, 0, 'M'},
         {"sample", required_argument, 0, 'N'},
         {"read-group", required_argument, 0, 'R'},
         {"output-format", required_argument, 0, 'o'},
         {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+        {"ref-name", required_argument, 0, OPT_REF_NAME},
         {"prune-low-cplx", no_argument, 0, 'P'},
+        {"add-graph-aln", no_argument, 0, OPT_ADD_GRAPH_ALIGNMENT},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
@@ -1185,7 +1205,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
@@ -1402,6 +1422,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
+                break;
+                
+            case OPT_ADD_GRAPH_ALIGNMENT:
+                add_graph_alignment = true;
                 break;
 
             case 'n':
@@ -1906,6 +1930,7 @@ int main_giraffe(int argc, char** argv) {
 
         report_flag("interleaved", interleaved);
         report_flag("prune-low-cplx", prune_anchors);
+        report_flag("add-graph-aln", add_graph_alignment);
         report_flag("set-refpos", set_refpos);
         minimizer_mapper.set_refpos = set_refpos;
         report_flag("track-provenance", track_provenance);
@@ -1933,7 +1958,8 @@ int main_giraffe(int argc, char** argv) {
         minimizer_mapper.read_group = read_group;
 
         // Apply scoring parameters, after they have been parsed
-        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
+        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, 
+            scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
@@ -1943,7 +1969,8 @@ int main_giraffe(int argc, char** argv) {
         
         // For timing, we may run one thread first and then switch to all threads. So track both start times.
         std::chrono::time_point<std::chrono::system_clock> first_thread_start;
-        std::chrono::time_point<std::chrono::system_clock> all_threads_start = std::chrono::time_point<std::chrono::system_clock>::min();
+        std::chrono::time_point<std::chrono::system_clock> all_threads_start \
+            = std::chrono::time_point<std::chrono::system_clock>::min();
         
         // We also time in terms of CPU time
         clock_t cpu_time_before;
@@ -2002,7 +2029,7 @@ int main_giraffe(int argc, char** argv) {
         {
         
             // Look up all the paths we might need to surject to.
-            vector<tuple<path_handle_t, size_t, size_t>> paths;
+            SequenceDictionary paths;
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);
@@ -2025,6 +2052,10 @@ int main_giraffe(int argc, char** argv) {
                 if (named_coordinates) {
                     // When not surjecting, use named segments instead of node IDs.
                     flags |= ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES;
+                }
+                if (add_graph_alignment) {
+                    // When surjecting, add the graph alignment tag
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG;
                 }
                 
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
@@ -2081,7 +2112,8 @@ int main_giraffe(int argc, char** argv) {
                             // Report that it is now ready
                             #pragma omp critical (cerr)
                             {
-                                cerr << "Using fragment length estimate: " << minimizer_mapper.get_fragment_length_mean() << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
+                                cerr << "Using fragment length estimate: " << minimizer_mapper.get_fragment_length_mean()
+                                     << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
                             }
                         }
                         
@@ -2176,12 +2208,14 @@ int main_giraffe(int argc, char** argv) {
                     });
                 } else if (!fastq_filename_2.empty()) {
                     //A pair of FASTQ files to map
-                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, comments_as_tags, main_options.batch_size);
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair,
+                        distribution_is_ready, comments_as_tags, main_options.batch_size);
 
 
                 } else if ( !fastq_filename_1.empty()) {
                     // An interleaved FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, comments_as_tags, main_options.batch_size);
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair,
+                        distribution_is_ready, comments_as_tags, main_options.batch_size);
                 }
 
                 // Now map all the ambiguous pairs
@@ -2292,8 +2326,12 @@ int main_giraffe(int argc, char** argv) {
 #endif
         
         // Compute wall clock elapsed
-        std::chrono::duration<double> all_threads_seconds = (all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()) ? std::chrono::duration<double>(0.0) : end - all_threads_start;
-        std::chrono::duration<double> first_thread_additional_seconds = (all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()) ? end - first_thread_start : all_threads_start - first_thread_start;
+        std::chrono::duration<double> all_threads_seconds = (
+            all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()
+        ) ? std::chrono::duration<double>(0.0) : end - all_threads_start;
+        std::chrono::duration<double> first_thread_additional_seconds = (
+            all_threads_start == std::chrono::time_point<std::chrono::system_clock>::min()
+        ) ? end - first_thread_start : all_threads_start - first_thread_start;
         
         // Compute CPU time elapsed
         double cpu_seconds = (cpu_time_after - cpu_time_before) / (double)CLOCKS_PER_SEC;

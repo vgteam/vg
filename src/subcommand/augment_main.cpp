@@ -44,26 +44,29 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
          << endl
          << "general options:" << endl
-         << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
-         << "    -S, --keep-softclips        include softclips from input alignments (they are cut by default)" << endl
-         << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
-         << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
-         << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
-         << "    -F, --gaf                   expect (and write) GAF instead of GAM" << endl
-         << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
-         << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
-         << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
-         << "    -q, --min-baseq N           ignore edits whose sequence have average base quality < N" << endl
-         << "    -Q, --min-mapq N            ignore alignments with mapping quality < N" << endl
-         << "    -N, --max-n F               maximum fraction of N bases in an edit for it to be included [default : 0.25]" << endl
-         << "    -E, --edges-only            only edges implied by reads, ignoring edits" << endl
-         << "    -h, --help                  print this help message" << endl
-         << "    -p, --progress              show progress" << endl
-         << "    -v, --verbose               print information and warnings about vcf generation" << endl
-         << "    -t, --threads N             number of threads (only 1st pass with -m or -q option is multithreaded)" << endl
+         << "  -i, --include-paths        merge paths implied by alignments into the graph" << endl
+         << "  -S, --keep-softclips       include softclips from alignments (cut by default)" << endl
+         << "  -B, --label-paths          use alignments only to label graph, not augment" << endl
+         << "  -Z, --translation FILE     save translations from augmented back to base graph" << endl
+         << "  -A, --alignment-out FILE   save augmented GAM reads" << endl
+         << "  -F, --gaf                  expect (and write) GAF instead of GAM" << endl
+         << "  -s, --subgraph             graph is a subgraph of the one used to create GAM." << endl
+         << "                             ignore alignments with missing nodes" << endl
+         << "  -m, --min-coverage N       minimum coverage of a breakpoint required for it" << endl
+         << "                             to be added to the graph" << endl
+         << "  -c, --expected-cov N       expected coverage, used for memory tuning [128]" << endl
+         << "  -q, --min-baseq N          ignore edits with mean base quality < N" << endl
+         << "  -Q, --min-mapq N           ignore alignments with mapping quality < N" << endl
+         << "  -N, --max-n FLOAT          maximum fraction of N bases in an edit" << endl
+         << "                             for it to be included [0.25]" << endl
+         << "  -E, --edges-only           only edges implied by reads, ignoring edits" << endl
+         << "  -h, --help                 print this help message to stderr and exit" << endl
+         << "  -p, --progress             show progress" << endl
+         << "  -v, --verbose              print info and warnings about VCF generation" << endl
+         << "  -t, --threads N            number of threads (for 1st pass with -m or -q)" << endl
          << "loci file options:" << endl
-         << "    -l, --include-loci FILE     merge all alleles in loci into the graph" << endl       
-         << "    -L, --include-gt FILE       merge only the alleles in called genotypes into the graph" << endl;
+         << "  -l, --include-loci FILE    merge all alleles in loci into the graph" << endl       
+         << "  -L, --include-gt FILE      merge only alleles in called genotypes into graph" << endl;
     
      // Then report more options
      parser.print_help(cerr);
@@ -148,7 +151,7 @@ int main_augment(int argc, char** argv) {
         {"edges-only", no_argument, 0, 'E'},
         {"gaf", no_argument, 0, 'F'},
         {"help", no_argument, 0, 'h'},
-        {"progress", required_argument, 0, 'p'},
+        {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
         // Loci Options
@@ -156,7 +159,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:EF";
+    static const char* short_options = "a:Z:A:iCSBh?pvt:l:L:sm:c:q:Q:N:EF";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -271,7 +274,8 @@ int main_augment(int argc, char** argv) {
         return 1;
     }
     if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
-        cerr << "[vg augment] error: Translation (-Z), GAM (-A) output and edges-only (-E) do not work with \"label-only\" (-B) mode" << endl;
+        cerr << "[vg augment] error: Translation (-Z), GAM (-A) output and edges-only (-E) "
+             << "do not work with \"label-only\" (-B) mode" << endl;
         return 1;
     }
     if (include_paths && edges_only) {
@@ -282,7 +286,8 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] warning: reading the entire GAM from stdin into memory.  it is recommended to pass in"
              << " a filename rather than - so it can be streamed over two passes" << endl;
         if (!gam_out_file_name.empty()) {
-            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path related fields from the input" << endl;
+            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path"
+                 << "related fields from the input" << endl;
         }
     }
 

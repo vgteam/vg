@@ -37,6 +37,12 @@ using namespace std;
         
         Surjector(const PathPositionHandleGraph* graph);
         
+        /// Override alignment score setting to let DP use slightly adjusted scores.
+        /// The provided scores will be adjusted to increase gap open cost
+        /// slightly when doing DP, but output scores will be scored with the
+        /// provided parameters.
+        virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
         /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
         /// path segments to obtain an alignment that is fully restricted to the paths.
@@ -108,7 +114,17 @@ using namespace std;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
+
+        /// When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own Aligner
+        std::unique_ptr<Aligner> dp_aligner;
         
+        /// When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until set_alignment_scores() is called.)
+        int8_t dp_score_scale = 10;
+        /// When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until set_alignment_scores() is called.)
+        int8_t dp_gap_open_extra_cost = 0;
+
+        
+
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
         int64_t min_splice_length = 20;
         
@@ -166,8 +182,12 @@ using namespace std;
         size_t max_anchors = std::numeric_limits<size_t>::max();
         
         bool annotate_with_all_path_scores = false;
+        bool annotate_with_graph_alignment = false;
         
     protected:
+
+        /// Do the extra score setup for the DP-only Aligner.
+        void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
@@ -299,13 +319,16 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
+        void annotate_graph_cigar(vector<Alignment>& surjections, const Alignment& source, bool rev_strand) const;
+        
+        void annotate_graph_cigar(vector<multipath_alignment_t>& surjections, const multipath_alignment_t& source, bool rev_strand) const;
+        
         template<class AlnType>
         static int32_t get_score(const AlnType& aln);
         
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
-
 
     template<class AlnType>
     string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const {

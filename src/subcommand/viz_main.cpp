@@ -15,15 +15,16 @@ using namespace vg::subcommand;
 void help_viz(char** argv) {
     cerr << "usage: " << argv[0] << " viz [options]" << endl
          << "options:" << endl
-         << "    -x, --xg FILE         use this basis graph" << endl
-         << "    -i, --pack-in FILE    use this compressed coverage format (multiple allowed)" << endl
-         << "    -n, --name NAME       apply name to the previous .pack (multiple allowed)" << endl
-         << "    -o, --out FILE        write to file (could be .png or .svg)" << endl
-         << "    -X, --width N         write an image N pixels wide (default 1024)" << endl
-         << "    -Y, --height N        write an image N pixels high (default 1024)" << endl
-         << "    -C, --show-cnv        visualize CNVs in paths on new rows (default uses text)" << endl
-         << "    -P, --hide-paths      hide reference paths in the graph" << endl
-         << "    -D, --hide-dna        suppress the visualization of DNA sequences" << endl;
+         << "  -x, --xg FILE         use this basis graph" << endl
+         << "  -i, --pack-in FILE    use this compressed coverage format (may repeat)" << endl
+         << "  -n, --name NAME       apply name to the previous .pack (may repeat)" << endl
+         << "  -o, --out FILE        write to file (could be .png or .svg)" << endl
+         << "  -X, --width N         write an image N pixels wide [1024]" << endl
+         << "  -Y, --height N        write an image N pixels high [1024]" << endl
+         << "  -C, --show-cnv        visualize CNVs in paths on new rows (default uses text)" << endl
+         << "  -P, --hide-paths      hide reference paths in the graph" << endl
+         << "  -D, --hide-dna        suppress the visualization of DNA sequences" << endl
+         << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
 int main_viz(int argc, char** argv) {
@@ -57,14 +58,14 @@ int main_viz(int argc, char** argv) {
             {"height", required_argument, 0, 'Y'},
             {"out", required_argument, 0, 'o'},
             {"scale", required_argument, 0, 's'},
-            {"hide-cnv", no_argument, 0, 'C'},
+            {"show-cnv", no_argument, 0, 'C'},
             {"hide-dna", no_argument, 0, 'D'},
             {"hide-paths", no_argument, 0, 'P'},
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:CDP",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?x:i:n:o:X:Y:s:CDP",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -120,7 +121,8 @@ int main_viz(int argc, char** argv) {
         exit(1);
     } else {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay which implements PathPositionHandleGraph.
+        // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay
+        // which implements PathPositionHandleGraph.
         // TODO: Make the types actually work out here.
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
         assert(xgidx != nullptr);

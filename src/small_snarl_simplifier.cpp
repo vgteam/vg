@@ -71,7 +71,7 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
     map<string, unique_ptr<PathIndex>> path_indexes;
     graph.paths.for_each_name([&](const string& name) {
         // For every path name, go index it and put it in this collection
-        path_indexes.insert(make_pair(name, move(unique_ptr<PathIndex>(new PathIndex(graph, name)))));
+        path_indexes.insert(make_pair(name, std::move(unique_ptr<PathIndex>(new PathIndex(graph, name)))));
     });
     
     // Now we have a list of all the leaf sites.

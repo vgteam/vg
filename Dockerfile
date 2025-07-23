@@ -3,7 +3,7 @@
 # Use Google's non-rate-limited mirror of Docker Hub to get our base image.
 # This helps automated Quay builds because Quay hasn't built a caching system
 # and exposes pull rate limits to users.
-FROM mirror.gcr.io/library/ubuntu:20.04 AS base
+FROM mirror.gcr.io/library/ubuntu:22.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
@@ -14,7 +14,7 @@ WORKDIR /vg
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN true
 
-FROM base AS build
+FROM base AS packages
 ARG THREADS=8
 ARG TARGETARCH
 
@@ -23,7 +23,7 @@ ARG TARGETARCH
 ARG VG_GIT_VERSION
 ENV VG_GIT_VERSION=${VG_GIT_VERSION:-unknown}
 
-RUN echo build > /stage.txt
+RUN echo packages > /stage.txt
 
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
@@ -38,7 +38,7 @@ RUN apt-get -qq -y update && \
 # that starts with RUN, or comments. And we pull out line continuation slashes.
 # TODO: can we read them here and in the Makefile from the README instead?
 ###DEPS_BEGIN###
-RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
+RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -y install \
     make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
     libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
     samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
@@ -46,6 +46,10 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
     tabix bcftools libzstd-dev pybind11-dev python3-pybind11 pandoc
 ###DEPS_END###
+
+FROM packages AS build
+
+RUN echo build > /stage.txt
 
 # Prepare to build submodule dependencies
 COPY deps /vg/deps

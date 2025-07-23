@@ -366,7 +366,7 @@ void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
         lock_guard<mutex> lock(cursor_pool_mutex);
         if (!cursor_pool.empty()) {
             // Grab a cursor from the pool
-            obtained_cursor = move(cursor_pool.front());
+            obtained_cursor = std::move(cursor_pool.front());
             cursor_pool.pop_front();
         } else {
             // Open a new file stream
@@ -386,7 +386,7 @@ void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
         lock_guard<mutex> lock(cursor_pool_mutex);
         
         // Put the cursor back in the pool
-        cursor_pool.emplace_back(move(obtained_cursor));
+        cursor_pool.emplace_back(std::move(obtained_cursor));
     }
     
     // TODO: Does this moving unique_ptrs make sense or should we copy around indexes or real pointers
@@ -445,7 +445,7 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
         auto cache_pair = group_cache.retrieve(group_vo);
         if (cache_pair.second) {
             // We found it
-            cache_entry = move(cache_pair.first);
+            cache_entry = std::move(cache_pair.first);
         }
     }
 

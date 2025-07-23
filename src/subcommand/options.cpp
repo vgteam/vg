@@ -201,17 +201,22 @@ bool GroupedOptionGroup::query(BaseValuation& entry) const {
     return false;
 }
 
-void GroupedOptionGroup::print_options(ostream& out, OptionFormat format) const {
+bool GroupedOptionGroup::print_options(ostream& out, OptionFormat format) const {
+    bool to_return = false;
     bool first = true;
     for (auto& group : subgroups) {
         // Print options from all groups in order
         if (format == OptionFormat::JSON && !first) {
             // Add the separating comma
             out << ",";
+            to_return = true;
         }
-        group->print_options(out, format);
-        first = false;
+        bool printed_anything = group->print_options(out, format);
+        // If nothing was printed, stay in first mode.
+        first &= !printed_anything;
+        to_return |= printed_anything;
     }
+    return to_return;
 }
 
 std::vector<std::pair<std::string, std::string>> GroupedOptionGroup::get_help() const {

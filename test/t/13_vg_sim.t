@@ -6,12 +6,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 36
+plan tests 38
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x2.vg
 vg index -x x.xg x.vg
 vg gbwt -o x.gbwt -v small/x.vcf.gz -x x2.vg
+vg gbwt --gbz-format -g x.gbz -x x2.vg x.gbwt
 
 is $(vg sim -l 100 -n 100 -x x.xg | wc -l) 100 \
     "vg sim creates the correct number of reads"
@@ -41,6 +42,10 @@ vg sim -n 100 -l 100 -m 1 -g x.gbwt -x x.xg -r > reads.txt 2> log.txt
 is $? 0 "reads can be simulated from GBWT samples"
 is $(grep -c "Inserted 2 paths" log.txt) 1 "simulation was successful"
 
+vg sim -n 100 -l 100 -m 1 -x x.gbz -r > reads.txt 2> log.txt
+is $? 0 "reads can be simulated from graph samples"
+is $(grep -c "Using 2 sample paths" log.txt) 1 "simulation was successful"
+
 rm -f path.txt reads.txt log.txt
 
 is $(vg sim -n 10 -i 0.005 -l 10 -p 50 -v 50 -x x.xg -J | wc -l) 20 "pairs simulated even when fragments overlap"
@@ -54,7 +59,7 @@ is $(vg sim -N -n 1000 -l 20 -x n.xg | grep -o N | uniq | wc -l) 1 "sim can emit
 
 is $(vg sim -n 1000 -l 2 -p 5 -e 0.1 -x n.xg | grep N | wc -l) 0 "sim doesn't emit Ns even with pair and errors"
 
-rm -f x.vg x2.vg x.xg x.gbwt n.vg n.fa n.xg
+rm -f x.vg x2.vg x.xg x.gbwt x.gbz n.vg n.fa n.xg
 
 vg construct -r small/xy.fa -v small/x.vcf.gz -a >xy.vg
 vg index -x xy.xg xy.vg

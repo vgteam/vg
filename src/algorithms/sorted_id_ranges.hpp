@@ -18,7 +18,10 @@ namespace algorithms {
 using namespace std;
 
 /// Get a sorted list of inclusive ranges of IDs used in the given HandleGraph.
-vector<pair<id_t, id_t>> sorted_id_ranges(const HandleGraph* graph);
+std::vector<std::pair<nid_t, nid_t>> sorted_id_ranges(const HandleGraph* graph);
+
+/// Get whether an ID is in a sorted list of inclusive ID ranges
+bool is_in_sorted_id_ranges(const nid_t& value, const std::vector<std::pair<nid_t, nid_t>>& ranges);
 
 
 }

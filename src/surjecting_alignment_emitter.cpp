@@ -14,10 +14,11 @@ namespace vg {
 using namespace std;
 
 SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
-    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors) : surjector(graph), paths(paths), backing(std::move(backing)) {
+    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors, bool add_graph_alignment_tag) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
     // Configure the surjector
     surjector.prune_suspicious_anchors = prune_suspicious_anchors;
+    surjector.annotate_with_graph_alignment = add_graph_alignment_tag;
     
 }
 

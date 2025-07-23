@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 64
+plan tests 65
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -19,7 +19,7 @@ vg minimizer -k 29 -w 11 -d x.dist -g x.gbwt -o x.shortread.withzip.min -z x.sho
 
 # For later tests we expect this to make x.giraffe.gbz so we can't have an x.gbz around.
 rm -f x.gbz x.giraffe.gbz
-vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes  -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -x x.xg -H x.gbwt -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + zips + dist specified without crashing"
 rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
@@ -77,6 +77,8 @@ rm -Rf grid-out
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
 is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"
 rm -f mapped-nobonus.gam
+
+is "$(vg giraffe -Z x.giraffe.gbz -m x.shortread.withzip.min -z x.shortread.zipcodes -d x.dist -f reads/small.middle.ref.fq -o BAM --add-graph-aln | samtools view | grep "GR:Z:" | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with graph alignment"
 
 vg minimizer -k 29 -b -s 18 -d x.dist -g x.gbwt -o x.sync x.xg
 
@@ -176,8 +178,8 @@ rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .
-vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/yx.dict | grep -E "^@(SQ|HD)" > surjected-yx.dict
-vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/xy.dict | grep -E "^@(SQ|HD)" > surjected-xy.dict
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/yx.dict | sed 's/.M5:[a-zA-Z0-9]*//g' | grep -E "^@(SQ|HD)" > surjected-yx.dict
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/xy.dict | sed 's/.M5:[a-zA-Z0-9]*//g' | grep -E "^@(SQ|HD)" > surjected-xy.dict
 
 diff surjected-yx.dict small/yx.dict
 is "${?}" "0" "surjecting with a sequence dictionary in non-sorted order produces headers in non-sorted order"
@@ -226,7 +228,7 @@ is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | sed 's/^[[:space
 is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l | sed 's/^[[:space:]]*//')" "2000" "paired reads all have nonzero correct minimizer coverage"
 
 rm -f x.vg xy.sam xy.json
-rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
@@ -234,7 +236,7 @@ is "$(samtools view xy.bam | wc -l | sed 's/^[[:space:]]*//')" "2000" "GBZ-based
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
-rm -f xy.vg xy.gbwt xy.xg xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
 vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam

@@ -88,7 +88,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
         } else if (startswith(line, "SEQUENCE_ID")) {
             //Get the path, path offset, and features from the sequence_id of the primer pair
             //This will be the same for all primer pairs up to the next "="
-            vector<string> cur_fields = move(split(split(line,'=')[1], '|'));
+            vector<string> cur_fields = std::move(split(split(line,'=')[1], '|'));
 
             if (cur_fields.size() == 4) {
                 //If the sequence id is correctly formatted
@@ -289,11 +289,11 @@ std::pair<string, size_t> PrimerFinder::get_graph_coordinates_from_sequence(cons
     string path_file;
     vector<string> path_names;
     std::unordered_set<std::string> reference_assembly_names;
-    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, reference_assembly_names, *graph);
+    SequenceDictionary sequence_dictionary = get_sequence_dictionary(path_file, path_names, reference_assembly_names, *graph);
     unordered_set<path_handle_t> reference_paths;
     reference_paths.reserve(sequence_dictionary.size());
     for (auto& entry : sequence_dictionary) {
-        reference_paths.insert(get<0>(entry));
+        reference_paths.insert(entry.path_handle);
     }
 
     //Surject the alignment onto the reference paths

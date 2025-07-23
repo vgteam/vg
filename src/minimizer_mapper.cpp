@@ -2262,69 +2262,84 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 
                 if (found_pair && (double) mapped_aln.score() < (double) best_alignment_scores[index.read] * paired_rescue_score_limit) {
                     //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
+                    // TODO: Add a filter here
                     return true;
                 }
 
-                //Rescue the alignment
+                // Rescue the alignment (possibly leaving it unaligned if no significant alignment is found)
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[1 - index.read], index.read == 0);
+
+                bool properly_paired = false;
+                double score;
 
                 if (rescued_aln.path().mapping_size() != 0) {
                     //If we actually found an alignment
-
+                    
+                    // Compute the distance
                     int64_t fragment_dist = index.read == 0 ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
-
-                    double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
-
-                    set_annotation(mapped_aln, "rescuer", true);
-                    set_annotation(rescued_aln, "rescued", true);
+                    
+                    // Use it to make a pair score
+                    score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
+                    
+                    // Use it to possibly declare proper pairing.
+                    properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
+                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev());
+                    
+                    // Put it on the alignments
                     set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
                     set_annotation(rescued_aln, "fragment_length", distance_to_annotation(fragment_dist));
-                    bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
-                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
-                    set_annotation(mapped_aln, "proper_pair", properly_paired);
-                    set_annotation(rescued_aln, "proper_pair", properly_paired);
-
-                    //Since we're still accumulating a list of indexes of pairs of alignments,
-                    //add the new alignment to the list of alignments 
-                    //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
-                    //
-                    read_alignment_index_t mapped_index = index.without_read();
-                    read_alignment_index_t rescued_index {alignments.size() - 1, alignments.back()[1 - index.read].size()};
-                    alignments.back()[1 - index.read].emplace_back(std::move(rescued_aln));
-                    rescued_count[index.read]++;
                     
-                    alignment_groups.back()[1 - index.read].emplace_back();
-                    std::array<read_alignment_index_t, 2> index_pair;
-                    index_pair[index.read] = mapped_index;
-                    index_pair[1 - index.read] = rescued_index;
-                    
-                    paired_alignments.emplace_back(std::move(index_pair));
-#ifdef debug_validate_index_references
-                    for (auto r : {0, 1}) {
-                        // Make sure we refer to things that exist.
-                        paired_alignments.back().at(r).check_for_read_in(r, alignments);
-                    }
-#endif
-                    
-                    paired_scores.emplace_back(score);
+                    // Track it for the distribution
                     fragment_distances.emplace_back(fragment_dist);
-                    pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
-                    better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.fragment]);
+                } else {
+                    // If there's no rescue result, the score of the pair is the score of the one actually-aligned read
+                    score = mapped_aln.score();
+                }
+                
+                // Add the annotations that don't always need a fragment distance.
+                set_annotation(mapped_aln, "rescuer", true);
+                set_annotation(rescued_aln, "rescued", true);
+                set_annotation(mapped_aln, "proper_pair", properly_paired);
+                set_annotation(rescued_aln, "proper_pair", properly_paired);
+
+                //Since we're still accumulating a list of indexes of pairs of alignments,
+                //add the new alignment to the list of alignments 
+                //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
+                //
+                read_alignment_index_t mapped_index = index.without_read();
+                read_alignment_index_t rescued_index {alignments.size() - 1, alignments.back()[1 - index.read].size()};
+                alignments.back()[1 - index.read].emplace_back(std::move(rescued_aln));
+                rescued_count[index.read]++;
+                
+                alignment_groups.back()[1 - index.read].emplace_back();
+                std::array<read_alignment_index_t, 2> index_pair;
+                index_pair[index.read] = mapped_index;
+                index_pair[1 - index.read] = rescued_index;
+                
+                paired_alignments.emplace_back(std::move(index_pair));
+#ifdef debug_validate_index_references
+                for (auto r : {0, 1}) {
+                    // Make sure we refer to things that exist.
+                    paired_alignments.back().at(r).check_for_read_in(r, alignments);
+                }
+#endif
+                
+                paired_scores.emplace_back(score);
+                pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
+                better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.fragment]);
 
 #ifdef print_minimizer_table
-                    alignment_was_rescued.emplace_back(index.read == 1, index.read == 0);
+                alignment_was_rescued.emplace_back(index.read == 1, index.read == 0);
 #endif
-                    if (track_provenance) {
-                        funnels[index.read].pass("max-rescue-attempts", j);
-                        funnels[index.read].project(j);
-                        funnels[1 - index.read].introduce();
-                        for (auto r : {0, 1}) {
-                            funnels[r].score(funnels[r].latest(), score);
-                        }
-                    }
-                }
                 if (track_provenance) {
+                    funnels[index.read].pass("max-rescue-attempts", j);
+                    funnels[index.read].project(j);
+                    // Introduce the (sometimes unaligned) rescue alignment.
+                    funnels[1 - index.read].introduce();
+                    for (auto r : {0, 1}) {
+                        funnels[r].score(funnels[r].latest(), score);
+                    }
                     funnels[index.read].processed_input();
                     funnels[index.read].substage_stop();
                 }
@@ -2632,6 +2647,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
             read_mapq = max(min(capped_mapq, 120.0) / 2.0, 0.0);
             
+            // Unaligned reads always have MAPQ 0, even if they're the obvious
+            // right answer given pairing constraints.
+            bool is_aligned = (mappings[r].front().path().mapping_size() > 0);
+            if (!is_aligned) {
+                read_mapq = 0;
+            }
+            
             // Save the MAPQ
             mappings[r].front().set_mapping_quality(read_mapq);
             
@@ -2641,7 +2663,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     cerr << log_name() << "MAPQ for read " << (r + 1) << " is " << read_mapq << ", was " << uncapped_mapq
                         << " capped by fragment cluster cap " << fragment_cluster_cap
                         << ", score group cap " << (mapq_score_groups[r] / 2.0)
-                        << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)  << endl;
+                        << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)
+                        << ", alignedness " << is_aligned << endl;
                 }
             }
         }
@@ -3500,7 +3523,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     
     if (this->track_provenance) {
         // Record how many we found, as new lines.
-        // THey are going to be numbered in score order, not read order. Probably...
+        // They are going to be numbered in score order, not read order. Probably...
         funnel.introduce(result.size());
     }
 
@@ -3916,7 +3939,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // they would have to be created in the read no matter where we say it came
     // from, and because adding more of them should lower the MAPQ cap, whereas
     // locating more of the minimizers that are present and letting them pass
-    // to the enxt stage should raise the cap.
+    // to the next stage should raise the cap.
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (this->track_provenance) {
             // Say we're working on it
@@ -4070,10 +4093,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
 
     const size_t MAX_CORRECT_DISTANCE = 200;
    
-    // Organize the alignment's refpos entries by path
+    // Organize the alignment's refpos entries by path name.
+    // Since refpos annotations are all in base path names, these will be base path names.
     std::unordered_map<std::string, std::vector<const Position*>> refpos_by_path;
     // And keep track of the nodes that are on any of those paths near the
-    // refpos positions. We only cherck seeds on those nodes to see if they are
+    // refpos positions. We only check seeds on those nodes to see if they are
     // correct, because checking all seeds is too slow.
     std::unordered_set<nid_t> eligible_nodes;
     if (this->track_correctness && aln.refpos_size() != 0) {
@@ -4081,28 +4105,39 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             refpos_by_path[refpos.name()].push_back(&refpos); 
         }
         for (auto& kv : refpos_by_path) {
+            // There can't be any empty entries in the map.
+
             // Sort the reference positions by coordinate for easy scanning to find near matches.
             std::sort(kv.second.begin(), kv.second.end(), [&](const Position* a, const Position* b) {
                 return a->offset() < b->offset();
             });
-            
-            if (this->path_graph->has_path(kv.first) && !kv.second.empty()) {
-                // Find the path
-                path_handle_t path = this->path_graph->get_path_handle(kv.first);
-                
-                // Find the bounding offsets
-                size_t lowest_offset = kv.second.front()->offset();
-                size_t highest_offset = kv.second.back()->offset();
 
-                // Find the bounding steps on the path
-                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, lowest_offset);
-                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, highest_offset);
+            // Find the bounding offsets
+            size_t lowest_offset = kv.second.front()->offset();
+            size_t highest_offset = kv.second.back()->offset();
+            
+            // Look for all subpaths of that base path that we have in this base path region.
+            Region target_region {kv.first, (int64_t) lowest_offset, (int64_t) highest_offset};
+            for_each_overlapping_subpath(*this->path_graph, target_region, [&](const path_handle_t& path, size_t start_offset, size_t past_end_offset) {
+                if (past_end_offset <= start_offset) {
+                    // This range is empty somehow, so skip it.
+                    return true;
+                }
+
+#ifdef debug
+                std::cerr << "Path " << this->path_graph->get_path_name(path) << " overlaps " << target_region << " from " << start_offset << " to " << past_end_offset << " and has length " << this->path_graph->get_path_length(path) << std::endl;
+#endif
+
+                // Find the bounding steps on the subpath range
+                step_handle_t lowest_offset_step = this->path_graph->get_step_at_position(path, start_offset);
+                // If the range is nonempty, the past_end_offset is at least 1.
+                step_handle_t highest_offset_step = this->path_graph->get_step_at_position(path, past_end_offset - 1);
                 
-                // It must be an actual path range we have or we can't do this
+                // It must be an actual path range because we were given it to iterate over
                 crash_unless(lowest_offset_step != this->path_graph->path_end(path));
                 crash_unless(highest_offset_step != this->path_graph->path_end(path));
 
-                // Advance one handle to be the past-end for the range. This might hit the path)end sentinel.
+                // Advance one handle to be the past-end for the range. This might hit the path_end sentinel.
                 step_handle_t end_step = this->path_graph->get_next_step(highest_offset_step);
 
                 for (step_handle_t here = lowest_offset_step; here != end_step; here = this->path_graph->get_next_step(here)) {
@@ -4139,7 +4174,11 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                     // And record the distance traveled
                     range_visited += this->path_graph->get_length(here_handle);
                 }
-            }
+                
+                // Continue with the next region of the base path that
+                // intersects the read's interval on it.
+                return true;
+            });
         }
     }
 
@@ -4158,14 +4197,17 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
             if (aln.refpos_size() != 0) {
                 // It might be correct
                 for (auto& handle_and_positions : offsets) {
-                    // For every path we have positions on
-                    // See if we have any refposes on that path
-                    auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
+                    // For every subpath handle we have positions on
+                    // See if we have any refposes on the corresponding base path
+                    auto found = refpos_by_path.find(get_path_base_name(*this->path_graph, handle_and_positions.first));
                     if (found != refpos_by_path.end()) {
-                        // We do have reference positiions on this path.
+                        // We do have reference positions on this base path.
                         std::vector<const Position*>& refposes = found->second;
                         // And we have to check them against these mapped positions on the path.
-                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
+                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second;
+                        // Which are on a subpath that starts at this offset along the base path
+                        size_t subpath_offset = get_path_base_offset(*this->path_graph, handle_and_positions.first); 
+
                         // Sort the positions we mapped to by coordinate also
                         std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
                             return a.first < b.first;
@@ -4178,13 +4220,13 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
                         auto mapped_it = mapped_positions.begin();
                         while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
                             // As long as they are both in their collections, compare them
-                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < MAX_CORRECT_DISTANCE) {
+                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) (mapped_it->first + subpath_offset)) < MAX_CORRECT_DISTANCE) {
                                 // If they are close enough, we have a match
                                 tag = Funnel::State::CORRECT;
                                 break;
                             }
                             // Otherwise, advance the one with the lower coordinate.
-                            if ((*ref_it)->offset() < mapped_it->first) {
+                            if ((*ref_it)->offset() < (mapped_it->first + subpath_offset)) {
                                 ++ref_it;
                             } else {
                                 ++mapped_it;

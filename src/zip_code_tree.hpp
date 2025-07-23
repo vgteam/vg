@@ -392,6 +392,11 @@ public:
     std::pair<size_t, size_t> dag_and_non_dag_snarl_count(const vector<Seed>& seeds, 
                                                     const SnarlDistanceIndex& distance_index) const;
 
+    /// Count the length of the zipcode tree for each cyclic snarl
+    /// Returns a vector of the lengths of each cyclic snarl
+    std::vector<size_t> cyclic_snarl_sizes(const vector<Seed>& seeds, 
+                                           const SnarlDistanceIndex& distance_index) const;
+
 protected:
 
     //Helper function to get the orientation of a snarl tree node at a given depth

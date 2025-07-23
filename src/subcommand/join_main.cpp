@@ -20,9 +20,10 @@ using namespace vg::subcommand;
 
 void help_join(char** argv) {
     cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...] >joined.vg" << endl
-        << "Joins graphs and sub-graphs into a single variant graph by connecting their" << endl
-        << "heads to a single root node with sequence 'N'." << endl
-        << "Assumes a single id namespace for all graphs to join." << endl;
+         << "Joins graphs and sub-graphs into a single variant graph by connecting their" << endl
+         << "heads to a single root node with sequence 'N'." << endl
+         << "Assumes a single id namespace for all graphs to join." << endl
+         << "  -h, --help                print this help message to stderr and exit" << endl;
 }
 
 int main_join(int argc, char** argv) {
@@ -42,8 +43,8 @@ int main_join(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "h?",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)

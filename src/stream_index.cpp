@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <queue>
+#include "algorithms/sorted_id_ranges.hpp"
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/io/gzip_stream.h>
@@ -469,35 +470,7 @@ auto StreamIndexBase::scan_backward(const function<bool(int64_t, int64_t)> scan_
 /// Return true if the given ID is in any of the sorted, coalesced, inclusive ranges in the vector, and false otherwise.
 /// TODO: Is repeated binary search on the ranges going to be better than an unordered_set of all the individual IDs?
 auto StreamIndexBase::is_in_range(const vector<pair<id_t, id_t>>& ranges, id_t id) -> bool {
-    // Use a binary search
-    size_t left = 0;
-    size_t past_right = ranges.size();
-    
-    while (past_right >= left + 1) {
-        // We have a nonempty interval
-        
-        // Find the middle
-        size_t center = (left + past_right) / 2;
-        assert(center < ranges.size());
-        
-        // Look at the range there
-        auto& range = ranges[center];
-        
-        if (id < range.first) {
-            // If we're before it, go left
-            past_right = center;
-        } else if (id > range.second) {
-            // If we're after it, go right
-            left = center + 1;
-        } else {
-            // If we're in it, return true
-            return true;
-        }
-    }
-    
-    // If we get here, it wasn't in any range
-    return false;
-    
+   return vg::algorithms::is_in_sorted_id_ranges(id, ranges); 
 }
 
 auto StreamIndexBase::save(ostream& to) const -> void {

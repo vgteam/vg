@@ -100,7 +100,7 @@ namespace vg {
             graph->append_step(path4, node4);
             graph->append_step(path4, node6);
 
-            Transcriptome transcriptome(move(graph));
+            Transcriptome transcriptome(std::move(graph));
             REQUIRE(graph == nullptr);
 
             transcriptome.num_threads = 2;

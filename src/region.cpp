@@ -5,6 +5,21 @@
 
 namespace vg {
 
+std::ostream& operator<<(std::ostream& out, const Region& region) {
+    out << region.seq;
+    if (region.start != -1 || region.end != -1) {
+        out << ":";
+        if (region.start != -1) {
+            out << region.start;
+        }
+        if (region.end != -1) {
+            out << "-";
+            out << region.end;
+        }
+    }
+    return out;
+}
+
 void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
     start = -1;
     end = -1;

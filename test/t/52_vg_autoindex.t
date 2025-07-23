@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 55
+plan tests 56
 
 rm auto.*
 
@@ -16,6 +16,15 @@ is $(ls auto.xg | wc -l) 1 "autoindexing makes an XG for vg map"
 is $(ls auto.gcsa* | wc -l) 2 "autoindexing makes a GCSA2/LCP pair for vg map"
 vg sim -x auto.xg -n 20 -a -l 10 | vg map -d auto -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic autoindexing results can be used by vg map"
+
+old_xg_creation_time=`ls -l --time-style=full-is auto.xg | tr -s ' ' | cut -d ' ' -f7`
+vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased --no-guessing
+cur_xg_creation_time=`ls -l --time-style=full-is auto.xg | tr -s ' ' | cut -d ' ' -f7`
+same_time="no"
+if [ "$old_xg_creation_time" == "$cur_xg_creation_time" ]; then
+    same_time="yes"
+fi
+is "$same_time" "no" "autoindexing with --no-guessing overwrites existing files"
 
 rm auto.*
 

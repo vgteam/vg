@@ -32,7 +32,7 @@ namespace vg {
     }
 
     multipath_alignment_t::multipath_alignment_t(multipath_alignment_t&& other) {
-        *this = move(other);
+        *this = std::move(other);
     }
 
     multipath_alignment_t& multipath_alignment_t::operator=(const multipath_alignment_t& other) {
@@ -66,12 +66,12 @@ namespace vg {
 
     multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) {
         if (this != &other) {
-            _sequence = move(other._sequence);
-            _quality = move(other._quality);
-            _subpath = move(other._subpath);
-            _mapping_quality = move(other._mapping_quality);
-            _start = move(other._start);
-            _annotation = move(other._annotation);
+            _sequence = std::move(other._sequence);
+            _quality = std::move(other._quality);
+            _subpath = std::move(other._subpath);
+            _mapping_quality = std::move(other._mapping_quality);
+            _start = std::move(other._start);
+            _annotation = std::move(other._annotation);
             other._annotation.clear();
         }
         return *this;
@@ -264,7 +264,7 @@ namespace vg {
                         ++edits_removed;
                     }
                     else if (edits_removed != 0) {
-                        *mapping->mutable_edit(k - edits_removed) = move(*edit);
+                        *mapping->mutable_edit(k - edits_removed) = std::move(*edit);
                     }
                 }
                 mapping->mutable_edit()->resize(mapping->edit_size() - edits_removed);
@@ -272,7 +272,7 @@ namespace vg {
                     ++mappings_removed;
                 }
                 else if (mappings_removed != 0) {
-                    *path->mutable_mapping(j - mappings_removed) = move(*mapping);
+                    *path->mutable_mapping(j - mappings_removed) = std::move(*mapping);
                 }
             }
             path->mutable_mapping()->resize(path->mapping_size() - mappings_removed);
@@ -418,7 +418,7 @@ namespace vg {
                 }
                 
                 if (removed_so_far[i] > 0) {
-                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*multipath_aln.mutable_subpath(i));
                 }
             }
             
@@ -586,6 +586,39 @@ namespace vg {
         // TODO: i'm sure there's a way to generalize this so i don't switch off for the whole
         // thing, but the iteration schemes are just different enough to be pretty annoying
         
+        // Use a lambda to unify the iteration over connections vs. immediate subpaths, and over forward vs. reverse modes.
+        // We consider the DP option at one index, for the DP cell at another index, which works forward or reverse.
+        auto consider_dp_option = [&](const size_t& option_index, const int64_t& cell_index, const int32_t& option_score, bool replace_ties) {
+            // Find the potential subpath we could use
+            const subpath_t& option_subpath = multipath_aln.subpath(option_index);
+
+            // Figure out which existing candidate subpath we're comparing against.
+            // This might be by direct next() or by connection(), but that doesn't matter for comparison.
+            int64_t& winner_index = problem.prev_subpath[cell_index];
+            int32_t& winner_score = problem.prefix_score[cell_index];
+            const subpath_t* existing_winner = winner_index == -1 ? nullptr : &multipath_aln.subpath(winner_index);
+
+#ifdef debug_multiple_tracebacks
+            std::cerr << "Consider option path " << option_index << " with score " << option_score << " to fill cell " << cell_index << " with current score " << winner_score << " from option " << winner_index << std::endl;
+#endif
+
+            if (option_score < winner_score) {
+                // Don't replace, this is worse.
+                return;
+            }
+
+            if (option_score == winner_score && !replace_ties) {
+                // Don't replace, this is a perfect tie and we aren't replacing on ties.
+                return;
+            }
+
+            // Now we're either strictly better, or a perfect tie when replacing on ties.
+            // Do the replacement.
+            winner_index = option_index;
+            winner_score = option_score;
+        };
+
+        
         if (forward) {
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
                 const subpath_t& subpath = multipath_aln.subpath(i);
@@ -595,23 +628,19 @@ namespace vg {
                     int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
                     for (size_t j = 0; j < subpath.next_size(); ++j) {
                         int64_t next = subpath.next(j);
-                        problem.prefix_length[next] = thru_length;
+                        // Always update prefix length
+                        problem.prefix_length[next] = thru_length; 
                         
-                        // can we improve prefix score on following subpath through this one?
-                        if (extended_score >= problem.prefix_score[next]) {
-                            problem.prev_subpath[next] = i;
-                            problem.prefix_score[next] = extended_score;
-                        }
+                        // Consider subpath at i directly as an option to fill in next, replacing ties.
+                        consider_dp_option(i, next, extended_score, true);
                     }
                     // repeat DP across scored connections
                     for (size_t j = 0; j < subpath.connection_size(); ++j) {
                         const connection_t& connection = subpath.connection(j);
-                        
                         problem.prefix_length[connection.next()] = thru_length;
-                        if (extended_score + connection.score() >= problem.prefix_score[connection.next()]) {
-                            problem.prev_subpath[connection.next()] = i;
-                            problem.prefix_score[connection.next()] = extended_score + connection.score();
-                        }
+
+                        // Consider subpath at i with a connection as an option to fill in connection.next(), replacing ties.
+                        consider_dp_option(i, connection.next(), extended_score + connection.score(), true);
                     }
                 }
                 // check if an alignment is allowed to end here according to global/local rules and
@@ -625,6 +654,8 @@ namespace vg {
             }
         }
         else {
+            // We're doing the same DP but backward, so "prev_subpath" really points at the successor, and we need to not replace ties.
+
             // TODO: maybe this should be done with an unordered_set?
             vector<bool> is_start(multipath_aln.subpath_size(), false);
             for (auto i : multipath_aln.start()) {
@@ -634,19 +665,17 @@ namespace vg {
                 const subpath_t& subpath = multipath_aln.subpath(i);
                 // find the length and best score from subsequent subpaths
                 for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    auto n = subpath.next(j);
-                    problem.prefix_length[i] = problem.prefix_length[n];
-                    if (problem.prefix_score[n] > problem.prefix_score[i]) {
-                        problem.prefix_score[i] = problem.prefix_score[n];
-                        problem.prev_subpath[i] = n;
-                    }
+                    int64_t next = subpath.next(j);
+                    problem.prefix_length[i] = problem.prefix_length[next];
+
+                    // Consider subpath at next directly as an option to fill in i, not replacing ties.
+                    consider_dp_option(next, i, problem.prefix_score[next], false);
                 }
                 for (const auto& connection : subpath.connection()) {
                     problem.prefix_length[i] = problem.prefix_length[connection.next()];
-                    if (problem.prefix_score[connection.next()] + connection.score() > problem.prefix_score[i]) {
-                        problem.prefix_score[i] = problem.prefix_score[connection.next()] + connection.score();
-                        problem.prev_subpath[i] = connection.next();
-                    }
+
+                    // Consider subpath at connection.next() via connection as an option to fill in i, not replacing ties.
+                    consider_dp_option(connection.next(), i, problem.prefix_score[connection.next()] + connection.score(), false);
                 }
                 // add score and length of this subpath
                 problem.prefix_length[i] += path_to_length(subpath.path());
@@ -916,7 +945,7 @@ namespace vg {
                 
                 if (removed_so_far[i]) {
                     // move it up in the vector through all the deleted subpaths
-                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*subpath);
                 }
                 
                 removed_so_far[i + 1] = removed_so_far[i];
@@ -2107,13 +2136,13 @@ namespace vg {
         // add reversed edges
         for (uint32_t i = 0, j = last; i < multipath_aln->subpath_size(); i++, j--) {
             subpath_t* subpath = multipath_aln->mutable_subpath(i);
-            *subpath->mutable_next() = move(reverse_edge_lists[j]);
-            *subpath->mutable_connection() = move(reverse_connection_lists[j]);
+            *subpath->mutable_next() = std::move(reverse_edge_lists[j]);
+            *subpath->mutable_connection() = std::move(reverse_connection_lists[j]);
         }
         
         // if we had starts labeled before, label them again
         if (multipath_aln->start_size() > 0) {
-            *multipath_aln->mutable_start() = move(reverse_starts);
+            *multipath_aln->mutable_start() = std::move(reverse_starts);
         }
     }
 
@@ -2453,14 +2482,14 @@ namespace vg {
                     
                     // append rest of the edits
                     for (; edit_idx < first_mapping->edit_size(); edit_idx++) {
-                        *final_mapping->add_edit() = move(*first_mapping->mutable_edit(edit_idx));
+                        *final_mapping->add_edit() = std::move(*first_mapping->mutable_edit(edit_idx));
                     }
                     
                     mapping_idx++;
                 }
                 
                 for (; mapping_idx < merge_path->mapping_size(); mapping_idx++) {
-                    *path->add_mapping() = move(*merge_path->mutable_mapping(mapping_idx));
+                    *path->add_mapping() = std::move(*merge_path->mutable_mapping(mapping_idx));
                 }
                 
                 last = j;
@@ -2494,7 +2523,7 @@ namespace vg {
             
             if (removed_so_far[i]) {
                 // move it up in the vector past the removed subpaths
-                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = std::move(*multipath_aln.mutable_subpath(i));
             }
         }
         
@@ -3604,7 +3633,7 @@ namespace vg {
                     }
                 }
                 
-                curr_runs = move(next_runs);
+                curr_runs = std::move(next_runs);
             }
         }
         

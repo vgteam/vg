@@ -1176,7 +1176,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
 
     SECTION("Fusing works when linker is empty") {
 
-        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
         test_spliced_aln(fused);
@@ -1192,7 +1192,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
 
     SECTION("Fusing works when linker is only empty on the right side") {
         
-        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
         test_spliced_aln(fused);
@@ -1205,7 +1205,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
 
     SECTION("Fusing works when linker is non-empty on both sides") {
 
-        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
         test_spliced_aln(fused);
@@ -1220,7 +1220,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
 
     SECTION("Fusing works when linker is only empty on the left side") {
 
-        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
         test_spliced_aln(fused);
@@ -1362,7 +1362,7 @@ TEST_CASE("fuse_spliced_alignments can handle multiple splice points",
     identify_start_subpaths(left_mp_aln);
     identify_start_subpaths(right_mp_aln);
 
-    multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+    multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                           linker, splice_idx, splice_score,
                                                           *test_aligner.get_regular_aligner(), graph);
 
@@ -1515,7 +1515,7 @@ TEST_CASE("fuse_spliced_alignments can handle removing some subpaths", "[splice]
     int64_t splice_idx = 1;
     int32_t splice_score = -2;
     
-    multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+    multipath_alignment_t fused = fuse_spliced_alignments(aln, std::move(left_mp_aln), std::move(right_mp_aln), left_bridge_point,
                                                           linker, splice_idx, splice_score,
                                                           *test_aligner.get_regular_aligner(), graph);
         

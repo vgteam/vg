@@ -78,8 +78,6 @@ private:
 
 
 public:
-    PrimerFinder() = default;
-    
     /**
      * Construct Primer finder given PathPositionHandleGraph, reference graph name
      * and pointer to SnarlDistanceIndex
