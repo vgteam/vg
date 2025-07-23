@@ -1242,10 +1242,6 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
     ZipCodeTree::seed_iterator dest = begin();
     bool right_to_left = true;
     while (dest != end()) {
-#ifdef debug_parse
-    std::cerr << "-----------------------------------------" << std::endl;
-    std::cerr << (right_to_left ? "Right to left" : "Left to right") << std::endl;
-#endif
         // The minimum distance is the true minimum so we make sure,
         // for each other seed, at least one of the outputted distances works
         unordered_set<oriented_seed_t> passing_seeds;
@@ -1259,6 +1255,10 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
         // Which direction do we traverse the seed?
         const bool start_is_reversed = right_to_left ? (*dest).front().is_reversed
                                                      : !(*dest).front().is_reversed;
+#ifdef debug_parse
+    std::cerr << "-----------------------------------------" << std::endl;
+    std::cerr << start_seed.pos << ": " << (right_to_left ? "Right to left" : "Left to right") << std::endl;
+#endif
 
         // Walk through the tree starting from dest and check the distance
         for (auto dist_itr = find_distances(dest, right_to_left, distance_limit); !dist_itr.done(); ++dist_itr) {
