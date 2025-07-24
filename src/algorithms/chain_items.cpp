@@ -375,7 +375,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 #ifdef debug_transition
                 std::cerr << "\tNot reachable in graph!" << std::endl;
 #endif
-                return;
+                continue;
             }
 
             size_t read_distance = get_read_distance(source_anchor, dest_anchor);
@@ -384,7 +384,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 #ifdef debug_transition
                 std::cerr << "\tNot reachable in read." << std::endl;
 #endif
-                return;
+                continue;
             }
 
             if (read_distance > max_read_lookback_bases) {
@@ -393,7 +393,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 std::cerr << "\tToo far apart in read (" << read_distance 
                           << "/" << max_read_lookback_bases << ")." << std::endl;
 #endif
-                return;
+                continue;
             }
 
             if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
@@ -402,7 +402,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 #ifdef debug_transition
                 std::cerr << "\tOriginally overlapped in read." << std::endl;
 #endif
-                return;
+                continue;
             }
 
             // The zipcode tree is about point positions,
@@ -426,7 +426,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // We actually end further along the graph path to the next
                 // thing than where the next thing starts, so we can't actually
                 // get there.
-                return;
+                continue;
             }
             // Consume the length. 
             graph_distance -= distance_to_remove;
