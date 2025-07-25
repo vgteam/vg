@@ -258,25 +258,32 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // Only find transitions if we find an anchor for this seed
 
 #ifdef debug_transition
+    std::cerr << "Destination seed";
+    if (dest_anchors.size() > 1) {
+        std::cerr << "s";
+    }
+    pos_t cur_pos;
+    string rev_string = "";
     for (const auto& cur_anchor : dest_anchors) {
         auto dest_seed = cur_anchor.first;
-        std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos 
-                  << (dest_seed.is_reversed ? "rev" : "") << " is anchor #" << cur_anchor.second << std::endl;
+        std::cerr << " (S" << cur_anchor.first.seed << "/anchor #" << cur_anchor.second << ")";
+        cur_pos = seeds[dest_seed.seed].pos;
+        rev_string = dest_seed.is_reversed ? "rev" : "";
     }
+    std::cerr  << " at " << cur_pos << " " << rev_string << std::endl;
 #endif
 
                 for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); 
                      !source.done(); ++source) {
                     // For each source seed right to left
                     vector<ZipCodeTree::seed_result_t> source_seeds = *source;
-
-#ifdef debug_transition
-    std::cerr << "\tSource seed S" << source_seeds[0].seed << " " << seeds[source_seeds[0].seed].pos 
-              << (source_seeds[0].is_reversed ? "rev" : "")
-              << " at distance " << source_seeds[0].distance << "/" << max_graph_lookback_bases;
-#endif
                     for (const auto& cur_dest : dest_anchors) {
-                        for (const auto& cur_source : source_seeds) {
+                        for (const auto& cur_source : source_seeds) {           
+#ifdef debug_transition
+    std::cerr << "\tSource seed S" << cur_source.seed << " " << seeds[cur_source.seed].pos 
+              << (cur_source.is_reversed ? "rev" : "") << " at distance " << cur_source.distance
+              << "/" << max_graph_lookback_bases;
+#endif
                             if (!cur_source.is_reversed && !cur_dest.first.is_reversed) {
                                 // Both of these are in the same orientation relative to
                                 // the read, and we're going through the graph in the
@@ -326,8 +333,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                 }
                             } else {
                                 // We have a transition between different orientations
-                                // relative to the read. Don't show that.
-                                continue;
+                                // relative to the read. That shouldn't happen.
+                                crash_unless(cur_source.is_reversed == cur_dest.first.is_reversed);
                             }
                         }
                     }
