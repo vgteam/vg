@@ -66,7 +66,6 @@ void help_deconstruct(char** argv) {
          << "  -f, --nested-fasta F     Write off-reference FASTA to F (and some indexing" << endl
          << "                           information to F.nesting.tsvx) [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
-         << "                           but do not cross the site. Only works with -n" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl;
