@@ -781,6 +781,7 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
                                      forest_growing_state_t& forest_state, 
                                      const size_t& depth, const vector<seed_info_t>& edge_seeds,
                                      bool snarl_is_reversed, bool is_cyclic_snarl) const {
+    bool is_regular_snarl = edge_seeds[0].zipcode.get_code_type(depth) == ZipCode::REGULAR_SNARL;
     // start -> end is simply length of snarl
     dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_seeds[0].zipcode.get_length(depth));
 
@@ -789,12 +790,19 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
     // Cyclic snarls have distances from all sides to the end
     size_t start_i = is_cyclic_snarl ? 0 : 1;
     size_t increment = is_cyclic_snarl ? 1 : 2;
+    size_t edge_dist;
     for (size_t i = start_i; i < edge_seeds.size(); i += increment) {
-        // Distance from the start of the snarl to the start of the chain
-        size_t between_bounds_dist = edge_seeds[i].zipcode.get_distance_to_snarl_bound(
-            depth+1, snarl_is_reversed, !edge_seeds[i].right_side);
-        // Overall edge distance
-        size_t edge_dist = SnarlDistanceIndex::sum(between_bounds_dist, edge_seeds[i].flank_offset);
+        if (is_regular_snarl) {
+            // Regular snarls just use the flank distances
+            edge_dist = edge_seeds[i].flank_offset;
+        } else {
+            // Distance from the start of the snarl to the start of the chain
+            size_t between_bounds_dist = edge_seeds[i].zipcode.get_distance_to_snarl_bound(
+                depth+1, snarl_is_reversed, !edge_seeds[i].right_side);
+            
+            // Overall edge distance
+            edge_dist = SnarlDistanceIndex::sum(between_bounds_dist, edge_seeds[i].flank_offset);
+        }
         dist_matrix.emplace_back(ZipCodeTree::EDGE, edge_dist);
     }
 
