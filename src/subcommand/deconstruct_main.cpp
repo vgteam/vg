@@ -64,7 +64,7 @@ void help_deconstruct(char** argv) {
          << "                           is >= F together [1.0; experimental]" << endl
          << "  -n, --nested             write a nested VCF, plus special tags [experimental]" << endl
          << "  -R, --star-allele        use *-alleles to denote alleles that span" << endl
-         << "  -f, --nested-fasta F     write off-reference FASTA to F (and some indexing information to F.nesting.tsvx)" << endl
+         << "  -f, --nested-fasta F     write off-reference FASTA to F (with F.nesting.tsv)" << endl
          << "                           but do not cross the site. Only works with -n" << endl
          << "  -t, --threads N          use N threads" << endl
          << "  -v, --verbose            print some status messages" << endl
