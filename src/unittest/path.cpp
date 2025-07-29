@@ -351,6 +351,22 @@ TEST_CASE("find_containing_subpath() works", "[path]") {
             REQUIRE(path == ref_ph3);
         }
 
+        SECTION("It finds a subpath when asked explicitly for part of a subpath") {
+            Region target_region {"GRCh38#0#chr1[4-7]", 0, 1};
+            bool result = find_containing_subpath(ref_graph, target_region, path);
+
+            REQUIRE(result == true);
+            REQUIRE(path == ref_ph3);
+        }
+
+        SECTION("It doesn't finds a subpath when asked explicitly for part of a subpath that goes off its end") {
+            // Because the region is 0-based, end-inclusive, this asks for a 2-base part of a 1-base subpath
+            Region target_region {"GRCh38#0#chr1[3-4]", 0, 1};
+            bool result = find_containing_subpath(ref_graph, target_region, path);
+
+            REQUIRE(result == false);
+        }
+
     }
 }
 
