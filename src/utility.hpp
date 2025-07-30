@@ -821,6 +821,10 @@ string file_base_name(const string& filename);
 /// Only works for files readable by the current user.
 bool file_exists(const string& filename);
 
+/// Check if a file exists and return its name (if so) or error.
+/// Uses file_exists() and is intended to be called when parsing arguments.
+string error_if_file_does_not_exist(const string& filename, const string& context = "");
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>

@@ -716,6 +716,14 @@ bool file_exists(const string& filename) {
     return in.is_open();
 }
 
+string error_if_file_does_not_exist(const string& filename, const string& context = "") {
+    if (!file_exists(filename)) {
+        // Complain that the user didn't specify a filename
+        cerr << "error" << context << ": file \"" << filename << "\" does not exist" << endl;
+        exit(1);
+    }
+    return filename;
+}
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele
