@@ -127,7 +127,7 @@ Some GitHub Copilot autocompletions were used.
 import os
 import re
 import sys
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
