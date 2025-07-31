@@ -971,4 +971,16 @@ bool parse(const string& arg, pos_t& dest) {
     return true;
 }
 
+int parse_thread_count(const string& arg, const string& context) {
+    int num_threads = parse<int>(arg);
+    
+    if (num_threads <= 0) {
+        cerr << "error" << context << ": Thread count (-t) set to " 
+             << num_threads << ", must set to a positive integer." << endl;
+        exit(1);
+    }
+    
+    return num_threads;
+}
+
 }

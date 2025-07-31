@@ -825,6 +825,9 @@ bool file_exists(const string& filename);
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string error_if_file_does_not_exist(const string& filename, const string& context = "");
 
+// A special parser for thread count which errors if non-positive
+int parse_thread_count(const string& arg, const string& context);
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>
