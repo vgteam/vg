@@ -716,7 +716,7 @@ bool file_exists(const string& filename) {
     return in.is_open();
 }
 
-string error_if_file_does_not_exist(const string& filename, const string& context = "") {
+string error_if_file_does_not_exist(const string& filename, const string& context) {
     if (!file_exists(filename)) {
         // Complain that the user didn't specify a filename
         cerr << "error" << context << ": file \"" << filename << "\" does not exist" << endl;
@@ -931,7 +931,8 @@ bool parse(const string& arg, float& dest) {
 template<>
 bool parse(const string& arg, std::regex& dest) {
     // This throsw std::regex_error if it can't parse.
-    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
+    // That contains a kind of useless error code that we
+    // can't turn into a string without switching on all the values.
     dest = std::regex(arg);
     return true;
 }
