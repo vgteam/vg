@@ -591,15 +591,24 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             size_t snarl_prefix_sum = forest_state.sibling_indices_at_depth[depth-1].back().value;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
 
-            // Snarl prefix sum is now distance from chain start to snarl start
-            snarl_prefix_sum = SnarlDistanceIndex::minus(snarl_prefix_sum, last_seed.zipcode.get_length(depth));
+            // Shift prefix sum to the other side of the snarl
+            size_t snarl_length = last_seed.zipcode.get_length(depth);
+            snarl_prefix_sum = last_is_reversed ? SnarlDistanceIndex::sum(snarl_prefix_sum, snarl_length)
+                                                : SnarlDistanceIndex::minus(snarl_prefix_sum, snarl_length);
+            tree_item_t last_item = trees[forest_state.active_tree_index].zip_code_tree.back();
+            tree_item_type_t last_type = last_item.get_type();
+            if (last_item.is_snarl_end()) {
+                // Fix snarl ends to actually be snarl starts
+                last_type = last_item.get_type() == ZipCodeTree::CYCLIC_SNARL_END 
+                    ? ZipCodeTree::CYCLIC_SNARL_START : ZipCodeTree::DAG_SNARL_START;
+            }
+            size_t distance = last_is_reversed ? SnarlDistanceIndex::sum(snarl_prefix_sum, previous_edge)
+                                               : SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge);
             // Now update sibling_indices_at_depth to be previous thing in chain
-            forest_state.sibling_indices_at_depth[depth-1].push_back({
-                trees[forest_state.active_tree_index].zip_code_tree.back().get_type(),
-                SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge)});
+            forest_state.sibling_indices_at_depth[depth-1].emplace_back(last_type, distance);
 
-            //If it was in the first component, then this is correct.
-            //If a later component, then it's too far away anyway
+            // If it was in the first component, then this is correct.
+            // If a later component, then it's too far away anyway
             forest_state.sibling_indices_at_depth[depth-1].back().chain_component = 0;
 
             // At this point, the open_chain for the parent chain is either
