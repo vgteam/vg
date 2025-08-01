@@ -78,16 +78,16 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state,
     trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_START, snarl_id);
 
     // Remember the chain start and its prefix sum value as a child of the chain
-    forest_state.sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 
+    forest_state.sibling_indices_at_depth[depth].emplace_back(ZipCodeTree::CHAIN_START, 
         chain_is_reversed ? current_seed.zipcode.get_length(depth, true) 
-                          : 0});
+                          : 0);
     forest_state.sibling_indices_at_depth[depth].back().chain_component = 
         (chain_is_reversed && !is_node) ? current_seed.zipcode.get_last_chain_component(depth, true) 
                                         : 0;
 
     // Remember the chain as a child of its parent snarl
-    forest_state.sibling_indices_at_depth[depth-1].push_back(
-        {ZipCodeTree::CHAIN_START, trees[forest_state.active_tree_index].zip_code_tree.size()-1});
+    forest_state.sibling_indices_at_depth[depth-1].emplace_back(
+        ZipCodeTree::CHAIN_START, trees[forest_state.active_tree_index].zip_code_tree.size()-1);
 
     // The distances in the snarl include the distances
     // from the first/last children in the chain to the ends of the chains
@@ -315,7 +315,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             three_back_item.add_extra_value(seed_index);
             return;
         }
-}
+    }
 
     // There will only be a relevant snarl ID if the chain is a child of a snarl
     auto snarl_id = depth >= 1 ? forest_state.sibling_indices_at_depth[depth-1][0].snarl_id 
@@ -417,8 +417,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
             // The first sibling is now the chain start, not the previous seed
             forest_state.sibling_indices_at_depth[chain_depth].pop_back();
-            forest_state.sibling_indices_at_depth[chain_depth].push_back({ZipCodeTree::CHAIN_START, 
-                chain_is_reversed ? current_seed.zipcode.get_length(chain_depth, true) : 0}); 
+            forest_state.sibling_indices_at_depth[chain_depth].emplace_back(ZipCodeTree::CHAIN_START, 
+                chain_is_reversed ? current_seed.zipcode.get_length(chain_depth, true) : 0); 
             forest_state.sibling_indices_at_depth[chain_depth].back().chain_component = 
                 !is_trivial_chain ? current_seed.zipcode.get_last_chain_component(chain_depth, true) : 0;
         } else if (distance_between > forest_state.distance_limit) { 
@@ -513,12 +513,12 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     forest_state.sibling_indices_at_depth[chain_depth].pop_back();
     tree_item_t just_added = trees[forest_state.active_tree_index].zip_code_tree.back();
     if (just_added.get_type() == ZipCodeTree::SEED) {
-        forest_state.sibling_indices_at_depth[chain_depth].push_back({ZipCodeTree::SEED, current_offset}); 
+        forest_state.sibling_indices_at_depth[chain_depth].emplace_back(ZipCodeTree::SEED, current_offset); 
     } else {
 #ifdef DEBUG_ZIP_CODE_TREE
     assert(just_added.is_snarl_start());
 #endif
-        forest_state.sibling_indices_at_depth[chain_depth].push_back({just_added.get_type(), current_offset}); 
+        forest_state.sibling_indices_at_depth[chain_depth].emplace_back(just_added.get_type(), current_offset); 
         forest_state.sibling_indices_at_depth[chain_depth].back().snarl_id = just_added.get_value();
     }
 
@@ -540,8 +540,8 @@ void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_
     tree_item_t snarl_start = trees[forest_state.active_tree_index].zip_code_tree.back();
 
     // Remember the start of the snarl for distances & ID
-    forest_state.sibling_indices_at_depth[depth].push_back(
-        {snarl_start.get_type(), std::numeric_limits<size_t>::max()});
+    forest_state.sibling_indices_at_depth[depth].emplace_back(
+        snarl_start.get_type(), std::numeric_limits<size_t>::max());
     forest_state.sibling_indices_at_depth[depth].back().snarl_id = snarl_start.get_value();
 }
 
@@ -673,7 +673,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             bool prev_reversed = forest_state.open_intervals[forest_state.open_intervals.size()-2].is_reversed;
             size_t offset = prev_reversed ? last_seed.zipcode.get_length(depth-1, true) : 0;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
-            forest_state.sibling_indices_at_depth[depth-1].push_back({ZipCodeTree::CHAIN_START, offset});
+            forest_state.sibling_indices_at_depth[depth-1].emplace_back(ZipCodeTree::CHAIN_START, offset);
             forest_state.sibling_indices_at_depth[depth-1].back().chain_component
                 = last_seed.zipcode.get_last_chain_component(depth-1, true);
         }
@@ -2753,7 +2753,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                     ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max());
 
                 // Remember the start of the chain
-                forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
+                forest_state.sibling_indices_at_depth[0].emplace_back(ZipCodeTree::CHAIN_START, 0);
                 forest_state.sibling_indices_at_depth[0].back().chain_component = 0;
 
                 // If this is a node, the interval contains everything in it
@@ -2772,7 +2772,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds,
                                                                                  std::numeric_limits<size_t>::max());
 
                 // Remember the start of the chain
-                forest_state.sibling_indices_at_depth[0].push_back({ZipCodeTree::CHAIN_START, 0});
+                forest_state.sibling_indices_at_depth[0].emplace_back(ZipCodeTree::CHAIN_START, 0);
                 forest_state.sibling_indices_at_depth[0].back().chain_component = 0;
             }                       
         } else if (forest_state.open_intervals.back().code_type == ZipCode::CHAIN || 
