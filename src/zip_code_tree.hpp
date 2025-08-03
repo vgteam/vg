@@ -865,7 +865,10 @@ class ZipCodeForest {
     
         /// For children of snarls, distance to the left and right of the chain
         /// that gets added to edges in the snarl
-        std::pair<size_t, size_t> distances;
+        /// The first item is a map of {seed index : distance},
+        /// in case the first seed gets snipped off
+        /// The second item is the distance to the rightmost seed in the chain
+        std::pair<std::unordered_map<size_t, size_t>, size_t> distances;
 
         /// If the item is a child of a chain, its chain component
         size_t chain_component : 26; 
@@ -1033,10 +1036,8 @@ class ZipCodeForest {
 
     /// Open a chain that starts at the current_seed
     /// Also record its presence and distance-to-start in the parent snarl
-    /// If needed, seed_index is the index into seeds of the chain's first seed
     /// Assumes that the chain *has* a parent snarl, i.e. isn't top-level
-    void open_chain(forest_growing_state_t& forest_state, const size_t& depth, 
-                    size_t seed_index, bool chain_is_reversed);
+    void open_chain(forest_growing_state_t& forest_state, const interval_state_t& interval);
 
     /// Close a chain that ends at last_seed
     /// If the chain was empty, remove it and anything relating to it
