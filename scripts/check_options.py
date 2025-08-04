@@ -127,7 +127,7 @@ Some GitHub Copilot autocompletions were used.
 import os
 import re
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
@@ -149,6 +149,7 @@ class OptionInfo:
     
     Doesn't store a longform option because it expects
     to be a value in a {longform: OptionInfo} dictionary.
+    (Though the switch block parsers uses {shortform: OptionInfo})
     """
 
     takes_argument: bool = None
@@ -575,8 +576,7 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
             i += 1
     return options
 
-def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]], 
-                                              List[str]]:
+def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
     """Compile optarg usage within switch(c) block.
 
     Looks within the switch block handling options,
@@ -598,12 +598,9 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
 
     Returns
     -------
-    Dict[str, Optional[bool]]
-        A dictionary mapping shortform names to
-        whether they use optarg (i.e. take an argument).
-        If the case doesn't work, it is set to None.
-    List[str]
-        Extra errors to report at the end.
+    Dict[str, OptionInfo]
+        A dictionary mapping shortform names to a more
+        detailed OptionInfo struct
 
     Raises
     ------
@@ -612,27 +609,35 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
     """
 
     optarg_usage = dict()
-    extra_errors = list()
+    extra_errors = []
     shortforms = set()
     inside_switch = False
     # Current cases being processed
     current_cases = []
     has_optarg = False
 
-    def set_optarg_usage(cases: List[str], usage: Optional[bool]):
-        """Set optarg usage for a list of cases."""
-        for case in cases:
+    def save_case_info(force_none: bool = False) -> None:
+        """Set optarg usage & errors for a list of cases."""
+        # Look up the current state that we're saving
+        nonlocal current_cases
+        nonlocal extra_errors
+        nonlocal has_optarg
+        nonlocal optarg_usage
+
+        # What usage state are we saving?
+        usage = None if force_none else has_optarg
+
+        for case in current_cases:
             if case in shortforms:
                 raise ValueError(f"Duplicate shortform option '{case}' found "
                                  "in switch block")
             shortforms.add(case)
-            optarg_usage[case] = usage
+            optarg_usage[case] = OptionInfo(usage, case, extra_errors)
 
-        # Reset the current cases and optarg usage
-        nonlocal has_optarg 
+        # Reset the current cases, optarg usage, and errors
         has_optarg = False
-        nonlocal current_cases
         current_cases = []
+        extra_errors = []
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -679,7 +684,7 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
             # Flush old cases to avoid optarg
             # being present after fallthrough
             if has_optarg:
-                set_optarg_usage(current_cases, True)
+                save_case_info()
             
             # Remove end-of-line comments
             stripped = stripped.split('//')[0].strip() 
@@ -701,17 +706,17 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
         if (any(keyword in stripped for keyword in NON_WORK_WORDS)
             and curly_brace_nesting == 0):
             # None is a marker for not working
-            set_optarg_usage(current_cases, None)
+            save_case_info(force_none=True)
 
         # On break, flush the current case group
         if stripped == 'break;' and curly_brace_nesting == 0:
-            set_optarg_usage(current_cases, has_optarg)
+            save_case_info()
 
     # Handle trailing block without break (not common but valid)
     if current_cases:
-        set_optarg_usage(current_cases, has_optarg)
+        save_case_info()
 
-    return optarg_usage, extra_errors
+    return optarg_usage
 
 def check_file(filepath: str) -> bool:
     """Run all consistency checks on a single file.
@@ -754,14 +759,10 @@ def check_file(filepath: str) -> bool:
         help_opts = extract_help_options(text)
         long_opts = extract_long_options(text)
         getopt_opts = extract_getopt_string(text)
-        switch_opts, extra_switch_errors = extract_switch_optarg(text)
+        switch_opts = extract_switch_optarg(text)
     except ValueError as e:
         problem(f"{e}")
         return is_ok
-    
-    if extra_switch_errors:
-        for error in extra_switch_errors:
-            problem(f"{error}")
 
     all_longform = set(help_opts) | set(long_opts)
 
@@ -777,13 +778,13 @@ def check_file(filepath: str) -> bool:
         if help_alias not in switch_opts:
             problem(f"help alias -{help_alias} is missing from "
                     "switch block")
-        elif switch_opts[help_alias] is not None:
+        elif switch_opts[help_alias].takes_argument is not None:
             problem(f"help alias -{help_alias} should exit/return/abort "
                     "switch block")
         
         # Change help alias to be non-argument
         # in order to match long_options[]
-        switch_opts[help_alias] = False
+        switch_opts[help_alias] = OptionInfo(False, help_alias, [])
     
     if 'help' not in help_opts:
         problem("help option --help is missing from helptext")
@@ -796,7 +797,7 @@ def check_file(filepath: str) -> bool:
     if 'default' not in switch_opts:
         problem("switch block is missing a default case")
     else:
-        if switch_opts['default'] is not None:
+        if switch_opts['default'].takes_argument is not None:
             problem("switch block's default case should exit/return/abort")
         
         # Get rid of default once it's checked; will appear nowhere else
@@ -808,8 +809,8 @@ def check_file(filepath: str) -> bool:
         if longform in help_opts:
             cur_help = help_opts[longform]
             for cur_error in cur_help.errors:
-                print(f"{filepath} has error in helptext for --{longform}: "
-                      f"{cur_error}")
+                problem(f"{filepath} has error in helptext for --{longform}: "
+                        f"{cur_error}")
         else:
             cur_help = OptionInfo()
 
@@ -836,6 +837,8 @@ def check_file(filepath: str) -> bool:
             continue
         else:
             cur_switch = switch_opts.pop(cur_long.shortform)
+            for e in cur_switch.errors:
+                problem(f"{e}")
 
         # Check 3: long_options uses only no_argument or required_argument
         if cur_long.takes_argument is None:
@@ -870,7 +873,8 @@ def check_file(filepath: str) -> bool:
                 continue
 
         # Check 6: long_options[] vs switch
-        if cur_switch is not None and cur_long.takes_argument != cur_switch:
+        if (cur_switch.takes_argument is not None 
+            and cur_long.takes_argument != cur_switch.takes_argument):
             problem(f"--{longform}'s -{cur_long.shortform} "
                     f"{should_str} use optarg")
             continue
