@@ -826,9 +826,19 @@ string file_base_name(const string& filename);
 /// Only works for files readable by the current user.
 bool file_exists(const string& filename);
 
+/// Determine if a file can be written to.
+/// Only works for files writable by the current user.
+/// Meant to be used to validate output file names.
+/// Will actually open the file, so it will overwrite the current contents.
+bool file_can_be_written(const string& filename);
+
 /// Check if a file exists and return its name (if so) or error.
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string error_if_file_does_not_exist(const string& filename, const string& context);
+
+/// Check if a file can be written to and return its name (if so) or error.
+/// Uses file_can_be_written() and is intended to be called when parsing arguments.
+string error_if_file_cannot_be_written(const string& filename, const string& context);
 
 // A special parser for thread count which errors if non-positive
 int parse_thread_count(const string& arg, const string& context);

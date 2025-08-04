@@ -716,9 +716,29 @@ bool file_exists(const string& filename) {
     return in.is_open();
 }
 
+bool file_can_be_written(const string& filename) {
+    // Try to open it for writing
+    ofstream out(filename);
+    if (out.is_open()) {
+        // We can write to it, so close it.
+        out.close();
+        return true;
+    } else {
+        // We can't write to it
+        return false;
+    }
+}
+
 string error_if_file_does_not_exist(const string& filename, const string& context) {
     if (!file_exists(filename)) {
         error_and_exit(context, "file \"" + filename + "\" does not exist");
+    }
+    return filename;
+}
+
+string error_if_file_cannot_be_written(const string& filename, const string& context) {
+    if (!file_can_be_written(filename)) {
+        error_and_exit(context, "file \"" + filename + "\" cannot be written to");
     }
     return filename;
 }
