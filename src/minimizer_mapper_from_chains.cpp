@@ -2220,17 +2220,29 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
-
+    
     // Compute lower limit on chain score to actually investigate
-    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
-    // Remember we also have chain_score_threshold, which counts down from best chain score
+    int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
+    if (min_chain_score_per_explored_minimizer > 0) {
+        // Count all the explored (up to here) minimizers.
+        // TODO: Can we bring this number in somehow?
+        std::unordered_set<size_t> used_sources;
+        for (auto& s : seeds) {
+            used_sources.insert(s.source);
+        }
+        chain_min_score = std::max(chain_min_score, (int)(used_sources.size() * min_chain_score_per_explored_minimizer));
+    }
+    // Apply the max in chain score limit
+    chain_min_score = std::min(chain_min_score, max_min_chain_score);
+
+    // Remember: we also have chain_score_threshold, which counts down from best chain score
     
     // We need to be able to discard a chain because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
     auto discard_chain_by_score = [&](size_t processed_num) -> void {
         // This chain is not good enough.
         if (track_provenance) {
-            funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+            funnel.fail("min-chain-score-per-base||min-chain-score-per-explored-minimizer||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
         }
         
         if (show_work) {
@@ -2277,7 +2289,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
                 }
             }
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||min-chain-score-per-explored-minimizer||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.pass("max-alignments", processed_num);
             }
 
@@ -2491,7 +2503,7 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
         }, [&](size_t processed_num) -> void {
             // There are too many sufficiently good chains
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
+                funnel.pass("min-chain-score-per-base||min-chain-score-per-explored-minimizer||max-min-chain-score", processed_num, chain_score_estimates[processed_num]);
                 funnel.fail("max-alignments", processed_num);
             }
             
