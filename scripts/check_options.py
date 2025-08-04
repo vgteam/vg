@@ -127,7 +127,7 @@ Some GitHub Copilot autocompletions were used.
 import os
 import re
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 SUBCOMMAND_DIR = 'src/subcommand'
@@ -575,7 +575,8 @@ def extract_getopt_string(text: str) -> Dict[str, bool]:
             i += 1
     return options
 
-def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
+def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]], 
+                                              List[str]]:
     """Compile optarg usage within switch(c) block.
 
     Looks within the switch block handling options,
@@ -601,14 +602,17 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         A dictionary mapping shortform names to
         whether they use optarg (i.e. take an argument).
         If the case doesn't work, it is set to None.
+    List[str]
+        Extra errors to report at the end.
 
     Raises
     ------
     ValueError
-        Gross formatting issues, such as duplicate longform options.
+        Gross formatting issues, such as duplicate shortform options.
     """
 
     optarg_usage = dict()
+    extra_errors = list()
     shortforms = set()
     inside_switch = False
     # Current cases being processed
@@ -650,6 +654,12 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
         if '}' in stripped:
             curly_brace_nesting -= 1
 
+        if ("omp_set_num_threads" in stripped 
+            and "parse_thread_count" not in stripped):
+            # Extra check for thread count options
+            extra_errors.append("Parse thread count using parse_thread_count() "
+                                "for standardized error messages")
+
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
         if case_match or stripped == 'default:':
@@ -688,7 +698,7 @@ def extract_switch_optarg(text: str) -> Dict[str, Optional[bool]]:
     if current_cases:
         set_optarg_usage(current_cases, has_optarg)
 
-    return optarg_usage
+    return optarg_usage, extra_errors
 
 def check_file(filepath: str) -> bool:
     """Run all consistency checks on a single file.
@@ -731,10 +741,14 @@ def check_file(filepath: str) -> bool:
         help_opts = extract_help_options(text)
         long_opts = extract_long_options(text)
         getopt_opts = extract_getopt_string(text)
-        switch_opts = extract_switch_optarg(text)
+        switch_opts, extra_switch_errors = extract_switch_optarg(text)
     except ValueError as e:
         problem(f"{e}")
         return is_ok
+    
+    if extra_switch_errors:
+        for error in extra_switch_errors:
+            problem(f"{error}")
 
     all_longform = set(help_opts) | set(long_opts)
 
