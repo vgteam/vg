@@ -659,6 +659,11 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
             # Extra check for thread count options
             extra_errors.append("Parse thread count using parse_thread_count() "
                                 "for standardized error messages")
+    
+        if '"error' in stripped or '"warning' in stripped:
+            # Extra check for error/warning messages
+            extra_errors.append("Use error_and_exit() or emit_warning() "
+                                "for standardized error messages: " + stripped)
 
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
