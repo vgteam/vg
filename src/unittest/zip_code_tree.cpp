@@ -2609,6 +2609,55 @@ namespace unittest {
             make_and_validate_forest(positions, distance_index);
         }
     }
+    TEST_CASE("Snarl within child chain", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("AAAAAAAAAAAAA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("CGCTTTTGA");
+        Node* n4 = graph.create_node("C");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("AAAAAAAAAAAA");
+
+        // Inner snarl (insertion)
+        Edge* e1 = graph.create_edge(n2, n3);
+        Edge* e2 = graph.create_edge(n2, n4);
+        Edge* e3 = graph.create_edge(n3, n5);
+        Edge* e4 = graph.create_edge(n4, n5);
+        // Outer snarl (deletion)
+        Edge* e5 = graph.create_edge(n1, n2);
+        Edge* e6 = graph.create_edge(n1, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed on each node") {
+            // [6+0rev 0 (1  1  0  0 [5+0rev 0 (2  5  1  inf  1  4  0 
+            //     [3+4rev][4+0rev]) 1 2+0rev]) 13 1+0rev]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 4);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+
+            make_and_validate_forest(positions, distance_index);
+        }
+        SECTION("Snip out inner snarl") {
+            // [6+0rev 0 (1  3  0  0 [2+0rev]) 1 1+12rev] and [3+4rev]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 12);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 4);
+            positions.emplace_back(6, false, 0);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 3);
+            REQUIRE(zip_forest.trees.size() == 2);
+        }
+    }
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]") {
         for (int i = 0; i < 10; i++) {
             // For each random graph
