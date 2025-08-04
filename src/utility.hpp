@@ -26,6 +26,8 @@ namespace vg {
 using namespace std;
 
 /// Error (and crash) with a standard format
+/// If you're erroring because a file doesn't exist,
+/// consider using error_if_file_does_not_exist() instead.
 void error_and_exit(const string& context, const string& message);
 /// Warn the user with a standard format
 void emit_warning(const string& context, const string& message);
