@@ -67,7 +67,9 @@ void help_index(char** argv) {
          << "  -j, --dist-name FILE      use this file to store a snarl-based distance index" << endl
          << "      --snarl-limit N       don't store distances for snarls > N nodes [10000]" << endl
          << "                            if 0 then don't store distances, only the snarl tree" << endl
-         << "      --no-nested-distance  only store distances along the top-level chain" << endl;
+         << "      --no-nested-distance  only store distances along the top-level chain" << endl
+         << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
+         << "                            of a top-level chain (may repeat)" << endl;
 }
 
 int main_index(int argc, char** argv) {
@@ -111,8 +113,13 @@ int main_index(int argc, char** argv) {
 
     //Distance index
     size_t snarl_limit = 50000;
-
     bool only_top_level_chain_distances = false;
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    // We will put this amount of extra weight on upweighted nodes. It should
+    // be longer than the maximum plausible distracting path or spurious bridge
+    // edge cycle, but small enough that several of it fit in a size_t.
+    // TODO: Expose to command line.
+    constexpr size_t EXTRA_WEIGHT = 10000000000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -167,11 +174,12 @@ int main_index(int argc, char** argv) {
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
+            {"upweight-node", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h?",
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:w:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -265,9 +273,13 @@ int main_index(int argc, char** argv) {
         case OPT_DISTANCE_SNARL_LIMIT:
             snarl_limit = parse<int>(optarg);
             break;
-
         case OPT_DISTANCE_NESTING:
             only_top_level_chain_distances = true;
+            break;
+        case 'w':
+            // We use += so you can repeat a node and make it even more
+            // heavier.
+            extra_node_weight[parse<nid_t>(optarg)] += EXTRA_WEIGHT;
             break;
 
         case 'h':
@@ -315,6 +327,11 @@ int main_index(int argc, char** argv) {
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
         cerr << "error: [vg index] GCSA2 cannot index with kmer size greater than " << gcsa::Key::MAX_LENGTH << endl;
+        return 1;
+    }
+
+    if (!build_dist && !extra_node_weight.empty()) {
+        cerr << "error: [vg index] cannot up-weight nodes for snarl finding if not building distance index" << endl;
         return 1;
     }
     
@@ -542,7 +559,7 @@ int main_index(int argc, char** argv) {
                 
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
-                IntegratedSnarlFinder snarl_finder(*xg.get());
+                IntegratedSnarlFinder snarl_finder(*xg.get(), extra_node_weight);
                 // Create the SnarlDistanceIndex
                 SnarlDistanceIndex distance_index;
 
@@ -559,7 +576,7 @@ int main_index(int argc, char** argv) {
                     auto& gbz = get<0>(options);
                     
                     // Create the SnarlDistanceIndex
-                    IntegratedSnarlFinder snarl_finder(gbz->graph);
+                    IntegratedSnarlFinder snarl_finder(gbz->graph, extra_node_weight);
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
@@ -571,7 +588,7 @@ int main_index(int argc, char** argv) {
                     auto& graph = get<1>(options);
                     
                     // Create the SnarlDistanceIndex
-                    IntegratedSnarlFinder snarl_finder(*graph.get());
+                    IntegratedSnarlFinder snarl_finder(*graph.get(), extra_node_weight);
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;

@@ -88,7 +88,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
         } else if (startswith(line, "SEQUENCE_ID")) {
             //Get the path, path offset, and features from the sequence_id of the primer pair
             //This will be the same for all primer pairs up to the next "="
-            vector<string> cur_fields = move(split(split(line,'=')[1], '|'));
+            vector<string> cur_fields = std::move(split(split(line,'=')[1], '|'));
 
             if (cur_fields.size() == 4) {
                 //If the sequence id is correctly formatted

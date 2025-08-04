@@ -111,6 +111,8 @@ void help_autoindex(char** argv) {
          << "  -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
          << "  -H, --hap-tx-gff FILE  GTF/GFF file with transcript annotations " << endl
          << "                         of a named haplotype (may repeat)" << endl
+         << "  -n, --no-guessing      do not guess that pre-existing files are indexes" << endl
+         << "                         i.e. force-regenerate any index not explicitly provided" << endl
          << "configuration:" << endl
          << "  -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph "
                                       << "[" << IndexingParameters::gff_feature_name << "]" << endl
@@ -153,6 +155,7 @@ int main_autoindex(int argc, char** argv) {
     bool force_unphased = false;
     bool force_phased = false;
     int64_t target_mem_usage = IndexRegistry::get_system_memory() / 2;
+    bool allow_guessing = true;
     
     string gfa_name;
     string gbz_name;
@@ -171,6 +174,7 @@ int main_autoindex(int argc, char** argv) {
             {"gbz", required_argument, 0, 'G'},
             {"tx-gff", required_argument, 0, 'x'},
             {"hap-tx-gff", required_argument, 0, 'H'},
+            {"no-guessing", no_argument, 0, 'n'},
             {"gff-feature", required_argument, 0, 'f'},
             {"gff-tx-tag", required_argument, 0, 'a'},
             {"provide", required_argument, 0, 'P'},
@@ -190,7 +194,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:a:P:R:f:M:T:t:dV:h?",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:G:x:H:na:P:R:f:M:T:t:dV:h?",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -205,27 +209,27 @@ int main_autoindex(int argc, char** argv) {
             case 'w':
                 if (optarg == string("map")) {
                     for (auto& target : VGIndexes::get_default_map_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("mpmap")) {
                     for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("giraffe") || optarg == string("sr-giraffe")) {
                     for (auto& target : VGIndexes::get_default_short_giraffe_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("lr-giraffe")) {
                     for (auto& target : VGIndexes::get_default_long_giraffe_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else if (optarg == string("rpvg")) {
                     for (auto& target : VGIndexes::get_default_rpvg_indexes()) {
-                        targets.emplace_back(move(target));
+                        targets.emplace_back(std::move(target));
                     }
                 }
                 else {
@@ -263,6 +267,9 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'H':
                 registry.provide("Haplotype GTF/GFF", optarg);
+                break;
+            case 'n':
+                allow_guessing = false;
                 break;
             case 'f':
                 IndexingParameters::gff_feature_name = optarg;
@@ -388,18 +395,19 @@ int main_autoindex(int argc, char** argv) {
     targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
 
     //Check if we can automatically load other indexes in the plan based on the names
-    for (const IndexName& target : targets) {
-        if (!registry.available(target)) {
-            vector<string> inferred_file_names = registry.get_possible_filenames(target);
-            for (const string& filename : inferred_file_names) {
-                if (ifstream(filename).is_open()) {
-                    cerr << "[vg autoindex] Guessing that " << filename << " is " << target << endl;
-                    registry.provide(target, filename);
-                    break;
+    if (allow_guessing) {
+        for (const IndexName& target : targets) {
+            if (!registry.available(target)) {
+                vector<string> inferred_file_names = registry.get_possible_filenames(target);
+                for (const string& filename : inferred_file_names) {
+                    if (ifstream(filename).is_open()) {
+                        cerr << "[vg autoindex] Guessing that " << filename << " is " << target << endl;
+                        registry.provide(target, filename);
+                        break;
+                    }
                 }
             }
         }
-
     }
     
     try {

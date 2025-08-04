@@ -2138,7 +2138,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
     multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
-    multipath_mapper.ref_path_handles = move(ref_path_handles);
+    multipath_mapper.ref_path_handles = std::move(ref_path_handles);
     multipath_mapper.max_motif_pairs = max_motif_pairs;
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
@@ -2268,10 +2268,10 @@ int main_mpmap(int argc, char** argv) {
         
         if (!no_output) {
             if (!hts_output) {
-                emitter->emit_singles(alignment.name(), move(mp_alns));
+                emitter->emit_singles(alignment.name(), std::move(mp_alns));
             }
             else {
-                emitter->emit_singles(alignment.name(), move(mp_alns), &path_positions);
+                emitter->emit_singles(alignment.name(), std::move(mp_alns), &path_positions);
             }
         }
         
@@ -2367,10 +2367,10 @@ int main_mpmap(int argc, char** argv) {
         
         if (!no_output) {
             if (!hts_output) {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), move(mp_aln_pairs));
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs));
             }
             else {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), move(mp_aln_pairs),
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs),
                                     &path_positions, &tlen_limits);
             }
         }
@@ -2457,14 +2457,14 @@ int main_mpmap(int argc, char** argv) {
             vector<pair<multipath_alignment_t, multipath_alignment_t>> mp_aln_pairs;
             mp_aln_pairs.reserve(mp_alns_1.size());
             for (size_t i = 0; i < mp_alns_1.size(); ++i) {
-                mp_aln_pairs.emplace_back(move(mp_alns_1[i]), move(mp_alns_2[i]));
+                mp_aln_pairs.emplace_back(std::move(mp_alns_1[i]), std::move(mp_alns_2[i]));
             }
             
             if (!hts_output) {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), move(mp_aln_pairs));
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs));
             }
             else {
-                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), move(mp_aln_pairs),
+                emitter->emit_pairs(alignment_1.name(), alignment_2.name(), std::move(mp_aln_pairs),
                                     &path_positions, &tlen_limits);
             }
         }

@@ -42,7 +42,7 @@ vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 8) {
@@ -69,7 +69,7 @@ vector<tuple<string, string, size_t>> parse_haplotype_transcript_file(istream& h
         stringstream strm(line);
         string token;
         while (getline(strm, token, '\t')) {
-            tokens.push_back(move(token));
+            tokens.push_back(std::move(token));
             token.clear();
         }
         if (tokens.size() != 5) {
@@ -759,7 +759,7 @@ int main_sim(int argc, char** argv) {
     // Work out the list of path names we definitely need position queries on,
     // even if they aren't reference sense.
     // Just put all the target path names in there, since it can't hurt.
-    std::unordered_set<std::string> extra_path_names; //(path_names.begin(), path_names.end());
+    std::unordered_set<std::string> extra_path_names(path_names.begin(), path_names.end());
     // Apply the overlay to ensure position lookups are efficient.
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(
         overlay_helper.apply(

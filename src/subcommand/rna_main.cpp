@@ -308,7 +308,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (!gbz_format) {
 
         // Load pangenome graph.
-        graph = move(vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(graph_filename));
+        graph = std::move(vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(graph_filename));
     
         if (!haplotypes_filename.empty()) {
 
@@ -352,7 +352,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
     // Construct transcriptome and parse graph.
-    Transcriptome transcriptome(move(graph));
+    Transcriptome transcriptome(std::move(graph));
     assert(graph == nullptr);
 
     transcriptome.show_progress = show_progress;

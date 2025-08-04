@@ -95,7 +95,7 @@ void help_view(char** argv) {
          << "  -x, --extract-tag TAG     extract and concatenate messages with the given tag" << endl
          << "      --first               only extract first message with the requested tag" << endl
          << "      --verbose             explain the file being read with --extract-tag" << endl
-         << "  -7,  --threads N          for parallel operations use this many threads [1]" << endl
+         << "  -7, --threads N           for parallel operations use this many threads [1]" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
     
     // TODO: Can we regularize the option names for input and output types?

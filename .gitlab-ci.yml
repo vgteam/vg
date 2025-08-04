@@ -116,6 +116,42 @@ local-build-test-job:
     VG_FULL_TRACEBACK: "1"
     GIT_SUBMODULE_STRATEGY: none
 
+# Ensure vg builds on the oldest supported compiler version.
+oldest-supported-compiler-job:
+  interruptible: true
+  stage: test
+  cache:
+    key: oldest-supported-compiler-cache
+    paths:
+      - deps/
+      - include/
+      - lib/
+      - bin/
+      - obj/
+  before_script:
+    - sudo apt-get -q -y update
+    - sudo apt-get install -y gcc-${COMPILER_VERSION} g++-${COMPILER_VERSION}
+    - sudo rm -f /usr/bin/gcc && sudo ln -s /usr/bin/gcc-${COMPILER_VERSION} /usr/bin/gcc
+    - sudo rm -f /usr/bin/g++ && sudo ln -s /usr/bin/g++-${COMPILER_VERSION} /usr/bin/g++
+    # We need to make sure we get the right submodule files for this version
+    # and don't clobber sources with the cache. We want to have a dirty state
+    # with the correct source files.
+    - scripts/restore-deps.sh
+  script:
+    - THREADS=8
+    # Ensure that the version used here is also the version in the README.
+    - grep "will need GCC version ${COMPILER_VERSION}" README.md
+    - make get-deps
+    - make -j${THREADS}
+  after_script:
+    - echo "Don't do anything"
+  variables:
+    VG_FULL_TRACEBACK: "1"
+    GIT_SUBMODULE_STRATEGY: none
+    # DO NOT change this version number without updating the README to reflect
+    # the requirement bump.
+    COMPILER_VERSION: 7
+
 
 # We define one job to do the Docker container build
 build-job:

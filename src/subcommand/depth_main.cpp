@@ -25,6 +25,11 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const size_t DEFAULT_MAX_NODES = 1000000;
+const size_t DEFAULT_MIN_MAPQ = 0;
+const size_t DEFAULT_BIN_SIZE = 1;
+const size_t DEFAULT_MIN_COVERAGE = 1;
+
 void help_depth(char** argv) {
     cerr << "usage: " << argv[0] << " depth [options] <graph>" << endl
          << "options:" << endl
@@ -35,9 +40,10 @@ void help_depth(char** argv) {
          << "GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
          << "  -g, --gam FILE         read alignments from this GAM file ('-' for stdin)" << endl
          << "  -a, --gaf FILE         read alignments from this GAF file ('-' for stdin)" << endl
-         << "  -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
+         << "  -n, --max-nodes N      maximum nodes to consider [" << DEFAULT_MAX_NODES << "]" << endl
          << "  -s, --random-seed N    random seed for sampling nodes to consider" << endl
-         << "  -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
+         << "  -Q, --min-mapq N       ignore alignments with mapping quality < N " 
+                                  << "[" << DEFAULT_MIN_MAPQ << "]" << endl
          << "path coverage depth (print 1-based positional depths along path):" << endl
          << "   activate by specifiying -p without -k" << endl
          << "  -c, --count-cycles     count each time a path steps on a position" << endl
@@ -45,9 +51,10 @@ void help_depth(char** argv) {
          << "common options:" << endl
          << "  -p, --ref-path NAME    reference path to call on (may repeat; defaults all)" << endl
          << "  -P, --paths-by STR     select the paths with the given name prefix" << endl        
-         << "  -b, --bin-size N       bin size (in bases) [1]" << endl
+         << "  -b, --bin-size N       bin size (in bases) [" << DEFAULT_BIN_SIZE << "]" << endl
          << "                         2 extra columns printed when N>1: bin-end-pos & stddev" << endl
-         << "  -m, --min-coverage N   ignore nodes with less than N coverage depth [1]" << endl
+         << "  -m, --min-coverage N   ignore nodes with less than N coverage depth "
+                                  << "[" << DEFAULT_MIN_COVERAGE << "]" << endl
          << "  -t, --threads N        number of threads to use [all available]" << endl
          << "  -h, --help             print this help message to stderr and exit" << endl;
 }
@@ -62,17 +69,18 @@ int main_depth(int argc, char** argv) {
     string pack_filename;
     unordered_set<string> ref_paths_input_set;
     vector<string> path_prefixes;
-    size_t bin_size = 1;
+    size_t bin_size = DEFAULT_BIN_SIZE;
     bool count_dels = false;
     
     string gam_filename;
     string gaf_filename;
-    size_t max_nodes = 1000000;
+    size_t max_nodes = DEFAULT_MAX_NODES;
     int random_seed = time(NULL);
+    const int initial_random_seed = random_seed;
     size_t min_mapq = 0;
     bool count_cycles = false;
 
-    size_t min_coverage = 1;
+    size_t min_coverage = DEFAULT_MIN_COVERAGE;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -168,11 +176,33 @@ int main_depth(int argc, char** argv) {
         return 1;
     }
 
-    size_t input_count = pack_filename.empty() ? 0 : 1;
+    size_t input_count = 0;
+    if (!pack_filename.empty()) ++input_count;
     if (!gam_filename.empty()) ++input_count;
     if (!gaf_filename.empty()) ++input_count;
     if (input_count > 1) {                                          
         cerr << "error:[vg depth] At most one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
+        exit(1);
+    }
+    if (pack_filename.empty() && count_dels) {
+        cerr << "error:[vg depth] --count-dels requires a pack file" << endl;
+        exit(1);
+    }
+    if (gam_filename.empty() && gaf_filename.empty()) {
+        if (max_nodes != DEFAULT_MAX_NODES || random_seed != initial_random_seed
+            || min_mapq != DEFAULT_MIN_MAPQ) {
+            cerr << "error:[vg depth] the --max-nodes, --random-seed, and --min-mapq options\n"
+                 << "require a GAM or GAF file" << endl;
+            exit(1);
+        }
+    } else {
+        if (!ref_paths_input_set.empty() || !path_prefixes.empty() || bin_size != DEFAULT_BIN_SIZE) {
+            cerr << "error:[vg depth] Cannot specify paths (-p/-P) or --bin-size for a GAM or GAF" << endl;
+            exit(1);
+        }
+    }
+    if (count_cycles && input_count == 0) {
+        cerr << "error:[vg depth] --count-cycles is only supported for path coverage depth" << endl;
         exit(1);
     }
 
