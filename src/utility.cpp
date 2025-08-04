@@ -24,6 +24,15 @@
 
 namespace vg {
 
+void error_and_exit(const string& context, const string& message) {
+    cerr << "error" << context << ": " << message << endl;
+    exit(1);
+}
+
+void emit_warning(const string& context, const string& message) {
+    cerr << "warning" << context << ": " << message << endl;
+}
+
 static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 8
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 16
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 24
@@ -157,7 +166,7 @@ void choose_good_thread_count() {
             // TODO: If you have >1024 bits in your mask, glibc can't deal and you will get EINVAL.
             // We're supposed to then try increasingly large dynamically-allocated CPU flag sets until we find one that works.
             auto problem = errno;
-            std::cerr << "warning[vg]: Cannot determine CPU count from affinity mask: " << strerror(problem) << std::endl;
+            emit_warning("vg", "Cannot determine CPU count from affinity mask: " + string(strerror(problem)));
         } else {
             // We're also supposed to intersect this mask with the actual
             // existing processors, in case somebody flags on way more
@@ -617,22 +626,17 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        cerr << "error:[get_input_file_name] specify input filename, or \"-\" for standard input" << endl;
-        exit(1);
+        error_and_exit("[get_input_file_name]", "specify input filename, or \"-\" for standard input");
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        cerr << "error:[get_input_file_name] specify a non-empty input filename" << endl;
-        exit(1);
+        error_and_exit("[get_input_file_name]", "specify a non-empty input filename");
     }
 
     if (test_open && file_name != "-") {
-        ifstream file_stream(file_name);
-        if (!file_stream) {
-            cerr << "error:[get_input_file_name] unable to open input file: " << file_name << endl;
-        }
+        error_if_file_does_not_exist(file_name, "[get_input_file_name]");
     }
     
     return file_name;
@@ -643,15 +647,13 @@ string get_output_file_name(int& optind, int argc, char** argv) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        cerr << "error:[get_output_file_name] specify output filename" << endl;
-        exit(1);
+        error_and_exit("[get_output_file_name]", "specify output filename");
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        cerr << "error:[get_output_file_name] specify a non-empty output filename" << endl;
-        exit(1);
+        error_and_exit("[get_output_file_name]", "specify a non-empty output filename");
     }
     
     return file_name;
@@ -670,16 +672,14 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
             in.open(file_name.c_str());
             if (!in.is_open()) {
                 // The user gave us a bad filename
-                cerr << "error:[get_input_file] could not open file \"" << file_name << "\"" << endl;
-                exit(1);
+                error_and_exit("[get_input_file]", "could not open file \"" + file_name + "\"");
             }
             callback(in);
             
         }
     } catch(vg::io::TruncatedBGZFError& e) {
         // If we find a truncated input while working on this file, it's likely to be this file's fault.
-        cerr << "error:[get_input_file] detected truncated input while processing \"" << file_name << "\"" << endl;
-        exit(1);
+        error_and_exit("[get_input_file]", "detected truncated input while processing \"" + file_name + "\"");
     }
 }
 
@@ -718,9 +718,7 @@ bool file_exists(const string& filename) {
 
 string error_if_file_does_not_exist(const string& filename, const string& context) {
     if (!file_exists(filename)) {
-        // Complain that the user didn't specify a filename
-        cerr << "error" << context << ": file \"" << filename << "\" does not exist" << endl;
-        exit(1);
+        error_and_exit(context, "file \"" + filename + "\" does not exist");
     }
     return filename;
 }
@@ -975,9 +973,7 @@ int parse_thread_count(const string& arg, const string& context) {
     int num_threads = parse<int>(arg);
     
     if (num_threads <= 0) {
-        cerr << "error" << context << ": Thread count (-t) set to " 
-             << num_threads << ", must set to a positive integer." << endl;
-        exit(1);
+        error_and_exit(context, "Thread count (-t) must be a positive integer, not " + arg);
     }
     
     return num_threads;

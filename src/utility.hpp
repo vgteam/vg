@@ -25,6 +25,11 @@ namespace vg {
 
 using namespace std;
 
+/// Error (and crash) with a standard format
+void error_and_exit(const string& context, const string& message);
+/// Warn the user with a standard format
+void emit_warning(const string& context, const string& message);
+
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
 void reverse_complement_in_place(string& seq);
@@ -823,7 +828,7 @@ bool file_exists(const string& filename);
 
 /// Check if a file exists and return its name (if so) or error.
 /// Uses file_exists() and is intended to be called when parsing arguments.
-string error_if_file_does_not_exist(const string& filename, const string& context = "");
+string error_if_file_does_not_exist(const string& filename, const string& context);
 
 // A special parser for thread count which errors if non-positive
 int parse_thread_count(const string& arg, const string& context);
