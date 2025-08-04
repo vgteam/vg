@@ -665,6 +665,14 @@ def extract_switch_optarg(text: str) -> Tuple[Dict[str, Optional[bool]],
             extra_errors.append("Use error_and_exit() or emit_warning() "
                                 "for standardized error messages: " + stripped)
 
+        # This won't catch all file variables (e.g. if called `xg_name`),
+        # but it'll catch some at least
+        if 'file = optarg;' in stripped:
+            # Extra check for file-existance functions
+            extra_errors.append("Use error_if_file_does_not_exist() or "
+                                "error_if_file_cannot_be_written() for "
+                                "standardized file checks: " + stripped)
+
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
         if case_match or stripped == 'default:':
