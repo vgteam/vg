@@ -636,7 +636,7 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
     }
 
     if (test_open && file_name != "-") {
-        error_if_file_does_not_exist(file_name, "[get_input_file_name]");
+        error_if_file_does_not_exist("[get_input_file_name]", file_name);
     }
     
     return file_name;
