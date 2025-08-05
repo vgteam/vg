@@ -836,14 +836,14 @@ bool file_can_be_written(const string& filename);
 
 /// Check if a file exists and return its name (if so) or error.
 /// Uses file_exists() and is intended to be called when parsing arguments.
-string error_if_file_does_not_exist(const string& filename, const string& context);
+string error_if_file_does_not_exist(const string& context, const string& filename);
 
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
-string error_if_file_cannot_be_written(const string& filename, const string& context);
+string error_if_file_cannot_be_written(const string& context, const string& filename);
 
 // A special parser for thread count which errors if non-positive
-int parse_thread_count(const string& arg, const string& context);
+int parse_thread_count(const string& context, const string& arg);
 
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.

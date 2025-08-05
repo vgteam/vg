@@ -729,14 +729,14 @@ bool file_can_be_written(const string& filename) {
     }
 }
 
-string error_if_file_does_not_exist(const string& filename, const string& context) {
+string error_if_file_does_not_exist(const string& context, const string& filename) {
     if (!file_exists(filename)) {
         error_and_exit(context, "file \"" + filename + "\" does not exist");
     }
     return filename;
 }
 
-string error_if_file_cannot_be_written(const string& filename, const string& context) {
+string error_if_file_cannot_be_written(const string& context, const string& filename) {
     if (!file_can_be_written(filename)) {
         error_and_exit(context, "file \"" + filename + "\" cannot be written to");
     }
