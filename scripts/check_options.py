@@ -672,7 +672,9 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
 
         # This won't catch all file variables (e.g. if called `xg_name`),
         # but it'll catch some at least
-        if 'file = optarg;' in stripped or 'filename = optarg;' in stripped:
+        if ('file = optarg;' in stripped 
+            or 'filename = optarg;' in stripped
+            or 'file_name = optarg;' in stripped):
             # Extra check for file-existance functions
             extra_errors.append("Use error_if_file_does_not_exist() or "
                                 "error_if_file_cannot_be_written() for "
