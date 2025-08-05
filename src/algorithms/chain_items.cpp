@@ -266,11 +266,11 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     string rev_string = "";
     for (const auto& cur_anchor : dest_anchors) {
         auto dest_seed = cur_anchor.first;
-        std::cerr << " (S" << cur_anchor.first.seed << "/anchor #" << cur_anchor.second << ")";
+        std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_anchor.second << ")";
         cur_pos = seeds[dest_seed.seed].pos;
         rev_string = dest_seed.is_reversed ? "rev" : "";
     }
-    std::cerr  << " at " << cur_pos << " " << rev_string << std::endl;
+    std::cerr  << " at " << cur_pos << rev_string << std::endl;
 #endif
 
                 for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); 
@@ -323,7 +323,6 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     std::cerr << "\t\tFound backward transition from #" << cur_dest.second << " to #"
               << found_source_anchor->second << std::endl;
 #endif
-
                                     all_transitions.emplace_back(cur_dest.second, found_source_anchor->second,
                                                                  cur_source.distance);
                                 } else {
