@@ -989,11 +989,16 @@ bool parse(const string& arg, pos_t& dest) {
     return true;
 }
 
-int parse_thread_count(const string& arg, const string& context) {
+int parse_thread_count(const string& context, const string& arg) {
     int num_threads = parse<int>(arg);
     
     if (num_threads <= 0) {
         error_and_exit(context, "Thread count (-t) must be a positive integer, not " + arg);
+    } else if (num_threads > omp_get_max_threads()) {
+        // If the user asked for more threads than we can actually use, cap it.
+        emit_warning(context, "Thread count (-t) is greater than the maximum number of threads available (" 
+                              + to_string(omp_get_max_threads()) + "), capping to that value");
+        num_threads = omp_get_max_threads();
     }
     
     return num_threads;
