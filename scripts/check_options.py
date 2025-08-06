@@ -142,6 +142,8 @@ ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
 NON_WORK_WORDS = {'exit', 'return', 'deprecated', 'abort', 'throw'}
 """Keywords that indicate something is meant to not work in the switch block."""
+FILENAME_VAR_ENDS = {'file', 'filename', 'file_name', 'filepath', 'file_path'}
+"""Suffixes that indicate a variable is definitely a filename"""
 
 @dataclass
 class OptionInfo:
@@ -672,13 +674,13 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
 
         # This won't catch all file variables (e.g. if called `xg_name`),
         # but it'll catch some at least
-        if ('file = optarg;' in stripped 
-            or 'filename = optarg;' in stripped
-            or 'file_name = optarg;' in stripped):
-            # Extra check for file-existance functions
-            extra_errors.append("Use error_if_file_does_not_exist() or "
-                                "error_if_file_cannot_be_written() for "
-                                "standardized file checks: " + stripped)
+        for suffix in FILENAME_VAR_ENDS:
+            if f'{suffix} = optarg;' in stripped:
+                # Extra check for file-existance functions
+                extra_errors.append("Use error_if_file_does_not_exist() or "
+                                    "error_if_file_cannot_be_written() for "
+                                    "standardized file checks: " + stripped)
+                break
 
         # Detect new case
         case_match = re.match(r'case\s+(.+)\s*:', stripped)
