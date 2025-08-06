@@ -204,8 +204,27 @@ void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& n
     }
 }
 
+void MultipathAlignmentEmitter::emit_paired_independent(const string& name_1, const string& name_2,
+                                                        vector<multipath_alignment_t>&& mp_alns_1,
+                                                        vector<multipath_alignment_t>&& mp_alns_2,
+                                                        vector<tuple<string, bool, int64_t>>* path_positions_1,
+                                                        vector<tuple<string, bool, int64_t>>* path_positions_2,
+                                                        bool read_1_is_mapped, bool read_2_is_mapped,
+                                                        bool read_1_rev, bool read_2_rev) {
+    
+    emit_singles_internal(name_1, std::move(mp_alns_1), path_positions_1, &name_2, true, read_2_is_mapped, read_2_rev);
+    emit_singles_internal(name_2, std::move(mp_alns_2), path_positions_2, &name_1, false, read_1_is_mapped, read_1_rev);
+}
+
 void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns,
                                              vector<tuple<string, bool, int64_t>>* path_positions) {
+    
+    emit_singles_internal(name, std::move(mp_alns), path_positions, nullptr, false, false, false);
+}
+
+void MultipathAlignmentEmitter::emit_singles_internal(const string& name, vector<multipath_alignment_t>&& mp_alns,
+                                                      vector<tuple<string, bool, int64_t>>* path_positions,
+                                                      const string* mate_name, bool is_read_1, bool mate_is_mapped, bool mate_rev) {
     
     int thread_number = omp_get_thread_num();
     
@@ -217,6 +236,10 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
                 MultipathAlignment& mp_aln_out = mp_alns_out[i];
                 to_proto_multipath_alignment(mp_alns[i], mp_aln_out);
                 mp_aln_out.set_name(name);
+                if (mate_name) {
+                    // this is an unpaired supplementary alignment for a paired read
+                    mp_aln_out.set_paired_read_name(*mate_name);
+                }
                 if (!sample_name.empty()) {
                     mp_aln_out.set_sample_name(sample_name);
                 }
@@ -241,7 +264,7 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
             vector<Alignment> alns_out(mp_alns.size());
             for (size_t i = 0; i < mp_alns.size(); ++i) {
                 Alignment& aln_out = alns_out[i];
-                convert_to_alignment(mp_alns[i], aln_out);
+                convert_to_alignment(mp_alns[i], aln_out, is_read_1 ? nullptr : mate_name, is_read_1 ? mate_name : nullptr);
                 aln_out.set_name(name);
                 if (!sample_name.empty()) {
                     aln_out.set_sample_name(sample_name);
@@ -281,7 +304,8 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
                 bool ref_rev;
                 int64_t ref_pos;
                 tie(ref_name, ref_rev, ref_pos) = path_positions->at(i);
-                convert_to_hts_unpaired(name, mp_alns[i], ref_name, ref_rev, ref_pos, header, records);
+                convert_to_hts_unpaired(name, mp_alns[i], ref_name, ref_rev, ref_pos, header, records,
+                                        mate_name, is_read_1, mate_is_mapped, mate_rev);
             }
             
             save_records(header, records, thread_number);
@@ -342,17 +366,32 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
         // and we'll also communicate the alignment score
         shim.set_score(optimal_alignment_score(mp_aln, true));
     }
-    
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                                         const string& ref_name, bool ref_rev, int64_t ref_pos,
-                                                        bam_hdr_t* header, vector<bam1_t*>& dest) const {
+                                                        bam_hdr_t* header, vector<bam1_t*>& dest,
+                                                        const string* mate_name, bool is_read_1, bool mate_mapped, bool mate_rev) const {
     
     auto cigar = cigar_against_path(mp_aln, ref_name, ref_rev, ref_pos, *graph, min_splice_length);
     Alignment shim;
-    create_alignment_shim(name, mp_aln, shim);
-    auto bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
+    create_alignment_shim(name, mp_aln, shim, is_read_1 ? nullptr : mate_name, is_read_1 ? mate_name : nullptr);
+    bam1_t* bam;
+    if (mate_name) {
+        // this is an unpaired supplementary alignment of a pair, give it an unattainable tlen limit to mark
+        // as not properly paired
+        bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar,
+                               "", -1, mate_rev, numeric_limits<int32_t>::max(), -1);
+        if (mate_mapped) {
+            bam->core.flag &= ~BAM_FMUNMAP;
+        }
+        else {
+            bam->core.flag |= BAM_FMUNMAP;
+        }
+    }
+    else {
+        bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
+    }
     add_annotations(mp_aln, bam);
     dest.push_back(bam);
 }

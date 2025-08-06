@@ -596,6 +596,8 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  bool paired,
                                  const int32_t tlen_max) {
     
+    
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
     
@@ -707,6 +709,10 @@ int32_t determine_flag(const Alignment& alignment,
         flags |= BAM_FMREVERSE;
     }
     
+    if (is_supplementary(alignment)) {
+        flags |= BAM_FSUPPLEMENTARY;
+    }
+    
     return flags;
 }
 
@@ -787,7 +793,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   const bool refrev,
                                   const vector<pair<int, char>>& cigar,
                                   const string& mateseq,
-                                  const int32_t matepos,
+                                  int32_t matepos,
                                   bool materev,
                                   const int32_t tlen,
                                   bool paired,
@@ -1338,6 +1344,131 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
     
     simplify_cigar(cigar);
 
+    return cigar;
+}
+
+vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const PathPositionHandleGraph& graph, const string& path_name, 
+                                                   int64_t pos, bool rev, int64_t min_splice_length) {
+    // the return value
+    vector<pair<int, char>> cigar;
+    
+    if (aln.has_path() && aln.path().mapping_size() > 0) {
+        // the read is aligned to the path
+        
+        path_handle_t path_handle = graph.get_path_handle(path_name);
+        step_handle_t step = graph.get_step_at_position(path_handle, pos);
+        
+        // to indicate whether we've found the edit that corresponds to the BAM position
+        bool found_pos = false;
+        
+        const Path& path = aln.path();
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            
+            // we traverse backwards on a reverse strand mapping
+            const Mapping& mapping = path.mapping(rev ? path.mapping_size() - 1 - i : i);
+            
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                                
+                // we traverse backwards on a reverse strand mapping
+                const Edit& edit = mapping.edit(rev ? mapping.edit_size() - 1 - j : j);
+                
+                if (!found_pos) {
+                    // we may still be searching through an initial softclip to find
+                    // the edit that corresponds to the BAM position
+                    if (edit.to_length() > 0 && edit.from_length() == 0) {
+                        append_cigar_operation(edit.to_length(), 'S', cigar);
+                        // skip the main block where we assign cigar operations
+                        continue;
+                    }
+                    else {
+                        found_pos = true;
+                    }
+                }
+                
+                // identify the cigar operation
+                char cigar_code;
+                int length;
+                if (edit.from_length() == edit.to_length()) {
+                    cigar_code = 'M';
+                    length = edit.from_length();
+                }
+                else if (edit.from_length() > 0 && edit.to_length() == 0) {
+                    cigar_code = 'D';
+                    length = edit.from_length();
+                }
+                else if (edit.to_length() > 0 && edit.from_length() == 0) {
+                    cigar_code = 'I';
+                    length = edit.to_length();
+                }
+                else {
+                    throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
+                }
+                
+                append_cigar_operation(length, cigar_code, cigar);
+            } // close loop over edits
+            
+            if (found_pos && i + 1 < path.mapping_size()) {
+                // we're anchored on the path by the annotated position, and we're transitioning between
+                // two mappings, so we should check for a deletion/splice edge
+                
+                step_handle_t next_step = graph.get_next_step(step);
+                
+                handle_t next_handle = graph.get_handle_of_step(next_step);
+                const Position& next_pos = path.mapping(rev ? path.mapping_size() - 2 - i : i + 1).position();
+                if (graph.get_id(next_handle) != next_pos.node_id()
+                    || (graph.get_is_reverse(next_handle) != next_pos.is_reverse()) != rev) {
+                    
+                    // the next mapping in the alignment is not the next mapping on the path, so we must have
+                    // taken a deletion
+                    
+                    // find the closest step that is further along the path than the current one
+                    // and matches the next position (usually there will only be one)
+                    size_t curr_offset = graph.get_position_of_step(step);
+                    size_t nearest_offset = numeric_limits<size_t>::max();
+                    graph.for_each_step_on_handle(graph.get_handle(next_pos.node_id()),
+                                                  [&](const step_handle_t& candidate) {
+                        
+                        if (graph.get_path_handle_of_step(candidate) == path_handle) {
+                            size_t candidate_offset = graph.get_position_of_step(candidate);
+                            if (candidate_offset < nearest_offset && candidate_offset > curr_offset) {
+                                nearest_offset = candidate_offset;
+                                next_step = candidate;
+                            }
+                        }
+                    });
+                    
+                    if (nearest_offset == numeric_limits<size_t>::max()) {
+                        throw std::runtime_error("Spliced BAM conversion could not find path steps that match alignment");
+                    }
+                    
+                    // the gap between the current step and the next one along the path
+                    size_t deletion_length = (nearest_offset - curr_offset -
+                                              graph.get_length(graph.get_handle_of_step(step)));
+                    
+                    // add to the cigar
+                    if (deletion_length >= min_splice_length) {
+                        // long enough to be a splice
+                        append_cigar_operation(deletion_length, 'N', cigar);
+                    }
+                    else if (deletion_length) {
+                        // create or extend a deletion
+                        append_cigar_operation(deletion_length, 'D', cigar);
+                    }
+                }
+                
+                // iterate along the path
+                step = next_step;
+            }
+        } // close loop over mappings
+        
+        if (cigar.back().second == 'I') {
+            // the final insertion is actually a softclip
+            cigar.back().second = 'S';
+        }
+    }
+    
+    simplify_cigar(cigar);
+    
     return cigar;
 }
 
@@ -2255,6 +2386,53 @@ bool is_perfect(const Alignment& alignment) {
         }
     }
     return true;
+}
+
+bool is_supplementary(const Alignment& alignment) {
+    if (!has_annotation(alignment, "supplementary")) {
+        return false;
+    }
+    else {
+        return get_annotation<bool>(alignment, "supplementary");
+    }
+}
+
+pair<int64_t, int64_t> aligned_interval(const Alignment& aln) {
+    return pair<int64_t, int64_t>(softclip_start(aln), aln.sequence().size() - softclip_end(aln));
+}
+
+string mate_info(const string& path, int32_t pos, bool rev_strand, bool is_read1) {
+    subrange_t subrange;
+    string path_name = Paths::strip_subrange(path, &subrange);
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        pos += subrange.first;
+    }
+    string info;
+    info.append(path_name);
+    info.push_back('\t');
+    info.append(to_string(pos));
+    info.push_back('\t');
+    info.push_back(rev_strand ? '1' : '0');
+    info.push_back(is_read1 ? '1' : '0');
+    return info;
+}
+
+tuple<string, int32_t, bool, bool> parse_mate_info(const string& info) {
+    tuple<string, int64_t, bool, bool> parsed;
+    size_t i = 0;
+    while (info[i] != '\t') {
+        ++i;
+    }
+    get<0>(parsed) = info.substr(0, i);
+    ++i;
+    size_t j = i;
+    while (info[j] != '\t') {
+        ++j;
+    }
+    get<1>(parsed) = stoi(info.substr(i, j - i));
+    get<2>(parsed) = info[j + 1] == '1';
+    get<3>(parsed) = info[j + 2] == '1';
+    return parsed;
 }
 
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {

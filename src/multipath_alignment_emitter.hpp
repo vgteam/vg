@@ -50,21 +50,35 @@ public:
     /// in HTSLib output
     void set_min_splice_length(int64_t min_splice_length);
     
-    /// Emit paired read mappings as interleaved protobuf messages
+    /// Emit paired read mappings as interleaved protobuf messages or HTSLib output
     void emit_pairs(const string& name_1, const string& name_2,
                     vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs,
                     vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>>* path_positions = nullptr,
                     vector<int64_t>* tlen_limits = nullptr);
     
-    /// Emit read mappings as protobuf messages
+    /// Emit read mappings as protobuf messages or HTSLib output
     void emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns,
                       vector<tuple<string, bool, int64_t>>* path_positions = nullptr);
+    
+    /// Emit unpaired independent or supplementary alignments for paired reads
+    void emit_paired_independent(const string& name_1, const string& name_2,
+                                 vector<multipath_alignment_t>&& mp_alns_1,
+                                 vector<multipath_alignment_t>&& mp_alns_2,
+                                 vector<tuple<string, bool, int64_t>>* path_positions_1 = nullptr,
+                                 vector<tuple<string, bool, int64_t>>* path_positions_2 = nullptr,
+                                 bool read_1_is_mapped = true, bool read_2_is_mapped = true,
+                                 bool read_1_rev = false, bool read_2_rev = false);
     
 private:
     
     /// what format are we outputting in
     enum output_format_t {GAMP, GAM, GAF, BAM, SAM, CRAM};
     output_format_t format;
+        
+    /// Emit read mappings as protobuf messages or HTSLib output
+    void emit_singles_internal(const string& name, vector<multipath_alignment_t>&& mp_alns,
+                               vector<tuple<string, bool, int64_t>>* path_positions,
+                               const string* mate_name, bool is_read_1, bool mate_is_mapped, bool mate_rev);
     
     /// make a GAM alignment from a multipath alignment
     void convert_to_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
@@ -79,7 +93,9 @@ private:
     /// store a bam1_t object with the indicated data in the dest vector
     void convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                  const string& ref_name, bool ref_rev, int64_t ref_pos,
-                                 bam_hdr_t* header, vector<bam1_t*>& dest) const;
+                                 bam_hdr_t* header, vector<bam1_t*>& dest,
+                                 const string* mate_name = nullptr, bool is_read_1 = true,
+                                 bool mate_mapped = false, bool mate_rev = false) const;
     
     /// store two paired bam1_t objects with the indicated data in the dest vector
     void convert_to_hts_paired(const string& name_1, const string& name_2,
