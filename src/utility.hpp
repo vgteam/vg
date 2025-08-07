@@ -853,8 +853,10 @@ void error_if_file_is_gzipped(const string& context, const string& filename);
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
 string error_if_file_cannot_be_written(const string& context, const string& filename);
 
-// A special parser for thread count which errors if non-positive
-int parse_thread_count(const string& context, const string& arg);
+/// A special parser for thread count which errors if non-positive
+/// If max_threads is non-zero, it will also decrease to that maximum.
+/// If max_threads is zero, max is omp_get_max_threads()
+int parse_thread_count(const string& context, const string& arg, int max_threads = 0);
 
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
