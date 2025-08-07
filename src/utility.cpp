@@ -25,14 +25,20 @@
 namespace vg {
 
 void error_and_exit(const string& context, const string& message) {
-    cerr << "error" << context << ": ";
-    emit_with_indent(cerr, message, 7 + context.size());
+    #pragma omp critical (cerr)
+    {
+        cerr << "error" << context << ": ";
+        emit_with_indent(cerr, message, 7 + context.size());
+    }
     exit(EXIT_FAILURE);
 }
 
 void emit_warning(const string& context, const string& message) {
-    cerr << "warning" << context << ": ";
-    emit_with_indent(cerr, message, 9 + context.size());
+    #pragma omp critical (cerr)
+    {
+        cerr << "warning" << context << ": ";
+        emit_with_indent(cerr, message, 9 + context.size());
+    }
 }
 
 void emit_with_indent(ostream& outstream, const string& message, size_t indent) {
