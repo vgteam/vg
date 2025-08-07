@@ -666,6 +666,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
     );
+    chaining_opts.add_range(
+        "softclip-penalty",
+        &MinimizerMapper::softclip_penalty,
+        MinimizerMapper::default_softclip_penalty,
+        "penalize candidate alignment scores this many points per softclipped base",
+        double_is_nonnegative
+    );
     chaining_opts.add_flag(
         "sort-by-chain-score",
         &MinimizerMapper::sort_by_chain_score,
