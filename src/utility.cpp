@@ -25,12 +25,54 @@
 namespace vg {
 
 void error_and_exit(const string& context, const string& message) {
-    cerr << "error" << context << ": " << message << endl;
+    cerr << "error" << context << ": ";
+    emit_with_indent(cerr, message, 7 + context.size());
     exit(EXIT_FAILURE);
 }
 
 void emit_warning(const string& context, const string& message) {
-    cerr << "warning" << context << ": " << message << endl;
+    cerr << "warning" << context << ": ";
+    emit_with_indent(cerr, message, 9 + context.size());
+}
+
+void emit_with_indent(ostream& outstream, const string& message, size_t indent) {
+    vector<string> lines;
+    // Break up by pre-existing newlines
+    size_t start_pos = 0;
+    size_t next_pos = 0;
+    while ((next_pos = message.find('\n', start_pos)) != std::string::npos) {
+        lines.push_back(message.substr(start_pos, next_pos - start_pos));
+        start_pos = next_pos + 1;
+    }
+    // Add remaining bit
+    lines.push_back(message.substr(start_pos, message.length()));
+    // Output each line with the indent
+    bool is_first_line = true;
+    for (const auto& line : lines) {
+        size_t cur_col = indent;
+        start_pos = 0;
+        next_pos = 0;
+        if (!is_first_line) {
+            // Assume only the first line is pre-indented
+            outstream << string(indent, ' ');
+        } else {
+            is_first_line = false;
+        }
+        while ((next_pos = line.find(' ', start_pos)) != std::string::npos) {
+            size_t word_length = next_pos - start_pos;
+            if (word_length + cur_col > 80) {
+                // If the next word would go past the end of the line, break
+                outstream << "\n" << string(indent, ' ');
+                cur_col = indent;
+            }
+            outstream << line.substr(start_pos, word_length) << " ";
+            start_pos = next_pos + 1;
+            cur_col += word_length + 1; // +1 for the space
+        }
+        // Output the last bit of the line
+        outstream << line.substr(start_pos, next_pos - start_pos) << "\n";
+    }
+    outstream.flush();
 }
 
 static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 8

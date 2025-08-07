@@ -32,6 +32,14 @@ void error_and_exit(const string& context, const string& message);
 /// Warn the user with a standard format
 void emit_warning(const string& context, const string& message);
 
+/// Write a message to an output stream with indentation
+/// Inserts "indent" spaces on the beginning of each line
+/// Honors existing newlines, but otherwise adds newlines between words
+/// such that everything gets printed with width no more than 80
+/// Assumes that the first line is already indented
+/// (because you put something there and you want others to line up)
+void emit_with_indent(ostream& outstream, const string& message, size_t indent);
+
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
 void reverse_complement_in_place(string& seq);
