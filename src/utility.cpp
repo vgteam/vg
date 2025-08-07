@@ -778,6 +778,13 @@ string error_if_file_does_not_exist(const string& context, const string& filenam
     return filename;
 }
 
+void error_if_file_is_gzipped(const string& context, const string& filename) {
+    if (ends_with(filename, vg::GZ_SUFFIX)) {
+        error_and_exit(context, "file \"" + filename + "\" appears to be gzipped; "
+                                "please decompress it before use");
+    }
+}
+
 string error_if_file_cannot_be_written(const string& context, const string& filename) {
     if (!file_can_be_written(filename)) {
         error_and_exit(context, "file \"" + filename + "\" cannot be written to");

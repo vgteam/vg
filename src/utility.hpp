@@ -846,6 +846,9 @@ bool file_can_be_written(const string& filename);
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string error_if_file_does_not_exist(const string& context, const string& filename);
 
+/// Error if a file looks like it's gzipped.
+void error_if_file_is_gzipped(const string& context, const string& filename);
+
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
 string error_if_file_cannot_be_written(const string& context, const string& filename);
