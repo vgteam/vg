@@ -26,7 +26,7 @@ namespace vg {
 
 void error_and_exit(const string& context, const string& message) {
     cerr << "error" << context << ": " << message << endl;
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 void emit_warning(const string& context, const string& message) {
