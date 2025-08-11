@@ -667,11 +667,6 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
             extra_errors.append("Parse thread count using parse_thread_count() "
                                 "for standardized error messages")
     
-        if '"error' in stripped or '"warning' in stripped:
-            # Extra check for error/warning messages
-            extra_errors.append("Use error_and_exit() or emit_warning() "
-                                "for standardized error messages: " + stripped)
-
         # This won't catch all file variables (e.g. if called `xg_name`),
         # but it'll catch some at least
         for suffix in FILENAME_VAR_ENDS:
