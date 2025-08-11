@@ -73,7 +73,6 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 bool starts_with(const std::string& value, const std::string& prefix);
 /// Check if a string ends with another string
 bool ends_with(const std::string& value, const std::string& suffix);
-const std::string GZ_SUFFIX = ".gz";
 
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);

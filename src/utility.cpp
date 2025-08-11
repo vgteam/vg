@@ -785,7 +785,7 @@ string error_if_file_does_not_exist(const string& context, const string& filenam
 }
 
 void error_if_file_is_gzipped(const string& context, const string& filename) {
-    if (ends_with(filename, vg::GZ_SUFFIX)) {
+    if (ends_with(filename, ".gz")) {
         error_and_exit(context, "file \"" + filename + "\" appears to be gzipped; "
                                 "please decompress it before use");
     }
