@@ -858,6 +858,13 @@ string error_if_file_cannot_be_written(const string& context, const string& file
 /// If max_threads is zero, max is omp_get_max_threads()
 int parse_thread_count(const string& context, const string& arg, int max_threads = 0);
 
+/// A special parser for possibly-paired FASTQ files
+/// If the first file is unset, then it gets the input filename
+/// Else if the second file is unset, then it gets the input filename
+/// If both are already set, then this errors
+/// Also calls error_if_file_does_not_exist() on the filenames
+void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2);
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>
