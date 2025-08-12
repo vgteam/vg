@@ -864,6 +864,11 @@ int parse_thread_count(const string& context, const string& arg, int max_threads
 /// Also calls error_if_file_does_not_exist() on the filenames
 void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2);
 
+/// Parse an argument that should be a pair of strings separated by a delimiter.
+/// Errors if the string does not contain exactly one delimiter.
+pair<string, string> parse_split_string(const string& context, const string& arg,
+                                        const char& delimiter, const string& option_name);
+
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>

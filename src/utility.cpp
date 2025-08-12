@@ -1075,4 +1075,21 @@ void assign_fastq_files(const string& context, const string& input_filename, str
     }
 }
 
+pair<string, string> parse_split_string(const string& context, const string& arg,
+                                        const char& delimiter, const string& option_name) {
+    size_t delim_index = arg.find(delimiter);
+    if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
+        error_and_exit(context, option_name + " must have two parts separated by a " + delimiter
+                                + ", not \"" + arg + "\"");
+    }
+    string second_part = arg.substr(delim_index + 1);
+    if (second_part.find(delimiter) != string::npos) {
+        // The second part has another delimiter in it, which is not allowed.
+        error_and_exit(context, option_name + " must have two parts separated by a " + delimiter
+                                + ", not \"" + arg + "\"");
+    }
+    // Parse out the two parts
+    return make_pair(arg.substr(0, delim_index), arg.substr(delim_index + 1));
+}
+
 }
