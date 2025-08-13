@@ -1581,6 +1581,10 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 mapping_cigar(mapping, cigar, 'X');
             }
             out << cigar_string(cigar);
+        } else if (field == "nodes") {
+            for (const auto& mapping : read.path().mapping()) {
+                out << mapping.position().node_id() << (mapping.position().is_reverse() ? "-" : "+") << ",";
+            }
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
