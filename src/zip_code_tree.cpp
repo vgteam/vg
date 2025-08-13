@@ -832,7 +832,7 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
                 if (to_snarl_end && !is_cyclic_snarl) {
 
                     distance = SnarlDistanceIndex::sum(sibling.distances.second,
-                                           sibling_seed.zipcode.get_distance_to_snarl_bound(depth+1, snarl_is_reversed, child_is_reversed));
+                                           sibling_seed.zipcode.get_distance_to_snarl_bound(depth+1, snarl_is_reversed, sibling.is_reversed));
                 } else {
 
                     //If to_snarl_end is true, then we want the distance to the end (or start if snarl_is_reversed)
