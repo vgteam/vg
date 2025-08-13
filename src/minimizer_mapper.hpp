@@ -382,11 +382,6 @@ public:
     static constexpr double default_min_chain_score_per_base = 0.01;
     double min_chain_score_per_base = default_min_chain_score_per_base;
 
-    /// Even if we would have fewer than min_chains results, don't
-    /// process anything with a score smaller than this, per minimizer explored.
-    static constexpr double default_min_chain_score_per_explored_minimizer = 0;
-    double min_chain_score_per_explored_minimizer = default_min_chain_score_per_explored_minimizer;
-
     /// Limit the min chain score to no more than this.
     static constexpr int default_max_min_chain_score = 200;
     int max_min_chain_score = default_max_min_chain_score;

@@ -561,13 +561,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     chaining_opts.add_range(
-        "min-chain-score-per-explored-minimizer",
-        &MinimizerMapper::min_chain_score_per_explored_minimizer,
-        MinimizerMapper::default_min_chain_score_per_explored_minimizer,
-        "do not align chains with less than this score per minimizer with used hits",
-        double_is_nonnegative
-    );
-    chaining_opts.add_range(
         "max-min-chain-score",
         &MinimizerMapper::max_min_chain_score,
         MinimizerMapper::default_max_min_chain_score,
