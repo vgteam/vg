@@ -667,15 +667,18 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
             size_t snarl_prefix_sum = forest_state.sibling_indices_at_depth[depth-1].back().value;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
 
-            //Snarl prefix sum is now the distance from the start of the chain to the start of the snarl
-            snarl_prefix_sum = SnarlDistanceIndex::minus(snarl_prefix_sum, last_seed.zipcode.get_length(depth));
-
+            //Shift prefix sum to the other side of the snarl
+            size_t snarl_length = last_seed.zipcode.get_length(depth);
+            snarl_prefix_sum = last_is_reversed ? SnarlDistanceIndex::sum(snarl_prefix_sum, snarl_length)
+                                                : SnarlDistanceIndex::minus(snarl_prefix_sum, snarl_length);
+            //Move prefix distance by the previous edge
+            size_t distance = last_is_reversed ? SnarlDistanceIndex::sum(snarl_prefix_sum, previous_edge)
+                                               : SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge);
             //Now update forest_state.sibling_indices_at_depth to be the previous thing in the chain
             forest_state.sibling_indices_at_depth[depth-1].push_back({
                 trees[forest_state.active_tree_index].zip_code_tree.back().get_type() == ZipCodeTree::SEED 
                     ? ZipCodeTree::SEED 
-                    : ZipCodeTree::SNARL_START,
-                SnarlDistanceIndex::minus(snarl_prefix_sum, previous_edge)});
+                    : ZipCodeTree::SNARL_START, distance});
             //If it was in the first component, then this is correct. If it was in a later component, then it was too 
             //far away anyway so it doesn't matter
             //TODO: I think this might cause problems if it was a looping chain
