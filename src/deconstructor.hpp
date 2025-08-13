@@ -49,6 +49,11 @@ public:
                      gbwt::GBWT* gbwt = nullptr,
                      bool nested_decomposition = false,
                      bool star_allele = false);
+
+    // write the off-reference sequences to a fasta file
+    // todo: would really like to refactor so that this can somehow
+    // go into vg paths. 
+    void save_off_ref_sequences(const string& out_fasta_filename) const;
     
 private:
 
@@ -71,17 +76,19 @@ private:
     // some information we pass from parent to child site when
     // doing nested deconstruction
     struct NestingInfo {
-        bool has_ref;
-        vector<pair<handle_t, handle_t>> child_snarls;
-        PathInterval parent_path_interval;
-        unordered_map<string, vector<int>> sample_to_haplotypes;
-        int parent_allele;
-        int64_t parent_len;
-        int64_t parent_ref_len;
-        string lv0_ref_name;
-        int64_t lv0_ref_start;
-        int64_t lv0_ref_len;
-        int64_t lv0_alt_len;
+        bool has_ref; // flag essentially determines if struct is initalized       
+        vector<pair<handle_t, handle_t>> child_snarls; // children of parent
+        PathInterval parent_path_interval; // parent path
+        PathInterval parent_ref_interval; // reference path of parent site
+        unordered_map<string, vector<int>> sample_to_haplotypes; // parent genotpyes
+        int parent_allele; // parent allele
+        int64_t parent_len; // length of parent allele
+        int64_t parent_ref_len; // length of reference allele at parent site
+        string lv0_ref_name; // reference path name at top level
+        int64_t lv0_ref_start; // reference start position at top level
+        int64_t lv0_ref_len; // reference allele length at top level
+        int64_t lv0_alt_len; // alt allele length at top level
+        int64_t lv; // level
     };
     
     // write a vcf record for the given site.  returns true if a record was written
@@ -207,6 +214,9 @@ private:
     // ex: a big containing deletion
     // only works with nested_decomposition
     bool star_allele = false;
+
+    // keep track of off-reference reference sequences to print to fasta at the end
+    mutable unordered_map<PathInterval, NestingInfo> off_ref_sequences;
 };
 
 
