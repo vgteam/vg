@@ -12,7 +12,7 @@
 #include <structures/min_max_heap.hpp>
 
 //#define debug_chaining
-#define debug_transition
+//#define debug_transition
 
 namespace vg {
 namespace algorithms {
