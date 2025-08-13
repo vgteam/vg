@@ -49,7 +49,8 @@ void help_filter(char** argv) {
          << "                               and only alignment information" << endl
          << "  -f, --frac-score             normalize score based on length" << endl
          << "  -u, --substitutions          use substitution count instead of score" << endl
-         << "  -W, --overwrite-score        replace stored GAM score with computed/normalized score" << endl
+         << "  -W, --overwrite-score        replace stored GAM score with computed/normalized" << endl
+         << "                               score" << endl
          << "  -o, --max-overhang N         drop reads whose alignments begin or end" << endl
          << "                               with an insert > N [99999]" << endl
          << "  -m, --min-end-matches N      drop reads without >=N matches on each end" << endl
