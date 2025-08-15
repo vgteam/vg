@@ -150,6 +150,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a28e3876fb7401ecf89e9cd75fee37d59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a529c0b978b3855bab3dc1074fd18a711"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a529c0b978b3855bab3dc1074fd18a711">sub_score</a> = false</td></tr>
 <tr class="separator:a529c0b978b3855bab3dc1074fd18a711"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2070f2783bee857cb3aaff4215fa420e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a2070f2783bee857cb3aaff4215fa420e">overwrite_score</a> = false</td></tr>
+<tr class="separator:a2070f2783bee857cb3aaff4215fa420e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54c30818834f623c78a2cb0a0e9b4a91"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a54c30818834f623c78a2cb0a0e9b4a91">max_overhang</a> = numeric_limits&lt;int&gt;::max() / 2</td></tr>
 <tr class="separator:a54c30818834f623c78a2cb0a0e9b4a91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a05d07dd311e58f3fc04d510870ddf662"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a05d07dd311e58f3fc04d510870ddf662">min_end_matches</a> = numeric_limits&lt;int&gt;::min() / 2</td></tr>
@@ -242,6 +244,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a21b0bf11e5636b41cf6dfc4a61441c4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3e168659158cf4372fc11b8cda05883d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">get_score</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:a3e168659158cf4372fc11b8cda05883d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14d7b547e55cac0ddc0f4022724eb909"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a14d7b547e55cac0ddc0f4022724eb909">set_score</a> (Read &amp;read, double score) const</td></tr>
+<tr class="separator:a14d7b547e55cac0ddc0f4022724eb909"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae2ef22beb751d9415759fc1985da1946"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ae2ef22beb751d9415759fc1985da1946">get_length</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:ae2ef22beb751d9415759fc1985da1946"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab72c4fd96eedcb4bcd6aa565e97dfe4d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab72c4fd96eedcb4bcd6aa565e97dfe4d">matches_name</a> (const Read &amp;read) const</td></tr>
@@ -303,6 +307,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a2144e5b768ebd71768d37265c07deda2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af800d67aa469136b6318c02e282c5a30"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#af800d67aa469136b6318c02e282c5a30">get_score</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;read) const</td></tr>
 <tr class="separator:af800d67aa469136b6318c02e282c5a30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0444d07c168e4be1a219ae8301bff038"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a0444d07c168e4be1a219ae8301bff038">set_score</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, double score) const</td></tr>
+<tr class="separator:a0444d07c168e4be1a219ae8301bff038"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca056a62be795332a137288b9996c681"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aca056a62be795332a137288b9996c681">set_score</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;aln, double score) const</td></tr>
+<tr class="separator:aca056a62be795332a137288b9996c681"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab609cc20f1e49dc1001e71fe82c5ead4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ab609cc20f1e49dc1001e71fe82c5ead4">has_excluded_refpos</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;read) const</td></tr>
 <tr class="separator:ab609cc20f1e49dc1001e71fe82c5ead4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca79c3eda85a8f4fafcd25a243b7efd4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aca79c3eda85a8f4fafcd25a243b7efd4">has_excluded_refpos</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln) const</td></tr>
@@ -1865,6 +1873,117 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="a0444d07c168e4be1a219ae8301bff038"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0444d07c168e4be1a219ae8301bff038">&#9670;&nbsp;</a></span>set_score() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;::set_score </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>score</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aca056a62be795332a137288b9996c681"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca056a62be795332a137288b9996c681">&#9670;&nbsp;</a></span>set_score() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;::set_score </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>score</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a14d7b547e55cac0ddc0f4022724eb909"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14d7b547e55cac0ddc0f4022724eb909">&#9670;&nbsp;</a></span>set_score() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::set_score </td>
+          <td>(</td>
+          <td class="paramtype">Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>score</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Set the score of the read, or raise an error of the score cannot be set on this type of read. </p>
+
+</div>
+</div>
 <a id="a21b0bf11e5636b41cf6dfc4a61441c4e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a21b0bf11e5636b41cf6dfc4a61441c4e">&#9670;&nbsp;</a></span>to_alignment()</h2>
 
@@ -2645,6 +2764,23 @@ template&lt;typename Read &gt; </div>
 </div><div class="memdoc">
 
 <p>What fields do we want to write to the tsv? </p>
+
+</div>
+</div>
+<a id="a2070f2783bee857cb3aaff4215fa420e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2070f2783bee857cb3aaff4215fa420e">&#9670;&nbsp;</a></span>overwrite_score</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::overwrite_score = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Should we commit back whatever we used as the score? TODO: This can't work for multipath alignments, but representing that in the class structure requires breaking out a base class, so we haven't yet. </p>
 
 </div>
 </div>

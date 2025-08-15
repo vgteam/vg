@@ -321,6 +321,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ae77b975a0ba7e7bddf4d01e92074c1de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99da16075a34ebad4a01fe94f5d7d4cf"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a99da16075a34ebad4a01fe94f5d7d4cf">wfa_max_distance</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a51aa239042c3adaff5ac10c6c4486cc5">default_wfa_max_distance</a></td></tr>
 <tr class="separator:a99da16075a34ebad4a01fe94f5d7d4cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1b778c71a85578515d39395c4e05ac00"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1b778c71a85578515d39395c4e05ac00">softclip_penalty</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">default_softclip_penalty</a></td></tr>
+<tr class="separator:a1b778c71a85578515d39395c4e05ac00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1006ffeadb8f60e819d8cfbf24e33109"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1006ffeadb8f60e819d8cfbf24e33109">sort_by_chain_score</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">default_sort_by_chain_score</a></td></tr>
 <tr class="separator:a1006ffeadb8f60e819d8cfbf24e33109"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0df762ac6300835ee936f77a1b3daf8d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0df762ac6300835ee936f77a1b3daf8d">min_unique_node_fraction</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#ab3835a6952cc643f0b29dbe10ffdbc9e">default_min_unique_node_fraction</a></td></tr>
@@ -573,6 +575,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a51aa239042c3adaff5ac10c6c4486cc5"><td class="memItemLeft" align="right" valign="top">static constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a51aa239042c3adaff5ac10c6c4486cc5">default_wfa_max_distance</a> = <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#aa2ddef59dceb81bd45cc7a485ff3fb6f">WFAExtender::ErrorModel::default_distance</a>().max</td></tr>
 <tr class="memdesc:a51aa239042c3adaff5ac10c6c4486cc5"><td class="mdescLeft">&#160;</td><td class="mdescRight">How far behind the leader should the WFA be allowed to get, at any read length?  <a href="classvg_1_1MinimizerMapper.html#a51aa239042c3adaff5ac10c6c4486cc5">More...</a><br /></td></tr>
 <tr class="separator:a51aa239042c3adaff5ac10c6c4486cc5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6b74310e8a652311091942ab5ab6085a"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">default_softclip_penalty</a> = 0.0</td></tr>
+<tr class="memdesc:a6b74310e8a652311091942ab5ab6085a"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much should candidate alignment scores be penalized for softclipped bases?  <a href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">More...</a><br /></td></tr>
+<tr class="separator:a6b74310e8a652311091942ab5ab6085a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a660c0927845a795613529acf90fceefe"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">default_sort_by_chain_score</a> = false</td></tr>
 <tr class="memdesc:a660c0927845a795613529acf90fceefe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should alignments be ranked by chain score instead of base-level score?  <a href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">More...</a><br /></td></tr>
 <tr class="separator:a660c0927845a795613529acf90fceefe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -7445,6 +7450,30 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
+<a id="a6b74310e8a652311091942ab5ab6085a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6b74310e8a652311091942ab5ab6085a">&#9670;&nbsp;</a></span>default_softclip_penalty</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::MinimizerMapper::default_softclip_penalty = 0.0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>How much should candidate alignment scores be penalized for softclipped bases? </p>
+
+</div>
+</div>
 <a id="a660c0927845a795613529acf90fceefe"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a660c0927845a795613529acf90fceefe">&#9670;&nbsp;</a></span>default_sort_by_chain_score</h2>
 
@@ -9080,6 +9109,20 @@ template&lt;typename Score &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MinimizerMapper::show_work = <a class="el" href="classvg_1_1MinimizerMapper.html#a5b420aef79b283dfe483246b135aa2e1">default_show_work</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1b778c71a85578515d39395c4e05ac00"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1b778c71a85578515d39395c4e05ac00">&#9670;&nbsp;</a></span>softclip_penalty</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::softclip_penalty = <a class="el" href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">default_softclip_penalty</a></td>
         </tr>
       </table>
 </div><div class="memdoc">

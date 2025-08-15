@@ -1954,9 +1954,15 @@ Functions</h2></td></tr>
 <tr class="memitem:aa2aa77c6d4db628d13488c0bd82538ed"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa2aa77c6d4db628d13488c0bd82538ed">mapping_from_length</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;m)</td></tr>
 <tr class="separator:aa2aa77c6d4db628d13488c0bd82538ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9fe66eebecbc5017b05c9044413b2b4e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fe66eebecbc5017b05c9044413b2b4e">softclip_start</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="memdesc:a9fe66eebecbc5017b05c9044413b2b4e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the leading softclip from a <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, whether it is coalesced or not.  <a href="namespacevg.html#a9fe66eebecbc5017b05c9044413b2b4e">More...</a><br /></td></tr>
 <tr class="separator:a9fe66eebecbc5017b05c9044413b2b4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa84e4c417206a9b3a910dfde0fec3857"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa84e4c417206a9b3a910dfde0fec3857">softclip_end</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping)</td></tr>
+<tr class="memdesc:aa84e4c417206a9b3a910dfde0fec3857"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the trailing softclip from a <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, whether it is coalesced or not.  <a href="namespacevg.html#aa84e4c417206a9b3a910dfde0fec3857">More...</a><br /></td></tr>
 <tr class="separator:aa84e4c417206a9b3a910dfde0fec3857"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4d6a8b135093d688dccae52b1095bbc7"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4d6a8b135093d688dccae52b1095bbc7">softclip_start</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
+<tr class="separator:a4d6a8b135093d688dccae52b1095bbc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c14d102db72d56541af545f69fca039"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4c14d102db72d56541af545f69fca039">softclip_end</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
+<tr class="separator:a4c14d102db72d56541af545f69fca039"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada7557d06abd0fca3d66f9ca73fe81db"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ada7557d06abd0fca3d66f9ca73fe81db">first_path_position</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:ada7557d06abd0fca3d66f9ca73fe81db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa1c1e5b8ce9f9607976913317102d6dc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc">last_path_position</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
@@ -24391,7 +24397,7 @@ template&lt;typename T &gt; </div>
 </div>
 </div>
 <a id="a05d6d0388148a996d9423524fa4bcc91"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05d6d0388148a996d9423524fa4bcc91">&#9670;&nbsp;</a></span>softclip_end() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a05d6d0388148a996d9423524fa4bcc91">&#9670;&nbsp;</a></span>softclip_end() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -24405,11 +24411,12 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Get the trailing softclip from an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, assuming it is coalesced into a single <a class="el" href="structvg_1_1Edit.html">Edit</a> </p>
 
 </div>
 </div>
 <a id="aa84e4c417206a9b3a910dfde0fec3857"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa84e4c417206a9b3a910dfde0fec3857">&#9670;&nbsp;</a></span>softclip_end() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aa84e4c417206a9b3a910dfde0fec3857">&#9670;&nbsp;</a></span>softclip_end() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -24424,10 +24431,31 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 
+<p>Get the trailing softclip from a <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, whether it is coalesced or not. </p>
+
+</div>
+</div>
+<a id="a4c14d102db72d56541af545f69fca039"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c14d102db72d56541af545f69fca039">&#9670;&nbsp;</a></span>softclip_end() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::softclip_end </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the trailing softclip from a <a class="el" href="structvg_1_1Path.html">Path</a>, assuming it is coalesced into a single <a class="el" href="structvg_1_1Edit.html">Edit</a> </p>
+
 </div>
 </div>
 <a id="a90f2af92a34fdf5fb4ddfee8f8880b48"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a90f2af92a34fdf5fb4ddfee8f8880b48">&#9670;&nbsp;</a></span>softclip_start() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a90f2af92a34fdf5fb4ddfee8f8880b48">&#9670;&nbsp;</a></span>softclip_start() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -24441,11 +24469,12 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Get the leading softclip from an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, assuming it is coalesced into a single <a class="el" href="structvg_1_1Edit.html">Edit</a> </p>
 
 </div>
 </div>
 <a id="a9fe66eebecbc5017b05c9044413b2b4e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9fe66eebecbc5017b05c9044413b2b4e">&#9670;&nbsp;</a></span>softclip_start() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9fe66eebecbc5017b05c9044413b2b4e">&#9670;&nbsp;</a></span>softclip_start() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -24459,6 +24488,27 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Get the leading softclip from a <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, whether it is coalesced or not. </p>
+
+</div>
+</div>
+<a id="a4d6a8b135093d688dccae52b1095bbc7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4d6a8b135093d688dccae52b1095bbc7">&#9670;&nbsp;</a></span>softclip_start() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::softclip_start </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the leading softclip from a <a class="el" href="structvg_1_1Path.html">Path</a>, assuming it is coalesced into a single <a class="el" href="structvg_1_1Edit.html">Edit</a> </p>
 
 </div>
 </div>

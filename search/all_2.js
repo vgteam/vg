@@ -73,7 +73,7 @@ var searchData=
   ['basepileup_472',['BasePileup',['../structvg_1_1BasePileup.html',1,'vg']]],
   ['bases_473',['bases',['../structvg_1_1MinimizerMapper_1_1aligner__stats__t.html#ac93c990d7797a13e58adfea3ef77c2c4',1,'vg::MinimizerMapper::aligner_stats_t::bases()'],['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup::bases()']]],
   ['bases_5fper_5fchunk_474',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],
-  ['basevaluation_475',['BaseValuation',['../structvg_1_1subcommand_1_1BaseValuation.html',1,'vg::subcommand::BaseValuation'],['../structvg_1_1subcommand_1_1BaseValuation.html#a677dfea8a32ef151bc80c63a101cd61b',1,'vg::subcommand::BaseValuation::BaseValuation()']]],
+  ['basevaluation_475',['BaseValuation',['../structvg_1_1subcommand_1_1BaseValuation.html',1,'vg::subcommand::BaseValuation'],['../structvg_1_1subcommand_1_1BaseValuation.html#a677dfea8a32ef151bc80c63a101cd61b',1,'vg::subcommand::BaseValuation::BaseValuation(const std::string &amp;option)'],['../structvg_1_1subcommand_1_1BaseValuation.html#a135b67d0a626b9e6ea7cf92bf65ff079',1,'vg::subcommand::BaseValuation::BaseValuation(const BaseValuation &amp;other)=default'],['../structvg_1_1subcommand_1_1BaseValuation.html#ae6ca63edff7accc7406c46acfa55d622',1,'vg::subcommand::BaseValuation::BaseValuation(BaseValuation &amp;&amp;other)=default']]],
   ['basic_476',['Basic',['../structvg_1_1IndexingParameters.html#aa4d63cb22547d603bece7ba32e41c9f3acc2841d7d13fb6afa6ae0bdaac318bec',1,'vg::IndexingParameters']]],
   ['basic_5fstream_2ecpp_477',['basic_stream.cpp',['../basic__stream_8cpp.html',1,'']]],
   ['basic_5fstream_2ehpp_478',['basic_stream.hpp',['../basic__stream_8hpp.html',1,'']]],

@@ -69,9 +69,10 @@ $(function() {
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="structvg_1_1subcommand_1_1BaseValuation-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg::subcommand::BaseValuation Struct Reference</div>  </div>
+<div class="title">vg::subcommand::BaseValuation Struct Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div>  </div>
 </div><!--header-->
 <div class="contents">
 
@@ -93,18 +94,32 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a677dfea8a32ef151bc80c63a101cd61b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af8bbcfd7d30f6c358ba91db3be2a7084"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#af8bbcfd7d30f6c358ba91db3be2a7084">~BaseValuation</a> ()=default</td></tr>
 <tr class="separator:af8bbcfd7d30f6c358ba91db3be2a7084"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaccc6c5cda56f91791de826145328edb"><td class="memItemLeft" align="right" valign="top">virtual std::unique_ptr&lt; <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#aaccc6c5cda56f91791de826145328edb">clone</a> () const =0</td></tr>
+<tr class="memdesc:aaccc6c5cda56f91791de826145328edb"><td class="mdescLeft">&#160;</td><td class="mdescRight">BaseValuations can be cloned, retaining their derived type.  <a href="structvg_1_1subcommand_1_1BaseValuation.html#aaccc6c5cda56f91791de826145328edb">More...</a><br /></td></tr>
+<tr class="separator:aaccc6c5cda56f91791de826145328edb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:abe97905c1fa0321a619e15146a1ede7f"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#abe97905c1fa0321a619e15146a1ede7f">option</a></td></tr>
 <tr class="memdesc:abe97905c1fa0321a619e15146a1ede7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Long option to give a value to.  <a href="structvg_1_1subcommand_1_1BaseValuation.html#abe97905c1fa0321a619e15146a1ede7f">More...</a><br /></td></tr>
 <tr class="separator:abe97905c1fa0321a619e15146a1ede7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a135b67d0a626b9e6ea7cf92bf65ff079"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#a135b67d0a626b9e6ea7cf92bf65ff079">BaseValuation</a> (const <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;other)=default</td></tr>
+<tr class="separator:a135b67d0a626b9e6ea7cf92bf65ff079"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae6ca63edff7accc7406c46acfa55d622"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#ae6ca63edff7accc7406c46acfa55d622">BaseValuation</a> (<a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&amp;other)=default</td></tr>
+<tr class="separator:ae6ca63edff7accc7406c46acfa55d622"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8cf20fc66c1b0ae251f10db10c7603eb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#a8cf20fc66c1b0ae251f10db10c7603eb">operator=</a> (const <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;other)=default</td></tr>
+<tr class="separator:a8cf20fc66c1b0ae251f10db10c7603eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa642164794cb838279bc99d7a2db90c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html#aaa642164794cb838279bc99d7a2db90c">operator=</a> (<a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&amp;other)=default</td></tr>
+<tr class="separator:aaa642164794cb838279bc99d7a2db90c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents an option being set to a value. Base interface. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a677dfea8a32ef151bc80c63a101cd61b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a677dfea8a32ef151bc80c63a101cd61b">&#9670;&nbsp;</a></span>BaseValuation()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a677dfea8a32ef151bc80c63a101cd61b">&#9670;&nbsp;</a></span>BaseValuation() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -142,6 +157,140 @@ Public Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">virtual</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a135b67d0a626b9e6ea7cf92bf65ff079"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a135b67d0a626b9e6ea7cf92bf65ff079">&#9670;&nbsp;</a></span>BaseValuation() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::subcommand::BaseValuation::BaseValuation </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae6ca63edff7accc7406c46acfa55d622"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae6ca63edff7accc7406c46acfa55d622">&#9670;&nbsp;</a></span>BaseValuation() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::subcommand::BaseValuation::BaseValuation </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="aaccc6c5cda56f91791de826145328edb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaccc6c5cda56f91791de826145328edb">&#9670;&nbsp;</a></span>clone()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual std::unique_ptr&lt;<a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a>&gt; vg::subcommand::BaseValuation::clone </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>BaseValuations can be cloned, retaining their derived type. </p>
+
+<p>Implemented in <a class="el" href="structvg_1_1subcommand_1_1Valuation.html#ad172285ab2dd1ce95640557e5f1e5e36">vg::subcommand::Valuation&lt; T &gt;</a>.</p>
+
+</div>
+</div>
+<a id="aaa642164794cb838279bc99d7a2db90c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa642164794cb838279bc99d7a2db90c">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a>&amp; vg::subcommand::BaseValuation::operator= </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8cf20fc66c1b0ae251f10db10c7603eb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8cf20fc66c1b0ae251f10db10c7603eb">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a>&amp; vg::subcommand::BaseValuation::operator= </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1subcommand_1_1BaseValuation.html">BaseValuation</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">default</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

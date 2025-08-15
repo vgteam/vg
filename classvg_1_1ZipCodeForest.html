@@ -138,8 +138,8 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ad32664318549a51d8727204d665a2bc6"><td class="memTemplParams" colspan="2">template&lt;typename Minimizer &gt; </td></tr>
 <tr class="memitem:ad32664318549a51d8727204d665a2bc6"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#ad32664318549a51d8727204d665a2bc6">get_cyclic_snarl_intervals</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; Minimizer &gt; &amp;minimizers, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;snarl_interval, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;parent_interval, const forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &gt; &amp;child_intervals, forward_list&lt; <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &gt; &amp;next_intervals) const</td></tr>
 <tr class="separator:ad32664318549a51d8727204d665a2bc6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a56fb93ecb975f5f6c12deeef5b1f9b20"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a56fb93ecb975f5f6c12deeef5b1f9b20">open_chain</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, size_t seed_index, bool chain_is_reversed)</td></tr>
-<tr class="separator:a56fb93ecb975f5f6c12deeef5b1f9b20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aedf4d4e0d4837917b3244a77f3f8aa2d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#aedf4d4e0d4837917b3244a77f3f8aa2d">open_chain</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;interval)</td></tr>
+<tr class="separator:aedf4d4e0d4837917b3244a77f3f8aa2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2307457a70762459688446395338b3f8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#a2307457a70762459688446395338b3f8">close_chain</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const <a class="el" href="classvg_1_1ZipCodeForest.html#a93f9eaa38dd8024a73a2aeca456e5156">Seed</a> &amp;last_seed, bool chain_is_reversed)</td></tr>
 <tr class="separator:a2307457a70762459688446395338b3f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac70358ab79a7212af23bc6ebffcb43fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ZipCodeForest.html#ac70358ab79a7212af23bc6ebffcb43fd">add_child_to_chain</a> (<a class="el" href="structvg_1_1ZipCodeForest_1_1forest__growing__state__t.html">forest_growing_state_t</a> &amp;forest_state, const size_t &amp;depth, const size_t &amp;seed_index, bool child_is_reversed, bool chain_is_reversed)</td></tr>
@@ -762,8 +762,8 @@ template&lt;typename Minimizer &gt; </div>
 
 </div>
 </div>
-<a id="a56fb93ecb975f5f6c12deeef5b1f9b20"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a56fb93ecb975f5f6c12deeef5b1f9b20">&#9670;&nbsp;</a></span>open_chain()</h2>
+<a id="aedf4d4e0d4837917b3244a77f3f8aa2d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aedf4d4e0d4837917b3244a77f3f8aa2d">&#9670;&nbsp;</a></span>open_chain()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -780,20 +780,8 @@ template&lt;typename Minimizer &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>depth</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>seed_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>chain_is_reversed</em>&#160;</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1ZipCodeForest_1_1interval__state__t.html">interval_state_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>interval</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
