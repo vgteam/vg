@@ -659,6 +659,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
     );
+    chaining_opts.add_range(
+        "softclip-penalty",
+        &MinimizerMapper::softclip_penalty,
+        MinimizerMapper::default_softclip_penalty,
+        "penalize candidate alignment scores this many points per softclipped base",
+        double_is_nonnegative
+    );
     chaining_opts.add_flag(
         "sort-by-chain-score",
         &MinimizerMapper::sort_by_chain_score,
@@ -1013,8 +1020,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
 
+    Preset r10_base;
 
-    presets["r10"]
+    r10_base
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
@@ -1077,6 +1085,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
+
+    presets.emplace("r10", r10_base);
+
+    // TODO: Add a dedicated r10y2025 preset that diverges slightly.
+
     // And a short reads with chaining preset
     presets["chaining-sr"]
         .add_entry<bool>("align-from-chains", true)

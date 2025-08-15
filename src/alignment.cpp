@@ -2204,27 +2204,11 @@ int non_match_end(const Alignment& alignment) {
 }
 
 int softclip_start(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& first_mapping = path.mapping(0);
-        auto& first_edit = first_mapping.edit(0);
-        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
-            return first_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_start(alignment.path());
 }
 
 int softclip_end(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& last_mapping = path.mapping(path.mapping_size()-1);
-        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
-        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
-            return last_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_end(alignment.path());
 }
 
 int softclip_trim(Alignment& alignment) {

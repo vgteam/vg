@@ -432,6 +432,10 @@ public:
     static constexpr int default_wfa_max_distance = WFAExtender::ErrorModel::default_distance().max;
     int wfa_max_distance = default_wfa_max_distance;
 
+    /// How much should candidate alignment scores be penalized for softclipped bases?
+    static constexpr double default_softclip_penalty = 0.0;
+    double softclip_penalty = default_softclip_penalty;
+
     /// Should alignments be ranked by chain score instead of base-level score?
     static constexpr bool default_sort_by_chain_score = false;
     bool sort_by_chain_score = default_sort_by_chain_score;
