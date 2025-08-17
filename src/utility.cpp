@@ -75,8 +75,12 @@ void emit_with_indent(ostream& outstream, const string& message, size_t indent) 
             start_pos = next_pos + 1;
             cur_col += word_length + 1; // +1 for the space
         }
+        if ((line.size() - start_pos) + cur_col > 80) {
+            // If the last word would go past the end of the line, break
+            outstream << "\n" << string(indent, ' ');
+        }
         // Output the last bit of the line
-        outstream << line.substr(start_pos, next_pos - start_pos) << "\n";
+        outstream << line.substr(start_pos) << "\n";
     }
     outstream.flush();
 }
