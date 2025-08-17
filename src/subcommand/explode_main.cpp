@@ -17,6 +17,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg explode]";
+
 void help_explode(char** argv) {
     cerr << "usage: " << argv[0] << " explode [options] source.vg part_dir" << endl
          << "Breaks connected components of graph into" << endl
@@ -59,7 +61,7 @@ int main_explode(int argc, char** argv) {
         {
 
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
 
         case 'h':

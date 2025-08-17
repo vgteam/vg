@@ -87,6 +87,7 @@ static string to_string(const vg::IndexGroup& name) {
 
 namespace vg {
 
+const string context = "[IndexRegistry]";
 
 IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = PackedGraph;
 int IndexingParameters::max_node_size = 32;
@@ -5630,6 +5631,7 @@ void IndexFile::provide(const vector<string>& filenames) {
     // append all filenames
     // TODO: would it be better to sometimes error check that the file isn't a duplicate?
     for (const string& filename : filenames) {
+        error_if_file_does_not_exist(context, filename);
         this->filenames.emplace_back(filename);
     }
     provided_directly = true;

@@ -28,6 +28,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg paths]";
+
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl
@@ -185,12 +187,12 @@ int main_paths(int argc, char** argv) {
 
         case 'v': // Fall through
         case 'x':
-            graph_file = optarg;
+            graph_file = error_if_file_does_not_exist(context, optarg);
             ++input_formats;
             break;
 
         case 'g':
-            gbwt_file = optarg;
+            gbwt_file = error_if_file_does_not_exist(context, optarg);
             ++input_formats;
             break;
 
@@ -253,7 +255,7 @@ int main_paths(int argc, char** argv) {
             break;
                 
         case 'p':
-            path_file = optarg;
+            path_file = error_if_file_does_not_exist(context, optarg);
             selection_criteria++;
             break;
 
@@ -294,25 +296,18 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'T':
-            std::cerr << "warning: [vg paths] option -T/--threads-old is obsolete; use -t/--threads" << std::endl;
+            emit_warning(context, "option -T/--threads-old is obsolete; use -t/--threads");
             break;
 
         case 'q':
-            std::cerr << "warning: [vg paths] option --threads-by is deprecated; please use --paths-by" << std::endl;
+            emit_warning(context, "option --threads-by is deprecated; please use --paths-by");
             path_prefix = optarg;
             selection_criteria++;
             break;
 
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg paths] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
-        }
             
         case 'h':
         case '?':
@@ -338,56 +333,46 @@ int main_paths(int argc, char** argv) {
         }
     } else {
         if (!gbwt_file.empty()) {
-            std::cerr << "warning: [vg paths] path sense selection is not done by GBWT" << std::endl;
+            error_and_exit(context, "path sense selection is not done by GBWT");
         }
         // We asked for path senses specifically
         selection_criteria++;
     }
 
     if (input_formats != 1 && input_formats != 2) {
-        std::cerr << "error: [vg paths] at least one input format (-x, -g) must be specified" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "at least one input format (-x, -g) must be specified");
     }
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths
                            || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
-            std::cerr << "error: [vg paths] a graph is needed for extracting threads in "
-                      << "-X, -A, -V, -d, -r, -n, -E or -F format" << std::endl;
-            std::exit(EXIT_FAILURE);
+            error_and_exit(context, "a graph is needed for extracting threads in "
+                                    "-X, -A, -V, -d, -r, -n, -E or -F format");
         }
         if (!need_graph && !graph_file.empty()) {
             // TODO: This should be an error, but we display a warning instead for backward compatibility.
-            //std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
-            //std::exit(EXIT_FAILURE);
-            std::cerr << "warning: [vg paths] graph unnecessary for listing GBWT threads" << std::endl;
+            //error_and_exit(context, "cannot read input from multiple sources");
+            emit_warning(context, "graph unnecessary for listing GBWT threads");
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) "
-                  << "must be specified" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) must be specified");
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used");
     }
     if (select_alt_paths && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] selecting variant allele paths is not compatible with a GBWT index" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "selecting variant allele paths is not compatible with a GBWT index");
     }
     if (list_metadata && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] listing path metadata is not compatible with a GBWT index" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "listing path metadata is not compatible with a GBWT index");
     }
     if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] dropping, retaining or normalizing paths "
-                  << "only works on embedded graph paths, not GBWT threads" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "dropping, retaining or normalizing paths "
+                                "only works on embedded graph paths, not GBWT threads");
     }
     if (coverage && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
-        std::exit(EXIT_FAILURE);
+        error_and_exit(context, "coverage option -c only works on embedded graph paths, not GBWT threads");
     }
     
     if (select_alt_paths) {
@@ -425,8 +410,7 @@ int main_paths(int argc, char** argv) {
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
-          cerr << "error: [vg paths] unable to load gbwt index file" << endl;
-          exit(1);
+          error_and_exit(context, "unable to load GBWT index file");
         }
     }
     
@@ -435,11 +419,6 @@ int main_paths(int argc, char** argv) {
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);
-        if (!path_stream) {
-            cerr << "error: cannot open path name file " << path_file << endl;
-            exit(EXIT_FAILURE);
-        }
-        
         string line;
         while (getline(path_stream, line)) {
             path_names.emplace(std::move(line));
@@ -464,8 +443,7 @@ int main_paths(int argc, char** argv) {
         // We want to operate on a GBWT instead of the graph.
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
-            std::cerr << "warning: [vg paths] the GBWT index does not contain thread names" << std::endl;
-            std::exit(EXIT_SUCCESS);
+            error_and_exit(context, "the GBWT index does not contain path names");
         }
         
         // Pre-parse some metadata
@@ -494,8 +472,7 @@ int main_paths(int argc, char** argv) {
                 }
             }
             if (thread_ids.size() != path_names.size()) {
-                std::cerr << "error: [vg paths] could not find all path names from file in GBWT index" << std::endl;
-                std::exit(EXIT_FAILURE);
+                error_and_exit(context, "could not find all path names from file in GBWT index");
             }
         } else {
             thread_ids.reserve(gbwt_index->metadata.paths());
@@ -627,8 +604,7 @@ int main_paths(int argc, char** argv) {
         if (drop_paths || retain_paths || normalize_paths) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
             if (!mutable_graph) {
-                std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
-                exit(1);
+                error_and_exit(context, "graph cannot be modified");
             }
 
             vector<path_handle_t> to_destroy;

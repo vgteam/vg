@@ -12,6 +12,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg primers]";
+
 void help_primers(char** argv) {
     cerr << "usage: " << argv[0] << " primers [options] input.primer3 > filtered_primers.out" << endl
          << endl
@@ -119,27 +121,27 @@ int main_primers(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_path = optarg;
+            xg_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'd':
-            distance_index_path = optarg;
+            distance_index_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'r':
-            ri_path = optarg;
+            ri_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'g':
-            gbz_path = optarg;
+            gbz_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'M':
-            min_path = optarg;
+            min_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'Z':
-            zip_path = optarg;
+            zip_path = error_if_file_does_not_exist(context, optarg);
             break;
         
         case 'v':
@@ -174,23 +176,19 @@ int main_primers(int argc, char** argv) {
     }
 
     if (xg_path.empty()) {
-        cerr << "error:[vg primers] xg file (-x) is required" << endl;
-        exit(1);
+        error_and_exit(context, "XG file (-x) is required");
     }
 
     if (distance_index_path.empty()) {
-        cerr << "error:[vg primers] distance index file (-d) is required" << endl;
-        exit(1);
+        error_and_exit(context, "distance index file (-d) is required");
     }
 
     if (ri_path.empty()) {
-        cerr << "error:[vg primers] r index file (-r) is required" << endl;
-        exit(1);
+        error_and_exit(context, "r index file (-r) is required");
     }
 
     if (gbz_path.empty()) {
-        cerr << "error:[vg primers] gbz file (-g) is required" << endl;
-        exit(1);
+        error_and_exit(context, "GBZ file (-g) is required");
     }
 
     string primers_path = get_input_file_name(optind, argc, argv);

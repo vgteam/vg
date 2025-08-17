@@ -27,6 +27,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg snarls]";
+
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
@@ -119,7 +121,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'r':
-            traversal_file = optarg;
+            traversal_file = error_if_file_cannot_be_written(context, optarg);
             break;
 
         case 'l':
@@ -153,28 +155,21 @@ int main_snarl(int argc, char** argv) {
             fill_path_names = true;
             break;
         case 'v':
-            vcf_filename = optarg;
+            vcf_filename = error_if_file_does_not_exist(context, optarg);
             break;
         case 'f':
-            ref_fasta_filename = optarg;
+            ref_fasta_filename = error_if_file_does_not_exist(context, optarg);
             break;
         case 'i':
-            ins_fasta_filename = optarg;
+            ins_fasta_filename = error_if_file_does_not_exist(context, optarg);
             break;
         case 'e':
             path_traversals = true;
             break;
 
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg snarls] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
-        }
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -192,11 +187,6 @@ int main_snarl(int argc, char** argv) {
     ofstream trav_stream;
     if (!traversal_file.empty()) {
         trav_stream.open(traversal_file);
-        if (!trav_stream) {
-            cerr << "error: [vg snarls] Could not open \"" << traversal_file
-                 << "\" for writing" << endl;
-            return 1;
-        }
     }
 
     // Read the graph into a PathHandleGraph.
@@ -208,9 +198,8 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, "
-                 << "but the graph does not come with a named coordinate space." << endl;
-            return 1;
+            error_and_exit(context, "Named coordinate output (-n) was requested, "
+                                    "but the graph does not come with a named coordinate space.");
         }
     }
     
@@ -226,20 +215,17 @@ int main_snarl(int argc, char** argv) {
     } else if (algorithm == "integrated") {
         snarl_finder.reset(new IntegratedSnarlFinder(*graph));
     } else {
-        cerr << "error:[vg snarls]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
-        return 1;
+        error_and_exit(context, "Algorithm must be 'cactus' or 'integrated', not '" + algorithm + "'");
     }
     if (!vcf_filename.empty() && path_traversals) {
-        cerr << "error:[vg snarls]: -v cannot be used with -e" << endl;
-        return 1;
+        error_and_exit(context, "-v cannot be used with -e");
     }
     if (path_traversals && traversal_file.empty()) {
-        cerr << "error:[vg snarls]: -e requires -r" << endl;
+        error_and_exit(context, "-e requires -r");
         return 1;
     }
     if (!vcf_filename.empty() && traversal_file.empty()) {
-        cerr << "error:[vg snarls]: -v requires -r" << endl;
-        return 1;
+        error_and_exit(context, "-v requires -r");
     }
 
     unique_ptr<TraversalFinder> trav_finder;
@@ -251,8 +237,7 @@ int main_snarl(int argc, char** argv) {
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            cerr << "error: [vg snarls] could not open " << vcf_filename << endl;
-            return 1;
+            error_and_exit(context, "could not open " + vcf_filename);
         }
 
         // load up the fasta

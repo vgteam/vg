@@ -12,6 +12,8 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg viz]";
+
 void help_viz(char** argv) {
     cerr << "usage: " << argv[0] << " viz [options]" << endl
          << "options:" << endl
@@ -79,16 +81,16 @@ int main_viz(int argc, char** argv) {
             help_viz(argv);
             return 1;
         case 'x':
-            xg_name = optarg;
+            xg_name = error_if_file_does_not_exist(context, optarg);
             break;
         case 'n':
             pack_names.push_back(optarg);
             break;
         case 'i':
-            packs_in.push_back(optarg);
+            packs_in.push_back(error_if_file_does_not_exist(context, optarg));
             break;
         case 'o':
-            image_out = optarg;
+            image_out = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'X':
             image_width = parse<int>(optarg);
@@ -117,8 +119,7 @@ int main_viz(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     if (xg_name.empty()) {
-        cerr << "No input graph given. An input graph (-x) must be provided." << endl;
-        exit(1);
+        error_and_exit(context, "No input graph given. An input graph (-x) must be provided.");
     } else {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay

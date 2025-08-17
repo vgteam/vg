@@ -41,6 +41,8 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::algorithms;
 
+const string context = "[vg stats]";
+
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl
          << "options:" << endl
@@ -231,7 +233,7 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'a':
-            alignments_filename = optarg;
+            alignments_filename = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'r':
@@ -278,19 +280,11 @@ int main_stats(int argc, char** argv) {
             degree_dist = true;
             break;
         case 'b':
-            distance_index_filename = optarg;
+            distance_index_filename = error_if_file_does_not_exist(context, optarg);
             break;
         case 'p':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg stats] Thread count (-t) set to " << num_threads
-                     << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
-        }
 
         case 'h':
         case '?':
@@ -304,8 +298,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!snarl_sample.empty() && !snarl_stats) {
-        cerr << "error [vg stats]: --snarl-sample can only be used with --snarls/-R" << endl;
-        exit(1);
+        error_and_exit(context, "--snarl-sample can only be used with --snarls/-R");
     }
 
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -329,8 +322,7 @@ int main_stats(int argc, char** argv) {
     // We have function to make sure the graph was passed and complain if not
     auto require_graph = [&graph]() {
         if (graph == nullptr) {
-            cerr << "error[vg stats]: The selected operation requires passing a graph file to work on" << endl;
-            exit(1);
+            error_and_exit(context, "The selected operation requires passing a graph file to work on");
         }
     };
 
@@ -971,7 +963,7 @@ int main_stats(int argc, char** argv) {
             }
         });
         if (show_progress) {
-            std::cerr << "Destroy per-thread data structures" << std::endl;
+            std::cerr << context << ": Destroy per-thread data structures" << std::endl;
         }
         // This can take a long time because we need to deallocate all this
         // stuff allocated by other threads, such as per-node count maps.
@@ -1001,7 +993,7 @@ int main_stats(int argc, char** argv) {
 
         if (graph != nullptr) {
             if (show_progress) {
-                std::cerr << "Account for graph" << std::endl;
+                std::cerr << context << ": Account for graph" << std::endl;
             }
 
             // Calculate stats about the reads per allele data
@@ -1077,7 +1069,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (show_progress) {
-            std::cerr << "Print report" << std::endl;
+            std::cerr << context << ": Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
@@ -1200,8 +1192,7 @@ int main_stats(int argc, char** argv) {
                     ref_path_names.push_back(graph->get_path_name(path_handle));
                 });
                 if (ref_path_names.empty()) {
-                    cerr << "error [vg stats]: unable to find any paths of --snarl-sample " << snarl_sample << endl;
-                    exit(1);
+                    error_and_exit(context, "unable to find any paths of --snarl-sample");
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }

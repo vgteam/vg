@@ -16,6 +16,8 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg gamsort]";
+
 //------------------------------------------------------------------------------
 
 // We limit the max threads, and only allow thread count to be lowered, to
@@ -113,16 +115,13 @@ int main_gamsort(int argc, char **argv)
             gaf_params.key_type = GAFSorterRecord::key_hash;
             break;
         case 't':
-            {
-                size_t parsed = std::max(parse<size_t>(optarg), size_t(1));
-                num_threads = std::min(parsed, num_threads);
-                gaf_params.threads = parsed;
-            }
+            omp_set_num_threads(parse_thread_count(context, optarg, num_threads));
+            gaf_params.threads = omp_get_num_threads();
             break;
 
         // GAM sorting options.
         case 'i':
-            index_filename = optarg;
+            index_filename = error_if_file_does_not_exist(context, optarg);
             break;
         case 'd':
             easy_sort = true;
@@ -142,7 +141,7 @@ int main_gamsort(int argc, char **argv)
             gaf_params.stable = true;
             break;
         case 'g':
-            gaf_params.gbwt_file = optarg;
+            gaf_params.gbwt_file = error_if_file_does_not_exist(context, optarg);
             break;
         case 'b':
             gaf_params.bidirectional_gbwt = true;
@@ -156,17 +155,14 @@ int main_gamsort(int argc, char **argv)
         }
     }
 
-    if (argc < 3){
+    if (argc < 3) {
         help_gamsort(argv);
         exit(1);
     }
-    
-    omp_set_num_threads(num_threads);
 
     if (input_format == "GAM") {
         if (shuffle && !index_filename.empty()) {
-            cerr << "[vg gamsort] Indexing is not allowed when shuffling GAM files." << endl;
-            exit(1);
+            error_and_exit(context, "Indexing is not allowed when shuffling GAM files.");
         }
         get_input_file(optind, argc, argv, [&](istream& gam_in) {
 

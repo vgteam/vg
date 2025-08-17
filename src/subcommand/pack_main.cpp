@@ -14,6 +14,8 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg pack]";
+
 void help_pack(char** argv) {
     cerr << "usage: " << argv[0] << " pack [options]" << endl
          << "options:" << endl
@@ -104,19 +106,19 @@ int main_pack(int argc, char** argv) {
             help_pack(argv);
             return 1;
         case 'x':
-            xg_name = optarg;
+            xg_name = error_if_file_does_not_exist(context, optarg);
             break;
         case 'o':
-            packs_out = optarg;
+            packs_out = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'i':
-            packs_in.push_back(optarg);
+            packs_in.push_back(error_if_file_does_not_exist(context, optarg));
             break;
         case 'g':
-            gam_in = optarg;
+            gam_in = error_if_file_does_not_exist(context, optarg);
             break;
         case 'a':
-            gaf_in = optarg;
+            gaf_in = error_if_file_does_not_exist(context, optarg);
             break;
         case 'd':
             write_table = true;
@@ -134,20 +136,13 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;            
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg pack] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
-        }
         case 'n':
             node_ids.push_back(parse<int>(optarg));
             break;
         case 'N':
-            node_list_file = optarg;
+            node_list_file = error_if_file_does_not_exist(context, optarg);
             break;
         case 'Q':
             min_mapq = parse<int>(optarg);
@@ -167,8 +162,7 @@ int main_pack(int argc, char** argv) {
     unique_ptr<HandleGraph> handle_graph;
     HandleGraph* graph = nullptr;
     if (xg_name.empty()) {
-        cerr << "error [vg pack]: No basis graph given. One must be provided with -x." << endl;
-        exit(1);
+        error_and_exit(context, "No basis graph given. One must be provided with -x.");
     } else {
         handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
     }
@@ -176,28 +170,21 @@ int main_pack(int argc, char** argv) {
     graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
 
     if (gam_in.empty() && packs_in.empty() && gaf_in.empty()) {
-        cerr << "error [vg pack]: Input must be provided with -g, -a or -i" << endl;
-        exit(1);
+        error_and_exit(context, "Input must be provided with -g, -a or -i");
     }
 
     if (!gam_in.empty() && !gaf_in.empty()) {
-        cerr << "error [vg pack]: -g cannot be used with -a" << endl;
-        exit(1);
+        error_and_exit(context, "-g cannot be used with -a");
     }
 
     if (packs_out.empty() && write_table == false && write_edge_table == false && write_qual_table == false) {
-        cerr << "error [vg pack]: Output must be selected with -o, -d or -D" << endl;
-        exit(1);
+        error_and_exit(context, "Output must be selected with -o, -d, -D or -u");
     }
 
     // process input node list
     if (!node_list_file.empty()) {
         ifstream nli;
         nli.open(node_list_file);
-        if (!nli.good()){
-            cerr << "[vg pack] error, unable to open the node list input file." << endl;
-            exit(1);
-        }
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {

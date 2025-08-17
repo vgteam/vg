@@ -25,6 +25,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg add]";
+
 void help_add(char** argv) {
     cerr << "usage: " << argv[0] << " add [options] old.vg >new.vg" << endl
          << "options:" << endl
@@ -87,21 +89,13 @@ int main_add(int argc, char** argv) {
         {
 
         case 'v':
-            vcf_filenames.push_back(optarg);
+            vcf_filenames.push_back(error_if_file_does_not_exist(context, optarg));
             break;
             
         case 'n':
             {
-                // Parse the rename old=new
-                string key_value(optarg);
-                auto found = key_value.find('=');
-                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
-                    cerr << "error:[vg add] could not parse rename " << key_value << endl;
-                    exit(1);
-                }
-                // Parse out the two parts
-                string vcf_contig = key_value.substr(0, found);
-                string graph_contig = key_value.substr(found + 1);
+                string vcf_contig, graph_contig;
+                tie(vcf_contig, graph_contig) = parse_split_string(context, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace_back(vcf_contig, graph_contig);
             }
@@ -124,7 +118,7 @@ int main_add(int argc, char** argv) {
             break;
             
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
 
         case 'h':
@@ -150,15 +144,12 @@ int main_add(int argc, char** argv) {
     vector<unique_ptr<vcflib::VariantCallFile>> vcfs;
     
     for (auto vcf_filename : vcf_filenames) {
-        // For each VCF filename
-        
-        // Open it
+        // Open each VCF file
         vcfs.emplace_back(new vcflib::VariantCallFile());
         auto& vcf = *vcfs.back();
         vcf.open(vcf_filename);
         if (!vcf.is_open()) {
-            cerr << "error:[vg add] could not open " << vcf_filename << endl;
-            return 1;
+            error_and_exit(context, "could not open " + vcf_filename);
         }
     }
     
@@ -190,8 +181,7 @@ int main_add(int argc, char** argv) {
     ensure_vg();
     
     if (vg_graph == nullptr) {
-        cerr << "error:[vg add]: Could not load graph" << endl;
-        exit(1);
+        error_and_exit(context, "Could not load graph");
     }
     
     {

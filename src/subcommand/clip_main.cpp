@@ -16,6 +16,8 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
+const string context = "[vg clip]";
+
 void help_clip(char** argv) {
     cerr << "usage: " << argv[0] << " [options] <graph>" << endl
          << "Chop out variation within path intervals of a vg graph" << endl
@@ -147,7 +149,7 @@ int main_clip(int argc, char** argv) {
             help_clip(argv);
             return 1;
         case 'b':
-            bed_path = optarg;
+            bed_path = error_if_file_does_not_exist(context, optarg);
             break;
         case 'd':
             min_depth = parse<size_t>(optarg);
@@ -210,7 +212,7 @@ int main_clip(int argc, char** argv) {
             ref_prefixes.push_back(optarg);
             break;
         case 'r':
-            snarls_path = optarg;
+            snarls_path = error_if_file_does_not_exist(context, optarg);
             break;
         case 'm':
             min_fragment_len = parse<int>(optarg);
@@ -222,50 +224,37 @@ int main_clip(int argc, char** argv) {
             verbose = true;
             break;
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg clip] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
-            break;
-        }            
+            omp_set_num_threads(parse_thread_count(context, optarg));
+            break;       
         default:
             abort();
         }
     }
 
     if (bed_path.empty() == ref_prefixes.empty()) {
-        cerr << "error:[vg-clip] Reference intervals must be specified with one of -b or -P" << endl;
-        return 1;
+        error_and_exit(context, "Reference intervals must be specified with one of -b or -P");
     }
 
     if ((max_deletion >= 0 || stub_clipping || stubbify_reference) && (snarl_option || out_bed)) {
-        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) "
-             << "cannot be used with -D, -s or -S" << endl;
-        return 1;
+        error_and_exit(context, "bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L, -A) "
+                                "cannot be used with -D, -s or -S");
     }
 
     // ditto about combining
     if ((stub_clipping || stubbify_reference) && (min_depth >= 0 || max_deletion >= 0)) {
-        cerr << "error:[vg-clip] -s and -S cannot (yet?) be used with -d or -D" << endl;
-        return 1;
+        error_and_exit(context, "-s and -S cannot (yet?) be used with -d or -D");
     }
     
     if (context_steps >= 0 && max_deletion < 0) {
-        cerr << "error:[vg-clip] -c can only be used with -D" << endl;
-        return 1;
+        error_and_exit(context, "-c can only be used with -D");
     }
 
     if (stubbify_reference && ref_prefixes.empty()) {
-        cerr << "error:[vg-clip] -S can only be used with -P" << endl;
-        return 1;
+        error_and_exit(context, "-S can only be used with -P");
     }
 
     if (only_net_edges && only_top_net_edges) {
-        cerr << "error:[vg-clip] -g and -G cannot be used together: choose one" << endl;
-        return 1;
+        error_and_exit(context, "-g and -G cannot be used together: choose one");
     }
 
     // default to same
@@ -296,7 +285,7 @@ int main_clip(int argc, char** argv) {
     if (need_pp) {
         pp_graph = overlay_helper.apply(graph.get());
         if (verbose) {
-            cerr << "[vg clip]: Computed path position overlay of input graph" << endl;
+            cerr << context << ": Computed path position overlay of input graph" << endl;
         }
     }
 
@@ -305,18 +294,17 @@ int main_clip(int argc, char** argv) {
         if (!snarls_path.empty()) {
             ifstream snarl_file(snarls_path.c_str());
             if (!snarl_file) {
-                cerr << "Error [vg clip]: Unable to load snarls file: " << snarls_path << endl;
-                return 1;
+                error_and_exit(context, ": Unable to open snarls file: " + snarls_path);
             }
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
             if (verbose) {
-                cerr << "[vg clip]: Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
+                cerr << context << ": Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
             }
         } else {
             IntegratedSnarlFinder finder(*graph);
             snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
             if (verbose) {
-                cerr << "[vg clip]: Computed " << snarl_manager->num_snarls() << " snarls" << endl;
+                cerr << context << ": Computed " << snarl_manager->num_snarls() << " snarls" << endl;
             }
         }
         
@@ -324,7 +312,7 @@ int main_clip(int argc, char** argv) {
         if (!bed_path.empty()) {
             parse_bed_regions(bed_path, bed_regions);
             if (verbose) {
-                cerr << "[vg clip]: Loaded " << bed_regions.size() << " BED regions" << endl;
+                cerr << context << ": Loaded " << bed_regions.size() << " BED regions" << endl;
             }
             // contig names left in this set are *not* in the graph
             unordered_set<string> contig_set;
@@ -346,12 +334,12 @@ int main_clip(int argc, char** argv) {
             }
             if (bed_regions_in_graph.size() != bed_regions.size()) {
                 if (verbose) {
-                    cerr << "[vg clip]: Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) 
+                    cerr << context << ": Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) 
                          << " BED regions whose sequence names do not correspond to paths in the graph" << endl;
                 }
                 if (bed_regions_in_graph.empty()) {
-                    cerr << "warning:[vg-clip] No BED region found that lies on path in graph "
-                         << "(use vg paths -Lv to list paths that are in the graph)" << endl;
+                    emit_warning(context, "No BED region found that lies on path in graph "
+                                          "(use vg paths -Lv to list paths that are in the graph)");
                 }
             }
             swap(bed_regions, bed_regions_in_graph);
@@ -373,7 +361,8 @@ int main_clip(int argc, char** argv) {
                     }
                 });
             if (verbose) {
-                cerr << "[vg clip]: Inferred " << bed_regions.size() << " BED regions from paths in the graph" << endl;
+                cerr << context << ": Inferred " << bed_regions.size() 
+                     << " BED regions from paths in the graph" << endl;
             }
         }
     }        

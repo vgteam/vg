@@ -23,6 +23,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg filter]";
+
 void help_filter(char** argv) {
     cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
          << "Filter alignments by properties." << endl
@@ -330,8 +332,7 @@ int main_filter(int argc, char** argv) {
                     auto point = opt_string.find('.');
                     
                     if (point == -1) {
-                        cerr << "error: no decimal point in seed/probability " << opt_string << endl;
-                        exit(1);
+                        error_and_exit(context, "no decimal point in seed/probability " + opt_string);
                     }
                     
                     // Everything including and after the decimal point is the probability
@@ -363,14 +364,12 @@ int main_filter(int argc, char** argv) {
                 set_min_base_quality = true;
                 vector<string> parts = split_delims(string(optarg), ":");
                 if (parts.size() != 2) {
-                    cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
-                    return 1;
+                    error_and_exit(context, "-b expects value in form of <INT>:<FLOAT>");
                 }
                 min_base_quality = parse<int>(parts[0]);
                 min_base_quality_fraction = parse<double>(parts[1]);
                 if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
-                    cerr << "[vg filter] Error: second part of -b input must be between 0 and 1" << endl;
-                    return 1;
+                    error_and_exit(context, "second part of -b input must be between 0 and 1");
                 }
             }
             break;
@@ -390,7 +389,7 @@ int main_filter(int argc, char** argv) {
             batch_size = parse<size_t>(optarg);
             break;
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
         case OPT_PROGRESS:
             show_progress = true;
@@ -414,10 +413,10 @@ int main_filter(int argc, char** argv) {
     }
 
     if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
-        std::cerr << "warning [vg filter]: max read count is not divisible by 2, but reads are paired." << std::endl;
+        emit_warning(context, "max read count is not divisible by 2, but reads are paired.");
     }
     if (first_alignment) {
-        std::cerr << "warning [vg filter]: setting --threads 1 because --first-alignment requires one thread." << std::endl;
+        emit_warning(context, "setting --threads 1 because --first-alignment requires one thread.");
         omp_set_num_threads(1);
     }
 

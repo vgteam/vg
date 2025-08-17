@@ -26,6 +26,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg mcmc]";
+
 void help_mcmc(char** argv) {
     cerr << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl
          << "Finds haplotypes based on reads using MCMC methods" << endl
@@ -113,7 +115,7 @@ int main_mcmc(int argc, char** argv) {
                 sample_name = optarg;
                 break;  
             case 'v':
-                vcf_out = optarg;
+                vcf_out = error_if_file_cannot_be_written(context, optarg);
                 break;
             case 'b':
                 burn_in = parse<int>(optarg);
@@ -161,9 +163,8 @@ int main_mcmc(int argc, char** argv) {
     //convert to VG graph if needed
     ensure_vg();
 
-    if(vg_graph == nullptr || vg_graph == 0){
-        cerr << "Graph is NULL" <<endl;
-        exit(1);
+    if(vg_graph == nullptr || vg_graph == 0) {
+        error_and_exit(context, "Graph is NULL");
     }
     PathPositionHandleGraph* graph = nullptr;
     graph = overlay_helper.apply(vg_graph);
@@ -172,20 +173,17 @@ int main_mcmc(int argc, char** argv) {
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
-            cerr << "error [vg call]: Reference path \"" << ref_path << "\" not found in graph" << endl;
-            return 1;
+            error_and_exit(context, "Reference path \"" + ref_path + "\" not found in graph");
         }
     }
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
-        return 1;
+        error_and_exit(context, "when using -o, the same number paths must be given with -p");
     }
     // Check our ref lengths
     if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
-        return 1;
+        error_and_exit(context, "when using -l, the same number paths must be given with -p");
     }
 
     // No paths specified: use them all

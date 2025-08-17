@@ -25,6 +25,8 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
+const string context = "[vg find]";
+
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
@@ -67,9 +69,10 @@ void help_find(char** argv) {
          << "                              nodes between N and M (inclusive)" << endl
          << "  -A, --to-graph VG           get alignments to the provided subgraph" << endl
          << "sequences:" << endl
-         << "  -g, --gcsa FILE             use this GCSA2 index of the graph's sequence space" << endl
+         << "  -g, --gcsa FILE             use this GCSA2 (FILE) & LCP (FILE.lcp) indexes" << endl
+         << "                              of the graph's sequence space" << endl
          << "                              (required for sequence queries)" << endl
-         << "  -S, --sequence STR          search for sequence STR using" << endl
+         << "  -S, --sequence STR          search for sequence STR" << endl
          << "  -M, --mems STR              describe the super-maximal exact matches" << endl
          << "                              of the STR (GCSA2) in JSON" << endl
          << "  -B, --reseed-length N       find non-super-maximal MEMs inside SMEMs length>=N" << endl
@@ -193,20 +196,22 @@ int main_find(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = optarg;
+            xg_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'g':
-            gcsa_in = optarg;
-            break;
-
-        case 'S':
-            sequence = optarg;
+            gcsa_in = error_if_file_does_not_exist(context, optarg);
+            // We need the LCP too
+            error_if_file_does_not_exist(context, gcsa_in + ".lcp");
             break;
 
         case 'M':
-            sequence = optarg;
             get_mems = true;
+        case 'S': // fallthrough for -M too
+            if (!sequence.empty()) {
+                emit_warning(context, "multiple sequences given with -S or -M; only the last one will be used");
+            }
+            sequence = optarg;
             break;
             
         case 'B':
@@ -230,7 +235,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'R':
-            bed_targets_file = optarg;
+            bed_targets_file = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'E':
@@ -259,11 +264,11 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'N':
-            node_list_file = optarg;
+            node_list_file = error_if_file_does_not_exist(context, optarg);
             break;
 
         case OPT_MAPPING:
-            node_mapping_file = optarg;
+            node_mapping_file = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'e':
@@ -279,11 +284,11 @@ int main_find(int argc, char** argv) {
             break;
         
         case 'l':
-            sorted_gam_name = optarg;
+            sorted_gam_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'F':
-            sorted_gaf_name = optarg;
+            sorted_gaf_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'I':
@@ -308,7 +313,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'G':
-            gam_file = optarg;
+            gam_file = error_if_file_does_not_exist(context, optarg);
             break;
             
         case OPT_CONNECTING_START:
@@ -324,7 +329,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'A':
-            to_graph_file = optarg;
+            to_graph_file = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'K':
@@ -332,7 +337,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'H':
-            gbwt_name = optarg;
+            gbwt_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'h':
@@ -346,38 +351,33 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
-        cerr << "[vg find] find does not accept positional arguments" << endl;
-        return 1;
+        error_and_exit(context, "find does not accept positional arguments");
     }
 
     if (gcsa_in.empty() && xg_name.empty() && sorted_gam_name.empty() && sorted_gaf_name.empty()) {
-        cerr << "[vg find] find requires -g, -x, -l, or -F to know where to find its database" << endl;
-        return 1;
+        error_and_exit(context, "find requires -g, -x, -l, or -F to know where to find its database");
     }
 
     if (context_size > 0 && use_length == true && xg_name.empty()) {
-        cerr << "[vg find] error, -L not supported without -x" << endl;
-        exit(1);
+        error_and_exit(context, "-L not supported without -x");
     }
     
     if (xg_name.empty() && mem_reseed_length) {
-        cerr << "error:[vg find] SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
-        exit(1);
+        error_and_exit(context, "SMEM reseeding requires an XG index. Provide XG index with -x.");
     }
     
     if ((id(connecting_start) == 0) != (id(connecting_end) == 0)) {
-        cerr << "error:[vg find] --connecting-start and --connecting-end must be specified together." << endl;
-        exit(1);
+        error_and_exit(context, "--connecting-start and --connecting-end must be specified together.");
+    }
+
+    if (gcsa_in.empty() && !sequence.empty()) {
+        error_and_exit(context, "need GCSA index to query sequences");
     }
     
     // process input node list
     if (!node_list_file.empty()) {
         ifstream nli;
         nli.open(node_list_file);
-        if (!nli.good()){
-            cerr << "[vg find] error, unable to open the node list input file." << endl;
-            exit(1);
-        }
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {
@@ -415,7 +415,7 @@ int main_find(int argc, char** argv) {
             if (xindex->has_node(id)) {
                 final_ids.push_back(id);
             } else {
-                std::cerr << "warning: [vg find] no node with id " << id << " in the graph" << std::endl;
+                emit_warning(context, "no node with id " + std::to_string(id) + " in the graph");
             }
         }
         node_ids = final_ids;
@@ -435,8 +435,7 @@ int main_find(int argc, char** argv) {
         gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
         if (gbwt_index.get() == nullptr) {
             // Complain if we couldn't.
-            cerr << "error:[vg find] unable to load gbwt index file" << endl;
-            return 1;
+            error_and_exit(context, "unable to load GBWT index file " + gbwt_name);
         }
     }
     
@@ -457,14 +456,12 @@ int main_find(int argc, char** argv) {
     if (!sorted_gaf_name.empty()){
         gaf_tbx = tbx_index_load3(sorted_gaf_name.c_str(), NULL, 0);
         if ( !gaf_tbx ){
-            cerr << "Could not load .tbi/.csi index of " << sorted_gaf_name << endl;
-            exit(1);
+            error_and_exit(context, "Could not load .tbi/.csi index of " + sorted_gaf_name);
         }
         int nseq;
         gaf_fp = hts_open(sorted_gaf_name.c_str(),"r");
         if ( !gaf_fp ) {
-            cerr << "Could not open " << sorted_gaf_name << endl;
-            exit(1);
+            error_and_exit(context, "Could not open " + sorted_gaf_name);
         }
     }
     
@@ -501,8 +498,7 @@ int main_find(int argc, char** argv) {
                 tbx_itr_destroy(itr);
             }
         } else {
-            cerr << "error [vg find]: Cannot find alignments on range without a sorted GAM or GAF" << endl;
-            exit(1);
+            error_and_exit(context, "Cannot find alignments on range without a sorted GAM or GAF");
         }
     }
     
@@ -539,8 +535,7 @@ int main_find(int argc, char** argv) {
                 }); 
             }
         } else {
-            cerr << "error [vg find]: Cannot find alignments on graph without a sorted GAM" << endl;
-            exit(1);
+            error_and_exit(context, "Cannot find alignments on graph without a sorted GAM");
         }
     }
 
@@ -592,8 +587,7 @@ int main_find(int argc, char** argv) {
             if (xindex->has_path(path_name) == false) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
-                cerr << "[vg find] error, path \"" << path_name << "\" not found in index" << endl;
-                exit(1);
+                error_and_exit(context, "path \"" + path_name + "\" not found in index");
             }
             
             // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
@@ -612,8 +606,7 @@ int main_find(int argc, char** argv) {
         }
         if (pairwise_distance) {
             if (node_ids.size() != 2) {
-                cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
-                exit(1);
+                error_and_exit(context, "exactly 2 nodes (-n) required with -D");
             }
             cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex),
                 make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
@@ -661,8 +654,7 @@ int main_find(int argc, char** argv) {
                 // Grab each target region
                 if(xindex->has_path(target.seq) == false) { 
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
-                    cerr << "[vg find] error, path " << target.seq << " not found in index" << endl;
-                    exit(1);
+                    error_and_exit(context, "path \"" + target.seq + "\" not found in index");
                 }
                 path_handle_t path_handle = xindex->get_path_handle(target.seq);
                 // no coordinates given, we do whole thing (0,-1)
@@ -777,9 +769,8 @@ int main_find(int argc, char** argv) {
             nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
-                cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got "
-                     << range << endl;
-                exit(1);
+                error_and_exit(context, "format of range must be \"N:M\" "
+                                        "where start id is N and end id is M; got " + range);
             }
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
@@ -853,10 +844,6 @@ int main_find(int argc, char** argv) {
             } else {
                 ifstream in;
                 in.open(gam_file.c_str());
-                if(!in.is_open()) {
-                    cerr << "[vg find] error: could not open alignments file " << gam_file << endl;
-                    exit(1);
-                }
                 vg::io::for_each(in, lambda);
             }
             // now we have the nodes to get
@@ -882,11 +869,6 @@ int main_find(int argc, char** argv) {
     // todo cleanup if/else logic to allow only one function
 
     if (!sequence.empty()) {
-        if (gcsa_in.empty()) {
-            cerr << "error:[vg find] need GCSA index to query sequences" << endl;
-            return 1;
-        }
-        
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         

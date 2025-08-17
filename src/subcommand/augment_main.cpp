@@ -39,6 +39,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg augment]";
+
 void help_augment(char** argv, ConfigurableParser& parser) {
     cerr << "usage: " << argv[0] << " augment [options] <graph.vg> [alignment.gam] > augmented_graph.vg" << endl
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
@@ -169,20 +171,20 @@ int main_augment(int argc, char** argv) {
         {
             // Deprecated.
         case 'a':
-            cerr << "[vg augment] warning: -a / --augmentation-mode option is deprecated" << endl;
+            emit_warning(context, "-a / --augmentation-mode option is deprecated");
             break;
             // General Options
         case 'Z':
-            translation_file_name = optarg;
+            translation_file_name = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'A':
-            gam_out_file_name = optarg;
+            gam_out_file_name = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'i':
             include_paths = true;
             break;
         case 'C':
-            cerr << "[vg augment] warning: -C / --cut-softclips option is deprecated (now enabled by default)" << endl;
+            emit_warning(context, "-C / --cut-softclips option is deprecated (now enabled by default)");
             break;
         case 'S':
             include_softclips = true;
@@ -227,22 +229,13 @@ int main_augment(int argc, char** argv) {
             verbose = true;
             break;
         case 't':
-        {
-            int num_threads = parse<int>(optarg);
-            if (num_threads <= 0) {
-                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
-                exit(1);
-            }
-            omp_set_num_threads(num_threads);
-            break;
-        }            
+            omp_set_num_threads(parse_thread_count(context, optarg));
+            break;         
         // Loci Options
-        case 'l':
-            loci_file = optarg;
-            break;
         case 'L':
-            loci_file = optarg;
             called_genotypes_only = true;
+        case 'l': // Fall through for -L as well
+            loci_file = error_if_file_does_not_exist(context, optarg);
             break;
             
         default:
@@ -255,9 +248,8 @@ int main_augment(int argc, char** argv) {
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
-        cerr << "[vg augment] error: too few arguments" << endl;
         help_augment(argv, parser);
-        return 1;
+        error_and_exit(context, "too few arguments");
     }
 
     string graph_file_name = get_input_file_name(optind, argc, argv);
@@ -266,28 +258,24 @@ int main_augment(int argc, char** argv) {
     }
 
     if (gam_in_file_name.empty() && loci_file.empty()) {
-        cerr << "[vg augment] error: gam file argument required" << endl;
-        return 1;
+        error_and_exit(context, "gam file argument required");
     }
     if (gam_in_file_name == "-" && graph_file_name == "-") {
-        cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
-        return 1;
+        error_and_exit(context, "graph and gam can't both be from stdin.");
     }
     if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
-        cerr << "[vg augment] error: Translation (-Z), GAM (-A) output and edges-only (-E) "
-             << "do not work with \"label-only\" (-B) mode" << endl;
-        return 1;
+        error_and_exit(context, "Translation (-Z), GAM (-A) output and edges-only (-E) "
+                                "do not work with \"label-only\" (-B) mode");
     }
     if (include_paths && edges_only) {
-        cerr <<"vg augment] error: -E cannot be used with -i" << endl;
-        return 1;
+        error_and_exit(context, "-E cannot be used with -i");
     }
     if (gam_in_file_name == "-" && !label_paths) {
-        cerr << "[vg augment] warning: reading the entire GAM from stdin into memory.  it is recommended to pass in"
-             << " a filename rather than - so it can be streamed over two passes" << endl;
+        emit_warning(context, "reading the entire GAM from stdin into memory.  It is recommended to pass in "
+                              "a filename rather than - so it can be streamed over two passes");
         if (!gam_out_file_name.empty()) {
-            cerr << "             warning: when streaming in a GAM with -A, the output GAM will lose all non-Path"
-                 << "related fields from the input" << endl;
+            emit_warning(context, "when streaming in a GAM with -A, the output GAM will lose all non-Path "
+                                  "related fields from the input");
         }
     }
 
@@ -341,13 +329,6 @@ int main_augment(int argc, char** argv) {
     
         // Actually do augmentation
         vector<Translation> translation;
-        if (!gam_out_file_name.empty()) {
-            ofstream gam_out_file(gam_out_file_name);
-            if (!gam_out_file) {
-                cerr << "[vg augment] error: could not open output GAM file: " << gam_out_file_name << endl;
-                return 1;
-            }
-        }
         if (gam_in_file_name == "-" || !loci_file.empty()) {
             vector<Path> buffer;
             if (gam_in_file_name == "-") {
@@ -434,10 +415,6 @@ int main_augment(int argc, char** argv) {
                 cerr << "Writing translation table" << endl;
             }
             ofstream translation_file(translation_file_name);
-            if (!translation_file) {
-                cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
-                return 1;
-            }
             vg::io::write_buffered(translation_file, translation, 0);
             translation_file.close();
         }

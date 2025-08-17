@@ -24,6 +24,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg combine]";
+
 void help_combine(char** argv) {
     cerr << "usage: " << argv[0] << " combine [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Combines one or more graphs into a single file, regardless of input format." << endl
@@ -93,8 +95,8 @@ int main_combine(int argc, char** argv) {
 
     if (cat_proto) {
         if (connect_paths) 
-        cerr << "warning [vg combine]: --cat-proto/-c option is deprecated "
-             << "and will be removed in a future version of vg." << endl;
+        emit_warning(context, "--cat-proto/-c option is deprecated "
+                              "and will be removed in a future version of vg.");
         return cat_proto_graphs(argc, argv);
     }
     
@@ -122,10 +124,9 @@ int main_combine(int argc, char** argv) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
                     if (first_graph->has_path(path_name)) {
-                        cerr << "error [vg combine]: Paths with name \"" << path_name
-                             << "\" found in multiple input graphs. If they are consecutive subpath ranges, "
-                             << "they can be connected by using the -p option." << endl;
-                        exit(1);
+                        error_and_exit(context, "Paths with name \"" + path_name 
+                                                + "\" found in multiple input graphs. If they are consecutive"
+                                                + "subpath ranges, they can be connected by using the -p option.");
                     }
                 });
             handlealgs::copy_path_handle_graph(graph.get(), first_graph.get());
@@ -175,8 +176,7 @@ int cat_proto_graphs(int argc, char** argv) {
                         }
                         
                         if (!cout) {
-                            cerr << "error [vg combine]: Could not write decompressed data to output stream." << endl;
-                            exit(1);
+                            error_and_exit(context, "Could not write decompressed data to output stream.");
                         }
                         
                         // Do the next input file
@@ -197,8 +197,7 @@ int cat_proto_graphs(int argc, char** argv) {
                 cout << in.rdbuf();
                 
                 if (!cout) {
-                    cerr << "error [vg combine]: Could not write raw data to output stream." << endl;
-                    exit(1);
+                    error_and_exit(context, "Could not write raw data to output stream.");
                 }
                 
                 // Do the next input file
@@ -228,8 +227,7 @@ int cat_proto_graphs(int argc, char** argv) {
             }
             
             if (!cout) {
-                cerr << "error [vg combine]: Could not write converted graph to output stream." << endl;
-                exit(1);
+                error_and_exit(context, "Could not write converted graph to output stream.");
             }
             
         });

@@ -28,6 +28,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg align]";
+
 void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
          << "options:" << endl
@@ -147,11 +149,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = optarg;
-            if (matrix_file_name.empty()) {
-                cerr << "error:[vg align] Must provide matrix file with --matrix-file." << endl;
-                exit(1);
-            }
+            matrix_file_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'r':
@@ -176,14 +174,10 @@ int main_align(int argc, char** argv) {
 
         case 'w':
             {
-                std::string to_parse(optarg);
-                auto comma_index = to_parse.find(",");
-                if (comma_index == std::string::npos || comma_index == 0 || comma_index + 1 == to_parse.size()) {
-                    std::cerr << "error:[vg align] Argument to --between must be two comma-separated psoitions." << std::endl;
-                    exit(1);
-                }
-                left_anchor = parse<pos_t>(to_parse.substr(0, comma_index));
-                right_anchor = parse<pos_t>(to_parse.substr(comma_index + 1)); 
+                string left, right;
+                tie(left, right) = parse_split_string(context, optarg, ',', "--rename");
+                left_anchor = parse<pos_t>(left);
+                right_anchor = parse<pos_t>(right); 
             }
             break;
 
@@ -203,16 +197,13 @@ int main_align(int argc, char** argv) {
 
     if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
         if (!ref_seq.empty()) {
-            std::cerr << "error:[vg align] Cannot align between positions when using a reference sequence." << std::endl;
-            exit(1);
+            error_and_exit(context, "Cannot align between positions when using a reference sequence.");
         }
         if (pinned_alignment) {
-            std::cerr << "error:[vg align] Alignign between positions always uses pinned alignment." << std::endl;
-            exit(1);
+            error_and_exit(context, "Aligning between positions always uses pinned alignment.");
         }
         if (banded_global) {
-            std::cerr << "error:[vg align] Alignign between positions always uses banded global alignment." << std::endl;
-            exit(1);
+            error_and_exit(context, "Aligning between positions always uses banded global alignment.");
         }
     }
 
@@ -227,18 +218,12 @@ int main_align(int argc, char** argv) {
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
       matrix_stream.open(matrix_file_name);
-      if (!matrix_stream) {
-          cerr << "error:[vg align] Cannot open scoring matrix file " << matrix_file_name << endl;
-          exit(1);
-      }
     }
-    
 
     Alignment alignment;
     if (!ref_seq.empty()) {
         if (!matrix_file_name.empty()) {
-            cerr << "error:[vg align] Custom scoring matrix not supported in reference sequence mode " << endl;
-            exit(1);
+            error_and_exit(context, "Custom scoring matrix not supported in reference sequence mode");
         }
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);

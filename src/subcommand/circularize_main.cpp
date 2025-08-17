@@ -22,6 +22,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg circularize]";
+
 void help_circularize(char** argv) {
     cerr << "usage: " << argv[0] << " circularize [options] <graph.vg> > [circularized.vg]" << endl
          << "Makes specific paths or nodes in a graph circular." << endl
@@ -51,7 +53,7 @@ int main_circularize(int argc, char** argv){
 
     int c;
     optind = 2;
-    while (true){
+    while (true) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
@@ -64,14 +66,14 @@ int main_circularize(int argc, char** argv){
         };
 
 
-    int option_index = 0;
-    c = getopt_long (argc, argv, "h?dp:P:a:z:",
-                     long_options, &option_index);
-    if (c == -1){
-        break;
-    }
+        int option_index = 0;
+        c = getopt_long (argc, argv, "h?dp:P:a:z:",
+                        long_options, &option_index);
+        if (c == -1) {
+            break;
+        }
 
-        switch(c){
+        switch(c) {
             case 'a':
                 head = parse<int>(optarg);
                 break;
@@ -82,7 +84,7 @@ int main_circularize(int argc, char** argv){
                 path = optarg;
                 break;
             case 'P':
-                pathfile = optarg;
+                pathfile = error_if_file_does_not_exist(context, optarg);
                 break;
             case 'd':
                 describe = true;
@@ -91,7 +93,6 @@ int main_circularize(int argc, char** argv){
             case '?':
                 help_circularize(argv);
                 exit(1);
-                break;
 
             default:
                 abort();
@@ -99,18 +100,17 @@ int main_circularize(int argc, char** argv){
     }
 
     vector<string> paths_to_circularize;
-    if (!((head * tail) > 0)){
-        cerr << "Both a head and tail node must be provided" << endl;
+    if (!((head * tail) > 0)) {
         help_circularize(argv);
-        exit(1);
+        error_and_exit(context, "Both a head and tail node must be provided");
     }
-    if  (pathfile != ""){
+    if  (pathfile != "") {
         string line;
         ifstream pfi;
         pfi.open(pathfile);
         if (!pfi.good()){
-            cerr << "There is an error with the input file." << endl;
             help_circularize(argv);
+            error_and_exit(context, "There is an error with the input file.");
         }
         while (getline(pfi, line)){
             paths_to_circularize.push_back(line);
@@ -118,7 +118,7 @@ int main_circularize(int argc, char** argv){
         pfi.close();
 
     }
-    else if (path != ""){
+    else if (path != "") {
         paths_to_circularize.push_back(path);
     }
 
@@ -129,10 +129,9 @@ int main_circularize(int argc, char** argv){
     });
 
     // Check if paths are in graph:
-    for (const string& p : paths_to_circularize){
-        if (!graph->has_path(p)){
-            cerr << "ERROR: PATH NOT IN GRAPH - " << p << endl;
-            exit(1);
+    for (const string& p : paths_to_circularize) {
+        if (!graph->has_path(p)) {
+            error_and_exit(context, "Path not in graph \"" + p + "\"");
         }
     }
 

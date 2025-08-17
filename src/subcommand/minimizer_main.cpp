@@ -41,6 +41,8 @@
 
 using namespace vg;
 
+const std::string context = "[vg minimizer]";
+
 // Using too many threads just wastes CPU time without speeding up the construction.
 constexpr int DEFAULT_MAX_THREADS = 16;
 
@@ -166,17 +168,15 @@ int main_minimizer(int argc, char** argv) {
         switch (c)
         {
         case 'g':
-            gbwt_name = optarg;
+            gbwt_name = error_if_file_does_not_exist(context, optarg);
             break;
         case 'd':
-            distance_name = optarg;
-            break;
-        case 'o':
-            output_name = optarg;
+            distance_name = error_if_file_does_not_exist(context, optarg);
             break;
         case 'i':
-            std::cerr << "[vg minimizer] warning: --index-name is deprecated, use --output-name instead" << std::endl;
-            output_name = optarg;
+            emit_warning(context, "--index-name is deprecated; use --output-name instead");
+        case 'o': // fallthrough for -i as well
+            output_name = error_if_file_cannot_be_written(context, optarg);
             break;
 
         case 'k':
@@ -186,7 +186,7 @@ int main_minimizer(int argc, char** argv) {
             IndexingParameters::short_read_minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
-            std::cerr << "[vg minimizer] warning: --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
+            emit_warning(context, "--bounded-syncmers is deprecated; use --closed-syncmers instead");
             use_syncmers = true;
             break;
         case 'c':
@@ -223,21 +223,19 @@ int main_minimizer(int argc, char** argv) {
             break;
 
         case 'z':
-            zipcode_name = optarg;
+            zipcode_name = error_if_file_does_not_exist(context, optarg);
             break;
         case 'l':
-            load_index = optarg;
+            load_index = error_if_file_does_not_exist(context, optarg);
             break;
         case 'G':
-            std::cerr << "[vg minimizer] warning: --gbwt-graph is deprecated, graph format is now autodetected" << std::endl;
+            emit_warning(context, "--gbwt-graph is deprecated; graph format is now autodetected");
             break;
         case 'p':
             progress = true;
             break;
         case 't':
-            threads = parse<int>(optarg);
-            threads = std::min(threads, omp_get_max_threads());
-            threads = std::max(threads, 1);
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
         case OPT_NO_DIST:
             require_distance_index = false;
@@ -252,8 +250,7 @@ int main_minimizer(int argc, char** argv) {
         }
     }
     if (output_name.empty()) {
-        std::cerr << "error: [vg minimizer] option --output-name is required" << std::endl;
-        return 1;
+        error_and_exit(context, "option --output-name is required");
     }
     if (optind + 1 != argc) {
         help_minimizer(argv);
@@ -261,14 +258,11 @@ int main_minimizer(int argc, char** argv) {
     }
     graph_name = argv[optind];
     if (require_distance_index && distance_name.empty()) {
-        std::cerr << "error: [vg minimizer] one of options --distance-index and --no-dist is required" << std::endl;
-        return 1;
+        error_and_exit(context, "one of options --distance-index or --no-dist is required");
     }
     if (!load_index.empty() || use_syncmers) {
         weighted = false;
     }
-    omp_set_num_threads(threads);
-
 
     double start = gbwt::readTimer();
    
@@ -277,7 +271,7 @@ int main_minimizer(int argc, char** argv) {
    
     // Load whatever the graph argument is
     if (progress) {
-        std::cerr << "Loading input graph from " << graph_name << std::endl;
+        std::cerr << context << ": Loading input graph from " << graph_name << std::endl;
     }
     auto input = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, gbwtgraph::GBWTGraph, HandleGraph>(graph_name);
     if (get<0>(input)) {
@@ -286,8 +280,7 @@ int main_minimizer(int argc, char** argv) {
     } else if (get<1>(input)) {
         // We loaded a GBWTGraph and need to pair it with a GBWT
         if (gbwt_name.empty()) {
-            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a GBWTGraph" << std::endl;
-            return 1;
+            error_and_exit(context, "option --gbwt-name is required when using a GBWTGraph");
         }
         gbz.reset(new gbwtgraph::GBZ());
         gbz->graph = std::move(*get<1>(input));
@@ -299,19 +292,17 @@ int main_minimizer(int argc, char** argv) {
     } else if (get<2>(input)) {
         // We got a normal HandleGraph
         if (gbwt_name.empty()) {
-            std::cerr << "error: [vg minimizer] option --gbwt-name is required when using a HandleGraph" << std::endl;
-            return 1;
+            error_and_exit(context, "option --gbwt-name is required when using a HandleGraph");
         }
         gbz.reset(new gbwtgraph::GBZ());
         
         load_gbwt(gbz->index, gbwt_name, progress);
         if (progress) {
-            std::cerr << "Building GBWTGraph" << std::endl;
+            std::cerr << context << ": Building GBWTGraph" << std::endl;
         }
         gbz->graph = gbwtgraph::GBWTGraph(gbz->index, *get<2>(input));
     } else {
-        std::cerr << "error: [vg minimizer] input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
-        return 1;
+        error_and_exit(context, "input graph is not a GBZ, GBWTGraph, or HandleGraph");
     }
 
     // Find frequent kmers.
@@ -319,8 +310,8 @@ int main_minimizer(int argc, char** argv) {
     if (weighted) {
         double checkpoint = gbwt::readTimer();
         if (progress) {
-            std::string algorithm = (space_efficient_counting ? "space-efficient" : "fast");
-            std::cerr << "Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
+            std::cerr << context << ": Finding frequent kmers using the "
+                      << (space_efficient_counting ? "space-efficient" : "fast") << " algorithm" << std::endl;
         }
         if (hash_table_size == 0) {
             hash_table_size = estimate_hash_table_size(*gbz, progress);
@@ -330,7 +321,8 @@ int main_minimizer(int argc, char** argv) {
         );
         if (progress) {
             double seconds = gbwt::readTimer() - start;
-            std::cerr << "Found " << frequent_kmers.size() << " kmers with more than " << threshold << " hits in " << seconds << " seconds" << std::endl;
+            std::cerr << context << ": Found " << frequent_kmers.size() << " kmers with more than "
+                      << threshold << " hits in " << seconds << " seconds" << std::endl;
         }
     }
 
@@ -351,7 +343,7 @@ int main_minimizer(int argc, char** argv) {
     if (!distance_name.empty()) {
         // new distance index
         if (progress) {
-            std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
+            std::cerr << context << ": Loading SnarlDistanceIndex from " << distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
         distance_index->preload(true);
@@ -368,7 +360,7 @@ int main_minimizer(int argc, char** argv) {
 
     // Build the index.
     if (progress) {
-        std::cerr << "Building MinimizerIndex with k = " << index.k();
+        std::cerr << context << ": Building MinimizerIndex with k = " << index.k();
         if (index.uses_syncmers()) {
             std::cerr << ", s = " << index.s();
         } else {
@@ -436,17 +428,18 @@ int main_minimizer(int argc, char** argv) {
 
     // Index statistics.
     if (progress) {
-        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index.number_of_values() << std::endl;
-        std::cerr << "Load factor: " << index.load_factor() << std::endl;
+        std::cerr << context << " " << index.size() << " keys ("
+                  << index.unique_keys() << " unique)" << std::endl;
+        std::cerr << context << " Minimizer occurrences: " << index.number_of_values() << std::endl;
+        std::cerr << context << " Load factor: " << index.load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
-        std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
+        std::cerr << context << " Construction so far: " << seconds << " seconds" << std::endl;
     }
 
     // Serialize the index.
     save_minimizer(index, output_name);
 
-    //If using it, write the larger zipcodes to a file
+    // If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 
         ofstream zip_out (zipcode_name);
         oversized_zipcodes.serialize(zip_out);
@@ -457,8 +450,9 @@ int main_minimizer(int argc, char** argv) {
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
-        std::cerr << "Time usage: " << seconds << " seconds" << std::endl;
-        std::cerr << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+        std::cerr << context << " Time usage: " << seconds << " seconds" << std::endl;
+        std::cerr << context << " Memory usage: "
+                  << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
     }
 
     return 0;
@@ -480,7 +474,7 @@ size_t trailing_zeros(size_t value) {
 
 size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
     if (progress) {
-        std::cerr << "Estimating genome size" << std::endl;
+        std::cerr << context << ": Estimating genome size" << std::endl;
     }
     size_t genome_size = 0;
 
@@ -492,7 +486,8 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
             });
         });
         if (progress) {
-            std::cerr << "Estimated size based on reference / generic paths: " << genome_size << std::endl;
+            std::cerr << context << ": Estimated size based on reference / generic paths: "
+                      << genome_size << std::endl;
         }
     }
 
@@ -501,7 +496,8 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
             genome_size += gbz.graph.get_length(handle);
         });
         if (progress) {
-            std::cerr << "Estimated size based on total sequence length: " << genome_size << std::endl;
+            std::cerr << context << ": Estimated size based on total sequence length: "
+                      << genome_size << std::endl;
         }
     }
 
@@ -509,7 +505,8 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
     // with any specific base in the middle position.
     size_t hash_table_size = gbwtgraph::KmerIndex<gbwtgraph::Key64, gbwtgraph::Position>::minimum_size(genome_size / 2);
     if (progress) {
-        std::cerr << "Estimated hash table size: 2^" << trailing_zeros(hash_table_size) << std::endl; 
+        std::cerr << context << ": Estimated hash table size: 2^"
+                  << trailing_zeros(hash_table_size) << std::endl; 
     }
 
     return hash_table_size;

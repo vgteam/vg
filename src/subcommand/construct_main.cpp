@@ -18,6 +18,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg construct]";
+
 void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
@@ -122,15 +124,15 @@ int main_construct(int argc, char** argv) {
         switch (c)
         {
         case 'v':
-            vcf_filenames.push_back(optarg);
+            vcf_filenames.push_back(error_if_file_does_not_exist(context, optarg));
             break;
 
         case 'M':
-            msa_filename = optarg;
+            msa_filename = error_if_file_does_not_exist(context, optarg);
             break;
             
         case 'F':
-            msa_format = optarg;
+            msa_format = error_if_file_does_not_exist(context, optarg);
             break;
             
         case 'd':
@@ -146,7 +148,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'r':
-            fasta_filenames.push_back(optarg);
+            fasta_filenames.push_back(error_if_file_does_not_exist(context, optarg));
             break;
 
         case 'S':
@@ -154,22 +156,14 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'I':
-            insertion_filenames.push_back(optarg);
+            insertion_filenames.push_back(error_if_file_does_not_exist(context, optarg));
             break;
 
             
         case 'n':
             {
-                // Parse the rename old=new
-                string key_value(optarg);
-                auto found = key_value.find('=');
-                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
-                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
-                    exit(1);
-                }
-                // Parse out the two parts
-                string vcf_contig = key_value.substr(0, found);
-                string fasta_contig = key_value.substr(found + 1);
+                string vcf_contig, fasta_contig;
+                tie(vcf_contig, fasta_contig) = parse_split_string(context, optarg, '=', "--rename");
                 // Add the name mapping
                 constructor.add_name_mapping(vcf_contig, fasta_contig);
             }
@@ -201,7 +195,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
 
         case 'm':
@@ -227,16 +221,14 @@ int main_construct(int argc, char** argv) {
             throw runtime_error("Not implemented: " + to_string(c));
         }
     }
-    
+
     if (max_node_size == 0) {
         // Make sure we can actually make nodes
-        cerr << "error:[vg construct] max node size cannot be 0" << endl;
-        exit(1);
+        error_and_exit(context, "max node size cannot be 0");
     }
     
     if (!msa_filename.empty() && !fasta_filenames.empty()) {
-        cerr << "error:[vg construct] cannot construct from a reference/VCF and an MSA simultaneously" << endl;
-        exit(1);
+        error_and_exit(context, "cannot construct from a reference/VCF and an MSA simultaneously");
     }
     
     if (!fasta_filenames.empty()) {
@@ -261,43 +253,39 @@ int main_construct(int argc, char** argv) {
                              stop_pos);
                              
                 if (used_region_contigs.count(seq_name)) {
-                    cerr << "error:[vg construct] cannot construct multiple regions of " << seq_name << endl;
-                    exit(1);
+                    error_and_exit(context, "cannot construct multiple regions of " + seq_name);
                 }
                 used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
                     if (constructor.show_progress) {
-                        cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                        cerr << context << ": Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
                     }
                     constructor.allowed_vcf_names.insert(seq_name);
                     // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
                     constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
                 } else if (start_pos < 0 && stop_pos < 0) {
                     // We just got a name
-                    cerr << "Restricting to " << seq_name << " from 1 to end" << endl;
+                    cerr << context << ": Restricting to " << seq_name << " from 1 to end" << endl;
                     constructor.allowed_vcf_names.insert(seq_name);
                 } else {
                     // This doesn't make sense. Does it have like one coordinate?
-                    cerr << "error:[vg construct] could not parse " << region << endl;
-                    exit(1);
+                    error_and_exit(context, "could not parse " + region);
                 }
             } else {
                 // We have been told not to parse the region
-                cerr << "Restricting to " << region << " from 1 to end" << endl;
+                cerr << context << ": Restricting to " << region << " from 1 to end" << endl;
                 constructor.allowed_vcf_names.insert(region);
             }
         }
         
         
         if (fasta_filenames.empty()) {
-            cerr << "error:[vg construct] a reference is required for graph construction" << endl;
-            return 1;
+            error_and_exit(context, "a reference is required for graph construction");
         }
-        if (insertion_filenames.size() > 1){
-            cerr << "Error: only one insertion file may be provided." << endl;
-            exit(1);
+        if (insertion_filenames.size() > 1) {
+            error_and_exit(context, "only one insertion file may be provided");
         }
         
         if (construct_in_memory) {
@@ -346,11 +334,6 @@ int main_construct(int argc, char** argv) {
     else if (!msa_filename.empty()) {
         
         ifstream msa_file(msa_filename);
-        if (!msa_file) {
-            cerr << "error:[vg construct] could not open MSA file " << msa_filename << endl;
-            exit(1);
-        }
-        
         MSAConverter msa_converter;
         msa_converter.show_progress = show_progress;
         
@@ -360,8 +343,7 @@ int main_construct(int argc, char** argv) {
         msa_graph.serialize_to_ostream(cout);
     }
     else {
-        cerr << "error:[vg construct] a reference or an MSA is required for construct" << endl;
-        exit(1);
+        error_and_exit(context, "a reference or an MSA is required for graph construction");
     }
 
     return 0;

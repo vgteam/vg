@@ -20,6 +20,8 @@
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg annotate]";
+
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg,tsv}" << endl
          << "graph annotation options:" << endl
@@ -144,19 +146,19 @@ int main_annotate(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = optarg;
+            xg_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'a':
-            gam_name = optarg;
+            gam_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'b':
-            bed_names.push_back(optarg);
+            bed_names.push_back(error_if_file_does_not_exist(context, optarg));
             break;
 
         case 'f':
-            gff_names.push_back(optarg);
+            gff_names.push_back(error_if_file_does_not_exist(context, optarg));
             break;
             
         case 'g':
@@ -168,7 +170,7 @@ int main_annotate(int argc, char** argv) {
             break;
                 
         case 's':
-            snarls_name = optarg;
+            snarls_name = error_if_file_does_not_exist(context, optarg);
             break;
 
         case 'p':
@@ -189,7 +191,7 @@ int main_annotate(int argc, char** argv) {
             break;
             
         case 't':
-            omp_set_num_threads(parse<size_t>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
 
         case 'P':
@@ -214,23 +216,22 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         // Read in the XG index
         if (show_progress) {
-            std::cerr << "Load graph" << std::endl;
+            std::cerr << context << ": Load graph" << std::endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            std::cerr << "Apply overlay" << std::endl;
+            std::cerr << context << ": Apply overlay" << std::endl;
         }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
-        cerr << "error [vg annotate]: no xg index provided" << endl;
-        return 1;
+        error_and_exit(context, "no xg index provided");
     }
     
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         if (show_progress) {
-            std::cerr << "Load snarls" << std::endl;
+            std::cerr << context << ": Load snarls" << std::endl;
         }
         get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
@@ -247,8 +248,7 @@ int main_annotate(int argc, char** argv) {
             // TODO: refactor this into novelty annotation and annotation-to-table conversion.
             if (add_positions || !bed_names.empty()) {
                 // We can't make the TSV and also annotate the reads
-                cerr << "error [vg annotate]: Cannot annotate reads while computing novelty table" << endl;
-                return 1;
+                error_and_exit(context, "Cannot annotate reads while computing novelty table");
             }
             
             cout << "name\tlength.bp\tunaligned.bp\tknown.nodes\tknown.bp\tnovel.nodes\tnovel.bp" << endl;
@@ -405,15 +405,13 @@ int main_annotate(int argc, char** argv) {
         // Annotating the graph. We must do something.
         if (bed_names.empty() && gff_names.empty()) {
             // We weren't asked to do anything.
-            cerr << "error [vg annotate]: only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
-            return 1;
+            error_and_exit(context, "only GAM, BED, or GFF3/GTF annotation is implemented");
         }
     
         if (output_ggff) {
             
             if (!bed_names.empty()) {
-                cerr << "error [vg annotate] BED conversion to GGFF is not currently supported. Convert to GFF3 first." << endl;
-                return 1;
+                error_and_exit(context, "BED conversion to GGFF is not currently supported. Convert to GFF3 first.");
             }
             
             // define a function that converts to GGFF
