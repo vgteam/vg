@@ -320,6 +320,35 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                                  size_t max_read_lookback_bases);
 
 /**
+ * Walk through the ziptree from left to right to find all seeds,
+ * then generate all possible transitions from each given seed.
+ * 
+ * Calls ZipCodeTree.find_distances() as the core of the algorithm.
+ * Used as a helper by zip_tree_transition_iterator().
+ * 
+ * Transitions are (source anchor, destination anchor, graph distance).
+ */
+std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    const ZipCodeTree& zip_code_tree,
+    size_t max_graph_lookback_bases,
+    std::unordered_map<size_t, size_t> seed_to_starting, 
+    std::unordered_map<size_t, size_t> seed_to_ending);
+
+/**
+ * Filter out transitions that can't be used, e.g. not reachable in the read.
+ * 
+ * Used as a helper by zip_tree_transition_iterator().
+ * 
+ * Transitions are taken as (source anchor, destination anchor, graph distance)
+ * and output as (source anchor, destination anchor, graph distance, read distance).
+ */
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
+    const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
+    const VectorView<Anchor>& to_chain,
+    size_t max_read_lookback_bases);
+
+/**
  * Fill in the given DP table for the explored chain scores ending with each
  * item. Returns the best observed score overall from that table, with
  * provenance to its location in the table, if tracked in the type. Assumes
