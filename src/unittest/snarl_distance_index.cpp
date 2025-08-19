@@ -194,7 +194,7 @@ namespace vg {
             Edge* e17 = graph.create_edge(n11, n12);
             Edge* e18 = graph.create_edge(n12, n13);
             
-                                graph.serialize_to_file("test_graph.vg");
+            graph.serialize_to_file("test_graph.vg");
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SECTION("Traversal of chain") {
@@ -205,6 +205,21 @@ namespace vg {
                     if (distance_index.is_node(child)) {
                     }
                 });
+            }
+            SECTION("Snarl classifications are correct") {
+                SECTION("Distance index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))));
+                } SECTION("Distanceless index") {
+                    SnarlDistanceIndex distance_index;
+                    fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))));
+                }
             }
             SECTION("Minimum distances are correct") {
                 SnarlDistanceIndex distance_index;
