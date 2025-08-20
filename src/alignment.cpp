@@ -1679,7 +1679,7 @@ vector<string> bam_tag_strings(const bam1_t* b) {
         switch (type) {
             case 'A':
                 // Handle single characters
-                tag_string.append(std::string(1, bam_aux2A(aux)));
+                tag_string.push_back(bam_aux2A(aux));
                 break;
             case 'c':
             case 'C':
@@ -1708,6 +1708,8 @@ vector<string> bam_tag_strings(const bam1_t* b) {
                 // does it this way. See
                 // <https://github.com/samtools/htslib/blob/d677f345fe35d451587319ca38ac611862a46e1b/samples/read_aux.c#L91>
                 char arr_type = bam_aux_type(aux + 1);
+                // Include the type of the array data
+                tag_string.push_back(arr_type);
                 stringstream strm;
                 switch (arr_type) {
                     case 'c':
