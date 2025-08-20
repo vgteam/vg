@@ -1666,11 +1666,10 @@ vector<string> bam_tag_strings(const bam1_t* b) {
         auto& tag_string = tag_strings.back();
         tag_string.reserve(6);
         // We know that this returns a pointer to 2 characters in a row, with
-        // no null terminator.
-        // TODO: Work out how to get a const char tag[2] here even though you
-        // can't assign or initialize an array from a pointer. For now we just
-        // have to remember that this is 2 items and no more or less.
-        const char* tag = bam_aux_tag(aux);
+        // no null terminator. We smuggle it into an array type by thinking of
+        // the const char* as a pointer-to-an-array and then dereferencing
+        // that, as suggested by helpful robots.
+        const char (&tag)[2] = *reinterpret_cast<const char (*)[2]>(bam_aux_tag(aux));
         char type = bam_aux_type(aux);
         tag_string.push_back(tag[0]);
         tag_string.push_back(tag[1]);
