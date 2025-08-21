@@ -764,6 +764,10 @@ string file_base_name(const string& filename) {
 bool file_exists(const string& filename) {
     // TODO: use C++17 features to actually poll existence.
     // For now we see if we can open it.
+    if (filename == "-") {
+        // Standard input is always open
+        return true;
+    }
     ifstream in(filename);
     return in.is_open();
 }
