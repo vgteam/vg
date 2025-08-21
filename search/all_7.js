@@ -373,7 +373,7 @@ var searchData=
   ['get_5fpriority_2384',['get_priority',['../classvg_1_1subcommand_1_1Subcommand.html#a4dccbaf1dc530dc55b57e1dd9dbc09e1',1,'vg::subcommand::Subcommand']]],
   ['get_5fprob_5fof_5fdisruption_5fin_5fcolumn_2385',['get_prob_of_disruption_in_column',['../classvg_1_1MinimizerMapper.html#a6d4969130b9f7cb75efec316774b8e82',1,'vg::MinimizerMapper']]],
   ['get_5fproc_5fstatus_5fvalue_2386',['get_proc_status_value',['../namespacevg.html#a9fb67697fd1e49bcb389a735ba9fa8f2',1,'vg']]],
-  ['get_5fprotobuf_5ftag_2387',['get_protobuf_tag',['../classvg_1_1io_1_1Registry.html#a9ccb7ac94bdb24687992af702d387620',1,'vg::io::Registry']]],
+  ['get_5fprotobuf_5ftag_2387',['get_protobuf_tag',['../classvg_1_1io_1_1Registry.html#ac75089fc53ccbfa6e0a2c31abf9a3e12',1,'vg::io::Registry']]],
   ['get_5fpruned_5falt_5falleles_2388',['get_pruned_alt_alleles',['../classvg_1_1VCFTraversalFinder.html#a116466101f77d992e54bb3328a42c90b',1,'vg::VCFTraversalFinder']]],
   ['get_5fqual_5fadj_5faligner_2389',['get_qual_adj_aligner',['../classvg_1_1AlignerClient.html#aa84332f52915c20b2f2db1e060736fb5',1,'vg::AlignerClient']]],
   ['get_5fqualities_5fin_5fsnarl_2390',['get_qualities_in_snarl',['../classvg_1_1Genotyper.html#af6518141a6e6f122e5f534c041d16918',1,'vg::Genotyper']]],
