@@ -333,7 +333,7 @@ int main_paths(int argc, char** argv) {
         }
     } else {
         if (!gbwt_file.empty()) {
-            error_and_exit(context, "path sense selection is not done by GBWT");
+            emit_warning(context, "path sense selection is not done by GBWT");
         }
         // We asked for path senses specifically
         selection_criteria++;
