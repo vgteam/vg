@@ -1467,6 +1467,8 @@ int main_giraffe(int argc, char** argv) {
                         exit(1);
                     } else {
                         // Apply the preset values.
+                        // Order of processing doesn't matter; preset values
+                        // sit under any actually-parsed values.
                         found->second.apply(*parser);
                     }
                 }
