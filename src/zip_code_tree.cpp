@@ -687,7 +687,7 @@ void ZipCodeTree::shift_snarls_forward(size_t start_snarl_id, size_t shift_amoun
 
 ZipCodeForest::seed_info_t::seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
                                         size_t nested_snarl_offset,
-                                        const size_t& depth, const forest_growing_state_t forest_state) : 
+                                        const size_t& depth, const forest_growing_state_t& forest_state) : 
                                         zipcode(forest_state.seeds->at(index).zipcode), flank_offset(flank),
                                         right_side(right_side), nested_snarl_offset(nested_snarl_offset) {
     const Seed& seed = forest_state.seeds->at(index);

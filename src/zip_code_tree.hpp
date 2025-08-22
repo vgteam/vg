@@ -838,7 +838,7 @@ class ZipCodeForest {
         // In addition, snarl depth & forest_state are used to look up seed info
         seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
                     size_t nested_snarl_offset,
-                    const size_t& depth, const forest_growing_state_t forest_state);
+                    const size_t& depth, const forest_growing_state_t& forest_state);
 
         inline pos_t reverse_seed() const {
             return reverse(seed_pos, node_length);
