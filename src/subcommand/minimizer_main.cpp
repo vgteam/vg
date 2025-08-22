@@ -93,7 +93,7 @@ void help_minimizer(char** argv) {
     std::cerr << "                             (default: guess)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "  -z, --zipcode-name FILE    store the distances that are too big in afile" << std::endl;
+    std::cerr << "  -z, --zipcode-name FILE    store the distances that are too big in a file" << std::endl;
     std::cerr << "                             if no -z, some distances may be discarded" << std::endl;
     std::cerr << "  -l, --load-index FILE      load this index and insert the new kmers into it" << std::endl;
     std::cerr << "                             (overrides minimizer / weighted minimizer options)" << std::endl;
@@ -223,7 +223,7 @@ int main_minimizer(int argc, char** argv) {
             break;
 
         case 'z':
-            zipcode_name = error_if_file_does_not_exist(context, optarg);
+            zipcode_name = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'l':
             load_index = error_if_file_does_not_exist(context, optarg);
