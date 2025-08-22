@@ -350,7 +350,7 @@ int main_map(int argc, char** argv) {
             db_name = optarg;
             error_if_file_does_not_exist(context, db_name + ".xg");
             error_if_file_does_not_exist(context, db_name + gcsa::GCSA::EXTENSION);
-            error_if_file_does_not_exist(context, db_name + gbwt::GBWT::EXTENSION);
+            // GBWT is optional
             break;
 
         case 'x':
