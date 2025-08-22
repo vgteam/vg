@@ -1686,6 +1686,8 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
     vector<size_t> distances;
 
     if (is_cyclic) {
+        // Space for either side of each chain, plus snarl bound
+        distances.reserve(num_chains * 2 + 1);
         // Which row corresponds to this chain side?
         size_t cur_row; 
         if (chain_num == 0) {
@@ -1726,11 +1728,15 @@ vector<size_t> ZipCodeTree::distance_iterator::get_distances_from_chain(size_t s
         }
 
         if (right_side) {
+            // Space for all chains to the right, plus snarl end
+            distances.reserve(num_chains + 1 - chain_num);
             // DAG snarl, going left to right: get dists to all chains to right
             for (size_t i = num_chains + 1; i > chain_num; i--) {
                 distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
             }
         } else {
+            // Space for all chains to the left, plus snarl start
+            distances.reserve(chain_num);
             // DAG snarl, going right to left: get dists to all chains to left
             for (size_t i = 0; i < chain_num; i++) {
                 distances.push_back(get_matrix_value(dist_matrix_start, false, chain_num, i));
