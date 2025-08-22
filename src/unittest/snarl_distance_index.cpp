@@ -212,13 +212,16 @@ namespace vg {
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())))));
                     REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id())))));
-                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id())))));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false));
                 } SECTION("Distanceless index") {
                     SnarlDistanceIndex distance_index;
                     fill_in_distance_index(&distance_index, &graph, &snarl_finder, 0);
-                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))), &graph));
-                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id()))), &graph));
-                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), &graph));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))), true, &graph));
+                    REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n8->id()))), true, &graph));
+                    REQUIRE(distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), true, &graph));
+                    // TODO: This isn't true because it would be too much work to recursively check all children using only the graph
+                    //REQUIRE(!distance_index.is_regular_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n6->id()))), false, &graph));
                 }
             }
             SECTION("Minimum distances are correct") {
