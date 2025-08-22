@@ -99,7 +99,7 @@ int main_ids(int argc, char** argv) {
                 break;
 
             case 'm':
-                mapping_name = error_if_file_does_not_exist(context, optarg);
+                mapping_name = error_if_file_cannot_be_written(context, optarg);
                 break;
 
             case 's':
