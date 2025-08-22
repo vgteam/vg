@@ -5,7 +5,7 @@ var searchData=
   ['kargers_5fmin_5fcut_9945',['kargers_min_cut',['../namespacevg_1_1algorithms.html#a0820d23864c46dc1bc71ec68aee4e55e',1,'vg::algorithms']]],
   ['keep_9946',['keep',['../structvg_1_1Counts.html#a4ffc0e936d50a5bce649cc973f8cbe98',1,'vg::Counts']]],
   ['keep_5fpath_9947',['keep_path',['../classvg_1_1VG.html#a65cc16f52f478a25e84c6f1fc2805915',1,'vg::VG']]],
-  ['keep_5fpaths_9948',['keep_paths',['../classvg_1_1Paths.html#a4ed60968ce4b7d6e4bd7f3d24c895f94',1,'vg::Paths::keep_paths()'],['../classvg_1_1VG.html#ac2aa9d438bcec4d7facbfcc44abea8fd',1,'vg::VG::keep_paths()']]],
+  ['keep_5fpaths_9948',['keep_paths',['../classvg_1_1Paths.html#a4ed60968ce4b7d6e4bd7f3d24c895f94',1,'vg::Paths::keep_paths()'],['../classvg_1_1VG.html#a68309188496b9ce5d32860b4aaa6db00',1,'vg::VG::keep_paths()']]],
   ['key_9949',['key',['../classvg_1_1ProblemDumpExplainer.html#a40a9715e80632f9e2e70b4d54f749579',1,'vg::ProblemDumpExplainer::key()'],['../structvg_1_1WFAPoint.html#ae19b5b586bb269c2e465d6a8e87c0041',1,'vg::WFAPoint::key()']]],
   ['kff_5fbytes_9950',['kff_bytes',['../namespacevg.html#ae8290bb0f46f4410bd8d19a9214f42d9',1,'vg']]],
   ['kff_5fdecode_9951',['kff_decode',['../namespacevg.html#adbd931ab5e8c6d8549262292b5fd1bdb',1,'vg::kff_decode(uint8_t byte, size_t chars, const std::string &amp;decoding, std::string &amp;output)'],['../namespacevg.html#a508b66314d777de73b671860cc1ba66f',1,'vg::kff_decode(const uint8_t *kmer, size_t k, const std::string &amp;decoding)']]],

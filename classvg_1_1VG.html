@@ -611,8 +611,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8d1dbb49df52e016746829776ca0f952"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8d1dbb49df52e016746829776ca0f952">has_inverting_edges</a> (void)</td></tr>
 <tr class="memdesc:a8d1dbb49df52e016746829776ca0f952"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has inversions.  <a href="classvg_1_1VG.html#a8d1dbb49df52e016746829776ca0f952">More...</a><br /></td></tr>
 <tr class="separator:a8d1dbb49df52e016746829776ca0f952"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac2aa9d438bcec4d7facbfcc44abea8fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac2aa9d438bcec4d7facbfcc44abea8fd">keep_paths</a> (const set&lt; string &gt; &amp;path_names, set&lt; string &gt; &amp;kept_names)</td></tr>
-<tr class="separator:ac2aa9d438bcec4d7facbfcc44abea8fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68309188496b9ce5d32860b4aaa6db00"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a68309188496b9ce5d32860b4aaa6db00">keep_paths</a> (const set&lt; string &gt; &amp;path_names, set&lt; string &gt; &amp;kept_names, bool invert=false)</td></tr>
+<tr class="separator:a68309188496b9ce5d32860b4aaa6db00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65cc16f52f478a25e84c6f1fc2805915"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a65cc16f52f478a25e84c6f1fc2805915">keep_path</a> (const string &amp;path_name)</td></tr>
 <tr class="separator:a65cc16f52f478a25e84c6f1fc2805915"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f1df72d85d8a72524b76abca972f33d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5f1df72d85d8a72524b76abca972f33d">path_edge_count</a> (list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;path, int32_t <a class="el" href="namespacevg.html#ad48a54a3ddd5e6ffd8e3e6296fb9c037">offset</a>, int path_length)</td></tr>
@@ -7046,8 +7046,8 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="ac2aa9d438bcec4d7facbfcc44abea8fd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac2aa9d438bcec4d7facbfcc44abea8fd">&#9670;&nbsp;</a></span>keep_paths()</h2>
+<a id="a68309188496b9ce5d32860b4aaa6db00"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68309188496b9ce5d32860b4aaa6db00">&#9670;&nbsp;</a></span>keep_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -7062,7 +7062,13 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">set&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>kept_names</em>&#160;</td>
+          <td class="paramname"><em>kept_names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>invert</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -7071,7 +7077,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep. The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths. </p>
+<p>Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep. The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths. If invert is true, instead keeps all paths <em>not</em> in the given set of path names. </p>
 
 </div>
 </div>
