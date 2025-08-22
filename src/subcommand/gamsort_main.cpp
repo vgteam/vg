@@ -121,7 +121,7 @@ int main_gamsort(int argc, char **argv)
 
         // GAM sorting options.
         case 'i':
-            index_filename = error_if_file_does_not_exist(context, optarg);
+            index_filename = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'd':
             easy_sort = true;
