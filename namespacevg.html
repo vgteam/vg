@@ -1013,12 +1013,6 @@ Functions</h2></td></tr>
 <tr class="separator:ad3824b96906cc229f270166a06a7a625"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae37c6d66a01cef6f92707d367ebf4cdb"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae37c6d66a01cef6f92707d367ebf4cdb">sam_flag</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool on_reverse_strand, bool paired)</td></tr>
 <tr class="separator:ae37c6d66a01cef6f92707d367ebf4cdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a156dcf09705f414bd179a43f565ad354"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a156dcf09705f414bd179a43f565ad354"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a156dcf09705f414bd179a43f565ad354">aux_array_to_string</a> (const uint8_t *&amp;aux_arr, int32_t arr_len)</td></tr>
-<tr class="separator:a156dcf09705f414bd179a43f565ad354"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10de011128f0da64a698f71d8c7c1cdf"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a10de011128f0da64a698f71d8c7c1cdf"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a10de011128f0da64a698f71d8c7c1cdf">aux_val_to_string</a> (const uint8_t *&amp;aux_arr)</td></tr>
-<tr class="separator:a10de011128f0da64a698f71d8c7c1cdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a53e18f8d54689906de9c3e0cfe0761f3"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a53e18f8d54689906de9c3e0cfe0761f3">bam_tag_strings</a> (const bam1_t *b)</td></tr>
 <tr class="separator:a53e18f8d54689906de9c3e0cfe0761f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a461b5385c79e073ab10d8fe860ff9428"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a461b5385c79e073ab10d8fe860ff9428">bam_to_alignment</a> (const bam1_t *b, const map&lt; string, string &gt; &amp;rg_sample, const map&lt; int, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;tid_path_handle, const bam_hdr_t *bh, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph)</td></tr>
@@ -5640,56 +5634,6 @@ template&lt;typename Iter &gt; </div>
 
 <p>Generic version used to implement the above three methods. <br  />
  </p>
-
-</div>
-</div>
-<a id="a156dcf09705f414bd179a43f565ad354"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a156dcf09705f414bd179a43f565ad354">&#9670;&nbsp;</a></span>aux_array_to_string()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::aux_array_to_string </td>
-          <td>(</td>
-          <td class="paramtype">const uint8_t *&amp;&#160;</td>
-          <td class="paramname"><em>aux_arr</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int32_t&#160;</td>
-          <td class="paramname"><em>arr_len</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a10de011128f0da64a698f71d8c7c1cdf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a10de011128f0da64a698f71d8c7c1cdf">&#9670;&nbsp;</a></span>aux_val_to_string()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::aux_val_to_string </td>
-          <td>(</td>
-          <td class="paramtype">const uint8_t *&amp;&#160;</td>
-          <td class="paramname"><em>aux_arr</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
