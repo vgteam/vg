@@ -1005,7 +1005,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.1)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 1100)
+        .add_entry<int>("max-min-chain-score", 100)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
