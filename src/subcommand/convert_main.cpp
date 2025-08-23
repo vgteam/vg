@@ -187,7 +187,7 @@ int main_convert(int argc, char** argv) {
             rgfa_pline = true;
             break;
         case 'T':
-            gfa_trans_path = error_if_file_does_not_exist(context, optarg);
+            gfa_trans_path = error_if_file_cannot_be_written(context, optarg);
             break;
         case 'W':
             wline = false;
