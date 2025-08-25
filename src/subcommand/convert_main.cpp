@@ -212,8 +212,8 @@ int main_convert(int argc, char** argv) {
             input_aln = error_if_file_does_not_exist(context, optarg);
             break;
         case 't':
-            num_threads = parse_thread_count(context, optarg);
-            omp_set_num_threads(num_threads);
+            omp_set_num_threads(parse_thread_count(context, optarg));
+            num_threads = omp_get_num_threads();
             break;
         default:
             abort();
