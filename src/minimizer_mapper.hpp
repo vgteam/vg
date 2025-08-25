@@ -32,18 +32,31 @@ using namespace std;
 using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
-public:
+    public:
+    // Type aliases for the two supported index types
+    using DefaultIndex = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
+                        gbwtgraph::PositionPayload<gbwtgraph::Payload>>;
+    using XLIndex      = gbwtgraph::MinimizerIndex<gbwtgraph::Key64,
+                        gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>>;
 
     /**
-     * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
-     * as we only use it for correctness tracking.
+     * Construct a new MinimizerMapper using the given indexes.
+     * The PathPositionHandleGraph can be nullptr, as we only use it for correctness tracking.
      */
 
+    // Existing ctor (Default / "S" payload)
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         SnarlDistanceIndex* distance_index,
-         const ZipCodeCollection* zipcodes,
-         const PathPositionHandleGraph* path_graph = nullptr);
+                    const DefaultIndex& minimizer_index,
+                    SnarlDistanceIndex* distance_index,
+                    const ZipCodeCollection* zipcodes,
+                    const PathPositionHandleGraph* path_graph = nullptr);
+
+    // New ctor (XL payload)
+    MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+                    const XLIndex& minimizer_index,
+                    SnarlDistanceIndex* distance_index,
+                    const ZipCodeCollection* zipcodes,
+                    const PathPositionHandleGraph* path_graph = nullptr);
 
     using AlignerClient::set_alignment_scores;
     virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
@@ -353,9 +366,12 @@ public:
     /// at chaining?
     static constexpr double default_gap_scale = 1.0;
     double gap_scale = default_gap_scale;
+    /// Recombination penalty for fragmenting. This is added to the score of a transition if there are no shared hapotypes.
+    static constexpr int default_rec_penalty_fragm = 0;
+    int rec_penalty_fragm = default_rec_penalty_fragm;
     /// Recombination penalty for chaining. This is added to the score of a transition if there are no shared hapotypes.
-    static constexpr int default_rec_penalty = 0;
-    int rec_penalty = default_rec_penalty;
+    static constexpr int default_rec_penalty_chain = 0;
+    int rec_penalty_chain = default_rec_penalty_chain;
     // How many points should we treat a non-gap connection base as producing, at chaining?
     static constexpr double default_points_per_possible_match = 0;
     double points_per_possible_match = default_points_per_possible_match;
@@ -579,7 +595,9 @@ public:
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
+        //const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
+        const void* occs = nullptr;
+
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
@@ -666,7 +684,31 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness or position tracking.
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    
+    // Handle minimizers index standard and XL
+    enum class IndexKind { S, XL };
+    const DefaultIndex* minimizer_index_s = nullptr;
+    const XLIndex* minimizer_index_xl = nullptr;
+    IndexKind index_kind;
+
+    // caching common information about the minimizer index
+    int32_t k;
+    int32_t w;
+    bool uses_syncmers;
+
+    // Dispatch the index to use based on the index kind.
+    template<typename Fn>
+    auto with_index(Fn&& fn) const
+        -> decltype(fn(*static_cast<const DefaultIndex*>(nullptr)))
+    {
+        if (index_kind == IndexKind::S) {
+            return fn(*minimizer_index_s);
+        } else {
+            return fn(*minimizer_index_xl);
+        }
+    }
+    //const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    
     SnarlDistanceIndex* distance_index;
     const ZipCodeCollection* zipcodes;
     /// This is our primary graph.

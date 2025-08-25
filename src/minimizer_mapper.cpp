@@ -50,22 +50,74 @@ namespace vg {
 
 using namespace std;
 
+// MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+//     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+//     SnarlDistanceIndex* distance_index, 
+//     const ZipCodeCollection* zipcodes, 
+//     const PathPositionHandleGraph* path_graph) :
+//     path_graph(path_graph), minimizer_index(minimizer_index),
+//     distance_index(distance_index),  
+//     zipcodes(zipcodes),
+//     clusterer(distance_index, &graph),
+//     gbwt_graph(graph),
+//     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
+//     choose_band_padding(algorithms::pad_band_random_walk()),
+//     fragment_length_distr(1000,1000,0.95) {
+    
+//     // The GBWTGraph needs a GBWT
+//     crash_unless(graph.index != nullptr);
+// }
+
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    const DefaultIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
     const ZipCodeCollection* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_index(minimizer_index),
+    path_graph(path_graph),
+    minimizer_index_s(&minimizer_index),
+    minimizer_index_xl(nullptr),
+    index_kind(IndexKind::S),
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     choose_band_padding(algorithms::pad_band_random_walk()),
-    fragment_length_distr(1000,1000,0.95) {
-    
-    // The GBWTGraph needs a GBWT
+    fragment_length_distr(1000,1000,0.95)
+{   
     crash_unless(graph.index != nullptr);
+    with_index([&](const auto& idx) {
+        // Initialize the k, w, and syncmer use
+        k = static_cast<int32_t>(idx.k());
+        w = static_cast<int32_t>(idx.w());
+        uses_syncmers = idx.uses_syncmers();
+    });
+}
+
+MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
+    const XLIndex& minimizer_index,
+    SnarlDistanceIndex* distance_index, 
+    const ZipCodeCollection* zipcodes, 
+    const PathPositionHandleGraph* path_graph) :
+    path_graph(path_graph),
+    minimizer_index_s(nullptr),
+    minimizer_index_xl(&minimizer_index),
+    index_kind(IndexKind::XL),
+    distance_index(distance_index),  
+    zipcodes(zipcodes),
+    clusterer(distance_index, &graph),
+    gbwt_graph(graph),
+    extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
+    choose_band_padding(algorithms::pad_band_random_walk()),
+    fragment_length_distr(1000,1000,0.95)
+{
+    crash_unless(graph.index != nullptr);
+    with_index([&](const auto& idx) {
+        // Initialize the k, w, and syncmer use
+        k = static_cast<int32_t>(idx.k());
+        w = static_cast<int32_t>(idx.w());
+        uses_syncmers = idx.uses_syncmers();
+    });
 }
 
 void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
@@ -224,7 +276,7 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
         
         // added info of supported paths
         exp.key("paths");
-        exp.value(anchors[index].anchor_paths());
+        exp.value(anchors[index].anchor_start_paths());
         exp.object_end();
     }
     exp.array_end();
@@ -624,7 +676,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
-
+  
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
@@ -3356,7 +3408,8 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
+        const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
+        gbwtgraph::hits_in_subgraph<gbwtgraph::Payload>(minimizer.hits, occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3485,11 +3538,20 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     double base_score = 1.0 + std::log(this->hard_hit_cap);
     // Get minimizers and their window agglomeration starts and lengths
     // Starts and lengths are all 0 if we are using syncmers.
-    vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
-        this->minimizer_index.minimizer_regions(sequence);
+    using minimizer_t = gbwtgraph::DefaultMinimizerIndex::minimizer_type;
+    std::vector<std::tuple<minimizer_t, size_t, size_t>> minimizers =
+        with_index([&](const auto& idx)
+            -> std::vector<std::tuple<minimizer_t, size_t, size_t>> {
+                return idx.minimizer_regions(sequence);
+            });
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = this->minimizer_index.find(get<0>(m));
+        auto hits = with_index([&](const auto& idx) {
+            auto h = idx.find(get<0>(m));
+            return std::pair<const void*, size_t>(
+                static_cast<const void*>(h.first), h.second);
+            //return idx.find(get<0>(m));
+        });
         if (hits.second > 0) {
             if (hits.second <= this->hard_hit_cap) {
                 score = base_score - std::log(hits.second);
@@ -3499,14 +3561,13 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         }
         
         // Length of the match from this minimizer or syncmer
-        int32_t match_length = (int32_t) minimizer_index.k();
+        int32_t match_length = this->k;
         // Number of candidate kmers that this minimizer is minimal of
-        int32_t candidate_count = this->minimizer_index.uses_syncmers() ? 1 : (int32_t) minimizer_index.w();
-        
+        int32_t candidate_count = this->uses_syncmers ? 1 : this->w;
         auto& value = std::get<0>(m);
         size_t agglomeration_start = std::get<1>(m);
         size_t agglomeration_length = std::get<2>(m);
-        if (this->minimizer_index.uses_syncmers()) {
+        if (this->uses_syncmers) {
             // The index says the start and length are 0. Really they should be where the k-mer is.
             // So start where the k-mer is on the forward strand
             agglomeration_start = value.is_reverse ? (value.offset - (match_length - 1)) : value.offset;
@@ -4014,40 +4075,104 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             // minimizers which we also took.
 
             // Locate the hits.
-            for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = minimizer.occs[j].position.decode();
-                // Reverse the hits for a reverse minimizer
-                if (minimizer.value.is_reverse) {
-                    size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
-                    hit = reverse_base_pos(hit, node_length);
-                }
-                // Extract component id and offset in the root chain, if we have them for this seed.
-                seeds.emplace_back();
-                seeds.back().pos = hit;
-                seeds.back().source = i;
+            // for (size_t j = 0; j < minimizer.hits; j++) {
+            //     pos_t hit = minimizer.occs[j].position.decode();
+            //     // Reverse the hits for a reverse minimizer
+            //     if (minimizer.value.is_reverse) {
+            //         size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+            //         hit = reverse_base_pos(hit, node_length);
+            //     }
+            //     // Extract component id and offset in the root chain, if we have them for this seed.
+            //     seeds.emplace_back();
+            //     seeds.back().pos = hit;
+            //     seeds.back().source = i;
+            //     seeds.back().paths = gbwtgraph::get_paths_or_zero(minimizer.occs[j].payload);
+            //     //Get the zipcode
+            //     if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
+            //         //If the zipcocde wasn't saved, then calculate it
+            //         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+            //         seeds.back().zipcode.fill_in_full_decoder();
+            //     } else if (minimizer.occs[j].payload.first == 0) {
+            //         //If the minimizer stored the index into a list of zipcodes
+            //         if (!this->zipcodes->empty()) {
+            //             //If we have the oversized zipcodes
+            //             seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
+            //         } else {
+            //             //If we don't have the oversized payloads, then fill in the zipcode using the pos
+            //             seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+            //             seeds.back().zipcode.fill_in_full_decoder();
+            //         }
+            //     } else {
+            //         //If the zipcode was saved in the payload
+            //         seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
+            //     }
 
-                //Get the zipcode
-                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
-                    //If the zipcocde wasn't saved, then calculate it
+            // }
+            if (index_kind == IndexKind::XL) {
+                // XL index: occs points to PositionPayload<PayloadXL>; payload is not used for paths/zipcode.
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::PayloadXL>*>(minimizer.occs);
+
+                for (size_t j = 0; j < minimizer.hits; j++) {
+                    const auto& occ = occs[j];
+
+                    pos_t hit = occ.position.decode();
+                    // Reverse the hits for a reverse minimizer
+                    if (minimizer.value.is_reverse) {
+                        size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+                        hit = reverse_base_pos(hit, node_length);
+                    }
+
+                    // Extract component id and offset in the root chain, if we have them for this seed.
+                    seeds.emplace_back();
+                    seeds.back().pos = hit;
+                    seeds.back().source = i;
+                    seeds.back().paths = gbwtgraph::get_paths_or_zero(occ.payload);
+
+                    // XL mode: zipcode does not use PayloadXL, workaround: we create a dummy payload.
                     seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                     seeds.back().zipcode.fill_in_full_decoder();
-                } else if (minimizer.occs[j].payload.first == 0) {
-                    //If the minimizer stored the index into a list of zipcodes
-                    if (!this->zipcodes->empty()) {
-                        //If we have the oversized zipcodes
-                        seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
-                    } else {
-                        //If we don't have the oversized payloads, then fill in the zipcode using the pos
+                }
+            } else {
+                // Classic index: occs points to PositionPayload<Payload>; payload drives paths/zipcode as before.
+                const auto* occs = static_cast<const gbwtgraph::PositionPayload<gbwtgraph::Payload>*>(minimizer.occs);
+
+                for (size_t j = 0; j < minimizer.hits; j++) {
+                    const auto& occ = occs[j];
+
+                    pos_t hit = occ.position.decode();
+                    // Reverse the hits for a reverse minimizer
+                    if (minimizer.value.is_reverse) {
+                        size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
+                        hit = reverse_base_pos(hit, node_length);
+                    }
+
+                    // Extract component id and offset in the root chain, if we have them for this seed.
+                    seeds.emplace_back();
+                    seeds.back().pos = hit;
+                    seeds.back().source = i;
+                    seeds.back().paths = gbwtgraph::get_paths_or_zero(occ.payload);
+
+                    // Classic mode: zipcode logic based on payload content, with fallbacks.
+                    if (occ.payload == MIPayload::NO_CODE) {
+                        // No zipcode saved; compute it from position.
                         seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                         seeds.back().zipcode.fill_in_full_decoder();
+                    } else if (occ.payload.first == 0) {
+                        // Payload stores an index into the oversized zipcodes list.
+                        if (!this->zipcodes->empty()) {
+                            seeds.back().zipcode = zipcodes->at(occ.payload.second);
+                        } else {
+                            // Oversized payloads not available; compute from position.
+                            seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
+                            seeds.back().zipcode.fill_in_full_decoder();
+                        }
+                    } else {
+                        // Zipcode was saved directly in the payload.
+                        seeds.back().zipcode.fill_in_zipcode_from_payload(occ.payload);
                     }
-                } else {
-                    //If the zipcode was saved in the payload
-                    seeds.back().zipcode.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-
             }
-            
+
             if (this->track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
                 funnel.expand(i, minimizer.hits);
@@ -4983,7 +5108,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
             }
         }
-        size_t window_length = this->minimizer_index.uses_syncmers() ? this->minimizer_index.k() : (this->minimizer_index.k() + this->minimizer_index.w() - 1);
+        size_t window_length = this->uses_syncmers ? this->k : (this->k + this->w - 1);
         left_frontier.push_back(pareto_point(window_length - 1, 0));
         right_frontier.push_back(pareto_point(window_length - 1, 0));
     }
@@ -5614,6 +5739,7 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
     return max(min((double) distance, max_int_double), -max_int_double);
 }
+
 
 }
 

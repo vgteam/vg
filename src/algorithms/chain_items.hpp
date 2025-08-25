@@ -149,11 +149,13 @@ public:
     /// Set the haplotypes supported by this anchor
     /// Maximum number limited to 64 for now
     inline void set_paths() {
-        paths = 0;
+        start_paths = 0;
+        end_paths = 0;
     }
 
     inline void set_paths(const size_t& anchor_paths) {
-        paths = anchor_paths;
+        start_paths = anchor_paths;
+        end_paths = anchor_paths;
     }
 
     inline void set_paths(const std::vector<size_t>& anchor_paths) {
@@ -161,22 +163,39 @@ public:
             set_path(path);
         }
     }
+
     inline void set_path(size_t path) {
         if (path >= 64) {
-            cerr << "Haplotype id exceeds 64 bits" << endl;
+            cerr << "" << endl;
             exit(1);
         }
-        paths |= (1UL << path);
+        start_paths |= (1UL << path);
+        end_paths |= (1UL << path);
     }
 
+    inline void set_paths(size_t anchor_start_paths, size_t anchor_end_paths) {
+        start_paths = anchor_start_paths;
+        end_paths = anchor_end_paths;
+    }
+
+
     /// Get the supported paths, as a 64 bit integer, where each bit is set to 1 if the respective path is supported
-    inline const size_t& anchor_paths() const {
-        return paths;
+    inline const std::pair<size_t, size_t> anchor_paths() const {
+        return {start_paths, end_paths};
+    }
+
+    inline size_t anchor_start_paths() const {
+        return start_paths;
+    }
+
+    inline size_t anchor_end_paths() const {
+        return end_paths;
     }
 
     /// Update supported haplotypes
     inline void update_paths(const size_t& new_paths) {
-        paths &= new_paths;
+        start_paths &= new_paths;
+        end_paths &= new_paths;
     }
 
     inline void update_paths(const std::vector<size_t>& haplotypes) {
@@ -202,40 +221,15 @@ public:
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t &graph_start, size_t length,
-                  size_t margin_before, size_t margin_after, int score,
-                  size_t seed_number = std::numeric_limits<size_t>::max(),
-                  ZipCode *hint = nullptr, size_t hint_start = 0,
-                  bool skippable = false, size_t paths = 0)
-        : start(read_start), size(length), margin_before(margin_before),
-          margin_after(margin_after), start_pos(graph_start),
-          end_pos(advance(graph_start, length)), points(score),
-          start_seed(seed_number), end_seed(seed_number), start_zip(hint),
-          end_zip(hint), start_offset(hint_start),
-          end_offset(length - hint_start),
-          seed_length(margin_before + length + margin_after),
-          skippable(skippable), paths(paths) {
-      // Nothing to do!
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCode* hint = nullptr, size_t hint_start = 0, bool skippable = false, size_t paths = 0) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zip(hint), end_zip(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after), skippable(skippable), start_paths(paths) , end_paths(paths) {
+        // Nothing to do!
     }
 
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor &first, const Anchor &last,
-                  size_t extra_margin_before, size_t extra_margin_after,
-                  int score)
-        : start(first.read_start()), size(last.read_end() - first.read_start()),
-          margin_before(first.margin_before + extra_margin_before),
-          margin_after(last.margin_after + extra_margin_after),
-          start_pos(first.graph_start()), end_pos(last.graph_end()),
-          points(score), start_seed(first.seed_start()),
-          end_seed(last.seed_end()), start_zip(first.start_hint()),
-          end_zip(last.end_hint()), start_offset(first.start_offset),
-          end_offset(last.end_offset),
-          seed_length((first.base_seed_length() + last.base_seed_length()) / 2),
-          skippable(first.is_skippable() || last.is_skippable()),
-          paths(first.paths & last.paths) {
-      // Nothing to do!
+    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_zip(first.start_hint()), end_zip(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2), skippable(first.is_skippable() || last.is_skippable()), start_paths(first.start_paths), end_paths(last.end_paths) {
+        // Nothing to do!
     }
 
     // Act like data
@@ -261,7 +255,8 @@ protected:
     size_t end_offset;
     size_t seed_length;
     bool skippable;
-    size_t paths;
+    size_t start_paths;
+    size_t end_paths;
 };
 
 /// Explain an Anchor to the given stream
@@ -293,7 +288,7 @@ public:
     TracedScore add_points(int adjustment) const;
     
     /// Add points and merge paths along a route to somewhere. Return a modified copy.
-    TracedScore add_points_and_paths(int adjustment, size_t paths_to_add);
+    TracedScore add_points_and_paths(int adjustment, std::pair<size_t,size_t> paths_to_add);
 
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {

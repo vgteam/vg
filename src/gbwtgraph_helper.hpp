@@ -59,7 +59,25 @@ void save_gbz(const gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::s
 void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::string& graph_name, bool show_progress = false);
 
 /// Save a minimizer index to the file.
-void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
+template<typename IndexType>
+void save_minimizer(const IndexType& index, const std::string& filename, bool show_progress = false) {
+    if (show_progress) {
+        std::cerr << "Saving MinimizerIndex to " << filename << std::endl;
+    }
+
+    try {
+        std::ofstream out(filename, std::ios_base::binary);
+        if (!out) {
+            throw sdsl::simple_sds::CannotOpenFile(filename, true);
+        }
+        out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+        index.serialize(out);
+        out.close();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [save_minimizer()] cannot save MinimizerIndex to " << filename << ": " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
 
 //------------------------------------------------------------------------------
 
