@@ -4573,11 +4573,15 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
     if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-        cerr << "[IndexRegistry]: Provided: " << identifier << endl;
+        cerr << context << ": Provided: " << identifier << endl;
     }
     if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
-        exit(1);
+        error_and_exit(context, "cannot provide unregistered index: " + identifier);
+    }
+    if (this->check_files) {
+        for (const string& filename : filenames) {
+            error_if_file_does_not_exist(context, filename);
+        }
     }
     get_index(identifier)->provide(filenames);
 }
@@ -5631,7 +5635,6 @@ void IndexFile::provide(const vector<string>& filenames) {
     // append all filenames
     // TODO: would it be better to sometimes error check that the file isn't a duplicate?
     for (const string& filename : filenames) {
-        error_if_file_does_not_exist(context, filename);
         this->filenames.emplace_back(filename);
     }
     provided_directly = true;
