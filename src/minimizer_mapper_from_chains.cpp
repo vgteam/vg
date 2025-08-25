@@ -637,12 +637,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
 #ifdef debug_print_forest
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            std::cerr << log_name() << "Zip code forest:" << std::endl;
-            zip_code_forest.print_self(&seeds);
-        }
+    #pragma omp critical (cerr)
+    {
+        std::cerr << log_name() << "Zip code forest:" << std::endl;
+        zip_code_forest.print_self(&seeds);
     }
 #endif
     // Turn all the seeds into anchors. Either we'll fragment them directly or
