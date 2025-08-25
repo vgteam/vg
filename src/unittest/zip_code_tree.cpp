@@ -41,10 +41,10 @@ namespace unittest {
         // Follow the the usual iteration process
         for (const auto& zip_tree : zip_forest.trees) {
             for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
-                auto dest = (*seed_itr).front();
+                auto dest = *seed_itr;
                 reverse_views[dest] = vector<ZipCodeTree::seed_result_t>();
                 for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr).front());
+                    reverse_views[dest].push_back((*dist_itr));
                 }
             }
         }
@@ -86,12 +86,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(2).get_value() == std::numeric_limits<size_t>::max());
 
             // We see all the seeds in order
-            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
-            for (const auto& seed_item : zip_tree) {
-                for (const auto& seed : seed_item) {
-                    seed_indexes.emplace_back(seed.seed, seed.is_reversed);
-                }
-            }
+            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes = zip_tree.get_all_seeds();
             REQUIRE(seed_indexes.size() == 1);
             REQUIRE(seed_indexes.at(0).seed == 0);
 
@@ -140,12 +135,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(4).get_value() == std::numeric_limits<size_t>::max());
 
             // We see all the seeds in order
-            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
-            for (const auto& seed_item : zip_tree) {
-                for (const auto& seed : seed_item) {
-                    seed_indexes.emplace_back(seed.seed, seed.is_reversed);
-                }
-            }
+            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes = zip_tree.get_all_seeds();
             REQUIRE(seed_indexes.size() == 2);
             REQUIRE(seed_indexes.at(0).seed == 0);
             REQUIRE(seed_indexes.at(1).seed == 1);
@@ -211,12 +201,7 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(6).get_value() == std::numeric_limits<size_t>::max());
 
             // We see all the seeds in order
-            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
-            for (const auto& seed_item : zip_tree) {
-                for (const auto& seed : seed_item) {
-                    seed_indexes.emplace_back(seed.seed, seed.is_reversed);
-                }
-            }
+            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes = zip_tree.get_all_seeds();
             REQUIRE(seed_indexes.size() == 3);
             REQUIRE(seed_indexes.at(0).seed == 0);
             REQUIRE(seed_indexes.at(1).seed == 1);
@@ -574,12 +559,7 @@ namespace unittest {
             }
 
             // We see all the seeds in order
-            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes;
-            for (const auto& seed_item : zip_tree) {
-                for (const auto& seed : seed_item) {
-                    seed_indexes.emplace_back(seed.seed, seed.is_reversed);
-                }
-            }
+            std::vector<ZipCodeTree::oriented_seed_t> seed_indexes = zip_tree.get_all_seeds();
             REQUIRE(seed_indexes.size() == 3);
             if (seed_indexes.at(0).is_reversed) {
                 REQUIRE(seed_indexes.at(0).seed == 2);

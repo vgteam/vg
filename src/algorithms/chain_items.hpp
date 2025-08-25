@@ -332,8 +332,22 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
-    std::unordered_map<size_t, size_t> seed_to_starting, 
-    std::unordered_map<size_t, size_t> seed_to_ending);
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending);
+
+/**
+ * If possible, add a transition from source_seed to dest_anchor.
+ * Looks up the correct source anchor; does nothing if not possible
+ * 
+ * Transitions are (source anchor, destination anchor, graph distance).
+ */
+void add_zip_tree_transition(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending,
+    size_t dest_anchor, bool dest_is_reversed,
+    size_t source_seed, bool source_is_reversed, size_t graph_distance);
 
 /**
  * Filter out transitions that can't be used, e.g. not reachable in the read.

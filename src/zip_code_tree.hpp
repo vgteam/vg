@@ -206,13 +206,50 @@ class ZipCodeTree {
             }
             other_values->emplace_back(extra_value);
         }
-        /// Get a constant reference to other_values
-        /// Throws if other_values is not allocated
-        const vector<size_t>& get_other_values() const {
-            if (!other_values) {
-                throw runtime_error("No other values for this tree item");
+        /// Get other_values
+        vector<size_t>* get_other_values() const { return other_values; }
+    };
+
+    /**
+     * Exposed type for a reference to an orientation of a seed
+     */
+    struct oriented_seed_t {
+        /// The index of the seed in the seeds vector
+        size_t seed;
+        /// Other seeds at the same position from tree_item_t.other_values
+        vector<size_t>* other_seeds;
+        /// Is the seed traversed backwards in the tree?
+        bool is_reversed;
+
+        /// Raw value constructor
+        oriented_seed_t(size_t seed_index, vector<size_t>* other_seeds, bool is_reversed)
+            : seed(seed_index), other_seeds(other_seeds), is_reversed(is_reversed) {}
+
+        /// Sets other_seeds to nullptr
+        oriented_seed_t(size_t seed_index, bool is_reversed)
+            : seed(seed_index), other_seeds(nullptr), is_reversed(is_reversed) {}
+        
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator==(const oriented_seed_t& other) const {
+            if ((other.other_seeds == nullptr) != (other_seeds == nullptr)) {
+                return false;
             }
-            return *other_values;
+            if (other.other_seeds != nullptr && other_seeds != nullptr) {
+                if (other.other_seeds->size() != other_seeds->size()) {
+                    return false;
+                }
+                for (size_t i = 0; i < other.other_seeds->size(); i++) {
+                    if (other.other_seeds->at(i) != other_seeds->at(i)) {
+                        return false;
+                    }
+                }
+            }
+            return seed == other.seed && is_reversed == other.is_reversed;
+        }
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator!=(const oriented_seed_t& other) const {
+            return !(*this == other);
         }
     };
 
@@ -221,6 +258,23 @@ class ZipCodeTree {
 
     /// Access the value at [index] in the zip_code_tree
     inline tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
+
+    /// Get all the seeds in the tree, in left-to-right order
+    /// Also returns their orientations
+    vector<oriented_seed_t> get_all_seeds() const {
+        vector<oriented_seed_t> all_seeds;
+        for (const auto& item : zip_code_tree) {
+            if (item.get_type() == SEED) {
+                all_seeds.emplace_back(item.get_value(), item.get_other_values(), item.get_is_reversed());
+                if (item.has_other_values()) {
+                    for (const auto& other_value : *(item.get_other_values())) {
+                        all_seeds.emplace_back(other_value, item.get_other_values(), item.get_is_reversed());
+                    }
+                }
+            }
+        }
+        return all_seeds;
+    }
 
     /// Helper for add_distance_matrix()
     /// Essentially re-calculates chain.distances.first/second for seeds
@@ -260,30 +314,6 @@ public:
     void shift_snarls_forward(size_t start_snarl_id, size_t shift_amount);
 
 public:
-    
-    /**
-     * Exposed type for a reference to an orientation of a seed
-     */
-    struct oriented_seed_t {
-        /// The index of the seed in the seeds vector
-        size_t seed;
-        /// Is the seed traversed backwards in the tree?
-        bool is_reversed;
-
-        /// Raw value constructor
-        oriented_seed_t(size_t seed_index, bool is_reversed)
-            : seed(seed_index), is_reversed(is_reversed) {}
-        
-        /// Compare to other instances. TODO: Use default when we get C++20. 
-        inline bool operator==(const oriented_seed_t& other) const {
-            return seed == other.seed && is_reversed == other.is_reversed;
-        }
-
-        /// Compare to other instances. TODO: Use default when we get C++20. 
-        inline bool operator!=(const oriented_seed_t& other) const {
-            return !(*this == other);
-        }
-    };
 
     /**
      * Exposed type for a reference to an oriented seed at a distance
@@ -293,8 +323,9 @@ public:
         size_t distance;
 
         /// Raw value constructor
-        seed_result_t(size_t distance, size_t seed_index, bool is_reversed)
-            : oriented_seed_t{seed_index, is_reversed}, distance(distance) {}
+        seed_result_t(size_t distance, size_t seed_index,
+                      vector<size_t>* other_seeds, bool is_reversed)
+            : oriented_seed_t{seed_index, other_seeds, is_reversed}, distance(distance) {}
 
         /// Compare to other instances. TODO: Use default when we get C++20. 
         inline bool operator==(const seed_result_t& other) const {
@@ -342,16 +373,8 @@ public:
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
-        vector<oriented_seed_t> operator*() const { 
-            vector<oriented_seed_t> seeds;
-            seeds.emplace_back(it->get_value(), it->get_is_reversed());
-            // Check if we have other values
-            if (it->has_other_values()) {
-                for (const auto& other_value : it->get_other_values()) {
-                    seeds.emplace_back(other_value, it->get_is_reversed());
-                }
-            }
-            return seeds;
+        oriented_seed_t operator*() const {
+            return {it->get_value(), it->get_other_values(), it->get_is_reversed()};
         }
 
         /// Get the number of tree storage slots left in the iterator.
@@ -411,7 +434,7 @@ public:
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
         /// Automatically handles orientation depending on right_to_left
-        vector<seed_result_t> operator*() const;
+        seed_result_t operator*() const;
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton

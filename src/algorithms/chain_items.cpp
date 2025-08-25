@@ -258,8 +258,8 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
-    std::unordered_map<size_t, size_t> seed_to_starting, 
-    std::unordered_map<size_t, size_t> seed_to_ending) {
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
     std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
@@ -267,23 +267,29 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     bool right_to_left = true;
     while (dest != zip_code_tree.end()) {
         // For each destination seed left to right
-        vector<ZipCodeTree::oriented_seed_t> dest_seeds = *dest;
+        ZipCodeTree::oriented_seed_t dest_seed = *dest;
 
         if (!right_to_left) {
-            for (auto& cur_dest : dest_seeds) {
-                // Going backwards
-                cur_dest.is_reversed = !cur_dest.is_reversed;
-            }
+            // Going backwards
+            dest_seed.is_reversed = !dest_seed.is_reversed;
         }
 
         // Might be the start of an anchor if forward relative to the read,
         // or the end of an anchor if reverse relative to the read
-        unordered_map<ZipCodeTree::oriented_seed_t, size_t> dest_anchors;
-        for (const auto& cur_dest : dest_seeds) {
-            auto anchor = cur_dest.is_reversed ? seed_to_ending.find(cur_dest.seed)
-                                                : seed_to_starting.find(cur_dest.seed);
-            if (anchor != (cur_dest.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
-                dest_anchors[cur_dest] = anchor->second;
+        unordered_map<size_t, size_t> dest_anchors;
+        auto anchor = dest_seed.is_reversed ? seed_to_ending.find(dest_seed.seed)
+                                            : seed_to_starting.find(dest_seed.seed);
+        if (anchor != (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
+            dest_anchors[dest_seed.seed] = anchor->second;
+        }
+        if (dest_seed.other_seeds) {
+            // Also check other seeds with the same position
+            for (const auto& other_seed : *(dest_seed.other_seeds)) {
+                auto other_anchor = dest_seed.is_reversed ? seed_to_ending.find(other_seed)
+                                                          : seed_to_starting.find(other_seed);
+                if (other_anchor != (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
+                    dest_anchors[other_seed] = other_anchor->second;
+                }
             }
         }
 
@@ -298,9 +304,9 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     pos_t cur_pos;
     string rev_string = "";
     for (const auto& cur_anchor : dest_anchors) {
-        auto dest_seed = cur_anchor.first;
-        std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_anchor.second << ")";
-        cur_pos = seeds[dest_seed.seed].pos;
+        auto cur_dest = cur_anchor.first;
+        std::cerr << " (S" << cur_dest << "/anchor #" << cur_anchor.second << ")";
+        cur_pos = seeds[cur_dest].pos;
         rev_string = dest_seed.is_reversed ? "rev" : "";
     }
     std::cerr  << " at " << cur_pos << rev_string << std::endl;
@@ -309,64 +315,18 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
             for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); 
                     !source.done(); ++source) {
                 // For each source seed right to left
-                vector<ZipCodeTree::seed_result_t> source_seeds = *source;
-                for (const auto& cur_dest : dest_anchors) {
-                    for (const auto& cur_source : source_seeds) {           
-#ifdef debug_transition
-    std::cerr << "\tSource seed S" << cur_source.seed << " " << seeds[cur_source.seed].pos 
-              << (cur_source.is_reversed ? "rev" : "") << " at distance " << cur_source.distance
-              << "/" << max_graph_lookback_bases;
-#endif
-                        if (!cur_source.is_reversed && !cur_dest.first.is_reversed) {
-                            // Both of these are in the same orientation relative to
-                            // the read, and we're going through the graph in the
-                            // read's forward orientation as assigned by these seeds.
-                            // So we can just visit this transition.
-
-                            // They might not be at anchor borders though, so check.
-                            auto found_source_anchor = seed_to_ending.find(cur_source.seed);
-                            if (found_source_anchor != seed_to_ending.end()) {
-                                // We can transition between these seeds
-                                // without jumping to/from the middle of an anchor.
-#ifdef debug_transition
-    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-    std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
-              << " to #" << cur_dest.second << std::endl;
-#endif
-                                all_transitions.emplace_back(found_source_anchor->second, cur_dest.second,
-                                                                cur_source.distance);
-                            } else {
-#ifdef debug_transition
-    std::cerr << " does not represent an anchor." << std::endl;
-#endif
-                            }
-                        } else if (cur_source.is_reversed && cur_dest.first.is_reversed) {
-                            // Both of these are in the same orientation
-                            // but it is opposite to the read.
-                            // We need to find source as an anchor *started*
-                            // and then save them flipped for later.
-                            auto found_source_anchor = seed_to_starting.find(cur_source.seed);
-                            if (found_source_anchor != seed_to_starting.end()) {
-                                // We can transition between these seeds
-                                // without jumping to/from the middle of an anchor.
-                                // Queue them up, flipped
-                                
-#ifdef debug_transition
-    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-    std::cerr << "\t\tFound backward transition from #" << cur_dest.second << " to #"
-              << found_source_anchor->second << std::endl;
-#endif
-                                all_transitions.emplace_back(cur_dest.second, found_source_anchor->second,
-                                                                cur_source.distance);
-                            } else {
-#ifdef debug_transition
-    std::cerr << " is in the wrong relative orientation." << std::endl;
-#endif
-                            }
-                        } else {
-                            // We have a transition between different orientations
-                            // relative to the read. That shouldn't happen.
-                            crash_unless(cur_source.is_reversed == cur_dest.first.is_reversed);
+                ZipCodeTree::seed_result_t source_seed = *source;
+                for (auto& cur_dest : dest_anchors) {
+                    // For each anchor that this destination seed might represent
+                    add_zip_tree_transition(seeds, all_transitions, seed_to_starting, seed_to_ending,
+                                            cur_dest.second, dest_seed.is_reversed,
+                                            source_seed.seed, source_seed.is_reversed, source_seed.distance);
+                    if (source_seed.other_seeds) {
+                        // Also consider other seeds with the same position
+                        for (const auto& other_source : *(source_seed.other_seeds)) {
+                            add_zip_tree_transition(seeds, all_transitions, seed_to_starting, seed_to_ending,
+                                                    cur_dest.second, dest_seed.is_reversed,
+                                                    other_source, source_seed.is_reversed, source_seed.distance);
                         }
                     }
                 }
@@ -388,6 +348,68 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     }
 
     return all_transitions;
+}
+
+void add_zip_tree_transition(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+    std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending,
+    size_t dest_anchor, bool dest_is_reversed,
+    size_t source_seed, bool source_is_reversed, size_t graph_distance) {
+#ifdef debug_transition
+    std::cerr << "\tSource seed S" << source_seed << " " << seeds[source_seed].pos 
+              << (source_is_reversed ? "rev" : "") << " at distance " << graph_distance;
+#endif
+    if (!source_is_reversed && !dest_is_reversed) {
+        // Both of these are in the same orientation relative to
+        // the read, and we're going through the graph in the
+        // read's forward orientation as assigned by these seeds.
+        // So we can just visit this transition.
+
+        // They might not be at anchor borders though, so check.
+        auto found_source_anchor = seed_to_ending.find(source_seed);
+        if (found_source_anchor != seed_to_ending.end()) {
+            // We can transition between these seeds
+            // without jumping to/from the middle of an anchor.
+#ifdef debug_transition
+    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+    std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
+              << " to #" << dest_anchor << std::endl;
+#endif
+            all_transitions.emplace_back(found_source_anchor->second, dest_anchor, graph_distance);
+        } else {
+#ifdef debug_transition
+    std::cerr << " does not represent an anchor." << std::endl;
+#endif
+        }
+    } else if (source_is_reversed && dest_is_reversed) {
+        // Both of these are in the same orientation
+        // but it is opposite to the read.
+        // We need to find source as an anchor *started*
+        // and then save them flipped for later.
+        auto found_source_anchor = seed_to_starting.find(source_seed);
+        if (found_source_anchor != seed_to_starting.end()) {
+            // We can transition between these seeds
+            // without jumping to/from the middle of an anchor.
+            // Queue them up, flipped
+
+#ifdef debug_transition
+    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+    std::cerr << "\t\tFound backward transition from #" << dest_anchor << " to #"
+              << found_source_anchor->second << std::endl;
+#endif
+            all_transitions.emplace_back(dest_anchor, found_source_anchor->second, graph_distance);
+        } else {
+#ifdef debug_transition
+    std::cerr << " does not represent an anchor." << std::endl;
+#endif
+        }
+    } else {
+        // We have a transition between different orientations
+        // relative to the read. That shouldn't happen.
+        crash_unless(source_is_reversed == dest_is_reversed);
+    }
 }
 
 std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
