@@ -61,6 +61,7 @@ void help_mod(char** argv) {
          << "  -N, --remove-non-path    keep only nodes and edges which are part of paths" << endl
          << "  -A, --remove-path        keep only nodes and edges which aren't part of a path" << endl
          << "  -k, --keep-path NAME     keep only nodes and edges in the path (may repeat)" << endl
+         << "  -V, --invert-keep-path   keep only nodes and edges in paths not passed to -k" << endl
          << "  -R, --remove-null        remove nodes with no sequence, forwarding their edges" << endl
          << "  -g, --subgraph ID        gets the subgraph rooted at node ID (may repeat)" << endl
          << "  -x, --context N          steps the subgraph out by N steps [1]" << endl
@@ -93,6 +94,7 @@ int main_mod(int argc, char** argv) {
     }
 
     set<string> path_names;
+    bool invert_keep_paths = false;
     bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
@@ -136,6 +138,7 @@ int main_mod(int argc, char** argv) {
             {"include-gt", required_argument, 0, 'Q'},
             {"compact-ids", no_argument, 0, 'c'},
             {"keep-path", required_argument, 0, 'k'},
+            {"invert-keep-path", no_argument, 0, 'V'},
             {"remove-orphans", no_argument, 0, 'o'},
             {"prune-complex", no_argument, 0, 'p'},
             {"prune-subgraphs", no_argument, 0, 'S'},
@@ -175,7 +178,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?k:oi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
+        c = getopt_long (argc, argv, "h?k:Voi:q:Q:cpl:e:mt:SX:Psunz:NAf:g:x:RU:bd:Ow:L:y:Z:Eav:G:M:Dr:I",
                          long_options, &option_index);
 
 
@@ -214,6 +217,10 @@ int main_mod(int argc, char** argv) {
 
         case 'k':
             path_names.emplace(optarg);
+            break;
+
+        case 'V':
+            invert_keep_paths = true;
             break;
 
         case 'o':
@@ -595,8 +602,8 @@ int main_mod(int argc, char** argv) {
         // TODO: turn into an algorithm or reimplement
         ensure_vg();
         set<string> kept_paths;
-        vg_graph->keep_paths(path_names, kept_paths);
-        if (path_names.size() != kept_paths.size()) {
+        vg_graph->keep_paths(path_names, kept_paths, invert_keep_paths);
+        if (path_names.size() != kept_paths.size() && !invert_keep_paths) {
             emit_warning(context, "some paths were not found in the graph, and will not be kept");
             for (const auto& path_name : path_names) {
                 if (kept_paths.count(path_name) == 0) {

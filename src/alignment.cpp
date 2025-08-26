@@ -1657,108 +1657,88 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-template<typename T>
-string aux_array_to_string(const uint8_t*& aux_arr, int32_t arr_len) {
-    
-    const T* t_arr = (const T*) aux_arr;
-    
-    stringstream strm;
-    strm << setprecision(8); // lossless for 32-bit float
-    for (int32_t i = 0; i < arr_len; ++i) {
-        strm << ',' << t_arr[i];
-    }
-    aux_arr = (const uint8_t*) (t_arr + arr_len);
-    return strm.str();
-}
-
-template<typename T>
-string aux_val_to_string(const uint8_t*& aux_arr) {
-    string str = to_string(*(const T*) aux_arr);
-    aux_arr += sizeof(T);
-    return str;
-}
-
 vector<string> bam_tag_strings(const bam1_t* b) {
     vector<string> tag_strings;
-    const uint8_t* aux = bam_get_aux(b);
-    const uint8_t* end = b->data + b->l_data;
-    while (aux != end) {
+    
+    for (uint8_t* aux = bam_aux_first(b); aux != NULL; aux = bam_aux_next(b, aux)) {
+        // For each aux field (i.e. tag)
         tag_strings.emplace_back();
         auto& tag_string = tag_strings.back();
         tag_string.reserve(6);
-        tag_string.push_back(aux[0]);
-        tag_string.push_back(aux[1]);
+        // We know that this returns a pointer to 2 characters in a row, with
+        // no null terminator. We smuggle it into an array type by thinking of
+        // the const char* as a pointer-to-an-array and then dereferencing
+        // that, as suggested by helpful robots.
+        const char (&tag)[2] = *reinterpret_cast<const char (*)[2]>(bam_aux_tag(aux));
+        char type = bam_aux_type(aux);
+        tag_string.push_back(tag[0]);
+        tag_string.push_back(tag[1]);
         tag_string.push_back(':');
-        tag_string.push_back(aux[2]);
+        tag_string.push_back(type);
         tag_string.push_back(':');
-        char type = aux[2];
-        aux += 3;
         switch (type) {
             case 'A':
-                tag_string.append(aux_val_to_string<char>(aux));
+                // Handle single characters
+                tag_string.push_back(bam_aux2A(aux));
                 break;
             case 'c':
-                tag_string.append(aux_val_to_string<int8_t>(aux));
-                break;
             case 'C':
-                tag_string.append(aux_val_to_string<uint8_t>(aux));
-                break;
             case 's':
-                tag_string.append(aux_val_to_string<int16_t>(aux));
-                break;
             case 'S':
-                tag_string.append(aux_val_to_string<uint16_t>(aux));
-                break;
             case 'i':
-                tag_string.append(aux_val_to_string<int32_t>(aux));
-                break;
             case 'I':
-                tag_string.append(aux_val_to_string<uint32_t>(aux));
+                // Handle any integral number (with fall-through)
+                tag_string.append(std::to_string(bam_aux2i(aux)));
                 break;
             case 'f':
-                tag_string.append(aux_val_to_string<float>(aux));
+                // Handle a float
+                tag_string.append(std::to_string(bam_aux2f(aux)));
                 break;
             case 'H':
             case 'Z':
-                tag_string.append((const char*) aux);
-                aux += strlen((const char*) aux) + 1;
+                // Handle string data (with fall-through)
+                tag_string.append(bam_aux2Z(aux));
                 break;
             case 'B':
             {
-                char arr_type = *aux;
-                int32_t arr_len = bam_auxB_len(aux);
-                aux += 5;
+                // Handle arrays, which can actually only be of integral or float types.
+                uint32_t arr_len = bam_auxB_len(aux);
+                // Get the type of the items *in* the array. There's no
+                // dedicated accessor to do this, but the htslib example code
+                // does it this way. See
+                // <https://github.com/samtools/htslib/blob/d677f345fe35d451587319ca38ac611862a46e1b/samples/read_aux.c#L91>
+                char arr_type = bam_aux_type(aux + 1);
+                // Include the type of the array data
+                tag_string.push_back(arr_type);
+                stringstream strm;
                 switch (arr_type) {
                     case 'c':
-                        tag_string.append(aux_array_to_string<int8_t>(aux, arr_len));
-                        break;
                     case 'C':
-                        tag_string.append(aux_array_to_string<uint8_t>(aux, arr_len));
-                        break;
                     case 's':
-                        tag_string.append(aux_array_to_string<int16_t>(aux, arr_len));
-                        break;
                     case 'S':
-                        tag_string.append(aux_array_to_string<uint16_t>(aux, arr_len));
-                        break;
                     case 'i':
-                        tag_string.append(aux_array_to_string<int32_t>(aux, arr_len));
-                        break;
                     case 'I':
-                        tag_string.append(aux_array_to_string<uint32_t>(aux, arr_len));
+                        for (uint32_t i = 0; i < arr_len; i++) {
+                            strm << "," << bam_auxB2i(aux, i);
+                        }
+                        tag_string.append(strm.str());
                         break;
                     case 'f':
-                        tag_string.append(aux_array_to_string<float>(aux, arr_len));
+                        strm << setprecision(8); // lossless for 32-bit float
+                        for (uint32_t i = 0; i < arr_len; i++) {
+                            strm << "," << bam_auxB2f(aux, i);
+                        }
+                        tag_string.append(strm.str());
                         break;
                     default:
-                        cerr << "error: unrecognized array type " << arr_type << " for 'B' type SAM tag" << endl;
+                        cerr << "error: invalid BAM array type '" << arr_type << "' (" << (int)arr_type << ") for 'B' type tag '" << tag[0] << tag[1] << "'" << endl;
                         exit(1);
                         break;
                 }
                 break;
             }
             default:
-                cerr << "error: invalid BAM tag " << type << '\n';
+                cerr << "error: invalid BAM tag type '" << type << "' (" << (int)type << ") for tag '" << tag[0] << tag[1] << "'" << endl;
                 exit(1);
                 break;
         }
@@ -2204,27 +2184,11 @@ int non_match_end(const Alignment& alignment) {
 }
 
 int softclip_start(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& first_mapping = path.mapping(0);
-        auto& first_edit = first_mapping.edit(0);
-        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
-            return first_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_start(alignment.path());
 }
 
 int softclip_end(const Alignment& alignment) {
-    if (alignment.path().mapping_size() > 0) {
-        auto& path = alignment.path();
-        auto& last_mapping = path.mapping(path.mapping_size()-1);
-        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
-        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
-            return last_edit.to_length();
-        }
-    }
-    return 0;
+    return softclip_end(alignment.path());
 }
 
 int softclip_trim(Alignment& alignment) {

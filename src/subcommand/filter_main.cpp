@@ -51,6 +51,8 @@ void help_filter(char** argv) {
          << "                               and only alignment information" << endl
          << "  -f, --frac-score             normalize score based on length" << endl
          << "  -u, --substitutions          use substitution count instead of score" << endl
+         << "  -W, --overwrite-score        replace stored GAM score with computed/normalized" << endl
+         << "                               score" << endl
          << "  -o, --max-overhang N         drop reads whose alignments begin or end" << endl
          << "                               with an insert > N [99999]" << endl
          << "  -m, --min-end-matches N      drop reads without >=N matches on each end" << endl
@@ -113,6 +115,7 @@ int main_filter(int argc, char** argv) {
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
+    bool overwrite_score = false;
     bool set_max_overhang = false;
     int max_overhang;
     bool set_min_end_matches = false;
@@ -174,6 +177,7 @@ int main_filter(int argc, char** argv) {
                 {"rescore", no_argument, 0, 'O'},
                 {"frac-score", no_argument, 0, 'f'},
                 {"substitutions", no_argument, 0, 'u'},
+                {"overwrite-score", no_argument, 0, 'W'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -202,7 +206,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:Ofuo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:h?",
+        c = getopt_long (argc, argv, "Mn:N:ea:A:pPX:F:s:r:L:OfuWo:m:Sx:vVT:q:E:D:C:d:R:iIb:G:clUB:t:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -280,6 +284,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'u':
             sub_score = true;
+            break;
+        case 'W':
+            overwrite_score = true;
             break;
         case 'o':
             set_max_overhang = true;
@@ -419,6 +426,32 @@ int main_filter(int argc, char** argv) {
         emit_warning(context, "setting --threads 1 because --first-alignment requires one thread.");
         omp_set_num_threads(1);
     }
+    if (!input_gam && overwrite_score) {
+        error_and_exit(context, "-W/--overwrite-score cannot be used with multipath alignments "
+                                "(-M/--input-mp-aln), which do not directly store a score.");
+        return 1;
+    }
+    if (rescore && sub_score) {
+        error_and_exit(context, "you asked to rescore reads (-O/--rescore), but also to use "
+                                "the substitution count as the score (-u/--substitutions). Pick one or the other.");
+    }
+    if ((!set_min_secondary && !set_min_primary && !overwrite_score) &&
+        (rescore || sub_score || frac_score)) {
+        // Scores are not being used, but we were told how to get them. Suspicious.
+        stringstream err_msg;
+        err_msg << "you asked to ";
+        if (rescore) {
+            err_msg << "rescore reads (-O/--rescore)";
+        } else if (sub_score) {
+            err_msg << "use the substitution count as the score (-u/--substitutions)";
+        } else if (frac_score) {
+            err_msg << "normalize scores by read length (-f/--frac-score)";
+        }
+        err_msg << ", but did not say to do anything with the scores. Remove that option "
+                << "or add one of -s/--min-secondary, -r/--min-primary, or -W/--overwrite-score." << std::endl;
+        error_and_exit(context, err_msg.str());
+    }
+    
 
     // What should our return code be?
     int error_code = 0;
@@ -453,6 +486,7 @@ int main_filter(int argc, char** argv) {
         filter.rescore = rescore;
         filter.frac_score = frac_score;
         filter.sub_score = sub_score;
+        filter.overwrite_score = overwrite_score;
         if (set_max_overhang){
             filter.max_overhang = max_overhang;
         }

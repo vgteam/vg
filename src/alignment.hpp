@@ -286,7 +286,11 @@ void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(nid_t)>& node_length);
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
+/// Get the leading softclip from an Alignment, assuming it is coalesced into a
+/// single Edit
 int softclip_start(const Alignment& alignment);
+/// Get the trailing softclip from an Alignment, assuming it is coalesced into a
+/// single Edit
 int softclip_end(const Alignment& alignment);
 int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
