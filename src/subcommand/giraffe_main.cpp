@@ -1701,7 +1701,7 @@ int main_giraffe(int argc, char** argv) {
     if (map_long_reads) {
         if (use_path_minimizer) {
             indexes_and_extensions.emplace(std::string("Long Read PathMinimizers"), std::vector<std::string>({"longread.path.min","path.min", "min"}));
-            indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
+            indexes_and_extensions.emplace(std::string("Long Read PathZipcodes"), std::vector<std::string>({"longread.path.zipcodes", "path.zipcodes", "zipcodes"}));
         } else {
             indexes_and_extensions.emplace(std::string("Long Read Minimizers"), std::vector<std::string>({"longread.withzip.min","withzip.min", "min"}));
             indexes_and_extensions.emplace(std::string("Long Read Zipcodes"), std::vector<std::string>({"longread.zipcodes", "zipcodes"}));
@@ -1749,9 +1749,11 @@ int main_giraffe(int argc, char** argv) {
     if (!(indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         cerr << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Long Read Minimizers"));
+        registry.reset(std::string("Long Read PathMinimizers"));
     } else if ((indexes_and_extensions.count(std::string("Long Read Minimizers")) || indexes_and_extensions.count(std::string("Long Read PathMinimizers"))) && !indexes_and_extensions.count(std::string("Long Read Zipcodes"))) {
         cerr << "Rebuilding zipcodes index to match new minimizers" << endl;
         registry.reset(std::string("Long Read Zipcodes"));
+        registry.reset(std::string("Long Read PathZipcodes"));
     } else if (!indexes_and_extensions.count(std::string("Short Read Minimizers")) && indexes_and_extensions.count(std::string("Short Read Zipcodes"))) {
         cerr << "Rebuilding minimizer index to include zipcodes" << endl;
         registry.reset(std::string("Short Read Minimizers"));
@@ -1827,9 +1829,16 @@ int main_giraffe(int argc, char** argv) {
     }
     ZipCodeCollection oversized_zipcodes;        
     if (map_long_reads) {
-        ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
-        oversized_zipcodes.deserialize(zip_in);
-        zip_in.close();
+        if (use_path_minimizer) {
+            ifstream zip_in (registry.require("Long Read PathZipcodes").at(0));
+            oversized_zipcodes.deserialize(zip_in);
+            zip_in.close();
+        } else {
+            ifstream zip_in (registry.require("Long Read Zipcodes").at(0));
+            oversized_zipcodes.deserialize(zip_in);
+            zip_in.close();
+        }
+        
     } else {
         ifstream zip_in (registry.require("Short Read Zipcodes").at(0));
         oversized_zipcodes.deserialize(zip_in);

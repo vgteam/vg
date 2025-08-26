@@ -594,7 +594,6 @@ construct_minimizers_dispatch(const vector<const IndexFile*>& inputs,
         }
     };
     gbwtgraph::index_haplotypes(gbz->graph, minimizers, payload_lambda);
-
     string output_name = plan->output_filepath(minimizer_output);
     save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
     output_name_minimizer.push_back(output_name);
@@ -680,8 +679,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     registry.register_index("Long Read Minimizers", "longread.withzip.min");
     registry.register_index("Long Read Zipcodes", "longread.zipcodes");
-    registry.register_index("Long Read PathMinimizers", "longread.path.min");
 
+    registry.register_index("Long Read PathMinimizers", "longread.path.min");
+    registry.register_index("Long Read PathZipcodes", "longread.path.zipcodes");
     /*********************
      * Register all recipes
      ***********************/
@@ -4229,6 +4229,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
+    registry.register_recipe({"Long Read PathMinimizers", "Long Read PathZipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        return construct_minimizers(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
+                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W, true);
+    });
     
     registry.register_recipe({"Short Read Minimizers", "Short Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
@@ -4248,14 +4256,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                     IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W, false);
     });
 
-    registry.register_recipe({"Long Read PathMinimizers", "Long Read Zipcodes"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                const IndexingPlan* plan,
-                                AliasGraph& alias_graph,
-                                const IndexGroup& constructing) {
-        return construct_minimizers(inputs, plan, constructing, IndexingParameters::long_read_minimizer_k, 
-                                    IndexingParameters::long_read_minimizer_w, IndexingParameters::long_read_minimizer_W, true);
-    });
+    
     return registry;
 }
 
@@ -4312,7 +4313,7 @@ vector<IndexName> VGIndexes::get_default_long_path_giraffe_indexes() {
         "Giraffe Distance Index",
         "Giraffe GBZ",
         "Long Read PathMinimizers",
-        "Long Read Zipcodes",
+        "Long Read PathZipcodes",
     };
     return indexes;
 }
