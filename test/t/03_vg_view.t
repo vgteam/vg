@@ -62,13 +62,13 @@ is "$(cat errors.txt | grep -P "error[.+]?:" | wc -l)" "2" "GFA import produces 
 
 rm -f errors.txt
 
-vg paths -M -x graphs/rgfa_with_reference.rgfa > paths.truth.txt
-vg view graphs/rgfa_with_reference.rgfa | vg paths -M -x - > paths.test.txt
+vg paths -M -x graphs/rgfa_with_reference.rgfa | sort > paths.truth.txt
+vg view graphs/rgfa_with_reference.rgfa | vg paths -M -x - | sort > paths.test.txt
 cmp paths.test.txt paths.truth.txt
 is "${?}" "0" "vg view preserves path metadata of rGFA file"
 
-vg paths -M -x graphs/gfa_with_reference.gfa > paths.truth.txt
-vg view graphs/gfa_with_reference.gfa | vg paths -M -x - > paths.test.txt
+vg paths -M -x graphs/gfa_with_reference.gfa | sort > paths.truth.txt
+vg view graphs/gfa_with_reference.gfa | vg paths -M -x - | sort > paths.test.txt
 cmp paths.test.txt paths.truth.txt
 is "${?}" "0" "vg view preserves path metadata of GFA file"
 
