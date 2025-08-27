@@ -21,7 +21,16 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, const Path
     parse_tid_path_handle_map(hdr, graph, tid_path_handle);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+        Alignment a;
+        try {
+            a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+        } catch (AlignmentEmbeddingError& e) {
+            #pragma omp critical (cerr)
+            std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
+                << " contains an uninterpretable read and may not actually be in the correct coordinate space for the graph. "
+                << e.what() << std::endl;
+            exit(1);
+        }
         lambda(a);
     }
     bam_destroy1(b);
@@ -69,7 +78,16 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
             }
             // Now we're outside the critical section so we can only rely on our own variables.
             if (got_read) {
-                Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+                Alignment a;
+                try {
+                    a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
+                } catch (AlignmentEmbeddingError& e) {
+                    #pragma omp critical (cerr)
+                    std::cerr << "[vg::alignment.cpp] error: Input file " << filename 
+                        << " contains an uninterpretable read and may not actually be in the correct coordinate space for the graph. "
+                        << e.what() << std::endl;
+                    exit(1);
+                }
                 lambda(a);
             }
         }
@@ -1276,7 +1294,10 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, const path_hand
     Mapping mapping;
 
     int64_t length = cigar_mapping(b, &mapping);
-
+    
+    // The BAM core.pos has already been converted from SAM-file 1-based
+    // coordinates to 0-based coordinates by HTSlib. So we can use it as
+    // 0-based here.
     Alignment aln = target_alignment(graph, path, b->core.pos, b->core.pos + length, alignment.name(), on_reverse_strand, mapping);
 
     *alignment.mutable_path() = aln.path();
@@ -3365,28 +3386,43 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     
     // How long is the path?
     auto path_len = graph->get_path_length(path);
+
+#ifdef debug
+    #pragma omp critical (cerr)
+    std::cerr << "Target alignment from " << pos1 << " to " << pos2 << std::endl;
+#endif
     
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' from 1-based positions " + to_string(pos1 + 1) +
+                " through " + to_string(pos2) +
+                " across the junction of non-circular path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' starting at 1-based position " + to_string(pos1 + 1) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' ending at 1-based inclusive position " + to_string(pos2) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // Split the provided Mapping of edits at the path end/start junction
@@ -3410,14 +3446,20 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     // Otherwise, the base case is that we don't go over the circular path junction
     
     if (pos1 >= path_len) {
-        throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                            " which is past end " + to_string(path_len) + " of path " +
-                            graph->get_path_name(path));
+        throw AlignmentEmbeddingError(
+            "Cannot produce Alignment of '" + feature +
+            "' starting at 1-based position " + to_string(pos1 + 1) +
+            " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+            graph->get_path_name(path) + "'."
+        );
     }
     if (pos2 > path_len) {
-        throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                            " which is past end " + to_string(path_len) + " of path " +
-                            graph->get_path_name(path));
+        throw AlignmentEmbeddingError(
+            "Cannot produce Alignment of '" + feature +
+            "' ending at 1-based inclusive position " + to_string(pos2) +
+            " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+            graph->get_path_name(path) + "'."
+        );
     }
     
     step_handle_t step = graph->get_step_at_position(path, pos1);
@@ -3438,10 +3480,14 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                 continue;
             } else {
                 // We've gone off the end of the contig with something other than a softclip
-                throw std::runtime_error("Reached unexpected end of path " + graph->get_path_name(path) +
-                                         " at edit " + std::to_string(edit_idx) +
-                                         "/" + std::to_string(cigar_mapping.edit_size()) +
-                                         " for alignment of feature " + feature);
+                throw AlignmentEmbeddingError(
+                    "Reached unexpected end of path '" + graph->get_path_name(path) +
+                    "' which has 1-based inclusive end position " + std::to_string(graph->get_path_length(path)) +
+                    ", at edit " + std::to_string(edit_idx) +
+                    "/" + std::to_string(cigar_mapping.edit_size()) +
+                    " for alignment of '" + feature + 
+                    "'; are you sure the alignment doesn't go off the end of the path?"
+                );
             }
         }
         handle_t h = graph->get_handle_of_step(step);
@@ -3530,9 +3576,13 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
-            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' from 1-based positions " + to_string(pos1 + 1) +
+                " through " + to_string(pos2) +
+                " across the junction of non-circular path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // How long is the path?
@@ -3540,16 +3590,22 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
-            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' starting at 1-based position " + to_string(pos1 + 1) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
-            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " +
-                                graph->get_path_name(path));
+            throw AlignmentEmbeddingError(
+                "Cannot produce Alignment of '" + feature +
+                "' ending at 1-based inclusive position " + to_string(pos2) +
+                " which is past 1-based inclusive end position " + to_string(path_len) + " of path '" +
+                graph->get_path_name(path) + "'."
+            );
         }
         
         // We extract from pos1 to the end
