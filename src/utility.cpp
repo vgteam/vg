@@ -773,6 +773,10 @@ bool file_exists(const string& filename) {
 }
 
 bool file_can_be_written(const string& filename) {
+    if (filename == "-") {
+        // Standard input should not be written to
+        return false;
+    }
     // Try to open it for writing
     ofstream out(filename);
     if (out.is_open()) {
