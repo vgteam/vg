@@ -1567,7 +1567,8 @@ void ZipCodeTree::validate_chain(vector<tree_item_t>::const_iterator& zip_iterat
 
 ZipCodeTree::seed_iterator::seed_iterator(size_t start_index, const ZipCodeTree& ziptree)
     : index(start_index), zip_code_tree(ziptree.zip_code_tree),
-    snarl_start_indexes(ziptree.snarl_start_indexes), cyclic_snarl_nestedness(0), chain_numbers(std::stack<size_t>()) {
+    snarl_start_indexes(ziptree.snarl_start_indexes), bound_pair_indexes(ziptree.bound_pair_indexes),
+    cyclic_snarl_nestedness(0), chain_numbers(std::stack<size_t>()) {
     
     // If we begin on a snarl, remember that before incrementing
     if (current_item().is_snarl_start()) {
@@ -1606,10 +1607,14 @@ auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
 }
 
 ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
-    const vector<tree_item_t>& zip_code_tree, const unordered_map<size_t, size_t>& snarl_start_indexes,
-    std::stack<size_t> chain_numbers, bool right_to_left, size_t distance_limit) :
+                                                  const vector<tree_item_t>& zip_code_tree,
+                                                  const unordered_map<size_t, size_t>& snarl_start_indexes,
+                                                  const unordered_map<size_t, size_t>& bound_pair_indexes,
+                                                  std::stack<size_t> chain_numbers,
+                                                  bool right_to_left,
+                                                  size_t distance_limit) :
     index(start_index), original_index(start_index), end_index(right_to_left ? zip_code_tree.size() : 0),
-    zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
+    zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes), bound_pair_indexes(bound_pair_indexes),
     chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
     if (done()) {
@@ -2264,9 +2269,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
 
 auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
                                  size_t distance_limit) const -> distance_iterator {
-    return distance_iterator(from.get_index(), 
-                             from.zip_code_tree, from.snarl_start_indexes,
-                             from.chain_numbers, right_to_left, distance_limit);
+    return distance_iterator(from.get_index(), from.zip_code_tree, from.snarl_start_indexes,
+                             from.bound_pair_indexes, from.chain_numbers, right_to_left, distance_limit);
 }
 
 std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {

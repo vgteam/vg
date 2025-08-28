@@ -361,6 +361,8 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         /// Map of snarl IDs to their start indexes in the ziptree vector
         const unordered_map<size_t, size_t>& snarl_start_indexes;
+        /// Map of bound indexes to indexes of their matching bound
+        const unordered_map<size_t, size_t>& bound_pair_indexes;
 
         /// Make an iterator starting from start_index
         /// until the end of the given ziptree
@@ -430,6 +432,7 @@ public:
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
                           const unordered_map<size_t, size_t>& snarl_start_indexes,
+                          const unordered_map<size_t, size_t>& bound_pair_indexes,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
@@ -482,6 +485,8 @@ public:
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
         const unordered_map<size_t, size_t>& snarl_start_indexes;
+        /// Map of bound indexes to indexes of their matching bound for jumps
+        const unordered_map<size_t, size_t>& bound_pair_indexes;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 
