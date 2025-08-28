@@ -181,15 +181,14 @@ class ZipCodeTree {
                 value = raw_value;
             }
         }
-
-        /// Constructor for non-edges to set a "false" for is_reversed
-        tree_item_t ( tree_item_type_t type, size_t raw_value) 
+        /// Constructor for non-seeds to set a "false" for is_reversed
+        tree_item_t (tree_item_type_t type, size_t raw_value) 
             : tree_item_t(type, raw_value, false) {}
-        tree_item_type_t get_type() const { return type; }
         /// Convenience functions to check for cyclic or non cyclic bounds
         bool is_snarl_start() const { return type == DAG_SNARL_START || type == CYCLIC_SNARL_START; }
         bool is_snarl_end() const { return type == DAG_SNARL_END || type == CYCLIC_SNARL_END; }
         /// Getters
+        tree_item_type_t get_type() const { return type; }
         size_t get_value() const { 
             return value == ((size_t)1 << 59) - 1
                    ? std::numeric_limits<size_t>::max()
@@ -292,6 +291,8 @@ protected:
     vector<tree_item_t> zip_code_tree;
     /// Map of snarl IDs to their start indexes in the zip code tree
     unordered_map<size_t, size_t> snarl_start_indexes;
+    /// Map of bound indexes to indexes of their matching bound
+    unordered_map<size_t, size_t> bound_pair_indexes;
     /// The next unused snarl ID
     size_t next_snarl_id = 0;
 
@@ -302,16 +303,26 @@ public:
     /// Add snarl start of given type, using the next available snarl ID
     void open_snarl(bool is_cyclic_snarl);
 
-    /// Remove snarls from snarl_start_indexes that are past the given index
-    /// Used for moving a slice of snarls to a new tree
-    /// Return the removed subset, with indexes decreased by the given index
-    unordered_map<size_t, size_t> forget_snarls_past_index(size_t index);
+    /// Add snarl or chain end of matching type
+    /// and sets up their bound_pair_indexes
+    /// Also sets a matching "value", assuming it's a snarl ID
+    void add_close_bound(size_t start_index);
 
-    /// Shift snarls AFTER a given snarl forward by shift_amount
-    /// Snarl is specified by its ID
-    /// This is used when adding distance matrices to the start of snarls
-    /// Doesn't shift snarls in zip_code_tree, just changes snarl_start_indexes
-    void shift_snarls_forward(size_t start_snarl_id, size_t shift_amount);
+    /// Remove snarls/bounds from snarl_start_indexes/bound_pair_indexes
+    /// that are past the given index
+    /// Used for moving a slice of snarls to a new tree
+    /// Copy removed things to args, with indexes decreased by index
+    void forget_past_index(size_t start_index,
+                           unordered_map<size_t, size_t>& removed_snarls,
+                           unordered_map<size_t, size_t>& removed_bounds);
+
+    /// Shift snarls/bounds AFTER start_index foward by shift_amount
+    /// note start_index is relative to the old positions
+    /// Silently erases bounds on either side of start_index
+    /// as those are no longer valid and will be dealt with elsewhere
+    /// Doesn't shift anything in zip_code_tree,
+    /// just updates the memorized indexes
+    void shift_past_index(size_t start_index, size_t shift_amount);
 
 public:
 

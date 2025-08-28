@@ -58,7 +58,22 @@ void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
                                      + std::to_string(item.get_type()));
         }
     }
-    cerr << endl;
+}
+
+void ZipCodeTree::add_close_bound(size_t start_index) {
+    tree_item_type_t closing_type;
+    if (zip_code_tree[start_index].get_type() == DAG_SNARL_START) {
+        closing_type = DAG_SNARL_END;
+    } else if (zip_code_tree[start_index].get_type() == CYCLIC_SNARL_START) {
+        closing_type = CYCLIC_SNARL_END;
+    } else if (zip_code_tree[start_index].get_type() == CHAIN_START) {
+        closing_type = CHAIN_END;
+    } else {
+        throw std::runtime_error("[zip tree]: Attempting to close a zip tree item that is not a snarl or chain start");
+    }
+    zip_code_tree.emplace_back(closing_type, zip_code_tree[start_index].get_value(), start_index);
+    bound_pair_indexes[start_index] = zip_code_tree.size() - 1;
+    bound_pair_indexes[zip_code_tree.size() - 1] = start_index;
 }
 
 void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const interval_state_t& interval) {
@@ -137,42 +152,59 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const inter
         snarl_children.back().distances.first[first_seed_index] > forest_state.distance_limit);
 }
 
-unordered_map<size_t, size_t> ZipCodeTree::forget_snarls_past_index(size_t index) {
-    unordered_map<size_t, size_t> removed_snarls;
-
-    // Loop through all possibly used snarl IDs
-    for (size_t i = 0; i < next_snarl_id; i++) {
-        // Is this snarl still in the ziptree, and if so, is it after index?
-        if (snarl_start_indexes.count(i) && snarl_start_indexes[i] >= index) {
+void ZipCodeTree::forget_past_index(size_t start_index,
+                                    unordered_map<size_t, size_t>& removed_snarls,
+                                    unordered_map<size_t, size_t>& removed_bounds) {
+    // Associative-container erase idiom: https://stackoverflow.com/a/8234813
+    for (auto it = snarl_start_indexes.cbegin(); it != snarl_start_indexes.cend();) {
+        if (it->second >= start_index) {
             // Indexes must be shifted before being saved in removed_snarls
-            removed_snarls[i] = snarl_start_indexes[i] - index;
-            snarl_start_indexes.erase(i);
+            removed_snarls[it->first] = it->second - start_index;
+            it = snarl_start_indexes.erase(it);
+        } else {
+            ++it;
         }
     }
 
-    return removed_snarls;
+    for (auto it = bound_pair_indexes.cbegin(); it != bound_pair_indexes.cend();) {
+        if (it->first >= start_index && it->second >= start_index) {
+            // Indexes must be shifted before being saved in removed_bounds
+            removed_bounds[it->first - start_index] = it->second - start_index;
+            it = bound_pair_indexes.erase(it);
+        } else if (it->first >= start_index != it->second >= start_index) {
+            it = bound_pair_indexes.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_t& depth) {
     // Chain IDs are reset since now there is no parent snarl
-    tree_item_t new_start = tree_item_t(ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false);
-    tree_item_t new_end = tree_item_t(ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false);
+    tree_item_t new_start = tree_item_t(ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max());
+    tree_item_t new_end = tree_item_t(ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max());
+    ZipCodeTree& active_zip_tree = trees[forest_state.active_tree_index];
 
     // Might need to add an artificial end to the slice
-    if (trees[forest_state.active_tree_index].zip_code_tree.back().get_type() != ZipCodeTree::CHAIN_END) {
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(new_end);
+    if (active_zip_tree.zip_code_tree.back().get_type() != ZipCodeTree::CHAIN_END) {
+        active_zip_tree.zip_code_tree.emplace_back(new_end);
     }
 
     size_t slice_start_i = forest_state.open_chains.back().first;
     // Iterators to ends of slice, for insertion/erasure
-    auto start_of_slice = trees[forest_state.active_tree_index].zip_code_tree.begin() + slice_start_i;
-    auto end_of_slice = trees[forest_state.active_tree_index].zip_code_tree.end();
+    auto start_of_slice = active_zip_tree.zip_code_tree.begin() + slice_start_i;
+    auto end_of_slice = active_zip_tree.zip_code_tree.end();
     // Are we moving a full chain or just a slice of one?
     bool move_full_chain = start_of_slice->get_type() == ZipCodeTree::CHAIN_START;
 
     // Pull out memory map of snarl start indexes to transfer to the new tree
-    auto transferred_snarl_starts = trees[forest_state.active_tree_index].forget_snarls_past_index(slice_start_i);
+    unordered_map<size_t, size_t> transferred_snarl_starts, transferred_pair_indexes;
+    active_zip_tree.forget_past_index(slice_start_i, transferred_snarl_starts, transferred_pair_indexes);
     trees.emplace_back();
+    ZipCodeTree& new_tree = trees.back();
+    // Transfer index memory
+    new_tree.snarl_start_indexes = transferred_snarl_starts;
+    new_tree.bound_pair_indexes = transferred_pair_indexes;
 
     if (!move_full_chain) {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -181,30 +213,27 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
 #endif
         // We're copying a slice of the chain from the middle to the end
         // Must add an artificial start to the slice
-        trees.back().zip_code_tree.emplace_back(new_start);
+        new_tree.zip_code_tree.emplace_back(new_start);
 
-        // Scoot all the snarl start indexes forward one
-        for (auto& snarl_start : transferred_snarl_starts) {
-            snarl_start.second++;
-        }
+        // Scoot all the indexes forward one
+        new_tree.shift_past_index(0, 1);
     }
 
     // Copy everything in the slice into the new tree
-    trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
+    new_tree.zip_code_tree.insert(new_tree.zip_code_tree.end(),
             std::make_move_iterator(start_of_slice), std::make_move_iterator(end_of_slice));
     // Erase the slice
     trees[forest_state.active_tree_index].zip_code_tree.erase(start_of_slice, end_of_slice);
 
     // Force-reset chain ends to have no ID
-    trees.back().zip_code_tree.front() = new_start;
-    trees.back().zip_code_tree.back() = new_end;
-    // Transfer index memory
-    trees.back().snarl_start_indexes = transferred_snarl_starts;
+    new_tree.zip_code_tree.front() = new_start;
+    new_tree.zip_code_tree.pop_back(); // Remove chain end to reset its ID
+    new_tree.add_close_bound(0);
 
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Validate slice" << endl;
-    trees.back().print_self(forest_state.seeds);
-    trees.back().validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
+    new_tree.print_self(forest_state.seeds);
+    new_tree.validate_zip_tree(*forest_state.distance_index, forest_state.seeds, forest_state.distance_limit);
 #endif
     return move_full_chain;
 }
@@ -231,7 +260,9 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
         // Otherwise, the chain wasn't empty so actually close it
 
         // Add the end of the chain to the zip code tree
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_END, snarl_id, false);
+        trees[forest_state.active_tree_index].add_close_bound(
+            depth > 0 ? forest_state.sibling_indices_at_depth[depth-1].back().value
+                      : 0);
 
         // If this was a top-level chain, we're done
         if (depth == 0) { return; }
@@ -272,7 +303,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
                 // Take out the last edge, leading to the spliced-out part
                 trees[forest_state.active_tree_index].zip_code_tree.pop_back();
                 // Close the chain in the original active tree
-                trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_END, snarl_id);
+                trees[forest_state.active_tree_index].add_close_bound(
+                    forest_state.sibling_indices_at_depth[depth-1].back().value);
                 // Treat distance as inf since it is over the distance limit
                 distance_to_chain_end = std::numeric_limits<size_t>::max();
             }
@@ -390,7 +422,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     cerr << "Start a new tree in the forest" << endl;
 #endif
             // Close the previous chain
-            trees[forest_state.active_tree_index].zip_code_tree.emplace_back(ZipCodeTree::CHAIN_END, snarl_id);
+            trees[forest_state.active_tree_index].add_close_bound(0);
 
             if (forest_state.active_tree_index == std::numeric_limits<size_t>::max() 
                 || trees[forest_state.active_tree_index].zip_code_tree.size() != 0) {
@@ -502,7 +534,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     forest_state.sibling_indices_at_depth[chain_depth].pop_back();
     tree_item_t just_added = trees[forest_state.active_tree_index].zip_code_tree.back();
     if (just_added.get_type() == ZipCodeTree::SEED) {
-        forest_state.sibling_indices_at_depth[chain_depth].emplace_back(ZipCodeTree::SEED, current_offset); 
+        forest_state.sibling_indices_at_depth[chain_depth].emplace_back(ZipCodeTree::SEED, current_offset);
     } else {
 #ifdef DEBUG_ZIP_CODE_TREE
     assert(just_added.is_snarl_start());
@@ -555,8 +587,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
     } else if (depth == 0) {
         // If this is a root snarl, we don't need distances so just close it
         // Root snarls are treated as DAG snarls, but they don't store distances
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(
-            ZipCodeTree::DAG_SNARL_END, snarl_start.snarl_id);
+        trees[forest_state.active_tree_index].add_close_bound(0);
     } else if (forest_state.sibling_indices_at_depth[depth].size() == 1) {
         // Only "child" is snarl start since all chains were spliced out
         // Thus, this snarl is empty and we should remove it
@@ -671,18 +702,33 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state,
         add_distance_matrix(forest_state, depth, last_is_reversed);
         auto closing_type = snarl_start.type == ZipCodeTree::CYCLIC_SNARL_START ? ZipCodeTree::CYCLIC_SNARL_END
                                                                                 : ZipCodeTree::DAG_SNARL_END;
-        trees[forest_state.active_tree_index].zip_code_tree.emplace_back(closing_type, snarl_start.snarl_id);
+        size_t snarl_start_i = trees[forest_state.active_tree_index].snarl_start_indexes.at(snarl_start.snarl_id);
+        trees[forest_state.active_tree_index].add_close_bound(snarl_start_i);
      }
 }
 
-void ZipCodeTree::shift_snarls_forward(size_t start_snarl_id, size_t shift_amount) {
-    size_t move_after_index = snarl_start_indexes[start_snarl_id];
+void ZipCodeTree::shift_past_index(size_t start_index, size_t shift_amount) {
     for (auto& snarl_start : snarl_start_indexes) {
-        if (snarl_start.second > move_after_index) {
+        if (snarl_start.second >= start_index) {
             // Shift the snarl start index
             snarl_start.second += shift_amount;
         }
     }
+
+    unordered_map<size_t, size_t> changed_pair_indexes;
+
+    // Associative-container erase idiom: https://stackoverflow.com/a/8234813
+    for (auto it = bound_pair_indexes.cbegin(); it != bound_pair_indexes.cend();) {
+        if (it->second >= start_index) {
+            // Store new pair and then delete the old
+            changed_pair_indexes[it->first + shift_amount] = it->second + shift_amount;
+            it = bound_pair_indexes.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    bound_pair_indexes.insert(changed_pair_indexes.begin(), changed_pair_indexes.end());
 }
 
 ZipCodeForest::seed_info_t::seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
@@ -937,12 +983,13 @@ void ZipCodeForest::add_distance_matrix(forest_growing_state_t& forest_state,
 
     // Put matrix at the start of the snarl
     size_t first_child_index = forest_state.sibling_indices_at_depth[depth][1].value;
-    trees[forest_state.active_tree_index].zip_code_tree.insert(
-        trees[forest_state.active_tree_index].zip_code_tree.begin() + first_child_index,
-        dist_matrix.begin(), dist_matrix.end());
+    auto& active_zip_tree = trees[forest_state.active_tree_index];
+    active_zip_tree.zip_code_tree.insert(active_zip_tree.zip_code_tree.begin() + first_child_index, 
+                                         dist_matrix.begin(), dist_matrix.end());
     // Shift memorized snarl start indexes
-    trees[forest_state.active_tree_index].shift_snarls_forward(
-        forest_state.sibling_indices_at_depth[depth][0].snarl_id, num_edges + 1);
+    size_t cur_snarl_index = active_zip_tree.snarl_start_indexes.at(
+        forest_state.sibling_indices_at_depth[depth][0].snarl_id);
+    active_zip_tree.shift_past_index(cur_snarl_index + 1, num_edges + 1);
 }
 
 std::pair<size_t, size_t> ZipCodeTree::dag_and_cyclic_snarl_count() const {
@@ -1079,6 +1126,28 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
         }
     }
     assert(has_seed);
+
+    for (const auto& index_pair : bound_pair_indexes) {
+        // Check that all bound pairs point to valid snarl starts/ends
+        assert(index_pair.first < zip_code_tree.size());
+        assert(index_pair.second < zip_code_tree.size());
+        // The pair indexes should be for the same kind of thing
+        if (zip_code_tree[index_pair.first].get_type() == CHAIN_START) {
+            assert(zip_code_tree[index_pair.second].get_type() == CHAIN_END);
+        } else if (zip_code_tree[index_pair.first].get_type() == CHAIN_END) {
+            assert(zip_code_tree[index_pair.second].get_type() == CHAIN_START);
+        } else if (zip_code_tree[index_pair.first].get_type() == DAG_SNARL_START) {
+            assert(zip_code_tree[index_pair.second].get_type() == DAG_SNARL_END);
+        } else if (zip_code_tree[index_pair.first].get_type() == DAG_SNARL_END) {
+            assert(zip_code_tree[index_pair.second].get_type() == DAG_SNARL_START);
+        } else if (zip_code_tree[index_pair.first].get_type() == CYCLIC_SNARL_START) {
+            assert(zip_code_tree[index_pair.second].get_type() == CYCLIC_SNARL_END);
+        } else if (zip_code_tree[index_pair.first].get_type() == CYCLIC_SNARL_END) {
+            assert(zip_code_tree[index_pair.second].get_type() == CYCLIC_SNARL_START);
+        } else {
+            assert(false);
+        }
+    }
 }
 
 void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_index, 
@@ -2467,7 +2536,7 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
         previous_sort_value = sort_value;
 
         if (is_different_from_previous) {
-            // If at run end, close  previous run; add end value and orientation
+            // If at run end, close previous run; add end value and orientation
 
             insert_itr->interval_end = i;
             insert_itr->is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), 
