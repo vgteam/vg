@@ -439,6 +439,15 @@ public:
         /// Move in right_to_left direction until we hit another seed or the end
         distance_iterator& operator++();
 
+        /// Move index in right_to_left direction
+        inline void move_index() {
+            if (right_to_left) {
+                --index;
+            } else {
+                ++index;
+            }
+        }
+
         /// Compare for equality to see if we hit end
         /// This just trusts that the two iterators are for the same tree
         bool operator==(const distance_iterator& other) const { return index == other.index; }
@@ -462,7 +471,6 @@ public:
             S_FIND_CHAIN,
             S_SCAN_DAG_SNARL,
             S_SCAN_CYCLIC_SNARL,
-            S_SKIP_CHAIN,
             S_SKIP_SNARL,
             S_FIND_DIST_MATRIX
         };
@@ -566,7 +574,9 @@ public:
                     || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
         }
 
-        /// Set up the automaton to start skipping through a chain.
+        /// Skip the current chain, jumping to the matching end
+        /// and then one past it to continue the snarl
+        /// Bound pair index should be right below current distance
         void skip_chain();
 
         /// Decide what to do right after entering a new chain.

@@ -1649,19 +1649,11 @@ auto ZipCodeTree::distance_iterator::operator++() -> distance_iterator& {
     std::cerr << "Skipping over a " << current_item().get_type()
               << " which we assume was handled already." << std::endl;
 #endif
-        if (right_to_left) {
-            --index;
-        } else {
-            ++index;
-        }
+        move_index();
     }
     while (!done() && !tick()) {
         // Skip to the next seed we actually want to yield, or to the end
-        if (right_to_left) {
-            --index;
-        } else {
-            ++index;
-        }
+        move_index();
     }
 #ifdef debug_parse
     if (done()) {
@@ -1830,13 +1822,18 @@ size_t ZipCodeTree::distance_iterator::get_matrix_value(size_t matrix_start_i, b
 }
 
 void ZipCodeTree::distance_iterator::skip_chain() {
-    // Tracker for how nested we are in snarls
-    // We are only allowed to stop skipping when at the same nestedness
-    push(0);
-    state(S_SKIP_CHAIN);
+    // Discard distance for this chain
+    pop();
+    // Jump to other bound
+    index = pop();
+    // We skipped because we want to try other chains in this snarl
+    continue_snarl();
 }
 
 void ZipCodeTree::distance_iterator::initialize_chain() {
+    // Where *would* we jump, if we jumped?
+    push(bound_pair_indexes.at(index));
+    swap();
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
     std::cerr << "Skip chain " << current_item().get_value() << " with running distance "
@@ -2037,6 +2034,8 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 // Discard the running distance along this chain,
                 // which no longer matters.
                 pop();
+                // Discard the jump index for this chain
+                pop();
                 // Running distance for next chain,
                 // or running distance to cross the snarl, will be under it.
                 continue_snarl();
@@ -2141,49 +2140,6 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
             initialize_chain();
         } else {
             unimplemented_error();
-        }
-        break;
-    case S_SKIP_CHAIN:
-        // State where we are skipping over the rest of a chain because we hit
-        // the distance limit, but we might need to do other chains in a parent
-        // snarl.
-        //
-        // Stack has the nesting level of child snarls we are reading over
-        // until we get back to the level we want to skip past the chain start.
-        //
-        // Under that is the running distance along the chain being skipped.
-        // And under that it has the running distance for ther next thing in
-        // the snarl, which had better exist or we shouldn't be skipping to it.
-        if (current_item().get_type() == SEED
-            || current_item().get_type() == EDGE
-            || current_item().get_type() == CHAIN_COUNT) {
-            // We don't emit seeds until the chain is over,
-            // and we ignore edges/distance matrices
-        } else if (exited_snarl()) {
-            // We might now be able to match chains again
-            top() -= 1;
-        } else if (entered_snarl()) {
-            // We can't match chains until we leave the snarl
-            top() += 1;
-        } else if (exited_chain()) {
-            if (top() == 0) {
-                // This is the other end of the chain we were wanting to skip.
-                // Discard the snarl nestedness level
-                pop();
-#ifdef check_parse
-    crash_unless(depth() >= 1);
-#endif
-                // Discard the running distance along this chain
-                pop();
-                // Running distance for next chain,
-                // or running distance to cross the snarl, will be under it.
-                continue_snarl();
-            }
-            // Otherwise this is a chain inside a child snarl and we ignore it.
-        } else if (entered_chain()) {
-            // Nested chain that we're skipping over
-        } else {
-            unimplemented_error(); 
         }
         break;
     case S_SKIP_SNARL:
@@ -2956,8 +2912,6 @@ std::string to_string(const vg::ZipCodeTree::distance_iterator::State& state) {
         return "S_SCAN_DAG_SNARL";
     case vg::ZipCodeTree::distance_iterator::S_SCAN_CYCLIC_SNARL:
         return "S_SCAN_CYCLIC_SNARL";
-    case vg::ZipCodeTree::distance_iterator::S_SKIP_CHAIN:
-        return "S_SKIP_CHAIN";
     case vg::ZipCodeTree::distance_iterator::S_SKIP_SNARL:
         return "S_SKIP_SNARL";
     case vg::ZipCodeTree::distance_iterator::S_FIND_DIST_MATRIX:
