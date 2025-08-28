@@ -468,11 +468,8 @@ public:
         enum State {
             S_START,
             S_SCAN_CHAIN,
-            S_FIND_CHAIN,
             S_SCAN_DAG_SNARL,
-            S_SCAN_CYCLIC_SNARL,
-            S_SKIP_SNARL,
-            S_FIND_DIST_MATRIX
+            S_SCAN_CYCLIC_SNARL
         };
 
     private:
@@ -553,7 +550,7 @@ public:
         void unimplemented_error();
 
         /// What item does index point to?
-        tree_item_t current_item() const { return zip_code_tree.at(index); }
+        tree_item_t current_item(size_t offset = 0) const { return zip_code_tree.at(index + offset); }
 
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
