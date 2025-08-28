@@ -362,9 +362,9 @@ public:
         /// Map of snarl IDs to their start indexes in the ziptree vector
         const unordered_map<size_t, size_t>& snarl_start_indexes;
 
-        /// Make an iterator wrapping the given iterator,
+        /// Make an iterator starting from start_index
         /// until the end of the given ziptree
-        seed_iterator(vector<tree_item_t>::const_iterator begin, const ZipCodeTree& ziptree);
+        seed_iterator(size_t start_index, const ZipCodeTree& ziptree);
         
         // Iterators are copyable and movable
         seed_iterator(const seed_iterator& other) = default;
@@ -377,36 +377,41 @@ public:
         seed_iterator& operator++();
 
         /// Compare for equality to see if we hit end
-        bool operator==(const seed_iterator& other) const { return it == other.it; }
+        /// This just trusts that the two iterators are for the same tree
+        bool operator==(const seed_iterator& other) const { return index == other.index; }
 
         /// Compare for inequality
         inline bool operator!=(const seed_iterator& other) const { return !(*this == other); }
+
+        /// What item does index point to?
+        tree_item_t current_item() const { return zip_code_tree.at(index); }
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
         oriented_seed_t operator*() const {
-            return {it->get_value(), it->get_other_values(), it->get_is_reversed()};
+            return {current_item().get_value(),
+                    current_item().get_other_values(),
+                    current_item().get_is_reversed()};
         }
 
-        /// Get the number of tree storage slots left in the iterator.
+        /// Get the current index
         /// We need this to make reverse iterators from forward ones.
-        size_t remaining_tree() const;
+        size_t get_index() const { return index; }
 
         inline bool in_cyclic_snarl() const { return cyclic_snarl_nestedness > 0; }
 
     private:
         /// Where we are in the stored tree.
-        vector<tree_item_t>::const_iterator it;
-        /// Where the stored tree ends. We keep this to avoid needing a reference back to the ZipCodeTree.
-        vector<tree_item_t>::const_iterator end;
+        size_t index;
         /// How far inside of a cyclic snarl are we?
         size_t cyclic_snarl_nestedness;
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
-    seed_iterator begin() const { return seed_iterator(zip_code_tree.begin(), *this); }
+    seed_iterator begin() const { return seed_iterator(0, *this); }
     /// Get the end iterator for seeds in the tree, left to right.
-    seed_iterator end() const { return seed_iterator(zip_code_tree.end(), *this); }
+    /// (Note that the last element will never be a seed)
+    seed_iterator end() const { return seed_iterator(zip_code_tree.size() - 1, *this); }
 
     /**
      * Iterator that looks sideways in the tree from a seed,
@@ -420,9 +425,9 @@ public:
      */
     class distance_iterator {
     public:
-        /// Make a reverse iterator wrapping the given reverse iterator, until
+        /// Make a reverse iterator starting from start_index, until
         /// the given rend, with the given distance limit.
-        distance_iterator(vector<tree_item_t>::const_reverse_iterator rbegin,
+        distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
                           const unordered_map<size_t, size_t>& snarl_start_indexes,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
@@ -432,15 +437,14 @@ public:
         distance_iterator& operator++();
 
         /// Compare for equality to see if we hit end
-        bool operator==(const distance_iterator& other) const { return it == other.it; }
+        /// This just trusts that the two iterators are for the same tree
+        bool operator==(const distance_iterator& other) const { return index == other.index; }
 
         /// Compare for inequality
-        inline bool operator!=(const distance_iterator& other) const {
-            return !(*this == other);
-        }
+        inline bool operator!=(const distance_iterator& other) const { return !(*this == other); }
 
         /// Is the iteration done?
-        inline bool done() const { return it == rend; }
+        inline bool done() const { return index == end_index; }
         
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
@@ -462,11 +466,11 @@ public:
 
     private:
         /// Where we are in the stored tree.
-        vector<tree_item_t>::const_reverse_iterator it;
-        /// Where the rend is where we have to stop
-        vector<tree_item_t>::const_reverse_iterator rend;
+        size_t index;
+        /// Where we have to stop
+        const size_t end_index;
         /// Where we started from
-        const vector<tree_item_t>::const_reverse_iterator origin;
+        const size_t original_index;
         /// Within each parent snarl, which chain are we in?
         std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
@@ -535,16 +539,27 @@ public:
         /// Throw a domain_error that the current state/symbol combo is unimplemented.
         void unimplemented_error();
 
+        /// What item does index point to?
+        tree_item_t current_item() const { return zip_code_tree.at(index); }
+
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
-        bool entered_snarl() const { return (right_to_left && it->is_snarl_end())
-                                             || (!right_to_left && it->is_snarl_start()); }
-        bool exited_snarl() const { return (right_to_left && it->is_snarl_start())
-                                            || (!right_to_left && it->is_snarl_end()); }
-        bool entered_chain() const { return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_END)
-                                             || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_START); }
-        bool exited_chain() const { return (right_to_left && it->get_type() == ZipCodeTree::CHAIN_START)
-                                            || (!right_to_left && it->get_type() == ZipCodeTree::CHAIN_END); }
+        bool entered_snarl() const {
+            return (right_to_left && current_item().is_snarl_end())
+                    || (!right_to_left && current_item().is_snarl_start());
+        }
+        bool exited_snarl() const {
+            return (right_to_left && current_item().is_snarl_start())
+                    || (!right_to_left && current_item().is_snarl_end());
+        }
+        bool entered_chain() const {
+            return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
+                    || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START);
+        }
+        bool exited_chain() const {
+            return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START)
+                    || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
+        }
 
         /// Set up the automaton to start skipping through a chain.
         void skip_chain();
