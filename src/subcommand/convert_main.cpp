@@ -213,7 +213,7 @@ int main_convert(int argc, char** argv) {
             break;
         case 't':
             omp_set_num_threads(parse_thread_count(context, optarg));
-            num_threads = omp_get_num_threads();
+            num_threads = omp_get_max_threads();
             break;
         default:
             abort();

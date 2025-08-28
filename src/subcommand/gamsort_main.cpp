@@ -116,7 +116,7 @@ int main_gamsort(int argc, char **argv)
             break;
         case 't':
             omp_set_num_threads(parse_thread_count(context, optarg, num_threads));
-            gaf_params.threads = omp_get_num_threads();
+            gaf_params.threads = omp_get_max_threads();
             break;
 
         // GAM sorting options.

@@ -99,7 +99,7 @@ int main_inject(int argc, char** argv) {
 
         case 't':
             omp_set_num_threads(parse_thread_count(context, optarg));
-            threads = omp_get_num_threads();
+            threads = omp_get_max_threads();
             break;
 
         case 'h':
