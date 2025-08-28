@@ -81,16 +81,16 @@ int main_viz(int argc, char** argv) {
             help_viz(argv);
             return 1;
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
         case 'n':
             pack_names.push_back(optarg);
             break;
         case 'i':
-            packs_in.push_back(error_if_file_does_not_exist(context, optarg));
+            packs_in.push_back(require_exists(context, optarg));
             break;
         case 'o':
-            image_out = error_if_file_cannot_be_written(context, optarg);
+            image_out = ensure_writable(context, optarg);
             break;
         case 'X':
             image_width = parse<int>(optarg);

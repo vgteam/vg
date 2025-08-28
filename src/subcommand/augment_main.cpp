@@ -175,10 +175,10 @@ int main_augment(int argc, char** argv) {
             break;
             // General Options
         case 'Z':
-            translation_file_name = error_if_file_cannot_be_written(context, optarg);
+            translation_file_name = ensure_writable(context, optarg);
             break;
         case 'A':
-            gam_out_file_name = error_if_file_cannot_be_written(context, optarg);
+            gam_out_file_name = ensure_writable(context, optarg);
             break;
         case 'i':
             include_paths = true;
@@ -235,7 +235,7 @@ int main_augment(int argc, char** argv) {
         case 'L':
             called_genotypes_only = true;
         case 'l': // Fall through for -L as well
-            loci_file = error_if_file_does_not_exist(context, optarg);
+            loci_file = require_exists(context, optarg);
             break;
             
         default:

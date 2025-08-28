@@ -148,7 +148,7 @@ int main_convert(int argc, char** argv) {
         case 'b':
             no_multiple_inputs(input);
             input = input_gbwtgraph;
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
         case OPT_REF_SAMPLE:
             ref_samples.insert(optarg);
@@ -187,7 +187,7 @@ int main_convert(int argc, char** argv) {
             rgfa_pline = true;
             break;
         case 'T':
-            gfa_trans_path = error_if_file_cannot_be_written(context, optarg);
+            gfa_trans_path = ensure_writable(context, optarg);
             break;
         case 'W':
             wline = false;
@@ -204,12 +204,12 @@ int main_convert(int argc, char** argv) {
         case 'G':
             no_multiple_inputs(input);
             input = input_gam;
-            input_aln = error_if_file_does_not_exist(context, optarg);
+            input_aln = require_exists(context, optarg);
             break;
         case 'F':
             no_multiple_inputs(input);
             input = input_gaf;
-            input_aln = error_if_file_does_not_exist(context, optarg);
+            input_aln = require_exists(context, optarg);
             break;
         case 't':
             omp_set_num_threads(parse_thread_count(context, optarg));

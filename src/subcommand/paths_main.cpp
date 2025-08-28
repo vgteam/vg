@@ -187,12 +187,12 @@ int main_paths(int argc, char** argv) {
 
         case 'v': // Fall through
         case 'x':
-            graph_file = error_if_file_does_not_exist(context, optarg);
+            graph_file = require_exists(context, optarg);
             ++input_formats;
             break;
 
         case 'g':
-            gbwt_file = error_if_file_does_not_exist(context, optarg);
+            gbwt_file = require_exists(context, optarg);
             ++input_formats;
             break;
 
@@ -255,7 +255,7 @@ int main_paths(int argc, char** argv) {
             break;
                 
         case 'p':
-            path_file = error_if_file_does_not_exist(context, optarg);
+            path_file = require_exists(context, optarg);
             selection_criteria++;
             break;
 

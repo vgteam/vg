@@ -65,7 +65,7 @@ int main_dotplot(int argc, char** argv) {
         {
 
         case 'x':
-            xg_file = error_if_file_does_not_exist(context, optarg);
+            xg_file = require_exists(context, optarg);
             break;
 
         case 'h':

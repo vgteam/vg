@@ -124,15 +124,15 @@ int main_construct(int argc, char** argv) {
         switch (c)
         {
         case 'v':
-            vcf_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            vcf_filenames.push_back(require_exists(context, optarg));
             break;
 
         case 'M':
-            msa_filename = error_if_file_does_not_exist(context, optarg);
+            msa_filename = require_exists(context, optarg);
             break;
             
         case 'F':
-            msa_format = error_if_file_does_not_exist(context, optarg);
+            msa_format = require_exists(context, optarg);
             break;
             
         case 'd':
@@ -148,7 +148,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'r':
-            fasta_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            fasta_filenames.push_back(require_exists(context, optarg));
             break;
 
         case 'S':
@@ -156,7 +156,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'I':
-            insertion_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            insertion_filenames.push_back(require_exists(context, optarg));
             break;
 
             

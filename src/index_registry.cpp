@@ -125,8 +125,8 @@ double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
 
 void copy_file(const string& from_fp, const string& to_fp) {
-    error_if_file_does_not_exist(context, from_fp);
-    error_if_file_cannot_be_written(context, to_fp);
+    require_exists(context, from_fp);
+    ensure_writable(context, to_fp);
     ifstream from_file(from_fp, std::ios::binary);
     ofstream to_file(to_fp, std::ios::binary);
     to_file << from_file.rdbuf();
@@ -379,12 +379,12 @@ size_t xg_index_size(const xg::XG& index) {
 // would go away when the setup function returns.
 
 static void init_in(ifstream& in, const string& name) {
-    error_if_file_does_not_exist(context, name);
+    require_exists(context, name);
     in.open(name);
 }
 
 static void init_out(ofstream& out, const string& name) {
-    error_if_file_cannot_be_written(context, name);
+    ensure_writable(context, name);
     out.open(name);
 }
 
@@ -4550,7 +4550,7 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     }
     if (this->check_files) {
         for (const string& filename : filenames) {
-            error_if_file_does_not_exist(context, filename);
+            require_exists(context, filename);
         }
     }
     get_index(identifier)->provide(filenames);

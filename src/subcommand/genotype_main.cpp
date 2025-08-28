@@ -160,7 +160,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'a':
             // Dump augmented graph
-            augmented_file_name = error_if_file_cannot_be_written(context, optarg);
+            augmented_file_name = ensure_writable(context, optarg);
             break;
         case 'Q':
             // Ignore mapping qualities
@@ -188,13 +188,13 @@ int main_genotype(int argc, char** argv) {
             omp_set_num_threads(parse_thread_count(context, optarg));
             break;
         case 'V':
-            recall_vcf = error_if_file_does_not_exist(context, optarg);
+            recall_vcf = require_exists(context, optarg);
             break;
         case 'I':
-            insertions_file = error_if_file_does_not_exist(context, optarg);
+            insertions_file = require_exists(context, optarg);
             break;
         case 'F':
-            fasta = error_if_file_does_not_exist(context, optarg);
+            fasta = require_exists(context, optarg);
             break;
         case 'E':
             embed_gam_edits = false;

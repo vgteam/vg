@@ -222,7 +222,7 @@ int main_prune(int argc, char** argv) {
             emit_warning(context, "option --xg-name is no longer needed");
             break;
         case 'g':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
         case 'm':
             mapping_name = optarg;
@@ -278,10 +278,10 @@ int main_prune(int argc, char** argv) {
     if (!mapping_name.empty()) {
         if (append_mapping) {
             // If appending, we need to check that the file exists
-            error_if_file_does_not_exist(context, mapping_name);
+            require_exists(context, mapping_name);
         } else {
             // If not appending, we need to be able to write it
-            error_if_file_cannot_be_written(context, mapping_name);
+            ensure_writable(context, mapping_name);
         }
     } else if (append_mapping) {
         // If appending, we need a mapping file

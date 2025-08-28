@@ -146,19 +146,19 @@ int main_annotate(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'a':
-            gam_name = error_if_file_does_not_exist(context, optarg);
+            gam_name = require_exists(context, optarg);
             break;
 
         case 'b':
-            bed_names.push_back(error_if_file_does_not_exist(context, optarg));
+            bed_names.push_back(require_exists(context, optarg));
             break;
 
         case 'f':
-            gff_names.push_back(error_if_file_does_not_exist(context, optarg));
+            gff_names.push_back(require_exists(context, optarg));
             break;
             
         case 'g':
@@ -170,7 +170,7 @@ int main_annotate(int argc, char** argv) {
             break;
                 
         case 's':
-            snarls_name = error_if_file_does_not_exist(context, optarg);
+            snarls_name = require_exists(context, optarg);
             break;
 
         case 'p':

@@ -115,7 +115,7 @@ int main_mcmc(int argc, char** argv) {
                 sample_name = optarg;
                 break;  
             case 'v':
-                vcf_out = error_if_file_cannot_be_written(context, optarg);
+                vcf_out = ensure_writable(context, optarg);
                 break;
             case 'b':
                 burn_in = parse<int>(optarg);

@@ -192,7 +192,7 @@ int main_call(int argc, char** argv) {
         switch (c)
         {
         case 'k':
-            pack_filename = error_if_file_does_not_exist(context, optarg);
+            pack_filename = require_exists(context, optarg);
             break;
         case 'B':
             ratio_caller = true;
@@ -207,7 +207,7 @@ int main_call(int argc, char** argv) {
             baseline_error_string = optarg;
             break;            
         case 'v':
-            vcf_filename = error_if_file_does_not_exist(context, optarg);
+            vcf_filename = require_exists(context, optarg);
             break;
         case 'a':
             genotype_snarls = true;
@@ -222,25 +222,25 @@ int main_call(int argc, char** argv) {
             max_allele_len = parse<size_t>(optarg);
             break;
         case 'f':
-            ref_fasta_filename = error_if_file_does_not_exist(context, optarg);
+            ref_fasta_filename = require_exists(context, optarg);
             break;
         case 'i':
-            ins_fasta_filename = error_if_file_does_not_exist(context, optarg);
+            ins_fasta_filename = require_exists(context, optarg);
             break;
         case 's':
             sample_name = optarg;
             break;
         case 'r':
-            snarl_filename = error_if_file_does_not_exist(context, optarg);
+            snarl_filename = require_exists(context, optarg);
             break;
         case 'g':
-            gbwt_filename = error_if_file_does_not_exist(context, optarg);
+            gbwt_filename = require_exists(context, optarg);
             break;
         case 'z':
             gbz_paths = true;
             break;
         case 'N':
-            translation_file_name = error_if_file_does_not_exist(context, optarg);
+            translation_file_name = require_exists(context, optarg);
             break;
         case 'O':
             gbz_translation = true;

@@ -688,7 +688,7 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
     }
 
     if (test_open) {
-        error_if_file_does_not_exist("[get_input_file_name]", file_name);
+        require_exists("[get_input_file_name]", file_name);
     }
     
     return file_name;
@@ -789,7 +789,7 @@ bool file_can_be_written(const string& filename) {
     }
 }
 
-string error_if_file_does_not_exist(const string& context, const string& filename) {
+string require_exists(const string& context, const string& filename) {
     if (!file_exists(filename)) {
         error_and_exit(context, "file \"" + filename + "\" does not exist");
     }
@@ -804,7 +804,7 @@ string require_non_gzipped(const string& context, const string& filename) {
     return filename;
 }
 
-string error_if_file_cannot_be_written(const string& context, const string& filename) {
+string ensure_writable(const string& context, const string& filename) {
     if (!file_can_be_written(filename)) {
         error_and_exit(context, "file \"" + filename + "\" cannot be written to");
     }
@@ -1078,10 +1078,10 @@ int parse_thread_count(const string& context, const string& arg, int max_threads
 
 void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2) {
     if (fastq1.empty()) {
-        fastq1 = error_if_file_does_not_exist(context, input_filename);
+        fastq1 = require_exists(context, input_filename);
     }
     else if (fastq2.empty()) {
-        fastq2 = error_if_file_does_not_exist(context, input_filename);
+        fastq2 = require_exists(context, input_filename);
     }
     else {
         error_and_exit(context, "Cannot specify more than two FASTQ files");

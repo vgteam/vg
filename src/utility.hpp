@@ -843,14 +843,14 @@ bool file_can_be_written(const string& filename);
 
 /// Check if a file exists and return its name (if so) or error.
 /// Uses file_exists() and is intended to be called when parsing arguments.
-string error_if_file_does_not_exist(const string& context, const string& filename);
+string require_exists(const string& context, const string& filename);
 
 /// Error if a file looks like it's gzipped.
 string require_non_gzipped(const string& context, const string& filename);
 
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
-string error_if_file_cannot_be_written(const string& context, const string& filename);
+string ensure_writable(const string& context, const string& filename);
 
 /// A special parser for thread count which errors if non-positive
 /// If max_threads is non-zero, it will also decrease to that maximum.

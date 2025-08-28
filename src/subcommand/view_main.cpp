@@ -361,7 +361,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'A':
-            alignments = error_if_file_does_not_exist(context, optarg);
+            alignments = require_exists(context, optarg);
             break;
 
         case 'I':
@@ -393,7 +393,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Q':
-            loci_file = error_if_file_does_not_exist(context, optarg);
+            loci_file = require_exists(context, optarg);
             break;
 
         case 'B':

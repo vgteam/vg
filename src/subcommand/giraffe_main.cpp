@@ -1252,7 +1252,7 @@ int main_giraffe(int argc, char** argv) {
         {
             case 'Z':
                 // All provided_indexes are later validated
-                // with error_if_file_does_not_exist()
+                // with require_exists()
                 provided_indexes.emplace_back("Giraffe GBZ", optarg);
 
                 // If we have a GBZ we probably want to use its name as the base name.
@@ -1311,7 +1311,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'G':
-                gam_filename = error_if_file_does_not_exist(context, optarg);
+                gam_filename = require_exists(context, optarg);
                 break;
             
             case 'f':
@@ -1383,7 +1383,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_REPORT_NAME:
-                report_name = error_if_file_cannot_be_written(context, optarg);
+                report_name = ensure_writable(context, optarg);
                 break;
 
             case 'b':
@@ -1517,7 +1517,7 @@ int main_giraffe(int argc, char** argv) {
     // Now all the arguments are parsed, so see if they make sense
 
     for (const auto& filename : provided_indexes) {
-        error_if_file_does_not_exist(context, filename.second);
+        require_exists(context, filename.second);
     }
     
     // Decide if we are outputting to an htslib format

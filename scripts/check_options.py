@@ -672,9 +672,8 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
         for suffix in FILENAME_VAR_ENDS:
             if f'{suffix} = optarg;' in stripped:
                 # Extra check for file-existance functions
-                extra_errors.append("Use error_if_file_does_not_exist() or "
-                                    "error_if_file_cannot_be_written() for "
-                                    "standardized file checks: " + stripped)
+                extra_errors.append("Use require_exists() or ensure_writable() "
+                                    "for standardized file checks: " + stripped)
                 break
 
         # Detect new case

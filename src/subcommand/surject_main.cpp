@@ -217,7 +217,7 @@ int main_surject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'p':
@@ -225,7 +225,7 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'F':
-            path_file = error_if_file_does_not_exist(context, optarg);
+            path_file = require_exists(context, optarg);
             break;
 
         case 'n':

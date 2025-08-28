@@ -278,7 +278,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'f':
-            fasta_files.push_back(error_if_file_does_not_exist(context, optarg));
+            fasta_files.push_back(require_exists(context, optarg));
             break;
 
         case 'n':
@@ -298,7 +298,7 @@ int main_msga(int argc, char** argv) {
                 error_and_exit(context, "graph-graph alignment is not yet implemented. "
                                         "We can only use one input graph.");
             }
-            graph_files.push_back(error_if_file_does_not_exist(context, optarg));
+            graph_files.push_back(require_exists(context, optarg));
             break;
 
         case 'w':
@@ -394,7 +394,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'R':
-            position_bed_file = error_if_file_does_not_exist(context, optarg);
+            position_bed_file = require_exists(context, optarg);
             break;
 
         case 'T':

@@ -93,13 +93,13 @@ int main_mask(int argc, char** argv) {
                 help_mask(argv);
                 return 1;
             case 'b':
-                bed_filepath = error_if_file_does_not_exist(context, optarg);
+                bed_filepath = require_exists(context, optarg);
                 break;
             case 'g':
                 gbz_input = true;
                 break;
             case 's':
-                snarls_filepath = error_if_file_does_not_exist(context, optarg);
+                snarls_filepath = require_exists(context, optarg);
                 break;
             default:
                 help_mask(argv);

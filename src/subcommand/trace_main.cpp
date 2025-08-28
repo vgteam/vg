@@ -76,15 +76,15 @@ int main_trace(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'G':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
 
         case 'a':
-            annotation_path = error_if_file_cannot_be_written(context, optarg);
+            annotation_path = ensure_writable(context, optarg);
             break;
 
         case 'n':

@@ -539,21 +539,21 @@ int main_mpmap(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                graph_name = error_if_file_does_not_exist(context, optarg);
+                graph_name = require_exists(context, optarg);
                 break;
                 
             case 'g':
-                gcsa_name = error_if_file_does_not_exist(context, optarg);
+                gcsa_name = require_exists(context, optarg);
                 // We also need the LCP index
-                error_if_file_does_not_exist(context, gcsa_name + ".lcp");
+                require_exists(context, gcsa_name + ".lcp");
                 break;
                 
             case 'H':
-                gbwt_name = error_if_file_does_not_exist(context, optarg);
+                gbwt_name = require_exists(context, optarg);
                 break;
                 
             case 'd':
-                distance_index_name = error_if_file_does_not_exist(context, optarg);
+                distance_index_name = require_exists(context, optarg);
                 if (!use_tvs_clusterer) {
                     use_min_dist_clusterer = true;
                 }
@@ -582,7 +582,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_LINEAR_INDEX: // --linear-index
-                sublinearLS_name = error_if_file_does_not_exist(context, optarg);
+                sublinearLS_name = require_exists(context, optarg);
                 break;
             
             case OPT_LINEAR_PATH: // --linear-path
@@ -594,7 +594,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'G':
-                gam_file_name = error_if_file_does_not_exist(context, optarg);
+                gam_file_name = require_exists(context, optarg);
                 break;
                 
             case 'N':
@@ -622,7 +622,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'S':
-                ref_paths_name = error_if_file_does_not_exist(context, optarg);
+                ref_paths_name = require_exists(context, optarg);
                 break;
 
             case OPT_REF_NAME:
@@ -630,7 +630,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 's':
-                snarls_name = error_if_file_does_not_exist(context, optarg);
+                snarls_name = require_exists(context, optarg);
                 break;
                 
             case OPT_SUPPRESS_TAIL_ANCHORS:
@@ -874,7 +874,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'r':
-                intron_distr_name = error_if_file_does_not_exist(context, optarg);
+                intron_distr_name = require_exists(context, optarg);
                 break;
                 
             case 'l':
@@ -898,7 +898,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'w':
-                matrix_file_name = error_if_file_does_not_exist(context, optarg);
+                matrix_file_name = require_exists(context, optarg);
                 break;
                 
             case 'o':

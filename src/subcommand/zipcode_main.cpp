@@ -91,21 +91,21 @@ int main_zipcode(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = error_if_file_does_not_exist(context, optarg);
+                xg_name = require_exists(context, optarg);
                 break;
                 
             case 'g':
-                gcsa_name = error_if_file_does_not_exist(context, optarg);
+                gcsa_name = require_exists(context, optarg);
                 // We also need the LCP index
-                error_if_file_does_not_exist(context, gcsa_name + ".lcp");
+                require_exists(context, gcsa_name + ".lcp");
                 break;
             
             case 'm':
-                minimizer_name = error_if_file_does_not_exist(context, optarg);
+                minimizer_name = require_exists(context, optarg);
                 break;
                 
             case 'd':
-                distance_name = error_if_file_does_not_exist(context, optarg);
+                distance_name = require_exists(context, optarg);
                 break;
             
             case 'c':

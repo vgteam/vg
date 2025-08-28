@@ -121,7 +121,7 @@ int main_gamsort(int argc, char **argv)
 
         // GAM sorting options.
         case 'i':
-            index_filename = error_if_file_cannot_be_written(context, optarg);
+            index_filename = ensure_writable(context, optarg);
             break;
         case 'd':
             easy_sort = true;
@@ -141,7 +141,7 @@ int main_gamsort(int argc, char **argv)
             gaf_params.stable = true;
             break;
         case 'g':
-            gaf_params.gbwt_file = error_if_file_cannot_be_written(context, optarg);
+            gaf_params.gbwt_file = ensure_writable(context, optarg);
             break;
         case 'b':
             gaf_params.bidirectional_gbwt = true;

@@ -121,27 +121,27 @@ int main_primers(int argc, char** argv) {
         switch (c)
         {
         case 'x':
-            xg_path = error_if_file_does_not_exist(context, optarg);
+            xg_path = require_exists(context, optarg);
             break;
         
         case 'd':
-            distance_index_path = error_if_file_does_not_exist(context, optarg);
+            distance_index_path = require_exists(context, optarg);
             break;
         
         case 'r':
-            ri_path = error_if_file_does_not_exist(context, optarg);
+            ri_path = require_exists(context, optarg);
             break;
         
         case 'g':
-            gbz_path = error_if_file_does_not_exist(context, optarg);
+            gbz_path = require_exists(context, optarg);
             break;
         
         case 'M':
-            min_path = error_if_file_does_not_exist(context, optarg);
+            min_path = require_exists(context, optarg);
             break;
         
         case 'Z':
-            zip_path = error_if_file_does_not_exist(context, optarg);
+            zip_path = require_exists(context, optarg);
             break;
         
         case 'v':

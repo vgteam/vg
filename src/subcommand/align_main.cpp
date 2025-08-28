@@ -149,7 +149,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = error_if_file_does_not_exist(context, optarg);
+            matrix_file_name = require_exists(context, optarg);
             break;
 
         case 'r':

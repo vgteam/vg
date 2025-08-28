@@ -239,17 +239,17 @@ int main_autoindex(int argc, char** argv) {
                 registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
-                vcf_names.push_back(error_if_file_does_not_exist(context, optarg));
+                vcf_names.push_back(require_exists(context, optarg));
                 break;
             case 'i':
                 require_non_gzipped(context, optarg);
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                gfa_name = error_if_file_does_not_exist(context, optarg);
+                gfa_name = require_exists(context, optarg);
                 break;
             case 'G':
-                gbz_name = error_if_file_does_not_exist(context, optarg);
+                gbz_name = require_exists(context, optarg);
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -273,7 +273,7 @@ int main_autoindex(int argc, char** argv) {
                 break;
             }
             case 'R':
-                targets.emplace_back(error_if_file_cannot_be_written(context, optarg));
+                targets.emplace_back(ensure_writable(context, optarg));
                 break;
             case 'M':
                 target_mem_usage = parse_memory_usage(optarg);

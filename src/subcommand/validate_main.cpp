@@ -75,7 +75,7 @@ int main_validate(int argc, char** argv) {
                 break;
 
             case 'a':
-                gam_path = error_if_file_does_not_exist(context, optarg);
+                gam_path = require_exists(context, optarg);
                 break;
                 
             case 'A':

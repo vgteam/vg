@@ -579,10 +579,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         {
         // General
         case 'x':
-            config.graph_name = error_if_file_does_not_exist(context, optarg);
+            config.graph_name = require_exists(context, optarg);
             break;
         case 'o':
-            config.gbwt_output = error_if_file_cannot_be_written(context, optarg);
+            config.gbwt_output = ensure_writable(context, optarg);
             break;
         case 'd':
             temp_file::set_dir(optarg);
@@ -705,7 +705,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.gfa_parameters.path_name_formats.back().fields = optarg;
             break;
         case OPT_TRANSLATION:
-            config.segment_translation = error_if_file_cannot_be_written(context, optarg);
+            config.segment_translation = ensure_writable(context, optarg);
             break;
 
         // Input GBWT construction: GBZ
@@ -847,7 +847,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // GBWTGraph
         case 'g':
-            config.graph_output = error_if_file_cannot_be_written(context, optarg);
+            config.graph_output = ensure_writable(context, optarg);
             break;
         case OPT_GBZ_FORMAT:
             config.gbz_format = true;
@@ -855,7 +855,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Build r-index
         case 'r':
-            config.r_index_name = error_if_file_cannot_be_written(context, optarg);
+            config.r_index_name = ensure_writable(context, optarg);
             break;
 
         // Metadata
@@ -904,7 +904,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.path_mode = true;
             break;
         case 'e':
-            config.path_output = error_if_file_cannot_be_written(context, optarg);
+            config.path_output = ensure_writable(context, optarg);
             config.path_mode = true;
             break;
 

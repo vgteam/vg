@@ -147,7 +147,7 @@ int main_cluster(int argc, char** argv) {
         {
             case 'x':
                 // Remember the string for MEMs
-                graph_name = error_if_file_does_not_exist(context, optarg);
+                graph_name = require_exists(context, optarg);
                 break;
 
             case 'f':
@@ -174,7 +174,7 @@ int main_cluster(int argc, char** argv) {
 
             
             case 'm':
-                minimizer_name = error_if_file_does_not_exist(context, optarg);
+                minimizer_name = require_exists(context, optarg);
                 break;
                 
             case 'l':
@@ -182,7 +182,7 @@ int main_cluster(int argc, char** argv) {
                 break;
                 
             case 'd':
-                distance_name = error_if_file_does_not_exist(context, optarg);
+                distance_name = require_exists(context, optarg);
                 registry.provide("Giraffe Distance Index", optarg);
                 break;
 

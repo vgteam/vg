@@ -84,19 +84,19 @@ int main_translate(int argc, char** argv) {
             break;
 
         case 'p':
-            path_file = error_if_file_does_not_exist(context, optarg);
+            path_file = require_exists(context, optarg);
             break;
 
         case 'a':
-            aln_file = error_if_file_does_not_exist(context, optarg);
+            aln_file = require_exists(context, optarg);
             break;
 
         case 'l':
-            loci_file = error_if_file_does_not_exist(context, optarg);
+            loci_file = require_exists(context, optarg);
             break;
 
         case 'o':
-            overlay_file = error_if_file_does_not_exist(context, optarg);
+            overlay_file = require_exists(context, optarg);
             break;
 
         case 'h':

@@ -118,12 +118,12 @@ int main_vectorize(int argc, char** argv){
                 help_vectorize(argv);
                 return 1;
             case 'x':
-                xg_name = error_if_file_does_not_exist(context, optarg);
+                xg_name = require_exists(context, optarg);
                 break;
             case 'g':
-                gcsa_name = error_if_file_does_not_exist(context, optarg);
+                gcsa_name = require_exists(context, optarg);
                 // We also need the LCP index
-                error_if_file_does_not_exist(context, gcsa_name + ".lcp");
+                require_exists(context, gcsa_name + ".lcp");
                 break;
             case 'm':
                 mem_sketch = true;
@@ -151,7 +151,7 @@ int main_vectorize(int argc, char** argv){
                 format = true;
                 break;
             case 'M':
-                wabbit_mapping_file = error_if_file_cannot_be_written(context, optarg);
+                wabbit_mapping_file = ensure_writable(context, optarg);
                 break;
             default:
                 abort();

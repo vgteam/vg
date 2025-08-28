@@ -117,7 +117,7 @@ int main_depth(int argc, char** argv) {
         switch (c)
         {
         case 'k':
-            pack_filename = error_if_file_does_not_exist(context, optarg);
+            pack_filename = require_exists(context, optarg);
             break;
         case 'p':
             ref_paths_input_set.insert(optarg);
@@ -132,10 +132,10 @@ int main_depth(int argc, char** argv) {
             count_dels = true;
             break;            
         case 'g':
-            gam_filename = error_if_file_does_not_exist(context, optarg);
+            gam_filename = require_exists(context, optarg);
             break;
         case 'a':
-            gaf_filename = error_if_file_does_not_exist(context, optarg);
+            gaf_filename = require_exists(context, optarg);
             break;
         case 'n':
             max_nodes = parse<size_t>(optarg);

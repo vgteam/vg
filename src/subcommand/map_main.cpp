@@ -348,21 +348,21 @@ int main_map(int argc, char** argv) {
 
         case 'd':
             db_name = optarg;
-            error_if_file_does_not_exist(context, db_name + ".xg");
-            error_if_file_does_not_exist(context, db_name + gcsa::GCSA::EXTENSION);
+            require_exists(context, db_name + ".xg");
+            require_exists(context, db_name + gcsa::GCSA::EXTENSION);
             // GBWT is optional
             break;
 
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'g':
-            gcsa_name = error_if_file_does_not_exist(context, optarg);
+            gcsa_name = require_exists(context, optarg);
             break;
             
         case '1':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
 
         case 'V':
@@ -419,7 +419,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
-            read_file = error_if_file_does_not_exist(context, optarg);
+            read_file = require_exists(context, optarg);
             break;
 
         case 'R':
@@ -431,7 +431,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'b':
-            hts_file = error_if_file_does_not_exist(context, optarg);
+            hts_file = require_exists(context, optarg);
             break;
 
         case 'K':
@@ -447,7 +447,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'F':
-            fasta_file = error_if_file_does_not_exist(context, optarg);
+            fasta_file = require_exists(context, optarg);
             break;
 
         case 'i':
@@ -479,7 +479,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'G':
-            gam_input = error_if_file_does_not_exist(context, optarg);
+            gam_input = require_exists(context, optarg);
             break;
 
         case 'j':
@@ -548,7 +548,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case OPT_SCORE_MATRIX:
-            matrix_file_name = error_if_file_does_not_exist(context, optarg);
+            matrix_file_name = require_exists(context, optarg);
             break;
 
         case 'o':
@@ -588,7 +588,7 @@ int main_map(int argc, char** argv) {
             break;
             
         case OPT_REF_PATHS:
-            ref_paths_name = error_if_file_does_not_exist(context, optarg);
+            ref_paths_name = require_exists(context, optarg);
             break;
 
         case OPT_REF_NAME:

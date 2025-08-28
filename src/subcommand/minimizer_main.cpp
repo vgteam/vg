@@ -168,15 +168,15 @@ int main_minimizer(int argc, char** argv) {
         switch (c)
         {
         case 'g':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
         case 'd':
-            distance_name = error_if_file_does_not_exist(context, optarg);
+            distance_name = require_exists(context, optarg);
             break;
         case 'i':
             emit_warning(context, "--index-name is deprecated; use --output-name instead");
         case 'o': // fallthrough for -i as well
-            output_name = error_if_file_cannot_be_written(context, optarg);
+            output_name = ensure_writable(context, optarg);
             break;
 
         case 'k':
@@ -223,10 +223,10 @@ int main_minimizer(int argc, char** argv) {
             break;
 
         case 'z':
-            zipcode_name = error_if_file_cannot_be_written(context, optarg);
+            zipcode_name = ensure_writable(context, optarg);
             break;
         case 'l':
-            load_index = error_if_file_does_not_exist(context, optarg);
+            load_index = require_exists(context, optarg);
             break;
         case 'G':
             emit_warning(context, "--gbwt-graph is deprecated; graph format is now autodetected");

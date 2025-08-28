@@ -200,15 +200,15 @@ int main_chunk(int argc, char** argv) {
         {
 
         case 'x':
-            xg_file = error_if_file_does_not_exist(context, optarg);
+            xg_file = require_exists(context, optarg);
             break;
         
         case 'G':
-            gbwt_file = error_if_file_does_not_exist(context, optarg);
+            gbwt_file = require_exists(context, optarg);
             break;
 
         case 'a':
-            aln_files.push_back(error_if_file_does_not_exist(context, optarg));
+            aln_files.push_back(require_exists(context, optarg));
             break;
             
         case 'g':
@@ -224,7 +224,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'P':
-            path_list_file = error_if_file_does_not_exist(context, optarg);
+            path_list_file = require_exists(context, optarg);
             break;
 
         case 's':
@@ -236,15 +236,15 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'e':
-            in_bed_file = error_if_file_does_not_exist(context, optarg);
+            in_bed_file = require_exists(context, optarg);
             break;
             
         case 'S':
-            snarl_filename = error_if_file_does_not_exist(context, optarg);
+            snarl_filename = require_exists(context, optarg);
             break;
             
         case 'E':
-            out_bed_file = error_if_file_cannot_be_written(context, optarg);
+            out_bed_file = ensure_writable(context, optarg);
             break;
 
         case 'b':
@@ -266,7 +266,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'R':
-            node_ranges_file = error_if_file_does_not_exist(context, optarg);
+            node_ranges_file = require_exists(context, optarg);
             id_range = true;
             break;
 
@@ -958,7 +958,7 @@ int main_chunk(int argc, char** argv) {
             // Even if we have only one chunk, the trace annotation data always
             // ends up in a file.
             string annot_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".annotate.txt", 0, components);
-            error_if_file_cannot_be_written(context, annot_name);
+            ensure_writable(context, annot_name);
             ofstream out_annot_file(annot_name);
             for (auto tf : trace_thread_frequencies) {
                 out_annot_file << tf.first << "\t" << tf.second << endl;
@@ -1008,7 +1008,7 @@ int main_chunk(int argc, char** argv) {
             string gam_name = chunk_name(out_chunk_prefix, comp_number, output_regions[comp_number], ".gam", 0, components);
             {
                 std::lock_guard<std::mutex> guard(output_buffer_locks[comp_number]);
-                error_if_file_cannot_be_written(context, gam_name);
+                ensure_writable(context, gam_name);
                 ofstream out_gam_file(gam_name, append_buffer[comp_number] ? std::ios_base::app : std::ios_base::out);
                 vg::io::write_buffered(out_gam_file, output_buffers[buffer_idx], output_buffers[buffer_idx].size());
                 append_buffer[comp_number] = true;
@@ -1137,7 +1137,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                     }
                     stringstream out_name;
                     out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
-                    out_file.open(error_if_file_cannot_be_written(context, out_name.str()));
+                    out_file.open(ensure_writable(context, out_name.str()));
                     // Open a new multiplexer on the new file
                     gam_multiplexer.reset(new vg::io::StreamMultiplexer(out_file, thread_count));
                 }

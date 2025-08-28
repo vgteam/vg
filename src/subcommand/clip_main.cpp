@@ -149,7 +149,7 @@ int main_clip(int argc, char** argv) {
             help_clip(argv);
             return 1;
         case 'b':
-            bed_path = error_if_file_does_not_exist(context, optarg);
+            bed_path = require_exists(context, optarg);
             break;
         case 'd':
             min_depth = parse<size_t>(optarg);
@@ -212,7 +212,7 @@ int main_clip(int argc, char** argv) {
             ref_prefixes.push_back(optarg);
             break;
         case 'r':
-            snarls_path = error_if_file_does_not_exist(context, optarg);
+            snarls_path = require_exists(context, optarg);
             break;
         case 'm':
             min_fragment_len = parse<int>(optarg);

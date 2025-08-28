@@ -149,12 +149,12 @@ int32_t main_rna(int32_t argc, char** argv) {
         {
 
         case 'n':
-            transcript_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            transcript_filenames.push_back(require_exists(context, optarg));
             require_non_gzipped(context, transcript_filenames.back());
             break;
 
         case 'm':
-            intron_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            intron_filenames.push_back(require_exists(context, optarg));
             require_non_gzipped(context, intron_filenames.back());
             break;
 
@@ -167,7 +167,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 'l':
-            haplotypes_filename = error_if_file_does_not_exist(context, optarg);
+            haplotypes_filename = require_exists(context, optarg);
             break;
 
         case 'z':
@@ -207,19 +207,19 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
                 
         case 'b':
-            gbwt_out_filename = error_if_file_cannot_be_written(context, optarg);
+            gbwt_out_filename = ensure_writable(context, optarg);
             break;
             
         case 'v':
-            hap_gbwt_out_filename = error_if_file_cannot_be_written(context, optarg);
+            hap_gbwt_out_filename = ensure_writable(context, optarg);
             break;
 
         case 'f':
-            fasta_out_filename = error_if_file_cannot_be_written(context, optarg);
+            fasta_out_filename = ensure_writable(context, optarg);
             break;
 
         case 'i':
-            info_out_filename = error_if_file_cannot_be_written(context, optarg);
+            info_out_filename = ensure_writable(context, optarg);
             break;
 
         case 'u':

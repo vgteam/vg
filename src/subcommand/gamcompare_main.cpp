@@ -157,11 +157,11 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 'd':
-            distance_name = error_if_file_does_not_exist(context, optarg);
+            distance_name = require_exists(context, optarg);
             break;
 
         case 'o':
-            output_gam = error_if_file_cannot_be_written(context, optarg);
+            output_gam = ensure_writable(context, optarg);
             break;
 
         case 'T':

@@ -152,7 +152,7 @@ int main_sift(int argc, char** argv) {
                 omp_set_num_threads(parse_thread_count(context, optarg));
                 break;
             case 'G':
-                graph_name = error_if_file_does_not_exist(context, optarg);
+                graph_name = require_exists(context, optarg);
                 break;
             case 'u':
                 do_unmapped = true;

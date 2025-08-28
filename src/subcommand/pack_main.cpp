@@ -106,19 +106,19 @@ int main_pack(int argc, char** argv) {
             help_pack(argv);
             return 1;
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
         case 'o':
-            packs_out = error_if_file_cannot_be_written(context, optarg);
+            packs_out = ensure_writable(context, optarg);
             break;
         case 'i':
-            packs_in.push_back(error_if_file_does_not_exist(context, optarg));
+            packs_in.push_back(require_exists(context, optarg));
             break;
         case 'g':
-            gam_in = error_if_file_does_not_exist(context, optarg);
+            gam_in = require_exists(context, optarg);
             break;
         case 'a':
-            gaf_in = error_if_file_does_not_exist(context, optarg);
+            gaf_in = require_exists(context, optarg);
             break;
         case 'd':
             write_table = true;
@@ -142,7 +142,7 @@ int main_pack(int argc, char** argv) {
             node_ids.push_back(parse<int>(optarg));
             break;
         case 'N':
-            node_list_file = error_if_file_does_not_exist(context, optarg);
+            node_list_file = require_exists(context, optarg);
             break;
         case 'Q':
             min_mapq = parse<int>(optarg);

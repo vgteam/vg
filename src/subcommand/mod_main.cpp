@@ -337,11 +337,11 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'v':
-            vcf_filename = error_if_file_does_not_exist(context, optarg);
+            vcf_filename = require_exists(context, optarg);
             break;
             
         case 'G':
-            loci_filename = error_if_file_does_not_exist(context, optarg);
+            loci_filename = require_exists(context, optarg);
             break;
 
         case 'M':

@@ -248,7 +248,7 @@ int main_sim(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
             
         case 'r':
@@ -296,15 +296,15 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'g':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
 
         case 'T':
-            rsem_file_name = error_if_file_does_not_exist(context, optarg);
+            rsem_file_name = require_exists(context, optarg);
             break;
                 
         case 'H':
-            haplotype_transcript_file_name = error_if_file_does_not_exist(context, optarg);
+            haplotype_transcript_file_name = require_exists(context, optarg);
             break;
 
         case 'l':
@@ -386,7 +386,7 @@ int main_sim(int argc, char** argv) {
             break;
                 
         case 'E':
-            path_pos_filename = error_if_file_does_not_exist(context, optarg);
+            path_pos_filename = require_exists(context, optarg);
             break;
             
         case 'h':

@@ -233,7 +233,7 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'a':
-            alignments_filename = error_if_file_does_not_exist(context, optarg);
+            alignments_filename = require_exists(context, optarg);
             break;
 
         case 'r':
@@ -280,7 +280,7 @@ int main_stats(int argc, char** argv) {
             degree_dist = true;
             break;
         case 'b':
-            distance_index_filename = error_if_file_does_not_exist(context, optarg);
+            distance_index_filename = require_exists(context, optarg);
             break;
         case 'p':
             omp_set_num_threads(parse_thread_count(context, optarg));

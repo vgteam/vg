@@ -235,16 +235,16 @@ int main_index(int argc, char** argv) {
         // GCSA
         case 'g':
             build_gcsa = true;
-            gcsa_name = error_if_file_cannot_be_written(context, optarg);
+            gcsa_name = ensure_writable(context, optarg);
             // We also write to gcsa_name + ".lcp"
-            error_if_file_cannot_be_written(context, gcsa_name + ".lcp");
+            ensure_writable(context, gcsa_name + ".lcp");
             break;
         case 'i':
             emit_warning(context, "-i option is deprecated");
             dbg_names.push_back(optarg);
             break;
         case 'f':
-            mapping_name = error_if_file_does_not_exist(context, optarg);
+            mapping_name = require_exists(context, optarg);
             break;
         case 'k':
             kmer_size = std::max(parse<size_t>(optarg), 1ul);
@@ -272,7 +272,7 @@ int main_index(int argc, char** argv) {
         //Snarl distance index
         case 'j':
             build_dist = true;
-            dist_name = error_if_file_cannot_be_written(context, optarg);
+            dist_name = ensure_writable(context, optarg);
             break;
         case OPT_DISTANCE_SNARL_LIMIT:
             snarl_limit = parse<int>(optarg);
@@ -530,7 +530,7 @@ int main_index(int argc, char** argv) {
             // Save the index in the appropriate place.
             // TODO: Do we really like this enforced naming convention just beacuse samtools does it?
             string index_name = file_names.at(0) + ".vgi";
-            error_if_file_cannot_be_written(context, index_name);
+            ensure_writable(context, index_name);
             ofstream index_out(index_name);
             index.save(index_out);
         });

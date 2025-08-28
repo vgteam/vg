@@ -146,13 +146,13 @@ int main_deconstruct(int argc, char** argv){
             emit_warning(context, "-H is deprecated, and will be ignored");
             break;
         case 'r':
-            snarl_file_name = error_if_file_does_not_exist(context, optarg);
+            snarl_file_name = require_exists(context, optarg);
             break;
         case 'g':
-            gbwt_file_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_file_name = require_exists(context, optarg);
             break;
         case 'T':
-            translation_file_name = error_if_file_does_not_exist(context, optarg);
+            translation_file_name = require_exists(context, optarg);
             break;
         case 'O':
             gbz_translation = true;

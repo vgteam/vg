@@ -84,7 +84,7 @@ int main_circularize(int argc, char** argv){
                 path = optarg;
                 break;
             case 'P':
-                pathfile = error_if_file_does_not_exist(context, optarg);
+                pathfile = require_exists(context, optarg);
                 break;
             case 'd':
                 describe = true;

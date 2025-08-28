@@ -76,7 +76,7 @@ int main_inject(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
         
         case 'o':

@@ -89,7 +89,7 @@ int main_sort(int argc, char *argv[]) {
             without_grooming = true;
             break;
         case 'I':
-            sorted_index_filename = error_if_file_cannot_be_written(context, optarg);
+            sorted_index_filename = ensure_writable(context, optarg);
             break;
         case 'h':
         case '?':

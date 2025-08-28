@@ -121,7 +121,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'r':
-            traversal_file = error_if_file_cannot_be_written(context, optarg);
+            traversal_file = ensure_writable(context, optarg);
             break;
 
         case 'l':
@@ -155,13 +155,13 @@ int main_snarl(int argc, char** argv) {
             fill_path_names = true;
             break;
         case 'v':
-            vcf_filename = error_if_file_does_not_exist(context, optarg);
+            vcf_filename = require_exists(context, optarg);
             break;
         case 'f':
-            ref_fasta_filename = error_if_file_does_not_exist(context, optarg);
+            ref_fasta_filename = require_exists(context, optarg);
             break;
         case 'i':
-            ins_fasta_filename = error_if_file_does_not_exist(context, optarg);
+            ins_fasta_filename = require_exists(context, optarg);
             break;
         case 'e':
             path_traversals = true;

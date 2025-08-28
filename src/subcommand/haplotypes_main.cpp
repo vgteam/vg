@@ -323,23 +323,23 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         switch (c)
         {
         case 'g':
-            this->gbz_output = error_if_file_cannot_be_written(context, optarg);
+            this->gbz_output = ensure_writable(context, optarg);
             break;
         case 'H':
-            this->haplotype_output = error_if_file_cannot_be_written(context, optarg);
+            this->haplotype_output = ensure_writable(context, optarg);
             break;
 
         case 'd':
-            this->distance_name = error_if_file_does_not_exist(context, optarg);
+            this->distance_name = require_exists(context, optarg);
             break;
         case 'r':
-            this->r_index_name = error_if_file_does_not_exist(context, optarg);
+            this->r_index_name = require_exists(context, optarg);
             break;
         case 'i':
-            this->haplotype_input = error_if_file_does_not_exist(context, optarg);
+            this->haplotype_input = require_exists(context, optarg);
             break;
         case 'k':
-            this->kmer_input = error_if_file_does_not_exist(context, optarg);
+            this->kmer_input = require_exists(context, optarg);
             break;
 
         case OPT_KMER_LENGTH:

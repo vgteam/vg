@@ -126,11 +126,11 @@ int main_simplify(int argc, char** argv) {
             break;
             
         case 'b':
-            bed_in_filename = error_if_file_does_not_exist(context, optarg);
+            bed_in_filename = require_exists(context, optarg);
             break;
         
         case 'B':
-            bed_out_filename = error_if_file_cannot_be_written(context, optarg);
+            bed_out_filename = ensure_writable(context, optarg);
             break;
 
         case 'm':
@@ -154,7 +154,7 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 'v':
-            vcf_filename = error_if_file_does_not_exist(context, optarg);
+            vcf_filename = require_exists(context, optarg);
             break;
 
         case 'f':

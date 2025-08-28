@@ -196,13 +196,13 @@ int main_find(int argc, char** argv) {
         {
 
         case 'x':
-            xg_name = error_if_file_does_not_exist(context, optarg);
+            xg_name = require_exists(context, optarg);
             break;
 
         case 'g':
-            gcsa_in = error_if_file_does_not_exist(context, optarg);
+            gcsa_in = require_exists(context, optarg);
             // We need the LCP too
-            error_if_file_does_not_exist(context, gcsa_in + ".lcp");
+            require_exists(context, gcsa_in + ".lcp");
             break;
 
         case 'M':
@@ -235,7 +235,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'R':
-            bed_targets_file = error_if_file_does_not_exist(context, optarg);
+            bed_targets_file = require_exists(context, optarg);
             break;
 
         case 'E':
@@ -264,11 +264,11 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'N':
-            node_list_file = error_if_file_does_not_exist(context, optarg);
+            node_list_file = require_exists(context, optarg);
             break;
 
         case OPT_MAPPING:
-            node_mapping_file = error_if_file_does_not_exist(context, optarg);
+            node_mapping_file = require_exists(context, optarg);
             break;
 
         case 'e':
@@ -284,11 +284,11 @@ int main_find(int argc, char** argv) {
             break;
         
         case 'l':
-            sorted_gam_name = error_if_file_does_not_exist(context, optarg);
+            sorted_gam_name = require_exists(context, optarg);
             break;
 
         case 'F':
-            sorted_gaf_name = error_if_file_does_not_exist(context, optarg);
+            sorted_gaf_name = require_exists(context, optarg);
             break;
 
         case 'I':
@@ -313,7 +313,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'G':
-            gam_file = error_if_file_does_not_exist(context, optarg);
+            gam_file = require_exists(context, optarg);
             break;
             
         case OPT_CONNECTING_START:
@@ -329,7 +329,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'A':
-            to_graph_file = error_if_file_does_not_exist(context, optarg);
+            to_graph_file = require_exists(context, optarg);
             break;
 
         case 'K':
@@ -337,7 +337,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'H':
-            gbwt_name = error_if_file_does_not_exist(context, optarg);
+            gbwt_name = require_exists(context, optarg);
             break;
 
         case 'h':

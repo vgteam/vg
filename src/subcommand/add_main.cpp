@@ -89,7 +89,7 @@ int main_add(int argc, char** argv) {
         {
 
         case 'v':
-            vcf_filenames.push_back(error_if_file_does_not_exist(context, optarg));
+            vcf_filenames.push_back(require_exists(context, optarg));
             break;
             
         case 'n':
