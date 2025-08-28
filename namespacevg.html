@@ -103,6 +103,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentChainModelVertex.html">AlignmentChainModelVertex</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AlignmentValidity.html">AlignmentValidity</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Annotation.html">Annotation</a></td></tr>
@@ -1018,6 +1020,7 @@ Functions</h2></td></tr>
 <tr class="memitem:a461b5385c79e073ab10d8fe860ff9428"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a461b5385c79e073ab10d8fe860ff9428">bam_to_alignment</a> (const bam1_t *b, const map&lt; string, string &gt; &amp;rg_sample, const map&lt; int, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;tid_path_handle, const bam_hdr_t *bh, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph)</td></tr>
 <tr class="separator:a461b5385c79e073ab10d8fe860ff9428"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f8705957c0972a6b4778efb5036c6aa"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1f8705957c0972a6b4778efb5036c6aa">bam_to_alignment</a> (const bam1_t *b, const map&lt; string, string &gt; &amp;rg_sample, const map&lt; int, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;tid_path_handle)</td></tr>
+<tr class="memdesc:a1f8705957c0972a6b4778efb5036c6aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a BAM record to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> without a graph.  <a href="namespacevg.html#a1f8705957c0972a6b4778efb5036c6aa">More...</a><br /></td></tr>
 <tr class="separator:a1f8705957c0972a6b4778efb5036c6aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38cb960f8c643934d65c03f0cc85442c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38cb960f8c643934d65c03f0cc85442c">alignment_to_length</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;a)</td></tr>
 <tr class="separator:a38cb960f8c643934d65c03f0cc85442c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5755,6 +5758,8 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 
+<p>Convert a BAM record to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> without a graph. </p>
+
 </div>
 </div>
 <a id="a461b5385c79e073ab10d8fe860ff9428"></a>
@@ -5800,6 +5805,7 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Convert a BAM record to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. May throw <a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a> if the BAM record is inconsistent with the provided graph. </p>
 
 </div>
 </div>
@@ -25728,7 +25734,8 @@ template&lt;typename Number &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Make an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> corresponding to a subregion of a stored path. Positions are 0-based, and pos2 is excluded. Respects path circularity, so pos2 &lt; pos1 is not a problem. If pos1 == pos2, returns an empty alignment. </p>
+<p>Make an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> corresponding to a subregion of a stored path. Positions are 0-based, and pos2 is excluded. Respects path circularity, so pos2 &lt; pos1 is not a problem. If pos1 == pos2, returns an empty alignment.</p>
+<p>Throws <a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a> if the region goes out of range, or tries to go across the junction of a non-circular path. Despite taking 0-based coordinates, error messages will describe 1-based coordinates. </p>
 
 </div>
 </div>
@@ -25787,7 +25794,8 @@ template&lt;typename Number &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Same as above, but uses the given <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, translated directly form a CIGAR string, as a source of edits. The edits are inserted into the generated <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, cut as necessary to fit into the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s Mappings. </p>
+<p>Same as above, but uses the given <a class="el" href="structvg_1_1Mapping.html">Mapping</a>, translated directly form a CIGAR string, as a source of edits. The edits are inserted into the generated <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, cut as necessary to fit into the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s Mappings.</p>
+<p>Throws <a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a> if the region goes out of range, or tries to go across the junction of a non-circular path, or if cigar_mapping describes edits that are impossible, like matches past the end of the described region. Despite taking 0-based coordinates, error messages will describe 1-based coordinates. </p>
 
 </div>
 </div>

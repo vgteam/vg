@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/vg_git_version.hpp File Reference</title>
+<title>vg: vg::AlignmentEmbeddingError Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,37 +62,29 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1AlignmentEmbeddingError.html">AlignmentEmbeddingError</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
-  <div class="summary">
-<a href="#define-members">Macros</a>  </div>
   <div class="headertitle">
-<div class="title">vg_git_version.hpp File Reference</div>  </div>
+<div class="title">vg::AlignmentEmbeddingError Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
-Macros</h2></td></tr>
-<tr class="memitem:a5df50394a80dec8f6151eb57db04a38a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="vg__git__version_8hpp.html#a5df50394a80dec8f6151eb57db04a38a">VG_GIT_VERSION</a>&#160;&#160;&#160;&quot;v1.68.0-4-g3a1c22a7&quot;</td></tr>
-<tr class="separator:a5df50394a80dec8f6151eb57db04a38a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table>
-<h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a5df50394a80dec8f6151eb57db04a38a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5df50394a80dec8f6151eb57db04a38a">&#9670;&nbsp;</a></span>VG_GIT_VERSION</h2>
 
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define VG_GIT_VERSION&#160;&#160;&#160;&quot;v1.68.0-4-g3a1c22a7&quot;</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
+<p><code>#include &lt;alignment.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::AlignmentEmbeddingError:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classvg_1_1AlignmentEmbeddingError.png" alt=""/>
+ </div></div>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Represents a problem when trying to find a path region in a graph as an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, or when trying to inject a linear CIGAR-based alignment into the graph along an embedded path.</p>
+<p>This could be a problem like the alignment trying to go out of range on the embedded linear path/reference, or trying to go across the junction of a path that isn't really circular.</p>
+<p>We expect the user to be able to cause this with bad inputs, so this exception should be handled and reported in a helpful way, rather than as a crash. </p>
+</div><hr/>The documentation for this class was generated from the following file:<ul>
+<li>src/<a class="el" href="alignment_8hpp.html">alignment.hpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
