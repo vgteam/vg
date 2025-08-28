@@ -235,14 +235,14 @@ int main_autoindex(int argc, char** argv) {
                 }
                 break;
             case 'r':
-                error_if_file_is_gzipped(context, optarg);
+                require_non_gzipped(context, optarg);
                 registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
                 vcf_names.push_back(error_if_file_does_not_exist(context, optarg));
                 break;
             case 'i':
-                error_if_file_is_gzipped(context, optarg);
+                require_non_gzipped(context, optarg);
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':

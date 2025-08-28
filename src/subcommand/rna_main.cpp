@@ -150,12 +150,12 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'n':
             transcript_filenames.push_back(error_if_file_does_not_exist(context, optarg));
-            error_if_file_is_gzipped(context, transcript_filenames.back());
+            require_non_gzipped(context, transcript_filenames.back());
             break;
 
         case 'm':
             intron_filenames.push_back(error_if_file_does_not_exist(context, optarg));
-            error_if_file_is_gzipped(context, intron_filenames.back());
+            require_non_gzipped(context, intron_filenames.back());
             break;
 
         case 'y':
