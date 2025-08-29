@@ -260,12 +260,12 @@ class ZipCodeTree {
 
     /// Get all the seeds in the tree, in left-to-right order
     /// Also returns their orientations
-    vector<oriented_seed_t> get_all_seeds() const {
+    vector<oriented_seed_t> get_all_seeds(bool ignore_other_values = false) const {
         vector<oriented_seed_t> all_seeds;
         for (const auto& item : zip_code_tree) {
             if (item.get_type() == SEED) {
                 all_seeds.emplace_back(item.get_value(), item.get_other_values(), item.get_is_reversed());
-                if (item.has_other_values()) {
+                if (item.has_other_values() & !ignore_other_values) {
                     for (const auto& other_value : *(item.get_other_values())) {
                         all_seeds.emplace_back(other_value, item.get_other_values(), item.get_is_reversed());
                     }

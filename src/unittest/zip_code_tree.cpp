@@ -40,11 +40,33 @@ namespace unittest {
         unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> reverse_views;
         // Follow the the usual iteration process
         for (const auto& zip_tree : zip_forest.trees) {
-            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
+            auto seed_itr = zip_tree.begin();
+            bool right_to_left = true;
+
+            while (seed_itr != zip_tree.end()) {
                 auto dest = *seed_itr;
+                if (!right_to_left) {
+                    // Going backwards
+                    dest.is_reversed = !dest.is_reversed;
+                }
+
                 reverse_views[dest] = vector<ZipCodeTree::seed_result_t>();
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
+                for (auto dist_itr = zip_tree.find_distances(seed_itr, right_to_left); !dist_itr.done(); ++dist_itr) {
                     reverse_views[dest].push_back((*dist_itr));
+                }
+
+                if (seed_itr.in_cyclic_snarl()) {
+                    if (right_to_left) {
+                        // Seeds in cyclic snarls are checked in both directions
+                        right_to_left = false;
+                    } else {
+                        right_to_left = true;
+                        // After going in both directions, we can advance
+                        ++seed_itr;
+                    }
+                } else {
+                    // Seeds in non-cyclic snarls are only checked in one direction.
+                    ++seed_itr;
                 }
             }
         }
@@ -60,8 +82,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("One seed") {
             // [1+0] (Section starts with the expected ziptree)
@@ -90,12 +110,14 @@ namespace unittest {
             REQUIRE(seed_indexes.size() == 1);
             REQUIRE(seed_indexes.at(0).seed == 0);
 
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 1);
-            // The only seed can't see any other seeds
-            REQUIRE(reverse_views.count({0, false}));
-            REQUIRE(reverse_views[{0, false}].empty());
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 1);
+                // The only seed can't see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
+            }
         }
         SECTION("Two seeds") {
             // [1+0 1 1+1]
@@ -140,19 +162,21 @@ namespace unittest {
             REQUIRE(seed_indexes.at(0).seed == 0);
             REQUIRE(seed_indexes.at(1).seed == 1);
 
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 2);
-            // The first seed can't see any other seeds
-            REQUIRE(reverse_views.count({0, false}));
-            REQUIRE(reverse_views[{0, false}].empty());
-            
-            REQUIRE(reverse_views.count({1, false}));
-            REQUIRE(reverse_views[{1, false}].size() == 1);
-            // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][0].seed == 0);
-            REQUIRE(reverse_views[{1, false}][0].distance == 1);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 2);
+                // The first seed can't see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
+                
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                // The second seed can see the first seed at distance 1
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 1);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+            }
         }
         SECTION("Three seeds") {
             // [1+0 1 1+1 1 1+2]
@@ -213,29 +237,31 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
 
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 3);
-            // The first seed can't see any other seeds
-            REQUIRE(reverse_views.count({0, false}));
-            REQUIRE(reverse_views[{0, false}].empty());
-            
-            REQUIRE(reverse_views.count({1, false}));
-            REQUIRE(reverse_views[{1, false}].size() == 1);
-            // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][0].seed == 0);
-            REQUIRE(reverse_views[{1, false}][0].distance == 1);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
-            
-            REQUIRE(reverse_views.count({2, false}));
-            REQUIRE(reverse_views[{2, false}].size() == 2);
-            // The third seed can see both previous seeds, in reverse order
-            REQUIRE(reverse_views[{2, false}][0].seed == 1);
-            REQUIRE(reverse_views[{2, false}][0].distance == 1);
-            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
-            REQUIRE(reverse_views[{2, false}][1].seed == 0);
-            REQUIRE(reverse_views[{2, false}][1].distance == 2);
-            REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 3);
+                // The first seed can't see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
+                
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                // The second seed can see the first seed at distance 1
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 1);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+                
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 2);
+                // The third seed can see both previous seeds, in reverse order
+                REQUIRE(reverse_views[{2, false}][0].seed == 1);
+                REQUIRE(reverse_views[{2, false}][0].distance == 1);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+                REQUIRE(reverse_views[{2, false}][1].seed == 0);
+                REQUIRE(reverse_views[{2, false}][1].distance == 2);
+                REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
+            }
         }
     }
     TEST_CASE("zip tree two node chain", "[zip_tree]") {
@@ -249,8 +275,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("Three seeds") {
             // [1+0 1 1+1 4 2+2]
@@ -337,29 +361,31 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
 
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 3);
-            // The first seed can't see any other seeds
-            REQUIRE(reverse_views.count({0, false}));
-            REQUIRE(reverse_views[{0, false}].empty());
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 3);
+                // The first seed can't see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
 
-            REQUIRE(reverse_views.count({1, false}));
-            REQUIRE(reverse_views[{1, false}].size() == 1);
-            // The second seed can see the first seed at distance 1
-            REQUIRE(reverse_views[{1, false}][0].seed == 0);
-            REQUIRE(reverse_views[{1, false}][0].distance == 1);
-            REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
-            
-            REQUIRE(reverse_views.count({2, false}));
-            REQUIRE(reverse_views[{2, false}].size() == 2);
-            // The third seed can see both previous seeds, in reverse order, at distances 4 and 5.
-            REQUIRE(reverse_views[{2, false}][0].seed == 1);
-            REQUIRE(reverse_views[{2, false}][0].distance == 4);
-            REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
-            REQUIRE(reverse_views[{2, false}][1].seed == 0);
-            REQUIRE(reverse_views[{2, false}][1].distance == 5);
-            REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                // The second seed can see the first seed at distance 1
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 1);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+                
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].size() == 2);
+                // The third seed can see both previous seeds, in reverse order, at distances 4 and 5.
+                REQUIRE(reverse_views[{2, false}][0].seed == 1);
+                REQUIRE(reverse_views[{2, false}][0].distance == 4);
+                REQUIRE(reverse_views[{2, false}][0].is_reversed == false);
+                REQUIRE(reverse_views[{2, false}][1].seed == 0);
+                REQUIRE(reverse_views[{2, false}][1].distance == 5);
+                REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
+            }
         }
         SECTION("Two buckets") {
             // [1+2 1 2+0] and [2+6]
@@ -387,8 +413,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("One seed on each component") {
             // [3+0] and [1+0]
@@ -418,14 +442,17 @@ namespace unittest {
                     REQUIRE(dag_non_dag_count.second == 0);
                 }
             }
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 2);
-            // Neither seed can see any other seeds
-            REQUIRE(reverse_views.count({0, false}));
-            REQUIRE(reverse_views[{0, false}].empty());
-            REQUIRE(reverse_views.count({1, false}));
-            REQUIRE(reverse_views[{1, false}].empty());
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 2);
+                // Neither seed can see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].empty());
+            }
         }
         SECTION("Four seeds") {
             // [3+0 5 4+2] and [1+0 5 2+2]
@@ -500,8 +527,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-        //graph.to_dot(cerr);
-
         SECTION("Seeds on chain nodes") {
             // [6+0rev 6 3+0rev 3 1+0rev]
             // Note that the ziptree may also be reversed
@@ -571,32 +596,34 @@ namespace unittest {
                 REQUIRE(seed_indexes.at(2).seed == 2);    
             }
 
-            // For each seed, what seeds and distances do we see in reverse from it?
-            auto reverse_views = get_reverse_views(zip_forest);
-            REQUIRE(reverse_views.size() == 3);
-            if (seed_indexes.at(0).is_reversed) {
-                // The first seed can't see any other seeds
-                REQUIRE(reverse_views.count({2, true}));
-                REQUIRE(reverse_views[{2, true}].empty());
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 3);
+                if (seed_indexes.at(0).is_reversed) {
+                    // The first seed can't see any other seeds
+                    REQUIRE(reverse_views.count({2, true}));
+                    REQUIRE(reverse_views[{2, true}].empty());
 
-                REQUIRE(reverse_views.count({1, true}));
-                REQUIRE(reverse_views[{1, true}].size() == 1);
-                // The second seed can see the first seed at distance 6
-                REQUIRE(reverse_views[{1, true}][0].seed == 2);
-                REQUIRE(reverse_views[{1, true}][0].distance == 6);
-                REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].size() == 1);
+                    // The second seed can see the first seed at distance 6
+                    REQUIRE(reverse_views[{1, true}][0].seed == 2);
+                    REQUIRE(reverse_views[{1, true}][0].distance == 6);
+                    REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
 
-                REQUIRE(reverse_views.count({0, true}));
-                REQUIRE(reverse_views[{0, true}].size() == 2);
-                // The third seed can't see both the others at distances 3 and 9
-                REQUIRE(reverse_views[{0, true}][0].seed == 1);
-                REQUIRE(reverse_views[{0, true}][0].distance == 3);
-                REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
-                REQUIRE(reverse_views[{0, true}][1].seed == 2);
-                REQUIRE(reverse_views[{0, true}][1].distance == 9);
-                REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
-            } else {
-                cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                    REQUIRE(reverse_views.count({0, true}));
+                    REQUIRE(reverse_views[{0, true}].size() == 2);
+                    // The third seed can't see both the others at distances 3 and 9
+                    REQUIRE(reverse_views[{0, true}][0].seed == 1);
+                    REQUIRE(reverse_views[{0, true}][0].distance == 3);
+                    REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                    REQUIRE(reverse_views[{0, true}][1].seed == 2);
+                    REQUIRE(reverse_views[{0, true}][1].distance == 9);
+                    REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
             }
         }
         SECTION("Seeds on chain nodes one reversed") {
@@ -658,23 +685,93 @@ namespace unittest {
             }
         }
         SECTION("One seed on snarl") {
-            // [6+0rev 6 3+0rev 0 (1  6  0  1 [2+1rev]) 3 1+0rev]
+            // [6+0rev 6 (1  6  0  1 [2+1rev]) 3 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 1);
-            positions.emplace_back(3, false, 0);
             positions.emplace_back(6, false, 0);
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
-            REQUIRE(zip_tree.get_tree_size() == 17);
+            REQUIRE(zip_tree.get_tree_size() == 15);
 
             SECTION("Count dags") {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 0);
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 3);
+                if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                    // The first seed can't see any other seeds
+                    REQUIRE(reverse_views.count({2, true}));
+                    REQUIRE(reverse_views[{2, true}].empty());
+
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].size() == 1);
+                    // The second seed can see the first seed at distance 12
+                    REQUIRE(reverse_views[{1, true}][0].seed == 2);
+                    REQUIRE(reverse_views[{1, true}][0].distance == 12);
+                    REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+
+                    REQUIRE(reverse_views.count({0, true}));
+                    REQUIRE(reverse_views[{0, true}].size() == 2);
+                    // The third seed can't see both the others at distances 4 and 9
+                    REQUIRE(reverse_views[{0, true}][0].seed == 1);
+                    REQUIRE(reverse_views[{0, true}][0].distance == 4);
+                    REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                    REQUIRE(reverse_views[{0, true}][1].seed == 2);
+                    REQUIRE(reverse_views[{0, true}][1].distance == 9);
+                    REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
+        }
+        SECTION("Reversed chain in snarl") {
+            // [(1  1  0  6 [2-1]) 0 1-0]
+            vector<pos_t> positions;
+            positions.emplace_back(1, true, 0);
+            positions.emplace_back(2, true, 1);
+
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 13);
+            // Make sure the distance matrix is OK
+            // (Reversed chains used to have inf dist-to-end bugs)
+            // C1->start
+            REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
+            // end->start
+            REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(4).get_value() == 0);
+            // end->C1
+            REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(5).get_value() == 6);
+
+            SECTION("Check iterator") {
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 2);
+                if (zip_forest.trees[0].get_item_at_index(1).get_is_reversed()) {
+                    // The first seed can't see any other seeds
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].empty());
+
+                    REQUIRE(reverse_views.count({0, true}));
+                    REQUIRE(reverse_views[{0, true}].size() == 1);
+                    // The second seed can see the first seed at distance 6
+                    REQUIRE(reverse_views[{0, true}][0].seed == 1);
+                    REQUIRE(reverse_views[{0, true}][0].distance == 6);
+                    REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
             }
         }
         SECTION("Three seeds on snarl") {
@@ -719,6 +816,34 @@ namespace unittest {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 1);
                 REQUIRE(dag_non_dag_count.second == 0);
+            }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 6);
+                if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                    // Only checking to make sure we skip the chains correctly
+                    
+                    // Seed right after the snarl
+                    REQUIRE(reverse_views.count({1, true}));
+                    // We see all the seeds to the left, not skipping any
+                    REQUIRE(reverse_views[{1, true}].size() == 4);
+
+                    // Seed in the first chain
+                    REQUIRE(reverse_views.count({3, true}));
+                    // We see the other seed in this chain, skip the other chain
+                    // and finally see the leftmost seed
+                    REQUIRE(reverse_views[{3, true}].size() == 2);
+                    REQUIRE(reverse_views[{3, true}][0].seed == 4);
+                    REQUIRE(reverse_views[{3, true}][0].distance == 1);
+                    REQUIRE(reverse_views[{3, true}][0].is_reversed == true);
+                    REQUIRE(reverse_views[{3, true}][1].seed == 5);
+                    REQUIRE(reverse_views[{3, true}][1].distance == 3);
+                    REQUIRE(reverse_views[{3, true}][1].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
             }
         }
         SECTION("Only snarls in a chain" ) {
@@ -824,8 +949,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-        //graph.to_dot(cerr);
-
         SECTION("Slice of snarl removed") {
             // 0: [1+0 3 (1  0  0  inf [2+0]) 0 5+0]
             // 1: [(1  6  0  1 [3+6]) 0 4+0]
@@ -838,6 +961,29 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 4);
             REQUIRE(zip_forest.trees.size() == 2);
+
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 15);
+            // The inf edge
+            REQUIRE(zip_tree.get_item_at_index(7).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(7).get_value() == std::numeric_limits<size_t>::max());
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 5);
+                // Only checking to make sure 5+0 skips the snarl's chain
+                if (!zip_tree.get_item_at_index(1).get_is_reversed()) {
+                    REQUIRE(reverse_views.count({4, false}));
+                    // Go straight to 1+0
+                    REQUIRE(reverse_views[{4, false}].size() == 1);
+                    REQUIRE(reverse_views[{4, false}][0].seed == 0);
+                    REQUIRE(reverse_views[{4, false}][0].distance == 3);
+                    REQUIRE(reverse_views[{4, false}][0].is_reversed == false);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
         }
     }
     TEST_CASE("zip tree bubble in cyclic snarl", "[zip_tree]") {
@@ -864,8 +1010,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        //graph.to_dot(cerr);
 
         SECTION("Two sides of nested snp unordered along read") {
             // 0: [[1+0 3 {1  inf  3  inf  inf  17  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
@@ -900,8 +1044,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-      
-        //graph.to_dot(cerr);
 
         SECTION("Traverse nested chain forwards but the orientation of the chain is backwards in the snarl tree") {
             // [1+0 5 1+5 7 {1  inf  3  inf  0  inf  inf  7  3  0  inf
@@ -912,21 +1054,6 @@ namespace unittest {
             positions.emplace_back(2, false, 0);
             positions.emplace_back(3, false, 0);
             positions.emplace_back(4, false, 0);
-            positions.emplace_back(5, false, 0);
-            positions.emplace_back(5, false, 4);
-
-            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
-            REQUIRE(zip_forest.trees.size() == 1);
-        }
-        SECTION("Traverse nested chain backwards but the orientation of the chain is backwards in the snarl tree") {
-            // [1+0 5 1+5 7 {1  inf  3  inf  0  inf  inf  7  3  0  inf
-            //     [4+0rev 0 (1  4  0  0 [3+0rev]) 4 2+0rev]} 0 5+0 4 5+4]
-            vector<pos_t> positions;
-            positions.emplace_back(1, false, 0);
-            positions.emplace_back(1, false, 5);
-            positions.emplace_back(4, false, 0);
-            positions.emplace_back(3, false, 0);
-            positions.emplace_back(2, false, 0);
             positions.emplace_back(5, false, 0);
             positions.emplace_back(5, false, 4);
 
@@ -954,8 +1081,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        //graph.to_dot(cerr);
 
         SECTION("Traverse nested chain forwards but the orientation of the chain is backwards in the snarl tree") {
             // [1+0 5 1+5 7 {1  inf  0  inf  inf  inf  inf  0  inf  3  inf
@@ -992,8 +1117,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        //graph.to_dot(cerr);
 
         SECTION("Traverse 3 backwards") {
             // [1+0 3 {2  inf  0  inf  12  inf  inf  9  inf  inf  inf  2  inf
@@ -1034,6 +1157,74 @@ namespace unittest {
                     REQUIRE(zip_forest.trees[0].get_item_at_index(30).get_value() == 3);
                 }
             }
+
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All five seeds go R->L,
+                // and the three in the cyclic snarl also go L->R
+                REQUIRE(reverse_views.size() == 8);
+                if (!chain_is_reversed) {
+                    // 4+0 R->L can only leave the snarl; it skips all chains
+                    REQUIRE(reverse_views.count({1, false}));
+                    REQUIRE(reverse_views[{1, false}].size() == 1);
+                    // Edge to 1+0
+                    REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                    REQUIRE(reverse_views[{1, false}][0].distance == 3);
+                    REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+
+                    // 4+0 L->R can see the other chain & outside the snarl
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].size() == 3);
+                    // Edge to 3-0rev
+                    REQUIRE(reverse_views[{1, true}][0].seed == 2);
+                    REQUIRE(reverse_views[{1, true}][0].distance == 2);
+                    REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+                    // Edge to 3-1rev
+                    REQUIRE(reverse_views[{1, true}][1].seed == 3);
+                    REQUIRE(reverse_views[{1, true}][1].distance == 3);
+                    REQUIRE(reverse_views[{1, true}][1].is_reversed == true);
+                    // Edge to 5+0rev (yes, rev - we're going L->R here)
+                    REQUIRE(reverse_views[{1, true}][2].seed == 4);
+                    REQUIRE(reverse_views[{1, true}][2].distance == 8);
+                    REQUIRE(reverse_views[{1, true}][2].is_reversed == true);
+
+                    // 3-1 can see the rest of its chain & the other chain
+                    // Not rev since we're going L->R
+                    REQUIRE(reverse_views.count({3, false}));
+                    REQUIRE(reverse_views[{3, false}].size() == 2);
+                    // Edge to 3-0
+                    REQUIRE(reverse_views[{3, false}][0].seed == 2);
+                    REQUIRE(reverse_views[{3, false}][0].distance == 1);
+                    REQUIRE(reverse_views[{3, false}][0].is_reversed == false);
+                    // Edge to 4+0
+                    REQUIRE(reverse_views[{3, false}][1].seed == 1);
+                    REQUIRE(reverse_views[{3, false}][1].distance == 3);
+                    REQUIRE(reverse_views[{3, false}][1].is_reversed == false);
+
+                    // 5+0 can see all other seeds once
+                    REQUIRE(reverse_views.count({4, false}));
+                    REQUIRE(reverse_views[{4, false}].size() == 4);
+                    // Edge to 3-1 (not rev since going L->R)
+                    REQUIRE(reverse_views[{4, false}][0].seed == 3);
+                    REQUIRE(reverse_views[{4, false}][0].distance == 5);
+                    REQUIRE(reverse_views[{4, false}][0].is_reversed == false);
+                    // Edge to 3-0
+                    REQUIRE(reverse_views[{4, false}][1].seed == 2);
+                    REQUIRE(reverse_views[{4, false}][1].distance == 6);
+                    REQUIRE(reverse_views[{4, false}][1].is_reversed == false);
+                    // Edge to 4+0
+                    REQUIRE(reverse_views[{4, false}][2].seed == 1);
+                    REQUIRE(reverse_views[{4, false}][2].distance == 8);
+                    REQUIRE(reverse_views[{4, false}][2].is_reversed == false);
+                    // Edge to 1+0
+                    REQUIRE(reverse_views[{4, false}][3].seed == 0);
+                    REQUIRE(reverse_views[{4, false}][3].distance == 11);
+                    REQUIRE(reverse_views[{4, false}][3].is_reversed == false);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
         }
     }
     TEST_CASE("zip tree non-simple DAG", "[zip_tree]") {
@@ -1065,8 +1256,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-      
-        //graph.to_dot(cerr);
 
         SECTION("Make the zip tree") {
             // [1+0 3 (1  0  0  4 [2+0]) 0 3+0 1 3+1 5 (2  0  1  4  0  6  2
@@ -1134,6 +1323,61 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 3);
         }
     }
+    TEST_CASE("zip tree three-chain DAG") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("GCAA");
+        Node* n3 = graph.create_node("GCAGGT");
+        Node* n4 = graph.create_node("GC");
+        Node* n5 = graph.create_node("GC");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n1, n4);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION("One seed on each node") {
+            // [5+0rev 0 (3  2  6  6  6  4  inf  2  0  0  0
+            //     [4+0rev][3+0rev][2+0rev]) 3 1+0rev]
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            
+            ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
+            REQUIRE(zip_forest.trees.size() == 1);
+
+            SECTION("Check iterator") {
+                auto reverse_views = get_reverse_views(zip_forest);
+                REQUIRE(reverse_views.size() == 5);
+                if (zip_forest.trees[0].get_item_at_index(1).get_is_reversed()) {
+                    // 2+0rev skips 3+0rev's chain but sees the rest on the left
+                    REQUIRE(reverse_views.count({1, true}));
+                    REQUIRE(reverse_views[{1, true}].size() == 2);
+                    // Edge to 4+0rev
+                    REQUIRE(reverse_views[{1, true}][0].seed == 3);
+                    REQUIRE(reverse_views[{1, true}][0].distance == 4);
+                    REQUIRE(reverse_views[{1, true}][0].is_reversed == true);
+                    // Edge to 5+0rev
+                    REQUIRE(reverse_views[{1, true}][1].seed == 4);
+                    REQUIRE(reverse_views[{1, true}][1].distance == 6);
+                    REQUIRE(reverse_views[{1, true}][1].is_reversed == true);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
+        }
+    }
     TEST_CASE("zip tree deeply nested bubbles", "[zip_tree]") {
         // top-level chain 1-12-13-16
         // bubble 2-10 containing two bubbles 3-5 and 6-9
@@ -1180,8 +1424,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("Make the zip tree with a seed on each node") {
             // [1+0 3 (2  2  0  inf  3  1  1 [11+2][2+0 3 (2  0  0  inf  6  1  3
@@ -1366,8 +1608,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("One slice from nodes in the middle of a nested chain") {
             // 0: [1+0 3 2+0 3 (2  0  0  inf  9  3  3 [14+0 3 16+0 3 20+0][3+0 inf 13+0]) 0 21+0]
@@ -1458,8 +1698,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-       
-        //graph.to_dot(cerr);
 
         SECTION("Make the zip tree with a seed on each node") {
             // [1+0 3 {2  inf  0  inf  6  inf  inf  0  inf  inf  inf  6  inf  6  inf
@@ -1504,8 +1742,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("Make the zip tree with a seed on each node") {
             // [1+0 3 {1  inf  0  inf  inf  3  inf  0  inf  3  inf [2+0 3
@@ -1552,8 +1788,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        //graph.to_dot(cerr);
 
         SECTION("Go forward through the inversions") {
             // [1+0 3 {1  inf  3  inf  0  inf  inf  9  3  0  inf [4+0rev 0
@@ -1621,8 +1855,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("Cyclic snarl with seeds on either side") {
             // [5+4rev 4 {3  inf  2  inf  inf  inf  inf  0  inf  inf  inf  inf
@@ -1673,8 +1905,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-        //graph.to_dot(cerr);
-
         SECTION("Cyclic snarl with seeds on either side") {
             // [3+0rev 0 {1  inf  9  inf  inf  9  inf  11  inf  0  inf 
             //     [2+2rev<6/3> 1 2+1rev<5/2> 1 2+0rev<4/1>]} 24 1+0rev]
@@ -1690,6 +1920,60 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            // Make sure that duplicated seeds get collapsed on each other
+            REQUIRE(zip_tree.get_tree_size() == 26);
+            // Save the main seeds for reverse_views checking later
+            auto main_seeds = zip_tree.get_all_seeds(true);
+
+            // Check one instance of a duplicated seed
+            REQUIRE(zip_tree.get_item_at_index(18).has_other_values());
+            vector<size_t> other_values = *zip_tree.get_item_at_index(18).get_other_values();
+            REQUIRE(other_values.size() == 1);
+            if (main_seeds[2].seed == 5) {
+                REQUIRE(other_values[0] == 2);
+            } else {
+                REQUIRE(main_seeds[2].seed == 2);
+                REQUIRE(other_values[0] == 5);
+            }
+            
+            SECTION("Check iterator") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest);
+                // All five seed positions go R->L,
+                // and the three in the cyclic snarl also go L->R
+                REQUIRE(reverse_views.size() == 8);
+                if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                    // Checking that middle seed can loop around
+                    REQUIRE(reverse_views[main_seeds[2]].size() == 5);
+                    // Edge to 2+2rev
+                    REQUIRE(reverse_views[main_seeds[2]][0].seed == main_seeds[1].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][0].distance == 1);
+                    REQUIRE(reverse_views[main_seeds[2]][0].is_reversed == true);
+                    REQUIRE(reverse_views[main_seeds[2]][0].other_seeds);
+                    REQUIRE((*reverse_views[main_seeds[2]][0].other_seeds).size() == 1);
+                    // Edge to 2+0rev (loop around)
+                    REQUIRE(reverse_views[main_seeds[2]][1].seed == main_seeds[3].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][1].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][1].is_reversed == true);
+                    REQUIRE(reverse_views[main_seeds[2]][1].other_seeds);
+                    REQUIRE((*reverse_views[main_seeds[2]][1].other_seeds).size() == 1);
+                    // Edge to 2+1rev (self-loop)
+                    REQUIRE(reverse_views[main_seeds[2]][2].seed == main_seeds[2].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][2].distance == 11);
+                    REQUIRE(reverse_views[main_seeds[2]][2].is_reversed == true);
+                    REQUIRE(reverse_views[main_seeds[2]][2].other_seeds);
+                    REQUIRE((*reverse_views[main_seeds[2]][2].other_seeds).size() == 1);
+                    // Edge to 3+0rev
+                    REQUIRE(reverse_views[main_seeds[2]][4].seed == main_seeds[0].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][4].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][4].is_reversed == true);
+                    REQUIRE(!reverse_views[main_seeds[2]][4].other_seeds);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
         }
     }
     TEST_CASE("zip tree self loops", "[zip_tree]") {
@@ -1710,8 +1994,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-        //graph.to_dot(cerr);
-
         SECTION("One position") {
             // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 0 2-11rev]}]
             vector<pos_t> positions;
@@ -1721,6 +2003,34 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+
+            SECTION("Check iterator") {
+                auto reverse_views = get_reverse_views(zip_forest);
+                // Both seeds have two entries, going R->L and L->R
+                REQUIRE(reverse_views.size() == 4);
+
+                // 2+0 sees 2-ll and then itself
+                REQUIRE(reverse_views[{0, false}].size() == 2);
+                // Edge to 2-11rev taking C1L->C1L self-loop
+                REQUIRE(reverse_views[{0, false}][0].seed == 1);
+                REQUIRE(reverse_views[{0, false}][0].distance == 0);
+                REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+                // Edge to self now circling back around
+                REQUIRE(reverse_views[{0, false}][1].seed == 0);
+                REQUIRE(reverse_views[{0, false}][1].distance == 24);
+                REQUIRE(reverse_views[{0, false}][1].is_reversed == false);
+
+                // 2+0rev sees self and then 2-11rev
+                REQUIRE(reverse_views[{0, true}].size() == 2);
+                // Edge to self taking C1R->C1L self-loop
+                REQUIRE(reverse_views[{0, true}][0].seed == 0);
+                REQUIRE(reverse_views[{0, true}][0].distance == 24);
+                REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                // Edge to 2-11rev now circling back around
+                REQUIRE(reverse_views[{0, true}][1].seed == 1);
+                REQUIRE(reverse_views[{0, true}][1].distance == 24);
+                REQUIRE(reverse_views[{0, true}][1].is_reversed == true);
+            }
         }
         SECTION("Cyclic snarl with seeds on either side") {
             // [4+0rev 0 {1  inf  0  0  22  22  20  24  0  22  inf 
@@ -1830,6 +2140,15 @@ namespace unittest {
             
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+
+            SECTION("Check iterator") {
+                auto reverse_views = get_reverse_views(zip_forest);
+                // None of the four seeds can see anything
+                REQUIRE(reverse_views.size() == 4);
+                for (auto& rv : reverse_views) {
+                    REQUIRE(rv.second.size() == 0);
+                }
+            }
         }
         SECTION("Splice out chain") {
             // ([1+6]) and [1+3]
@@ -2185,8 +2504,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         SECTION("One cluster on the same node plus extra node") {
             // [8+3] and [4+3rev 2 4+1rev 1 4+0rev]
@@ -2236,8 +2553,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-        
-        //graph.to_dot(cerr);
 
         ofstream out ("testGraph.hg");
         graph.serialize(out);
