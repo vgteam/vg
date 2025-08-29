@@ -2428,16 +2428,6 @@ void ZipCodeForest::get_next_intervals(forest_growing_state_t& forest_state, con
                                 seeds->at(zipcode_sort_order[interval.interval_end-1]), child_depth, *distance_index) 
                              ? !interval.is_reversed
                              : interval.is_reversed;
-#ifdef DEBUG_ZIP_CODE_SORTING
-    cerr << "New sort order " << endl;
-    for (auto& interval : new_intervals) {
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << ", ";
-        }
-        cerr << "|";
-    }
-    cerr << endl;
-#endif
     return;
 }
 
@@ -2460,8 +2450,6 @@ void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order,
 #ifdef DEBUG_ZIP_CODE_SORTING
     assert(sort_value >= min_value);
     assert(sort_value <= max_value);
-    cerr << "Sort value for seed " << seeds->at(zipcode_sort_order[i]).pos << ": " 
-         << sort_value << endl;
     assert(counts.size() > sort_value - min_value + 1);
 #endif
         size_t next_rank = sort_value - min_value + 1;
