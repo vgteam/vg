@@ -10,10 +10,6 @@
 // Set to compile in assertions to check the zipcode tree parsing logic
 //#define check_parse
 
-// Xian uses slightly different logic for edges to the end of a snarl
-// I'm pretty sure my snarls are correct, but this lets you swap
-//#define old_snarl_end_edges
-
 using namespace std;
 namespace vg {
 
@@ -846,14 +842,9 @@ void ZipCodeForest::add_edges_to_end(vector<tree_item_t>& dist_matrix,
             // Regular snarls just use the flank distances
             edge_dist = edge_seeds[i].flank_offset;
         } else {
-            bool side = !edge_seeds[i].right_side;
-#ifdef old_snarl_end_edges
-    side = is_cyclic_snarl ? !edge_seeds[i].right_side
-                           : snarl_is_reversed;
-#endif
             // Distance from the start of the snarl to the start of the chain
             size_t between_bounds_dist = edge_seeds[i].zipcode.get_distance_to_snarl_bound(
-                depth+1, snarl_is_reversed, side);
+                depth+1, snarl_is_reversed, !edge_seeds[i].right_side);
             
             // Overall edge distance
             edge_dist = SnarlDistanceIndex::sum(between_bounds_dist, edge_seeds[i].flank_offset);
