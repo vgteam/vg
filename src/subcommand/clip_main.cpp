@@ -293,9 +293,6 @@ int main_clip(int argc, char** argv) {
         // Load or compute the snarls which are required for targetting bed regions
         if (!snarls_path.empty()) {
             ifstream snarl_file(snarls_path.c_str());
-            if (!snarl_file) {
-                error_and_exit(context, ": Unable to open snarls file: " + snarls_path);
-            }
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
             if (verbose) {
                 cerr << context << ": Loaded " << snarl_manager->num_snarls() << " snarls" << endl;

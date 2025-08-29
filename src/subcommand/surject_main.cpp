@@ -94,7 +94,7 @@ void help_surject(char** argv) {
 static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGraph& graph) {
     AlignmentValidity validity = alignment_is_valid(aln, &graph);
     if (!validity) {
-        error_and_exit(context, "Alignment " + aln.name() + " cannot be interpreted against this graph: " 
+        error_and_exit(context, "Alignment " + aln.name() + " cannot be interpreted against this graph:\n" 
                                 + validity.message
                                 + "\nMake sure that you are using the same graph that the reads were mapped to!");
     }
@@ -352,7 +352,8 @@ int main_surject(int argc, char** argv) {
 
     if (have_input_file(optind, argc, argv)) {
         // We only take one input file.
-        error_and_exit(context, "Extra argument provided: " + get_input_file_name(optind, argc, argv, false));
+        error_and_exit(context, "Extra argument provided: "
+                                + get_input_file_name(optind, argc, argv, false), false);
         exit(1);
     }
 

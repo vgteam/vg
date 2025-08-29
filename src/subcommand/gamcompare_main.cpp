@@ -277,9 +277,6 @@ int main_gamcompare(int argc, char** argv) {
     if (!output_gam.empty()) {
         // Output to specified location
         output_gam_stream.open(output_gam, std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
-        if (output_gam_stream.fail() || !output_gam_stream.is_open()) {
-            error_and_exit(context, "Cannot output to " + output_gam);
-        }
         emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(output_gam_stream));
     } else if (!output_tsv) {
         // Output to standard output.

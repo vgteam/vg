@@ -1678,7 +1678,7 @@ int main_giraffe(int argc, char** argv) {
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
-        error_and_exit(context, "Input is not sufficient to create indexes\n" + std::string(ex.what()));
+        error_and_exit(context, "Input is not sufficient to create indexes\n" + std::string(ex.what()), false);
     }
    
 #ifdef debug
@@ -2288,7 +2288,8 @@ int main_giraffe(int argc, char** argv) {
                 }
                 if (close(perf_fd)) {
                     int problem = errno;
-                    emit_warning(context, "Error closing perf event instruction counter: " + std::string(strerror(problem)));
+                    emit_warning(context, "Error closing perf event instruction counter:\n"
+                                          + std::string(strerror(problem)), false);
                 }
                 total_instructions += thread_instructions;
             }

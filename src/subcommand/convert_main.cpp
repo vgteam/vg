@@ -346,9 +346,9 @@ int main_convert(int argc, char** argv) {
                                                     gfa_trans_path);
                 }
             } catch (algorithms::GFAFormatError& e) {
-                error_and_exit(context, "Input GFA is not acceptable.\n" + string(e.what()));
+                error_and_exit(context, "Input GFA is not acceptable.\n" + string(e.what()), false);
             } catch (std::ios_base::failure& e) {
-                error_and_exit(context, "IO error processing input GFA.\n" + string(e.what()));
+                error_and_exit(context, "IO error processing input GFA.\n" + string(e.what()), false);
             }
         }
     }
@@ -452,7 +452,7 @@ int main_convert(int argc, char** argv) {
             }
             for (const string& path_name : rgfa_paths) {
                 if (!graph_to_write->has_path(path_name)) {
-                    error_and_exit(context, "specified path, " + path_name + ", not found in graph");
+                    error_and_exit(context, "specified path, " + path_name + ", not found in graph", false);
                 }
             }
             if (!rgfa_prefixes.empty()) {

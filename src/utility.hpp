@@ -28,9 +28,9 @@ using namespace std;
 /// Error (and crash) with a standard format
 /// If you're erroring because a file doesn't exist,
 /// consider using error_if_file_does_not_exist() instead.
-void error_and_exit(const string& context, const string& message);
+void error_and_exit(const string& context, const string& message, bool pretty_print = true);
 /// Warn the user with a standard format
-void emit_warning(const string& context, const string& message);
+void emit_warning(const string& context, const string& message, bool pretty_print = true);
 
 /// Write a message to an output stream with indentation
 /// Inserts "indent" spaces on the beginning of each line

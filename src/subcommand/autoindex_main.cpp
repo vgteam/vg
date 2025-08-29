@@ -49,7 +49,7 @@ int64_t parse_memory_usage(const string& mem_arg) {
         base = 1;
     }
     else {
-        error_and_exit(context, "unrecognized unit for target memory usage: " + to_string(mem.back()));
+        error_and_exit(context, "unrecognized unit " + to_string(mem.back()) + " for target memory usage: " + mem_arg);
     }
     return parse<int64_t>(mem) * base;
 }
@@ -80,7 +80,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
     
     size_t i = str.find(':');
     if (i >= str.size()) {
-        error_and_exit(context, "Couldn't parse index provide string: " + str);
+        error_and_exit(context, "Couldn't parse index provide string:\n" + str, false);
     }
     return_val.first = str.substr(0, i);
     while (i < str.size()) {
@@ -89,7 +89,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
         i = end;
     }
     if (return_val.second.empty()) {
-        error_and_exit(context, "Couldn't parse index provide string: " + str);
+        error_and_exit(context, "Couldn't parse index provide string:\n" + str, false);
     }
     return return_val;
 }
@@ -231,7 +231,7 @@ int main_autoindex(int argc, char** argv) {
                     }
                 }
                 else {
-                    error_and_exit(context, "Unrecognized workflow (-w): " + string(optarg));
+                    error_and_exit(context, "Unrecognized workflow (-w) \"" + string(optarg) + "\"");
                 }
                 break;
             case 'r':
@@ -291,7 +291,8 @@ int main_autoindex(int argc, char** argv) {
             {
                 int verbosity = parse<int>(optarg);
                 if (verbosity < IndexingParameters::None || verbosity > IndexingParameters::Debug) {
-                    error_and_exit(context, "Verbosity (-V) must be integer in {0, 1, 2}, not " + string(optarg));
+                    error_and_exit(context, "Verbosity (-V) must be integer in {0, 1, 2}, not \""
+                                            + string(optarg) + "\"");
                 }
                 IndexingParameters::verbosity = (IndexingParameters::Verbosity) verbosity;
                 break;
@@ -402,7 +403,7 @@ int main_autoindex(int argc, char** argv) {
         registry.make_indexes(targets);
     }
     catch (InsufficientInputException ex) {
-        error_and_exit(context, "Input is not sufficient to create indexes\n" + string(ex.what()));
+        error_and_exit(context, "Input is not sufficient to create indexes\n" + string(ex.what()), false);
     }
     
     return 0;

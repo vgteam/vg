@@ -943,7 +943,7 @@ int main_mpmap(int argc, char** argv) {
         for (int i = optind; i < argc; ++i) {
             unused_args << " " << argv[i];
         }
-        error_and_exit(context, "Unused positional argument(s): " + unused_args.str());
+        error_and_exit(context, "Unused positional argument(s): " + unused_args.str(), false);
     }
     
     // normalize capitalization on preset options

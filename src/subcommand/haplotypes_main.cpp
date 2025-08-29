@@ -557,7 +557,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
     }
     catch (const std::runtime_error& e) {
-        error_and_exit(context, std::string(e.what()));
+        error_and_exit(context, std::string(e.what()), false);
     }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
@@ -615,7 +615,7 @@ void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, 
     try {
         merged = recombinator.generate_haplotypes(config.kmer_input, config.recombinator_parameters);
     } catch (const std::runtime_error& e) {
-        error_and_exit(context, std::string(e.what()));
+        error_and_exit(context, std::string(e.what()), false);
     }
     omp_set_num_threads(config.threads); // Restore the number of threads.
 

@@ -159,7 +159,7 @@ int main_chain(int argc, char** argv) {
                         graph.create_edge(from_handle, to_handle);
                     } else {
                         emit_warning(context, "Unreadable edge object at index " 
-                                              + std::to_string(i) + "\n" + json_error.text);
+                                              + std::to_string(i) + "\n" + json_error.text, false);
                     }
                 } else {
                     emit_warning(context, "No edge object at index " + std::to_string(i));
@@ -253,7 +253,7 @@ int main_chain(int argc, char** argv) {
                                        vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
                 } else {
                     emit_warning(context, "Unreadable item object at index " 
-                                          + std::to_string(i) + ": " + json_error.text);
+                                          + std::to_string(i) + ":\n" + json_error.text, false);
                 }
             } else {
                 emit_warning(context, "No item object at index " + std::to_string(i));

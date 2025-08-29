@@ -571,9 +571,9 @@ int main_view(int argc, char** argv) {
                                                  nullptr,
                                                  0); // set rgfa path rank to 0 to be consistent with vg convert's default logic
         } catch (vg::algorithms::GFAFormatError& e) {
-            error_and_exit(context, "Input GFA is not acceptable\n" + string(e.what()));
+            error_and_exit(context, "Input GFA is not acceptable\n" + string(e.what()), false);
         } catch (std::ios_base::failure& e) {
-            error_and_exit(context, "IO error processing input GFA\n" + string(e.what()));
+            error_and_exit(context, "IO error processing input GFA\n" + string(e.what()), false);
         }
         
         // GFA can convert to any of the graph formats, so keep going

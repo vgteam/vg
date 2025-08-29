@@ -1099,28 +1099,28 @@ void validate_gbwt_config(GBWTConfig& config) {
         switch(format.sense) {
         case PathSense::GENERIC:
             if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                error_and_exit(context, "path name fields do not set required contig for regex " 
-                                        + format.regex + " and fields " + format.fields);
+                error_and_exit(context, "path name fields do not set required contig for regex\n" 
+                                        + format.regex + "\nand fields " + format.fields);
             }
             if (format.fields.find("S") != std::string::npos || format.fields.find("s") != std::string::npos) {
-                error_and_exit(context, "path name fields set unusable sample for regex " 
-                                        + format.regex + " and fields " + format.fields);
+                error_and_exit(context, "path name fields set unusable sample for regex\n" 
+                                        + format.regex + "\nand fields " + format.fields);
             }
             if (format.fields.find("H") != std::string::npos || format.fields.find("h") != std::string::npos) {
-                error_and_exit(context, "path name fields set unusable haplotype for regex " 
-                                        + format.regex + " and fields " + format.fields);
+                error_and_exit(context, "path name fields set unusable haplotype for regex\n" 
+                                        + format.regex + "\nand fields " + format.fields);
             }
             break;
         case PathSense::HAPLOTYPE:
             if (format.fields.find("S") == std::string::npos && format.fields.find("s") == std::string::npos) {
-                error_and_exit(context, "path name fields do not set required sample for regex " 
-                                        + format.regex + " and fields " + format.fields);
+                error_and_exit(context, "path name fields do not set required sample for regex\n" 
+                                        + format.regex + "\nand fields " + format.fields);
             }
             // Fall-through because haplotypes also need contigs.
         case PathSense::REFERENCE: 
             if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                error_and_exit(context, "path name fields do not set required contig for regex " 
-                                        + format.regex + " and fields " + format.fields);
+                error_and_exit(context, "path name fields do not set required contig for regex\n" 
+                                        + format.regex + "\nand fields " + format.fields);
             }
             break;
         default:

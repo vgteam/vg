@@ -24,20 +24,28 @@
 
 namespace vg {
 
-void error_and_exit(const string& context, const string& message) {
+void error_and_exit(const string& context, const string& message, bool pretty_print) {
     #pragma omp critical (cerr)
     {
         cerr << "error" << context << ": ";
-        emit_with_indent(cerr, message, 7 + context.size());
+        if (pretty_print) {
+            emit_with_indent(cerr, message, 7 + context.size());
+        } else {
+            cerr << message << endl;
+        }
     }
     exit(EXIT_FAILURE);
 }
 
-void emit_warning(const string& context, const string& message) {
+void emit_warning(const string& context, const string& message, bool pretty_print) {
     #pragma omp critical (cerr)
     {
         cerr << "warning" << context << ": ";
-        emit_with_indent(cerr, message, 9 + context.size());
+        if (pretty_print) {
+            emit_with_indent(cerr, message, 9 + context.size());
+        } else {
+            cerr << message << endl;
+        }
     }
 }
 
@@ -54,7 +62,14 @@ void emit_with_indent(ostream& outstream, const string& message, size_t indent) 
     lines.push_back(message.substr(start_pos, message.length()));
     // Output each line with the indent
     bool is_first_line = true;
-    for (const auto& line : lines) {
+    for (auto& line : lines) {
+        // Find-and-replace tabs with 4 spaces
+        // https://stackoverflow.com/a/5878802
+        size_t pos = line.find("\t");
+        while (pos != std::string::npos) {
+            line.replace(pos, 1, "    ");
+        }
+
         size_t cur_col = indent;
         start_pos = 0;
         next_pos = 0;

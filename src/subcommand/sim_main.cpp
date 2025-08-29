@@ -290,7 +290,8 @@ int main_sim(int argc, char** argv) {
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
-                    error_and_exit(context, "unacceptable regular expression \"" + parts[0] + "\": " + e.what());
+                    error_and_exit(context, "unacceptable regular expression\n\""
+                                            + parts[0] + "\":\n" + e.what(), false);
                 }
             }
             break;
@@ -662,7 +663,7 @@ int main_sim(int argc, char** argv) {
                         error_msg << " " << s;
                     }
                 }
-                error_and_exit(context, error_msg.str());
+                error_and_exit(context, error_msg.str(), false);
             }
 
             if (progress) {

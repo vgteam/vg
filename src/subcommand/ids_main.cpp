@@ -186,12 +186,8 @@ int main_ids(int argc, char** argv) {
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);
-            if (!out) {
-                error_and_exit(context, "cannot create node mapping file " + mapping_name);
-            } else {
-                mapping.serialize(out);
-                out.close();
-            }
+            mapping.serialize(out);
+            out.close();
         }
     }
 

@@ -275,7 +275,8 @@ int main_call(int argc, char** argv) {
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
-                    error_and_exit(context, "unacceptable regular expression \"" + parts[0] + "\": " + e.what());
+                    error_and_exit(context, "unacceptable regular expression\n\""
+                                            + parts[0] + "\"\n" + e.what(), false);
                 }
             }
             break;            
@@ -543,8 +544,8 @@ int main_call(int argc, char** argv) {
                     ref_sample_ss << ", ";
                 }
             }
-            error_and_exit(context, "Multiple reference samples detected: [" + ref_sample_ss.str()
-                                    + "]. Please use -S to specify a single reference sample "
+            error_and_exit(context, "Multiple reference samples detected:\n[" + ref_sample_ss.str()
+                                    + "].\nPlease use -S to specify a single reference sample "
                                     + "or use -p to specify reference paths");
         }                
     } else {
@@ -595,7 +596,7 @@ int main_call(int argc, char** argv) {
     if (ref_paths.empty()) {
         if (!ref_sample.empty()) {
             error_and_exit(context, "No paths with selected reference sample \"" + ref_sample + "\" found." 
-                           "Try using vg paths -M to see which samples are in your graph");
+                                    "Try using vg paths -M to see which samples are in your graph");
         }
         error_and_exit(context, "No reference paths found");
     }
@@ -617,9 +618,6 @@ int main_call(int argc, char** argv) {
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_filename.empty()) {
         ifstream snarl_file(snarl_filename.c_str());
-        if (!snarl_file) {
-            error_and_exit(context, "Unable to open snarls file: " + snarl_filename);
-        }
         if (show_progress) cerr << context << ": Loading snarls from " << snarl_filename << endl;
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
         if (show_progress) cerr << context << ": Loaded snarls" << endl;
