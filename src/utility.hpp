@@ -20,25 +20,11 @@
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
+#include "log.hpp"
 
 namespace vg {
 
 using namespace std;
-
-/// Error (and crash) with a standard format
-/// If you're erroring because a file doesn't exist,
-/// consider using error_if_file_does_not_exist() instead.
-void error_and_exit(const string& context, const string& message, bool pretty_print = true);
-/// Warn the user with a standard format
-void emit_warning(const string& context, const string& message, bool pretty_print = true);
-
-/// Write a message to an output stream with indentation
-/// Inserts "indent" spaces on the beginning of each line
-/// Honors existing newlines, but otherwise adds newlines between words
-/// such that everything gets printed with width no more than 80
-/// Assumes that the first line is already indented
-/// (because you put something there and you want others to line up)
-void emit_with_indent(ostream& outstream, const string& message, size_t indent);
 
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
@@ -861,7 +847,7 @@ int parse_thread_count(const string& context, const string& arg, int max_threads
 /// If the first file is unset, then it gets the input filename
 /// Else if the second file is unset, then it gets the input filename
 /// If both are already set, then this errors
-/// Also calls error_if_file_does_not_exist() on the filenames
+/// Also calls require_exists() on the filenames
 void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2);
 
 /// Parse an argument that should be a pair of strings separated by a delimiter.
