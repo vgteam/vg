@@ -758,17 +758,17 @@ namespace unittest {
             SECTION("Check iterator") {
                 auto reverse_views = get_reverse_views(zip_forest);
                 REQUIRE(reverse_views.size() == 2);
-                if (zip_forest.trees[0].get_item_at_index(1).get_is_reversed()) {
+                if (!zip_forest.trees[0].get_item_at_index(11).get_is_reversed()) {
                     // The first seed can't see any other seeds
-                    REQUIRE(reverse_views.count({1, true}));
-                    REQUIRE(reverse_views[{1, true}].empty());
+                    REQUIRE(reverse_views.count({1, false}));
+                    REQUIRE(reverse_views[{1, false}].empty());
 
-                    REQUIRE(reverse_views.count({0, true}));
-                    REQUIRE(reverse_views[{0, true}].size() == 1);
+                    REQUIRE(reverse_views.count({0, false}));
+                    REQUIRE(reverse_views[{0, false}].size() == 1);
                     // The second seed can see the first seed at distance 6
-                    REQUIRE(reverse_views[{0, true}][0].seed == 1);
-                    REQUIRE(reverse_views[{0, true}][0].distance == 6);
-                    REQUIRE(reverse_views[{0, true}][0].is_reversed == true);
+                    REQUIRE(reverse_views[{0, false}][0].seed == 1);
+                    REQUIRE(reverse_views[{0, false}][0].distance == 6);
+                    REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
