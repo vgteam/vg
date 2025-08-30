@@ -3343,11 +3343,11 @@ void VG::remove_orphan_edges(void) {
     }
 }
 
-void VG::keep_paths(const set<string>& path_names, set<string>& kept_names) {
+void VG::keep_paths(const set<string>& path_names, set<string>& kept_names, bool invert) {
 
     set<nid_t> to_keep;
     paths.for_each([&](const Path& path) {
-            if (path_names.count(path.name())) {
+            if (path_names.count(path.name()) != invert) {
                 kept_names.insert(path.name());
                 for (int i = 0; i < path.mapping_size(); ++i) {
                     to_keep.insert(path.mapping(i).position().node_id());
@@ -3370,7 +3370,7 @@ void VG::keep_paths(const set<string>& path_names, set<string>& kept_names) {
     remove_orphan_edges();
 
     // Throw out all the paths data for paths we don't want to keep.
-    paths.keep_paths(path_names);
+    paths.keep_paths(kept_names);
 }
 
 void VG::keep_path(const string& path_name) {

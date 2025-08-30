@@ -32,12 +32,12 @@ void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
          << "  -h, --help               print this help message to stderr and exit" << endl
          << "input:" << endl
-         << "  -x, --xg FILE            use the paths and haplotypes in this graph FILE." << endl
+         << "  -x, --xg FILE            use the paths and haplotypes in this graph FILE" << endl
          << "                           Supports GBZ haplotypes. (also accepts -v, --vg)" << endl
          << "  -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
          << "                           (graph also required for most output options;" << endl
          << "                           -g takes priority over -x)" << endl
-         << "output graph (.vg format)" << endl
+         << "output graph (.vg format):" << endl
          << "  -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "  -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "  -r, --retain-paths       output a graph with only the selected paths retained" << endl
@@ -62,7 +62,7 @@ void help_paths(char** argv) {
          << "  -a, --variant-paths      select variant paths added by 'vg construct -a'" << endl
          << "  -G, --generic-paths      select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths    select reference paths" << endl
-         << "  -H, --haplotype-paths    select haplotype paths paths" << endl
+         << "  -H, --haplotype-paths    select haplotype paths" << endl
          << "configuration:" << endl
          << "  -o, --overlay            apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N          number of threads to use [all available]" << endl
@@ -76,7 +76,7 @@ void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_em
                     
     for (size_t start = 0; start < path.mapping_size(); start += chunk_size) {
         // Make sure to chunk.
-        // TODO: Can we avoild a copy here somehow?
+        // TODO: Can we avoid a copy here somehow?
         Path chunk;
         chunk.set_name(path.name());
         chunk.set_is_circular(path.is_circular());
@@ -86,7 +86,7 @@ void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_em
             *chunk.add_mapping() = path.mapping(start + i);
         }
         
-        // Emit a graph chunk containing htis part of the path
+        // Emit a graph chunk containing this part of the path
         Graph g;
         *(g.add_path()) = std::move(chunk);
         graph_emitter.write(std::move(g));
@@ -337,6 +337,9 @@ int main_paths(int argc, char** argv) {
             path_senses.insert(PathSense::GENERIC);
         }
     } else {
+        if (!gbwt_file.empty()) {
+            std::cerr << "warning: [vg paths] path sense selection is not done by GBWT" << std::endl;
+        }
         // We asked for path senses specifically
         selection_criteria++;
     }

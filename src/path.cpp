@@ -1109,6 +1109,28 @@ int softclip_end(const Mapping& mapping) {
     return to_length;
 }
 
+int softclip_start(const Path& path) {
+    if (path.mapping_size() > 0) {
+        auto& first_mapping = path.mapping(0);
+        auto& first_edit = first_mapping.edit(0);
+        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
+            return first_edit.to_length();
+        }
+    }
+    return 0;
+}
+
+int softclip_end(const Path& path) {
+    if (path.mapping_size() > 0) {
+        auto& last_mapping = path.mapping(path.mapping_size()-1);
+        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
+        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
+            return last_edit.to_length();
+        }
+    }
+    return 0;
+}
+
 // returns the first non-softclip position in the path
 Position first_path_position(const Path& path) {
     // step through soft clips
@@ -2610,7 +2632,16 @@ bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& 
         last_path = candidate;
         
         if (iteratee_active) {
-            if ((region.start == -1 || candidate_subrange.second > region.start) && (region.end == -1 || candidate_subrange.first < region.end + 1)) {
+            size_t region_offset = 0;
+            if (graph.get_path_name(candidate) == region.seq && candidate_subrange.first > 0) {
+                // We found a path that exactly matches the region asked for, and it doesn't start at 0.
+                // The region's start and end need to be interpreted relative to the start of this path, not relative to the base path.
+                region_offset = candidate_subrange.first;
+#ifdef debug
+                std::cerr << "Subpath is what region is on" << std::endl;
+#endif
+            }
+            if ((region.start == -1 || candidate_subrange.second > region.start + region_offset) && (region.end == -1 || candidate_subrange.first < region.end + region_offset + 1)) {
                 // The subranges are 0-based exclusive and the regions are 0-based inclusive.
                 // This subrange intersects this region.
 #ifdef debug
@@ -2619,9 +2650,9 @@ bool for_each_overlapping_subpath(const PathPositionHandleGraph& graph, Region& 
                 
                 // If the region has a start other than -1 and starts after the subpath does, cut into the subpath on the left.
                 // We need the explicit comparison against -1 because we can't usefully compare a signed -1 to an unsigned number.
-                size_t intersection_start = (region.start != -1 && region.start > candidate_subrange.first) ? (region.start - candidate_subrange.first) : 0;
+                size_t intersection_start = (region.start != -1 && region.start + region_offset > candidate_subrange.first) ? (region.start + region_offset - candidate_subrange.first) : 0;
                 // If the region ends somewhere other than -1 and ends before the subpath does, cut into the subpath on the right.
-                size_t intersection_end = (region.end != -1 && region.end + 1 < candidate_subrange.second) ? region.end + 1 - candidate_subrange.first : candidate_subrange.second - candidate_subrange.first;
+                size_t intersection_end = (region.end != -1 && region.end + region_offset + 1 < candidate_subrange.second) ? region.end + region_offset + 1 - candidate_subrange.first : candidate_subrange.second - candidate_subrange.first;
                 
                 // Show the iteratee the intersecting part.
                 iteratee_active = iteratee(candidate, intersection_start, intersection_end);
