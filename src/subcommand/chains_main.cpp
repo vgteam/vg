@@ -164,7 +164,7 @@ void help_chains(char** argv) {
     std::cerr << std::endl;
 
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "  -h, --help         print this help message" << std::endl;
+    std::cerr << "  -h, --help         print this help message to stderr and exit" << std::endl;
     std::cerr << "  -p, --progress     report progress to stderr" << std::endl;
     std::cerr << std::endl;
 }
@@ -176,14 +176,14 @@ ChainsConfig::ChainsConfig(int argc, char** argv) {
         { "gfa", no_argument, nullptr, 'g' },
         { "help", no_argument, nullptr, 'h' },
         { "progress", no_argument, nullptr, 'p' },
-        { nullptr, 0, nullptr, 0 }
+        { 0, 0, 0, 0 }
     };
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:sghp", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:sgh?p", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -198,7 +198,7 @@ ChainsConfig::ChainsConfig(int argc, char** argv) {
             this->output_format = GFA;
             break;
 
-            case 'h':
+        case 'h':
         case '?':
             help_chains(argv);
             std::exit(EXIT_FAILURE);
