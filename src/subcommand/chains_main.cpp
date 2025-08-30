@@ -34,15 +34,15 @@ struct ChainsConfig {
     std::string graph_file;
     std::string input_file, output_file;
     enum Format {
-        SIMPLE_SDS,
+        BINARY,
         GFA
-    } output_format = SIMPLE_SDS;
+    } output_format = BINARY;
     bool progress = false;
 
     ChainsConfig(int argc, char** argv);
 };
 
-void write_simple_sds(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out);
+void write_binary(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out);
 
 void write_gfa_paths(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out);
 
@@ -127,11 +127,11 @@ int main_chains(int argc, char** argv) {
         out_file.open(config.output_file, std::ios_base::binary);
         out_stream = &out_file;
     }
-    if (config.output_format == ChainsConfig::SIMPLE_SDS) {
+    if (config.output_format == ChainsConfig::BINARY) {
         if (config.progress) {
-            std::cerr << "Writing Simple-SDS format" << std::endl;
+            std::cerr << "Writing binary format" << std::endl;
         }
-        write_simple_sds(chains, *out_stream);
+        write_binary(chains, *out_stream);
     } else if (config.output_format == ChainsConfig::GFA) {
         if (config.progress) {
             std::cerr << "Writing GFA paths" << std::endl;
@@ -159,7 +159,7 @@ void help_chains(char** argv) {
 
     std::cerr << "Output options:" << std::endl;
     std::cerr << "  -o, --output FILE  write the output to FILE" << std::endl;
-    std::cerr << "  -s, --simple-sds   output Simple-SDS format (default)" << std::endl;
+    std::cerr << "  -b, --binary       output binary format (default)" << std::endl;
     std::cerr << "  -g, --gfa          output GFA paths using jumps" << std::endl;
     std::cerr << std::endl;
 
@@ -172,18 +172,17 @@ void help_chains(char** argv) {
 ChainsConfig::ChainsConfig(int argc, char** argv) {
     static struct option long_options[] = {
         { "output", required_argument, nullptr, 'o' },
-        { "simple-sds", no_argument, nullptr, 's' },
+        { "binary", no_argument, nullptr, 'b' },
         { "gfa", no_argument, nullptr, 'g' },
         { "help", no_argument, nullptr, 'h' },
         { "progress", no_argument, nullptr, 'p' },
         { 0, 0, 0, 0 }
     };
 
-    int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:sgh?p", long_options, &option_index);
+        int c = getopt_long(argc, argv, "o:bgh?p", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -191,8 +190,8 @@ ChainsConfig::ChainsConfig(int argc, char** argv) {
         case 'o':
             this->output_file = optarg;
             break;
-        case 's':
-            this->output_format = SIMPLE_SDS;
+        case 'b':
+            this->output_format = BINARY;
             break;
         case 'g':
             this->output_format = GFA;
@@ -221,7 +220,7 @@ ChainsConfig::ChainsConfig(int argc, char** argv) {
 
 //----------------------------------------------------------------------------
 
-void write_simple_sds(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out) {
+void write_binary(const std::vector<sdsl::int_vector<>>& chains, std::ostream& out) {
     std::uint64_t num_chains = chains.size();
     sdsl::simple_sds::serialize_value(num_chains, out);
     for (const auto& chain : chains) {
