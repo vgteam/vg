@@ -45,14 +45,22 @@ namespace unittest {
 
             while (seed_itr != zip_tree.end()) {
                 auto dest = *seed_itr;
-                if (!right_to_left) {
-                    // Going backwards
-                    dest.is_reversed = !dest.is_reversed;
-                }
+                
+                for (auto& d: dest) {
+                    if (!right_to_left) {
+                        // Going backwards
+                        d.is_reversed = !d.is_reversed;
+                    }
 
-                reverse_views[dest] = vector<ZipCodeTree::seed_result_t>();
+                    reverse_views[d] = vector<ZipCodeTree::seed_result_t>();
+                }
+                
                 for (auto dist_itr = zip_tree.find_distances(seed_itr, right_to_left); !dist_itr.done(); ++dist_itr) {
-                    reverse_views[dest].push_back((*dist_itr));
+                    for (const auto& d: dest) {
+                        for (const auto& s: *dist_itr) {
+                            reverse_views[d].push_back(s);
+                        }
+                    }
                 }
 
                 if (seed_itr.in_cyclic_snarl()) {
@@ -1929,7 +1937,7 @@ namespace unittest {
 
             // Check one instance of a duplicated seed
             REQUIRE(zip_tree.get_item_at_index(18).has_other_values());
-            vector<size_t> other_values = *zip_tree.get_item_at_index(18).get_other_values();
+            vector<size_t> other_values = zip_tree.get_item_at_index(18).get_other_values();
             REQUIRE(other_values.size() == 1);
             if (main_seeds[2].seed == 5) {
                 REQUIRE(other_values[0] == 2);
@@ -1941,35 +1949,34 @@ namespace unittest {
             SECTION("Check iterator") {
                 // For each seed, what seeds and distances do we see in reverse from it?
                 auto reverse_views = get_reverse_views(zip_forest);
-                // All five seed positions go R->L,
-                // and the three in the cyclic snarl also go L->R
-                REQUIRE(reverse_views.size() == 8);
+                // All eight seeds go R->L,
+                // and the six in the cyclic snarl also go L->R
+                REQUIRE(reverse_views.size() == 14);
                 if (zip_tree.get_item_at_index(1).get_is_reversed()) {
                     // Checking that middle seed can loop around
-                    REQUIRE(reverse_views[main_seeds[2]].size() == 5);
+                    REQUIRE(reverse_views[main_seeds[2]].size() == 9);
                     // Edge to 2+2rev
                     REQUIRE(reverse_views[main_seeds[2]][0].seed == main_seeds[1].seed);
                     REQUIRE(reverse_views[main_seeds[2]][0].distance == 1);
                     REQUIRE(reverse_views[main_seeds[2]][0].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][0].other_seeds);
-                    REQUIRE((*reverse_views[main_seeds[2]][0].other_seeds).size() == 1);
-                    // Edge to 2+0rev (loop around)
-                    REQUIRE(reverse_views[main_seeds[2]][1].seed == main_seeds[3].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][1].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][1].distance == 1);
                     REQUIRE(reverse_views[main_seeds[2]][1].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][1].other_seeds);
-                    REQUIRE((*reverse_views[main_seeds[2]][1].other_seeds).size() == 1);
-                    // Edge to 2+1rev (self-loop)
-                    REQUIRE(reverse_views[main_seeds[2]][2].seed == main_seeds[2].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][2].distance == 11);
+                    // Edge to 2+0rev (loop around)
+                    REQUIRE(reverse_views[main_seeds[2]][2].seed == main_seeds[3].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][2].distance == 10);
                     REQUIRE(reverse_views[main_seeds[2]][2].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][2].other_seeds);
-                    REQUIRE((*reverse_views[main_seeds[2]][2].other_seeds).size() == 1);
-                    // Edge to 3+0rev
-                    REQUIRE(reverse_views[main_seeds[2]][4].seed == main_seeds[0].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][4].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][3].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][3].is_reversed == true);
+                    // Edge to 2+1rev (self-loop)
+                    REQUIRE(reverse_views[main_seeds[2]][4].seed == main_seeds[2].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][4].distance == 11);
                     REQUIRE(reverse_views[main_seeds[2]][4].is_reversed == true);
-                    REQUIRE(!reverse_views[main_seeds[2]][4].other_seeds);
+                    REQUIRE(reverse_views[main_seeds[2]][5].distance == 11);
+                    REQUIRE(reverse_views[main_seeds[2]][5].is_reversed == true);
+                    // Edge to 3+0rev
+                    REQUIRE(reverse_views[main_seeds[2]][8].seed == main_seeds[0].seed);
+                    REQUIRE(reverse_views[main_seeds[2]][8].distance == 10);
+                    REQUIRE(reverse_views[main_seeds[2]][8].is_reversed == true);
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
