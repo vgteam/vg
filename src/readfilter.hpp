@@ -63,6 +63,11 @@ public:
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
+    /// Should we commit back whatever we used as the score?
+    /// TODO: This can't work for multipath alignments, but representing that
+    /// in the class structure requires breaking out a base class, so we
+    /// haven't yet.
+    bool overwrite_score = false;
     int max_overhang = numeric_limits<int>::max() / 2;
     int min_end_matches = numeric_limits<int>::min() / 2;
     bool verbose = false;
@@ -208,6 +213,12 @@ private:
      * Get the score indicated by the params
      */
     double get_score(const Read& read) const;
+
+    /**
+     * Set the score of the read, or raise an error of the score cannot be set
+     * on this type of read.
+     */
+    void set_score(Read& read, double score) const;
 
     /**
      * What is the read's length?
@@ -640,6 +651,9 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
         }
     }
     double score = get_score(read);
+    if (overwrite_score) {
+        set_score(read, score);
+    }
     bool secondary = is_secondary(read);
     if ((keep || verbose) && !secondary && score < min_primary) {
         ++counts.counts[Counts::FilterName::min_score];
@@ -808,6 +822,16 @@ inline double ReadFilter<MultipathAlignment>::get_score(const MultipathAlignment
         score /= read.sequence().size();
     }
     return score;
+}
+
+template<>
+inline void ReadFilter<Alignment>::set_score(Alignment& aln, double score) const {
+    aln.set_score(score);
+}
+
+template<>
+inline void ReadFilter<MultipathAlignment>::set_score(MultipathAlignment& aln, double score) const {
+    throw std::logic_error("Cannot overwrite scores of multipath alignments because they are derived from other values.");
 }
 
 template<typename Read>
@@ -1581,6 +1605,10 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
                 mapping_cigar(mapping, cigar, 'X');
             }
             out << cigar_string(cigar);
+        } else if (field == "nodes") {
+            for (const auto& mapping : read.path().mapping()) {
+                out << mapping.position().node_id() << (mapping.position().is_reverse() ? "-" : "+") << ",";
+            }
         } else if (field == "time_used") {
             out << read.time_used();
         } else if (field == "annotation") {
