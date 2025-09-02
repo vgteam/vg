@@ -258,8 +258,8 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
-    std::unordered_map<size_t, size_t>& seed_to_starting, 
-    std::unordered_map<size_t, size_t>& seed_to_ending) {
+    const std::unordered_map<size_t, size_t>& seed_to_starting, 
+    const std::unordered_map<size_t, size_t>& seed_to_ending) {
 
     std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
