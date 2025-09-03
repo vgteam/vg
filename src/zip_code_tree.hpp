@@ -163,7 +163,7 @@ class ZipCodeTree {
         /// Ignored for non-seeds and should be set to false
         bool is_reversed;
 
-        /// Other values/reversedness (for seeds on the same position)
+        /// Other values (for seeds with same position/orientation)
         /// Not allocated unless necessary
         vector<size_t>* other_values = nullptr;
 
