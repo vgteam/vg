@@ -4,6 +4,7 @@
 #include "cactus.hpp"
 #include "gbwt_helper.hpp"
 #include "haplotype_extracter.hpp"
+#include <gbwtgraph/gbwtgraph.h>
 //#define debug
 
 namespace vg {
@@ -3435,7 +3436,7 @@ pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_
 GBWTTraversalFinder::GBWTTraversalFinder(const HandleGraph& graph, const gbwt::GBWT& gbwt) : 
     graph(graph),
     gbwt(gbwt) {
-
+    this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(gbwt);
 }
     
 GBWTTraversalFinder::~GBWTTraversalFinder() {
@@ -3599,7 +3600,26 @@ pair<vector<Traversal>, vector<gbwt::size_type>> GBWTTraversalFinder::find_path_
     return path_traversals;
 }
 
+int64_t GBWTTraversalFinder::count_haplotypes(const vector<gbwt::size_type>& gbwt_paths) const {
+    unordered_set<pair<string, int64_t>> haplotypes;
+    for (const gbwt::size_type& gbwt_path : gbwt_paths) {
+        gbwt::size_type path_id = gbwt::Path::id(gbwt_path);
+        // metadata check copied from vg deconsturct
+        if (!gbwt.hasMetadata() || !gbwt.metadata.hasPathNames() || path_id >= gbwt.metadata.paths()) {
+            continue;
+        }
+        PathSense sense = gbwtgraph::get_path_sense(gbwt, path_id, gbwt_reference_samples);
+        string sample_name = gbwtgraph::get_path_sample_name(gbwt, path_id, sense);
+        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {            
+            haplotypes.insert(make_pair(sample_name, 
+                                        gbwtgraph::get_path_haplotype(gbwt, path_id, sense)));
+        } else {
+            haplotypes.insert(make_pair(gbwtgraph::compose_path_name(gbwt, path_id, sense), 0));
+        }
+    }
+    return haplotypes.size();
 
+}
 
 }
 
