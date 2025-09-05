@@ -5203,6 +5203,10 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         
         // map dependency priority to requesters
         map<size_t, set<size_t>, greater<size_t>> queue;
+
+        // To help the user, we track index identifiers that, if we had them,
+        // we would have been able to make a deeper plan.
+        set<IndexGroup> missing_index_sets;
         
         auto num_recipes = [&](const IndexGroup& indexes) {
             int64_t num = 0;
@@ -5371,6 +5375,9 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
                 cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to backtrack" << endl;
 #endif
+
+                // Remember that if we had had this, we could have proceeded.
+                missing_index_sets.insert(index_group);
                 
                 // prune to requester and advance to its next recipe, as many times as necessary until
                 // requester has remaining un-tried recipes
@@ -5380,7 +5387,7 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                     
                     if (get<1>(plan_path.back()).empty()) {
                         // this is the product of the plan path, and we're out of recipes for it
-                        throw InsufficientInputException(product, *this);
+                        throw InsufficientInputException(product, *this, missing_index_sets);
                     }
                     
                     // remove items off the plan path until we get to the first index that requested
@@ -5745,16 +5752,34 @@ vector<pair<IndexName, vector<IndexName>>> AliasGraph::non_intermediate_aliases(
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,
-                                                       const IndexRegistry& registry) noexcept :
-    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
+                                                       const IndexRegistry& registry,
+                                                       const set<IndexGroup>& missing_index_sets) noexcept :
+    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes()), missing_index_sets(missing_index_sets)
 {
     // nothing else to do
     stringstream ss;
-    ss << "Inputs" << endl;
-    for (const auto& input : inputs) {
-        ss << "\t" << input << endl;
+    ss << "Inputs:" << endl;
+    if (inputs.empty()) {
+        ss << "\t<no inputs provided!>" << endl;
+    } else {
+        for (const auto& input : inputs) {
+            ss << "\t" << input << endl;
+        }
     }
-    ss << "are insufficient to create target index " << target << endl;
+    ss << "are insufficient to create target index " << target << "." << endl;
+    if (!missing_index_sets.empty()) {
+        ss << "Hint: more planning progress would be possible if you provided one of these:" << endl;
+        for (auto& index_set : missing_index_sets) {
+            ss << "\t";
+            for (auto name_iter = index_set.begin(); name_iter != index_set.end(); ++name_iter) {
+                if (name_iter != index_set.begin()) {
+                    ss << ", ";
+                }
+                ss << *name_iter;
+            }
+            ss << endl;
+        }
+    }
     msg = ss.str();
 }
 
