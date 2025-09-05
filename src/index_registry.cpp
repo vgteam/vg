@@ -5768,7 +5768,7 @@ InsufficientInputException::InsufficientInputException(const IndexName& target,
     }
     ss << "are insufficient to create target index " << target << "." << endl;
     if (!missing_index_sets.empty()) {
-        ss << "Hint: more planning progress would be possible if you provided one of these:" << endl;
+        ss << "Hint: more progress would be possible if you provided one of these:" << endl;
         for (auto& index_set : missing_index_sets) {
             ss << "\t";
             for (auto name_iter = index_set.begin(); name_iter != index_set.end(); ++name_iter) {
