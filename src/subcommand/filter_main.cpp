@@ -60,7 +60,7 @@ void help_filter(char** argv) {
          << "  -V, --no-output              print out -v statistics and do not write the GAM" << endl
          << "  -T, --tsv-out FIELD[;FIELD]  write TSV of given fields instead of filtered GAM" << endl
          << "                               See wiki page:" << endl
-         << "                               \"Getting alignment statistics with ‐‐tsv‐out\"" << endl
+         << "                               \"Getting alignment statistics with vg filter\"" << endl
          << "  -q, --min-mapq N             drop alignments with mapping quality < N" << endl
          << "  -E, --repeat-ends N          drop reads with tandem repeat (motif size <= 2N," << endl
          << "                               spanning >= N bases) at either end" << endl
