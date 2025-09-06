@@ -289,11 +289,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 #endif
 
         if (!source_seed.is_reversed && !dest_seed.is_reversed) {
-            // Both of these are in the same orientation relative to
-            // the read, and we're going through the graph in the
-            // read's forward orientation as assigned by these seeds.
-            // So we can just visit this transition.
-
+            // Both were traversed in the same orientation as the read.
             // They might not be at anchor borders though, so check.
             auto found_source_anchor = seed_to_ending.find(source_seed.seed);
             if (found_source_anchor != seed_to_ending.end()) {
@@ -312,8 +308,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 #endif
             }
         } else if (source_seed.is_reversed && dest_seed.is_reversed) {
-            // Both of these are in the same orientation
-            // but it is opposite to the read.
+            // Both were traversed in the opposite orientation as the read.
             // We need to find source as an anchor *started*
             // and then save them flipped for later.
             auto found_source_anchor = seed_to_starting.find(source_seed.seed);

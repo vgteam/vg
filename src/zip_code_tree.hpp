@@ -159,7 +159,8 @@ class ZipCodeTree {
         /// For a child chain, the ID of its parent snarl
         size_t value : 59;
 
-        /// Is the position of the seed traversed backwards in the tree?
+        /// If we're walking through the tree from right to left (the default),
+        /// will we traverse this position backwards?
         /// Ignored for non-seeds and should be set to false
         bool is_reversed;
 
