@@ -172,8 +172,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                     if (read_distance > max_lookback_bases) {
                         // This is further in the read than the real hard limit.
 #ifdef debug_chaining
-                    cerr << "\t\tDisregard due to read distance " << read_distance 
-                         << " over limit " << max_lookback_bases << endl;
+                        cerr << "\t\tDisregard due to read distance " << read_distance 
+                             << " over limit " << max_lookback_bases << endl;
 #endif
                         break;
                     } 
@@ -291,19 +291,19 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
             // Only find transitions if we find an anchor for this seed
 
 #ifdef debug_transition
-    std::cerr << "Destination seed";
-    if (dest_anchors.size() > 1) {
-        std::cerr << "s";
-    }
-    pos_t cur_pos;
-    string rev_string = "";
-    for (const auto& cur_anchor : dest_anchors) {
-        auto dest_seed = cur_anchor.first;
-        std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_anchor.second << ")";
-        cur_pos = seeds[dest_seed.seed].pos;
-        rev_string = dest_seed.is_reversed ? "rev" : "";
-    }
-    std::cerr  << " at " << cur_pos << rev_string << std::endl;
+            std::cerr << "Destination seed";
+            if (dest_anchors.size() > 1) {
+                std::cerr << "s";
+            }
+            pos_t cur_pos;
+            string rev_string = "";
+            for (const auto& cur_anchor : dest_anchors) {
+                auto dest_seed = cur_anchor.first;
+                std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_anchor.second << ")";
+                cur_pos = seeds[dest_seed.seed].pos;
+                rev_string = dest_seed.is_reversed ? "rev" : "";
+            }
+            std::cerr  << " at " << cur_pos << rev_string << std::endl;
 #endif
 
             for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); 
@@ -313,9 +313,9 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                 for (const auto& cur_dest : dest_anchors) {
                     for (const auto& cur_source : source_seeds) {           
 #ifdef debug_transition
-    std::cerr << "\tSource seed S" << cur_source.seed << " " << seeds[cur_source.seed].pos 
-              << (cur_source.is_reversed ? "rev" : "") << " at distance " << cur_source.distance
-              << "/" << max_graph_lookback_bases;
+                        std::cerr << "\tSource seed S" << cur_source.seed << " " << seeds[cur_source.seed].pos 
+                                  << (cur_source.is_reversed ? "rev" : "") << " at distance " << cur_source.distance
+                                  << "/" << max_graph_lookback_bases;
 #endif
                         if (!cur_source.is_reversed && !cur_dest.first.is_reversed) {
                             // Both of these are in the same orientation relative to
@@ -329,15 +329,15 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                                 // We can transition between these seeds
                                 // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
-    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-    std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
-              << " to #" << cur_dest.second << std::endl;
+                                std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+                                std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
+                                          << " to #" << cur_dest.second << std::endl;
 #endif
                                 all_transitions.emplace_back(found_source_anchor->second, cur_dest.second,
                                                                 cur_source.distance);
                             } else {
 #ifdef debug_transition
-    std::cerr << " does not represent an anchor." << std::endl;
+                                std::cerr << " does not represent an anchor." << std::endl;
 #endif
                             }
                         } else if (cur_source.is_reversed && cur_dest.first.is_reversed) {
@@ -352,15 +352,15 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                                 // Queue them up, flipped
                                 
 #ifdef debug_transition
-    std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-    std::cerr << "\t\tFound backward transition from #" << cur_dest.second << " to #"
-              << found_source_anchor->second << std::endl;
+                                std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+                                std::cerr << "\t\tFound backward transition from #" << cur_dest.second << " to #"
+                                          << found_source_anchor->second << std::endl;
 #endif
                                 all_transitions.emplace_back(cur_dest.second, found_source_anchor->second,
                                                                 cur_source.distance);
                             } else {
 #ifdef debug_transition
-    std::cerr << " does not represent an anchor." << std::endl;
+                                std::cerr << " does not represent an anchor." << std::endl;
 #endif
                             }
                         } else {
@@ -406,15 +406,15 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
         auto& dest_anchor = to_chain[dest_anchor_index];
 
 #ifdef debug_transition
-    std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor
-              << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
+        std::cerr << "Handle transition #" << source_anchor_index << " " << source_anchor
+                  << " to #" << dest_anchor_index << " " << dest_anchor << std::endl;
 #endif
 
         if (graph_distance == std::numeric_limits<size_t>::max()) {
             // Not reachable in graph (somehow)
             // TODO: Should never happen!
 #ifdef debug_transition
-    std::cerr << "\tNot reachable in graph!" << std::endl;
+            std::cerr << "\tNot reachable in graph!" << std::endl;
 #endif
             continue;
         }
@@ -423,7 +423,7 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
         if (read_distance == std::numeric_limits<size_t>::max()) {
             // Not reachable in read
 #ifdef debug_transition
-    std::cerr << "\tNot reachable in read." << std::endl;
+            std::cerr << "\tNot reachable in read." << std::endl;
 #endif
             continue;
         }
@@ -431,8 +431,8 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
         if (read_distance > max_read_lookback_bases) {
             // Too far in read to consider
 #ifdef debug_transition
-    std::cerr << "\tToo far apart in read (" << read_distance 
-              << "/" << max_read_lookback_bases << ")." << std::endl;
+            std::cerr << "\tToo far apart in read (" << read_distance 
+                      << "/" << max_read_lookback_bases << ")." << std::endl;
 #endif
             continue;
         }
@@ -441,7 +441,7 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
             // The actual core anchor part is reachable in the read,
             // but we cut these down from overlapping minimizers.
 #ifdef debug_transition
-    std::cerr << "\tOriginally overlapped in read." << std::endl;
+            std::cerr << "\tOriginally overlapped in read." << std::endl;
 #endif
             continue;
         }
@@ -459,8 +459,8 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
         size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
 
 #ifdef debug_transition
-    std::cerr << "\tZip code tree sees " << graph_distance
-              << " but we should back out " << distance_to_remove << std::endl;
+        std::cerr << "\tZip code tree sees " << graph_distance
+                  << " but we should back out " << distance_to_remove << std::endl;
 #endif
 
         if (distance_to_remove > graph_distance) {
@@ -473,25 +473,25 @@ std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transiti
         graph_distance -= distance_to_remove;
 
 #ifdef debug_transition
-    std::cerr << "\tZip code tree sees " << source_anchor << " and "
-                << dest_anchor << " as " << graph_distance << " apart" << std::endl;
+        std::cerr << "\tZip code tree sees " << source_anchor << " and "
+                  << dest_anchor << " as " << graph_distance << " apart" << std::endl;
 #endif
 
 #ifdef double_check_distances
 
-    auto from_pos = source_anchor.graph_end();
-    auto to_pos = dest_anchor.graph_start();
-    size_t check_distance = distance_index.minimum_distance(
-        id(from_pos), is_rev(from_pos), offset(from_pos),
-        id(to_pos), is_rev(to_pos), offset(to_pos),
-        false, &graph);
-    if (check_distance != graph_distance) {
-        #pragma omp critical (cerr)
-        std::cerr << "\tZip code tree sees " << source_anchor << " and " 
-                    << dest_anchor << " as " << graph_distance 
-                    << " apart but they are actually " << check_distance << " apart" << std::endl;
-        crash_unless(check_distance == graph_distance);
-    }
+        auto from_pos = source_anchor.graph_end();
+        auto to_pos = dest_anchor.graph_start();
+        size_t check_distance = distance_index.minimum_distance(
+            id(from_pos), is_rev(from_pos), offset(from_pos),
+            id(to_pos), is_rev(to_pos), offset(to_pos),
+            false, &graph);
+        if (check_distance != graph_distance) {
+            #pragma omp critical (cerr)
+            std::cerr << "\tZip code tree sees " << source_anchor << " and " 
+                      << dest_anchor << " as " << graph_distance 
+                      << " apart but they are actually " << check_distance << " apart" << std::endl;
+            crash_unless(check_distance == graph_distance);
+        }
 
 #endif
 
