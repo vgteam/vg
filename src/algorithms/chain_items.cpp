@@ -233,7 +233,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                           seed_to_starting, seed_to_ending);
 
         std::vector<std::tuple<size_t, size_t, size_t, size_t>> filtered_transitions =
-            filter_zip_tree_transitions(all_transitions, to_chain, max_read_lookback_bases);
+            calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
 
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
         std::sort(filtered_transitions.begin(), filtered_transitions.end(), 
@@ -339,7 +339,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     return all_transitions;
 }
 
-std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
     const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
     const VectorView<Anchor>& to_chain,
     size_t max_read_lookback_bases) {

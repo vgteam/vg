@@ -357,14 +357,16 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     const std::unordered_map<size_t, size_t>& seed_to_ending);
 
 /**
- * Filter out transitions that can't be used, e.g. not reachable in the read.
+ * Calculate read distances for each of the zip tree's transitions.
+ * Also filters out transitions that can't be used,
+ * e.g. not reachable in the read.
  * 
  * Used as a helper by zip_tree_transition_iterator().
  * 
  * Transitions are taken as (source anchor, destination anchor, graph distance)
  * and output as (source anchor, destination anchor, graph distance, read distance).
  */
-std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
     const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
     const VectorView<Anchor>& to_chain,
     size_t max_read_lookback_bases);
