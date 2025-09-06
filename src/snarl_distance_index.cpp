@@ -16,8 +16,8 @@ size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
                                             unoriented_distance, graph, nullptr); 
 }
 
-size_t minimum_distance_self_nonzero(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
-                                     size_t pos2_length, const HandleGraph* graph) {
+size_t minimum_nontrivial_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
+                                   size_t pos2_length, const HandleGraph* graph) {
     bool shifted = false;
     if (pos1 == pos2) {
         if (pos2_length == std::numeric_limits<size_t>::max()) {

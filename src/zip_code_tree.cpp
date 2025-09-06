@@ -899,7 +899,7 @@ void ZipCodeForest::add_edges_for_chains(vector<tree_item_t>& dist_matrix,
                 // to_pos points "out", but we need to come "in" to it
                 pos_t to_pos = edge_seeds[to_i].reverse_seed();
 
-                edge_dist = minimum_distance_self_nonzero(*forest_state.distance_index,
+                edge_dist = minimum_nontrivial_distance(*forest_state.distance_index,
                     edge_seeds[from_i].seed_pos, to_pos, edge_seeds[to_i].node_length);
                 // Subtract distance from inner seed to edge of inner snarl
                 edge_dist = SnarlDistanceIndex::minus(edge_dist, edge_seeds[from_i].nested_snarl_offset);
@@ -1361,7 +1361,7 @@ void ZipCodeTree::validate_seed_distances(const SnarlDistanceIndex& distance_ind
                                               : next_seed.pos;
 
             // Calculate orientated distance next_pos -> start_pos
-            size_t index_distance = minimum_distance_self_nonzero(distance_index, next_pos, start_pos);
+            size_t index_distance = minimum_nontrivial_distance(distance_index, next_pos, start_pos);
 
             if (index_distance != std::numeric_limits<size_t>::max() && (*dest).front().is_reversed == right_to_left) {
                 // If the seed we ended at got reversed, then add 1
