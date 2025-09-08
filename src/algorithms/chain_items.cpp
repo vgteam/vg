@@ -263,8 +263,6 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 
     std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
-    ZipCodeTree::seed_iterator dest = zip_code_tree.begin();
-    bool right_to_left = true;
     for (const auto& seed_pair : zip_code_tree.find_all_distances()) {
         ZipCodeTree::oriented_seed_t dest_seed = seed_pair.first;
         ZipCodeTree::seed_result_t source_seed = seed_pair.second;
