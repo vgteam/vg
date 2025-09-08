@@ -87,8 +87,8 @@ Inheritance diagram for vg::InsufficientInputException:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a2361f9743d9c5f2af8bb170a6240b891"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#a2361f9743d9c5f2af8bb170a6240b891">InsufficientInputException</a> ()=delete</td></tr>
 <tr class="separator:a2361f9743d9c5f2af8bb170a6240b891"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af9014e0e82772828f66dc699e2eb8734"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#af9014e0e82772828f66dc699e2eb8734">InsufficientInputException</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;<a class="el" href="classvg_1_1InsufficientInputException.html#aa40303513d2f82efe6690afe9b8a75ce">target</a>, const <a class="el" href="classvg_1_1IndexRegistry.html">IndexRegistry</a> &amp;registry) noexcept</td></tr>
-<tr class="separator:af9014e0e82772828f66dc699e2eb8734"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb139b2a57bce13d337548ae44d52e2c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#aeb139b2a57bce13d337548ae44d52e2c">InsufficientInputException</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;<a class="el" href="classvg_1_1InsufficientInputException.html#aa40303513d2f82efe6690afe9b8a75ce">target</a>, const <a class="el" href="classvg_1_1IndexRegistry.html">IndexRegistry</a> &amp;registry, const set&lt; <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> &gt; &amp;<a class="el" href="classvg_1_1InsufficientInputException.html#a94c88c01e69136f28578de304dfe615e">missing_index_sets</a>={}) noexcept</td></tr>
+<tr class="separator:aeb139b2a57bce13d337548ae44d52e2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae9fd64e80e950783955ff7d875138469"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#ae9fd64e80e950783955ff7d875138469">what</a> () const noexcept</td></tr>
 <tr class="separator:ae9fd64e80e950783955ff7d875138469"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -100,6 +100,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:aa40303513d2f82efe6690afe9b8a75ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8798c889fb558ee1c9042e10e7f136e2"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#a8798c889fb558ee1c9042e10e7f136e2">inputs</a></td></tr>
 <tr class="separator:a8798c889fb558ee1c9042e10e7f136e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94c88c01e69136f28578de304dfe615e"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html#a94c88c01e69136f28578de304dfe615e">missing_index_sets</a></td></tr>
+<tr class="separator:a94c88c01e69136f28578de304dfe615e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Exception that is thrown to indicate the input data is insufficient to create some index(es) </p>
@@ -129,8 +131,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="af9014e0e82772828f66dc699e2eb8734"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af9014e0e82772828f66dc699e2eb8734">&#9670;&nbsp;</a></span>InsufficientInputException() <span class="overload">[2/2]</span></h2>
+<a id="aeb139b2a57bce13d337548ae44d52e2c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb139b2a57bce13d337548ae44d52e2c">&#9670;&nbsp;</a></span>InsufficientInputException() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -148,7 +150,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1IndexRegistry.html">IndexRegistry</a> &amp;&#160;</td>
-          <td class="paramname"><em>registry</em>&#160;</td>
+          <td class="paramname"><em>registry</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>missing_index_sets</em> = <code>{}</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -203,6 +211,28 @@ Private Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">vector&lt;<a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a>&gt; vg::InsufficientInputException::inputs</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a94c88c01e69136f28578de304dfe615e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94c88c01e69136f28578de304dfe615e">&#9670;&nbsp;</a></span>missing_index_sets</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">set&lt;<a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a>&gt; vg::InsufficientInputException::missing_index_sets</td>
         </tr>
       </table>
   </td>
