@@ -20,6 +20,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+const string context = "[vg validate]";
+
 void help_validate(char** argv) {
     cerr << "usage: " << argv[0] << " validate [options] [graph]" << endl
          << "Validate the graph." << endl
@@ -73,7 +75,7 @@ int main_validate(int argc, char** argv) {
                 break;
 
             case 'a':
-                gam_path = optarg;
+                gam_path = require_exists(context, optarg);
                 break;
                 
             case 'A':

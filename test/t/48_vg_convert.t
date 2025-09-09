@@ -113,7 +113,8 @@ diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
 rm -f mut.cs.gaf mut.cg.gaf mut.cs.exp.gaf
 
-rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path mut.seq mut-back.seq
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf
+rm -f mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path mut.seq mut-back.seq mut.cs.back.gaf
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz > z.vg 2> /dev/null
 vg sim -n 10000 -s 23 -a -x z.vg > sim.gam
@@ -139,7 +140,8 @@ vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"
 
-rm -f z.vg zflat.vg sim.gam sim-map.gam sim-map-back.gam sim-map.gaf.gz sim-map.sequence sim-map-back.sequence sim-map-back.gaf sim-map.gaf split.gam split.gaf split-back.gaf
+rm -f z.vg zflat.vg zflat.gcsa sim.gam sim-map.gam sim-map-back.gam sim-map.gaf.gz sim-map.sequence
+rm -f sim-map-back.sequence sim-map-back.gaf sim-map.gaf split.gam split.gaf split-back.gaf
 
 printf "H\tVN:Z:1.0
 S\t73333\tGGTGGGCGAGGACCTCCACACGTGTCACCA
@@ -350,6 +352,8 @@ is $? 0 "HashGraph to GFA conversion writing walks as paths"
 is "$(grep "^W" no-walks.gfa | wc -l)" "0" "HashGraph to GFA conversion writing walks as paths produces no walks"
 is "$(grep "^P" no-walks.gfa | wc -l)" ""$(grep "^[PW]" correct.gfa | wc -l)"" "HashGraph to GFA conversion writing walks as paths produces all expected paths"
 
+rm no-walks.gfa
+
 # GBZ to GFA with paths and walks (needs 1 thread)
 vg convert --gbwtgraph-algorithm  -f -t 1 components.gbz > gbz.gfa
 is $? 0 "GBZ to GFA conversion with paths and walks, GBWTGraph algorithm"
@@ -509,4 +513,4 @@ diff out.gaf out2.gaf
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAF check)"
 vg validate ref.vg -a out2.gam
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
-rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam
+rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam out2.gaf

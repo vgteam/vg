@@ -31,6 +31,8 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace vg::io;
 
+const string context = "[vg view]";
+
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
@@ -359,7 +361,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'A':
-            alignments = optarg;
+            alignments = require_exists(context, optarg);
             break;
 
         case 'I':
@@ -391,7 +393,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Q':
-            loci_file = optarg;
+            loci_file = require_exists(context, optarg);
             break;
 
         case 'B':
@@ -443,7 +445,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case '7':
-            omp_set_num_threads(parse<int>(optarg));
+            omp_set_num_threads(parse_thread_count(context, optarg));
             break;
 
         case 'h':
@@ -484,11 +486,10 @@ int main_view(int argc, char** argv) {
     }
     
     if (optind >= argc) {
-        cerr << "[vg view] error: no filename given" << endl;
-        exit(1);
+        fatal_error(context) << "no filename given" << endl;
     }
     if (output_type == "vg") {
-        cerr << "[vg view] warning: vg-protobuf output (-v / --v) is deprecated. please use vg convert instead." << endl;
+        warning(context) << "vg-protobuf output (-v / --v) is deprecated. please use vg convert instead." << endl;
     }
     
     string file_name = get_input_file_name(optind, argc, argv);
@@ -504,7 +505,8 @@ int main_view(int argc, char** argv) {
                     // We match the tag, so dump this message.
                     if ((*it).second.get() != nullptr) {
                         if (verbose) {
-                            cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                            basic_log(context) << ": Message of " << (*it).second->size() 
+                                               << " bytes in matches tag to extract" << endl;
                         }
                         cout << *((*it).second.get());
                         if (first_tag) {
@@ -513,24 +515,25 @@ int main_view(int argc, char** argv) {
                         }
                     } else {
                         if (verbose) {
-                            cerr << "Messageless tag matching tag to extract" << endl;
+                            basic_log(context) << ": Messageless tag matching tag to extract" << endl;
                         }
                     }
                 } else {
                     if ((*it).second.get() != nullptr) {
                         if (verbose) {
-                            cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                            basic_log(context) << ": Message of " << (*it).second->size()
+                                               << " bytes does not match tag; skip" << endl;
                         }
                     } else {
                         if (verbose) {
-                            cerr << "Messageless tag not matching tag to extract" << endl;
+                            basic_log(context) << ": Messageless tag not matching tag to extract" << endl;
                         }
                     }
                 }
                 ++it;
             }
             if (verbose) {
-                cerr << "Iterator no longer has messages" << endl;
+                basic_log(context) << ": Iterator no longer has messages" << endl;
             }
         });
         return 0;
@@ -554,8 +557,7 @@ int main_view(int argc, char** argv) {
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "handlegraph") {
         if (output_type == "stream") {
-            cerr << "[vg view] error: Cannot stream a generic HandleGraph to JSON" << endl;
-            exit(1);
+            fatal_error(context) << "Cannot stream a generic HandleGraph to JSON" << endl;
         } else {
             graph = vg::io::VPKG::load_one<PathHandleGraph>(file_name);
         }
@@ -569,13 +571,9 @@ int main_view(int argc, char** argv) {
                                                  nullptr,
                                                  0); // set rgfa path rank to 0 to be consistent with vg convert's default logic
         } catch (vg::algorithms::GFAFormatError& e) {
-            cerr << "error:[vg view] Input GFA is not acceptable." << endl;
-            cerr << e.what() << endl;
-            exit(1);
+            fatal_error(context) << "Input GFA is not acceptable\n" << string(e.what()) << endl;
         } catch (std::ios_base::failure& e) {
-            cerr << "error:[vg view] IO error processing input GFA." << endl;
-            cerr << e.what() << endl;
-            exit(1);
+            fatal_error(context) << "IO error processing input GFA\n" << string(e.what()) << endl;
         }
         
         // GFA can convert to any of the graph formats, so keep going
@@ -647,7 +645,7 @@ int main_view(int argc, char** argv) {
             }
             else {
                 // todo
-                cerr << "[vg view] error: (binary) GAM can only be converted to JSON, GAMP or FASTQ" << endl;
+                fatal_error(context) << "(binary) GAM can only be converted to JSON, GAMP, or FASTQ" << endl;
                 return 1;
             }
         } else {
@@ -668,8 +666,7 @@ int main_view(int argc, char** argv) {
                 vg::io::write_buffered(cout, buf, 0);
             }
             else {
-                cerr << "[vg view] error: JSON GAM can only be converted to GAM, GAMP, or JSON" << endl;
-                return 1;
+                fatal_error(context) << "JSON GAM can only be converted to GAM, GAMP, or JSON" << endl;
             }
         }
         cout.flush();
@@ -684,11 +681,9 @@ int main_view(int argc, char** argv) {
             return 0;
         } else if (output_type == "json") {
             // todo
-            cerr << "[vg view] error: BAM to JSON conversion not yet implemented" << endl;
-            return 0;
+            fatal_error(context) << "BAM to JSON conversion not yet implemented" << endl;
         } else {
-            cerr << "[vg view] error: BAM can only be converted to GAM" << endl;
-            return 1;
+            fatal_error(context) << "BAM can only be converted to GAM" << endl;
         }
     } else if (input_type == "multipath") {
         if (input_json) {
@@ -745,8 +740,7 @@ int main_view(int argc, char** argv) {
                 }
             }
             else {
-                cerr << "[vg view] error: Unrecognized output format for MultipathAlignment (GAMP)" << endl;
-                return 1;
+                fatal_error(context) << "Unrecognized output format for MultipathAlignment (GAMP)" << endl;
             }
             return 0;
         }
@@ -811,8 +805,7 @@ int main_view(int argc, char** argv) {
                 });
             }
             else {
-                cerr << "[vg view] error: Unrecognized output format for MultipathAlignment (GAMP)" << endl;
-                return 1;
+                fatal_error(context) << "Unrecognized output format for MultipathAlignment (GAMP)" << endl;
             }
             return 0;
         }
@@ -845,8 +838,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             // We can't convert fastq to the other graph formats
-            cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
-            return 1;
+            fatal_error(context) << "FASTQ can only be converted to GAM" << endl;
         }
         cout.flush();
         return 0;
@@ -862,16 +854,14 @@ int main_view(int argc, char** argv) {
                 });
             } else {
                 // todo
-                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
-                return 1;
+                fatal_error(context) << "(binary) Pileup can only be converted to JSON" << endl;
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
                 vg::io::JSONStreamHelper<Pileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
-                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
-                return 1;
+                fatal_error(context) << "JSON Pileup can only be converted to Pileup or JSON" << endl;
             }
         }
         cout.flush();
@@ -885,8 +875,7 @@ int main_view(int argc, char** argv) {
                 vg::io::for_each(in, lambda);
             });
         } else {
-            cerr << "[vg view] error: (binary) Translation can only be converted to JSON" << endl;
-            return 1;
+            fatal_error(context) << "(binary) Translation can only be converted to JSON" << endl;
         }
         return 0;
     } else if (input_type == "locus") {
@@ -901,16 +890,14 @@ int main_view(int argc, char** argv) {
                 });
             } else {
                 // todo
-                cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
-                return 1;
+                fatal_error(context) << "(binary) Locus can only be converted to JSON" << endl;
             }
         } else {
             if (output_type == "json" || output_type == "locus") {
                 vg::io::JSONStreamHelper<Locus> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
-                cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
-                return 1;
+                fatal_error(context) << "JSON Locus can only be converted to Locus or JSON" << endl;
             }
         }
         cout.flush();
@@ -922,8 +909,7 @@ int main_view(int argc, char** argv) {
                 distance_index->write_snarls_to_json();
             });
         } else {
-            cerr << "[vg view] error: (binary) Distance index can only be converted to JSON" << endl;
-            return 1;
+            fatal_error(context) << "(binary) Distance index can only be converted to JSON" << endl;
         }
         return 0;
     } else if (input_type == "snarls") {
@@ -935,8 +921,7 @@ int main_view(int argc, char** argv) {
                 vg::io::for_each(in, lambda);
             });
         } else {
-            cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
-            return 1;
+            fatal_error(context) << "(binary) Snarls can only be converted to JSON" << endl;
         }
         return 0;
     } else if (input_type == "snarltraversals") {
@@ -948,16 +933,14 @@ int main_view(int argc, char** argv) {
                 vg::io::for_each(in, lambda);
             });
         } else {
-            cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
-            return 1;
+            fatal_error(context) << "(binary) SnarlTraversals can only be converted to JSON" << endl;
         }
         return 0;
     }
 
     if(!graph) {
         // Make sure we didn't forget to implement an input format.
-        cerr << "[vg view] error: cannot load graph in " << input_type << " format" << endl;
-        return 1;
+        fatal_error(context) << "cannot load graph in " << input_type << " format" << endl;
     }
 
     if (output_type == "gfa") {
@@ -1005,7 +988,7 @@ int main_view(int argc, char** argv) {
     if(!vg_graph->is_valid()) {
         // If we're converting the graph via VG, we might as well make sure it's valid.
         // This is especially useful for JSON import.
-        cerr << "[vg view] warning: graph is invalid!" << endl;
+        warning(context) << "graph is invalid!" << endl;
     }
     if (output_type == "dot") {
         vg_graph->to_dot(std::cout,
@@ -1031,8 +1014,7 @@ int main_view(int argc, char** argv) {
         vg_graph->serialize_to_ostream(cout);
     } else if (output_type != "gfa") {
         // We somehow got here with a bad output format.
-        cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
-        return 1;
+        fatal_error(context) << "cannot save a graph in " << output_type << " format" << endl;
     }
     
     // We made it to the end and nothing broke.

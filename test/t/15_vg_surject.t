@@ -41,7 +41,7 @@ is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) 
 head -c -10 j.gam >j-truncated.gam
 vg surject -p x -x x.xg -t 1 j-truncated.gam >/dev/null 2>log.txt
 is "${?}" "1" "vg surject stops when the input read file is truncated"
-is "$(grep "truncate" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
+is "$(grep "truncated input" log.txt | wc -l)" "1" "vg surject reports that files are truncated"
 rm -f j-truncated.gam log.txt
 
 is $(vg surject -x x.xg -t 1 -s x.gam | grep AS | wc -l) 100 "vg surject reports alignment scores"
