@@ -140,7 +140,7 @@ HELP_DESC = 'print this help message to stderr and exit'
 """Expected description for the --help option."""
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
-NON_WORK_WORDS = {'exit', 'return', 'deprecated', 'abort', 'throw'}
+NON_WORK_WORDS = {'exit', 'return', 'deprecated', 'abort', 'throw', 'error'}
 """Keywords that indicate something is meant to not work in the switch block."""
 FILENAME_VAR_ENDS = {'file', 'filename', 'file_name', 'filepath', 'file_path'}
 """Suffixes that indicate a variable is definitely a filename"""
