@@ -171,7 +171,7 @@ int main_augment(int argc, char** argv) {
         {
             // Deprecated.
         case 'a':
-            emit_warning(context, "-a / --augmentation-mode option is deprecated");
+            warning(context) << "-a / --augmentation-mode option is deprecated" << endl;
             break;
             // General Options
         case 'Z':
@@ -184,7 +184,8 @@ int main_augment(int argc, char** argv) {
             include_paths = true;
             break;
         case 'C':
-            emit_warning(context, "-C / --cut-softclips option is deprecated (now enabled by default)");
+            warning(context) << "-C / --cut-softclips option is deprecated "
+                             << "(now enabled by default)" << endl;
             break;
         case 'S':
             include_softclips = true;
@@ -248,8 +249,7 @@ int main_augment(int argc, char** argv) {
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
-        help_augment(argv, parser);
-        error_and_exit(context, "too few arguments");
+        fatal_error(context) << "too few arguments" << endl;
     }
 
     string graph_file_name = get_input_file_name(optind, argc, argv);
@@ -258,30 +258,30 @@ int main_augment(int argc, char** argv) {
     }
 
     if (gam_in_file_name.empty() && loci_file.empty()) {
-        error_and_exit(context, "gam file argument required");
+        fatal_error(context) << "gam file argument required" << endl;
     }
     if (gam_in_file_name == "-" && graph_file_name == "-") {
-        error_and_exit(context, "graph and gam can't both be from stdin.");
+        fatal_error(context) << "graph and gam can't both be from stdin." << endl;
     }
     if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
-        error_and_exit(context, "Translation (-Z), GAM (-A) output and edges-only (-E) "
-                                "do not work with \"label-only\" (-B) mode");
+        fatal_error(context) << "Translation (-Z), GAM (-A) output and edges-only (-E) "
+                             << "do not work with \"label-only\" (-B) mode" << endl;
     }
     if (include_paths && edges_only) {
-        error_and_exit(context, "-E cannot be used with -i");
+        fatal_error(context) << "-E cannot be used with -i" << endl;
     }
     if (gam_in_file_name == "-" && !label_paths) {
-        emit_warning(context, "reading the entire GAM from stdin into memory.  It is recommended to pass in "
-                              "a filename rather than - so it can be streamed over two passes");
+        warning(context) << "reading the entire GAM from stdin into memory. It is recommended to pass in "
+                         << "a filename rather than - so it can be streamed over two passes" << endl;
         if (!gam_out_file_name.empty()) {
-            emit_warning(context, "when streaming in a GAM with -A, the output GAM will lose all non-Path "
-                                  "related fields from the input");
+            warning(context) << "when streaming in a GAM with -A, the output GAM will lose all non-Path "
+                             << "related fields from the input" << endl;
         }
     }
 
     // read the graph
     if (show_progress) {
-        cerr << "Reading input graph" << endl;
+        basic_log(context) << "Reading input graph" << endl;
     }
 
     // Read the graph
@@ -412,7 +412,7 @@ int main_augment(int argc, char** argv) {
         if (!translation_file_name.empty()) {
             // Write the translations
             if (show_progress) {
-                cerr << "Writing translation table" << endl;
+                basic_log(context) << "Writing translation table" << endl;
             }
             ofstream translation_file(translation_file_name);
             vg::io::write_buffered(translation_file, translation, 0);

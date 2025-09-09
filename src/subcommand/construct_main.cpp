@@ -224,11 +224,11 @@ int main_construct(int argc, char** argv) {
 
     if (max_node_size == 0) {
         // Make sure we can actually make nodes
-        error_and_exit(context, "max node size cannot be 0");
+        fatal_error(context) << "max node size cannot be 0" << endl;
     }
     
     if (!msa_filename.empty() && !fasta_filenames.empty()) {
-        error_and_exit(context, "cannot construct from a reference/VCF and an MSA simultaneously");
+        fatal_error(context) << "cannot construct from a reference/VCF and an MSA simultaneously" << endl;
     }
     
     if (!fasta_filenames.empty()) {
@@ -253,39 +253,40 @@ int main_construct(int argc, char** argv) {
                              stop_pos);
                              
                 if (used_region_contigs.count(seq_name)) {
-                    error_and_exit(context, "cannot construct multiple regions of " + seq_name);
+                    fatal_error(context) << "cannot construct multiple regions of " << seq_name << endl;
                 }
                 used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
                     if (constructor.show_progress) {
-                        cerr << context << ": Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                        basic_log(context) << ": Restricting to " << seq_name << " from " 
+                                           << start_pos << " to " << stop_pos << endl;
                     }
                     constructor.allowed_vcf_names.insert(seq_name);
                     // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
                     constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
                 } else if (start_pos < 0 && stop_pos < 0) {
                     // We just got a name
-                    cerr << context << ": Restricting to " << seq_name << " from 1 to end" << endl;
+                    basic_log(context) << ": Restricting to " << seq_name << " from 1 to end" << endl;
                     constructor.allowed_vcf_names.insert(seq_name);
                 } else {
                     // This doesn't make sense. Does it have like one coordinate?
-                    error_and_exit(context, "could not parse " + region);
+                    fatal_error(context) << "could not parse " << region << endl;
                 }
             } else {
                 // We have been told not to parse the region
-                cerr << context << ": Restricting to " << region << " from 1 to end" << endl;
+                basic_log(context) << ": Restricting to " << region << " from 1 to end" << endl;
                 constructor.allowed_vcf_names.insert(region);
             }
         }
         
         
         if (fasta_filenames.empty()) {
-            error_and_exit(context, "a reference is required for graph construction");
+            fatal_error(context) << "a reference is required for graph construction" << endl;
         }
         if (insertion_filenames.size() > 1) {
-            error_and_exit(context, "only one insertion file may be provided");
+            fatal_error(context) << "only one insertion file may be provided" << endl;
         }
         
         if (construct_in_memory) {
@@ -343,7 +344,7 @@ int main_construct(int argc, char** argv) {
         msa_graph.serialize_to_ostream(cout);
     }
     else {
-        error_and_exit(context, "a reference or an MSA is required for graph construction");
+        fatal_error(context) << "a reference or an MSA is required for graph construction" << endl;
     }
 
     return 0;

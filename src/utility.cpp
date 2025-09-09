@@ -157,7 +157,7 @@ void choose_good_thread_count() {
             // TODO: If you have >1024 bits in your mask, glibc can't deal and you will get EINVAL.
             // We're supposed to then try increasingly large dynamically-allocated CPU flag sets until we find one that works.
             auto problem = errno;
-            emit_warning("vg", "Cannot determine CPU count from affinity mask: " + string(strerror(problem)));
+            warning("vg") << "Cannot determine CPU count from affinity mask: " << strerror(problem) << endl;
         } else {
             // We're also supposed to intersect this mask with the actual
             // existing processors, in case somebody flags on way more
@@ -617,13 +617,13 @@ string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        error_and_exit("[get_input_file_name]", "specify input filename, or \"-\" for standard input");
+        fatal_error("[get_input_file_name]") << "specify input filename, or \"-\" for standard input" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        error_and_exit("[get_input_file_name]", "specify a non-empty input filename");
+        fatal_error("[get_input_file_name]") << "specify a non-empty input filename" << endl;
     }
 
     if (test_open) {
@@ -638,13 +638,13 @@ string get_output_file_name(int& optind, int argc, char** argv) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
-        error_and_exit("[get_output_file_name]", "specify output filename");
+        fatal_error("[get_output_file_name]") << "specify output filename" << endl;
     }
     
     string file_name(argv[optind++]);
     
     if (file_name.empty()) {
-        error_and_exit("[get_output_file_name]", "specify a non-empty output filename");
+        fatal_error("[get_output_file_name]") << "specify a non-empty output filename" << endl;
     }
     
     return file_name;
@@ -663,14 +663,16 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
             in.open(file_name.c_str());
             if (!in.is_open()) {
                 // The user gave us a bad filename
-                error_and_exit("[get_input_file]", "could not open file \"" + file_name + "\"");
+                fatal_error("[get_input_file]") << "could not open file \"" 
+                                                << file_name << "\"" << endl;
             }
             callback(in);
             
         }
     } catch(vg::io::TruncatedBGZFError& e) {
         // If we find a truncated input while working on this file, it's likely to be this file's fault.
-        error_and_exit("[get_input_file]", "detected truncated input while processing \"" + file_name + "\"");
+        fatal_error("[get_input_file]") << "detected truncated input while processing \"" 
+                                        << file_name << "\"" << endl;
     }
 }
 
@@ -730,22 +732,22 @@ bool file_can_be_written(const string& filename) {
 
 string require_exists(const string& context, const string& filename) {
     if (!file_exists(filename)) {
-        error_and_exit(context, "file \"" + filename + "\" does not exist");
+        fatal_error(context) << "file \"" << filename << "\" does not exist" << endl;
     }
     return filename;
 }
 
 string require_non_gzipped(const string& context, const string& filename) {
     if (ends_with(filename, ".gz")) {
-        error_and_exit(context, "file \"" + filename + "\" appears to be gzipped; "
-                                "please decompress it before use");
+        fatal_error(context) << "file \"" << filename << "\" appears to be gzipped; "
+                             << "please decompress it before use" << endl;
     }
     return filename;
 }
 
 string ensure_writable(const string& context, const string& filename) {
     if (!file_can_be_written(filename)) {
-        error_and_exit(context, "file \"" + filename + "\" cannot be written to");
+        fatal_error(context) << "file \"" << filename << "\" cannot be written to" << endl;
     }
     return filename;
 }
@@ -1004,11 +1006,11 @@ int parse_thread_count(const string& context, const string& arg, int max_threads
     }
     
     if (num_threads <= 0) {
-        error_and_exit(context, "Thread count (-t) must be a positive integer, not " + arg);
+        fatal_error(context) << "Thread count (-t) must be a positive integer, not " << arg << endl;
     } else if (num_threads > max_threads) {
         // If the user asked for more threads than we can actually use, cap it.
-        emit_warning(context, "Thread count (-t) is greater than the maximum number of threads available (" 
-                              + to_string(omp_get_max_threads()) + "), capping to that value");
+        warning(context) << "Thread count (-t) is greater than the maximum number of threads available (" 
+                         << omp_get_max_threads() << "), capping to that value" << endl;
         num_threads = omp_get_max_threads();
     }
     
@@ -1023,7 +1025,7 @@ void assign_fastq_files(const string& context, const string& input_filename, str
         fastq2 = require_exists(context, input_filename);
     }
     else {
-        error_and_exit(context, "Cannot specify more than two FASTQ files");
+        fatal_error(context) << "Cannot specify more than two FASTQ files" << endl;
     }
 }
 
@@ -1031,14 +1033,14 @@ pair<string, string> parse_split_string(const string& context, const string& arg
                                         const char& delimiter, const string& option_name) {
     size_t delim_index = arg.find(delimiter);
     if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
-        error_and_exit(context, option_name + " must have two parts separated by a " + delimiter
-                                + ", not \"" + arg + "\"");
+        fatal_error(context) << option_name << " must have two parts separated by a "
+                             << delimiter << ", not \"" << arg << "\"" << endl;
     }
     string second_part = arg.substr(delim_index + 1);
     if (second_part.find(delimiter) != string::npos) {
         // The second part has another delimiter in it, which is not allowed.
-        error_and_exit(context, option_name + " must have two parts separated by a " + delimiter
-                                + ", not \"" + arg + "\"");
+        fatal_error(context) << option_name << " must have two parts separated by a "
+                             << delimiter << ", not \"" << arg << "\"" << endl;
     }
     // Parse out the two parts
     return make_pair(arg.substr(0, delim_index), arg.substr(delim_index + 1));

@@ -238,10 +238,10 @@ int main_gamcompare(int argc, char** argv) {
     if (truth_file_name == "-") {
         // Read truth fropm standard input, if it looks good.
         if (test_file_name == "-") {
-            error_and_exit(context, "Standard input can only be used for truth or test file, not both");
+            fatal_error(context) << "Standard input can only be used for truth or test file, not both" << endl;
         }
         if (!std::cin) {
-            error_and_exit(context, "Unable to read standard input when looking for true reads");
+            fatal_error(context) << "Unable to read standard input when looking for true reads" << endl;
         }
         if (distance_name.empty()) {
             vg::io::for_each_parallel(std::cin, record_path_positions);
@@ -258,7 +258,7 @@ int main_gamcompare(int argc, char** argv) {
         }
     }
     if (score_alignment && range == -1) {
-        error_and_exit(context, "Score-alignment requires range");
+        fatal_error(context) << "Score-alignment requires range" << endl;
     }
 
     // Count eligible reads that actually have positions that could be got.
@@ -423,13 +423,14 @@ int main_gamcompare(int argc, char** argv) {
 
     if (test_file_name == "-") {
         if (!std::cin) {
-            error_and_exit(context, "Unable to read standard input when looking for reads under test");
+            fatal_error(context) << "Unable to read standard input when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
         if (!test_file_in) {
-            error_and_exit(context, "Unable to read " + test_file_name + " when looking for reads under test");
+            fatal_error(context) << "Unable to read " << test_file_name
+                                 << " when looking for reads under test" << endl;
         }
         vg::io::for_each_parallel(test_file_in, annotate_test);
     }

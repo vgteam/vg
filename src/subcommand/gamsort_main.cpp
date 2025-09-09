@@ -162,7 +162,7 @@ int main_gamsort(int argc, char **argv)
 
     if (input_format == "GAM") {
         if (shuffle && !index_filename.empty()) {
-            error_and_exit(context, "Indexing is not allowed when shuffling GAM files.");
+            fatal_error(context) << "Indexing is not allowed when shuffling GAM files." << std::endl;
         }
         get_input_file(optind, argc, argv, [&](istream& gam_in) {
 

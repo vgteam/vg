@@ -219,7 +219,7 @@ int main_prune(int argc, char** argv) {
             verify_paths = true;
             break;
         case 'x': // no longer needed
-            emit_warning(context, "option --xg-name is no longer needed");
+            warning(context) << "option --xg-name is no longer needed" << std::endl;
             break;
         case 'g':
             gbwt_name = require_exists(context, optarg);
@@ -272,7 +272,7 @@ int main_prune(int argc, char** argv) {
         max_degree = PruningParameters::max_degree[mode];
     }
     if (!(kmer_length > 0 && edge_max > 0)) {
-        error_and_exit(context, "--kmer-length and --edge-max must be positive");
+        fatal_error(context) << "--kmer-length and --edge-max must be positive" << std::endl;
     }
 
     if (!mapping_name.empty()) {
@@ -285,36 +285,36 @@ int main_prune(int argc, char** argv) {
         }
     } else if (append_mapping) {
         // If appending, we need a mapping file
-        error_and_exit(context, "cannot append to mapping file without specifying one with --mapping");
+        fatal_error(context) << "cannot append to mapping file without specifying one with --mapping" << std::endl;
     }
 
     // Mode-specific checks.
     if (mode == mode_prune) {
         if (verify_paths) {
-            error_and_exit(context, "mode " + mode_name(mode) + " does not have paths to verify");
+            fatal_error(context) << "mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
         }
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            error_and_exit(context, "mode " + mode_name(mode) + " does not use additional files");
+            fatal_error(context) << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
         }
     }
     if (mode == mode_restore) {
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            error_and_exit(context, "mode " + mode_name(mode) + " does not use additional files");
+            fatal_error(context) << "mode " << mode_name(mode) << " does not use additional files" << std::endl;
         }
     }
     if (mode == mode_unfold) {
         if (mapping_name.empty()) {
-            error_and_exit(context, "mode --unfold requires a node mapping file specified with --mapping");
+            fatal_error(context) << "mode --unfold requires a node mapping file specified with --mapping" << std::endl;
         }
     }
 
     // Dry run.
     if (dry_run) {
-        std::cerr << context << " Pruning mode:   " << mode_name(mode) << std::endl;
-        std::cerr << context << " Parameters:     --kmer-length " << kmer_length
-                  << " --edge-max " << edge_max << " --subgraph-min " << subgraph_min
-                  << " --max-degree " << max_degree << std::endl;
-        std::cerr << context << " Options:        --threads " << threads;
+        basic_log(context) << " Pruning mode:   " << mode_name(mode) << std::endl;
+        basic_log(context) << " Parameters:     --kmer-length " << kmer_length
+                           << " --edge-max " << edge_max << " --subgraph-min " << subgraph_min
+                           << " --max-degree " << max_degree << std::endl;
+        basic_log(context) << " Options:        --threads " << threads;
         if (verify_paths) {
             std::cerr << " --verify-paths";
         }
@@ -349,7 +349,7 @@ int main_prune(int argc, char** argv) {
     
     vg::id_t max_node_id = graph->max_node_id();
     if (show_progress) {
-        std::cerr << context << " Original graph " << vg_name << ": " << graph->get_node_count() 
+        basic_log(context) << " Original graph " << vg_name << ": " << graph->get_node_count() 
                   << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
@@ -366,7 +366,7 @@ int main_prune(int argc, char** argv) {
         }
         xg_index.from_path_handle_graph(*graph);
         if (show_progress) {
-            std::cerr << context << " Built a temporary XG index" << std::endl;
+            basic_log(context) << " Built a temporary XG index" << std::endl;
         }
     }
     
@@ -380,28 +380,28 @@ int main_prune(int argc, char** argv) {
     }
     
     if (show_progress) {
-        std::cerr << context << " Removed all paths" << std::endl;
+        basic_log(context) << " Removed all paths" << std::endl;
     }
 
     // Remove high-degree nodes.
     if (max_degree > 0) {
         algorithms::remove_high_degree_nodes(*graph, max_degree);
         if (show_progress) {
-            std::cerr << context << " Removed high-degree nodes: "
-                      << graph->get_node_count() << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+            basic_log(context) << " Removed high-degree nodes: " << graph->get_node_count()
+                               << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
         }
     }
 
     // Prune the graph.
     algorithms::prune_complex_with_head_tail(*graph, kmer_length, edge_max);
     if (show_progress) {
-        std::cerr << context << " Pruned complex regions: "
-                  << graph->get_node_count() << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        basic_log(context) << " Pruned complex regions: " << graph->get_node_count()
+                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
     algorithms::prune_short_subgraphs(*graph, subgraph_min);
     if (show_progress) {
-        std::cerr << context << " Removed small subgraphs: "
-                  << graph->get_node_count() << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        basic_log(context) << " Removed small subgraphs: " << graph->get_node_count()
+                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     // Restore the non-alt paths.
@@ -413,7 +413,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                emit_warning(context, "verification failed for " + std::to_string(failures) + " paths");
+                warning(context) << "verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -424,7 +424,7 @@ int main_prune(int argc, char** argv) {
             get_input_file(gbwt_name, [&](std::istream& in) {
                 gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(in);
                 if (gbwt_index.get() == nullptr) {
-                    error_and_exit(context, "could not load GBWT");
+                    fatal_error(context) << "could not load GBWT" << std::endl;
                 }
             });
         } else {
@@ -443,7 +443,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                emit_warning(context, "verification failed for " + std::to_string(failures) + " paths");
+                warning(context) << "verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -452,8 +452,8 @@ int main_prune(int argc, char** argv) {
     
     vg::io::save_handle_graph(graph.get(), std::cout);
     if (show_progress) {
-        std::cerr << context << " Serialized the graph: "
-                  << graph->get_node_count() << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
+        basic_log(context) << " Serialized the graph: " << graph->get_node_count()
+                           << " nodes, " << graph->get_edge_count() << " edges" << std::endl;
     }
 
     return 0;

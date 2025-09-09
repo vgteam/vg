@@ -119,7 +119,7 @@ int main_viz(int argc, char** argv) {
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     if (xg_name.empty()) {
-        error_and_exit(context, "No input graph given. An input graph (-x) must be provided.");
+        fatal_error(context) << "No input graph given. An input graph (-x) must be provided." << endl;
     } else {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay

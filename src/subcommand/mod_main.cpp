@@ -190,25 +190,25 @@ int main_mod(int argc, char** argv) {
         {
 
         case 'i':
-            error_and_exit(context, "vg mod -i is deprecated.  please switch to vg augment");
+            fatal_error(context) << "vg mod -i is deprecated.  please switch to vg augment" << endl;
 
         case 'q':
-            error_and_exit(context, "vg mod -q is deprecated.  please switch to vg augment -l");
+            fatal_error(context) << "vg mod -q is deprecated.  please switch to vg augment -l" << endl;
 
         case 'Q':
-            error_and_exit(context, "vg mod -Q is deprecated.  please switch to vg augment -L");
+            fatal_error(context) << "vg mod -Q is deprecated.  please switch to vg augment -L" << endl;
 
         case 'Z':
-            error_and_exit(context, "vg mod -Z is deprecated.  please switch to vg augment -Z");
+            fatal_error(context) << "vg mod -Z is deprecated.  please switch to vg augment -Z" << endl;
 
         case 'D':
-            error_and_exit(context, "vg mod -D is deprecated.  please switch to vg paths -d");
+            fatal_error(context) << "vg mod -D is deprecated.  please switch to vg paths -d" << endl;
 
         case 'r':
-            error_and_exit(context, "vg mod -r is deprecated.  please switch to vg paths -r");
+            fatal_error(context) << "vg mod -r is deprecated.  please switch to vg paths -r" << endl;
 
         case 'I':
-            error_and_exit(context, "vg mod -I is deprecated.  please switch to vg paths -d");
+            fatal_error(context) << "vg mod -I is deprecated.  please switch to vg paths -d" << endl;
             break;
 
         case 'c':
@@ -224,7 +224,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'o':
-            emit_warning(context, "-o is deprecated. Dangling edges are now automatically removed.");
+            warning(context) << "-o is deprecated. Dangling edges are now automatically removed." << endl;
             break;
 
         case 'p':
@@ -272,7 +272,8 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'P':
-            emit_warning(context, "vg mod -P is deprecated and will soon be removed.  please switch to vg augment -B");
+            warning(context) << "vg mod -P is deprecated and will soon be removed. "
+                             << "please switch to vg augment -B" << endl;
             label_paths = true;
             break;
 
@@ -376,7 +377,7 @@ int main_mod(int argc, char** argv) {
         vcflib::VariantCallFile variant_file;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            error_and_exit(context, "could not open " + vcf_filename);
+            fatal_error(context) << "could not open " << vcf_filename << endl;
         }
 
         // Now go through and prune down the varaints.
@@ -493,8 +494,8 @@ int main_mod(int argc, char** argv) {
                 // same path without this node.
                 paths_to_remove.emplace(graph->get_path_handle_of_step(s));
 #ifdef debug
-                cerr << context << ": Node " << node_id << " was on path "
-                     << graph->get_path_name(graph->get_path_handle_of_step(s)) << endl;
+                basic_log(context) << ": Node " << node_id << " was on path "
+                                   << graph->get_path_name(graph->get_path_handle_of_step(s)) << endl;
 #endif
             });
 
@@ -604,7 +605,7 @@ int main_mod(int argc, char** argv) {
         set<string> kept_paths;
         vg_graph->keep_paths(path_names, kept_paths, invert_keep_paths);
         if (path_names.size() != kept_paths.size() && !invert_keep_paths) {
-            emit_warning(context, "some paths were not found in the graph, and will not be kept");
+            warning(context) << "some paths were not found in the graph, and will not be kept" << endl;
             for (const auto& path_name : path_names) {
                 if (kept_paths.count(path_name) == 0) {
                     cerr << "\t\t\t" << path_name << endl;
@@ -725,7 +726,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            error_and_exit(context, "when pruning complex regions you must specify a --length and --edge-max");
+            fatal_error(context) << "when pruning complex regions you must specify a --length and --edge-max" << endl;
         }
         algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
     }
@@ -753,7 +754,7 @@ int main_mod(int argc, char** argv) {
 
     if (add_start_and_end_markers) {
         if (!(path_length > 0)) {
-            error_and_exit(context, "when adding start and end markers you must provide a --length");
+            fatal_error(context) << "when adding start and end markers you must provide a --length" << endl;
         }
         // TODO: replace this with the SourceSinkOverlay, accounting somehow for its immutability.
         Node* head_node = NULL;

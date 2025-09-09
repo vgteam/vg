@@ -48,7 +48,7 @@ const string context = "[vg mpmap]";
 pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstream& strm) {
     
     auto bail = [&]() {
-        error_and_exit(context, "Could not parse intron length distribution file");
+        fatal_error(context) << "Could not parse intron length distribution file" << endl;
     };
     
     string line;
@@ -93,8 +93,8 @@ static void error_if_negative(double value, const string& longform,
     if (value < 0 || also_ban_zero && value == 0) {
         string requirement = also_ban_zero || zero_will_disable ? "positive" : "nonnegative";
         string disable_text = zero_will_disable ? " or 0 to disable" : "";
-        error_and_exit(context, description + " (" + longform + ") must be " + requirement
-                                + disable_text + "; you passed " + std::to_string(value));
+        fatal_error(context) << description << " (" << longform << ") must be " << requirement
+                             << disable_text << "; you passed " << value << endl;
     }
 }
 
@@ -854,8 +854,8 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'E':
-                emit_warning(context, "Long read scoring option (--long-read-scoring) is deprecated. "
-                                      "Instead, use read length preset (--read-length).");
+                warning(context) << "Long read scoring option (--long-read-scoring) is deprecated. "
+                                 << "Instead, use read length preset (--read-length)." << endl;
                 read_length = "long";
                 break;
                 
@@ -939,11 +939,12 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (optind != argc) {
-        stringstream unused_args;
+        auto error_msg = fatal_error(context);
+        error_msg << "Unused positional argument(s) :";
         for (int i = optind; i < argc; ++i) {
-            unused_args << " " << argv[i];
+            error_msg << " " << argv[i];
         }
-        error_and_exit(context, "Unused positional argument(s): " + unused_args.str(), false);
+        error_msg << endl;
     }
     
     // normalize capitalization on preset options
@@ -1037,15 +1038,15 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (read_length != "short") {
         // short is the default
-        error_and_exit(context, "Cannot identify read length preset (-l): " + read_length);
+        fatal_error(context) << "Cannot identify read length preset (-l): " << read_length << endl;
     }
     
     if (nt_type == "rna") {
         // RNA preset
         if (distance_index_name.empty()) {
-            emit_warning(context, "It is HIGHLY recommended to use a distance index (-d) "
-                                  "for clustering on splice graphs. "
-                                  "Both accuracy and speed will suffer without one.");
+            warning(context) << "It is HIGHLY recommended to use a distance index (-d) "
+                             << "for clustering on splice graphs. "
+                             << "Both accuracy and speed will suffer without one." << endl;
         }
         
         // we'll assume that there might be spliced alignments
@@ -1076,7 +1077,7 @@ int main_mpmap(int argc, char** argv) {
     }
     else {
         // DNA is the default
-        error_and_exit(context, "Cannot identify sequencing type preset (-n): " + nt_type);
+        fatal_error(context) << "Cannot identify sequencing type preset (-n): " << nt_type << endl;
     }
         
     if (single_path_alignment_mode && read_length != "long") {
@@ -1104,19 +1105,19 @@ int main_mpmap(int argc, char** argv) {
         !(hts_output && transcriptomic)) {
         // adjust parameters that produce irrelevant extra work single path mode
         if (!snarls_name.empty()) {
-            emit_warning(context, "Snarl file (-s) is ignored for single path alignment formats (-F) "
-                                  "without multipath population scoring (--max-paths).");
+            warning(context) << "Snarl file (-s) is ignored for single path alignment formats (-F) "
+                             << "without multipath population scoring (--max-paths)." << endl;
         }
         
         if (snarl_cut_size != default_snarl_cut_size) {
-            emit_warning(context, "Snarl cut limit (-X) is ignored for single path alignment formats (-F) "
-                                  "without multipath population scoring (--max-paths).");
+            warning(context) << "Snarl cut limit (-X) is ignored for single path alignment formats (-F) "
+                             << "without multipath population scoring (--max-paths)." << endl;
         }
         
         if (num_alt_alns != default_num_alt_alns) {
-            emit_warning(context, "Number of alternate alignments (-a) is ignored for "
-                                  "single path alignment formats (-F) "
-                                  "without multipath population scoring (--max-paths).");
+            warning(context) << "Number of alternate alignments (-a) is ignored for "
+                             << "single path alignment formats (-F) "
+                             << "without multipath population scoring (--max-paths)." << endl;
         }
         
         // don't cut inside snarls or load the snarl manager
@@ -1200,210 +1201,205 @@ int main_mpmap(int argc, char** argv) {
     // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
-        error_and_exit(context, "Cannot specify only one of fragment length mean (-I) "
-                                "and standard deviation (-D).");
+        fatal_error(context) << "Cannot specify only one of fragment length mean (-I) "
+                             << "and standard deviation (-D)." << endl;
     }
     
     if (interleaved_input && !fastq_name_2.empty()) {
-        error_and_exit(context, "Cannot designate both interleaved paired ends (-i) "
-                                "and separate paired end file (-f).");
+        fatal_error(context) << "Cannot designate both interleaved paired ends (-i) "
+                             << "and separate paired end file (-f)." << endl;
     }
     
     if (!fastq_name_1.empty() && !gam_file_name.empty()) {
-        error_and_exit(context, "Cannot designate both FASTQ input (-f) and GAM input (-G) in same run.");
+        fatal_error(context) << "Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
     }
     
     if (fastq_name_1.empty() && gam_file_name.empty()) {
-        error_and_exit(context, "Must designate reads to map from either FASTQ (-f) or GAM (-G) file.");
+        fatal_error(context) << "Must designate reads to map from either FASTQ (-f) or GAM (-G) file." << endl;
     }
     
     if (!interleaved_input && fastq_name_2.empty() && same_strand) {
-        emit_warning(context, "Ignoring same strand parameter (-T) because no paired end input provided.");
+        warning(context) << "Ignoring same strand parameter (-T) because no paired end input provided." << endl;
     }
     
     if (!ref_paths_name.empty() && !hts_output) {
-        emit_warning(context, "Reference path file (-S) is only used "
-                              "when output format (-F) is SAM, BAM, or CRAM.");
+        warning(context) << "Reference path file (-S) is only used "
+                         << "when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
     
     if (!reference_assembly_names.empty() && !hts_output) {
-        emit_warning(context, "Reference assembly names (--ref-name) are only used "
-                              "when output format (-F) is SAM, BAM, or CRAM.");
+        warning(context) << "Reference assembly names (--ref-name) are only used "
+                         << "when output format (-F) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
     }
     
     if (mapq_method == None) {
-        error_and_exit(context, "The mapping quality method 'None' is no longer supported.");
+        fatal_error(context) << "The mapping quality method 'None' is no longer supported." << endl;
     }
     
     if (population_max_paths != 10 && population_max_paths != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
         // Don't allow anything but the default or the "disabled" setting without an index.
         // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
-        error_and_exit(context, "Maximum number of paths per alignment for population scoring "
-                                "(--max-paths) is specified but population database (-H or --linear-index) "
-                                "was not provided.");
+        fatal_error(context) << "Maximum number of paths per alignment for population scoring "
+                             << "(--max-paths) is specified but population database (-H or --linear-index) "
+                             << "was not provided." << endl;
     }
     
     if (always_check_population && gbwt_name.empty() && sublinearLS_name.empty()) {
-        error_and_exit(context, "Cannot --always-check-population if no population database "
-                                "(-H or --linear-index) is provided.");
+        fatal_error(context) << "Cannot --always-check-population if no population database "
+                             << "(-H or --linear-index) is provided." << endl;
     }
     
     if (force_haplotype_count != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
-        emit_warning(context, "Cannot --force-haplotype-count if no population database "
-                              "(-H or --linear-index) is provided. Ignoring option.");
+        warning(context) << "Cannot --force-haplotype-count if no population database "
+                         << "(-H or --linear-index) is provided. Ignoring option." << endl;
     }
     
     if (!sublinearLS_name.empty() && !gbwt_name.empty()) {
-        error_and_exit(context, "GBWT index (-H) and linear haplotype index (--linear-index) "
-                                "both specified. Only one can be used.");
+        fatal_error(context) << "GBWT index (-H) and linear haplotype index (--linear-index) "
+                             << "both specified. Only one can be used." << endl;
     }
     
     if (!sublinearLS_name.empty() && sublinearLS_ref_path.empty()) {
-        error_and_exit(context, "Linear haplotype index (--linear-index) cannot be used "
-                                "without a single reference path (--linear-path).");
+        fatal_error(context) << "Linear haplotype index (--linear-index) cannot be used "
+                             << "without a single reference path (--linear-path)." << endl;
     }
     
     if (sublinearLS_name.empty() && !sublinearLS_ref_path.empty()) {
-        error_and_exit(context, "Linear haplotype ref path (--linear-path) cannot be used "
-                                "without an index (--linear-index).");
+        fatal_error(context) << "Linear haplotype ref path (--linear-path) cannot be used "
+                             << "without an index (--linear-index)." << endl;
     }
     
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
-        emit_warning(context, "Reporting up to " + std::to_string(max_num_mappings) 
-                              + " mappings, but only computing up to "
-                              + std::to_string(max_map_attempts) + " mappings.");
+        warning(context) << "Reporting up to " << max_num_mappings
+                         << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
     
     if (max_rescue_attempts > max_single_end_mappings_for_rescue) {
-        emit_warning(context, "Maximum number of rescue attempts (--max-rescues) set to "
-                              + std::to_string(max_rescue_attempts)
-                              + ", which is greater than the number of mapping attempts for rescue ("
-                              + std::to_string(max_single_end_mappings_for_rescue) + ").");
+        warning(context) << "Maximum number of rescue attempts (--max-rescues) set to " << max_rescue_attempts
+                         << ", which is greater than the number of mapping attempts for rescue ("
+                         << max_single_end_mappings_for_rescue << ")." << endl;
     }
     
     if ((reseed_diff <= 0 || reseed_diff >= 1.0) && reseed_length != 0) {
-        error_and_exit(context, "Reseeding length difference (-W) set to " + std::to_string(reseed_diff)
-                                + ", must set to a number between 0.0 and 1.0.");
+        fatal_error(context) << "Reseeding length difference (-W) set to " << reseed_diff
+                             << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (hard_hit_max < hit_max && hit_max && hard_hit_max) {
-        emit_warning(context, "MEM hit query limit (-c) set to " + std::to_string(hit_max)
-                              + ", which is higher than the threshold to ignore a MEM ("
-                              + std::to_string(hard_hit_max) + ").");
+        warning(context) << "MEM hit query limit (-c) set to " << hit_max
+                         << ", which is higher than the threshold to ignore a MEM ("
+                         << hard_hit_max << ")." << endl;
     }
     
     if (single_path_alignment_mode && agglomerate_multipath_alns) {
         // this could probably be just a warning, but it will really mess up the MAPQs
-        error_and_exit(context, "Disconnected alignments cannot be agglomerated "
-                                "(-a) for single path alignment formats (-F).");
+        fatal_error(context) << "Disconnected alignments cannot be agglomerated "
+                             << "(-a) for single path alignment formats (-F)." << endl;
     }
     
     if (stripped_match_alg_target_count != default_strip_count && !use_stripped_match_alg) {
-        emit_warning(context, "Target stripped match count (--strip-count) set to "
-                              + std::to_string(stripped_match_alg_target_count)
-                              + ", but stripped algorithm (--stripped-match) was not selected. "
-                              "Ignoring strip count.");
+        warning(context) << "Target stripped match count (--strip-count) set to "
+                         << stripped_match_alg_target_count
+                         << ", but stripped algorithm (--stripped-match) was not selected. "
+                         << "Ignoring strip count." << endl;
     }
     
     if (stripped_match_alg_strip_length != default_strip_length && !use_stripped_match_alg) {
-        emit_warning(context, "Strip length (--strip-length) set to "
-                              + std::to_string(stripped_match_alg_strip_length) 
-                              + ", but stripped algorithm (--stripped-match) was not selected. "
-                              + "Ignoring strip length.");
+        warning(context) << "Strip length (--strip-length) set to " << stripped_match_alg_strip_length
+                         << ", but stripped algorithm (--stripped-match) was not selected. "
+                         << "Ignoring strip length." << endl;
     }
     
     // people shouldn't really be setting these anyway, but there may be combinations of presets that do this
 //    if (use_fanout_match_alg && use_stripped_match_alg) {
-//        error_and_exit(context, "Cannot perform both stripped and fan-out match algorithms.");
+//        fatal_error(context) << "Cannot perform both stripped and fan-out match algorithms." << endl;
 //    }
     
     if (likelihood_approx_exp < 1.0) {
-        error_and_exit(context, "Likelihood approximation exponent (--approx-exp) set to "
-                                + std::to_string(likelihood_approx_exp) + ", must set to at least 1.0.");
+        fatal_error(context) << "Likelihood approximation exponent (--approx-exp) set to "
+                             << likelihood_approx_exp << ", must set to at least 1.0." << endl;
     }
     
     if (cluster_ratio < 0.0 || cluster_ratio >= 1.0) {
-        error_and_exit(context, "Cluster drop ratio (--drop-subgraph) set to "
-                                + std::to_string(cluster_ratio)
-                                + ", must set to a number between 0.0 and 1.0.");
+        fatal_error(context) << "Cluster drop ratio (--drop-subgraph) set to " << cluster_ratio
+                             << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (use_tvs_clusterer && distance_index_name.empty()) {
-        error_and_exit(context, "The Target Value Search clusterer (-v) requires a distance index (-d).");
+        fatal_error(context) << "The Target Value Search clusterer (-v) requires a distance index (-d)." << endl;
     }
     
     if (use_min_dist_clusterer && distance_index_name.empty()) {
-        error_and_exit(context, "The Minimum Distance clusterer (--min-dist-cluster) requires a distance index (-d).");
+        fatal_error(context) << "The Minimum Distance clusterer (--min-dist-cluster) "
+                             << "requires a distance index (-d)." << endl;
     }
     
     if (use_min_dist_clusterer && use_tvs_clusterer) {
-        error_and_exit(context, "Cannot perform both minimum distance clustering (--min-dist-cluster) "
-                                "and target value clustering (-v).");
+        fatal_error(context) << "Cannot perform both minimum distance clustering (--min-dist-cluster) "
+                             << "and target value clustering (-v)." << endl;
     }
     
     if (greedy_min_dist && !use_min_dist_clusterer) {
-        emit_warning(context, "greedy minimum distance clustering (--greedy-min-dist) "
-                              "is ignored if not using minimum distance clustering (-d).");
+        warning(context) << "greedy minimum distance clustering (--greedy-min-dist) "
+                         << "is ignored if not using minimum distance clustering (-d)." << endl;
     }
     
     if (greedy_min_dist && component_min_dist) {
-        error_and_exit(context, "cannot simultaneously use greedy (--greedy-min-dist) and "
-                                "component (--component-min-dist) clustering");
+        fatal_error(context) << "cannot simultaneously use greedy (--greedy-min-dist) and "
+                             << "component (--component-min-dist) clustering" << endl;
     }
     
     if (no_clustering && !distance_index_name.empty() && !snarls_name.empty()) {
-        emit_warning(context, "No clustering option (--no-cluster) causes distance index (-d) "
-                              "to be ignored when snarls (-s) are provided. This option is activated by default for "
-                              "'very-short' read lengths (-l).");
+        warning(context) << "No clustering option (--no-cluster) causes distance index (-d) "
+                         << "to be ignored when snarls (-s) are provided. This option is activated by default for "
+                         << "'very-short' read lengths (-l)." << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
-        error_and_exit(context, "Suboptimal path likelihood root (--prune-exp) set to "
-                                + std::to_string(suboptimal_path_exponent) + ", must set to at least 1.0.");
+        fatal_error(context) << "Suboptimal path likelihood root (--prune-exp) set to "
+                             << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
     }
     
     if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
-        error_and_exit(context, "Short MEM filtration factor (--filter-factor) set to "
-                                + std::to_string(short_mem_filter_factor)
-                                + ", must set to a number between 0.0 and 1.0.");
+        fatal_error(context) << "Short MEM filtration factor (--filter-factor) set to "
+                             << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
     }
     
     if (no_splice_log_odds <= 0.0) {
-        emit_warning(context, "Log odds against splicing (--splice-odds) set to "
-                              + std::to_string(no_splice_log_odds)
-                              + ", non-positive values can lead to spurious identification of spliced alignments.");
+        warning(context) << "Log odds against splicing (--splice-odds) set to " << no_splice_log_odds
+                         << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
     }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) 
         && !matrix_file_name.empty())  {
-        error_and_exit(context, "Cannot choose custom scoring matrix (-w)  "
-                                "and custom match/mismatch score (-q/-z) simultaneously.");
+        fatal_error(context) << "Cannot choose custom scoring matrix (-w)  "
+                             << "and custom match/mismatch score (-q/-z) simultaneously." << endl;
     }
     
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
         || gap_open_score > std::numeric_limits<int8_t>::max() || gap_extension_score > std::numeric_limits<int8_t>::max()
         || full_length_bonus > std::numeric_limits<int8_t>::max() || match_score < 0 || mismatch_score < 0
         || gap_open_score < 0 || gap_extension_score < 0 || full_length_bonus < 0) {
-        error_and_exit(context, "All alignment scoring parameters (-qzoyL) must be between 0 and "
-                                + std::to_string(std::numeric_limits<int8_t>::max()) + ".");
+        fatal_error(context) << "All alignment scoring parameters (-qzoyL) must be between 0 and "
+                             << std::numeric_limits<int8_t>::max() << "." << endl;
     }
     
     // ensure required parameters are provided
     
     if (graph_name.empty()) {
-        error_and_exit(context, "Multipath mapping requires a graph (-x).");
+        fatal_error(context) << "Multipath mapping requires a graph (-x)." << endl;
     }
     
     if (gcsa_name.empty()) {
-        error_and_exit(context, "Multipath mapping requires a GCSA2 index (-g).");
+        fatal_error(context) << "Multipath mapping requires a GCSA2 index (-g)." << endl;
     }
     
     
 #ifdef mpmap_instrument_mem_statistics
     if (auto_calibrate_mismapping_detection) {
-        error_and_exit(context, "set calibration off when profiling MEM statistics");
+        fatal_error(context) << "set calibration off when profiling MEM statistics" << endl;
     }
 #endif
     
@@ -1411,13 +1407,13 @@ int main_mpmap(int argc, char** argv) {
     
     ifstream graph_stream(graph_name);
     if (!graph_stream) {
-        error_and_exit(context, "Cannot open graph file: " + graph_name);
+        fatal_error(context) << "Cannot open graph file: " << graph_name << endl;
     }
     graph_stream.close();
     
     ifstream gcsa_stream(gcsa_name);
     if (!gcsa_stream) {
-        error_and_exit(context, "Cannot open GCSA2 file: " + gcsa_name);
+        fatal_error(context) << "Cannot open GCSA2 file: " << gcsa_name << endl;
     }
     
     string lcp_name = gcsa_name + ".lcp";
@@ -1444,8 +1440,8 @@ int main_mpmap(int argc, char** argv) {
             snarl_stream.open(snarls_name);
         }
         else {
-            emit_warning(context, "Snarls file (-s) is unnecessary and will be ignored "
-                                  "when the distance index (-d) is provided.");
+            warning(context) << "Snarls file (-s) is unnecessary and will be ignored "
+                             << "when the distance index (-d) is provided." << endl;
         }
     }
     
@@ -1502,7 +1498,7 @@ int main_mpmap(int argc, char** argv) {
                     }
                 }
             }
-            cerr << context << ": elapsed time " << strm.str() << ": " << progress << endl;
+            basic_log(context) << ": elapsed time " << strm.str() << ": " << progress << endl;
             progress_mutex.unlock();
         }
     };
@@ -1587,16 +1583,16 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
-        emit_warning(context, "Using a distance index (-d) for clustering is highly recommended "
-                              "for graphs that lack embedded paths. Speed and accuracy "
-                              "are likely to suffer severely without one.");
+        warning(context) << "Using a distance index (-d) for clustering is highly recommended "
+                         << "for graphs that lack embedded paths. Speed and accuracy "
+                         << "are likely to suffer severely without one." << endl;
     }
     else if (path_handle_graph->get_path_count() == 0
              && get_rescue_graph_from_paths
              && (interleaved_input || !fastq_name_2.empty())) {
-        emit_warning(context, "Identifying rescue subgraphs using embedded paths (--path-rescue-graph) "
-                              "is impossible on graphs that lack embedded paths. Pair rescue "
-                              "will not be used on this graph, potentially hurting accuracy.");
+        warning(context) << "Identifying rescue subgraphs using embedded paths (--path-rescue-graph) "
+                         << "is impossible on graphs that lack embedded paths. Pair rescue "
+                         << "will not be used on this graph, potentially hurting accuracy." << endl;
     }
     
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -1729,7 +1725,7 @@ int main_mpmap(int argc, char** argv) {
 
         if (gbwt.get() == nullptr) {
             // Complain if we couldn't.
-            error_and_exit(context, "unable to load GBWT index file");
+            fatal_error(context) << "unable to load GBWT index file" << endl;
         }
     
         // We have the GBWT available for scoring haplotypes
@@ -2293,7 +2289,7 @@ int main_mpmap(int argc, char** argv) {
         
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
-                error_and_exit(context, "Cannot open GAM file " + gam_file_name);
+                fatal_error(context) << "Cannot open GAM file " << gam_file_name << endl;
             }
             
             if (interleaved_input) {
@@ -2327,11 +2323,11 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         else {
-            emit_warning(context, "Could not find " + std::to_string(frag_length_sample_size) 
-                         + " (-b) unambiguous read pair mappings to estimate fragment length distribution. "
-                         + "This can happen due to data issues (e.g. unpaired reads being mapped as pairs) "
-                         + "or because the sample size is too large for the read set. "
-                         + "Mapping read pairs as independent single-ended reads.");
+            warning(context) << "Could not find " << frag_length_sample_size
+                             << " (-b) unambiguous read pair mappings to estimate fragment length distribution. "
+                             << "This can happen due to data issues (e.g. unpaired reads being mapped as pairs) "
+                             << "or because the sample size is too large for the read set. "
+                             << "Mapping read pairs as independent single-ended reads." << endl;
             
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {

@@ -111,7 +111,7 @@ int main_vectorize(int argc, char** argv){
                 aln_label = optarg;
                 break;
             case 'r':
-                emit_warning(context, "The --reads option is deprecated.");
+                warning(context) << "The --reads option is deprecated." << endl;
                 break;
             case '?':
             case 'h':
@@ -166,7 +166,7 @@ int main_vectorize(int argc, char** argv){
         xg_index = overlay_helper.apply(path_handle_graph.get());
     }
     else{
-        error_and_exit(context, "No XG index given. An XG index must be provided.");
+        fatal_error(context) << "No XG index given. An XG index must be provided." << endl;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -185,7 +185,7 @@ int main_vectorize(int argc, char** argv){
     Mapper* mapper = nullptr;
     if (mem_sketch) {
         if (gcsa_name.empty()) {
-            error_and_exit(context, "an XG index and GCSA index are required when making MEM sketches");
+            fatal_error(context) << "an XG index and GCSA index are required when making MEM sketches" << endl;
         } else {
             mapper = new Mapper(xg_index, gcsa_index.get(), lcp_index.get());
         }

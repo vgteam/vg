@@ -229,7 +229,7 @@ int main_index(int argc, char** argv) {
         case OPT_RENAME_VARIANTS: // Fall through
         case 'I': // Fall through
         case 'E':
-            error_and_exit(context, "GBWT construction options have been removed; use vg gbwt instead");
+            fatal_error(context) << "GBWT construction options have been removed; use vg gbwt instead" << endl;
             break;
 
         // GCSA
@@ -240,7 +240,7 @@ int main_index(int argc, char** argv) {
             ensure_writable(context, gcsa_name + ".lcp");
             break;
         case 'i':
-            emit_warning(context, "-i option is deprecated");
+            warning(context) << "-i option is deprecated" << endl;
             dbg_names.push_back(optarg);
             break;
         case 'f':
@@ -304,47 +304,46 @@ int main_index(int argc, char** argv) {
 
 
     if (xg_name.empty() && gcsa_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
-        error_and_exit(context, "index type not specified");
-        return 1;
+        fatal_error(context) << "index type not specified" << endl;
     }
 
     if (file_names.size() <= 0 && dbg_names.empty()){
-        //error_and_exit(context, "No graph provided for indexing. "
-        //                        "Please provide a .vg file or GCSA2-format deBruijn graph to index.");
+        //fatal_error(context) << "No graph provided for indexing. "
+        //                     << "Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
     }
     
     if (file_names.size() != 1 && build_gai_index) {
-        error_and_exit(context, "can only index exactly one sorted GAM file at a time");
+        fatal_error(context) << "can only index exactly one sorted GAM file at a time" << endl;
     }
     
     if (file_names.size() != 1 && build_vgi_index) {
-        error_and_exit(context, "can only index exactly one sorted VG file at a time");
+        fatal_error(context) << "can only index exactly one sorted VG file at a time" << endl;
     }
     
     if (file_names.size() > 1 && build_dist) {
         // Allow zero filenames for the index-from-xg mode
-        error_and_exit(context, "can only create one distance index at a time");
+        fatal_error(context) << "can only create one distance index at a time" << endl;
     }
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
-        error_and_exit(context, "GCSA2 cannot index with kmer size greater than "
-                                + std::to_string(gcsa::Key::MAX_LENGTH));
+        fatal_error(context) << "GCSA2 cannot index with kmer size greater than "
+                             << gcsa::Key::MAX_LENGTH << endl;
     }
 
     if (!build_dist && !extra_node_weight.empty()) {
-        error_and_exit(context, "cannot up-weight nodes for snarl finding if not building distance index");
+        fatal_error(context) << "cannot up-weight nodes for snarl finding if not building distance index" << endl;
     }
     
     if (build_xg && build_gcsa && file_names.empty()) {
         // Really we want to build a GCSA by *reading* an XG
         build_xg = false;
         // We'll continue in the build_gcsa section
-        emit_warning(context, "providing input XG with option -x is deprecated");
+        warning(context) << "providing input XG with option -x is deprecated" << endl;
     }
     if (build_dist && file_names.empty()) {
         //If we want to build the distance index from the xg
         build_xg = false;
-        emit_warning(context, "providing input XG with option -x is deprecated");
+        warning(context) << "providing input XG with option -x is deprecated" << endl;
     }
 
 
@@ -352,16 +351,16 @@ int main_index(int argc, char** argv) {
     if (build_xg) {
         if (file_names.empty()) {
             // VGset or something segfaults when we feed it no graphs.
-            error_and_exit(context, "at least one graph is required to build an XG index");
+            fatal_error(context) << "at least one graph is required to build an XG index" << endl;
         }
         if (show_progress) {
-            cerr << context << ": Building XG index" << endl;
+            basic_log(context) << ": Building XG index" << endl;
         }
         xg::XG xg_index;
         VGset graphs(file_names);
         graphs.to_xg(xg_index, (xg_alts ? [](const string&) {return false;} : Paths::is_alt), nullptr);
         if (show_progress) {
-            cerr << context << ": Saving XG index to " << xg_name << endl;
+            basic_log(context) << ": Saving XG index to " << xg_name << endl;
         }
         // Save the XG.
         vg::io::save_handle_graph(&xg_index, xg_name);
@@ -381,7 +380,7 @@ int main_index(int argc, char** argv) {
         bool delete_kmer_files = false;
         if (dbg_names.empty()) {
             if (show_progress) {
-                cerr << context << ": Generating kmer files..." << endl;
+                basic_log(context) << ": Generating kmer files..." << endl;
             }
             
             if (!file_names.empty()) {
@@ -416,7 +415,7 @@ int main_index(int argc, char** argv) {
                 };
                 
                 if (show_progress) {
-                    cerr << context << ": Finding connected components..." << endl;
+                    basic_log(context) << ": Finding connected components..." << endl;
                 }
                 
                 // Get all the components in the graph, which we can process separately to save memory.
@@ -426,7 +425,7 @@ int main_index(int argc, char** argv) {
                 if (components.size() == 1) {
                     // Only one component
                     if (show_progress) {
-                        cerr << context << ": Processing single component graph..." << endl;
+                        basic_log(context) << ": Processing single component graph..." << endl;
                     }
                     make_kmers_for_component(single_graph.get());
                 } else {
@@ -435,8 +434,8 @@ int main_index(int argc, char** argv) {
                         // Don't run in parallel or size limit tracking won't work.
                 
                         if (show_progress) {
-                            cerr << context << ": Selecting component " 
-                                 << i << "/" << components.size() << "..." << endl;
+                            basic_log(context) << ": Selecting component " 
+                                               << i << "/" << components.size() << "..." << endl;
                         }
                         
                         bdsg::PackedSubgraphOverlay component_graph(single_graph.get());
@@ -455,23 +454,23 @@ int main_index(int argc, char** argv) {
                     }
                 }
             } else {
-                error_and_exit(context, "cannot generate GCSA index without either a vg or an XG");
+                fatal_error(context) << "cannot generate GCSA index without either a vg or an XG" << endl;
             }
         }
 
         // Build the index
         if (show_progress) {
-            cerr << context << ": Building the GCSA2 index..." << endl;
+            basic_log(context) << ": Building the GCSA2 index..." << endl;
         }
         gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
         if (show_progress) {
             double seconds = gcsa::readTimer() - start;
-            cerr << context << ": GCSA2 index built in " << seconds << " seconds, "
-                 << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
-            cerr << context << ": I/O volume:" << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
-                 << gcsa::inGigabytes(gcsa::writeVolume()) << " GB write" << endl;
+            basic_log(context) << ": GCSA2 index built in " << seconds << " seconds, "
+                               << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+            basic_log(context) << ": I/O volume:" << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
+                               << gcsa::inGigabytes(gcsa::writeVolume()) << " GB write" << endl;
         }
 
         // Save the indexes
@@ -481,10 +480,10 @@ int main_index(int argc, char** argv) {
         // Verify the index
         if (verify_gcsa) {
             if (show_progress) {
-                cerr << context << ": Verifying the index..." << endl;
+                basic_log(context) << ": Verifying the index..." << endl;
             }
             if (!gcsa::verifyIndex(gcsa_index, &lcp_array, input_graph)) {
-                emit_warning(context, "GCSA2 index verification failed");
+                warning(context) << "GCSA2 index verification failed" << endl;
             }
         }
 
@@ -511,7 +510,7 @@ int main_index(int argc, char** argv) {
             // TODO: Do we really like this enforced naming convention just beacuse samtools does it?
             ofstream index_out(file_names.at(0) + ".gai");
             if (!index_out.good()) {
-                error_and_exit(context, "could not open " + file_names.at(0) + ".gai for writing");
+                fatal_error(context) << "could not open " << file_names.at(0) << ".gai for writing" << endl;
             }
             index.save(index_out);
         });
@@ -540,11 +539,11 @@ int main_index(int argc, char** argv) {
     //Build a snarl-based minimum distance index
     if (build_dist) {
         if (file_names.empty() && xg_name.empty()) {
-            error_and_exit(context, "one graph is required to build a distance index");
+            fatal_error(context) << "one graph is required to build a distance index" << endl;
         } else if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
-            error_and_exit(context, "only one graph at a time can be used to build a distance index");
+            fatal_error(context) << "only one graph at a time can be used to build a distance index" << endl;
         } else if (dist_name.empty()) {
-            error_and_exit(context, "distance index requires an output file");
+            fatal_error(context) << "distance index requires an output file" << endl;
             
         } else  {
             //Get graph and build dist index
@@ -591,14 +590,14 @@ int main_index(int argc, char** argv) {
                     // Save it
                     distance_index.serialize(dist_name);
                 } else {
-                    error_and_exit(context, "input is not a graph or GBZ");
+                    fatal_error(context) << "input is not a graph or GBZ" << endl;
                 }
             }
         }
 
     }
     if (show_progress) {
-        cerr << context << ": Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+        basic_log(context) << ": Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
     return 0;
 }

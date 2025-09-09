@@ -188,7 +188,7 @@ int main_cluster(int argc, char** argv) {
 
             case 'p':
                 if (!optarg || !*optarg) {
-                    error_and_exit(context, "Must provide prefix with -p.");
+                    fatal_error(context) << "Must provide prefix with -p." << endl;
                 }
                 registry.set_prefix(optarg);
                 break;
@@ -247,16 +247,17 @@ int main_cluster(int argc, char** argv) {
     }
     
     if (graph_name.empty()) {
-        error_and_exit(context, "Must provide a graph file with -x.");
+        fatal_error(context) << "Must provide a graph file with -x." << endl;
     }
 
     if (hits_above_threshold != std::numeric_limits<size_t>::max()) {
         if (hard_hit_cap < hits_above_threshold) {
-            error_and_exit(context, "Hard hit cap (-C) must be greater than or equal to hits-above threshold (-a).");
+            fatal_error(context) << "Hard hit cap (-C) must be greater than or equal "
+                                 << "to hits-above threshold (-a)." << endl;
         }
     } else {
         if (output_sequences_only) {
-            error_and_exit(context, "Cannot use -S (sequences only) without a hits-above threshold (-a).");
+            fatal_error(context) << "Cannot use -S (sequences only) without a hits-above threshold (-a)." << endl;
         }
     }
 
@@ -350,7 +351,7 @@ int main_cluster(int argc, char** argv) {
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
-        error_and_exit(context, "Input is not sufficient to create indexes:\n" + string(ex.what()));
+        fatal_error(context) << "Input is not sufficient to create indexes:\n" << ex.what() << endl;
     }
 
     //Get the minimizer index
@@ -383,7 +384,7 @@ int main_cluster(int argc, char** argv) {
         // We will find MEMs using a Mapper
         mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
         if (output_sequences_only) {
-            error_and_exit(context, "Cannot output minimizers (-S) with a GCSA index (-g).");
+            fatal_error(context) << "Cannot output minimizers (-S) with a GCSA index (-g)." << endl;
         }
     }
     // Otherwise we will find minimizers using the minimizer_index

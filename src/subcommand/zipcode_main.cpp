@@ -127,15 +127,16 @@ int main_zipcode(int argc, char** argv) {
     
     
     if (xg_name.empty()) {
-        error_and_exit(context, "Finding zipcodes requires an XG index, must provide XG file (-x)");
+        fatal_error(context) << "Finding zipcodes requires an XG index, must provide XG file (-x)" << endl;
     }
     
     if (gcsa_name.empty() && minimizer_name.empty()) {
-        error_and_exit(context, "Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)");
+        fatal_error(context) << "Finding zipcodes requires a GCSA2 index or minimizer index (-g, -m)" << endl;
     }
     
     if (distance_name.empty()) {
-        error_and_exit(context, "Finding zipcodes requires a distance index, must provide distance index file (-d)");
+        fatal_error(context) << "Finding zipcodes requires a distance index, "
+                             << "must provide distance index file (-d)" << endl;
     }
     
     // create in-memory objects

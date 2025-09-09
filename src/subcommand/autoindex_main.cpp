@@ -26,7 +26,7 @@ const string context = "[vg autoindex]";
 
 int64_t parse_memory_usage(const string& mem_arg) {
     if (mem_arg.empty()) {
-        error_and_exit(context, "target memory usage arg is empty");
+        fatal_error(context) << "target memory usage arg is empty" << endl;
     }
     string mem = mem_arg;
     if (mem.back() == 'B') {
@@ -49,7 +49,8 @@ int64_t parse_memory_usage(const string& mem_arg) {
         base = 1;
     }
     else {
-        error_and_exit(context, "unrecognized unit " + to_string(mem.back()) + " for target memory usage: " + mem_arg);
+        fatal_error(context) << "unrecognized unit " << mem.back()
+                             << " for target memory usage: " << mem_arg << endl;
     }
     return parse<int64_t>(mem) * base;
 }
@@ -80,7 +81,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
     
     size_t i = str.find(':');
     if (i >= str.size()) {
-        error_and_exit(context, "Couldn't parse index provide string:\n" + str, false);
+        fatal_error(context) << "Couldn't parse index provide string: " << str << endl;
     }
     return_val.first = str.substr(0, i);
     while (i < str.size()) {
@@ -89,7 +90,7 @@ pair<string, vector<string>> parse_provide_string(const string& str) {
         i = end;
     }
     if (return_val.second.empty()) {
-        error_and_exit(context, "Couldn't parse index provide string:\n" + str, false);
+        fatal_error(context) << "Couldn't parse index provide string:" << str << endl;
     }
     return return_val;
 }
@@ -231,7 +232,7 @@ int main_autoindex(int argc, char** argv) {
                     }
                 }
                 else {
-                    error_and_exit(context, "Unrecognized workflow (-w) \"" + string(optarg) + "\"");
+                    fatal_error(context) << "Unrecognized workflow (-w) \"" << optarg << "\"" << endl;
                 }
                 break;
             case 'r':
@@ -291,8 +292,8 @@ int main_autoindex(int argc, char** argv) {
             {
                 int verbosity = parse<int>(optarg);
                 if (verbosity < IndexingParameters::None || verbosity > IndexingParameters::Debug) {
-                    error_and_exit(context, "Verbosity (-V) must be integer in {0, 1, 2}, not \""
-                                            + string(optarg) + "\"");
+                    fatal_error(context) << "Verbosity (-V) must be integer in {0, 1, 2}, not \""
+                                         << optarg << "\"" << endl;
                 }
                 IndexingParameters::verbosity = (IndexingParameters::Verbosity) verbosity;
                 break;
@@ -321,7 +322,7 @@ int main_autoindex(int argc, char** argv) {
     }
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << context << ": Executing command\n\t";
+        basic_log(context) << ": Executing command\n\t";
         for (int i = 0; i < argc; ++i) {
             cerr << " " << argv[i];
         }
@@ -390,7 +391,7 @@ int main_autoindex(int argc, char** argv) {
                 vector<string> inferred_file_names = registry.get_possible_filenames(target);
                 for (const string& filename : inferred_file_names) {
                     if (ifstream(filename).is_open()) {
-                        cerr << context << ": Guessing that " << filename << " is " << target << endl;
+                        basic_log(context) << "Guessing that " << filename << " is " << target << endl;
                         registry.provide(target, filename);
                         break;
                     }
@@ -403,7 +404,7 @@ int main_autoindex(int argc, char** argv) {
         registry.make_indexes(targets);
     }
     catch (InsufficientInputException ex) {
-        error_and_exit(context, "Input is not sufficient to create indexes\n" + string(ex.what()), false);
+        fatal_error(context) << "Input is not sufficient to create indexes " << string(ex.what()) << endl;
     }
     
     return 0;

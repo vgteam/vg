@@ -149,7 +149,7 @@ int main_add(int argc, char** argv) {
         auto& vcf = *vcfs.back();
         vcf.open(vcf_filename);
         if (!vcf.is_open()) {
-            error_and_exit(context, "could not open " + vcf_filename);
+            fatal_error(context) << "could not open " << vcf_filename << endl;
         }
     }
     
@@ -181,7 +181,7 @@ int main_add(int argc, char** argv) {
     ensure_vg();
     
     if (vg_graph == nullptr) {
-        error_and_exit(context, "Could not load graph");
+        fatal_error(context) << "Could not load graph" << endl;
     }
     
     {

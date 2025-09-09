@@ -121,9 +121,10 @@ int main_kmers(int argc, char** argv) {
 
             // Obsolete options.
             case 'e':
-                error_and_exit(context, "Option --edge-max is obsolete. Use vg prune to prune the graph instead.");
+                fatal_error(context) << "Option --edge-max is obsolete. "
+                                     << "Use vg prune to prune the graph instead." << endl;
             case 'F':
-                error_and_exit(context, "Option --forward-only is obsolete");
+                fatal_error(context) << "Option --forward-only is obsolete" << endl;
 
             case 'h':
             case '?':
@@ -137,7 +138,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     if (kmer_size == 0) {
-        error_and_exit(context, "--kmer-size was not specified");
+        fatal_error(context) << "--kmer-size was not specified" << endl;
     }
 
     vector<string> graph_file_names;

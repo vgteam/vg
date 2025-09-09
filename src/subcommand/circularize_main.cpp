@@ -102,7 +102,7 @@ int main_circularize(int argc, char** argv){
     vector<string> paths_to_circularize;
     if (!((head * tail) > 0)) {
         help_circularize(argv);
-        error_and_exit(context, "Both a head and tail node must be provided");
+        fatal_error(context) << "Both a head and tail node must be provided" << endl;
     }
     if  (pathfile != "") {
         string line;
@@ -110,7 +110,7 @@ int main_circularize(int argc, char** argv){
         pfi.open(pathfile);
         if (!pfi.good()){
             help_circularize(argv);
-            error_and_exit(context, "There is an error with the input file.");
+            fatal_error(context) << "There is an error with the input file." << endl;
         }
         while (getline(pfi, line)){
             paths_to_circularize.push_back(line);
@@ -131,7 +131,7 @@ int main_circularize(int argc, char** argv){
     // Check if paths are in graph:
     for (const string& p : paths_to_circularize) {
         if (!graph->has_path(p)) {
-            error_and_exit(context, "Path not in graph \"" + p + "\"");
+            fatal_error(context) << "Path not in graph \"" << p << "\"" << endl;
         }
     }
 

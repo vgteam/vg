@@ -298,7 +298,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (!snarl_sample.empty() && !snarl_stats) {
-        error_and_exit(context, "--snarl-sample can only be used with --snarls/-R");
+        fatal_error(context) << "--snarl-sample can only be used with --snarls/-R" << endl;
     }
 
     bdsg::ReferencePathOverlayHelper overlay_helper;
@@ -322,7 +322,7 @@ int main_stats(int argc, char** argv) {
     // We have function to make sure the graph was passed and complain if not
     auto require_graph = [&graph]() {
         if (graph == nullptr) {
-            error_and_exit(context, "The selected operation requires passing a graph file to work on");
+            fatal_error(context) << "The selected operation requires passing a graph file to work on" << endl;
         }
     };
 
@@ -963,7 +963,7 @@ int main_stats(int argc, char** argv) {
             }
         });
         if (show_progress) {
-            std::cerr << context << ": Destroy per-thread data structures" << std::endl;
+            basic_log(context) << ": Destroy per-thread data structures" << std::endl;
         }
         // This can take a long time because we need to deallocate all this
         // stuff allocated by other threads, such as per-node count maps.
@@ -993,7 +993,7 @@ int main_stats(int argc, char** argv) {
 
         if (graph != nullptr) {
             if (show_progress) {
-                std::cerr << context << ": Account for graph" << std::endl;
+                basic_log(context) << ": Account for graph" << std::endl;
             }
 
             // Calculate stats about the reads per allele data
@@ -1069,7 +1069,7 @@ int main_stats(int argc, char** argv) {
         }
 
         if (show_progress) {
-            std::cerr << context << ": Print report" << std::endl;
+            basic_log(context) << ": Print report" << std::endl;
         }
 
         cout << "Total alignments: " << combined.total_alignments << endl;
@@ -1192,7 +1192,7 @@ int main_stats(int argc, char** argv) {
                     ref_path_names.push_back(graph->get_path_name(path_handle));
                 });
                 if (ref_path_names.empty()) {
-                    error_and_exit(context, "unable to find any paths of --snarl-sample");
+                    fatal_error(context) << "unable to find any paths of --snarl-sample" << endl;
                 }
                 path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*pp_graph, ref_path_names));
             }

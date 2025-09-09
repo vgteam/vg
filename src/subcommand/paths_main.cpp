@@ -296,11 +296,11 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'T':
-            emit_warning(context, "option -T/--threads-old is obsolete; use -t/--threads");
+            warning(context) << "option -T/--threads-old is obsolete; use -t/--threads" << endl;
             break;
 
         case 'q':
-            emit_warning(context, "option --threads-by is deprecated; please use --paths-by");
+            warning(context) << "option --threads-by is deprecated; please use --paths-by" << endl;
             path_prefix = optarg;
             selection_criteria++;
             break;
@@ -333,46 +333,47 @@ int main_paths(int argc, char** argv) {
         }
     } else {
         if (!gbwt_file.empty()) {
-            emit_warning(context, "path sense selection is not done by GBWT");
+            warning(context) << "path sense selection is not done by GBWT" << endl;
         }
         // We asked for path senses specifically
         selection_criteria++;
     }
 
     if (input_formats != 1 && input_formats != 2) {
-        error_and_exit(context, "at least one input format (-x, -g) must be specified");
+        fatal_error(context) << "at least one input format (-x, -g) must be specified" << endl;
     }
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths
                            || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && graph_file.empty()) {
-            error_and_exit(context, "a graph is needed for extracting threads in "
-                                    "-X, -A, -V, -d, -r, -n, -E or -F format");
+            fatal_error(context) << "a graph is needed for extracting threads in "
+                                 << "-X, -A, -V, -d, -r, -n, -E or -F format" << endl;
         }
         if (!need_graph && !graph_file.empty()) {
             // TODO: This should be an error, but we display a warning instead for backward compatibility.
-            //error_and_exit(context, "cannot read input from multiple sources");
-            emit_warning(context, "graph unnecessary for listing GBWT threads");
+            //fatal_error(context) << "cannot read input from multiple sources");
+            warning(context) << "graph unnecessary for listing GBWT threads" << endl;
         }
     } 
     if (output_formats != 1) {
-        error_and_exit(context, "one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) must be specified");
+        fatal_error(context) << "one output format (-X, -A, -V, -d, -r, -n, -L, -F, -E, -C or -c) "
+                             << "must be specified" << endl;
     }
     if (selection_criteria > 1) {
-        error_and_exit(context, "multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used");
+        fatal_error(context) << "multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used" << endl;
     }
     if (select_alt_paths && !gbwt_file.empty()) {
-        error_and_exit(context, "selecting variant allele paths is not compatible with a GBWT index");
+        fatal_error(context) << "selecting variant allele paths is not compatible with a GBWT index" << endl;
     }
     if (list_metadata && !gbwt_file.empty()) {
-        error_and_exit(context, "listing path metadata is not compatible with a GBWT index");
+        fatal_error(context) << "listing path metadata is not compatible with a GBWT index" << endl;
     }
     if ((drop_paths || retain_paths || normalize_paths) && !gbwt_file.empty()) {
-        error_and_exit(context, "dropping, retaining or normalizing paths "
-                                "only works on embedded graph paths, not GBWT threads");
+        fatal_error(context) << "dropping, retaining or normalizing paths "
+                             << "only works on embedded graph paths, not GBWT threads" << endl;
     }
     if (coverage && !gbwt_file.empty()) {
-        error_and_exit(context, "coverage option -c only works on embedded graph paths, not GBWT threads");
+        fatal_error(context) << "coverage option -c only works on embedded graph paths, not GBWT threads" << endl;
     }
     
     if (select_alt_paths) {
@@ -410,7 +411,7 @@ int main_paths(int argc, char** argv) {
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
-          error_and_exit(context, "unable to load GBWT index file");
+          fatal_error(context) << "unable to load GBWT index file" << endl;
         }
     }
     
@@ -443,7 +444,7 @@ int main_paths(int argc, char** argv) {
         // We want to operate on a GBWT instead of the graph.
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
-            error_and_exit(context, "the GBWT index does not contain path names");
+            fatal_error(context) << "the GBWT index does not contain path names" << endl;
         }
         
         // Pre-parse some metadata
@@ -472,7 +473,7 @@ int main_paths(int argc, char** argv) {
                 }
             }
             if (thread_ids.size() != path_names.size()) {
-                error_and_exit(context, "could not find all path names from file in GBWT index");
+                fatal_error(context) << "could not find all path names from file in GBWT index" << endl;
             }
         } else {
             thread_ids.reserve(gbwt_index->metadata.paths());
@@ -604,7 +605,7 @@ int main_paths(int argc, char** argv) {
         if (drop_paths || retain_paths || normalize_paths) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
             if (!mutable_graph) {
-                error_and_exit(context, "graph cannot be modified");
+                fatal_error(context) << "graph cannot be modified" << endl;
             }
 
             vector<path_handle_t> to_destroy;

@@ -115,10 +115,10 @@ int main_trace(int argc, char** argv) {
     }
 
     if (xg_name.empty()) {
-        error_and_exit(context, "XG index must be specified with -x");
+        fatal_error(context) << "XG index must be specified with -x" << endl;
     }
     if (start_node < 1) {
-        error_and_exit(context, "start node must be specified with -n");
+        fatal_error(context) << "start node must be specified with -n" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -130,7 +130,7 @@ int main_trace(int argc, char** argv) {
 
     if (gbwt_index == nullptr) {
         // Complain if we couldn't.
-        error_and_exit(context, "unable to find GBWT index in graph or separate file");
+        fatal_error(context) << "unable to find GBWT index in graph or separate file" << endl;
     }
     
     // trace out our graph and paths from the start node

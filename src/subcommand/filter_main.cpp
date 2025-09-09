@@ -339,7 +339,7 @@ int main_filter(int argc, char** argv) {
                     auto point = opt_string.find('.');
                     
                     if (point == -1) {
-                        error_and_exit(context, "no decimal point in seed/probability " + opt_string);
+                        fatal_error(context) << "no decimal point in seed/probability " << opt_string << endl;
                     }
                     
                     // Everything including and after the decimal point is the probability
@@ -369,14 +369,12 @@ int main_filter(int argc, char** argv) {
         case 'b':
             {
                 set_min_base_quality = true;
-                vector<string> parts = split_delims(string(optarg), ":");
-                if (parts.size() != 2) {
-                    error_and_exit(context, "-b expects value in form of <INT>:<FLOAT>");
-                }
-                min_base_quality = parse<int>(parts[0]);
-                min_base_quality_fraction = parse<double>(parts[1]);
+                string quality, frac;
+                tie(quality, frac) = parse_split_string(context, optarg, ':', "--min-base-quality");
+                min_base_quality = parse<int>(quality);
+                min_base_quality_fraction = parse<double>(frac);
                 if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
-                    error_and_exit(context, "second part of -b input must be between 0 and 1");
+                    fatal_error(context) << "second part of -b input must be between 0 and 1" << endl;
                 }
             }
             break;
@@ -420,25 +418,26 @@ int main_filter(int argc, char** argv) {
     }
 
     if (interleaved && max_reads != std::numeric_limits<size_t>::max() && max_reads % 2 != 0) {
-        emit_warning(context, "max read count is not divisible by 2, but reads are paired.");
+        warning(context) << "max read count is not divisible by 2, but reads are paired." << endl;
     }
     if (first_alignment) {
-        emit_warning(context, "setting --threads 1 because --first-alignment requires one thread.");
+        warning(context) << "setting --threads 1 because --first-alignment requires one thread." << endl;
         omp_set_num_threads(1);
     }
     if (!input_gam && overwrite_score) {
-        error_and_exit(context, "-W/--overwrite-score cannot be used with multipath alignments "
-                                "(-M/--input-mp-aln), which do not directly store a score.");
+        fatal_error(context) << "-W/--overwrite-score cannot be used with multipath alignments "
+                             << "(-M/--input-mp-aln), which do not directly store a score." << endl;
         return 1;
     }
     if (rescore && sub_score) {
-        error_and_exit(context, "you asked to rescore reads (-O/--rescore), but also to use "
-                                "the substitution count as the score (-u/--substitutions). Pick one or the other.");
+        fatal_error(context) << "you asked to rescore reads (-O/--rescore), but also to use "
+                             << "the substitution count as the score (-u/--substitutions). "
+                             << "Pick one or the other." << endl;
     }
     if ((!set_min_secondary && !set_min_primary && !overwrite_score) &&
         (rescore || sub_score || frac_score)) {
         // Scores are not being used, but we were told how to get them. Suspicious.
-        stringstream err_msg;
+        auto err_msg = fatal_error(context);
         err_msg << "you asked to ";
         if (rescore) {
             err_msg << "rescore reads (-O/--rescore)";
@@ -449,7 +448,6 @@ int main_filter(int argc, char** argv) {
         }
         err_msg << ", but did not say to do anything with the scores. Remove that option "
                 << "or add one of -s/--min-secondary, -r/--min-primary, or -W/--overwrite-score." << std::endl;
-        error_and_exit(context, err_msg.str());
     }
     
 

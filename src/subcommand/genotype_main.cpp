@@ -220,7 +220,7 @@ int main_genotype(int argc, char** argv) {
     }
 
     if (show_progress) {
-        cerr << context << ": Reading input graph..." << endl;
+        basic_log(context) << ": Reading input graph..." << endl;
     }
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -231,7 +231,7 @@ int main_genotype(int argc, char** argv) {
     if (optind < argc){
         gam_file = get_input_file_name(optind, argc, argv);
     } else {
-        error_and_exit(context, "GAM file must be specified as positional argument");
+        fatal_error(context) << "GAM file must be specified as positional argument" << endl;
     }
 
     if (just_call){
@@ -269,7 +269,7 @@ int main_genotype(int argc, char** argv) {
     vector<Alignment> alignments;
 
     if (show_progress) {
-        cerr << context << ": Loading reads..." << endl;
+        basic_log(context) << ": Loading reads..." << endl;
     }
 
     function<bool(const Alignment&)> alignment_contained = [&graph](const Alignment& alignment) {
@@ -292,7 +292,7 @@ int main_genotype(int argc, char** argv) {
     });
     
     if (show_progress) {
-        cerr << context << ": Loaded " << alignments.size() << " alignments" << endl;
+        basic_log(context) << ": Loaded " << alignments.size() << " alignments" << endl;
     }
     
     // Make a Genotyper to do the genotyping
@@ -312,8 +312,8 @@ int main_genotype(int argc, char** argv) {
     } else if (traversal_finder == "adaptive") {
       genotyper.traversal_alg = Genotyper::TraversalAlg::Adaptive;
     } else {
-        error_and_exit(context, "Invalid value for traversal finder: " + traversal_finder +
-                                ". Must be in {reads, representative, exhaustive, adaptive}");
+        fatal_error(context) << "Invalid value for traversal finder: " << traversal_finder
+                             << ". Must be in {reads, representative, exhaustive, adaptive}" << endl;
     }
     genotyper.show_progress = show_progress;
 

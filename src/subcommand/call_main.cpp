@@ -265,7 +265,7 @@ int main_call(int argc, char** argv) {
                 // For each comma-separated rule
                 auto parts = split_delims(rule, ":");
                 if (parts.size() != 2) {
-                    error_and_exit(context, "ploidy rules must be REGEX:PLOIDY");
+                    fatal_error(context) << "ploidy rules must be REGEX:PLOIDY" << endl;
                 }
                 try {
                     // Parse the regex
@@ -275,8 +275,8 @@ int main_call(int argc, char** argv) {
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
-                    error_and_exit(context, "unacceptable regular expression\n\""
-                                            + parts[0] + "\"\n" + e.what(), false);
+                    fatal_error(context) << "unacceptable regular expression\n\""
+                                         << parts[0] << "\"\n" << e.what() << endl;
                 }
             }
             break;            
@@ -332,7 +332,7 @@ int main_call(int argc, char** argv) {
     if (support_toks.size() == 2) {
         min_site_support = parse<double>(support_toks[1]);
     } else if (support_toks.size() > 2) {
-        error_and_exit(context, "-m option expects at most two comma separated numbers M,N");
+        fatal_error(context) << "-m option expects at most two comma separated numbers M,N" << endl;
     }
     // parse the biases
     vector<string> bias_toks = split_delims(bias_string, ",");
@@ -345,7 +345,7 @@ int main_call(int argc, char** argv) {
     if (bias_toks.size() == 2) {
         ref_het_bias = parse<double>(bias_toks[1]);
     } else if (bias_toks.size() > 2) {
-        error_and_exit(context, "-b option expects at most two comma separated numbers M,N");
+        fatal_error(context) << "-b option expects at most two comma separated numbers M,N" << endl;
     }
     // parse the baseline errors (defaults are in snarl_caller.hpp)
     vector<string> error_toks = split_delims(baseline_error_string, ",");
@@ -355,27 +355,27 @@ int main_call(int argc, char** argv) {
         baseline_error_small = parse<double>(error_toks[0]);
         baseline_error_large = parse<double>(error_toks[1]);
         if (baseline_error_small > baseline_error_large) {
-            emit_warning(context, "with baseline error -e X,Y option, "
-                                  "small variant error (X) normally less than large (Y)");
+            warning(context) << "with baseline error -e X,Y option, "
+                             << "small variant error (X) normally less than large (Y)" << endl;
         }
     } else if (error_toks.size() != 0) {
-        error_and_exit(context, "-e option expects exactly two comma-separated numbers X,Y");
+        fatal_error(context) << "-e option expects exactly two comma-separated numbers X,Y" << endl;
     }
 
     if (trav_padding > 0 && traversals_only == false) {
-        error_and_exit(context, "-M option can only be used in conjunction with -T");
+        fatal_error(context) << "-M option can only be used in conjunction with -T" << endl;
     }
 
     if (!vcf_filename.empty() && genotype_snarls) {
-        error_and_exit(context, "-v and -a options cannot be used together");
+        fatal_error(context) << "-v and -a options cannot be used together" << endl;
     }
 
     if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
         && (legacy || !vcf_filename.empty() || nested)) {
-        error_and_exit(context, "-c/-C no supported with -v, -l or -n");
+        fatal_error(context) << "-c/-C no supported with -v, -l or -n" << endl;
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
-        error_and_exit(context, "-S cannot be used with -p");
+        fatal_error(context) << "-S cannot be used with -p" << endl;
     }
 
     // Read the graph
@@ -384,31 +384,31 @@ int main_call(int argc, char** argv) {
     gbwt::GBWT* gbwt_index = nullptr;
     PathHandleGraph* graph = nullptr;
     string graph_filename = get_input_file_name(optind, argc, argv);
-    if (show_progress) cerr << context << ": Loading graph " << graph_filename << endl;
+    if (show_progress) basic_log(context) << ": Loading graph " << graph_filename << endl;
     auto input = vg::io::VPKG::try_load_first<GBZGraph, PathHandleGraph>(graph_filename);
-    if (show_progress) cerr << context << ": Loaded graph" << endl;
+    if (show_progress) basic_log(context) << ": Loaded graph" << endl;
     if (get<0>(input)) {        
         gbz_graph = std::move(get<0>(input));
         graph = gbz_graph.get();
-        if (show_progress) cerr << context << ": GBZ input detected" << endl;
+        if (show_progress) basic_log(context) << ": GBZ input detected" << endl;
         if (gbz_paths) {
-            if (show_progress) cerr << context << ": Restricting search to GBZ haplotypes" << endl;
+            if (show_progress) basic_log(context) << ": Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
         } else {
-            cerr << context << ": You can restrict the search to GBZ haplotypes, "
-                 << "often to the benefict of speed and accuracy, with the -z option" << endl;
+            basic_log(context) << ": You can restrict the search to GBZ haplotypes, "
+                               << "often to the benefict of speed and accuracy, with the -z option" << endl;
         }
     } else if (get<1>(input)) {
         path_handle_graph = std::move(get<1>(input));
         graph = path_handle_graph.get();
     } else {
-        error_and_exit(context, "Input graph is not a GBZ or path handle graph");
+        fatal_error(context) << "Input graph is not a GBZ or path handle graph" << endl;
     }
     if (gbz_paths && !gbz_graph) {
-        error_and_exit(context, "-z can only be used when input graph is in GBZ format");
+        fatal_error(context) << "-z can only be used when input graph is in GBZ format" << endl;
     }
     if (gbz_translation && !gbz_graph) {
-        error_and_exit(context, "-O can only be used when input graph is in GBZ format");
+        fatal_error(context) << "-O can only be used when input graph is in GBZ format" << endl;
     }
     
     // Read the translation
@@ -424,8 +424,8 @@ int main_call(int argc, char** argv) {
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            emit_warning(context, "Using translation from -N overrides that in input GBZ "
-                                  "(you probably don't want to use -N)");
+            warning(context) << "Using translation from -N overrides that in input GBZ "
+                             << "(you probably don't want to use -N)" << endl;
         }        
         ifstream translation_file(translation_file_name.c_str());
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
@@ -439,7 +439,7 @@ int main_call(int argc, char** argv) {
     bdsg::ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
     bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
     if (show_progress) {
-        cerr << context << ": Applying overlays if necessary (i.e. input not in XG format)" << endl;
+        basic_log(context) << ": Applying overlays if necessary (i.e. input not in XG format)" << endl;
     }
     if (need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
@@ -448,41 +448,41 @@ int main_call(int argc, char** argv) {
     } else if (!need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
     }
-    if (show_progress) cerr << context << ": Applied overlays" << endl;
+    if (show_progress) basic_log(context) << ": Applied overlays" << endl;
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        error_and_exit(context, "when using -o, the same number of paths must be given with -p");
+        fatal_error(context) << "when using -o, the same number of paths must be given with -p" << endl;
     }
     if (!ref_path_offsets.empty() && !vcf_filename.empty()) {
-        error_and_exit(context, "-o cannot be used with -v");
+        fatal_error(context) << "-o cannot be used with -v" << endl;
     }
     // Check our ref lengths
     if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        error_and_exit(context, "when using -l, the same number of paths must be given with -p");
+        fatal_error(context) << "when using -l, the same number of paths must be given with -p" << endl;
     }
     // Check bias option
     if (!bias_string.empty() && !ratio_caller) {
-        error_and_exit(context, "-b can only be used with -B");
+        fatal_error(context) << "-b can only be used with -B" << endl;
     }
     // Check ploidy option
     if (ploidy < 1 || ploidy > 2) {
-        error_and_exit(context, "ploidy (-d) must be either 1 or 2");
+        fatal_error(context) << "ploidy (-d) must be either 1 or 2" << endl;
     }
     if (ratio_caller == true && ploidy != 2) {
-        error_and_exit(context, "ploidy (-d) must be 2 when using ratio caller (-B)");
+        fatal_error(context) << "ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
     }
     if (legacy == true && ploidy != 2) {
-        error_and_exit(context, "ploidy (-d) must be 2 when using legacy caller (-L)");
+        fatal_error(context) << "ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
     }
     if (!vcf_filename.empty() && !gbwt_filename.empty()) {
-        error_and_exit(context, "gbwt (-g) cannot be used when genotyping VCF (-v)");
+        fatal_error(context) << "gbwt (-g) cannot be used when genotyping VCF (-v)" << endl;
     }
     if (legacy == true && !gbwt_filename.empty()) {
-        error_and_exit(context, "gbwt (-g) cannot be used with legacy caller (-L)");
+        fatal_error(context) << "gbwt (-g) cannot be used with legacy caller (-L)" << endl;
     }
     if (gbz_paths && !gbwt_filename.empty()) {
-        error_and_exit(context, "gbwt (-g) cannot be used with GBZ graph (-z): choose one or the other");
+        fatal_error(context) << "gbwt (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
@@ -544,9 +544,9 @@ int main_call(int argc, char** argv) {
                     ref_sample_ss << ", ";
                 }
             }
-            error_and_exit(context, "Multiple reference samples detected:\n[" + ref_sample_ss.str()
-                                    + "].\nPlease use -S to specify a single reference sample "
-                                    + "or use -p to specify reference paths");
+            fatal_error(context) << "Multiple reference samples detected:\n[" << ref_sample_ss.str()
+                                 << "].\nPlease use -S to specify a single reference sample "
+                                 << "or use -p to specify reference paths" << endl;
         }                
     } else {
         // if paths are given, we convert them to subpaths so that ref paths list corresponds
@@ -585,7 +585,8 @@ int main_call(int argc, char** argv) {
         // Check our paths
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
-                error_and_exit(context, "Reference path \"" + ref_path_used.first + "\" not found in graph");
+                fatal_error(context) << "Reference path \"" << ref_path_used.first 
+                                     << "\" not found in graph" << endl;
             }
         }
         
@@ -595,10 +596,10 @@ int main_call(int argc, char** argv) {
     // make sure we have some ref paths
     if (ref_paths.empty()) {
         if (!ref_sample.empty()) {
-            error_and_exit(context, "No paths with selected reference sample \"" + ref_sample + "\" found." 
-                                    "Try using vg paths -M to see which samples are in your graph");
+            fatal_error(context) << "No paths with selected reference sample \"" << ref_sample << "\" found." 
+                                 << "Try using vg paths -M to see which samples are in your graph" << endl;
         }
-        error_and_exit(context, "No reference paths found");
+        fatal_error(context) << "No reference paths found" << endl;
     }
 
     // build table of ploidys
@@ -618,13 +619,13 @@ int main_call(int argc, char** argv) {
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_filename.empty()) {
         ifstream snarl_file(snarl_filename.c_str());
-        if (show_progress) cerr << context << ": Loading snarls from " << snarl_filename << endl;
+        if (show_progress) basic_log(context) << ": Loading snarls from " << snarl_filename << endl;
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
-        if (show_progress) cerr << context << ": Loaded snarls" << endl;
+        if (show_progress) basic_log(context) << ": Loaded snarls" << endl;
     } else {
-        if (show_progress) cerr << context << ": Computing snarls" << endl;
+        if (show_progress) basic_log(context) << ": Computing snarls" << endl;
         IntegratedSnarlFinder finder(*graph);
-        if (show_progress) cerr << context << ": Computed snarls" << endl;
+        if (show_progress) basic_log(context) << ": Computed snarls" << endl;
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
@@ -637,9 +638,9 @@ int main_call(int argc, char** argv) {
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
-        if (show_progress) cerr << context << ": Loading pack file " << pack_filename << endl;
+        if (show_progress) basic_log(context) << ": Loading pack file " << pack_filename << endl;
         packer->load_from_file(pack_filename);
-        if (show_progress) cerr << context << ": Loaded pack file" << endl;
+        if (show_progress) basic_log(context) << ": Loaded pack file" << endl;
         if (nested) {
             // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
             support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
@@ -661,10 +662,10 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
-            if (show_progress) cerr << context << ": Computing coverage statistics" << endl;
+            if (show_progress) basic_log(context) << ": Computing coverage statistics" << endl;
             depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
-            if (show_progress) cerr << context << ": Computed coverage statistics" << endl;
+            if (show_progress) basic_log(context) << ": Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
                                                                 //todo: qualities need to be used better in conjunction with
@@ -692,7 +693,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (!snarl_caller) {
-        error_and_exit(context, "pack file (-k) is required");
+        fatal_error(context) << "pack file (-k) is required" << endl;
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
@@ -712,7 +713,7 @@ int main_call(int argc, char** argv) {
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            error_and_exit(context, "could not open " + vcf_filename);
+            fatal_error(context) << "could not open " << vcf_filename << endl;
         }
 
         // load up the fasta
@@ -751,7 +752,7 @@ int main_call(int argc, char** argv) {
                 gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_filename);
                 gbwt_index = gbwt_index_up.get();
                 if (gbwt_index == nullptr) {
-                    error_and_exit(context, "Unable to load GBWT index from file: " + gbwt_filename);
+                    fatal_error(context) << "Unable to load GBWT index from file: " << gbwt_filename << endl;
                 }
             }
             GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index);
@@ -830,25 +831,25 @@ int main_call(int argc, char** argv) {
 
         // Call each snarl
         // (todo: try chains in normal mode)
-        if (show_progress) cerr << context << ": Calling top-level snarls" << endl;
+        if (show_progress) basic_log(context) << ": Calling top-level snarls" << endl;
         graph_caller->call_top_level_snarls(*graph, all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     } else {
         // Attempt to call chains instead of snarls so that the output traversals are longer
         // Todo: this could probably help in some cases when making VCFs too
-        if (show_progress) cerr << context << ": Calling top-level chains" << endl;
+        if (show_progress) basic_log(context) << ": Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph,  max_chain_edges,  max_chain_trivial_travs,
                                             all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     }
-    if (show_progress) cerr << context << ": Calling complete" << endl;
+    if (show_progress) basic_log(context) << ": Calling complete" << endl;
 
     if (!gaf_output) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
         cout << header << flush;
-        if (show_progress) cerr << context << ": Writing VCF Variants" << endl;
+        if (show_progress) basic_log(context) << ": Writing VCF Variants" << endl;
         vcf_caller->write_variants(cout, snarl_manager.get());
-        if (show_progress) cerr << context << ": VCF complete" << endl;        
+        if (show_progress) basic_log(context) << ": VCF complete" << endl;        
     }
     
     return 0;

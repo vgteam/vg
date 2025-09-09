@@ -80,7 +80,7 @@ int main_dotplot(int argc, char** argv) {
     }
 
     if (xg_file.empty()) {
-        error_and_exit(context, "an XG index is required");
+        fatal_error(context) << "an XG index is required" << endl;
     } else {
         unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
         bdsg::PathPositionOverlayHelper overlay_helper;

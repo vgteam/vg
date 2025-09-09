@@ -85,7 +85,7 @@ int main_inject(int argc, char** argv) {
                 c = std::toupper(c);
             }
             if (output_formats.find(output_format) == output_formats.end()) {
-                error_and_exit(context, "Invalid output format: " + output_format);
+                fatal_error(context) << "Invalid output format: " << output_format << endl;
             }
             break;
 
@@ -117,7 +117,7 @@ int main_inject(int argc, char** argv) {
 
     // We require an XG index
     if (xg_name.empty()) {
-        error_and_exit(context, "Graph (-x) is required");
+        fatal_error(context) << "Graph (-x) is required" << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     bdsg::PathPositionOverlayHelper overlay_helper;

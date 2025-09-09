@@ -110,20 +110,23 @@ int main_sort(int argc, char *argv[]) {
     // Validate the algorithm selection and option combination
     if (algorithm == "id" || algorithm == "topo") {
         if (!reference_name.empty()) {
-            error_and_exit(context, "Reference name not used with " + algorithm + " sort algorithm");
+            fatal_error(context) << "Reference name not used with "
+                                 << algorithm << " sort algorithm" << endl;
         }
         if (without_grooming) {
-            error_and_exit(context, "Not sensible to turn off grooming with " + algorithm + " sort algorithm");
+            fatal_error(context) << "Not sensible to turn off grooming with "
+                                 << algorithm << " sort algorithm" << endl;
         }
     } else if (algorithm == "max-flow" || algorithm == "eades") {
         if (reference_name.empty()) {
-            error_and_exit(context, "Reference name required with " + algorithm + " sort algorithm");
+            fatal_error(context) << "Reference name required with "
+                                 << algorithm << " sort algorithm" << endl;
         }
     } else {
-        error_and_exit(context, "Unrecognized sort algorithm: " + algorithm);
+        fatal_error(context) << "Unrecognized sort algorithm: " << algorithm << endl;
     }
     if (!sorted_index_filename.empty() && algorithm != "id") {
-        error_and_exit(context, "Sorted VG index can only be produced when sorting by ID");
+        fatal_error(context) << "Sorted VG index can only be produced when sorting by ID" << endl;
     }
     
     // With the input graph file

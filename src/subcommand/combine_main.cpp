@@ -95,8 +95,8 @@ int main_combine(int argc, char** argv) {
 
     if (cat_proto) {
         if (connect_paths) 
-        emit_warning(context, "--cat-proto/-c option is deprecated "
-                              "and will be removed in a future version of vg.");
+        warning(context) << "--cat-proto/-c option is deprecated "
+                         << "and will be removed in a future version of vg." << endl;
         return cat_proto_graphs(argc, argv);
     }
     
@@ -124,9 +124,9 @@ int main_combine(int argc, char** argv) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
                     if (first_graph->has_path(path_name)) {
-                        error_and_exit(context, "Paths with name \"" + path_name 
-                                                + "\" found in multiple input graphs. If they are consecutive"
-                                                + "subpath ranges, they can be connected by using the -p option.");
+                        fatal_error(context) << "Paths with name \"" << path_name 
+                                             << "\" found in multiple input graphs. If they are consecutive"
+                                             << "subpath ranges, they can be connected by using the -p option." << endl;
                     }
                 });
             handlealgs::copy_path_handle_graph(graph.get(), first_graph.get());
@@ -176,7 +176,7 @@ int cat_proto_graphs(int argc, char** argv) {
                         }
                         
                         if (!cout) {
-                            error_and_exit(context, "Could not write decompressed data to output stream.");
+                            fatal_error(context) << "Could not write decompressed data to output stream." << endl;
                         }
                         
                         // Do the next input file
@@ -197,7 +197,7 @@ int cat_proto_graphs(int argc, char** argv) {
                 cout << in.rdbuf();
                 
                 if (!cout) {
-                    error_and_exit(context, "Could not write raw data to output stream.");
+                    fatal_error(context) << "Could not write raw data to output stream." << endl;
                 }
                 
                 // Do the next input file
@@ -227,7 +227,7 @@ int cat_proto_graphs(int argc, char** argv) {
             }
             
             if (!cout) {
-                error_and_exit(context, "Could not write converted graph to output stream.");
+                fatal_error(context) << "Could not write converted graph to output stream." << endl;
             }
             
         });

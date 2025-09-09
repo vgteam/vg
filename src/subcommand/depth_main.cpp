@@ -176,24 +176,25 @@ int main_depth(int argc, char** argv) {
     if (!gam_filename.empty()) ++input_count;
     if (!gaf_filename.empty()) ++input_count;
     if (input_count > 1) {
-        error_and_exit(context, "At most one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given");   
+        fatal_error(context) << "At most one of a pack file (-k), a GAM file (-g), "
+                             << "or a GAF file (-a) must be given" << endl;   
     }
     if (pack_filename.empty() && count_dels) {
-        error_and_exit(context, "--count-dels requires a pack file");
+        fatal_error(context) << "--count-dels requires a pack file" << endl;
     }
     if (gam_filename.empty() && gaf_filename.empty()) {
         if (max_nodes != DEFAULT_MAX_NODES || random_seed != initial_random_seed
             || min_mapq != DEFAULT_MIN_MAPQ) {
-            error_and_exit(context, "The --max-nodes, --random-seed, and --min-mapq options "
-                                    "require a GAM or GAF file");
+            fatal_error(context) << "The --max-nodes, --random-seed, and --min-mapq options "
+                                 << "require a GAM or GAF file" << endl;
         }
     } else {
         if (!ref_paths_input_set.empty() || !path_prefixes.empty() || bin_size != DEFAULT_BIN_SIZE) {
-            error_and_exit(context, "Cannot specify paths (-p/-P) or --bin-size for a GAM or GAF");
+            fatal_error(context) << "Cannot specify paths (-p/-P) or --bin-size for a GAM or GAF" << endl;
         }
     }
     if (count_cycles && input_count == 0) {
-        error_and_exit(context, "--count-cycles is only supported for path coverage depth");
+        fatal_error(context) << "--count-cycles is only supported for path coverage depth" << endl;
     }
 
     // Read the graph
@@ -250,7 +251,7 @@ int main_depth(int argc, char** argv) {
         
         for (const auto& ref_name : ref_paths_input_set) {
             if (!base_path_set.count(ref_name)) {
-                error_and_exit(context, "Path \"" + ref_name + "\" not found in graph");;
+                fatal_error(context) << "Path \"" << ref_name << "\" not found in graph" << endl;
             }
         }
 

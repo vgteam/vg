@@ -328,11 +328,12 @@ int main_chunk(int argc, char** argv) {
     if ((n_chunks == 0 ? 0 : 1) + (region_strings.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) +
         (in_bed_file.empty() ? 0 : 1) + (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) +
         (aln_split_size == 0 ? 0 : 1) + (path_components ? 1 : 0) > 1) {
-        error_and_exit(context, "at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} required to specify input regions");
+        fatal_error(context) << "at most one of {-n, -p, -P, -e, -r, -R, -m, '-M'} "
+                             << "required to specify input regions" << endl;
     }
     // need -a if using options that use it
     if ((aln_split_size != 0 || fully_contained || cut_alignments) && aln_files.empty()) {
-        error_and_exit(context, "read alignment file must be specified with -a when using -f, -u, or -m");
+        fatal_error(context) << "read alignment file must be specified with -a when using -f, -u, or -m" << endl;
     }
     // GAF chunking just uses tabix lookup and forwards line strings right now,
     // so it can't do anything that relies on parsing the alignments.
@@ -340,39 +341,39 @@ int main_chunk(int argc, char** argv) {
     // TODO: Unify the input and output into swappable pieces and actually
     // parse GAF.
     if (fully_contained && aln_is_gaf) {
-        error_and_exit(context, "restricting to fully-contained alignments not yet implemented for GAF");
+        fatal_error(context) << "restricting to fully-contained alignments not yet implemented for GAF" << endl;
     }
     if (cut_alignments && aln_is_gaf) {
-        error_and_exit(context, "cutting alignments not yet implemented for GAF");
+        fatal_error(context) << "cutting alignments not yet implemented for GAF" << endl;
     }
     if (components == true && context_steps >= 0) {
-        error_and_exit(context, "context cannot be specified (-c) when splitting into components (-C)");
+        fatal_error(context) << "context cannot be specified (-c) when splitting into components (-C)" << endl;
     }
 
     if (!snarl_filename.empty() && context_steps >= 0) {
-        error_and_exit(context, "context cannot be specified (-c) when using snarls (-S)");
+        fatal_error(context) << "context cannot be specified (-c) when using snarls (-S)" << endl;
     }
     if (!snarl_filename.empty() && region_strings.empty() && path_list_file.empty() && in_bed_file.empty()) {
-        error_and_exit(context, "snarl chunking can only be used with path regions (-p -P -e)");
+        fatal_error(context) << "snarl chunking can only be used with path regions (-p -P -e)" << endl;
     }
 
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
     if (!vg::io::valid_output_format(output_format)) {
-        error_and_exit(context, "invalid output format");
+        fatal_error(context) << "invalid output format" << endl;
     }
     if (trace && output_format != "vg") {
         // todo: trace code goes through vg conversion anyway and according to unit tests
         //       fails when not outputting vg
         output_format = "vg";
         if (output_format_set) {
-            emit_warning(context, "ignoring -O and setting output format to vg, as required by -T");
+            warning(context) << "ignoring -O and setting output format to vg, as required by -T" << endl;
         }
         
     }
     else if (output_format == "vg") {
-        emit_warning(context, "the vg-protobuf format is DEPRECATED. "
-                              "You probably want to use PackedGraph (pg) instead");
+        warning(context) << "the vg-protobuf format is DEPRECATED. "
+                         << "You probably want to use PackedGraph (pg) instead" << endl;
     }    
     string output_ext = output_format == "gfa" ? ".gfa"  : ".vg";
 
@@ -424,7 +425,7 @@ int main_chunk(int argc, char** argv) {
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && aln_split_size == 0) 
         || (id_range && chunk_aln) || components) {
         if (xg_file.empty()) {
-            error_and_exit(context, "graph or XG index (-x) required");
+            fatal_error(context) << "graph or XG index (-x) required" << endl;
         }
 
         // To support the regions we were asked for, we might need to ensure
@@ -454,7 +455,7 @@ int main_chunk(int argc, char** argv) {
             gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
             if (gbwt_index_holder.get() == nullptr) {
                 // Complain if we couldn't get it but were supposed to.
-                error_and_exit(context, "unable to load GBWT index file: " + gbwt_file);
+                fatal_error(context) << "unable to load GBWT index file: " << gbwt_file << endl;
             }
             gbwt_index = gbwt_index_holder.get();
         }
@@ -481,18 +482,18 @@ int main_chunk(int argc, char** argv) {
                     if (!gaf_file.empty()){
                         gaf_tbx = tbx_index_load3(gaf_file.c_str(), NULL, 0);
                         if ( !gaf_tbx ) {
-                            error_and_exit(context, "Could not load .tbi/.csi index of " + gaf_file);
+                            fatal_error(context) << "Could not load .tbi/.csi index of " << gaf_file << endl;
                         }
                         int nseq;
                         gaf_fp = hts_open(gaf_file.c_str(),"r");
                         if ( !gaf_fp ) {
-                            error_and_exit(context, "Could not open " + gaf_file);
+                            fatal_error(context) << "Could not open " << gaf_file << endl;
                         }
                         gaf_fps.push_back(unique_ptr<htsFile>(gaf_fp));
                         gaf_tbxs.push_back(unique_ptr<tbx_t>(gaf_tbx));
                     }
                 } catch (...) {
-                    error_and_exit(context, "unable to load GAF index file: " + gaf_file);
+                    fatal_error(context) << "unable to load GAF index file: " << gaf_file << endl;
                 }
             }
         } else {
@@ -503,8 +504,9 @@ int main_chunk(int argc, char** argv) {
                         gam_indexes.back()->load(index_stream);
                     });
                 } catch (...) {
-                    error_and_exit(context, "unable to load GAM index file: " + gam_file + ".gai;\n"
-                                            "note: .gai is required when *not* chunking by components with -C or -M");
+                    fatal_error(context) << "unable to load GAM index file: " << gam_file << ".gai;\n"
+                                         << "note: .gai is required when *not* chunking by components "
+                                         << "with -C or -M" << endl;
                 }
             }
         }
@@ -587,7 +589,7 @@ int main_chunk(int argc, char** argv) {
     }
     
     if (context_steps >= 0 && regions.empty()) {
-        error_and_exit(context, "extracting context (-c) requires a region to take context around");
+        fatal_error(context) << "extracting context (-c) requires a region to take context around" << endl;
     }
     
     // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
@@ -598,7 +600,7 @@ int main_chunk(int argc, char** argv) {
                 context_steps = 1;
             }
         } else if (!components && snarl_filename.empty()) {
-            error_and_exit(context, "context (-c) or snarls (-S)  must be specified when chunking on paths");
+            fatal_error(context) << "context (-c) or snarls (-S)  must be specified when chunking on paths" << endl;
         }
     }
 
@@ -620,20 +622,17 @@ int main_chunk(int argc, char** argv) {
                 if (region.start < 0 || region.end < 0) {
                     // The region coordinates aren't fully specified but the path with that exact name doesn't exist.
                     // Guessing what the user wants would be hard, so stop.
-                    error_and_exit(context, "input path " + region.seq + " not found exactly in graph "
-                                            + "and region coordinates are not completely specified");
+                    fatal_error(context) << "input path " << region.seq << " not found exactly in graph "
+                                         << "and region coordinates are not completely specified" << endl;
                 } else if (graph->has_path(region.seq)) {
                     // This is just an out of range request
-                    error_and_exit(context, "input region " + region.seq + ":"
-                                            + to_string(region.start) + "-" + to_string(region.end)
-                                            + " is out of bounds of path " + region.seq
-                                            + " which has length " 
-                                            + to_string(get_path_length(graph->get_path_handle(region.seq))));
+                    fatal_error(context) << "input region " << region.seq << ":" << region.start << "-" << region.end
+                                         << " is out of bounds of path " << region.seq << " which has length " 
+                                         << get_path_length(graph->get_path_handle(region.seq)) << endl;
                 } else {
                     // The path isn't there or the containing subpath isn't there.
-                    error_and_exit(context, "input region " + region.seq + ":"
-                                            + to_string(region.start) + "-" + to_string(region.end)
-                                            + " not contained by any graph path");
+                    fatal_error(context) << "input region " << region.seq << ":" << region.start << "-" 
+                                         << region.end << " not contained by any graph path" << endl;
                 }
             }
             
@@ -688,9 +687,9 @@ int main_chunk(int argc, char** argv) {
     // now ready to get our chunk on
     if (aln_split_size != 0) {
         if(aln_is_gaf) {
-            error_and_exit(context, "GAF file input toggled with -F but, currently, only GAM files can be split. "
-                                    "A workaround would be to split the GAF file using split -l/-n "
-                                    "which can split text files into chunks.");
+            fatal_error(context) << "GAF file input toggled with -F but, currently, only GAM files can be split. "
+                                 << "A workaround would be to split the GAF file using split -l/-n "
+                                 << "which can split text files into chunks." << endl;
         }
         for (size_t gi = 0; gi < aln_files.size(); ++gi) {
             ifstream gam_stream;
@@ -984,9 +983,10 @@ int main_chunk(int argc, char** argv) {
     // write out component gams
     if (chunk_aln && components) {
         if(aln_is_gaf) {
-            error_and_exit(context, "GAF file input toggled with -F but, currently, only GAM files "
-                                    "can be chunked by component. A workaround is to query one chromosome-component "
-                                    "as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'.");
+            fatal_error(context) << "GAF file input toggled with -F but, currently, only GAM files "
+                                 << "can be chunked by component. A workaround is to query one chromosome-component "
+                                 << "as the reference path and all contained snarls using "
+                                 << "'-p PATHNAME -S SNARLFILE'." << endl;
         }
 
         // buffer size of each component, total across threads
@@ -1239,9 +1239,9 @@ static void check_read(const Alignment& aln, const HandleGraph* graph) {
     AlignmentValidity validity = alignment_is_valid(aln, graph);
     if (!validity) {
         #pragma omp critical (cerr)
-        error_and_exit(context, "Alignment " + aln.name() + " cannot be interpreted against this graph:\n" 
-                                + validity.message
-                                + "\nMake sure that you are using the same graph that the reads were mapped to!");
+        fatal_error(context) << "Alignment " << aln.name() << " cannot be interpreted against this graph:\n" 
+                             << validity.message
+                             << "\nMake sure that you are using the same graph that the reads were mapped to!" << endl;
     }
 }
 

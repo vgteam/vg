@@ -197,13 +197,13 @@ int main_align(int argc, char** argv) {
 
     if (!vg::is_empty(left_anchor) || !vg::is_empty(right_anchor)) {
         if (!ref_seq.empty()) {
-            error_and_exit(context, "Cannot align between positions when using a reference sequence.");
+            fatal_error(context) << "Cannot align between positions when using a reference sequence." << endl;
         }
         if (pinned_alignment) {
-            error_and_exit(context, "Aligning between positions always uses pinned alignment.");
+            fatal_error(context) << "Aligning between positions always uses pinned alignment." << endl;
         }
         if (banded_global) {
-            error_and_exit(context, "Aligning between positions always uses banded global alignment.");
+            fatal_error(context) << "Aligning between positions always uses banded global alignment." << endl;
         }
     }
 
@@ -223,7 +223,7 @@ int main_align(int argc, char** argv) {
     Alignment alignment;
     if (!ref_seq.empty()) {
         if (!matrix_file_name.empty()) {
-            error_and_exit(context, "Custom scoring matrix not supported in reference sequence mode");
+            fatal_error(context) << "Custom scoring matrix not supported in reference sequence mode" << endl;
         }
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);

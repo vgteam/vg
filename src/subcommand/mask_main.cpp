@@ -110,11 +110,11 @@ int main_mask(int argc, char** argv) {
     
     if (argc - optind != 1) {
         help_mask(argv);
-        error_and_exit(context, "vg mask requires exactly 1 positional argument");
+        fatal_error(context) << "vg mask requires exactly 1 positional argument" << endl;
     }
 
     if (bed_filepath.empty()) {
-        error_and_exit(context, "vg mask requires an input BED file from -b / --bed");
+        fatal_error(context) << "vg mask requires an input BED file from -b / --bed" << endl;
     }
     
     // load the graph

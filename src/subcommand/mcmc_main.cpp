@@ -164,7 +164,7 @@ int main_mcmc(int argc, char** argv) {
     ensure_vg();
 
     if(vg_graph == nullptr || vg_graph == 0) {
-        error_and_exit(context, "Graph is NULL");
+        fatal_error(context) << "Graph is NULL" << endl;
     }
     PathPositionHandleGraph* graph = nullptr;
     graph = overlay_helper.apply(vg_graph);
@@ -173,17 +173,17 @@ int main_mcmc(int argc, char** argv) {
     // Check our paths
     for (const string& ref_path : ref_paths) {
         if (!graph->has_path(ref_path)) {
-            error_and_exit(context, "Reference path \"" + ref_path + "\" not found in graph");
+            fatal_error(context) << "Reference path \"" << ref_path << "\" not found in graph" << endl;
         }
     }
     
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
-        error_and_exit(context, "when using -o, the same number paths must be given with -p");
+        fatal_error(context) << "when using -o, the same number paths must be given with -p" << endl;
     }
     // Check our ref lengths
     if (ref_path_lengths.size() != 0 && ref_path_lengths.size() != ref_paths.size()) {
-        error_and_exit(context, "when using -l, the same number paths must be given with -p");
+        fatal_error(context) << "when using -l, the same number paths must be given with -p" << endl;
     }
 
     // No paths specified: use them all

@@ -583,7 +583,7 @@ int main_map(int argc, char** argv) {
                 c = toupper(c);
             }
             if (output_format != "SAM" && output_format != "BAM" && output_format != "CRAM") {
-                error_and_exit(context, "illegal surjection type " + output_format);
+                fatal_error(context) << "illegal surjection type " << output_format << endl;
             }
             break;
             
@@ -611,7 +611,7 @@ int main_map(int argc, char** argv) {
                 convert(parts[3], fragment_orientation);
                 convert(parts[4], fragment_direction);
             } else {
-                error_and_exit(context, "expected five :-delimited numbers to --fragment");
+                fatal_error(context) << "expected five :-delimited numbers to --fragment" << endl;
             }
         }
         break;
@@ -663,8 +663,7 @@ int main_map(int argc, char** argv) {
 
 
         default:
-            cerr << "Unimplemented option " << (char) c << endl;
-            exit(1);
+            fatal_error(context) << "Unimplemented option " << (char) c << endl;
         }
     }
 
@@ -672,23 +671,23 @@ int main_map(int argc, char** argv) {
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
 
     if (!ref_paths_name.empty() && !hts_output) {
-        emit_warning(context, "Reference path file (--ref-paths) is only used when output format "
-                              "(--surject-to) is SAM, BAM, or CRAM.");
+        warning(context) << "Reference path file (--ref-paths) is only used when output format "
+                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
     if (!reference_assembly_names.empty() && !hts_output) {
-        emit_warning(context, "Reference assembly names (--ref-name) are only used when output format "
-                              "(--surject-to) is SAM, BAM, or CRAM.");
+        warning(context) << "Reference assembly names (--ref-name) are only used when output format "
+                         << "(--surject-to) is SAM, BAM, or CRAM." << endl;
         reference_assembly_names.clear();
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()
         && gam_input.empty() && fasta_file.empty()) {
-        error_and_exit(context, "A sequence or read file is required when mapping.");
+        fatal_error(context) << "A sequence or read file is required when mapping." << endl;
     }
 
     if (!qual.empty() && (seq.length() != qual.length())) {
-        error_and_exit(context, "Sequence and base quality string must be the same length.");
+        fatal_error(context) << "Sequence and base quality string must be the same length." << endl;
     }
 
     if (qual_adjust_alignments &&
@@ -696,7 +695,7 @@ int main_map(int argc, char** argv) {
          || (!seq.empty() && qual.empty()) // can't provide sequence without quality
          || !read_file.empty()))           // can't provide sequence list without qualities
     {
-        error_and_exit(context, "Quality adjusted alignments require base quality scores for all sequences.");
+        fatal_error(context) << "Quality adjusted alignments require base quality scores for all sequences." << endl;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
     
@@ -749,7 +748,7 @@ int main_map(int argc, char** argv) {
         // TODO: tell when the user asked for an XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.
         if (debug) {
-            cerr << context << ": Loading XG index " << xg_name << "..." << endl;
+            basic_log(context) << ": Loading XG index " << xg_name << "..." << endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
@@ -759,7 +758,7 @@ int main_map(int argc, char** argv) {
     if (gcsa_stream) {
         // We have a GCSA index too!
         if (debug) {
-            cerr << context << ": Loading GCSA2 index " << gcsa_name << "..." << endl;
+            basic_log(context) << ": Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
         gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
@@ -768,7 +767,7 @@ int main_map(int argc, char** argv) {
     ifstream lcp_stream(lcp_name);
     if (lcp_stream) {
         if (debug) {
-            cerr << context << ": Loading LCP index " << lcp_name << "..." << endl;
+            basic_log(context) << ": Loading LCP index " << lcp_name << "..." << endl;
         }
         lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -777,7 +776,7 @@ int main_map(int argc, char** argv) {
     if (gbwt_stream) {
         // We have a GBWT index too!
         if (debug) {
-            cerr << context << ": Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+            basic_log(context) << ": Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -861,9 +860,9 @@ int main_map(int argc, char** argv) {
         m->min_cluster_length = min_cluster_length;
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
         if (debug && i == 0) {
-            cerr << context << ": min_mem_length = " << m->min_mem_length
-                 << ", mem_reseed_length = " << m->mem_reseed_length
-                 << ", min_cluster_length = " << m->min_cluster_length << endl;
+            basic_log(context) << ": min_mem_length = " << m->min_mem_length
+                               << ", mem_reseed_length = " << m->mem_reseed_length
+                               << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = true; // This used to be an option, but no more
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
@@ -1302,7 +1301,7 @@ int main_map(int argc, char** argv) {
             // we've calculated our fragment size, so print it and bail out
             cout << mapper[0]->frag_stats.fragment_model_str() << endl;
         } else {
-            error_and_exit(context, "Could not calculate fragment model.");
+            fatal_error(context) << "Could not calculate fragment model." << endl;
         }
     }
 
@@ -1322,10 +1321,10 @@ int main_map(int argc, char** argv) {
         }
     
         double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
-        cerr << context << " Index load time: " << index_load_seconds.count() << endl;
-        cerr << context << " Mapped " << total_reads_mapped << " reads" << endl;
-        cerr << context << " Mapping speed: " << reads_per_second_per_thread
-             << " reads per second per thread" << endl; 
+        basic_log(context) << " Index load time: " << index_load_seconds.count() << endl;
+        basic_log(context) << " Mapped " << total_reads_mapped << " reads" << endl;
+        basic_log(context) << " Mapping speed: " << reads_per_second_per_thread
+                           << " reads per second per thread" << endl; 
     }
     
     cout.flush();

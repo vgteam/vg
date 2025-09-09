@@ -216,22 +216,22 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         // Read in the XG index
         if (show_progress) {
-            std::cerr << context << ": Load graph" << std::endl;
+            basic_log(context) << "Load graph" << std::endl;
         }
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         if (show_progress) {
-            std::cerr << context << ": Apply overlay" << std::endl;
+            basic_log(context) << "Apply overlay" << std::endl;
         }
         xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
-        error_and_exit(context, "no xg index provided");
+        fatal_error(context) << "no xg index provided" << std::endl;
     }
     
     
     unique_ptr<SnarlManager> snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         if (show_progress) {
-            std::cerr << context << ": Load snarls" << std::endl;
+            basic_log(context) << ": Load snarls" << std::endl;
         }
         get_input_file(snarls_name, [&](istream& snarl_stream) {
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
@@ -248,7 +248,7 @@ int main_annotate(int argc, char** argv) {
             // TODO: refactor this into novelty annotation and annotation-to-table conversion.
             if (add_positions || !bed_names.empty()) {
                 // We can't make the TSV and also annotate the reads
-                error_and_exit(context, "Cannot annotate reads while computing novelty table");
+                fatal_error(context) << "Cannot annotate reads while computing novelty table" << endl;
             }
             
             cout << "name\tlength.bp\tunaligned.bp\tknown.nodes\tknown.bp\tnovel.nodes\tnovel.bp" << endl;
@@ -405,13 +405,14 @@ int main_annotate(int argc, char** argv) {
         // Annotating the graph. We must do something.
         if (bed_names.empty() && gff_names.empty()) {
             // We weren't asked to do anything.
-            error_and_exit(context, "only GAM, BED, or GFF3/GTF annotation is implemented");
+            fatal_error(context) << "only GAM, BED, or GFF3/GTF annotation is implemented" << endl;
         }
     
         if (output_ggff) {
             
             if (!bed_names.empty()) {
-                error_and_exit(context, "BED conversion to GGFF is not currently supported. Convert to GFF3 first.");
+                fatal_error(context) << "BED conversion to GGFF is not currently supported. "
+                                     << "Convert to GFF3 first." << endl;
             }
             
             // define a function that converts to GGFF

@@ -176,19 +176,19 @@ int main_primers(int argc, char** argv) {
     }
 
     if (xg_path.empty()) {
-        error_and_exit(context, "XG file (-x) is required");
+        fatal_error(context) << "XG file (-x) is required" << endl;
     }
 
     if (distance_index_path.empty()) {
-        error_and_exit(context, "distance index file (-d) is required");
+        fatal_error(context) << "distance index file (-d) is required" << endl;
     }
 
     if (ri_path.empty()) {
-        error_and_exit(context, "r index file (-r) is required");
+        fatal_error(context) << "r index file (-r) is required" << endl;
     }
 
     if (gbz_path.empty()) {
-        error_and_exit(context, "GBZ file (-g) is required");
+        fatal_error(context) << "GBZ file (-g) is required" << endl;
     }
 
     string primers_path = get_input_file_name(optind, argc, argv);

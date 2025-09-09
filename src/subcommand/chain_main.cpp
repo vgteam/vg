@@ -102,7 +102,7 @@ int main_chain(int argc, char** argv) {
     assert(json_is_object(problem_json));
     
     if (show_progress) {
-        std::cerr << context << ": Loaded problem from " << problem_filename << std::endl;
+        basic_log(context) << ": Loaded problem from " << problem_filename << std::endl;
     }
     
     // Populate the graph.
@@ -126,15 +126,15 @@ int main_chain(int argc, char** argv) {
                         assert(sequence != nullptr);
                         graph.create_handle(sequence, vg::parse<nid_t>(node_id));
                     } else {
-                        emit_warning(context, "Unreadable node object at index " 
-                                              + std::to_string(i) + "\n" + json_error.text);
+                        warning(context) << "Unreadable node object at index "
+                                         << i << "\n" << json_error.text << std::endl;
                     }
                 } else {
-                    emit_warning(context, "No node object at index " + std::to_string(i));
+                    warning(context) << "No node object at index " << i << std::endl;
                 }
             }
         } else {
-            emit_warning(context, "No nodes");
+            warning(context) << "No nodes" << std::endl;
         }
         json_t* edges_json = json_object_get(graph_json, "edge");
         if (edges_json && json_is_array(edges_json)) {
@@ -158,26 +158,26 @@ int main_chain(int argc, char** argv) {
                         handle_t to_handle = graph.get_handle(vg::parse<nid_t>(to_id), to_end);
                         graph.create_edge(from_handle, to_handle);
                     } else {
-                        emit_warning(context, "Unreadable edge object at index " 
-                                              + std::to_string(i) + "\n" + json_error.text, false);
+                        warning(context) << "Unreadable edge object at index " << i
+                                         << "\n" << json_error.text << std::endl;
                     }
                 } else {
-                    emit_warning(context, "No edge object at index " + std::to_string(i));
+                    warning(context) << "No edge object at index " << i << std::endl;
                 }
             }
         } else {
-            emit_warning(context, "No edges");
+            warning(context) << "No edges" << std::endl;
         }
     } else {
-        emit_warning(context, "No graph");
+        warning(context) << "No graph" << std::endl;
     }
     if (show_progress) {
-        std::cerr << context << ": Reconstructed " << graph.get_node_count()
-                  << " nodes and " << graph.get_edge_count() << " edges" << std::endl;
+        basic_log(context) << ": Reconstructed " << graph.get_node_count()
+                           << " nodes and " << graph.get_edge_count() << " edges" << std::endl;
     }
     
     if (graph.get_node_count() == 0) {
-        error_and_exit(context, "Cannot build indexes for an empty graph");
+        fatal_error(context) << "Cannot build indexes for an empty graph" << std::endl;
     }
     
     // Create the chaining space based on it
@@ -185,7 +185,7 @@ int main_chain(int argc, char** argv) {
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     if (show_progress) {
-        std::cerr << context << ": Built distance index" << std::endl;
+        basic_log(context) << ": Built distance index" << std::endl;
     }
     
     // Decide how to score alignments
@@ -252,19 +252,18 @@ int main_chain(int argc, char** argv) {
                     items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, 
                                        vg::parse<size_t>(graph_start_offset)), length, margin_left, margin_right, score);
                 } else {
-                    emit_warning(context, "Unreadable item object at index " 
-                                          + std::to_string(i) + ":\n" + json_error.text, false);
+                    warning(context) << "Unreadable item object at index " 
+                                     << i << ":\n" << json_error.text << std::endl;
                 }
             } else {
-                emit_warning(context, "No item object at index " + std::to_string(i));
+                warning(context) << "No item object at index " << i << std::endl;
             }
         }
     } else {
-        emit_warning(context, "No items");
+        warning(context) << "No items" << std::endl;
     }
     if (show_progress) {
-        std::cerr << context << ": Reconstructed " 
-                  << items.size() << " chainable items" << std::endl;
+        basic_log(context) << ": Reconstructed " << items.size() << " chainable items" << std::endl;
     }
     
     // Now we have parsed the JSON, so throw it out.

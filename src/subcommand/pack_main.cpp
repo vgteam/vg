@@ -162,7 +162,7 @@ int main_pack(int argc, char** argv) {
     unique_ptr<HandleGraph> handle_graph;
     HandleGraph* graph = nullptr;
     if (xg_name.empty()) {
-        error_and_exit(context, "No basis graph given. One must be provided with -x.");
+        fatal_error(context) << "No basis graph given. One must be provided with -x." << endl;
     } else {
         handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
     }
@@ -170,15 +170,15 @@ int main_pack(int argc, char** argv) {
     graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
 
     if (gam_in.empty() && packs_in.empty() && gaf_in.empty()) {
-        error_and_exit(context, "Input must be provided with -g, -a or -i");
+        fatal_error(context) << "Input must be provided with -g, -a or -i" << endl;
     }
 
     if (!gam_in.empty() && !gaf_in.empty()) {
-        error_and_exit(context, "-g cannot be used with -a");
+        fatal_error(context) << "-g cannot be used with -a" << endl;
     }
 
     if (packs_out.empty() && write_table == false && write_edge_table == false && write_qual_table == false) {
-        error_and_exit(context, "Output must be selected with -o, -d, -D or -u");
+        fatal_error(context) << "Output must be selected with -o, -d, -D or -u" << endl;
     }
 
     // process input node list

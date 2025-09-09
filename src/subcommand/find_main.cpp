@@ -209,7 +209,7 @@ int main_find(int argc, char** argv) {
             get_mems = true;
         case 'S': // fallthrough for -M too
             if (!sequence.empty()) {
-                emit_warning(context, "multiple sequences given with -S or -M; only the last one will be used");
+                warning(context) << "multiple sequences given with -S or -M; only the last one will be used" << endl;
             }
             sequence = optarg;
             break;
@@ -351,27 +351,27 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
-        error_and_exit(context, "find does not accept positional arguments");
+        fatal_error(context) << "find does not accept positional arguments" << endl;
     }
 
     if (gcsa_in.empty() && xg_name.empty() && sorted_gam_name.empty() && sorted_gaf_name.empty()) {
-        error_and_exit(context, "find requires -g, -x, -l, or -F to know where to find its database");
+        fatal_error(context) << "find requires -g, -x, -l, or -F to know where to find its database" << endl;
     }
 
     if (context_size > 0 && use_length == true && xg_name.empty()) {
-        error_and_exit(context, "-L not supported without -x");
+        fatal_error(context) << "-L not supported without -x" << endl;
     }
     
     if (xg_name.empty() && mem_reseed_length) {
-        error_and_exit(context, "SMEM reseeding requires an XG index. Provide XG index with -x.");
+        fatal_error(context) << "SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
     }
     
     if ((id(connecting_start) == 0) != (id(connecting_end) == 0)) {
-        error_and_exit(context, "--connecting-start and --connecting-end must be specified together.");
+        fatal_error(context) << "--connecting-start and --connecting-end must be specified together." << endl;
     }
 
     if (gcsa_in.empty() && !sequence.empty()) {
-        error_and_exit(context, "need GCSA index to query sequences");
+        fatal_error(context) << "need GCSA index to query sequences" << endl;
     }
     
     // process input node list
@@ -415,7 +415,7 @@ int main_find(int argc, char** argv) {
             if (xindex->has_node(id)) {
                 final_ids.push_back(id);
             } else {
-                emit_warning(context, "no node with id " + std::to_string(id) + " in the graph");
+                warning(context) << "no node with id " << id << " in the graph" << endl;
             }
         }
         node_ids = final_ids;
@@ -435,7 +435,7 @@ int main_find(int argc, char** argv) {
         gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
         if (gbwt_index.get() == nullptr) {
             // Complain if we couldn't.
-            error_and_exit(context, "unable to load GBWT index file " + gbwt_name);
+            fatal_error(context) << "unable to load GBWT index file " << gbwt_name << endl;
         }
     }
     
@@ -456,12 +456,12 @@ int main_find(int argc, char** argv) {
     if (!sorted_gaf_name.empty()){
         gaf_tbx = tbx_index_load3(sorted_gaf_name.c_str(), NULL, 0);
         if ( !gaf_tbx ){
-            error_and_exit(context, "Could not load .tbi/.csi index of " + sorted_gaf_name);
+            fatal_error(context) << "Could not load .tbi/.csi index of " << sorted_gaf_name << endl;
         }
         int nseq;
         gaf_fp = hts_open(sorted_gaf_name.c_str(),"r");
         if ( !gaf_fp ) {
-            error_and_exit(context, "Could not open " + sorted_gaf_name);
+            fatal_error(context) << "Could not open " << sorted_gaf_name << endl;
         }
     }
     
@@ -498,7 +498,7 @@ int main_find(int argc, char** argv) {
                 tbx_itr_destroy(itr);
             }
         } else {
-            error_and_exit(context, "Cannot find alignments on range without a sorted GAM or GAF");
+            fatal_error(context) << "Cannot find alignments on range without a sorted GAM or GAF" << endl;
         }
     }
     
@@ -535,7 +535,7 @@ int main_find(int argc, char** argv) {
                 }); 
             }
         } else {
-            error_and_exit(context, "Cannot find alignments on graph without a sorted GAM");
+            fatal_error(context) << "Cannot find alignments on graph without a sorted GAM" << endl;
         }
     }
 
@@ -587,7 +587,7 @@ int main_find(int argc, char** argv) {
             if (xindex->has_path(path_name) == false) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
-                error_and_exit(context, "path \"" + path_name + "\" not found in index");
+                fatal_error(context) << "path \"" << path_name << "\" not found in index" << endl;
             }
             
             // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
@@ -606,7 +606,7 @@ int main_find(int argc, char** argv) {
         }
         if (pairwise_distance) {
             if (node_ids.size() != 2) {
-                error_and_exit(context, "exactly 2 nodes (-n) required with -D");
+                fatal_error(context) << "exactly 2 nodes (-n) required with -D" << endl;
             }
             cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex),
                 make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
@@ -654,7 +654,7 @@ int main_find(int argc, char** argv) {
                 // Grab each target region
                 if(xindex->has_path(target.seq) == false) { 
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
-                    error_and_exit(context, "path \"" + target.seq + "\" not found in index");
+                    fatal_error(context) << "path \"" << target.seq << "\" not found in index" << endl;
                 }
                 path_handle_t path_handle = xindex->get_path_handle(target.seq);
                 // no coordinates given, we do whole thing (0,-1)
@@ -769,8 +769,8 @@ int main_find(int argc, char** argv) {
             nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
-                error_and_exit(context, "format of range must be \"N:M\" "
-                                        "where start id is N and end id is M; got " + range);
+                fatal_error(context) << "format of range must be \"N:M\" "
+                                     << "where start id is N and end id is M; got " << range << endl;
             }
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);

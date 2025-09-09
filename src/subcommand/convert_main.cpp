@@ -221,49 +221,48 @@ int main_convert(int argc, char** argv) {
     }
     
     if (!gfa_trans_path.empty() && input != input_gfa) {
-        error_and_exit(context, "-T can only be used with -g");
+        fatal_error(context) << "-T can only be used with -g" << endl;
     }
     if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline)) {
-        error_and_exit(context, "-P, -Q, and -W can only be used with -f");
+        fatal_error(context) << "-P, -Q, and -W can only be used with -f" << endl;
     }
     if (gfa_output_algorithm == algorithm_gbwtgraph) {
         if (output_format != "gfa") {
-            error_and_exit(context, "Only GFA output format can be used "
-                                     "with the GBWTGraph library GFA conversion algorithm");
+            fatal_error(context) << "Only GFA output format can be used "
+                                 << "with the GBWTGraph library GFA conversion algorithm" << endl;
         }
         if (input == input_gfa) {
-            error_and_exit(context, "GFA input cannot be used "
-                                    "with the GBWTGraph library GFA conversion algorithm");
+            fatal_error(context) << "GFA input cannot be used "
+                                 << "with the GBWTGraph library GFA conversion algorithm" << endl;
         }
         if (!(rgfa_paths.empty() && rgfa_prefixes.empty() && wline)) {
-            error_and_exit(context, "GFA output options (-P, -Q, -W) cannot be used "
-                                     "with the GBWTGraph library GFA conversion algorithm");
+            fatal_error(context) << "GFA output options (-P, -Q, -W) cannot be used "
+                                 << "with the GBWTGraph library GFA conversion algorithm" << endl;
         }
     }
     if (output_format == "gfa" && !ref_samples.empty()) {
-        error_and_exit(context, "paths cannot be converted to reference sense when writing GFA output");
+        fatal_error(context) << "paths cannot be converted to reference sense when writing GFA output" << endl;
     }
     if (output_format == "gfa" && !hap_locus.empty()) {
-        error_and_exit(context, "paths cannot be converted to haplotype sense when writing GFA output");
+        fatal_error(context) << "paths cannot be converted to haplotype sense when writing GFA output" << endl;
     }
     if (!ref_samples.empty() && !hap_locus.empty()) {
-        error_and_exit(context, "cannot convert paths to haplotype and reference sense at the same time");
+        fatal_error(context) << "cannot convert paths to haplotype and reference sense at the same time" << endl;
     }
     if (new_sample.empty() != hap_locus.empty()) {
-        error_and_exit(context, "to convert a generic-sense path to a haplotype, "
-                                "both --hap-locus and --new-sample are required");
+        fatal_error(context) << "to convert a generic-sense path to a haplotype, "
+                                "both --hap-locus and --new-sample are required" << endl;
     }
     if (output_format == "vg") {
-        emit_warning(context, "vg-protobuf output (-v / --vg-out) is deprecated. "
-                              "Please use -p instead");
+        warning(context) << "vg-protobuf output (-v / --vg-out) is deprecated. Please use -p instead" << endl;
     }
 
     
     // with -F or -G we convert an alignment and not a graph
     if (input == input_gam || input == input_gaf) {
         if (!output_format.empty()) {
-            error_and_exit(context, "Alignment conversion options (-F and -G) "
-                                    "cannot be used with any graph conversion options");
+            fatal_error(context) << "Alignment conversion options (-F and -G) "
+                                 << "cannot be used with any graph conversion options" << endl;
         }
 
         unique_ptr<HandleGraph> input_graph;
@@ -313,7 +312,7 @@ int main_convert(int argc, char** argv) {
         // we have to check this manually since we're not using the istream-based loading
         // functions in order to be able to use the disk-backed loading algorithm
         if (optind >= argc) {
-            error_and_exit(context, "no input graph supplied");
+            fatal_error(context) << "no input graph supplied" << endl;
         }
         string input_stream_name = argv[optind];
         if (output_format == "xg") {
@@ -321,8 +320,8 @@ int main_convert(int argc, char** argv) {
             
             // Need to go through a handle graph
             bdsg::HashGraph intermediate;
-            emit_warning(context, "currently cannot convert GFA directly to XG; "
-                                  "converting through another format");
+            warning(context) << "currently cannot convert GFA directly to XG; "
+                             << "converting through another format" << endl;
             algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
                                                  input_rgfa_rank, gfa_trans_path);
             graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples, hap_locus, new_sample, drop_haplotypes);
@@ -346,9 +345,9 @@ int main_convert(int argc, char** argv) {
                                                     gfa_trans_path);
                 }
             } catch (algorithms::GFAFormatError& e) {
-                error_and_exit(context, "Input GFA is not acceptable.\n" + string(e.what()), false);
+                fatal_error(context) << "Input GFA is not acceptable.\n" << e.what() << endl;
             } catch (std::ios_base::failure& e) {
-                error_and_exit(context, "IO error processing input GFA.\n" + string(e.what()), false);
+                fatal_error(context) << "IO error processing input GFA.\n" << e.what() << endl;
             }
         }
     }
@@ -360,7 +359,7 @@ int main_convert(int argc, char** argv) {
             });
             gbwtgraph::GBWTGraph* gbwt_graph = dynamic_cast<gbwtgraph::GBWTGraph*>(input_graph.get());
             if (gbwt_graph == nullptr) {
-                error_and_exit(context, "input graph is not a GBWTGraph");
+                fatal_error(context) << "input graph is not a GBWTGraph" << endl;
             }
             input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
             gbwt_graph->set_gbwt(*input_gbwt);
@@ -403,8 +402,8 @@ int main_convert(int argc, char** argv) {
             // HandleGraph output.
             else {
                 if (input_path_graph != nullptr) {
-                    emit_warning(context, "output format does not support paths; "
-                                          "they are being dropped from the input");
+                    warning(context) << "output format does not support paths; "
+                                     << "they are being dropped from the input" << endl;
                 }
                 MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                 assert(mutable_output_graph != nullptr);
@@ -434,8 +433,8 @@ int main_convert(int argc, char** argv) {
             // We need to find a GBWTGraph to use for this
             const gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
             if (gbwt_graph == nullptr) {
-                error_and_exit(context, "input graph does not have a GBWTGraph, "
-                                        "so GBWTGraph library GFA conversion algorithm cannot be used");
+                fatal_error(context) << "input graph does not have a GBWTGraph, "
+                                     << "so GBWTGraph library GFA conversion algorithm cannot be used" << endl;
             }
             
             gbwtgraph::GFAExtractionParameters parameters;
@@ -452,7 +451,7 @@ int main_convert(int argc, char** argv) {
             }
             for (const string& path_name : rgfa_paths) {
                 if (!graph_to_write->has_path(path_name)) {
-                    error_and_exit(context, "specified path, " + path_name + ", not found in graph", false);
+                    fatal_error(context) << "specified path, " << path_name << ", not found in graph" << endl;
                 }
             }
             if (!rgfa_prefixes.empty()) {
@@ -533,7 +532,7 @@ void help_convert(char** argv) {
 
 void no_multiple_inputs(input_type input) {
     if (input != INPUT_DEFAULT) {
-        error_and_exit(context, "cannot combine input types  (GFA, GBWTGraph, GBZ, GAM, GAF)");
+        fatal_error(context) << "cannot combine input types  (GFA, GBWTGraph, GBZ, GAM, GAF)" << endl;
     }
 }
 
@@ -573,10 +572,9 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
             
             if (phase_block_set.size() > 1) {
                 // We can't resolve these.
-                error_and_exit(context, "multiple phase blocks on sample " + sample +
-                                        " haplotype " + std::to_string(haplotype) +
-                                        " contig " + contig +
-                                        " prevent promoting the sample to a reference");
+                fatal_error(context) << "multiple phase blocks on sample " << sample
+                                     << " haplotype " << haplotype << " contig " << contig
+                                     << " prevent promoting the sample to a reference" << endl;
             }
             
             // Log its haplotypes

@@ -198,8 +198,8 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            error_and_exit(context, "Named coordinate output (-n) was requested, "
-                                    "but the graph does not come with a named coordinate space.");
+            fatal_error(context) << "Named coordinate output (-n) was requested, "
+                                 << "but the graph does not come with a named coordinate space." << endl;
         }
     }
     
@@ -215,17 +215,17 @@ int main_snarl(int argc, char** argv) {
     } else if (algorithm == "integrated") {
         snarl_finder.reset(new IntegratedSnarlFinder(*graph));
     } else {
-        error_and_exit(context, "Algorithm must be 'cactus' or 'integrated', not '" + algorithm + "'");
+        fatal_error(context) << "Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
     }
     if (!vcf_filename.empty() && path_traversals) {
-        error_and_exit(context, "-v cannot be used with -e");
+        fatal_error(context) << "-v cannot be used with -e" << endl;
     }
     if (path_traversals && traversal_file.empty()) {
-        error_and_exit(context, "-e requires -r");
+        fatal_error(context) << "-e requires -r" << endl;
         return 1;
     }
     if (!vcf_filename.empty() && traversal_file.empty()) {
-        error_and_exit(context, "-v requires -r");
+        fatal_error(context) << "-v requires -r" << endl;
     }
 
     unique_ptr<TraversalFinder> trav_finder;
@@ -237,7 +237,7 @@ int main_snarl(int argc, char** argv) {
         variant_file.parseSamples = false;
         variant_file.open(vcf_filename);
         if (!variant_file.is_open()) {
-            error_and_exit(context, "could not open " + vcf_filename);
+            fatal_error(context) << "could not open " << vcf_filename << endl;
         }
 
         // load up the fasta

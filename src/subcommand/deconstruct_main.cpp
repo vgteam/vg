@@ -143,7 +143,7 @@ int main_deconstruct(int argc, char** argv){
             refpath_prefixes.push_back(optarg);
             break;
         case 'H':
-            emit_warning(context, "-H is deprecated, and will be ignored");
+            warning(context) << "-H is deprecated, and will be ignored" << endl;
             break;
         case 'r':
             snarl_file_name = require_exists(context, optarg);
@@ -158,10 +158,10 @@ int main_deconstruct(int argc, char** argv){
             gbz_translation = true;
             break;                        
         case 'e':
-            emit_warning(context, "-e is deprecated as it's now on default");
+            warning(context) << "-e is deprecated as it's now on default" << endl;
             break;
         case 'd':
-            emit_warning(context, "-d is deprecated - ploidy now inferred from haplotypes in path names");
+            warning(context) << "-d is deprecated - ploidy now inferred from haplotypes in path names" << endl;
             break;
         case 'c':
             context_jaccard_window = parse<int>(optarg);
@@ -208,10 +208,10 @@ int main_deconstruct(int argc, char** argv){
     }
 
     if (nested == true && contig_only_ref == true) {
-        error_and_exit(context, "-C cannot be used with -n");
+        fatal_error(context) << "-C cannot be used with -n" << endl;
     }
     if (star_allele == true && nested == false) {
-        error_and_exit(context, "-R can only be used with -n");
+        fatal_error(context) << "-R can only be used with -n" << endl;
     }
     
     // Read the graph
@@ -230,11 +230,11 @@ int main_deconstruct(int argc, char** argv){
         path_handle_graph_up = std::move(get<1>(input));
         path_handle_graph = path_handle_graph_up.get();
     } else {
-        error_and_exit(context, "Input graph is not a GBZ or path handle graph");
+        fatal_error(context) << "Input graph is not a GBZ or path handle graph" << endl;
     }
 
     if (!gbz_graph && gbz_translation) {
-        error_and_exit(context, "-O can only be used when input graph is in GBZ format");
+        fatal_error(context) << "-O can only be used when input graph is in GBZ format" << endl;
     }
 
     if (!gbwt_file_name.empty() || gbz_graph) {
@@ -262,20 +262,20 @@ int main_deconstruct(int argc, char** argv){
     std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
     
     if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
-        std::cerr << context << ": Computed overlay in " << overlay_seconds.count()
-                  << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+        basic_log(context) << "Computed overlay in " << overlay_seconds.count()
+                           << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
     }
 
     // Read the GBWT
     unique_ptr<gbwt::GBWT> gbwt_index_up;
     if (!gbwt_file_name.empty()) {
         if (gbwt_index) {
-            emit_warning(context, "Using GBWT from -g overrides that in input GBZ "
-                                  "(you probably don't want to use -g)");
+            warning(context) << "Using GBWT from -g overrides that in input GBZ "
+                             << "(you probably don't want to use -g)" << endl;
         }
         gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
         if (!gbwt_index_up) {
-            error_and_exit(context, "Unable to load GBWT index file: " + gbwt_file_name);
+            fatal_error(context) << "Unable to load GBWT index file: " << gbwt_file_name << endl;
         }
         gbwt_index = gbwt_index_up.get();
     }
@@ -284,7 +284,8 @@ int main_deconstruct(int argc, char** argv){
         // Check our paths
         for (const string& ref_path : refpaths) {
             if (!graph->has_path(ref_path)) {
-                error_and_exit(context, "Reference path \"" + ref_path + "\" not found in graph/GBWT");
+                fatal_error(context) << "Reference path \"" << ref_path
+                                     << "\" not found in graph/GBWT" << endl;
             }
         }
     }
@@ -302,9 +303,9 @@ int main_deconstruct(int argc, char** argv){
         });
 
         if (!found_hap && gbwt_index == nullptr) {
-            error_and_exit(context, "All graph paths selected as references (leaving no alts). Please use -P/-p "
-                                    "to narrow down the reference to a subset of paths, "
-                                    "or GBZ/GBWT input that contains haplotype paths");
+            fatal_error(context) << "All graph paths selected as references (leaving no alts). Please use -P/-p "
+                                 << "to narrow down the reference to a subset of paths, "
+                                 << "or GBZ/GBWT input that contains haplotype paths" << endl;
         }        
     }
 
@@ -321,8 +322,8 @@ int main_deconstruct(int argc, char** argv){
     }
     if (!translation_file_name.empty()) {
         if (!translation->empty()) {
-            emit_warning(context, "Using translation from -T overrides that in input GBZ "
-                                  "(you probably don't want to use -T)");
+            warning(context) << "Using translation from -T overrides that in input GBZ "
+                             << "(you probably don't want to use -T)" << endl;
         }
         ifstream translation_file(translation_file_name.c_str());
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
@@ -334,13 +335,13 @@ int main_deconstruct(int argc, char** argv){
     if (!snarl_file_name.empty()) {
         ifstream snarl_file(snarl_file_name.c_str());
         if (show_progress) {
-            cerr << context << ": Loading snarls" << endl;
+            basic_log(context) << ": Loading snarls" << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
         IntegratedSnarlFinder finder(*graph);
         if (show_progress) {
-            cerr << context << ": Finding snarls" << endl;
+            basic_log(context) << "Finding snarls" << endl;
         }
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
@@ -359,7 +360,7 @@ int main_deconstruct(int argc, char** argv){
     }
 
     if (refpaths.empty()) {
-        error_and_exit(context, "No specified reference path or prefix found in graph");
+        fatal_error(context) << "No specified reference path or prefix found in graph" << endl;
     }
 
 #ifdef USE_CALLGRIND
@@ -370,7 +371,7 @@ int main_deconstruct(int argc, char** argv){
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
-        cerr << context << ": Deconstructing top-level snarls" << endl;
+        basic_log(context) << "Deconstructing top-level snarls" << endl;
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls || nested);
