@@ -460,6 +460,8 @@ public:
         const unordered_map<size_t, size_t>& snarl_start_indexes;
         /// Map of bound indexes to indexes of their matching bound for jumps
         const unordered_map<size_t, size_t>& bound_pair_indexes;
+        /// Memorized minimum initial running distances for all chains processed
+        unordered_map<size_t, size_t> chain_start_distances;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 
