@@ -2109,7 +2109,7 @@ vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTr
     for (auto seed_itr = begin(); seed_itr != end(); ++seed_itr) {
         vector<oriented_seed_t> dest = *seed_itr;
 
-        for (auto dist_itr = find_distances(seed_itr, true); !dist_itr.done(); ++dist_itr) {
+        for (auto dist_itr = find_distances(seed_itr, true, distance_limit); !dist_itr.done(); ++dist_itr) {
             for (const auto& dest_seed : dest) {
                 // Report this source at the same distance for all dests
                 reverse_views.push_back({dest_seed, *dist_itr});
@@ -2123,7 +2123,7 @@ vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTr
                 dest_seed.is_reversed = !dest_seed.is_reversed;
             }
 
-            for (auto dist_itr = find_distances(seed_itr, false); !dist_itr.done(); ++dist_itr) {
+            for (auto dist_itr = find_distances(seed_itr, false, distance_limit); !dist_itr.done(); ++dist_itr) {
                 for (const auto& dest_seed : dest) {
                     // Report this source at the same distance for all dests
                     reverse_views.push_back({dest_seed, *dist_itr});
