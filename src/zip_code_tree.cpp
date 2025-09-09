@@ -1565,6 +1565,7 @@ ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
                                                   size_t distance_limit) :
     index(start_index), original_index(start_index), end_index(right_to_left ? zip_code_tree.size() : 0),
     zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes), bound_pair_indexes(bound_pair_indexes),
+    iterator_id(start_index * 2 + (right_to_left ? 1 : 0)),
     chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
     if (done()) {
@@ -1785,21 +1786,19 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
     push(bound_pair_indexes.at(index));
     swap();
     // Check if we have already seen this chain
-    if (chain_start_distances.count(index)) {
-        size_t old_distance = chain_start_distances.at(index);
+    if (current_item().get_scratch(iterator_id) != std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
         std::cerr << "Already saw this chain with old running distance " 
-                  << (old_distance == std::numeric_limits<size_t>::max() ? "inf" : std::to_string(old_distance) )
-                  << std::endl;
+                  << current_item().get_scratch(iterator_id) << std::endl;
 #endif
-        if (top() >= old_distance) {
+        if (top() >= current_item().get_scratch(iterator_id)) {
             // We have already seen this chain with a better or equal distance
             skip_chain();
             return;
         }
     }
     // Remember the best distance we've seen for this chain start
-    chain_start_distances[index] = top();
+    current_item().set_scratch(top(), iterator_id);
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
         std::cerr << "Skip chain with running distance "

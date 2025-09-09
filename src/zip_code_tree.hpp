@@ -164,6 +164,10 @@ class ZipCodeTree {
         /// Ignored for non-seeds and should be set to false
         bool is_reversed;
 
+        /// "Scratch paper" for iterator to memorize with
+        size_t scratch_val : 59;
+        size_t scratch_from : 59;
+
         public:
 
         /// Empty constructor
@@ -177,6 +181,9 @@ class ZipCodeTree {
             } else {
                 value = raw_value;
             }
+            // Always default to max
+            scratch_val = ((size_t)1 << 59) - 1;
+            scratch_from = ((size_t)1 << 59) - 1;
         }
         /// Constructor for non-seeds to set a "false" for is_reversed
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -192,6 +199,22 @@ class ZipCodeTree {
                    : value;
         }
         bool get_is_reversed() const { return is_reversed; }
+        /// Scratch access
+        void set_scratch(size_t new_scratch, size_t from) {
+            scratch_val = (new_scratch == std::numeric_limits<size_t>::max())
+                          ? ((size_t)1 << 59) - 1 
+                          : new_scratch;
+            scratch_from = from;
+        }   
+        size_t get_scratch(size_t from) const {
+            if (from != scratch_from) {
+                return std::numeric_limits<size_t>::max();
+            } else {
+                return scratch_val == ((size_t)1 << 59) - 1
+                       ? std::numeric_limits<size_t>::max()
+                       : scratch_val;
+            }
+        }
     };
 
     /**
@@ -460,8 +483,8 @@ public:
         const unordered_map<size_t, size_t>& snarl_start_indexes;
         /// Map of bound indexes to indexes of their matching bound for jumps
         const unordered_map<size_t, size_t>& bound_pair_indexes;
-        /// Memorized minimum initial running distances for all chains processed
-        unordered_map<size_t, size_t> chain_start_distances;
+        /// ID so the iterator knows what scratch paper is its own
+        const size_t iterator_id;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 
