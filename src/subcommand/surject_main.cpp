@@ -58,7 +58,7 @@ void help_surject(char** argv) {
          << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
          << "  -g, --max-graph-scale X   make reads unmapped if alignment target subgraph" << endl
          << "                            size exceeds read length by a factor of X " << endl
-                                         << "(default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
+         << "                            (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
                                          << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
          << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
          << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl

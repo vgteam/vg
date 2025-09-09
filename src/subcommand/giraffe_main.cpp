@@ -2502,4 +2502,4 @@ std::string sample_haplotypes(
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 6, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6, main_giraffe);
