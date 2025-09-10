@@ -280,7 +280,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 
 #ifdef debug_transition
         std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos
-                  << (dest_seed.is_reversed ? "rev" : "") << " is anchor #" << found_dest_anchor->second;
+                  << (dest_seed.is_reversed ? "rev" : "") << " is anchor #" << found_dest_anchor->second
                   << " --> Source seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos 
                   << (source_seed.is_reversed ? "rev" : "") << " at distance " << source_seed.distance
                   << "/" << max_graph_lookback_bases;
@@ -294,7 +294,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                 // We can transition between these seeds
                 // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
-                std::cerr << " is anchor #" << found_source_anchor->second;
+                std::cerr << " is anchor #" << found_source_anchor->second
                           << "\n\tFound transition from #" << found_source_anchor->second 
                           << " to #" << found_dest_anchor->second << std::endl;
 #endif
@@ -316,7 +316,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                 // Queue them up, flipped
                                 
 #ifdef debug_transition
-                std::cerr << " is anchor #" << found_source_anchor->second;
+                std::cerr << " is anchor #" << found_source_anchor->second
                           << "\n\tFound backward transition from #" << found_dest_anchor->second << " to #"
                           << found_source_anchor->second << std::endl;
 #endif
