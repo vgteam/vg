@@ -159,6 +159,10 @@ class ZipCodeTree {
         /// For a child chain, the ID of its parent snarl
         size_t value : 59;
 
+        /// For a bound, how long the internal section is
+        /// e.g. a chain with one seed would be "1"
+        size_t section_length : 59;
+
         /// If we're walking through the tree from right to left (the default),
         /// will we traverse this position backwards?
         /// Ignored for non-seeds and should be set to false
@@ -167,6 +171,10 @@ class ZipCodeTree {
         /// "Scratch paper" for iterator to memorize with
         size_t scratch_val : 59;
         size_t scratch_from : 59;
+
+        static size_t fake_max() {
+            return ((size_t)1 << 59) - 1;
+        }
 
         public:
 
@@ -177,13 +185,14 @@ class ZipCodeTree {
         tree_item_t (tree_item_type_t type, size_t raw_value, bool is_reversed) 
             : type(type), is_reversed(is_reversed) {
             if (raw_value == std::numeric_limits<size_t>::max()) {
-                value = ((size_t)1 << 59) - 1;
+                value = fake_max();
             } else {
                 value = raw_value;
             }
             // Always default to max
-            scratch_val = ((size_t)1 << 59) - 1;
-            scratch_from = ((size_t)1 << 59) - 1;
+            section_length = fake_max();
+            scratch_val = fake_max();
+            scratch_from = fake_max();
         }
         /// Constructor for non-seeds to set a "false" for is_reversed
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -194,23 +203,44 @@ class ZipCodeTree {
         /// Getters
         tree_item_type_t get_type() const { return type; }
         size_t get_value() const { 
-            return value == ((size_t)1 << 59) - 1
-                   ? std::numeric_limits<size_t>::max()
-                   : value;
+            return value == fake_max() ? std::numeric_limits<size_t>::max()
+                                       : value;
         }
         bool get_is_reversed() const { return is_reversed; }
+        /// Handling section_length
+        void set_section_length(size_t new_length) {
+            section_length = (new_length == std::numeric_limits<size_t>::max()) ? fake_max()
+                                                                                : new_length;
+        }
+        size_t get_section_length() const { 
+            return section_length == fake_max() ? std::numeric_limits<size_t>::max()
+                                                : section_length;
+        }
+        //. What to add or subtract to this thing's index
+        /// to get index of other bound
+        size_t get_other_bound_offset() const {
+            if (section_length == fake_max()) {
+                throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
+            }
+            if (is_snarl_start() || type == CHAIN_START) {
+                return section_length + 1;
+            } else if (is_snarl_end() || type == CHAIN_END) {
+                return -(section_length + 1);
+            } else {
+                throw std::runtime_error("Can't get other bound offset of a tree item that isn't a bound");
+            }
+        }
         /// Scratch access
         void set_scratch(size_t new_scratch, size_t from) {
-            scratch_val = (new_scratch == std::numeric_limits<size_t>::max())
-                          ? ((size_t)1 << 59) - 1 
-                          : new_scratch;
+            scratch_val = (new_scratch == std::numeric_limits<size_t>::max()) ? fake_max()
+                                                                              : new_scratch;
             scratch_from = from;
         }   
         size_t get_scratch(size_t from) const {
             if (from != scratch_from) {
                 return std::numeric_limits<size_t>::max();
             } else {
-                return scratch_val == ((size_t)1 << 59) - 1
+                return scratch_val == fake_max()
                        ? std::numeric_limits<size_t>::max()
                        : scratch_val;
             }
@@ -276,8 +306,6 @@ protected:
     vector<tree_item_t> zip_code_tree;
     /// Map of snarl IDs to their start indexes in the zip code tree
     unordered_map<size_t, size_t> snarl_start_indexes;
-    /// Map of bound indexes to indexes of their matching bound
-    unordered_map<size_t, size_t> bound_pair_indexes;
     /// The next unused snarl ID
     size_t next_snarl_id = 0;
 
@@ -289,17 +317,16 @@ public:
     void open_snarl(bool is_cyclic_snarl);
 
     /// Add snarl or chain end of matching type
-    /// and sets up their bound_pair_indexes
+    /// and sets up their section_length values
     /// Also sets a matching "value", assuming it's a snarl ID
     void add_close_bound(size_t start_index);
 
-    /// Remove snarls/bounds from snarl_start_indexes/bound_pair_indexes
+    /// Remove snarls from snarl_start_indexes
     /// that are past the given index
     /// Used for moving a slice of snarls to a new tree
     /// Copy removed things to args, with indexes decreased by index
     void forget_past_index(size_t start_index,
-                           unordered_map<size_t, size_t>& removed_snarls,
-                           unordered_map<size_t, size_t>& removed_bounds);
+                           unordered_map<size_t, size_t>& removed_snarls);
 
     /// Shift snarls/bounds AFTER start_index foward by shift_amount
     /// note start_index is relative to the old positions
@@ -345,8 +372,6 @@ public:
         const vector<tree_item_t>& zip_code_tree;
         /// Map of snarl IDs to their start indexes in the ziptree vector
         const unordered_map<size_t, size_t>& snarl_start_indexes;
-        /// Map of bound indexes to indexes of their matching bound
-        const unordered_map<size_t, size_t>& bound_pair_indexes;
 
         /// Make an iterator starting from start_index
         /// until the end of the given ziptree
@@ -423,7 +448,6 @@ public:
         distance_iterator(size_t start_index,
                           const vector<tree_item_t>& zip_code_tree,
                           const unordered_map<size_t, size_t>& snarl_start_indexes,
-                          const unordered_map<size_t, size_t>& bound_pair_indexes,
                           std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
 
@@ -481,8 +505,6 @@ public:
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
         const unordered_map<size_t, size_t>& snarl_start_indexes;
-        /// Map of bound indexes to indexes of their matching bound for jumps
-        const unordered_map<size_t, size_t>& bound_pair_indexes;
         /// ID so the iterator knows what scratch paper is its own
         const size_t iterator_id;
         /// Stack for computing distances.

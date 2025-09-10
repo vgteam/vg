@@ -62,8 +62,9 @@ void ZipCodeTree::add_close_bound(size_t start_index) {
         throw std::runtime_error("[zip tree]: Attempting to close a zip tree item that is not a snarl or chain start");
     }
     zip_code_tree.emplace_back(closing_type, zip_code_tree[start_index].get_value(), start_index);
-    bound_pair_indexes[start_index] = zip_code_tree.size() - 1;
-    bound_pair_indexes[zip_code_tree.size() - 1] = start_index;
+    size_t end_index = zip_code_tree.size() - 1;
+    zip_code_tree[start_index].set_section_length(end_index - start_index - 1);
+    zip_code_tree[end_index].set_section_length(end_index - start_index - 1);
 }
 
 void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const interval_state_t& interval) {
@@ -143,26 +144,13 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const inter
 }
 
 void ZipCodeTree::forget_past_index(size_t start_index,
-                                    unordered_map<size_t, size_t>& removed_snarls,
-                                    unordered_map<size_t, size_t>& removed_bounds) {
+                                    unordered_map<size_t, size_t>& removed_snarls) {
     // Associative-container erase idiom: https://stackoverflow.com/a/8234813
     for (auto it = snarl_start_indexes.cbegin(); it != snarl_start_indexes.cend();) {
         if (it->second >= start_index) {
             // Indexes must be shifted before being saved in removed_snarls
             removed_snarls[it->first] = it->second - start_index;
             it = snarl_start_indexes.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    for (auto it = bound_pair_indexes.cbegin(); it != bound_pair_indexes.cend();) {
-        if (it->first >= start_index && it->second >= start_index) {
-            // Indexes must be shifted before being saved in removed_bounds
-            removed_bounds[it->first - start_index] = it->second - start_index;
-            it = bound_pair_indexes.erase(it);
-        } else if (it->first >= start_index != it->second >= start_index) {
-            it = bound_pair_indexes.erase(it);
         } else {
             ++it;
         }
@@ -189,12 +177,11 @@ bool ZipCodeForest::move_slice(forest_growing_state_t& forest_state, const size_
 
     // Pull out memory map of snarl start indexes to transfer to the new tree
     unordered_map<size_t, size_t> transferred_snarl_starts, transferred_pair_indexes;
-    active_zip_tree.forget_past_index(slice_start_i, transferred_snarl_starts, transferred_pair_indexes);
+    active_zip_tree.forget_past_index(slice_start_i, transferred_snarl_starts);
     trees.emplace_back();
     ZipCodeTree& new_tree = trees.back();
     // Transfer index memory
     new_tree.snarl_start_indexes = transferred_snarl_starts;
-    new_tree.bound_pair_indexes = transferred_pair_indexes;
 
     if (!move_full_chain) {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -708,21 +695,6 @@ void ZipCodeTree::shift_past_index(size_t start_index, size_t shift_amount) {
             snarl_start.second += shift_amount;
         }
     }
-
-    unordered_map<size_t, size_t> changed_pair_indexes;
-
-    // Associative-container erase idiom: https://stackoverflow.com/a/8234813
-    for (auto it = bound_pair_indexes.cbegin(); it != bound_pair_indexes.cend();) {
-        if (it->second >= start_index) {
-            // Store new pair and then delete the old
-            changed_pair_indexes[it->first + shift_amount] = it->second + shift_amount;
-            it = bound_pair_indexes.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    bound_pair_indexes.insert(changed_pair_indexes.begin(), changed_pair_indexes.end());
 }
 
 ZipCodeForest::seed_info_t::seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
@@ -1082,6 +1054,11 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
 
             // Snarls are not allowed to have inf IDs
             assert(item.get_value() != std::numeric_limits<size_t>::max());
+            // Check that the corresponding end is the correct type
+            size_t other_bound_index = i + item.get_other_bound_offset();
+            assert(zip_code_tree[other_bound_index].get_type() 
+                   == (item.get_type() == DAG_SNARL_START ? DAG_SNARL_END : CYCLIC_SNARL_END));
+            assert(other_bound_index + zip_code_tree[other_bound_index].get_other_bound_offset() == i);
             tree_stack.push(item);
         } else if (item.get_type() == CHAIN_START) {
             if (tree_stack.empty()) {
@@ -1091,6 +1068,10 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
                 // Child chains should have the same snarl ID as parent snarl
                 assert(tree_stack.top().get_value() == item.get_value());
             }
+            // Check that the corresponding end is the correct type
+            size_t other_bound_index = i + item.get_other_bound_offset();
+            assert(zip_code_tree[other_bound_index].get_type() == CHAIN_END);
+            assert(other_bound_index + zip_code_tree[other_bound_index].get_other_bound_offset() == i);
             tree_stack.push(item);
         } else if (item.is_snarl_end()) {
             // Should have opened with the correct snarl type
@@ -1115,28 +1096,6 @@ void ZipCodeTree::validate_boundaries(const SnarlDistanceIndex& distance_index,
         }
     }
     assert(has_seed);
-
-    for (const auto& index_pair : bound_pair_indexes) {
-        // Check that all bound pairs point to valid snarl starts/ends
-        assert(index_pair.first < zip_code_tree.size());
-        assert(index_pair.second < zip_code_tree.size());
-        // The pair indexes should be for the same kind of thing
-        if (zip_code_tree[index_pair.first].get_type() == CHAIN_START) {
-            assert(zip_code_tree[index_pair.second].get_type() == CHAIN_END);
-        } else if (zip_code_tree[index_pair.first].get_type() == CHAIN_END) {
-            assert(zip_code_tree[index_pair.second].get_type() == CHAIN_START);
-        } else if (zip_code_tree[index_pair.first].get_type() == DAG_SNARL_START) {
-            assert(zip_code_tree[index_pair.second].get_type() == DAG_SNARL_END);
-        } else if (zip_code_tree[index_pair.first].get_type() == DAG_SNARL_END) {
-            assert(zip_code_tree[index_pair.second].get_type() == DAG_SNARL_START);
-        } else if (zip_code_tree[index_pair.first].get_type() == CYCLIC_SNARL_START) {
-            assert(zip_code_tree[index_pair.second].get_type() == CYCLIC_SNARL_END);
-        } else if (zip_code_tree[index_pair.first].get_type() == CYCLIC_SNARL_END) {
-            assert(zip_code_tree[index_pair.second].get_type() == CYCLIC_SNARL_START);
-        } else {
-            assert(false);
-        }
-    }
 }
 
 void ZipCodeTree::validate_zip_tree_order(const SnarlDistanceIndex& distance_index, 
@@ -1517,7 +1476,7 @@ void ZipCodeTree::validate_chain(vector<tree_item_t>::const_iterator& zip_iterat
 
 ZipCodeTree::seed_iterator::seed_iterator(size_t start_index, const ZipCodeTree& ziptree)
     : index(start_index), zip_code_tree(ziptree.zip_code_tree),
-    snarl_start_indexes(ziptree.snarl_start_indexes), bound_pair_indexes(ziptree.bound_pair_indexes),
+    snarl_start_indexes(ziptree.snarl_start_indexes),
     cyclic_snarl_nestedness(0), chain_numbers(std::stack<size_t>()) {
     
     // If we begin on a snarl, remember that before incrementing
@@ -1559,12 +1518,11 @@ auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
 ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
                                                   const vector<tree_item_t>& zip_code_tree,
                                                   const unordered_map<size_t, size_t>& snarl_start_indexes,
-                                                  const unordered_map<size_t, size_t>& bound_pair_indexes,
                                                   std::stack<size_t> chain_numbers,
                                                   bool right_to_left,
                                                   size_t distance_limit) :
     index(start_index), original_index(start_index), end_index(right_to_left ? zip_code_tree.size() : 0),
-    zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes), bound_pair_indexes(bound_pair_indexes),
+    zip_code_tree(zip_code_tree), snarl_start_indexes(snarl_start_indexes),
     iterator_id(start_index * 2 + (right_to_left ? 1 : 0)),
     chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
     distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
@@ -1783,7 +1741,7 @@ void ZipCodeTree::distance_iterator::skip_chain() {
 
 void ZipCodeTree::distance_iterator::initialize_chain() {
     // Where *would* we jump, if we jumped?
-    push(bound_pair_indexes.at(index));
+    push(index + current_item().get_other_bound_offset());
     swap();
     // Check if we have already seen this chain
     if (current_item().get_scratch(iterator_id) != std::numeric_limits<size_t>::max()) {
@@ -2087,7 +2045,7 @@ auto ZipCodeTree::distance_iterator::tick() -> bool {
                 index = snarl_start_i;
             } else {
                 // Jump to snarl end
-                index = bound_pair_indexes.at(snarl_start_i);
+                index = zip_code_tree.at(snarl_start_i).get_other_bound_offset() + snarl_start_i;
             }
 #ifdef debug_parse
             std::cerr << "Jump to index " << index << endl;
@@ -2115,7 +2073,7 @@ auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
         std::cerr << from.current_item().get_value() << ": " << (right_to_left ? "Right to left" : "Left to right") << std::endl;
 #endif
     return distance_iterator(from.get_index(), from.zip_code_tree, from.snarl_start_indexes,
-                             from.bound_pair_indexes, from.chain_numbers, right_to_left, distance_limit);
+                             from.chain_numbers, right_to_left, distance_limit);
 }
 
 vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTree::find_all_distances(
