@@ -1823,8 +1823,8 @@ Alignment bam_to_alignment(const bam1_t *b,
         
     }
     alignment.set_read_paired((b->core.flag & BAM_FPAIRED) != 0);
-    
-    if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+    // Only set mapping fields if BAM_FUNMAP is not set
+    if (!(b->core.flag & BAM_FUNMAP) && graph != nullptr && bh != nullptr && b->core.tid >= 0) {
         alignment.set_mapping_quality(b->core.qual);
         alignment.set_read_mapped(true);
         // Look for the path handle this is against.
