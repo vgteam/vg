@@ -504,7 +504,6 @@ public:
         // Methods to look up distances to stack
 
         /// Check if the snarl starting at the given index is cyclic
-        /// Helper for get_distances_from_chain()
         inline bool snarl_is_cyclic(size_t index) const {
             if (!zip_code_tree[index].is_snarl_start()) {
                 throw std::runtime_error("Tried to check if a non-snarl-start is cyclic");
@@ -513,14 +512,14 @@ public:
         }
 
         /// Look up distances relevant to a given chain, 
-        /// for stacking up distances in the iterator
+        /// and push them onto the stack
         /// chain_num is one-indexed, so the first chain is 1, and the last is N
         /// right_side indicates if distances exit from the right or left side
-        vector<size_t> get_distances_from_chain(size_t snarl_start_i, size_t chain_num, bool right_side) const;
+        void stack_snarl_distances(size_t snarl_start_i, size_t chain_num, bool right_side);
 
-        /// Helper for get_distances_from_chain()
-        /// Look up a single value within a triangular distance matrix
-        size_t get_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col) const;
+        /// Helper for stack_snarl_distances()
+        /// Look up a single value in a triangular distance matrix & stack it
+        void stack_matrix_value(size_t matrix_start_i, bool has_main_diagonal, size_t row, size_t col);
 
         // Helper functions for the automaton's state machine
 
@@ -575,7 +574,8 @@ public:
 
         /// Decide what to do when re-entering a snarl,
         /// having already stacked up distances
-        void continue_snarl();
+        /// If is_cyclic is known, pass it in to avoid re-checking
+        void continue_snarl(size_t is_cyclic = std::numeric_limits<size_t>::max());
 
         /// Tick the automaton, looking at the symbol at *it and updating the
         /// stack and current_state. Returns true to yield a value at the
