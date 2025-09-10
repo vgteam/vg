@@ -796,6 +796,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 
     if (full_help) {
         cerr << "Giraffe parameters:" << endl
+             << "  -E, --rec-mode                activate giraffe recombination-aware mode" << endl
              << "  -A, --rescue-algorithm NAME   use this rescue algorithm [dozeu]" << endl
              << "                                {none / dozeu / gssw}" << endl
              << "      --fragment-mean FLOAT     force fragment length distribution to have this" << endl
@@ -812,6 +813,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --track-position          coarsely track linear reference positions of" << endl
              << "                                good intermediate alignment candidates" << endl
              << "                                (implies --track-provenance)" << endl;
+             
 
         auto helps = parser.get_help();
         print_table(helps, cerr);
@@ -1236,7 +1238,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:E";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:Pnb:t:A:E";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
