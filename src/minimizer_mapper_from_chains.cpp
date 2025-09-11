@@ -1436,7 +1436,6 @@ void MinimizerMapper::do_fragmenting_on_trees(Alignment& aln, const ZipCodeFores
 
             // Find fragments over the seeds in the zip code tree
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
                 zip_code_forest.trees[item_num],
                 graph_lookback_limit,
                 read_lookback_limit
@@ -1900,7 +1899,6 @@ void MinimizerMapper::do_chaining_on_fragments(Alignment& aln, const ZipCodeFore
 
             // Chain up the fragments
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
                 zip_code_forest.trees[tree_num],
                 graph_lookback_limit,
                 read_lookback_limit

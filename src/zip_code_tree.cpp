@@ -2013,16 +2013,56 @@ auto ZipCodeTree::find_distances(const seed_iterator& from, bool right_to_left,
                              from.chain_numbers, right_to_left, distance_limit);
 }
 
-vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTree::find_all_distances(
-                                                                           size_t distance_limit) const {
-    vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> reverse_views;
-    for (auto seed_itr = begin(); seed_itr != end(); ++seed_itr) {
-        vector<oriented_seed_t> dest = *seed_itr;
+size_t ZipCodeTree::look_up_value(size_t key, bool is_reversed,
+                                  const std::unordered_map<size_t, size_t>* lookup_for_forward,
+                                  const std::unordered_map<size_t, size_t>* lookup_for_reversed) const {
+    if (lookup_for_forward == nullptr || lookup_for_reversed == nullptr) {
+        return key;
+    }
+    auto value = is_reversed ? lookup_for_reversed->find(key)
+                             : lookup_for_forward->find(key);
+    if (value == (is_reversed ? lookup_for_reversed->end()
+                              : lookup_for_forward->end())) {
+        return std::numeric_limits<size_t>::max();
+    } else {
+        return value->second;
+    }
+}
 
+vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTree::find_all_distances(
+    size_t distance_limit,
+    const std::unordered_map<size_t, size_t>* seed_to_ending,
+    const std::unordered_map<size_t, size_t>* seed_to_starting) const {
+
+    vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> reverse_views;
+    // For each grouping of seeds in the same position
+    for (auto seed_itr = begin(); seed_itr != end(); ++seed_itr) {
+        // Look up all destinations in turn
+        vector<oriented_seed_t> dest;
+        for (const auto& dest_seed : *seed_itr) {
+            size_t lookup_val = look_up_value(dest_seed.seed, dest_seed.is_reversed,
+                                              seed_to_starting, seed_to_ending);
+            if (lookup_val != std::numeric_limits<size_t>::max()) {
+                dest.push_back({lookup_val, dest_seed.is_reversed});
+            }
+        }
+
+        if (dest.size() == 0) {
+            // No valid destinations
+            continue;
+        }
+
+        // For each source seed tracing backwards
         for (auto dist_itr = find_distances(seed_itr, true, distance_limit); !dist_itr.done(); ++dist_itr) {
-            for (const auto& dest_seed : dest) {
-                // Report this source at the same distance for all dests
-                reverse_views.push_back({dest_seed, *dist_itr});
+            ZipCodeTree::seed_result_t source = *dist_itr;
+            size_t lookup_val = look_up_value(source.seed, source.is_reversed,
+                                              seed_to_ending, seed_to_starting);
+            if (lookup_val != std::numeric_limits<size_t>::max()) {
+                source.seed = lookup_val;
+                for (const auto& dest_seed : dest) {
+                    // Report this source at the same distance for all dests
+                    reverse_views.push_back({dest_seed, source});
+                }
             }
         }
 
@@ -2034,9 +2074,15 @@ vector<pair<ZipCodeTree::oriented_seed_t, ZipCodeTree::seed_result_t>> ZipCodeTr
             }
 
             for (auto dist_itr = find_distances(seed_itr, false, distance_limit); !dist_itr.done(); ++dist_itr) {
-                for (const auto& dest_seed : dest) {
-                    // Report this source at the same distance for all dests
-                    reverse_views.push_back({dest_seed, *dist_itr});
+                ZipCodeTree::seed_result_t source = *dist_itr;
+                size_t lookup_val = look_up_value(source.seed, source.is_reversed,
+                                                  seed_to_ending, seed_to_starting);
+                if (lookup_val != std::numeric_limits<size_t>::max()) {
+                    source.seed = lookup_val;
+                    for (const auto& dest_seed : dest) {
+                        // Report this source at the same distance for all dests
+                        reverse_views.push_back({dest_seed, source});
+                    }
                 }
             }
         }

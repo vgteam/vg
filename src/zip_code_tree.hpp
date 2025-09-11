@@ -589,7 +589,17 @@ public:
     /// Uses seed_iterator to find all seeds,
     /// and from each seed position sends back a distance_iterator
     vector<pair<oriented_seed_t, seed_result_t>> find_all_distances(
-        size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+        size_t distance_limit = std::numeric_limits<size_t>::max(),
+        const std::unordered_map<size_t, size_t>* seed_to_ending = nullptr,
+        const std::unordered_map<size_t, size_t>* seed_to_starting = nullptr) const;
+
+    /// Look up a value in the appropriate map
+    /// If no map is given, just return the key
+    /// Helper for find_all_distances()
+    /// If key is not found, returns max size_t
+    size_t look_up_value(size_t key, bool is_reversed,
+                         const std::unordered_map<size_t, size_t>* lookup_for_forward = nullptr,
+                         const std::unordered_map<size_t, size_t>* lookup_for_reversed = nullptr) const;
 
 public:
 

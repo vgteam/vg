@@ -198,13 +198,11 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
     return iterator;
 }
 
-transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-                                                 const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases) {
     
-    // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
+    return [&zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
         const VectorView<Anchor>& to_chain,
         const SnarlDistanceIndex& distance_index,
         const HandleGraph& graph,
@@ -229,7 +227,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // This holds source, dest, and graph distance.
         // We will fill it all in and then sort it by destination read position.
         std::vector<std::tuple<size_t, size_t, size_t>> all_transitions = 
-            generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+            generate_zip_tree_transitions(zip_code_tree, max_graph_lookback_bases,
                                           seed_to_starting, seed_to_ending);
 
         std::vector<std::tuple<size_t, size_t, size_t, size_t>> filtered_transitions =
@@ -255,7 +253,6 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 }
 
 std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
@@ -263,70 +260,31 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 
     std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
-    for (const auto& seed_pair : zip_code_tree.find_all_distances(max_graph_lookback_bases)) {
+    for (const auto& seed_pair : zip_code_tree.find_all_distances(max_graph_lookback_bases, 
+                                                                  &seed_to_ending, &seed_to_starting)) {
         ZipCodeTree::oriented_seed_t dest_seed = seed_pair.first;
         ZipCodeTree::seed_result_t source_seed = seed_pair.second;
 
-        // Might be the start of an anchor if forward relative to the read,
-        // or the end of an anchor if reverse relative to the read
-        std::unordered_map<size_t, size_t>::const_iterator found_dest_anchor = 
-            dest_seed.is_reversed ? seed_to_ending.find(dest_seed.seed)
-                                  : seed_to_starting.find(dest_seed.seed);
-
-        if (found_dest_anchor == (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
-            // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
-            continue;
-        }
-
 #ifdef debug_transition
-        std::cerr << "Destination seed S" << dest_seed.seed << " " << seeds[dest_seed.seed].pos
-                  << (dest_seed.is_reversed ? "rev" : "") << " is anchor #" << found_dest_anchor->second
-                  << " --> Source seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos 
-                  << (source_seed.is_reversed ? "rev" : "") << " at distance " << source_seed.distance
-                  << "/" << max_graph_lookback_bases;
+        std::cerr << "Destination anchor #" << dest_seed.seed << " --> Source anchor #" << source_seed.seed
+                  << " at distance " << source_seed.distance << "/" << max_graph_lookback_bases << std::endl;
 #endif
 
         if (!source_seed.is_reversed && !dest_seed.is_reversed) {
             // Both were traversed in the same orientation as the read.
-            // They might not be at anchor borders though, so check.
-            auto found_source_anchor = seed_to_ending.find(source_seed.seed);
-            if (found_source_anchor != seed_to_ending.end()) {
-                // We can transition between these seeds
-                // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
-                std::cerr << " is anchor #" << found_source_anchor->second
-                          << "\n\tFound transition from #" << found_source_anchor->second 
-                          << " to #" << found_dest_anchor->second << std::endl;
+            std::cerr << "\n\tFound transition from #" << source_seed.seed
+                      << " to #" << dest_seed.seed << std::endl;
 #endif
-                all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second,
-                                             source_seed.distance);
-            } else {
-#ifdef debug_transition
-                std::cerr << " does not represent an anchor." << std::endl;
-#endif
-            }
+            all_transitions.emplace_back(source_seed.seed, dest_seed.seed, source_seed.distance);
         } else if (source_seed.is_reversed && dest_seed.is_reversed) {
             // Both were traversed in the opposite orientation as the read.
-            // We need to find source as an anchor *started*
-            // and then save them flipped for later.
-            auto found_source_anchor = seed_to_starting.find(source_seed.seed);
-            if (found_source_anchor != seed_to_starting.end()) {
-                // We can transition between these seeds
-                // without jumping to/from the middle of an anchor.
-                // Queue them up, flipped
-                                
+            // Queue them up, flipped
 #ifdef debug_transition
-                std::cerr << " is anchor #" << found_source_anchor->second
-                          << "\n\tFound backward transition from #" << found_dest_anchor->second << " to #"
-                          << found_source_anchor->second << std::endl;
+            std::cerr << "\n\tFound backward transition from #" << dest_seed.seed << " to #"
+                      << source_seed.seed << std::endl;
 #endif
-                all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second,
-                                             source_seed.distance);
-            } else {
-#ifdef debug_transition
-                std::cerr << " does not represent an anchor." << std::endl;
-#endif
-            }
+            all_transitions.emplace_back(dest_seed.seed, source_seed.seed, source_seed.distance);
         } else {
             // We have a transition between different orientations
             // relative to the read. That shouldn't happen.

@@ -335,8 +335,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
  * Enumerates transitions under the max graph lookback bases, and filters them
  * by the max read lookback bases.
  */
-transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-                                                 const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases);
 
@@ -350,7 +349,6 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  * Transitions are (source anchor, destination anchor, graph distance).
  */
 std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
