@@ -233,7 +233,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                           seed_to_starting, seed_to_ending);
 
         std::vector<std::tuple<size_t, size_t, size_t, size_t>> filtered_transitions =
-            filter_zip_tree_transitions(all_transitions, to_chain, max_read_lookback_bases);
+            calculate_transition_read_distances(all_transitions, to_chain, max_read_lookback_bases);
 
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
         std::sort(filtered_transitions.begin(), filtered_transitions.end(), 
@@ -318,11 +318,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
                                   << "/" << max_graph_lookback_bases;
 #endif
                         if (!cur_source.is_reversed && !cur_dest.first.is_reversed) {
-                            // Both of these are in the same orientation relative to
-                            // the read, and we're going through the graph in the
-                            // read's forward orientation as assigned by these seeds.
-                            // So we can just visit this transition.
-
+                            // Both were traversed in the same orientation as the read.
                             // They might not be at anchor borders though, so check.
                             auto found_source_anchor = seed_to_ending.find(cur_source.seed);
                             if (found_source_anchor != seed_to_ending.end()) {
@@ -341,10 +337,8 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 #endif
                             }
                         } else if (cur_source.is_reversed && cur_dest.first.is_reversed) {
-                            // Both of these are in the same orientation
-                            // but it is opposite to the read.
-                            // We need to find source as an anchor *started*
-                            // and then save them flipped for later.
+                            // Both were traversed in the opposite orientation as the read.
+                            // We need to save them flipped for later.
                             auto found_source_anchor = seed_to_starting.find(cur_source.seed);
                             if (found_source_anchor != seed_to_starting.end()) {
                                 // We can transition between these seeds
@@ -390,7 +384,7 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
     return all_transitions;
 }
 
-std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
     const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
     const VectorView<Anchor>& to_chain,
     size_t max_read_lookback_bases) {
