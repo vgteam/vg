@@ -170,10 +170,6 @@ class ZipCodeTree {
         /// Ignored for EDGE.CHAIN_COUNT and should be set to false
         bool is_reversed_or_cyclic;
 
-        /// "Scratch paper" for iterator to memorize with
-        size_t scratch_val : 59;
-        size_t scratch_from : 59;
-
         /// A fake "max" value for internal use
         static size_t fake_max() {
             return ((size_t)1 << 59) - 1;
@@ -190,8 +186,6 @@ class ZipCodeTree {
             set_value(raw_value);
             // Always default to max
             section_length = fake_max();
-            scratch_val = fake_max();
-            scratch_from = fake_max();
         }
         /// Constructor to set a "false" for is_reversed_or_cyclic
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -211,16 +205,6 @@ class ZipCodeTree {
         /// Different getters based on context for readability
         bool get_is_reversed() const { return is_reversed_or_cyclic; }
         bool get_is_cyclic() const { return is_reversed_or_cyclic; }
-        size_t get_scratch(size_t from) const {
-            /// Only use scratch from the same place
-            if (from != scratch_from) {
-                return std::numeric_limits<size_t>::max();
-            } else {
-                return scratch_val == fake_max()
-                       ? std::numeric_limits<size_t>::max()
-                       : scratch_val;
-            }
-        }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
         size_t get_other_bound_offset() const {
@@ -243,11 +227,6 @@ class ZipCodeTree {
         void set_section_length(size_t new_length) {
             section_length = (new_length == std::numeric_limits<size_t>::max()) ? fake_max()
                                                                                 : new_length;
-        }
-        void set_scratch(size_t new_scratch, size_t from) {
-            scratch_val = (new_scratch == std::numeric_limits<size_t>::max()) ? fake_max()
-                                                                              : new_scratch;
-            scratch_from = from;
         }
         /// We should never need to set reversedness after the fact,
         /// so the setter is only provided with the is_cyclic name
@@ -481,8 +460,8 @@ public:
         const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
-        /// ID so the iterator knows what scratch paper is its own
-        const size_t iterator_id;
+        /// Memorized minimum initial running distances for all chains processed
+        unordered_map<size_t, size_t> chain_start_distances;
         /// Stack for computing distances.
         std::stack<size_t> stack_data;
 

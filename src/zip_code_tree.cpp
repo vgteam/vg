@@ -1476,9 +1476,9 @@ ZipCodeTree::distance_iterator::distance_iterator(size_t start_index,
                                                   bool right_to_left,
                                                   size_t distance_limit) :
     index(start_index), original_index(start_index), end_index(right_to_left ? zip_code_tree.size() : 0),
-    zip_code_tree(zip_code_tree), iterator_id(start_index * 2 + (right_to_left ? 1 : 0)),
-    chain_numbers(chain_numbers), right_to_left(right_to_left), original_right_to_left(right_to_left),
-    distance_limit(distance_limit), stack_data(std::stack<size_t>()), current_state(S_START) {
+    zip_code_tree(zip_code_tree), chain_numbers(chain_numbers),
+    right_to_left(right_to_left), original_right_to_left(right_to_left),
+    distance_limit(distance_limit), current_state(S_START) {
     if (done()) {
         // We are an end iterator. Nothing else to do.
         return;
@@ -1690,19 +1690,23 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
     push(index + current_item().get_other_bound_offset());
     swap();
     // Check if we have already seen this chain
-    if (current_item().get_scratch(iterator_id) != std::numeric_limits<size_t>::max()) {
+    auto chain_distance = chain_start_distances.find(index);
+    if (chain_distance == chain_start_distances.end()) {
+        // We haven't seen this chain before, so remember it
+        chain_start_distances.emplace_hint(chain_distance, index, top());
+    } else {
 #ifdef debug_parse
-        std::cerr << "Already saw this chain with old running distance " 
-                  << current_item().get_scratch(iterator_id) << std::endl;
+        std::cerr << "Already saw this chain with old running distance "
+                  << chain_distance->second << std::endl;
 #endif
-        if (top() >= current_item().get_scratch(iterator_id)) {
+        if (top() >= chain_distance->second) {
             // We have already seen this chain with a better or equal distance
             skip_chain();
             return;
+        } else {
+            chain_distance->second = top();
         }
     }
-    // Remember the best distance we've seen for this chain start
-    current_item().set_scratch(top(), iterator_id);
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
         std::cerr << "Skip chain with running distance "
