@@ -266,7 +266,7 @@ class ZipCodeTree {
     /// Get all the seeds in the tree, in left-to-right order
     /// Also returns their orientations
     /// Basically seed_itr but without all the extra baggage
-    vector<oriented_seed_t> get_all_seeds(bool ignore_other_values = false) const {
+    vector<oriented_seed_t> get_all_seeds() const {
         vector<oriented_seed_t> all_seeds;
         for (const auto& item : zip_code_tree) {
             if (item.get_type() == SEED) {
