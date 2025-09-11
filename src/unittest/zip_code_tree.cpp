@@ -1270,7 +1270,7 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(1).get_value() == 0);
                 // Start of snarl
-                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::DAG_SNARL_START);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).get_type() == ZipCodeTree::SNARL_START);
                 
                 // Parts of distance matrix
                 REQUIRE(zip_forest.trees[0].get_item_at_index(20).get_type() == ZipCodeTree::EDGE);
@@ -1281,7 +1281,7 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_type() == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(34).get_value() == 5);
 
-                REQUIRE(zip_forest.trees[0].get_item_at_index(36).get_type() == ZipCodeTree::DAG_SNARL_END);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(36).get_type() == ZipCodeTree::SNARL_END);
             }
 
             SECTION("Count dags") {

@@ -75,9 +75,9 @@ class ZipCodeTree {
       seeds' zipcodes.
 
       Seeds represent the first nucleotide of the alignment. When a seed is
-      traversed forwards in the zip tree (.is_reversed is false), the distance
+      traversed forwards in the zip tree (get_is_reversed() is false), distancea
       starting from that seed includes the position. If the seed is reversed in
-      the zip tree, then the distance doesn't include the position.
+      the zip tree, then distances doesn't include the position.
 
       For two SEEDs on the same position, the distance between them would be 0.
       As a convenience, such edges are omitted; the tree will have [seed seed]
@@ -110,19 +110,19 @@ class ZipCodeTree {
       triangle of a distance matrix made using distance_in_snarl(). Distances
       are always FROM the right side of a chain/bound TO the left side.
       A DAG snarl with two chains would look like:
-          DAG_SNARL_START, CHAIN_COUNT, dist:start->c1, dist:start->c2,
+          SNARL_START, CHAIN_COUNT, dist:start->c1, dist:start->c2,
                 dist:c1->c2, dist:start->end, dist:c1->end, dist:c2->end,
-                chain1, chain2, DAG_SNARL_END
+                chain1, chain2, SNARL_END
 
       For snarls that aren't DAGs (called cyclic snarls, though they could have
       an inversion and no cycles), distances are stored to either end of each
       chain. Self-loops are included. Self-loops for chain bounds are stored as
       inf to keep the triangle shape but are never used.
       A cyclic snarl with one chain would look like:
-          CYCLIC_SNARL_START, CHAIN_COUNT, inf, dist:start->c1_L,
+          SNARL_START, CHAIN_COUNT, inf, dist:start->c1_L,
                 dist:c1_L->c1_L, dist:start->c1_R, dist:c1_L->c1_R,
                 dist:c1_R->c1_R, dist:start->end, dist:c1_L->end,
-                dist:c1_R->end, inf, chain1, CYCLIC_SNARL_END
+                dist:c1_R->end, inf, chain1, SNARL_END
     
       ---- ORDERING ----
 
@@ -143,8 +143,7 @@ class ZipCodeTree {
     public:
 
     /// The type of an item in the zip code tree
-    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, 
-                           DAG_SNARL_START, DAG_SNARL_END, CYCLIC_SNARL_START, CYCLIC_SNARL_END};
+    enum tree_item_type_t {SEED=0, CHAIN_START, CHAIN_END, EDGE, CHAIN_COUNT, SNARL_START, SNARL_END};
 
     /// One item in the zip code tree, representing a node or edge of the tree
     struct tree_item_t {
@@ -164,9 +163,11 @@ class ZipCodeTree {
         /// e.g. a chain with one seed would be "1"
         size_t section_length : 59;
 
-        /// If we're walking through the tree from right to left (the default),
-        /// will we traverse this position backwards?
-        bool is_reversed;
+        /// For a bound, if we're walking through the tree from right to left
+        /// (the default), will we traverse this position backwards?
+        /// Or, for a bound is the snarl or parent snarl cyclic?
+        /// Ignored for EDGE/CHAIN_COUNT and should be set to false
+        bool is_reversed_or_cyclic;
 
         /// A fake "max" value for internal use
         static size_t fake_max() {
@@ -179,21 +180,21 @@ class ZipCodeTree {
         tree_item_t (){};
 
         /// Constructor so that value gets set properly
-        tree_item_t (tree_item_type_t type, size_t raw_value, bool is_reversed) 
-            : type(type), is_reversed(is_reversed) {
+        tree_item_t (tree_item_type_t type, size_t raw_value, bool is_reversed_or_cyclic) 
+            : type(type), is_reversed_or_cyclic(is_reversed_or_cyclic) {
             set_value(raw_value);
             // Always default to max
             section_length = fake_max();
         }
-        /// Constructor for non-seeds to set a "false" for is_reversed
+        /// Constructor to set a "false" for is_reversed_or_cyclic
         tree_item_t (tree_item_type_t type, size_t raw_value) 
             : tree_item_t(type, raw_value, false) {}
+        /// Constructor to set max for the value
+        tree_item_t (tree_item_type_t type, bool is_reversed_or_cyclic) 
+            : tree_item_t(type, std::numeric_limits<size_t>::max(), is_reversed_or_cyclic) {}
         /// Constructor for just a type
         tree_item_t (tree_item_type_t type) 
             : tree_item_t(type, std::numeric_limits<size_t>::max(), false) {}
-        /// Convenience functions to check for cyclic or non cyclic bounds
-        bool is_snarl_start() const { return type == DAG_SNARL_START || type == CYCLIC_SNARL_START; }
-        bool is_snarl_end() const { return type == DAG_SNARL_END || type == CYCLIC_SNARL_END; }
         /// Setters
         void set_value(size_t new_value) {
             value = (new_value == std::numeric_limits<size_t>::max()) ? fake_max()
@@ -209,7 +210,9 @@ class ZipCodeTree {
             return value == fake_max() ? std::numeric_limits<size_t>::max()
                                        : value;
         }
-        bool get_is_reversed() const { return is_reversed; }
+        /// Different getters based on context for readability
+        bool get_is_reversed() const { return is_reversed_or_cyclic; }
+        bool get_is_cyclic() const { return is_reversed_or_cyclic; }
         size_t get_section_length() const { 
             return section_length == fake_max() ? std::numeric_limits<size_t>::max()
                                                 : section_length;
@@ -220,14 +223,19 @@ class ZipCodeTree {
             if (section_length == fake_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
-            if (is_snarl_start() || type == CHAIN_START) {
+            if (this->type == ZipCodeTree::SNARL_START
+                || this->type == ZipCodeTree::CHAIN_START) {
                 return section_length + 1;
-            } else if (is_snarl_end() || type == CHAIN_END) {
+            } else if (this->type == ZipCodeTree::SNARL_END
+                       || this->type == ZipCodeTree::CHAIN_END) {
                 return -(section_length + 1);
             } else {
                 throw std::runtime_error("Can't get other bound offset of a tree item that isn't a bound");
             }
         }
+        /// We should never need to set reversedness after the fact,
+        /// so the setter is only provided with the is_cyclic name
+        void set_is_cyclic(bool is_cyclic) { is_reversed_or_cyclic = is_cyclic; }
     };
 
     /**
@@ -477,16 +485,7 @@ public:
         /// Reverse the top two elements of the stack
         void swap();
 
-        // Methods to look up distances to stack
-
-        /// Check if the snarl starting at the given index is cyclic
-        /// Helper for get_distances_from_chain()
-        inline bool snarl_is_cyclic(size_t snarl_start_i) const {
-            if (!zip_code_tree[snarl_start_i].is_snarl_start()) {
-                throw std::runtime_error("Tried to check if a non-snarl-start is cyclic");
-            }
-            return zip_code_tree[snarl_start_i].get_type() == ZipCodeTree::CYCLIC_SNARL_START;
-        }
+        // Methods to look up distances to stack\
 
         /// Push distances relevant to a given chain onto the stack
         /// chain_num is one-indexed, so the first chain is 1, and the last is N
@@ -518,12 +517,12 @@ public:
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
         bool entered_snarl() const {
-            return (right_to_left && current_item().is_snarl_end())
-                    || (!right_to_left && current_item().is_snarl_start());
+            return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END)
+                    || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START);
         }
         bool exited_snarl() const {
-            return (right_to_left && current_item().is_snarl_start())
-                    || (!right_to_left && current_item().is_snarl_end());
+            return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START)
+                    || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END);
         }
         bool entered_chain() const {
             return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
