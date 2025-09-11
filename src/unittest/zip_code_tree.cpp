@@ -40,14 +40,11 @@ namespace unittest {
         unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> reverse_views;
         // Follow the the usual iteration process
         for (const auto& zip_tree : zip_forest.trees) {
-            auto seed_itr = zip_tree.begin();
-            bool right_to_left = true;
-
-            while (seed_itr != zip_tree.end()) {
+            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
                 auto dest = *seed_itr;
                 
                 for (auto& d: dest) {
-                    if (!right_to_left) {
+                    if (!seed_itr.get_right_to_left()) {
                         // Going backwards
                         d.is_reversed = !d.is_reversed;
                     }
@@ -55,26 +52,10 @@ namespace unittest {
                     reverse_views[d] = vector<ZipCodeTree::seed_result_t>();
                 }
                 
-                for (auto dist_itr = zip_tree.find_distances(seed_itr, right_to_left); !dist_itr.done(); ++dist_itr) {
+                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
                     for (const auto& d: dest) {
-                        for (const auto& s: *dist_itr) {
-                            reverse_views[d].push_back(s);
-                        }
+                        reverse_views[d].push_back(*dist_itr);
                     }
-                }
-
-                if (seed_itr.in_cyclic_snarl()) {
-                    if (right_to_left) {
-                        // Seeds in cyclic snarls are checked in both directions
-                        right_to_left = false;
-                    } else {
-                        right_to_left = true;
-                        // After going in both directions, we can advance
-                        ++seed_itr;
-                    }
-                } else {
-                    // Seeds in non-cyclic snarls are only checked in one direction.
-                    ++seed_itr;
                 }
             }
         }
@@ -109,7 +90,6 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(0).get_value() == std::numeric_limits<size_t>::max());
             REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
-            REQUIRE(zip_tree.get_item_at_index(1).has_other_values() == false);
             REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::CHAIN_END);
             REQUIRE(zip_tree.get_item_at_index(2).get_value() == std::numeric_limits<size_t>::max());
 
@@ -148,7 +128,6 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
             REQUIRE((zip_tree.get_item_at_index(1).get_value() == 0 ||
                      zip_tree.get_item_at_index(1).get_value() == 1));
-            REQUIRE(zip_tree.get_item_at_index(1).has_other_values() == false);
 
             // Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
@@ -158,7 +137,6 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
             REQUIRE((zip_tree.get_item_at_index(3).get_value() == 0 ||
                      zip_tree.get_item_at_index(3).get_value() == 1));
-            REQUIRE(zip_tree.get_item_at_index(3).has_other_values() == false);
 
             // Chain end
             REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::CHAIN_END);
@@ -208,7 +186,6 @@ namespace unittest {
             // Seed
             REQUIRE(zip_tree.get_item_at_index(1).get_type() == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(1).get_value() == 0);
-            REQUIRE(zip_tree.get_item_at_index(1).has_other_values() == false);
 
             // Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).get_type() == ZipCodeTree::EDGE);
@@ -217,7 +194,6 @@ namespace unittest {
             // The next seed
             REQUIRE(zip_tree.get_item_at_index(3).get_type() == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(3).get_value() == 1);
-            REQUIRE(zip_tree.get_item_at_index(3).has_other_values() == false);
 
             // Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(4).get_type() == ZipCodeTree::EDGE);
@@ -226,7 +202,6 @@ namespace unittest {
             // The final seed
             REQUIRE(zip_tree.get_item_at_index(5).get_type() == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(5).get_value() == 2);
-            REQUIRE(zip_tree.get_item_at_index(5).has_other_values() == false);
 
             // Chain end
             REQUIRE(zip_tree.get_item_at_index(6).get_type() == ZipCodeTree::CHAIN_END);
@@ -909,7 +884,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees.size() == 3);
         }
         SECTION("Chain in snarl in a separate bucket") {
-            // [3+0rev 1 1+2rev] and [2+3rev<2/1>]
+            // [3+0rev 1 1+2rev] and [2+3rev 2+3rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 2);
             positions.emplace_back(2, false, 3);
@@ -918,6 +893,9 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index, 2);
             REQUIRE(zip_forest.trees.size() == 2);
+            REQUIRE(zip_forest.trees[0].get_tree_size() == 5);
+            // Seeds on the same position should have no edge
+            REQUIRE(zip_forest.trees[1].get_tree_size() == 4);
         }
         SECTION("Chain in snarl in a separate bucket another connected to end (or maybe start)") {
             // 0: [3+0rev 0 (1  7  0  0 [2+0rev]) 1 1+2rev]
@@ -1021,7 +999,7 @@ namespace unittest {
 
         SECTION("Two sides of nested snp unordered along read") {
             // 0: [[1+0 3 {1  inf  3  inf  inf  17  inf  0  inf  inf  inf [(2  0  0  inf  3  3  3 [3+0][4+0])]}]
-            // 1: [5+5<1/3>]
+            // 1: [5+5 5+5]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(5, false, 5);
@@ -1868,8 +1846,8 @@ namespace unittest {
             // [5+4rev 4 {3  inf  2  inf  inf  inf  inf  0  inf  inf  inf  inf
             //     inf  inf  inf  inf  inf  inf  inf  inf  inf  inf  8  inf  2
             //     inf  4  inf  inf  12  inf  6  0  8  0  8  inf
-            //     [4+4rev<15/18> 2 4+2rev<14/17> 2 4+0rev<13/16>]
-            //     [3+0<10/7> 2 3+2<11/8> 2 3+4<12/9>][2+0<4/1> 2 2+2<5/2> 2 2+4<6/3>]}
+            //     [4+4rev 4+4rev 2 4+2rev 4+2rev 2 4+0rev 4+0rev]
+            //     [3+0 3+0 2 3+2 3+2 2 3+4 3+4][2+0 2+0 2 2+2 2+2 2 2+4 2+4]}
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -1915,7 +1893,7 @@ namespace unittest {
 
         SECTION("Cyclic snarl with seeds on either side") {
             // [3+0rev 0 {1  inf  9  inf  inf  9  inf  11  inf  0  inf 
-            //     [2+2rev<6/3> 1 2+1rev<5/2> 1 2+0rev<4/1>]} 24 1+0rev]
+            //     [2+2rev 2+2rev 1 2+1rev 2+1rev 1 2+0rev 2+0rev]} 24 1+0rev]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
@@ -1931,20 +1909,8 @@ namespace unittest {
 
             ZipCodeTree zip_tree = zip_forest.trees[0];
             // Make sure that duplicated seeds get collapsed on each other
-            REQUIRE(zip_tree.get_tree_size() == 26);
-            // Save the main seeds for reverse_views checking later
-            auto main_seeds = zip_tree.get_all_seeds(true);
-
-            // Check one instance of a duplicated seed
-            REQUIRE(zip_tree.get_item_at_index(18).has_other_values());
-            vector<size_t> other_values = zip_tree.get_item_at_index(18).get_other_values();
-            REQUIRE(other_values.size() == 1);
-            if (main_seeds[2].seed == 5) {
-                REQUIRE(other_values[0] == 2);
-            } else {
-                REQUIRE(main_seeds[2].seed == 2);
-                REQUIRE(other_values[0] == 5);
-            }
+            REQUIRE(zip_tree.get_tree_size() == 29);
+            auto seeds_in_order = zip_tree.get_all_seeds();
             
             SECTION("Check iterator") {
                 // For each seed, what seeds and distances do we see in reverse from it?
@@ -1952,31 +1918,34 @@ namespace unittest {
                 // All eight seeds go R->L,
                 // and the six in the cyclic snarl also go L->R
                 REQUIRE(reverse_views.size() == 14);
-                if (zip_tree.get_item_at_index(1).get_is_reversed()) {
+                 if (zip_tree.get_item_at_index(1).get_is_reversed()) {
                     // Checking that middle seed can loop around
-                    REQUIRE(reverse_views[main_seeds[2]].size() == 9);
+                    REQUIRE(reverse_views[seeds_in_order[3]].size() == 9);
                     // Edge to 2+2rev
-                    REQUIRE(reverse_views[main_seeds[2]][0].seed == main_seeds[1].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][0].distance == 1);
-                    REQUIRE(reverse_views[main_seeds[2]][0].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][1].distance == 1);
-                    REQUIRE(reverse_views[main_seeds[2]][1].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][0].seed == seeds_in_order[2].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][0].distance == 1);
+                    REQUIRE(reverse_views[seeds_in_order[3]][0].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][1].seed == seeds_in_order[1].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][1].distance == 1);
+                    REQUIRE(reverse_views[seeds_in_order[3]][1].is_reversed == true);
                     // Edge to 2+0rev (loop around)
-                    REQUIRE(reverse_views[main_seeds[2]][2].seed == main_seeds[3].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][2].distance == 10);
-                    REQUIRE(reverse_views[main_seeds[2]][2].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][3].distance == 10);
-                    REQUIRE(reverse_views[main_seeds[2]][3].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][2].seed == seeds_in_order[6].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][2].distance == 10);
+                    REQUIRE(reverse_views[seeds_in_order[3]][2].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][3].seed == seeds_in_order[5].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][3].distance == 10);
+                    REQUIRE(reverse_views[seeds_in_order[3]][3].is_reversed == true);
                     // Edge to 2+1rev (self-loop)
-                    REQUIRE(reverse_views[main_seeds[2]][4].seed == main_seeds[2].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][4].distance == 11);
-                    REQUIRE(reverse_views[main_seeds[2]][4].is_reversed == true);
-                    REQUIRE(reverse_views[main_seeds[2]][5].distance == 11);
-                    REQUIRE(reverse_views[main_seeds[2]][5].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][4].seed == seeds_in_order[4].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][4].distance == 11);
+                    REQUIRE(reverse_views[seeds_in_order[3]][4].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][5].seed == seeds_in_order[3].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][5].distance == 11);
+                    REQUIRE(reverse_views[seeds_in_order[3]][5].is_reversed == true);
                     // Edge to 3+0rev
-                    REQUIRE(reverse_views[main_seeds[2]][8].seed == main_seeds[0].seed);
-                    REQUIRE(reverse_views[main_seeds[2]][8].distance == 10);
-                    REQUIRE(reverse_views[main_seeds[2]][8].is_reversed == true);
+                    REQUIRE(reverse_views[seeds_in_order[3]][8].seed == seeds_in_order[0].seed);
+                    REQUIRE(reverse_views[seeds_in_order[3]][8].distance == 10);
+                    REQUIRE(reverse_views[seeds_in_order[3]][8].is_reversed == true);
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
@@ -2017,15 +1986,13 @@ namespace unittest {
                 REQUIRE(reverse_views.size() == 4);
 
                 // 2+0 sees 2-ll and then itself
-                REQUIRE(reverse_views[{0, false}].size() == 2);
-                // Edge to 2-11rev taking C1L->C1L self-loop
-                REQUIRE(reverse_views[{0, false}][0].seed == 1);
-                REQUIRE(reverse_views[{0, false}][0].distance == 0);
-                REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+                REQUIRE(reverse_views[{0, false}].size() == 1);
+                // Edge to 2-11rev taking C1L->C1L self-loop is ignored
+                // (due to having distance 0)
                 // Edge to self now circling back around
-                REQUIRE(reverse_views[{0, false}][1].seed == 0);
-                REQUIRE(reverse_views[{0, false}][1].distance == 24);
-                REQUIRE(reverse_views[{0, false}][1].is_reversed == false);
+                REQUIRE(reverse_views[{0, false}][0].seed == 0);
+                REQUIRE(reverse_views[{0, false}][0].distance == 24);
+                REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
 
                 // 2+0rev sees self and then 2-11rev
                 REQUIRE(reverse_views[{0, true}].size() == 2);
@@ -2064,7 +2031,7 @@ namespace unittest {
             REQUIRE(zip_forest.trees[0].get_item_at_index(10).get_value() == 20);
         }
         SECTION("Duplicate seed with reversed in between") {
-            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0<0/2> 0 2-11rev]}]
+            // [{1  inf  0  0  24  24  24  24  0  24  inf [2+0 2+0 0 2-11rev]}]
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
             positions.emplace_back(2, true, 11);
@@ -2072,6 +2039,17 @@ namespace unittest {
 
             ZipCodeForest zip_forest = make_and_validate_forest(positions, distance_index);
             REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            REQUIRE(zip_tree.get_tree_size() == 21);
+            // Check items in chain
+            REQUIRE(zip_tree.get_item_at_index(14).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(14).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(15).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(15).get_value() == 2);
+            REQUIRE(zip_tree.get_item_at_index(16).get_type() == ZipCodeTree::EDGE);
+            REQUIRE(zip_tree.get_item_at_index(16).get_value() == 0);
+            REQUIRE(zip_tree.get_item_at_index(17).get_type() == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(17).get_value() == 1);
         }
     }
     TEST_CASE("zip tree handles complicated nested snarls", "[zip_tree]") {
@@ -2473,7 +2451,7 @@ namespace unittest {
 
         SECTION("Snps alone") {
             // [1+0 9 {1  inf  8  inf  inf  26  inf  9  inf  18  inf
-            //     [2+8<4/1> 1 (2  0  0  inf  1  1  1 [3+0][4+0]) 0 5+0<6/3>]} 0 7+0]
+            //     [2+8 2+8 1 (2  0  0  inf  1  1  1 [3+0][4+0]) 0 5+0<6/3>]} 0 7+0]
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 8);

@@ -80,7 +80,7 @@ class ZipCodeTree {
       the zip tree, then the distance doesn't include the position.
 
       For two SEEDs on the same position, the distance between them would be 0.
-      (Note that exact duplicate seeds actually aren't stored at all.)
+      As a convenience, such edges are omitted; the tree will have [seed seed]
       For chain distances terminating at a snarl bound, the distance reaches the
       inner edge (relative to the snarl) of the boundary node,
       so it includes the length of the boundary node of the snarl
@@ -163,10 +163,6 @@ class ZipCodeTree {
         /// will we traverse this position backwards?
         bool is_reversed;
 
-        /// Other values (for seeds with same position/orientation)
-        /// Not allocated unless necessary
-        vector<size_t>* other_values = nullptr;
-
         public:
 
         /// Empty constructor
@@ -195,24 +191,6 @@ class ZipCodeTree {
                    : value;
         }
         bool get_is_reversed() const { return is_reversed; }
-        /// Check whether other_values is allocated
-        bool has_other_values() const { return other_values != nullptr; }
-        /// Add an extra value to the other_values vector
-        /// If other_values is not allocated, it will be allocated
-        void add_extra_value(size_t extra_value) {
-            if (!other_values) {
-                other_values = new vector<size_t>();
-            }
-            other_values->emplace_back(extra_value);
-        }
-        /// Get a constant reference to other_values
-        /// Throws if other_values is not allocated
-        const vector<size_t>& get_other_values() const {
-            if (!other_values) {
-                throw runtime_error("No other values for this tree item");
-            }
-            return *other_values;
-        }
     };
 
     /**
@@ -247,16 +225,12 @@ class ZipCodeTree {
 
     /// Get all the seeds in the tree, in left-to-right order
     /// Also returns their orientations
-    vector<oriented_seed_t> get_all_seeds(bool ignore_other_values = false) const {
+    /// Basically seed_itr but without all the extra baggage
+    vector<oriented_seed_t> get_all_seeds() const {
         vector<oriented_seed_t> all_seeds;
         for (const auto& item : zip_code_tree) {
             if (item.get_type() == SEED) {
                 all_seeds.emplace_back(item.get_value(), item.get_is_reversed());
-                if (item.has_other_values() & !ignore_other_values) {
-                    for (const auto& other_value : item.get_other_values()) {
-                        all_seeds.emplace_back(other_value, item.get_is_reversed());
-                    }
-                }
             }
         }
         return all_seeds;
@@ -340,8 +314,6 @@ public:
      */
     class seed_iterator {
     public:
-        /// Within each parent snarl, which chain are we in?
-        stack<size_t> chain_numbers;
         // References from ZipCodeTree to let us look up distance matrices
         /// A reference to the ziptree vector
         const vector<tree_item_t>& zip_code_tree;
@@ -376,29 +348,28 @@ public:
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
-        vector<oriented_seed_t> operator*() const {
-            vector<oriented_seed_t> seeds;
-            seeds.emplace_back(current_item().get_value(), current_item().get_is_reversed());
-            // Check if we have other values
-            if (current_item().has_other_values()) {
-                for (const auto& other_value : current_item().get_other_values()) {
-                    seeds.emplace_back(other_value, current_item().get_is_reversed());
-                }
-            }
-            return seeds;
+        /// by iterating forward until we hit a non-seed
+        vector<oriented_seed_t> operator*() {
+            return current_seeds;
         }
 
-        /// Get the current index
-        /// We need this to make reverse iterators from forward ones.
-        size_t get_index() const { return index; }
-
-        inline bool in_cyclic_snarl() const { return cyclic_snarl_nestedness > 0; }
+        /// Getters
+        /// We need these to make reverse iterators from forward ones.
+        inline size_t get_index() const { return index; }
+        inline bool get_right_to_left() const { return right_to_left; }
+        inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
 
     private:
+        /// Within each parent snarl, which chain are we in?
+        stack<size_t> chain_numbers;
         /// Where we are in the stored tree.
         size_t index;
         /// How far inside of a cyclic snarl are we?
         size_t cyclic_snarl_nestedness;
+        /// Direction a distance iterator should be set off
+        bool right_to_left;
+        /// Seeds at this position
+        vector<oriented_seed_t> current_seeds;
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
@@ -453,7 +424,7 @@ public:
         /// Get the index and orientation of the seed we are currently at, 
         /// and the distance to it.
         /// Automatically handles orientation depending on right_to_left
-        vector<seed_result_t> operator*() const;
+        seed_result_t operator*() const;
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
@@ -589,7 +560,7 @@ public:
     };
 
     /// Get a iterator starting from where a forward iterator is, up to a distance limit
-    distance_iterator find_distances(const seed_iterator& from, bool right_to_left = true,
+    distance_iterator find_distances(const seed_iterator& from,
                                      size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
 public:

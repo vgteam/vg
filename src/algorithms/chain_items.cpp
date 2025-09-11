@@ -263,27 +263,25 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
 
     std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
-    ZipCodeTree::seed_iterator dest = zip_code_tree.begin();
-    bool right_to_left = true;
-    while (dest != zip_code_tree.end()) {
+    for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
         // For each destination seed left to right
-        vector<ZipCodeTree::oriented_seed_t> dest_seeds = *dest;
+        vector<ZipCodeTree::oriented_seed_t> dest = *seed_itr;
 
-        if (!right_to_left) {
-            for (auto& cur_dest : dest_seeds) {
+        if (!seed_itr.get_right_to_left()) {
+            for (auto& dest_seed : dest) {
                 // Going backwards
-                cur_dest.is_reversed = !cur_dest.is_reversed;
+                dest_seed.is_reversed = !dest_seed.is_reversed;
             }
         }
 
         // Might be the start of an anchor if forward relative to the read,
         // or the end of an anchor if reverse relative to the read
         unordered_map<ZipCodeTree::oriented_seed_t, size_t> dest_anchors;
-        for (const auto& cur_dest : dest_seeds) {
-            auto anchor = cur_dest.is_reversed ? seed_to_ending.find(cur_dest.seed)
-                                                : seed_to_starting.find(cur_dest.seed);
-            if (anchor != (cur_dest.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
-                dest_anchors[cur_dest] = anchor->second;
+        for (const auto& dest_seed : dest) {
+            auto anchor = dest_seed.is_reversed ? seed_to_ending.find(dest_seed.seed)
+                                                : seed_to_starting.find(dest_seed.seed);
+            if (anchor != (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
+                dest_anchors[dest_seed] = anchor->second;
             }
         }
 
@@ -297,87 +295,72 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
             }
             pos_t cur_pos;
             string rev_string = "";
-            for (const auto& cur_anchor : dest_anchors) {
-                auto dest_seed = cur_anchor.first;
-                std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_anchor.second << ")";
+            for (const auto& cur_dest_anchor : dest_anchors) {
+                auto dest_seed = cur_dest_anchor.first;
+                std::cerr << " (S" << dest_seed.seed << "/anchor #" << cur_dest_anchor.second << ")";
                 cur_pos = seeds[dest_seed.seed].pos;
                 rev_string = dest_seed.is_reversed ? "rev" : "";
             }
             std::cerr  << " at " << cur_pos << rev_string << std::endl;
 #endif
 
-            for (auto source = zip_code_tree.find_distances(dest, right_to_left, max_graph_lookback_bases); 
+            for (auto source = zip_code_tree.find_distances(seed_itr, max_graph_lookback_bases); 
                     !source.done(); ++source) {
                 // For each source seed right to left
-                vector<ZipCodeTree::seed_result_t> source_seeds = *source;
-                for (const auto& cur_dest : dest_anchors) {
-                    for (const auto& cur_source : source_seeds) {           
+                ZipCodeTree::seed_result_t source_seed = *source;
+                for (const auto& cur_dest_anchor : dest_anchors) {
 #ifdef debug_transition
-                        std::cerr << "\tSource seed S" << cur_source.seed << " " << seeds[cur_source.seed].pos 
-                                  << (cur_source.is_reversed ? "rev" : "") << " at distance " << cur_source.distance
-                                  << "/" << max_graph_lookback_bases;
+                    std::cerr << "\tSource seed S" << source_seed.seed << " " << seeds[source_seed.seed].pos 
+                              << (source_seed.is_reversed ? "rev" : "") << " at distance " << source_seed.distance
+                              << "/" << max_graph_lookback_bases;
 #endif
-                        if (!cur_source.is_reversed && !cur_dest.first.is_reversed) {
-                            // Both were traversed in the same orientation as the read.
-                            // They might not be at anchor borders though, so check.
-                            auto found_source_anchor = seed_to_ending.find(cur_source.seed);
-                            if (found_source_anchor != seed_to_ending.end()) {
-                                // We can transition between these seeds
-                                // without jumping to/from the middle of an anchor.
+                    if (!source_seed.is_reversed && !cur_dest_anchor.first.is_reversed) {
+                        // Both were traversed in the same orientation as the read.
+                        // They might not be at anchor borders though, so check.
+                        auto found_source_anchor = seed_to_ending.find(source_seed.seed);
+                        if (found_source_anchor != seed_to_ending.end()) {
+                            // We can transition between these seeds
+                            // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
-                                std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-                                std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
-                                          << " to #" << cur_dest.second << std::endl;
+                            std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+                            std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
+                                      << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                                all_transitions.emplace_back(found_source_anchor->second, cur_dest.second,
-                                                                cur_source.distance);
-                            } else {
+                            all_transitions.emplace_back(found_source_anchor->second, cur_dest_anchor.second,
+                                                         source_seed.distance);
+                        } else {
 #ifdef debug_transition
-                                std::cerr << " does not represent an anchor." << std::endl;
+                            std::cerr << " does not represent an anchor." << std::endl;
 #endif
-                            }
-                        } else if (cur_source.is_reversed && cur_dest.first.is_reversed) {
-                            // Both were traversed in the opposite orientation as the read.
-                            // We need to save them flipped for later.
-                            auto found_source_anchor = seed_to_starting.find(cur_source.seed);
-                            if (found_source_anchor != seed_to_starting.end()) {
-                                // We can transition between these seeds
-                                // without jumping to/from the middle of an anchor.
-                                // Queue them up, flipped
+                        }
+                    } else if (source_seed.is_reversed && cur_dest_anchor.first.is_reversed) {
+                        // Both were traversed in the opposite orientation as the read.
+                        // We need to save them flipped for later.
+                        auto found_source_anchor = seed_to_starting.find(source_seed.seed);
+                        if (found_source_anchor != seed_to_starting.end()) {
+                            // We can transition between these seeds
+                            // without jumping to/from the middle of an anchor.
+                            // Queue them up, flipped
                                 
 #ifdef debug_transition
-                                std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-                                std::cerr << "\t\tFound backward transition from #" << cur_dest.second << " to #"
-                                          << found_source_anchor->second << std::endl;
+                            std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+                            std::cerr << "\t\tFound backward transition from #" << cur_dest_anchor.second << " to #"
+                                      << found_source_anchor->second << std::endl;
 #endif
-                                all_transitions.emplace_back(cur_dest.second, found_source_anchor->second,
-                                                                cur_source.distance);
-                            } else {
-#ifdef debug_transition
-                                std::cerr << " does not represent an anchor." << std::endl;
-#endif
-                            }
+                            all_transitions.emplace_back(cur_dest_anchor.second, found_source_anchor->second,
+                                                         source_seed.distance);
                         } else {
-                            // We have a transition between different orientations
-                            // relative to the read. That shouldn't happen.
-                            crash_unless(cur_source.is_reversed == cur_dest.first.is_reversed);
+#ifdef debug_transition
+                            std::cerr << " does not represent an anchor." << std::endl;
+#endif
                         }
+                    } else {
+                        // We have a transition between different orientations
+                        // relative to the read. That shouldn't happen.
+                        crash_unless(source_seed.is_reversed == cur_dest_anchor.first.is_reversed);
                     }
                 }
             }     
-        }
-        if (dest.in_cyclic_snarl()) {
-            if (right_to_left) {
-                // Seeds in cyclic snarls are checked in both directions
-                right_to_left = false;
-            } else {
-                right_to_left = true;
-                // After going in both directions, we can advance
-                ++dest;
-            }
-        } else {
-            // Seeds in non-cyclic snarls are only checked in one direction.
-            ++dest;
         }
     }
 
