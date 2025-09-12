@@ -779,7 +779,7 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, ve
                                mate_path_name,
                                mate_pos,
                                mate_pos_rev,
-                               numeric_limits<int32_t>::max(),
+                               0,
                                0);
     }
     else {

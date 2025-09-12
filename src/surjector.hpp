@@ -504,6 +504,11 @@ using namespace std;
     template<class AlnType>
     void Surjector::add_SA_tag_internal(vector<AlnType>& surjected, const vector<tuple<string, int64_t, bool>>& positions, 
                                         const PathPositionHandleGraph& graph, bool spliced, const function<void(AlnType&,const string&)>& update_sa) const {
+        
+        if (surjected.size() <= 1) {
+            // there are no other reads to get supplementary information from
+            return;
+        }
         size_t primary_idx = -1;
         for (size_t i = 0; i < surjected.size(); ++i) {
             if (!is_supplementary(surjected[i])) {
@@ -512,38 +517,60 @@ using namespace std;
             }
         }
         if (primary_idx == -1) {
-            // there is no primary to annotate
+            // there is no primary
             return;
         }
-        bool first = true;
-        stringstream strm;
+
+        // gather the information from each alignment that will go into the other alignment's SA tag
+        vector<string> SA_entry(surjected.size());
         for (size_t i = 0; i < surjected.size(); ++i) {
-            auto& surj = surjected[i];
-            if (!is_supplementary(surj)) {
-                continue;
-            }
-            if (!first) {
-                strm << ';';
-            }
-            first = false;
-            const auto& pos = positions[i];
-            // note: convert to 1-based
-            strm << get<0>(pos) << ',' << (get<1>(pos) + 1) << ',' << (get<2>(pos) ? '-' : '+') << ',';
-            auto cigar = get_cigar(surj, pos, graph, spliced);
-            if (cigar.empty()) {
-                strm << '*';
-            }
-            else {
-                for (const auto& op : cigar)  {
-                    strm << op.first << op.second;
+            if (i == primary_idx || is_supplementary(surjected[i])) {
+                
+                const auto& surj = surjected[i];
+
+                stringstream strm;
+
+                const auto& pos = positions[i];
+                // note: convert to 1-based
+                strm << get<0>(pos) << ',' << (get<1>(pos) + 1) << ',' << (get<2>(pos) ? '-' : '+') << ',';
+                auto cigar = get_cigar(surj, pos, graph, spliced);
+                if (cigar.empty()) {
+                    strm << '*';
                 }
+                else {
+                    for (const auto& op : cigar)  {
+                        strm << op.first << op.second;
+                    }
+                }
+                strm << ',' << surj.mapping_quality() << ',' << count_mismatches(surj);
+
+                SA_entry[i] = std::move(strm.str());
             }
-            strm << ',' << surj.mapping_quality() << ',' << count_mismatches(surj);
         }
 
-        update_sa(surjected[primary_idx], strm.str());
-    }
+        // add the SA tag onto the primary and the supplementaries
+        for (size_t i = 0; i < surjected.size(); ++i) {
+            if (i != primary_idx && !is_supplementary(surjected[i])) {
+                continue;
+            }
+            // this is a primary or a supplementary that needs the SA tag
+            bool first = true;
+            stringstream strm;
+            for (size_t j = 0; j < surjected.size(); ++j) {
+                if ((j == i) || (j != primary_idx && !is_supplementary(surjected[j]))) {
+                    continue;
+                }
+                if (!first) {
+                    strm << ';';
+                }
+                first = false;
+                strm << SA_entry[j];
+            }
 
+            update_sa(surjected[i], strm.str());
+        }
+    }
+    
     template<class AlnType>
     pair<path_handle_t, bool> 
     Surjector::choose_primary_strand(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections,
