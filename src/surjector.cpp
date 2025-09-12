@@ -4735,6 +4735,7 @@ using namespace std;
         if (source.has_fragment_prev()) {
             *null.mutable_fragment_prev() = source.fragment_prev();
         }
+        *null.mutable_annotation() = source.annotation();
         return null;
     }
 

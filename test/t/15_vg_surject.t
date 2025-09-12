@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 56
+plan tests 57
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -124,7 +124,11 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '83\n163
 is "$(cat surjected.sam | grep -v '^@' | grep 'RG1' | wc -l)" "2" "surjection of paired reads to SAM tags both reads with a read group"
 is "$(cat surjected.sam | grep '@RG' | grep 'RG1' | grep 'Sample1' | wc -l)" "1" "surjection of paired reads to SAM creates RG header"
 
-rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam
+# a uniform random sequence
+printf "@read TG:Z:val\nGGCGACGTACTAGGGACTACAGTCCTTCGTCTTTCTCTCTCGACTCCGAA\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n" > x.fq
+is $(vg map -d x -t 1 -f x.fq -5 bam --comments-as-tags | samtools view -f 4 | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on unmapped reads"
+
+rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
 
 vg mod -c graphs/fail.vg >f.vg
 vg index -k 11 -g f.gcsa -x f.xg f.vg

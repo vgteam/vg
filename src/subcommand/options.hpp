@@ -417,9 +417,19 @@ struct BaseValuation {
     /// Make a new BaseValuation for the given option
     BaseValuation(const std::string& option);
     virtual ~BaseValuation() = default;
-    
+
+    /// BaseValuations can be cloned, retaining their derived type.
+    virtual std::unique_ptr<BaseValuation> clone() const = 0;
+
     /// Long option to give a value to
     std::string option;
+
+protected:
+    // BaseValuations are copyable and assignable, but only as part of derived classes
+    BaseValuation(const BaseValuation& other) = default;
+    BaseValuation(BaseValuation&& other) = default;
+    BaseValuation& operator=(const BaseValuation& other) = default;
+    BaseValuation& operator=(BaseValuation&& other) = default;
 };
 
 /**
@@ -428,15 +438,31 @@ struct BaseValuation {
 template<typename T>
 struct Valuation : public BaseValuation {
     /// Make a preset entry that sets the given long option to the given value.
-    Valuation(const std::string& option, const T& value) : BaseValuation(option), value(value) {
-        // Nothing to do
-    }
-    
+    Valuation(const std::string& option, const T& value);
     virtual ~Valuation() = default;
 
+    /// Valuations can be cloned, retaining their derived type.
+    virtual std::unique_ptr<BaseValuation> clone() const;
+
+    // Valuations are copyable and assignable.
+    Valuation(const Valuation<T>& other) = default;
+    Valuation(Valuation<T>&& other) = default;
+    Valuation<T>& operator=(const Valuation<T>& other) = default;
+    Valuation<T>& operator=(Valuation<T>&& other) = default;
+    
     /// Value for the option
     T value;
 };
+
+template<typename T>
+Valuation<T>::Valuation(const std::string& option, const T& value): BaseValuation(option), value(value) {
+    // Nothing to do
+}
+
+template<typename T>
+std::unique_ptr<BaseValuation> Valuation<T>::clone() const {
+    return std::unique_ptr<BaseValuation>(new Valuation<T>(option, value));
+}
 
 /// Function type used to validate arguments. Throw std::domain_error if not allowed, explaining why.
 template<typename T>
@@ -1177,26 +1203,54 @@ struct GroupedOptionGroup : public BaseOptionGroup {
  * apply(root_option_group) to apply it.
  */
 struct Preset {
+    
+    Preset() = default;
+
+    // Presets are copyable and assignable
+    inline Preset(const Preset& other);
+    Preset(Preset&& other) = default;
+    inline Preset& operator=(const Preset& other);
+    Preset& operator=(Preset&& other) = default;
+
     /// As part of this preset, set the given option to the given value.
     template<typename T>
-    Preset& add_entry(const std::string& option, const T& value) {
-        Valuation<T>* entry = new Valuation<T>(option, value);
-        entries.emplace_back(entry);
-        return *this;
-    }
+    Preset& add_entry(const std::string& option, const T& value);
     
     /// Apply stored presets to the given parser
-    void apply(BaseOptionGroup& parser) const {
-        for (auto& entry : entries) {
-            // Apply the entry
-            bool applied = parser.preset(*entry);
-            // Make sure it worked
-            assert(applied);
-        }
-    }
+    inline void apply(BaseOptionGroup& parser) const;
     
     std::vector<std::unique_ptr<BaseValuation>> entries;
 };
+
+inline Preset::Preset(const Preset& other) {
+    // Delegate to copy assignment
+    *this = other;
+}
+
+inline Preset& Preset::operator=(const Preset& other) {
+    entries.clear();
+    entries.reserve(other.entries.size());
+    for (auto& e : other.entries) {
+        entries.emplace_back(std::move(e->clone()));
+    }
+    return *this;
+}
+
+template<typename T>
+Preset& Preset::add_entry(const std::string& option, const T& value) {
+    Valuation<T>* entry = new Valuation<T>(option, value);
+    entries.emplace_back(entry);
+    return *this;
+}
+
+inline void Preset::apply(BaseOptionGroup& parser) const {
+    for (auto& entry : entries) {
+        // Apply the entry
+        bool applied = parser.preset(*entry);
+        // Make sure it worked
+        assert(applied);
+    }
+}
 
 /**
  * Print a table of rows, with each column starting at the same character on the line.

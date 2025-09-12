@@ -2220,10 +2220,13 @@ void MinimizerMapper::do_alignment_on_chains(Alignment& aln, const std::vector<S
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
-
+    
     // Compute lower limit on chain score to actually investigate
-    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
-    // Remember we also have chain_score_threshold, which counts down from best chain score
+    int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
+    // Apply the max in chain score limit
+    chain_min_score = std::min(chain_min_score, max_min_chain_score);
+
+    // Remember: we also have chain_score_threshold, which counts down from best chain score
     
     // We need to be able to discard a chain because its score isn't good enough.
     // We have more components to the score filter than process_until_threshold_b supports.
@@ -3482,7 +3485,18 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 
     }
-    
+   
+    if (softclip_penalty != 0.0 && composed_path.mapping_size() > 0) {
+        size_t softclipped_bases = softclip_start(composed_path) + softclip_end(composed_path);
+        double penalty = softclip_penalty * softclipped_bases;
+        // Make sure score can't go negative.
+        composed_score = std::max(composed_score - penalty, 0.0);
+        if (show_work) {
+            #pragma omp critical (cerr)
+            cerr << log_name() << "Applied softclip penalty of " << penalty << " for " << softclipped_bases << " total softclipped bases" << endl;
+        }
+    }
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -3493,7 +3507,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
     }
-    
+
     // Convert to a vg Alignment.
     Alignment result(aln);
     // Simplify the path but keep internal deletions; we want to assert the
