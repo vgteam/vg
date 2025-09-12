@@ -1109,6 +1109,28 @@ int softclip_end(const Mapping& mapping) {
     return to_length;
 }
 
+int softclip_start(const Path& path) {
+    if (path.mapping_size() > 0) {
+        auto& first_mapping = path.mapping(0);
+        auto& first_edit = first_mapping.edit(0);
+        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
+            return first_edit.to_length();
+        }
+    }
+    return 0;
+}
+
+int softclip_end(const Path& path) {
+    if (path.mapping_size() > 0) {
+        auto& last_mapping = path.mapping(path.mapping_size()-1);
+        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
+        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
+            return last_edit.to_length();
+        }
+    }
+    return 0;
+}
+
 // returns the first non-softclip position in the path
 Position first_path_position(const Path& path) {
     // step through soft clips

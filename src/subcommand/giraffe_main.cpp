@@ -659,6 +659,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_wfa_max_distance,
         "band distance to allow in the longest WFA connection or tail"
     );
+    chaining_opts.add_range(
+        "softclip-penalty",
+        &MinimizerMapper::softclip_penalty,
+        MinimizerMapper::default_softclip_penalty,
+        "penalize candidate alignment scores this many points per softclipped base",
+        double_is_nonnegative
+    );
     chaining_opts.add_flag(
         "sort-by-chain-score",
         &MinimizerMapper::sort_by_chain_score,
@@ -1002,7 +1009,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.1)
         .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 1100)
+        .add_entry<int>("max-min-chain-score", 100)
         .add_entry<size_t>("max-skipped-bases", 1000)
         .add_entry<size_t>("max-alignments", 3)
         .add_entry<size_t>("max-chain-connection", 233)
@@ -1017,8 +1024,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
 
+    Preset r10_base;
 
-    presets["r10"]
+    r10_base
         .add_entry<bool>("align-from-chains", true)
         .add_entry<bool>("explored-cap", false)
         .add_entry<size_t>("watchdog-timeout", 30)
@@ -1081,6 +1089,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("wfa-max-mismatches", 2)
         .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
         .add_entry<int>("wfa-max-max-mismatches", 15);
+
+    presets.emplace("r10", r10_base);
+
+    // TODO: Add a dedicated r10y2025 preset that diverges slightly.
+
     // And a short reads with chaining preset
     presets["chaining-sr"]
         .add_entry<bool>("align-from-chains", true)
@@ -1463,6 +1476,8 @@ int main_giraffe(int argc, char** argv) {
                         exit(1);
                     } else {
                         // Apply the preset values.
+                        // Order of processing doesn't matter; preset values
+                        // sit under any actually-parsed values.
                         found->second.apply(*parser);
                     }
                 }
@@ -2501,4 +2516,4 @@ std::string sample_haplotypes(
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 6, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6, main_giraffe);

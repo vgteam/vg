@@ -256,6 +256,16 @@ int path_to_length(const Path& path);
 int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);
 int mapping_from_length(const Mapping& m);
+/// Get the leading softclip from a Mapping, whether it is coalesced or not.
+int softclip_start(const Mapping& mapping);
+/// Get the trailing softclip from a Mapping, whether it is coalesced or not.
+int softclip_end(const Mapping& mapping);
+/// Get the leading softclip from a Path, assuming it is coalesced into a
+/// single Edit
+int softclip_start(const Path& path);
+/// Get the trailing softclip from a Path, assuming it is coalesced into a
+/// single Edit
+int softclip_end(const Path& path);
 Position first_path_position(const Path& path);
 Position last_path_position(const Path& path);
 int to_length(const Mapping& m);
