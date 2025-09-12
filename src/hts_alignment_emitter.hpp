@@ -47,7 +47,9 @@ enum alignment_emitter_flags_t {
     ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 8,
     /// When surjecting, annotate HTSlib records with a cs-style difference string that
     /// expresses the alignment in graph space in the "GR" tag
-    ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG = 16
+    ALIGNMENT_EMITTER_FLAG_HTS_ADD_GRAPH_ALIGNMENT_TAG = 16,
+    /// When surjecting, produce and report supplementary alignments
+    ALIGNMENT_EMITTER_FLAG_HTS_SUPPLEMENTARY = 32
 };
 
 /// Represents a path or subpath's sequence dictionary information. Holds
@@ -299,12 +301,6 @@ private:
     
     /// Override for convert alignment that converts splices implicitly
     void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
-    
-    /// Convert a spliced alignment against a path to a cigar. The alignment must be
-    /// colinear along a path and contain only mappings on the path, but it can have
-    /// deletions relative to the path that follow edges in the graph.
-    vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const string& path_name, int64_t pos,
-                                                       bool rev) const;
     
     /// Graph that alignments were aligned against
     const PathPositionHandleGraph& graph;

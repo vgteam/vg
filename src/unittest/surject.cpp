@@ -74,7 +74,9 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     read.set_score(Aligner().score_contiguous_alignment(read));
     
     unordered_set<path_handle_t> paths{p};
-    Alignment surjected = surjector.surject(read, paths, true, true);
+    vector<Alignment> surjected_alns = surjector.surject(read, paths, true, true);
+    REQUIRE(surjected_alns.size() == 1);
+    auto& surjected = surjected_alns.front();
     
     vector<handle_t> surjected_path{h1, h3, h4, h6};
     
@@ -110,7 +112,9 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     
     rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
     
-    Alignment rev_surjected = surjector.surject(rev_read, paths, true, true);
+    vector<Alignment> rev_surjected_alns = surjector.surject(rev_read, paths, true, true);
+    REQUIRE(rev_surjected_alns.size() == 1);
+    auto& rev_surjected = rev_surjected_alns.front();
     
     REQUIRE(rev_surjected.path().mapping_size() == read_path.size());
     for (size_t i = 0; i < surjected_path.size(); ++i) {
@@ -176,7 +180,9 @@ TEST_CASE( "Spliced surject algorithm works when a read touches the same path in
     read.set_score(Aligner().score_contiguous_alignment(read));
     
     unordered_set<path_handle_t> paths{p};
-    Alignment surjected = surjector.surject(read, paths, true, true);
+    vector<Alignment> surjected_alns = surjector.surject(read, paths, true, true);
+    REQUIRE(surjected_alns.size() == 1);
+    auto& surjected = surjected_alns.front();
     
     vector<handle_t> surjected_path{h1, h2, h4, h4};
     
@@ -204,7 +210,9 @@ TEST_CASE( "Spliced surject algorithm works when a read touches the same path in
     
     rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
     
-    Alignment rev_surjected = surjector.surject(rev_read, paths, true, true);
+    vector<Alignment> rev_surjected_alns = surjector.surject(rev_read, paths, true, true);
+    REQUIRE(rev_surjected_alns.size() == 1);
+    auto& rev_surjected = rev_surjected_alns.front();
     
     REQUIRE(rev_surjected.path().mapping_size() == read_path.size());
     for (size_t i = 0; i < surjected_path.size(); ++i) {
@@ -575,8 +583,11 @@ TEST_CASE("Multipath alignments can be surjected", "[surject][multipath]") {
         int64_t path_pos;
         bool path_rev;
         unordered_set<path_handle_t> paths{p};
-        auto surjected = surjector.surject(mp_aln, paths, path_name,
-                                           path_pos, path_rev, true, true);
+        vector<tuple<string, int64_t, bool>> positions;
+        auto surjected_alns = surjector.surject(mp_aln, paths, positions, true, true);
+        REQUIRE(surjected_alns.size() == 1);
+        auto& surjected = surjected_alns.front();
+        tie(path_name, path_pos, path_rev) = positions.front();
         
         REQUIRE(path_name == graph.get_path_name(p));
         REQUIRE(path_rev == false);
@@ -617,8 +628,11 @@ TEST_CASE("Multipath alignments can be surjected", "[surject][multipath]") {
         int64_t path_pos;
         bool path_rev;
         unordered_set<path_handle_t> paths{p};
-        auto surjected = surjector.surject(rc_mp_aln, paths, path_name,
-                                           path_pos, path_rev, true, true);
+        vector<tuple<string, int64_t, bool>> positions;
+        auto surjected_alns = surjector.surject(rc_mp_aln, paths, positions, true, true);
+        REQUIRE(surjected_alns.size() == 1);
+        auto& surjected = surjected_alns.front();
+        tie(path_name, path_pos, path_rev) = positions.front();
         
         REQUIRE(path_name == graph.get_path_name(p));
         REQUIRE(path_rev == true);
@@ -659,8 +673,11 @@ TEST_CASE("Multipath alignments can be surjected", "[surject][multipath]") {
         int64_t path_pos;
         bool path_rev;
         unordered_set<path_handle_t> paths{p};
-        auto surjected = surjector.surject(mp_aln, paths, path_name,
-                                           path_pos, path_rev, true, false);
+        vector<tuple<string, int64_t, bool>> positions;
+        auto surjected_alns = surjector.surject(mp_aln, paths, positions, true, false);
+        REQUIRE(surjected_alns.size() == 1);
+        auto& surjected = surjected_alns.front();
+        tie(path_name, path_pos, path_rev) = positions.front();
         
         REQUIRE(path_name == graph.get_path_name(p));
         REQUIRE(path_rev == false);
@@ -797,5 +814,163 @@ TEST_CASE("Duplicate path chunks can be detected", "[surject][multipath]") {
     REQUIRE(path_chunks.size() == 2);
     
 }
+
+TEST_CASE("Supplementary alignments can be generated", "[surject]") {
+    
+    bdsg::HashGraph graph;
+
+    path_handle_t p = graph.create_path_handle("p");
+
+    handle_t h1 = graph.create_handle("GTCGT");
+    graph.append_step(p, h1);
+
+    handle_t prev = h1;
+    for (size_t i = 0; i < 20; ++i) {
+        handle_t h = graph.create_handle(string(64, 'A'));
+        graph.create_edge(prev, h);
+        graph.append_step(p, h);
+        prev = h;
+    }
+    handle_t h2 = graph.create_handle("TCCTTGC");
+    graph.create_edge(prev, h2);
+    graph.append_step(p, h2);
+    
+    handle_t h3 = graph.create_handle("TGTC");
+
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, h2);
+
+    bdsg::PositionOverlay pos_graph(&graph);
+    Surjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    unordered_set<path_handle_t> paths{p};
+    
+    SECTION("In a single-path alignment") {
+        // with and without an unaligned middle portion
+        vector<vector<handle_t>> read_paths{{h1, h2}, {h1, h3, h2}};
+        for (const auto& read_path : read_paths) {
+            Alignment read;
+            string seq;
+            Path* rpath = read.mutable_path();
+            for (handle_t h : read_path) {
+                Mapping* m = rpath->add_mapping();
+                m->set_rank(rpath->mapping_size());
+                m->mutable_position()->set_node_id(pos_graph.get_id(h));
+                Edit* e = m->add_edit();
+                e->set_from_length(pos_graph.get_length(h));
+                e->set_to_length(pos_graph.get_length(h));
+                
+                seq += pos_graph.get_sequence(h);
+            }
+            read.set_sequence(seq);
+            
+            read.set_score(Aligner().score_contiguous_alignment(read));
+            
+            vector<Alignment> surjected_alns = surjector.surject(read, paths, true, false);
+        
+            REQUIRE(surjected_alns.size() == 2);
+            bool found1 = false, found2 = false;
+            for (auto& aln : surjected_alns) {
+                const auto& path = aln.path();
+                REQUIRE(path.mapping_size() == 1);
+                const auto& mapping = path.mapping(0);
+                REQUIRE(mapping.edit_size() == 2); // match and soft-clip
+                if (mapping.position().node_id() == graph.get_id(h1)) {
+                    found1 = true;
+                    const auto& clip = mapping.edit(1);
+                    REQUIRE(clip.from_length() == 0);
+                    REQUIRE(clip.sequence() == aln.sequence().substr(mapping.edit(0).to_length(), string::npos));
+                }
+                else if (mapping.position().node_id() == graph.get_id(h2)) {
+                    found2 = true;
+                    const auto& clip = mapping.edit(0);
+                    REQUIRE(clip.from_length() == 0);
+                    REQUIRE(clip.sequence() == aln.sequence().substr(0, aln.sequence().size() - mapping.edit(1).to_length()));
+                }
+            }
+        
+            REQUIRE(found1);
+            REQUIRE(found2);
+        
+            bool suppl1 = is_supplementary(surjected_alns.front());
+            bool suppl2 = is_supplementary(surjected_alns.back());
+            REQUIRE(suppl1 != suppl2);
+        }
+    }
+
+    SECTION("In a multipath alignment") {
+
+        vector<handle_t> read_path{h1, h2};
+        multipath_alignment_t mp_aln;
+        string seq;
+        for (handle_t h : read_path) {
+            if (mp_aln.subpath_size() != 0) {
+                mp_aln.mutable_subpath(mp_aln.subpath_size() - 1)->add_next(mp_aln.subpath_size());
+            }
+            auto subpath = mp_aln.add_subpath();
+            subpath->set_score(pos_graph.get_length(h));
+            auto mapping = subpath->mutable_path()->add_mapping();
+            auto pos = mapping->mutable_position();
+            pos->set_node_id(pos_graph.get_id(h));
+            pos->set_is_reverse(pos_graph.get_is_reverse(h));
+            pos->set_offset(0);
+            auto edit = mapping->add_edit();
+            edit->set_from_length(pos_graph.get_length(h));
+            edit->set_to_length(pos_graph.get_length(h));
+            seq += pos_graph.get_sequence(h);
+        }
+        mp_aln.add_start(0);
+        mp_aln.set_sequence(seq);
+        
+        {
+            // unspliced
+            vector<tuple<string, int64_t, bool>> positions;
+            vector<multipath_alignment_t> surjected = surjector.surject(mp_aln, paths, positions, true, false);
+    
+            REQUIRE(surjected.size() == 2);
+            bool found1 = false, found2 = false;
+            for (auto& surj : surjected) {
+                REQUIRE(surj.subpath_size() == 1);
+                const auto& path = surj.subpath(0).path();
+                REQUIRE(path.mapping_size() == 1);
+                const auto& mapping = path.mapping(0);
+                REQUIRE(mapping.edit_size() == 2);
+                const auto& pos = mapping.position();
+                if (pos.node_id() == pos_graph.get_id(h1)) {
+                    found1 = true;
+                }
+                else if (pos.node_id() == pos_graph.get_id(h2)) {
+                    found2 = true;
+                }
+            }
+
+            REQUIRE(found1);
+            REQUIRE(found2);
+        
+            bool suppl1 = is_supplementary(surjected.front());
+            bool suppl2 = is_supplementary(surjected.back());
+            REQUIRE(suppl1 != suppl2);
+        }
+
+        {
+            // spliced are not returned as supplementaries
+            vector<tuple<string, int64_t, bool>> positions;
+            vector<multipath_alignment_t> surjected = surjector.surject(mp_aln, paths, positions, true, true);
+    
+            REQUIRE(surjected.size() == 1);
+            for (auto& surj : surjected) {
+                REQUIRE(surj.subpath_size() == 2);
+                for (const auto& subpath : surj.subpath()) {
+                    REQUIRE(subpath.path().mapping_size() == 1);
+                }
+                REQUIRE(surj.subpath(0).path().mapping(0).position().node_id() == pos_graph.get_id(h1));
+                REQUIRE(surj.subpath(1).path().mapping(0).position().node_id() == pos_graph.get_id(h2));
+            }
+        }
+    }
+}
+
 }
 }
