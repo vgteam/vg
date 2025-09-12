@@ -151,7 +151,7 @@ static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-le
 //----------------------------------------------------------------------------
 
 void help_chains(char** argv) {
-    std::cerr << "usage: " << argv[0] << " " << argv[1] << "[options] graph input > output" << std::endl;
+    std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] graph input > output" << std::endl;
     std::cerr << std::endl;
 
     std::cerr << "Extracts handles in top-level chains from a distance index or a snarl file." << std::endl;
