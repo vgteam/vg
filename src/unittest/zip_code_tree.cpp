@@ -35,7 +35,7 @@ namespace unittest {
         return zip_forest;
     }
     unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> get_reverse_views(
-        const ZipCodeForest& zip_forest) {
+        const ZipCodeForest& zip_forest, size_t distance_limit = std::numeric_limits<size_t>::max()) {
         // For each seed, what seeds and distances do we see in reverse from it?
         unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> reverse_views;
         // Follow the the usual iteration process
@@ -52,7 +52,8 @@ namespace unittest {
                     reverse_views[d] = vector<ZipCodeTree::seed_result_t>();
                 }
                 
-                for (auto dist_itr = zip_tree.find_distances(seed_itr); !dist_itr.done(); ++dist_itr) {
+                for (auto dist_itr = zip_tree.find_distances(seed_itr, distance_limit);
+                     !dist_itr.done(); ++dist_itr) {
                     for (const auto& d: dest) {
                         reverse_views[d].push_back(*dist_itr);
                     }
@@ -368,6 +369,26 @@ namespace unittest {
                 REQUIRE(reverse_views[{2, false}][1].seed == 0);
                 REQUIRE(reverse_views[{2, false}][1].distance == 5);
                 REQUIRE(reverse_views[{2, false}][1].is_reversed == false);
+            }
+
+            SECTION("Check iterator with distance limit") {
+                // For each seed, what seeds and distances do we see in reverse from it?
+                auto reverse_views = get_reverse_views(zip_forest, 2);
+                REQUIRE(reverse_views.size() == 3);
+                // The first seed can't see any other seeds
+                REQUIRE(reverse_views.count({0, false}));
+                REQUIRE(reverse_views[{0, false}].empty());
+
+                REQUIRE(reverse_views.count({1, false}));
+                REQUIRE(reverse_views[{1, false}].size() == 1);
+                // The second seed can see the first seed at distance 1
+                REQUIRE(reverse_views[{1, false}][0].seed == 0);
+                REQUIRE(reverse_views[{1, false}][0].distance == 1);
+                REQUIRE(reverse_views[{1, false}][0].is_reversed == false);
+
+                // The third seed can't see any other seeds
+                REQUIRE(reverse_views.count({2, false}));
+                REQUIRE(reverse_views[{2, false}].empty());
             }
         }
         SECTION("Two buckets") {
@@ -752,6 +773,21 @@ namespace unittest {
                     REQUIRE(reverse_views[{0, false}][0].seed == 1);
                     REQUIRE(reverse_views[{0, false}][0].distance == 6);
                     REQUIRE(reverse_views[{0, false}][0].is_reversed == false);
+                } else {
+                    cerr << "Not testing reverse views since I didn't bother writing it" << endl;
+                }
+            }
+
+            SECTION("Check iterator with distance limit") {
+                auto reverse_views = get_reverse_views(zip_forest, 2);
+                REQUIRE(reverse_views.size() == 2);
+                if (!zip_forest.trees[0].get_item_at_index(11).get_is_reversed()) {
+                    // Neither seed can see any other
+                    REQUIRE(reverse_views.count({1, false}));
+                    REQUIRE(reverse_views[{1, false}].empty());
+
+                    REQUIRE(reverse_views.count({0, false}));
+                    REQUIRE(reverse_views[{0, false}].empty());
                 } else {
                     cerr << "Not testing reverse views since I didn't bother writing it" << endl;
                 }
@@ -1797,6 +1833,17 @@ namespace unittest {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_cyclic_snarl_count();
                 REQUIRE(dag_non_dag_count.first == 0);
                 REQUIRE(dag_non_dag_count.second == 2);
+            }
+
+            SECTION("Check iterator memorization") {
+                auto reverse_views = get_reverse_views(zip_forest);
+                // 5+0 should only see 3+1 once due to memorization
+                REQUIRE(reverse_views.count({5, false}));
+                size_t seen_3 = 0;
+                for (auto& view : reverse_views[{5, false}]) {
+                    if (view.seed == 3) seen_3++;
+                }
+                REQUIRE(seen_3 == 1);
             }
         }
         SECTION("Reverse both inversions") {

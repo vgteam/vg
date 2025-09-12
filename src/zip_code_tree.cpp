@@ -1730,6 +1730,27 @@ void ZipCodeTree::distance_iterator::initialize_chain() {
     // Where *would* we jump, if we jumped?
     push(index + current_item().get_other_bound_offset());
     swap();
+    
+    // Check if we have already seen this chain
+    auto chain_distance = chain_start_distances.find(index);
+    if (chain_distance == chain_start_distances.end()) {
+        // We haven't seen this chain before, so remember it
+        chain_start_distances.emplace_hint(chain_distance, index, top());
+    } else {
+#ifdef debug_parse
+        std::cerr << "Already saw this chain with old running distance " << chain_distance->second
+                  << "; new running distance " << top() << std::endl;
+#endif
+        if (top() >= chain_distance->second) {
+            // We've already seen this chain with a better or equal distance
+            skip_chain();
+            return;
+        } else {
+            // We have a better distance, so update the record
+            chain_distance->second = top();
+        }
+    }
+
     if (top() > distance_limit || top() == std::numeric_limits<size_t>::max()) {
 #ifdef debug_parse
         std::cerr << "Skip chain with running distance "
