@@ -15,6 +15,37 @@ size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
                                             get_id(pos2), get_is_rev(pos2), get_offset(pos2),
                                             unoriented_distance, graph, nullptr); 
 }
+
+size_t minimum_nontrivial_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
+                                   size_t pos2_length, const HandleGraph* graph) {
+    bool shifted = false;
+    if (pos1 == pos2) {
+        if (pos2_length == std::numeric_limits<size_t>::max()) {
+            // If we don't know the length, we can get it from the graph
+            pos2_length = distance_index.minimum_length(
+                distance_index.get_node_net_handle(id(pos2)));
+        }
+        // Must shift one position to avoid self-distance of 0
+        if (offset(pos1) == pos2_length) {
+            // Shift ending pos backward (not safe to shift forward)
+            get_offset(pos2)--;
+        } else {
+            // Shift starting position forward
+            get_offset(pos1)++;
+        }
+        
+        shifted = true;
+    }
+
+    size_t distance = minimum_distance(distance_index, pos1, pos2, false, graph);
+    if (shifted && distance != std::numeric_limits<size_t>::max()) {
+        // This loop is possible, so add back in the shift
+        distance++;
+    }
+
+    return distance;
+}
+
 size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2) {
     return distance_index.maximum_distance( get_id(pos1), get_is_rev(pos1), get_offset(pos1),
                                             get_id(pos2), get_is_rev(pos2), get_offset(pos2)); 
