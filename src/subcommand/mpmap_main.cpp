@@ -2362,13 +2362,12 @@ int main_mpmap(int argc, char** argv) {
         vector<tuple<string, bool, int64_t>> suppl_positions1, suppl_positions2;
         if (hts_output) {
             // we need to surject and compute path positions
-            path_positions.resize(mp_aln_pairs.size());
-            // hackily either give no limit or an unattainable limit to communicate pairedness
             
             for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
                 vector<tuple<string, int64_t, bool>> positions1, positions2;
                 auto surjections1 = surjector->surject(mp_aln_pairs[i].first, surjection_paths, positions1, true, transcriptomic);
                 auto surjections2 = surjector->surject(mp_aln_pairs[i].second, surjection_paths, positions2, true, transcriptomic);
+                
                 // find the non-supplementary primaries
                 size_t non_suppl1 = -1, non_suppl2 = -1;
                 for (size_t j = 0; j < surjections1.size(); ++j) {
@@ -2421,6 +2420,7 @@ int main_mpmap(int argc, char** argv) {
             output_mp_aln_pairs = std::move(mp_aln_pairs);
         }
         
+        // hackily either give no limit or an unattainable limit to communicate pairedness
         tlen_limits.resize(output_mp_aln_pairs.size(),
                            proper_paired ? numeric_limits<int32_t>::max() : -1);
         
