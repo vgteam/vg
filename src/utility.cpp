@@ -1018,12 +1018,12 @@ int set_thread_count(const string& context, const string& arg, int max_threads) 
     return num_threads;
 }
 
-void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2) {
-    if (fastq1.empty()) {
-        fastq1 = require_exists(context, input_filename);
+void assign_fastq_files(const string& context, const string& input_filename, string& slot1, string& slot2) {
+    if (slot1.empty()) {
+        slot1 = require_exists(context, input_filename);
     }
-    else if (fastq2.empty()) {
-        fastq2 = require_exists(context, input_filename);
+    else if (slot2.empty()) {
+        slot2 = require_exists(context, input_filename);
     }
     else {
         fatal_error(context) << "Cannot specify more than two FASTQ files" << endl;

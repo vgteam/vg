@@ -852,7 +852,8 @@ int set_thread_count(const string& context, const string& arg, int max_threads =
 /// Else if the second file is unset, then it gets the input filename
 /// If both are already set, then this errors
 /// Also calls require_exists() on the filenames
-void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2);
+/// To set both FASTQ files, you'll need to call this twice
+void assign_fastq_files(const string& context, const string& input_filename, string& slot1, string& slot2);
 
 /// Parse an argument that should be a pair of strings separated by a delimiter.
 /// Errors if the string does not contain exactly one delimiter.
