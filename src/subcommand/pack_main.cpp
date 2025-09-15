@@ -136,7 +136,7 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;            
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
         case 'n':
             node_ids.push_back(parse<int>(optarg));

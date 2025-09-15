@@ -455,7 +455,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(parse_thread_count(optarg, optarg));
+            set_thread_count(context, optarg);
             break;
 
         case 'D':

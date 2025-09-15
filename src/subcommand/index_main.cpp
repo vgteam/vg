@@ -195,7 +195,7 @@ int main_index(int argc, char** argv) {
             temp_file::set_dir(optarg);
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
         case 'p':
             show_progress = true;

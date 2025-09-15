@@ -235,7 +235,7 @@ int main_minimizer(int argc, char** argv) {
             progress = true;
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
         case OPT_NO_DIST:
             require_distance_index = false;

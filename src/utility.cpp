@@ -998,7 +998,7 @@ bool parse(const string& arg, pos_t& dest) {
     return true;
 }
 
-int parse_thread_count(const string& context, const string& arg, int max_threads) {
+int set_thread_count(const string& context, const string& arg, int max_threads) {
     int num_threads = parse<int>(arg);
     if (max_threads == 0) {
         // If the user didn't specify a maximum, use the OMP default.
@@ -1014,6 +1014,7 @@ int parse_thread_count(const string& context, const string& arg, int max_threads
         num_threads = omp_get_max_threads();
     }
     
+    omp_set_num_threads(num_threads);
     return num_threads;
 }
 

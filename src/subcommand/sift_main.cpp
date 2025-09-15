@@ -149,7 +149,7 @@ int main_sift(int argc, char** argv) {
                 help_sift(argv);
                 return 1;
             case 't':
-                omp_set_num_threads(parse_thread_count(context, optarg));
+                set_thread_count(context, optarg);
                 break;
             case 'G':
                 graph_name = require_exists(context, optarg);

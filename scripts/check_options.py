@@ -110,6 +110,9 @@ you may have to do multiple runs/fixes to see all the problems.
   If it *intentionally* doesn't work (e.g. is deprecated, calls `exit`)
   it may or may not use `optarg`. Fallthroughs are handled.
 
+  An attempt is made to enforce the usage of `require_exists()`,
+  `ensure_writable()`, and `set_thread_count()`.
+
 For all checks, commented-out lines are ignored.
 (Though multiline comments aren't handled correctly.)
 
@@ -661,10 +664,9 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
         if '}' in stripped:
             curly_brace_nesting -= 1
 
-        if ("omp_set_num_threads" in stripped 
-            and "parse_thread_count" not in stripped):
+        if "omp_set_num_threads":
             # Extra check for thread count options
-            extra_errors.append("Parse thread count using parse_thread_count() "
+            extra_errors.append("Parse thread count using set_thread_count() "
                                 "for standardized error messages")
     
         # This won't catch all file variables (e.g. if called `xg_name`),

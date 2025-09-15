@@ -832,6 +832,8 @@ bool file_can_be_written(const string& filename);
 string require_exists(const string& context, const string& filename);
 
 /// Error if a file looks like it's gzipped.
+/// Checks the filename for ending with ".gz"; doesn't actually open it
+/// or check the magic number.
 string require_non_gzipped(const string& context, const string& filename);
 
 /// Check if a file can be written to and return its name (if so) or error.
@@ -841,7 +843,9 @@ string ensure_writable(const string& context, const string& filename);
 /// A special parser for thread count which errors if non-positive
 /// If max_threads is non-zero, it will also decrease to that maximum.
 /// If max_threads is zero, max is omp_get_max_threads()
-int parse_thread_count(const string& context, const string& arg, int max_threads = 0);
+/// Sets thread count with omp_set_num_threads()
+/// Returns new thread count
+int set_thread_count(const string& context, const string& arg, int max_threads = 0);
 
 /// A special parser for possibly-paired FASTQ files
 /// If the first file is unset, then it gets the input filename

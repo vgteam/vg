@@ -441,7 +441,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             }
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg, max_threads));
+            set_thread_count(context, optarg);
             break;
 
         case OPT_VALIDATE:

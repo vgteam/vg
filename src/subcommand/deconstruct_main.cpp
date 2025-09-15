@@ -191,7 +191,7 @@ int main_deconstruct(int argc, char** argv){
             star_allele = true;
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
         case 'v':
             show_progress = true;

@@ -224,7 +224,7 @@ int main_clip(int argc, char** argv) {
             verbose = true;
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;       
         default:
             abort();

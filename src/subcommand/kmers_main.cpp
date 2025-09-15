@@ -98,7 +98,7 @@ int main_kmers(int argc, char** argv) {
                 kmer_size = parse<size_t>(optarg);
                 break;
             case 't':
-                omp_set_num_threads(parse_thread_count(context, optarg));
+                set_thread_count(context, optarg);
                 break;
             case 'p':
                 show_progress = true;

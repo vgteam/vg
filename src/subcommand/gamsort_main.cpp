@@ -115,8 +115,7 @@ int main_gamsort(int argc, char **argv)
             gaf_params.key_type = GAFSorterRecord::key_hash;
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg, num_threads));
-            gaf_params.threads = omp_get_max_threads();
+            gaf_params.threads = set_thread_count(context, optarg);
             break;
 
         // GAM sorting options.

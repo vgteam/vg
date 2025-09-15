@@ -283,7 +283,7 @@ int main_stats(int argc, char** argv) {
             distance_index_filename = require_exists(context, optarg);
             break;
         case 'p':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
 
         case 'h':

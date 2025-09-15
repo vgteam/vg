@@ -212,8 +212,7 @@ int main_convert(int argc, char** argv) {
             input_aln = require_exists(context, optarg);
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
-            num_threads = omp_get_max_threads();
+            num_threads = set_thread_count(context, optarg);
             break;
         default:
             abort();

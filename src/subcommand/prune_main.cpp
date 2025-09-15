@@ -234,7 +234,7 @@ int main_prune(int argc, char** argv) {
             show_progress = true;
             break;
         case 't':
-            threads = parse_thread_count(context, optarg);
+            threads = set_thread_count(context, optarg);
             break;
         case 'd':
             dry_run = true;

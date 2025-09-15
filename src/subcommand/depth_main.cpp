@@ -153,7 +153,7 @@ int main_depth(int argc, char** argv) {
             count_cycles = true;
             break;
         case 't':
-            omp_set_num_threads(parse_thread_count(context, optarg));
+            set_thread_count(context, optarg);
             break;
         case 'h':
         case '?':

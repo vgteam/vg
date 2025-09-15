@@ -235,7 +235,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 't':
-            num_threads = parse_thread_count(context, optarg);
+            num_threads = set_thread_count(context, optarg);
             break;
 
         case 'p':
