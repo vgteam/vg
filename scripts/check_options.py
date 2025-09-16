@@ -664,7 +664,7 @@ def extract_switch_optarg(text: str) -> Dict[str, OptionInfo]:
         if '}' in stripped:
             curly_brace_nesting -= 1
 
-        if "omp_set_num_threads":
+        if 'omp_set_num_threads' in stripped:
             # Extra check for thread count options
             extra_errors.append("Parse thread count using set_thread_count() "
                                 "for standardized error messages")
