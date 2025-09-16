@@ -267,13 +267,6 @@ std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
         // For each destination seed left to right
         vector<ZipCodeTree::oriented_seed_t> dest = *seed_itr;
 
-        if (!seed_itr.get_right_to_left()) {
-            for (auto& dest_seed : dest) {
-                // Going backwards
-                dest_seed.is_reversed = !dest_seed.is_reversed;
-            }
-        }
-
         // Might be the start of an anchor if forward relative to the read,
         // or the end of an anchor if reverse relative to the read
         unordered_map<ZipCodeTree::oriented_seed_t, size_t> dest_anchors;

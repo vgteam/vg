@@ -359,10 +359,7 @@ public:
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
-        /// by iterating forward until we hit a non-seed
-        vector<oriented_seed_t> operator*() {
-            return current_seeds;
-        }
+        vector<oriented_seed_t> operator*() const { return current_seeds; }
 
         /// Getters
         /// We need these to make reverse iterators from forward ones.
@@ -378,6 +375,8 @@ public:
         /// How far inside of a cyclic snarl are we?
         size_t cyclic_snarl_nestedness;
         /// Direction a distance iterator should be set off
+        /// NOT the direction this iterator moves;
+        /// a seed_iterator always moves left to right
         bool right_to_left;
         /// Seeds at this position
         vector<oriented_seed_t> current_seeds;
@@ -397,7 +396,7 @@ public:
      * https://github.com/benedictpaten/long_read_giraffe_chainer_prototype/blob/b590c34055474b0c901a681a1aa99f1651abb6a4/zip_tree_iterator.py.
      * 
      * New cyclic snarl handling: 
-     * https://docs.google.com/drawings/d/1PgQiejcZ8Z61jA7ePl50_RhoYY3BmqR6NaiJc4QB--o/edit?usp=sharing
+     * https://docs.google.com/drawings/d/1diKMXCuMteR06fF64BhSttsD5RHh3eTnd8FtyYqs17Y/edit?usp=sharing
      */
     class distance_iterator {
     public:
@@ -1000,7 +999,7 @@ class ZipCodeForest {
 
     /// Sorts an interval, which must contain seeds on the same snarl/chain/node
     /// Sorting is linear-ish along top-level chains, topological-ish in snarls.
-    /// Uses radix_sort_zipcodes() and default_sort_zipcodes*()
+    /// Uses radix_sort_zipcodes() and default_sort_zipcodes()
     ///
     /// For chains, everything is sorted with the prefix sum value of the chain
     /// itself from the distance index, not the order in the zip code tree.

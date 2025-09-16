@@ -44,11 +44,6 @@ namespace unittest {
                 auto dest = *seed_itr;
                 
                 for (auto& d: dest) {
-                    if (!seed_itr.get_right_to_left()) {
-                        // Going backwards
-                        d.is_reversed = !d.is_reversed;
-                    }
-
                     reverse_views[d] = vector<ZipCodeTree::seed_result_t>();
                 }
                 
