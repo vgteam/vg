@@ -718,7 +718,12 @@ bool file_can_be_written(const string& filename) {
         // Standard input should not be written to
         return false;
     }
-    // Try to open it for writing
+    // If it exists, check if we can write to it
+    // Doing this first means we won't accidentally overwrite it
+    if (file_exists(filename)) {
+        return access(filename.c_str(), W_OK) == 0;
+    }
+    // If this file doesn't exist, see if we can create it
     ofstream out(filename);
     if (out.is_open()) {
         // We can write to it, so close it.
