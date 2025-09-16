@@ -854,12 +854,6 @@ int set_thread_count(const string& context, const string& arg, int max_threads =
 /// Also calls require_exists() on the filenames
 /// To set both FASTQ files, you'll need to call this twice
 void assign_fastq_files(const string& context, const string& input_filename, string& slot1, string& slot2);
-
-/// Parse an argument that should be a pair of strings separated by a delimiter.
-/// Errors if the string does not contain exactly one delimiter.
-pair<string, string> parse_split_string(const string& context, const string& arg,
-                                        const char& delimiter, const string& option_name);
-
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
 template<typename Result>
@@ -949,6 +943,28 @@ template<typename Result>
 Result parse(const char* arg) {
     return parse<Result>(string(arg));
 }
+
+/// Parse an argument that should be a pair of strings separated by a delimiter.
+/// Errors if the string does not contain exactly one delimiter.
+template<typename T1 = std::string, typename T2 = std::string>
+std::pair<T1, T2> parse_pair(const string& context, const string& arg,
+                             const char& delimiter, const string& option_name) {
+    size_t delim_index = arg.find(delimiter);
+    if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
+        fatal_error(context) << option_name << " must have two parts separated by a "
+                             << delimiter << ", not \"" << arg << "\"" << endl;
+    }
+    string second_part = arg.substr(delim_index + 1);
+    if (second_part.find(delimiter) != string::npos) {
+        // The second part has another delimiter in it, which is not allowed.
+        fatal_error(context) << option_name << " must have two parts separated by a `"
+                             << delimiter << "`, not \"" << arg << "\"" << endl;
+    }
+    // Parse out the two parts
+    return make_pair(parse<T1>(arg.substr(0, delim_index)),
+                     parse<T2>(arg.substr(delim_index + 1)));
+}
+
  
 }
 

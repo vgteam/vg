@@ -163,7 +163,7 @@ int main_construct(int argc, char** argv) {
         case 'n':
             {
                 string vcf_contig, fasta_contig;
-                tie(vcf_contig, fasta_contig) = parse_split_string(context, optarg, '=', "--rename");
+                tie(vcf_contig, fasta_contig) = parse_pair(context, optarg, '=', "--rename");
                 // Add the name mapping
                 constructor.add_name_mapping(vcf_contig, fasta_contig);
             }

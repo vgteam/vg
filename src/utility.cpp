@@ -940,6 +940,13 @@ unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id
     return overlaid;
 }
 
+// This just makes parse_pair easier
+template<>
+bool parse(const string& arg, string& dest) {
+    dest = arg;
+    return true;
+}
+
 template<>
 bool parse(const string& arg, double& dest) {
     size_t after;
@@ -1029,22 +1036,4 @@ void assign_fastq_files(const string& context, const string& input_filename, str
         fatal_error(context) << "Cannot specify more than two FASTQ files" << endl;
     }
 }
-
-pair<string, string> parse_split_string(const string& context, const string& arg,
-                                        const char& delimiter, const string& option_name) {
-    size_t delim_index = arg.find(delimiter);
-    if (delim_index == string::npos || delim_index == 0 || delim_index + 1 == arg.size()) {
-        fatal_error(context) << option_name << " must have two parts separated by a "
-                             << delimiter << ", not \"" << arg << "\"" << endl;
-    }
-    string second_part = arg.substr(delim_index + 1);
-    if (second_part.find(delimiter) != string::npos) {
-        // The second part has another delimiter in it, which is not allowed.
-        fatal_error(context) << option_name << " must have two parts separated by a "
-                             << delimiter << ", not \"" << arg << "\"" << endl;
-    }
-    // Parse out the two parts
-    return make_pair(arg.substr(0, delim_index), arg.substr(delim_index + 1));
-}
-
 }

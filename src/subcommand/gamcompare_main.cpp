@@ -146,7 +146,7 @@ int main_gamcompare(int argc, char** argv) {
         case 'n':
             {
                 string query_contig, truth_contig;
-                tie(query_contig, truth_contig) = parse_split_string(context, optarg, '=', "--rename");
+                tie(query_contig, truth_contig) = parse_pair(context, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace(query_contig, truth_contig);
             }

@@ -369,10 +369,8 @@ int main_filter(int argc, char** argv) {
         case 'b':
             {
                 set_min_base_quality = true;
-                string quality, frac;
-                tie(quality, frac) = parse_split_string(context, optarg, ':', "--min-base-quality");
-                min_base_quality = parse<int>(quality);
-                min_base_quality_fraction = parse<double>(frac);
+                tie(min_base_quality, min_base_quality_fraction) = \
+                    parse_pair<int, double>(context, optarg, ':', "--min-base-quality");
                 if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
                     fatal_error(context) << "second part of -b input must be between 0 and 1" << endl;
                 }

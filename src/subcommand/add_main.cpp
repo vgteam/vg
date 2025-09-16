@@ -95,7 +95,7 @@ int main_add(int argc, char** argv) {
         case 'n':
             {
                 string vcf_contig, graph_contig;
-                tie(vcf_contig, graph_contig) = parse_split_string(context, optarg, '=', "--rename");
+                tie(vcf_contig, graph_contig) = parse_pair(context, optarg, '=', "--rename");
                 // Add the name mapping
                 renames.emplace_back(vcf_contig, graph_contig);
             }

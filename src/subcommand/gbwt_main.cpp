@@ -640,16 +640,16 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case OPT_SAMPLE_RANGE:
             {
-                string first, last;
-                tie(first, last) = parse_split_string(context, optarg, '-', "--sample-range");
-                config.haplotype_indexer.sample_range.first = parse<size_t>(first);
-                config.haplotype_indexer.sample_range.second = parse<size_t>(last) + 1;
+                size_t first, last;
+                tie(first, last) = parse_pair<size_t, size_t>(context, optarg, '-', "--sample-range");
+                config.haplotype_indexer.sample_range.first = first;
+                config.haplotype_indexer.sample_range.second = last + 1;
             }
             break;
         case OPT_RENAME:
             {
                 string vcf_contig, graph_contig;
-                tie(vcf_contig, graph_contig) = parse_split_string(context, optarg, '=', "--rename");
+                tie(vcf_contig, graph_contig) = parse_pair(context, optarg, '=', "--rename");
                 // Add the name mapping
                 config.haplotype_indexer.path_to_vcf[graph_contig] = vcf_contig;
             }
@@ -776,7 +776,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_SET_TAG:
             {
                 string tag_name, tag_value;
-                tie(tag_name, tag_value) = parse_split_string(context, optarg, '=', "--set-tag");
+                tie(tag_name, tag_value) = parse_pair(context, optarg, '=', "--set-tag");
                 // See if this tag is known
                 auto tag_record = KNOWN_TAGS.lower_bound(tag_name);
                 if (tag_record == KNOWN_TAGS.end() && !KNOWN_TAGS.empty()) {

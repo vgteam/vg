@@ -173,12 +173,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'w':
-            {
-                string left, right;
-                tie(left, right) = parse_split_string(context, optarg, ',', "--rename");
-                left_anchor = parse<pos_t>(left);
-                right_anchor = parse<pos_t>(right); 
-            }
+            tie(left_anchor, right_anchor) = parse_pair<pos_t, pos_t>(context, optarg, ',', "--rename");
             break;
 
         case 'h':
