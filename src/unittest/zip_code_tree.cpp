@@ -40,13 +40,24 @@ namespace unittest {
         unordered_map<ZipCodeTree::oriented_seed_t, vector<ZipCodeTree::seed_result_t>> reverse_views;
         // Follow the the usual iteration process
         for (const auto& zip_tree : zip_forest.trees) {
-            for (const auto& seed : zip_tree.get_all_seeds()) {
-                reverse_views[seed] = vector<ZipCodeTree::seed_result_t>();
-            }
-            for (auto trans_itr = ZipCodeTree::transition_iterator(zip_tree.begin(), distance_limit);
-                 !trans_itr.done(); ++trans_itr) {
-                auto seed_pair = *trans_itr;
-                reverse_views[seed_pair.first].push_back(seed_pair.second);
+            for (auto seed_itr = zip_tree.begin(); seed_itr != zip_tree.end(); ++seed_itr) {
+                auto dest = *seed_itr;
+                
+                for (auto& d: dest) {
+                    if (!seed_itr.get_right_to_left()) {
+                        // Going backwards
+                        d.is_reversed = !d.is_reversed;
+                    }
+
+                    reverse_views[d] = vector<ZipCodeTree::seed_result_t>();
+                }
+                
+                for (auto dist_itr = zip_tree.find_distances(seed_itr, distance_limit);
+                     !dist_itr.done(); ++dist_itr) {
+                    for (const auto& d: dest) {
+                        reverse_views[d].push_back(*dist_itr);
+                    }
+                }
             }
         }
         return reverse_views;

@@ -356,23 +356,19 @@ public:
 
         /// What item does index point to?
         tree_item_t current_item() const { return zip_code_tree.at(index); }
-
-        /// Get the index and orientation of a specific seed
-        inline oriented_seed_t operator[](size_t seed_index) const { 
-            return current_seeds.at(seed_index);
+        
+        /// Get the index and orientation of the seed we are currently at.
+        /// Also return all other seeds on the same position
+        /// by iterating forward until we hit a non-seed
+        vector<oriented_seed_t> operator*() {
+            return current_seeds;
         }
-
-        /// Simple lookup for current_seeds size
-        inline size_t num_seeds_here() const { return current_seeds.size(); }
 
         /// Getters
         /// We need these to make reverse iterators from forward ones.
         inline size_t get_index() const { return index; }
+        inline bool get_right_to_left() const { return right_to_left; }
         inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
-
-        /// Inquire about the iterator's state
-        inline bool in_cyclic_snarl() const { return cyclic_snarl_nestedness > 0; }
-        inline bool done() const { return index == zip_code_tree.size(); }
 
     private:
         /// Within each parent snarl, which chain are we in?
@@ -381,6 +377,8 @@ public:
         size_t index;
         /// How far inside of a cyclic snarl are we?
         size_t cyclic_snarl_nestedness;
+        /// Direction a distance iterator should be set off
+        bool right_to_left;
         /// Seeds at this position
         vector<oriented_seed_t> current_seeds;
     };
@@ -403,12 +401,12 @@ public:
      */
     class distance_iterator {
     public:
-        /// Make a new distance iterator from the left end pointing left
-        distance_iterator(const vector<tree_item_t>& zip_code_tree,
+        /// Make a reverse iterator starting from start_index, until
+        /// the given rend, with the given distance limit.
+        distance_iterator(size_t start_index,
+                          const vector<tree_item_t>& zip_code_tree,
+                          std::stack<size_t> chain_numbers = std::stack<size_t>(), bool right_to_left = true,
                           size_t distance_limit = std::numeric_limits<size_t>::max());
-
-        /// Reset the iterator to go from start_index in the given direction
-        void reset(size_t start_index, std::stack<size_t> chain_numbers, bool right_to_left);
 
         /// Move in right_to_left direction until we hit another seed or the end
         distance_iterator& operator++();
@@ -450,17 +448,17 @@ public:
         /// Where we are in the stored tree.
         size_t index;
         /// Where we have to stop
-        size_t end_index;
+        const size_t end_index;
         /// Where we started from
-        size_t original_index;
+        const size_t original_index;
         /// Within each parent snarl, which chain are we in?
         std::stack<size_t> chain_numbers;
         /// Distance limit we will go up to
-        const size_t distance_limit;
+        size_t distance_limit;
         /// Whether we are looking right to left (true) or left to right (false)
         bool right_to_left;
         /// Original direction
-        bool original_right_to_left;
+        const bool original_right_to_left;
         /// References to the zip code tree to let us look up distance matrices
         const vector<tree_item_t>& zip_code_tree;
         /// Memorized minimum initial running distances for all chains processed
@@ -562,79 +560,10 @@ public:
 
     };
 
-    /**
-     * Iterator that outputs transitions between seeds in the tree
-     * 
-     * Uses seed_iterator to walk left to right to find all seeds,
-     * then uses distance_iterator to find all reachable seeds.
-     * 
-     * If desired, seeds kept by the seed iterator
-     * can be filtered by whether they appear in
-     * lookup tables separated by direction.
-     */
-    class transition_iterator {
-    private:
-        /// Backing iterators
-        seed_iterator seed_itr;
-        distance_iterator dist_itr;
-        /// Lookup tables (ignored if empty)
-        const std::unordered_map<size_t, size_t>& forward_lookup;
-        const std::unordered_map<size_t, size_t>& reverse_lookup;
-        /// Index of seed to yield from seed_itr's current position
-        size_t dest_seeds_index;
-        /// Direction for the distance iterator
-        bool right_to_left;
+    /// Get a iterator starting from where a forward iterator is, up to a distance limit
+    distance_iterator find_distances(const seed_iterator& from,
+                                     size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
-        /// Reset the distance iterator for the seed_itr's current position
-        void set_up_distance_iterator();
-
-        /// Is the current dest seed valid according to the lookup tables?
-        bool current_dest_is_valid() const {
-            if (forward_lookup.empty()) {
-                // No need to look up
-                return true;
-            } else {
-                bool is_reversed = seed_itr[dest_seeds_index].is_reversed == right_to_left;
-                if (is_reversed) {
-                    return reverse_lookup.find(seed_itr[dest_seeds_index].seed) != reverse_lookup.end();
-                } else {
-                    return forward_lookup.find(seed_itr[dest_seeds_index].seed) != forward_lookup.end();
-                }
-            }
-        }
-
-        /// Change dist_itr; either advance seed_itr or swap direction
-        /// then have dist_itr start again from seed_itr
-        void try_next_dest();
-    
-    public:
-
-        /// Find transitions for seeds respecting the given distance limit
-        /// If forward_lookup or reverse_lookup are non-empty,
-        /// then only return seeds that appear in the respective table
-        transition_iterator(seed_iterator seed_itr,
-                            size_t distance_limit = std::numeric_limits<size_t>::max(),
-                            const unordered_map<size_t, size_t>& forward_lookup = unordered_map<size_t, size_t>(),
-                            const unordered_map<size_t, size_t>& reverse_lookup = unordered_map<size_t, size_t>());
-
-        /// Move onto the next transition
-        transition_iterator& operator++();
-
-        /// Compare for equality to see if we hit end
-        /// This just trusts that the nested iterators are for the same tree
-        bool operator==(const transition_iterator& other) const {
-            return this->seed_itr == other.seed_itr && this->dist_itr == other.dist_itr;
-        }
-
-        /// Compare for inequality
-        inline bool operator!=(const transition_iterator& other) const { return !(*this == other); }
-
-        /// Is the iteration done?
-        inline bool done() const { return seed_itr.done(); }
-        
-        /// Get the next transition
-        std::pair<oriented_seed_t, seed_result_t> operator*() const;
-    };
 public:
 
     /*************** Debugging functions for validating zip trees ***********/
@@ -1071,7 +1000,7 @@ class ZipCodeForest {
 
     /// Sorts an interval, which must contain seeds on the same snarl/chain/node
     /// Sorting is linear-ish along top-level chains, topological-ish in snarls.
-    /// Uses radix_sort_zipcodes() and default_sort_zipcodes()
+    /// Uses radix_sort_zipcodes() and default_sort_zipcodes*()
     ///
     /// For chains, everything is sorted with the prefix sum value of the chain
     /// itself from the distance index, not the order in the zip code tree.
@@ -1194,7 +1123,7 @@ class ZipCodeForest {
     void print_self(const vector<Seed>* seeds) const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
-            std::cerr << i << ": ";
+            cerr << i << ": ";
             tree.print_self(seeds);
         }
     }
