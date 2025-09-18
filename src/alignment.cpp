@@ -693,8 +693,12 @@ int32_t determine_flag(const Alignment& alignment,
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
     
-    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
-    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    // We've observed some reads with the unmapped flag set and also a CIGAR
+    // string set, which is allowed by the SAM spec but which we are not
+    // supposed to generate.
+    //
+    // We will check for this. The CIGAR string will only be set in the output
+    // if the alignment has a path.
     assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
     
     if (!((bool)(flags & BAM_FUNMAP)) && paired && !refseq.empty() && refseq == mateseq) {
@@ -1795,7 +1799,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         // TODO: catch reads with pair partners when they shouldn't be paired?
     }
 
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
+    if (!is_mapped(alignment)) {
         // unmapped
         flag |= BAM_FUNMAP;
     } 
@@ -1954,18 +1958,28 @@ Alignment bam_to_alignment(const bam1_t *b,
         
     }
     alignment.set_read_paired((b->core.flag & BAM_FPAIRED) != 0);
+
+    // Consult the One True Place in SAM for knowing if a read is aligned or not.
+    bool is_aligned = !(b->core.flag & BAM_FUNMAP);
     
-    if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+    if (is_aligned) {
+        // Set the little-used GAM field that exists to represent this.
+        alignment.set_read_mapped(is_aligned);
+
+        // Use the MAPQ
         alignment.set_mapping_quality(b->core.qual);
-        alignment.set_read_mapped(true);
-        // Look for the path handle this is against.
-        auto found = tid_path_handle.find(b->core.tid);
-        if (found == tid_path_handle.end()) {
-            cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
-                 << bh->target_name[b->core.tid] << endl;
-            exit(1);
+        
+        if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
+            // We can actually build the path for this read.
+            // Look for the path handle this is against.
+            auto found = tid_path_handle.find(b->core.tid);
+            if (found == tid_path_handle.end()) {
+                cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
+                     << bh->target_name[b->core.tid] << endl;
+                exit(1);
+            }
+            mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
         }
-        mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
@@ -1987,7 +2001,8 @@ Alignment bam_to_alignment(const bam1_t *b,
             }
             ++removed;
         }
-        else if (tag_name == "AS") {
+        else if (tag_name == "AS" && is_aligned) {
+            // Set the score, for aligned reads.
             alignment.set_score(parse<int64_t>(tag.substr(5, string::npos)));
             ++removed;
         }
@@ -2359,9 +2374,8 @@ int softclip_trim(Alignment& alignment) {
 }
 
 bool is_perfect(const Alignment& alignment) {
-    // Non-aligned paths can't be perfect (code from subcommand/stats_main.cpp)
-    bool has_alignment = alignment.score() > 0 || alignment.path().mapping_size() > 0;
-    if (!has_alignment) return false;
+    // Non-aligned paths can't be perfect
+    if (!is_mapped(alignment)) return false;
 
     // Check that the path is perfect
     for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
@@ -2418,6 +2432,32 @@ tuple<string, int32_t, bool, bool> parse_mate_info(const string& info) {
     get<2>(parsed) = info[j + 1] == '1';
     get<3>(parsed) = info[j + 2] == '1';
     return parsed;
+}
+
+bool is_mapped(const Alignment& alignment) {
+    if (alignment.read_mapped()) {
+        // The flag for being mapped is set.
+        return true;
+    }
+
+    // Otherwise it's not set, but we don't consistently set it in vg. (SAM
+    // uses an *un*mapped flag so you don't forget to set it on mapped reads
+    // ever.) So second-guess the flag and up on round-tripping SAM with
+    // alignment fields set for unmapped reads.
+    
+    if (alignment.path().mapping_size() > 0) {
+        // If an alignment path is filled in, it is mapped.
+        return true;
+    }
+
+    if (alignment.score() > 0) {
+        // If there's no alignment actually there but anonzero score, we
+        // represent a mapped read, we're just not sure where to.
+        return true;
+    }
+
+    // If there's no evidence of being mapped, we're unmapped.
+    return false;
 }
 
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
