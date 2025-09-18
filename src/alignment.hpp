@@ -309,9 +309,13 @@ string signature(const Alignment& aln);
 pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
 string middle_signature(const Alignment& aln, int len);
 pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
-// Return whether the path is a perfect match (i.e. contains no non-match edits)
-// and has no soft clips (e.g. like in vg stats -a)
+/// Return whether the path is a perfect match (i.e. contains no non-match edits)
+/// and has no soft clips (e.g. like in vg stats -a)
 bool is_perfect(const Alignment& alignment);
+/// Return whether the Alignment represents a mapped read (true) or an
+/// unaligned read (false). Uses the GAM read_mapped flag, but also sniffs for
+/// mapped reads which forgot to set it.
+bool is_mapped(const Alignment& alignment);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
