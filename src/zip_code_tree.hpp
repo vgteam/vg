@@ -169,8 +169,9 @@ class ZipCodeTree {
         /// Ignored for EDGE/CHAIN_COUNT and should be set to false
         bool is_reversed_or_cyclic;
 
-        /// A fake "max" value for internal use
-        static size_t fake_max() {
+        /// The maximum value of internal fields;
+        /// this corresponds to std::numeric_limits<size_t>::max() outside
+        static size_t internal_max() {
             return ((size_t)1 << 59) - 1;
         }
 
@@ -184,7 +185,7 @@ class ZipCodeTree {
             : type(type), is_reversed_or_cyclic(is_reversed_or_cyclic) {
             set_value(raw_value);
             // Always default to max
-            section_length = fake_max();
+            section_length = internal_max();
         }
         /// Constructor to set a "false" for is_reversed_or_cyclic
         tree_item_t (tree_item_type_t type, size_t raw_value) 
@@ -197,30 +198,30 @@ class ZipCodeTree {
             : tree_item_t(type, std::numeric_limits<size_t>::max(), false) {}
         /// Setters
         void set_value(size_t new_value) {
-            value = (new_value == std::numeric_limits<size_t>::max()) ? fake_max()
+            value = (new_value == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                       : new_value;
         }
         void set_section_length(size_t new_length) {
-            section_length = (new_length == std::numeric_limits<size_t>::max()) ? fake_max()
+            section_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                                 : new_length;
         }
         /// Getters
         tree_item_type_t get_type() const { return type; }
         size_t get_value() const { 
-            return value == fake_max() ? std::numeric_limits<size_t>::max()
-                                       : value;
+            return value == internal_max() ? std::numeric_limits<size_t>::max()
+                                           : value;
         }
         /// Different getters based on context for readability
         bool get_is_reversed() const { return is_reversed_or_cyclic; }
         bool get_is_cyclic() const { return is_reversed_or_cyclic; }
         size_t get_section_length() const { 
-            return section_length == fake_max() ? std::numeric_limits<size_t>::max()
+            return section_length == internal_max() ? std::numeric_limits<size_t>::max()
                                                 : section_length;
         }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
         int64_t get_other_bound_offset() const {
-            if (section_length == fake_max()) {
+            if (section_length == internal_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
             if (this->type == ZipCodeTree::SNARL_START
