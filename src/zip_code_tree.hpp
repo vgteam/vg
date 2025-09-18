@@ -197,24 +197,24 @@ class ZipCodeTree {
         tree_item_t (tree_item_type_t type) 
             : tree_item_t(type, std::numeric_limits<size_t>::max(), false) {}
         // Setters
-        void set_value(size_t new_value) {
+        inline void set_value(size_t new_value) {
             value = (new_value == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                       : new_value;
         }
-        void set_section_length(size_t new_length) {
+        inline void set_section_length(size_t new_length) {
             section_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                                 : new_length;
         }
         // Getters
-        tree_item_type_t get_type() const { return type; }
-        size_t get_value() const { 
+        inline tree_item_type_t get_type() const { return type; }
+        inline size_t get_value() const { 
             return value == internal_max() ? std::numeric_limits<size_t>::max()
                                            : value;
         }
         // Different getters based on context for readability
         /// Is this seed reversed in the tree? Uses is_reversed_or_cyclic
         /// Only call on a SEED
-        bool get_is_reversed() const { 
+        inline bool get_is_reversed() const { 
             if (this->type != ZipCodeTree::SEED) {
                 throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed");
             }
@@ -222,20 +222,20 @@ class ZipCodeTree {
         }
         /// Is this bound part of a cyclic snarl? Uses is_reversed_or_cyclic
         /// Only call on a bound
-        bool get_is_cyclic() const {
+        inline bool get_is_cyclic() const {
             if (this->type != ZipCodeTree::SNARL_START && this->type != ZipCodeTree::SNARL_END
                 && this->type != ZipCodeTree::CHAIN_START && this->type != ZipCodeTree::CHAIN_END) {
                 throw std::runtime_error("Can't get cyclicness of a tree item that isn't a bound");
             }
             return is_reversed_or_cyclic;
         }
-        size_t get_section_length() const { 
+        inline size_t get_section_length() const { 
             return section_length == internal_max() ? std::numeric_limits<size_t>::max()
-                                                : section_length;
+                                                    : section_length;
         }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
-        int64_t get_other_bound_offset() const {
+        inline int64_t get_other_bound_offset() const {
             if (section_length == internal_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
@@ -251,7 +251,7 @@ class ZipCodeTree {
         }
         // We should never need to set reversedness after the fact,
         // so the setter is only provided with the is_cyclic name
-        void set_is_cyclic(bool is_cyclic) { is_reversed_or_cyclic = is_cyclic; }
+        inline void set_is_cyclic(bool is_cyclic) { is_reversed_or_cyclic = is_cyclic; }
     };
 
     /**
@@ -287,7 +287,7 @@ class ZipCodeTree {
     /// Get all the seeds in the tree, in left-to-right order
     /// Also returns their orientations
     /// Basically seed_itr but without all the extra baggage
-    vector<oriented_seed_t> get_all_seeds() const {
+    inline vector<oriented_seed_t> get_all_seeds() const {
         vector<oriented_seed_t> all_seeds;
         for (const auto& item : zip_code_tree) {
             if (item.get_type() == SEED) {
@@ -365,17 +365,17 @@ public:
 
         /// Compare for equality to see if we hit end
         /// This just trusts that the two iterators are for the same tree
-        bool operator==(const seed_iterator& other) const { return index == other.index; }
+        inline bool operator==(const seed_iterator& other) const { return index == other.index; }
 
         /// Compare for inequality
         inline bool operator!=(const seed_iterator& other) const { return !(*this == other); }
 
         /// What item does index point to?
-        tree_item_t current_item() const { return zip_code_tree.at(index); }
+        inline tree_item_t current_item() const { return zip_code_tree.at(index); }
         
         /// Get the index and orientation of the seed we are currently at.
         /// Also return all other seeds on the same position
-        vector<oriented_seed_t> operator*() const { return current_seeds; }
+        inline vector<oriented_seed_t> operator*() const { return current_seeds; }
 
         // Getters
         // We need these to make reverse iterators from forward ones.
@@ -399,10 +399,10 @@ public:
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
-    seed_iterator begin() const { return seed_iterator(0, *this); }
+    inline seed_iterator begin() const { return seed_iterator(0, *this); }
     /// Get the end iterator for seeds in the tree, left to right.
     /// (Note that the last element will never be a seed)
-    seed_iterator end() const { return seed_iterator(zip_code_tree.size() - 1, *this); }
+    inline seed_iterator end() const { return seed_iterator(zip_code_tree.size() - 1, *this); }
 
     /**
      * Iterator that looks sideways in the tree from a seed,
@@ -437,7 +437,7 @@ public:
 
         /// Compare for equality to see if we hit end
         /// This just trusts that the two iterators are for the same tree
-        bool operator==(const distance_iterator& other) const { return index == other.index; }
+        inline bool operator==(const distance_iterator& other) const { return index == other.index; }
 
         /// Compare for inequality
         inline bool operator!=(const distance_iterator& other) const { return !(*this == other); }
@@ -519,7 +519,7 @@ public:
         State current_state;
 
         /// Adopt a new state.
-        void state(State new_state) { current_state = new_state; }
+        inline void state(State new_state) { current_state = new_state; }
 
         /// Stop parsing because nothing else can be below the distance limit.
         /// This moves the current iterator it.
@@ -529,23 +529,23 @@ public:
         void unimplemented_error();
 
         /// What item does index point to?
-        tree_item_t current_item() const { return zip_code_tree.at(index); }
+        inline tree_item_t current_item() const { return zip_code_tree.at(index); }
 
         /// Check if the current symbol is an entrance/exit,
         /// based on the direction the iterator is going (right_to_left)
-        bool entered_snarl() const {
+        inline bool entered_snarl() const {
             return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END)
                     || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START);
         }
-        bool exited_snarl() const {
+        inline bool exited_snarl() const {
             return (right_to_left && current_item().get_type() == ZipCodeTree::SNARL_START)
                     || (!right_to_left && current_item().get_type() == ZipCodeTree::SNARL_END);
         }
-        bool entered_chain() const {
+        inline bool entered_chain() const {
             return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END)
                     || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START);
         }
-        bool exited_chain() const {
+        inline bool exited_chain() const {
             return (right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_START)
                     || (!right_to_left && current_item().get_type() == ZipCodeTree::CHAIN_END);
         }
@@ -985,7 +985,7 @@ class ZipCodeForest {
             sort_value(sort_value), code_type(code_type), chain_order(chain_order), chain_component(0) {};
 
         /// Get the value used for sorting
-        size_t get_sort_value() const {
+        inline size_t get_sort_value() const {
             // The sort value for chains is actually prefix sum*3+chain_order, 
             // to account for different nodes having the same prefix sum
             return chain_order != 7
@@ -1001,10 +1001,10 @@ class ZipCodeForest {
         inline size_t get_chain_component() const { return chain_component; }
 
         // Setters
-        void set_sort_value(size_t value) { sort_value = value; }
-        void set_code_type(ZipCode::code_type_t type) { code_type = type; }
-        void set_chain_order(size_t order) { chain_order = order; }
-        void set_chain_component(size_t component) { chain_component = component; }
+        inline void set_sort_value(size_t value) { sort_value = value; }
+        inline void set_code_type(ZipCode::code_type_t type) { code_type = type; }
+        inline void set_chain_order(size_t order) { chain_order = order; }
+        inline void set_chain_component(size_t component) { chain_component = component; }
 
     };
 
@@ -1135,7 +1135,7 @@ class ZipCodeForest {
 
     /// Print each zip code tree in the forest to stderr
     /// Ziptrees are prefaced by their index, e.g. "0: <tree.print_self()>"
-    void print_self(const vector<Seed>* seeds) const {
+    inline void print_self(const vector<Seed>* seeds) const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
             cerr << i << ": ";
