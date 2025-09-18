@@ -1067,6 +1067,8 @@ Functions</h2></td></tr>
 <tr class="separator:a947760b26fa8669d55f2f420174a578c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea6555abe5bce03f31937fe74e096aef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea6555abe5bce03f31937fe74e096aef">is_perfect</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:aea6555abe5bce03f31937fe74e096aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa7ec3caf67f452b89874e2fb106bf7d5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa7ec3caf67f452b89874e2fb106bf7d5">is_mapped</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:aa7ec3caf67f452b89874e2fb106bf7d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acffe466a3ca83097eceac30a09b9a010"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acffe466a3ca83097eceac30a09b9a010">query_overlap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
 <tr class="separator:acffe466a3ca83097eceac30a09b9a010"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2610da8a8fbe723e13519d79ac2d0afe"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2610da8a8fbe723e13519d79ac2d0afe">edit_count</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
@@ -14066,6 +14068,25 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
+<a id="aa7ec3caf67f452b89874e2fb106bf7d5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa7ec3caf67f452b89874e2fb106bf7d5">&#9670;&nbsp;</a></span>is_mapped()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::is_mapped </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return whether the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> represents a mapped read (true) or an unaligned read (false). Uses the GAM read_mapped flag, but also sniffs for mapped reads which forgot to set it. </p>
+
+</div>
+</div>
 <a id="a52292dfd3869a811170f7c5c0d9da564"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a52292dfd3869a811170f7c5c0d9da564">&#9670;&nbsp;</a></span>is_match()</h2>
 
@@ -14135,6 +14156,7 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Return whether the path is a perfect match (i.e. contains no non-match edits) and has no soft clips (e.g. like in vg stats -a) </p>
 
 </div>
 </div>

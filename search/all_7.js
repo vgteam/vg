@@ -527,7 +527,7 @@ var searchData=
   ['graph_5fcaller_2ecpp_2541',['graph_caller.cpp',['../graph__caller_8cpp.html',1,'']]],
   ['graph_5fcaller_2ehpp_2542',['graph_caller.hpp',['../graph__caller_8hpp.html',1,'']]],
   ['graph_5fcigar_2543',['graph_cigar',['../classvg_1_1GSSWAligner.html#a429c1cbb1e166acba4e29a8dc172da7d',1,'vg::GSSWAligner::graph_cigar()'],['../namespacevg.html#a70d7a2a9f4f8a1804e21c353fb0dcb48',1,'vg::graph_cigar()']]],
-  ['graph_5fcs_5fcigar_2544',['graph_cs_cigar',['../namespacevg.html#a5575644e5d4cc1d387100eafaf28016f',1,'vg::graph_cs_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)'],['../namespacevg.html#af1835dbfe02074c8030f5c02ff64a5fb',1,'vg::graph_CS_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)']]],
+  ['graph_5fcs_5fcigar_2544',['graph_CS_cigar',['../namespacevg.html#af1835dbfe02074c8030f5c02ff64a5fb',1,'vg::graph_CS_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)'],['../namespacevg.html#a5575644e5d4cc1d387100eafaf28016f',1,'vg::graph_cs_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)']]],
   ['graph_5fcs_5fcigar_5finternal_2545',['graph_CS_cigar_internal',['../namespacevg.html#a409b3e734b28613218b36c4afd20512d',1,'vg']]],
   ['graph_5fend_2546',['graph_end',['../classvg_1_1algorithms_1_1Anchor.html#a3ddb866c3cb925619705602580076942',1,'vg::algorithms::Anchor']]],
   ['graph_5ffile_2547',['graph_file',['../structChainsConfig.html#a4e3b62d9a414ad4daccc4b02a75e4546',1,'ChainsConfig']]],

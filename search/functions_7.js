@@ -405,7 +405,7 @@ var searchData=
   ['golden_5fsection_5fsearch_9632',['golden_section_search',['../namespacevg.html#a314ff925fad534d112e4531617e408fa',1,'vg']]],
   ['graph_9633',['graph',['../classvg_1_1Transcriptome.html#aee456b8b8e3acaf836914c987d89a16a',1,'vg::Transcriptome']]],
   ['graph_5fcigar_9634',['graph_cigar',['../classvg_1_1GSSWAligner.html#a429c1cbb1e166acba4e29a8dc172da7d',1,'vg::GSSWAligner::graph_cigar()'],['../namespacevg.html#a70d7a2a9f4f8a1804e21c353fb0dcb48',1,'vg::graph_cigar()']]],
-  ['graph_5fcs_5fcigar_9635',['graph_cs_cigar',['../namespacevg.html#a5575644e5d4cc1d387100eafaf28016f',1,'vg::graph_cs_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)'],['../namespacevg.html#af1835dbfe02074c8030f5c02ff64a5fb',1,'vg::graph_CS_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)']]],
+  ['graph_5fcs_5fcigar_9635',['graph_CS_cigar',['../namespacevg.html#af1835dbfe02074c8030f5c02ff64a5fb',1,'vg::graph_CS_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)'],['../namespacevg.html#a5575644e5d4cc1d387100eafaf28016f',1,'vg::graph_cs_cigar(const Alignment &amp;aln, const HandleGraph &amp;graph, bool rev_strand)']]],
   ['graph_5fcs_5fcigar_5finternal_9636',['graph_CS_cigar_internal',['../namespacevg.html#a409b3e734b28613218b36c4afd20512d',1,'vg']]],
   ['graph_5fend_9637',['graph_end',['../classvg_1_1algorithms_1_1Anchor.html#a3ddb866c3cb925619705602580076942',1,'vg::algorithms::Anchor']]],
   ['graph_5finterval_5fto_5fstring_9638',['graph_interval_to_string',['../namespacevg.html#aeade23d997b1899023cfe7f560cc6bc1',1,'vg']]],
