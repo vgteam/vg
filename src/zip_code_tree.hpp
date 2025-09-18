@@ -486,7 +486,7 @@ public:
         /// Reverse the top two elements of the stack
         void swap();
 
-        // Methods to look up distances to stack\
+        // Methods to look up distances to stack
 
         /// Push distances relevant to a given chain onto the stack
         /// chain_num is one-indexed, so the first chain is 1, and the last is N
