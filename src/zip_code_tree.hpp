@@ -212,8 +212,23 @@ class ZipCodeTree {
                                            : value;
         }
         // Different getters based on context for readability
-        bool get_is_reversed() const { return is_reversed_or_cyclic; }
-        bool get_is_cyclic() const { return is_reversed_or_cyclic; }
+        /// Is this seed reversed in the tree? Uses is_reversed_or_cyclic
+        /// Only call on a SEED
+        bool get_is_reversed() const { 
+            if (this->type != ZipCodeTree::SEED) {
+                throw std::runtime_error("Can't get reversedness of a tree item that isn't a seed");
+            }
+            return is_reversed_or_cyclic;
+        }
+        /// Is this bound part of a cyclic snarl? Uses is_reversed_or_cyclic
+        /// Only call on a bound
+        bool get_is_cyclic() const {
+            if (this->type != ZipCodeTree::SNARL_START && this->type != ZipCodeTree::SNARL_END
+                && this->type != ZipCodeTree::CHAIN_START && this->type != ZipCodeTree::CHAIN_END) {
+                throw std::runtime_error("Can't get cyclicness of a tree item that isn't a bound");
+            }
+            return is_reversed_or_cyclic;
+        }
         size_t get_section_length() const { 
             return section_length == internal_max() ? std::numeric_limits<size_t>::max()
                                                 : section_length;
