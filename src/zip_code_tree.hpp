@@ -219,7 +219,7 @@ class ZipCodeTree {
         }
         /// What to add or subtract to this thing's index
         /// to get index of other bound
-        size_t get_other_bound_offset() const {
+        int64_t get_other_bound_offset() const {
             if (section_length == fake_max()) {
                 throw std::runtime_error("Can't get other bound offset of a tree item with no section length");
             }
