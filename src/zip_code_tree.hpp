@@ -249,8 +249,8 @@ class ZipCodeTree {
                 throw std::runtime_error("Can't get other bound offset of a tree item that isn't a bound");
             }
         }
-        /// We should never need to set reversedness after the fact,
-        /// so the setter is only provided with the is_cyclic name
+        // We should never need to set reversedness after the fact,
+        // so the setter is only provided with the is_cyclic name
         void set_is_cyclic(bool is_cyclic) { is_reversed_or_cyclic = is_cyclic; }
     };
 
