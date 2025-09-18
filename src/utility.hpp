@@ -20,6 +20,7 @@
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
+#include "log.hpp"
 
 namespace vg {
 
@@ -58,7 +59,6 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 bool starts_with(const std::string& value, const std::string& prefix);
 /// Check if a string ends with another string
 bool ends_with(const std::string& value, const std::string& suffix);
-const std::string GZ_SUFFIX = ".gz";
 
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
@@ -820,6 +820,40 @@ string file_base_name(const string& filename);
 /// Determine if a file exists.
 /// Only works for files readable by the current user.
 bool file_exists(const string& filename);
+
+/// Determine if a file can be written to.
+/// Only works for files writable by the current user.
+/// Meant to be used to validate output file names.
+/// Will actually open the file, so it will overwrite the current contents.
+bool file_can_be_written(const string& filename);
+
+/// Check if a file exists and return its name (if so) or error.
+/// Uses file_exists() and is intended to be called when parsing arguments.
+string require_exists(const string& context, const string& filename);
+
+/// Error if a file looks like it's gzipped.
+string require_non_gzipped(const string& context, const string& filename);
+
+/// Check if a file can be written to and return its name (if so) or error.
+/// Uses file_can_be_written() and is intended to be called when parsing arguments.
+string ensure_writable(const string& context, const string& filename);
+
+/// A special parser for thread count which errors if non-positive
+/// If max_threads is non-zero, it will also decrease to that maximum.
+/// If max_threads is zero, max is omp_get_max_threads()
+int parse_thread_count(const string& context, const string& arg, int max_threads = 0);
+
+/// A special parser for possibly-paired FASTQ files
+/// If the first file is unset, then it gets the input filename
+/// Else if the second file is unset, then it gets the input filename
+/// If both are already set, then this errors
+/// Also calls require_exists() on the filenames
+void assign_fastq_files(const string& context, const string& input_filename, string& fastq1, string& fastq2);
+
+/// Parse an argument that should be a pair of strings separated by a delimiter.
+/// Errors if the string does not contain exactly one delimiter.
+pair<string, string> parse_split_string(const string& context, const string& arg,
+                                        const char& delimiter, const string& option_name);
 
 /// Parse a command-line argument string. Exits with an error if the string
 /// does not contain exactly an item of the appropriate type.
