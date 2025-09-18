@@ -148,30 +148,14 @@ public:
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after,
-        int score, size_t seed_number = std::numeric_limits<size_t>::max(), 
-        ZipCode* hint = nullptr, size_t hint_start = 0, bool skippable = false) : 
-        start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), 
-        start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), 
-        start_seed(seed_number), end_seed(seed_number), start_zip(hint), end_zip(hint), 
-        start_offset(hint_start), end_offset(length - hint_start), 
-        seed_length(margin_before + length + margin_after), skippable(skippable) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, size_t margin_before, size_t margin_after, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCode* hint = nullptr, size_t hint_start = 0, bool skippable = false) : start(read_start), size(length), margin_before(margin_before), margin_after(margin_after), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zip(hint), end_zip(hint), start_offset(hint_start), end_offset(length - hint_start), seed_length(margin_before + length + margin_after), skippable(skippable) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, 
-                  size_t extra_margin_before, size_t extra_margin_after, int score) : 
-                  start(first.read_start()), size(last.read_end() - first.read_start()), 
-                  margin_before(first.margin_before + extra_margin_before), 
-                  margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), 
-                  end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), 
-                  start_zip(first.start_hint()), end_zip(last.end_hint()), 
-                  start_offset(first.start_offset), end_offset(last.end_offset), 
-                  seed_length((first.base_seed_length() + last.base_seed_length()) / 2), 
-                  skippable(first.is_skippable() || last.is_skippable()) {
+    inline Anchor(const Anchor& first, const Anchor& last, size_t extra_margin_before, size_t extra_margin_after, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), margin_before(first.margin_before + extra_margin_before), margin_after(last.margin_after + extra_margin_after), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_zip(first.start_hint()), end_zip(last.end_hint()), start_offset(first.start_offset), end_offset(last.end_offset), seed_length((first.base_seed_length() + last.base_seed_length()) / 2), skippable(first.is_skippable() || last.is_skippable()) {
         // Nothing to do!
     }
 
@@ -295,8 +279,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
  */
-using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, 
-                                               size_t read_distance, size_t graph_distance)>;
+using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
@@ -314,14 +297,10 @@ using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anc
  * 
  * to_chain must be sorted by read start.
  */
-using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, 
-                                               const SnarlDistanceIndex& distance_index, 
-                                               const HandleGraph& graph, size_t max_indel_bases, 
-                                               const transition_iteratee& callback)>;
+using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
 
 /**
- * Return a transition iterator that iterates along the read 
- * and uses the given lookback control parameters to filter transitions.
+ * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
  * Closes over the arguments by value.
  */
 transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
@@ -335,7 +314,8 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
  * Enumerates transitions under the max graph lookback bases, and filters them
  * by the max read lookback bases.
  */
-transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+                                                 const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases);
 
@@ -349,22 +329,21 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
  * Transitions are (source anchor, destination anchor, graph distance).
  */
 std::vector<std::tuple<size_t, size_t, size_t>> generate_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
 
 /**
- * Calculate read distances for each of the zip tree's transitions.
- * Also filters out transitions that can't be used,
- * e.g. not reachable in the read.
+ * Filter out transitions that can't be used, e.g. not reachable in the read.
  * 
  * Used as a helper by zip_tree_transition_iterator().
  * 
  * Transitions are taken as (source anchor, destination anchor, graph distance)
  * and output as (source anchor, destination anchor, graph distance, read distance).
  */
-std::vector<std::tuple<size_t, size_t, size_t, size_t>> calculate_transition_read_distances(
+std::vector<std::tuple<size_t, size_t, size_t, size_t>> filter_zip_tree_transitions(
     const std::vector<std::tuple<size_t, size_t, size_t>>& all_transitions,
     const VectorView<Anchor>& to_chain,
     size_t max_read_lookback_bases);
@@ -484,8 +463,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, 
-                          const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
 
 /// Get distance in the read, or std::numeric_limits<size_t>::max() if unreachable.
 size_t get_read_distance(const Anchor& from, const Anchor& to);
