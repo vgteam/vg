@@ -1696,7 +1696,12 @@ void ZipCodeTree::distance_iterator::stack_matrix_value(size_t matrix_start_i, b
         col = temp;
     }
 
-    // Triangular number of elements in previous rows, then offset by col
+    // In a matrix with a main diagonal, row i (0-indexed) has i+1 elements
+    // To find the end of the previous row, get the ith triangular number
+    // and then additionally offset by how far into this row we want to go (col)
+    // In a matrix without a main diagonal, row i (0-indexed) has i elements
+    // To find the end of the previous row, get the (i-1)th triangular number
+    // and then additionally offset by how far into this row we want to go (col)
     size_t within_matrix_i = has_main_diagonal ? (row * (row + 1)) / 2 + col
                                                : (row * (row - 1)) / 2 + col;
     size_t distance = zip_code_tree.at(matrix_start_i + within_matrix_i).get_value();
@@ -1809,7 +1814,13 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
         index = snarl_start_i + 1;
         // Distance matrix has chains & bounds
         size_t node_count = current_item().get_value() + 1;
-        // Skip past distance matrix
+        // Skip past distance matrix with N chains and thus N+1 nodes
+        // A cyclic snarl's matrix has 2 rows per chain plus 2 for bounds,
+        // and it also stores self-loop distances (i.e. main diagonal)
+        // That means (N+1)*2 rows, so the matrix is the (N+1)*2 triangle number
+        // A DAG snarl's matrix has 1 row per chain plus 2 for bounds
+        // and it does NOT store self-loop distances (i.e. no main diagonal)
+        // That means (N+1) rows, so the matrix is the (N+1) triangle number
         index += is_cyclic ? (node_count*2 * (node_count*2 + 1)) / 2
                            : (node_count * (node_count + 1)) / 2;
 #ifdef debug_parse
