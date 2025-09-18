@@ -1783,7 +1783,7 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
     // Grab distances for this snarl
     size_t snarl_start_i = index - current_item().get_value();
     bool is_cyclic = zip_code_tree.at(snarl_start_i).get_is_cyclic();
-    bool original_right_to_left = right_to_left;
+    bool start_right_to_left = right_to_left;
 
     if (is_cyclic) {
         // Memorize previous direction
@@ -1795,7 +1795,7 @@ bool ZipCodeTree::distance_iterator::initialize_snarl(size_t chain_num) {
     }
 
     // Add distances to running distance
-    stack_snarl_distances(snarl_start_i, chain_num, !original_right_to_left);
+    stack_snarl_distances(snarl_start_i, chain_num, !start_right_to_left);
     // Remove parent running distance
     pop();
     continue_snarl();
