@@ -1448,26 +1448,33 @@ ZipCodeTree::seed_iterator::seed_iterator(size_t start_index, const ZipCodeTree&
 }
 
 auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
+    // Last time, we were at a seed in a cyclic snarl
+    // Should we advance the iterator or just flip direction?
     if (cyclic_snarl_nestedness > 0) {
 #ifdef debug_parse
         std::cerr << "Reversing direction in cyclic snarl at seed "
                   << current_item().get_value() << std::endl;
 #endif
+        // We're currently going right to left, which means we just finished
+        // our first traversal starting from this seed. Need to also do a
+        // traversal heading in the other direction.
         if (right_to_left) {
-            // If we're going right to left and in a cyclic snarl,
-            // then we just flip direction and stay at the same seed
+            // Just flip direction and stay at the same seed
             right_to_left = false;
             for (auto& seed : current_seeds) {
-                // Since we'll be looking in the opposite direction,
+                // For this second traversal from the same location,
+                // since we'll be looking in the opposite direction,
                 // flip the orientations of the seeds too
                 seed.is_reversed = !seed.is_reversed;
             }
 #ifdef debug_parse
             std::cerr << "Not moving seed_itr" << std::endl;
 #endif
+            // Return early to avoid moving the index
             return *this;
         } else {
-            // If we already went left to right, then we can move on
+            // If we already went left to right, then we can move on since we've
+            // done both directions for this seed
             right_to_left = true;
         }
     }

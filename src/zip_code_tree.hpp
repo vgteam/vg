@@ -342,6 +342,43 @@ public:
 
     /**
      * Iterator that visits seeds left to right in the tree's in-order traversal
+     * 
+     * ## Iteration flow
+     * 
+     * Each seed is visited in from left to right, in the same order as
+     * get_all_seeds() would return them.
+     * 
+     * The first time any given seed is visited, right_to_left is true,
+     * indicating that a distance iterator should be set off going in the
+     * default direction of right to left.
+     * 
+     * Once the right-to-left step has been done, then the iterator
+     * decides whether to do a second, left-to-right step, with
+     * right_to_left set to false. This will happen if inside a cyclic snarl,
+     * even if not necessarily the direct parent. Calling ++() will 
+     * toggle right_to_left instead of moving the internal iteration index.
+     * The next call to ++() would then reset right_to_left back to true,
+     * and finally advance the iterator rightward to the next seed.
+     * 
+     * For seeds not inside cyclic snarls, ++() will simply move rightward.
+     * 
+     * We need to traverse seeds in cyclic snarls in both directions because
+     * the chains are not necessarily traversed in a single direction, and
+     * are stored in an arbitrary orientation.
+     * 
+     * ## How to use this iterator
+     * 
+     * The intent of this iterator is to hide a lot of the fiddly bits required
+     * to iterate over a zip tree with cyclic and non-cyclic snarls. All a
+     * caller needs to do is
+     * - call ++() to move to the next seed
+     * - dereference the iterator to get the seeds at the current position
+     * - create the distance iterator for this position by calling
+     *   find_distances(seed_itr, distance_limit)
+     * 
+     * Seeds from both iterators will be automatically oriented based on the
+     * direction of traversal. That is, you can Just Trust Me (TM) for all seed
+     * orientations which iterators yield.
      */
     class seed_iterator {
     public:
@@ -407,11 +444,13 @@ public:
     /**
      * Iterator that looks sideways in the tree from a seed,
      * possibly up to a maximum base distance.
+     * 
+     * Iteration flow:
      *
-     * Original: 
+     * Original Python implementation: 
      * https://github.com/benedictpaten/long_read_giraffe_chainer_prototype/blob/b590c34055474b0c901a681a1aa99f1651abb6a4/zip_tree_iterator.py.
      * 
-     * New cyclic snarl handling: 
+     * New cyclic snarl handling flowchart: 
      * https://docs.google.com/drawings/d/1diKMXCuMteR06fF64BhSttsD5RHh3eTnd8FtyYqs17Y/edit?usp=sharing
      */
     class distance_iterator {
