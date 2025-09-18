@@ -873,9 +873,9 @@ class ZipCodeForest {
 
         size_t nested_snarl_offset;
 
-        // Pass the seed's index (which is looked up from forest_state.seeds),
-        // whether its position should be reversed, and then a few raw values
-        // In addition, snarl depth & forest_state are used to look up seed info
+        /// Pass the seed's index (which is looked up from forest_state.seeds),
+        /// whether its position should be reversed, and then a few raw values
+        /// In addition, snarl depth & forest_state are used to look up seed info
         seed_info_t(size_t index, bool is_rev, size_t flank, bool right_side,
                     size_t nested_snarl_offset,
                     const size_t& depth, const forest_growing_state_t& forest_state);
