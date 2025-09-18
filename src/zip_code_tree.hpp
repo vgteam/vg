@@ -163,7 +163,7 @@ class ZipCodeTree {
         /// e.g. a chain with one seed would be "1"
         size_t section_length : 59;
 
-        /// For a bound, if we're walking through the tree from right to left
+        /// For a seed, if we're walking through the tree from right to left
         /// (the default), will we traverse this position backwards?
         /// Or, for a bound is the snarl or parent snarl cyclic?
         /// Ignored for EDGE/CHAIN_COUNT and should be set to false
