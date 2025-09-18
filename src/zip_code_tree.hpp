@@ -196,7 +196,7 @@ class ZipCodeTree {
         /// Constructor for just a type
         tree_item_t (tree_item_type_t type) 
             : tree_item_t(type, std::numeric_limits<size_t>::max(), false) {}
-        /// Setters
+        // Setters
         void set_value(size_t new_value) {
             value = (new_value == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                       : new_value;
@@ -205,13 +205,13 @@ class ZipCodeTree {
             section_length = (new_length == std::numeric_limits<size_t>::max()) ? internal_max()
                                                                                 : new_length;
         }
-        /// Getters
+        // Getters
         tree_item_type_t get_type() const { return type; }
         size_t get_value() const { 
             return value == internal_max() ? std::numeric_limits<size_t>::max()
                                            : value;
         }
-        /// Different getters based on context for readability
+        // Different getters based on context for readability
         bool get_is_reversed() const { return is_reversed_or_cyclic; }
         bool get_is_cyclic() const { return is_reversed_or_cyclic; }
         size_t get_section_length() const { 
@@ -362,8 +362,8 @@ public:
         /// Also return all other seeds on the same position
         vector<oriented_seed_t> operator*() const { return current_seeds; }
 
-        /// Getters
-        /// We need these to make reverse iterators from forward ones.
+        // Getters
+        // We need these to make reverse iterators from forward ones.
         inline size_t get_index() const { return index; }
         inline bool get_right_to_left() const { return right_to_left; }
         inline stack<size_t> get_chain_numbers() const { return chain_numbers; }
