@@ -359,8 +359,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
  */
-using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, 
-                                               size_t read_distance, size_t graph_distance)>;
+using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
@@ -378,14 +377,10 @@ using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anc
  * 
  * to_chain must be sorted by read start.
  */
-using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, 
-                                               const SnarlDistanceIndex& distance_index, 
-                                               const HandleGraph& graph, size_t max_indel_bases, 
-                                               const transition_iteratee& callback)>;
+using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
 
 /**
- * Return a transition iterator that iterates along the read 
- * and uses the given lookback control parameters to filter transitions.
+ * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
  * Closes over the arguments by value.
  */
 transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
@@ -556,8 +551,7 @@ int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
 int score_chain_rec(const Anchor& from, const Anchor& to);
 
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, 
-                          const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
 
 /// Get distance in the read, or std::numeric_limits<size_t>::max() if unreachable.
 size_t get_read_distance(const Anchor& from, const Anchor& to);

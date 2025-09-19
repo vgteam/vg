@@ -454,12 +454,14 @@ class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
-                               const IndexRegistry& registry) noexcept;
+                               const IndexRegistry& registry,
+                               const set<IndexGroup>& missing_index_sets = {}) noexcept;
     const char* what() const noexcept;
 private:
     string msg;
     IndexName target;
     vector<IndexName> inputs;
+    set<IndexGroup> missing_index_sets;
 };
 
 
